@@ -1,0 +1,14 @@
+Source: media
+Section: python
+Priority: optional
+Maintainer: Jason Gerard DeRose <jderose@jasonderose.org>
+Build-Depends: debhelper (>= 7.4), python (>= 2.6), python-central
+Standards-Version: 3.8.4
+XS-Python-Version: >= 2.6
+
+Package: media
+Architecture: all
+Depends: ${misc:Depends}, ${python:Depends}
+XB-Python-Version: ${python:Versions}
+Description: distributed media library
+ FIXME.

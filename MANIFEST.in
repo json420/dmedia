@@ -1,0 +1,2 @@
+include AUTHORS COPYING COPYING.LESSER
+include medialib/tests/*.py
