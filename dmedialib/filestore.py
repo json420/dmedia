@@ -139,7 +139,10 @@ class FileStore(object):
         else:
             shutil.copy2(src, dst)
             d['action'] = 'copied'
-        os.chmod(dst, 0o444)
+        try:
+            os.chmod(dst, 0o444)
+        except OSError:
+            pass
         return d
 
     def add(self, src, ext=None):
