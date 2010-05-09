@@ -32,7 +32,10 @@ from medialib import filestore
 
 letters = 'gihdwaqoebxtcklrnsmjufyvpz'
 extensions = ('png', 'jpg', 'mov')
+key = 'dc40522fe5e70b2fed5737d1beb29da87b0072cc275e086ebed30cb83ecf1dd8.iso'
 
+def get_dir():
+    return path.join(os.environ['HOME'], '.local', 'share', 'media')
 
 
 def test_hash_file():
@@ -61,3 +64,31 @@ def test_scanfiles():
 
     files = list(f(tmp.path, extensions))
     assert files == [tmp.join('subdir', name) for name in sorted(names)]
+
+
+class test_FileStore(object):
+    klass = filestore.FileStore
+
+    def test_init(self):
+        inst = self.klass()
+        assert inst.mediadir == get_dir()
+
+    def test_resolve(self):
+        inst = self.klass()
+        assert inst.resolve(key) == path.join(get_dir(), 'dc', key)
+
+    def test_add(self):
+        h = TempHome()
+        inst = self.klass()
+        assert inst.mediadir.startswith(h.path)
+
+        msg = 'I have a colon full of cookie'
+        digest = hashlib.sha256(msg).hexdigest()
+        chn = digest + '.txt'
+        src = h.write(msg, 'ihacfoc.txt')
+        assert inst.add(src) == ('linked', src, chn)
+        assert inst.add(src) == ('skipped', src, chn)
+
+        dst = path.join(inst.mediadir, digest[:2], chn)
+        assert path.isfile(dst)
+        assert open(dst, 'r').read() == msg
