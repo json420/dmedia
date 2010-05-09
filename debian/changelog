@@ -1,4 +1,4 @@
-media (0.0.1~ppa1) lucid; urgency=low
+dmedia (0.0.1~ppa1) lucid; urgency=low
 
   * Initial packaging
 
