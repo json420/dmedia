@@ -32,9 +32,9 @@ from medialib import filestore
 
 letters = 'gihdwaqoebxtcklrnsmjufyvpz'
 extensions = ('png', 'jpg', 'mov')
-key = 'dc40522fe5e70b2fed5737d1beb29da87b0072cc275e086ebed30cb83ecf1dd8.iso'
-dname = 'dc'
-fname = '40522fe5e70b2fed5737d1beb29da87b0072cc275e086ebed30cb83ecf1dd8.iso'
+key = '4e3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
+dname = '4e'
+fname = '3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
 
 def get_dir():
     return path.join(os.environ['HOME'], '.local', 'share', 'media')
