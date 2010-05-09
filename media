@@ -22,6 +22,19 @@
 # with `media`.  If not, see <http://www.gnu.org/licenses/>.
 
 
+"""
+10 - 5111906 - 1306722
+100 - 2703458 - 1306722
+
+100 (short id) - 2269282 - 1101922
+
+400 - 1667170 - 1302626
+400 (with exif) - 2003042 - 1634402
+
+1000 - 1310818 - 1306722
+"""
+
+
 import sys
 import os
 from os import path
@@ -54,7 +67,7 @@ for (action, filename, key) in store.add_recursive(args[0], extensions):
             extract(filename, ('_id', key))
         )
         buf.append(db.new(meta))
-    if len(buf) >= 200:
+    if len(buf) >= 400:
         db.db.put_records_batch(buf)
         buf = []
 

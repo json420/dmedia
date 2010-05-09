@@ -45,9 +45,10 @@ def extract(filename, *pairs):
         callback = _extractors[ext]
         for (key, value) in callback(filename):
             yield (key, value)
-    yield ('bytes', path.getsize(filename))
+    yield ('size', path.getsize(filename))
     yield ('mtime', path.getmtime(filename))
     yield ('name', name)
+    #yield ('ext', ext)
     for (key, value) in pairs:
         yield (key, value)
 
@@ -75,7 +76,7 @@ register(extract_exif, 'jpg', 'cr2')
 
 
 _totem = {
-    'seconds': 'TOTEM_INFO_DURATION',
+    'duration': 'TOTEM_INFO_DURATION',
     'width': 'TOTEM_INFO_VIDEO_WIDTH',
     'height': 'TOTEM_INFO_VIDEO_HEIGHT',
     'codec_video': 'TOTEM_INFO_VIDEO_CODEC',

@@ -34,4 +34,3 @@ class MetaStore(object):
 
     def new(self, kw):
         return Record(kw, self.type_url)
-#        self.db.put_record(record)
