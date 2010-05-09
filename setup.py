@@ -29,12 +29,12 @@ from distutils.core import setup
 import medialib
 
 setup(
-    name='media',
+    name='dmedia',
     description='distributed media library',
     version=medialib.__version__,
     author='Jason Gerard DeRose',
     author_email='jderose@jasonderose.org',
     license='LGPLv3+',
     packages=['medialib'],
-    scripts=['media'],
+    scripts=['dmedia'],
 )

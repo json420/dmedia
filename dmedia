@@ -31,16 +31,16 @@ be stored and how their meta-data might be stored.
 For example, say we scan all the JPEG images in the '/usr/share/backgrounds'
 directory:
 
-    media /usr/share/backgrounds jpg
+    dmedia /usr/share/backgrounds jpg
 
 Media files are uniquely ID'ed by their sha224 content-hash.  In the above
 example, the 'SmoothMoment.jpg' file happens to have a sha224 content-hash of
 '64786ca5b2f897ae2c59ecac69211e24240c2271ef5e9e9365e2c901'.  As such, this file
 will be stored at:
 
-    ~/.local/share/media/64/786ca5b2f897ae2c59ecac69211e24240c2271ef5e9e9365e2c901
+    ~/.local/share/dmedia/64/786ca5b2f897ae2c59ecac69211e24240c2271ef5e9e9365e2c901
 
-Meta-data for the media files is stored in couchdb using desktop-couch.  Each
+Meta-data for the dmedia files is stored in couchdb using desktop-couch.  Each
 media file has its own document.  The sha224 content-hash is used as the
 document '_id'.  For example, the 'SmoothMoment.jpg' file has a document that
 looks like this:
