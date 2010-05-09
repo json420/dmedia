@@ -8,7 +8,7 @@ XS-Python-Version: >= 2.6
 
 Package: python-dmedia
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}
+Depends: ${misc:Depends}, ${python:Depends}, python-desktopcouch-records, totem, libimage-info-perl
 XB-Python-Version: ${python:Versions}
 Description: distributed media library
  FIXME.
