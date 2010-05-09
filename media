@@ -29,6 +29,7 @@ import optparse
 import medialib
 from medialib.filestore import FileStore
 from medialib.metastore import MetaStore
+from medialib.extractor import extract
 
 args = sys.argv[1:]
 
@@ -42,15 +43,13 @@ db = MetaStore()
 
 buf = []
 for (action, filename, key) in store.add_recursive(args[0], extensions):
-    #print '  %s %r' % (action, filename)
+    print '  %s %r' % (action, filename)
     if not db.db.record_exists(key):
-        r = db.new({
-            '_id': key,
-            'bytes': path.getsize(filename),
-            'name': path.basename(filename)
-        })
-        buf.append(r)
-    if len(buf) >= 1000:
+        meta = dict(
+            extract(filename, ('_id', key))
+        )
+        buf.append(db.new(meta))
+    if len(buf) >= 100:
         print 'adding %d' % len(buf)
         db.db.put_records_batch(buf)
         buf = []
