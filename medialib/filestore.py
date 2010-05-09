@@ -161,5 +161,5 @@ class FileStore(object):
 
     def add_recursive(self, base, extensions=None):
         base = path.abspath(base)
-        for filename in scanfiles(base, extensions):
-            yield self.add(filename)
+        for d in scanfiles(base, extensions):
+            yield self._do_add(d)

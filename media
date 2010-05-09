@@ -44,6 +44,7 @@ import medialib
 from medialib.filestore import FileStore
 from medialib.metastore import MetaStore
 from medialib.extractor import extract
+import json
 
 args = sys.argv[1:]
 
@@ -54,25 +55,26 @@ extensions = frozenset(a.lower() for a in args[1:])
 store = FileStore()
 db = MetaStore()
 
+BATCH_SIZE = 400
+
 
 buf = []
-scanned = 0
-added = 0
-for (action, filename, key) in store.add_recursive(args[0], extensions):
-    key = key[:56]
-    scanned += 1
-    if action != 'skipped':
-        added += 1
-        print '  %s %r' % (action, filename)
-        meta = dict(
-            extract(filename, ('_id', key))
-        )
-        buf.append(db.new(meta))
-    if len(buf) >= 400:
+total = 0
+counts = {}
+for d in store.add_recursive(base, extensions):
+    print '  %(action)s %(src)r' % d
+    action = d['action']
+    counts[action] = counts.get(action, 0) + 1
+    total += 1
+    if not action.startswith('skipped'):
+        buf.append(db.new(d['meta']))
+    if len(buf) >= BATCH_SIZE:
         db.db.put_records_batch(buf)
         buf = []
-
 if buf:
     db.db.put_records_batch(buf)
 
-print 'Added %d files; scanned %d' % (added, scanned)
+print ''
+for key in sorted(counts):
+    print '%s: %d' % (key, counts[key])
+print 'total_scanned: %d' % total
