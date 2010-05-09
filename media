@@ -28,7 +28,45 @@ For now it has a single function, to recursively import media files from a
 directory.  At this point, is is a quick-and-dirty demo of how media files might
 be stored and how their meta-data might be stored.
 
+For example, say we scan all the JPEG images in the '/usr/share/backgrounds'
+directory:
 
+    media /usr/share/backgrounds jpg
+
+Media files are uniquely ID'ed by their sha224 content-hash.  In the above
+example, the 'SmoothMoment.jpg' file happens to have a sha224 content-hash of
+'64786ca5b2f897ae2c59ecac69211e24240c2271ef5e9e9365e2c901'.  As such, this file
+will be stored at:
+
+    ~/.local/share/media/64/786ca5b2f897ae2c59ecac69211e24240c2271ef5e9e9365e2c901
+
+Meta-data for the media files is stored in couchdb using desktop-couch.  Each
+media file has its own document.  The sha224 content-hash is used as the
+document '_id'.  For example, the 'SmoothMoment.jpg' file has a document that
+looks like this:
+
+    {
+       "_id": "64786ca5b2f897ae2c59ecac69211e24240c2271ef5e9e9365e2c901",
+       "_rev": "1-bae6f22d07bab978a78a635609d886ab",
+       "ext": "jpg",
+       "height": 1280,
+       "mtime": 1271278433,
+       "name": "SmoothMoment.jpg",
+       "record_type": "http://example.com/media",
+       "size": 106425
+       "width": 1920,
+    }
+
+All media files will have the following fields:
+
+    size - Size of file in bytes
+    mtime - Value of path.getmtime() at time of import
+    name - The path.basename() part of the original source file
+    ext - The extension of the original source file, normalized to lower-case
+
+Additional fields depend upon the type of media file.  For example, image and
+video files will always have 'width' and 'height', whereas video and audio files
+will always have a 'duration'.
 """
 
 import sys
