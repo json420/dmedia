@@ -31,7 +31,6 @@ class MetaStore(object):
     def __init__(self, name='media', type_url='http://example.com/media'):
         self.db = CouchDatabase(name, create=True)
         self.type_url = type_url
-        print dir(self.db)
 
     def new(self, kw):
         return Record(kw, self.type_url)
