@@ -45,7 +45,7 @@ def test_hash_file():
     tmp = TempDir()
     msg = 'I have a colon full of cookie'
     src = tmp.write(msg, 'ihacfoc.txt')
-    assert f(src) == hashlib.sha256(msg).hexdigest()
+    assert f(src) == hashlib.sha224(msg).hexdigest()
     assert f(src, hashfunc=hashlib.sha384) == hashlib.sha384(msg).hexdigest()
 
 
@@ -85,7 +85,7 @@ class test_FileStore(object):
         assert inst.mediadir.startswith(h.path)
 
         msg = 'I have a colon full of cookie'
-        digest = hashlib.sha256(msg).hexdigest()
+        digest = hashlib.sha224(msg).hexdigest()
         key = digest + '.txt'
         src = h.write(msg, 'ihacfoc.txt')
         assert inst.add(src) == ('linked', src, key)

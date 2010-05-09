@@ -33,7 +33,7 @@ CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 MEDIA_DIR = ('.local', 'share', 'media')
 
 
-def hash_file(filename, hashfunc=hashlib.sha256):
+def hash_file(filename, hashfunc=hashlib.sha224):
     """
     Compute the content-hash of the file *filename*.
     """
