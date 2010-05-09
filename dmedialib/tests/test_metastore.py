@@ -35,4 +35,4 @@ class test_MetaStore(object):
     def test_init(self):
         inst = self.klass()
         assert isinstance(inst.db, CouchDatabase)
-        assert inst.type_url == 'http://example.com/media'
+        assert inst.type_url == 'http://example.com/dmedia'

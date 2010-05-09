@@ -28,7 +28,7 @@ from desktopcouch.records.record import  Record
 
 
 class MetaStore(object):
-    def __init__(self, name='media', type_url='http://example.com/media'):
+    def __init__(self, name='dmedia', type_url='http://example.com/dmedia'):
         self.db = CouchDatabase(name, create=True)
         self.type_url = type_url
 

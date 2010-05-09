@@ -38,7 +38,7 @@ dname = '4e'
 fname = '3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
 
 def get_dir():
-    return path.join(os.environ['HOME'], '.local', 'share', 'media')
+    return path.join(os.environ['HOME'], '.local', 'share', 'dmedia')
 
 
 def test_hash_file():

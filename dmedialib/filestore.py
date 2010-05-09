@@ -31,7 +31,7 @@ import time
 
 
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
-MEDIA_DIR = ('.local', 'share', 'media')
+MEDIA_DIR = ('.local', 'share', 'dmedia')
 
 
 def hash_file(filename, hashfunc=hashlib.sha224):
