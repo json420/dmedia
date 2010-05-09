@@ -30,6 +30,7 @@
 
 400 - 1667170 - 1302626
 400 (with exif) - 2003042 - 1634402
+400 (sep ext) - 1998946 - 1646690
 
 1000 - 1310818 - 1306722
 """
@@ -58,15 +59,15 @@ buf = []
 scanned = 0
 added = 0
 for (action, filename, key) in store.add_recursive(args[0], extensions):
+    key = key[:56]
     scanned += 1
     if action != 'skipped':
         added += 1
     print '  %s %r' % (action, filename)
-    if not db.db.record_exists(key):
-        meta = dict(
-            extract(filename, ('_id', key))
-        )
-        buf.append(db.new(meta))
+    meta = dict(
+        extract(filename, ('_id', key))
+    )
+    buf.append(db.new(meta))
     if len(buf) >= 400:
         db.db.put_records_batch(buf)
         buf = []

@@ -48,7 +48,7 @@ def extract(filename, *pairs):
     yield ('size', path.getsize(filename))
     yield ('mtime', path.getmtime(filename))
     yield ('name', name)
-    #yield ('ext', ext)
+    yield ('ext', ext)
     for (key, value) in pairs:
         yield (key, value)
 
@@ -72,7 +72,7 @@ def extract_exif(filename):
                 yield (key, d[src])
                 break
 
-register(extract_exif, 'jpg', 'cr2')
+register(extract_exif, 'jpg', 'png', 'cr2')
 
 
 _totem = {
@@ -106,4 +106,4 @@ def extract_totem(filename):
         if src in d:
             yield (key, d[src])
 
-register(extract_totem, 'mov', 'avi', 'ogg', 'ogv', 'oga')
+register(extract_totem, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga')
