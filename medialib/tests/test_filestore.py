@@ -33,6 +33,8 @@ from medialib import filestore
 letters = 'gihdwaqoebxtcklrnsmjufyvpz'
 extensions = ('png', 'jpg', 'mov')
 key = 'dc40522fe5e70b2fed5737d1beb29da87b0072cc275e086ebed30cb83ecf1dd8.iso'
+dname = 'dc'
+fname = '40522fe5e70b2fed5737d1beb29da87b0072cc275e086ebed30cb83ecf1dd8.iso'
 
 def get_dir():
     return path.join(os.environ['HOME'], '.local', 'share', 'media')
@@ -75,7 +77,7 @@ class test_FileStore(object):
 
     def test_resolve(self):
         inst = self.klass()
-        assert inst.resolve(key) == path.join(get_dir(), 'dc', key)
+        assert inst.resolve(key) == path.join(get_dir(), dname, fname)
 
     def test_add(self):
         h = TempHome()
@@ -84,11 +86,11 @@ class test_FileStore(object):
 
         msg = 'I have a colon full of cookie'
         digest = hashlib.sha256(msg).hexdigest()
-        chn = digest + '.txt'
+        key = digest + '.txt'
         src = h.write(msg, 'ihacfoc.txt')
-        assert inst.add(src) == ('linked', src, chn)
-        assert inst.add(src) == ('skipped', src, chn)
+        assert inst.add(src) == ('linked', src, key)
+        assert inst.add(src) == ('skipped', src, key)
 
-        dst = path.join(inst.mediadir, digest[:2], chn)
+        dst = path.join(inst.mediadir, key[:2], key[2:])
         assert path.isfile(dst)
         assert open(dst, 'r').read() == msg

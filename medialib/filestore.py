@@ -92,11 +92,13 @@ class FileStore(object):
         self.mediadir = mediadir
 
     def resolve(self, key, create_parent=False):
+        dname = key[:2]
+        fname = key[2:]
         if create_parent:
-            d = path.join(self.mediadir, key[:2])
+            d = path.join(self.mediadir, dname)
             if not path.exists(d):
                 os.makedirs(d)
-        return path.join(self.mediadir, key[:2], key)
+        return path.join(self.mediadir, dname, fname)
 
     def add(self, src, ext=None):
         # Calculate hash, key:
