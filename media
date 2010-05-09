@@ -44,13 +44,30 @@ import medialib
 from medialib.filestore import FileStore
 from medialib.metastore import MetaStore
 from medialib.extractor import merge_metadata
-import json
 
-args = sys.argv[1:]
+script = path.basename(sys.argv[0])
 
-base = args[0]
+parser = optparse.OptionParser(
+	version=medialib.__version__,
+	usage='Usage: %s DIRECTORY EXTENSIONS...' % script,
+	epilog='Example: %s /media/EOS_DIGITAL jpg cr2' % script,
+)
+parser.add_option('--quick',
+	action='store_true',
+	default=False,
+	help='Do a fast scan without extracting extra metadata',
+)
+
+(options, args) = parser.parse_args()
+
+if len(args) < 2:
+    parser.print_usage()
+    sys.exit('ERROR: must provide DIRECTORY and at least one EXTENSION')
+base = path.abspath(args[0])
+if not path.isdir(base):
+    parser.print_usage()
+    sys.exit('ERROR: not a directory: %r' % base)
 extensions = frozenset(a.lower() for a in args[1:])
-
 
 store = FileStore()
 db = MetaStore()
@@ -67,7 +84,8 @@ for d in store.add_recursive(base, extensions):
     counts[action] = counts.get(action, 0) + 1
     total += 1
     if not action.startswith('skipped'):
-        merge_metadata(d)
+        if not options.quick:
+            merge_metadata(d)
         buf.append(db.new(d['meta']))
     if len(buf) >= BATCH_SIZE:
         db.db.put_records_batch(buf)
