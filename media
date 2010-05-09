@@ -23,18 +23,13 @@
 
 
 """
-10 - 5111906 - 1306722
-100 - 2703458 - 1306722
+This will eventually be turned into a VCS-style script with several commands.
+For now it has a single function, to recursively import media files from a
+directory.  At this point, is is a quick-and-dirty demo of how media files might
+be stored and how their meta-data might be stored.
 
-100 (short id) - 2269282 - 1101922
 
-400 - 1667170 - 1302626
-400 (with exif) - 2003042 - 1634402
-400 (sep ext) - 1998946 - 1646690
-
-1000 - 1310818 - 1306722
 """
-
 
 import sys
 import os
@@ -44,6 +39,8 @@ import medialib
 from medialib.filestore import FileStore
 from medialib.metastore import MetaStore
 from medialib.extractor import merge_metadata
+
+BATCH_SIZE = 400
 
 script = path.basename(sys.argv[0])
 
@@ -72,7 +69,7 @@ extensions = frozenset(a.lower() for a in args[1:])
 store = FileStore()
 db = MetaStore()
 
-BATCH_SIZE = 400
+
 
 
 buf = []

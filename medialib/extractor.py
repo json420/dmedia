@@ -23,11 +23,8 @@
 Extract meta-data from media files.
 """
 
-import os
-from os import path
 from subprocess import check_call, Popen, PIPE
 import json
-from .filestore import normalize_ext
 
 
 _extractors = {}
