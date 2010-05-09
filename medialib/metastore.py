@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Authors:
 #   Jason Gerard DeRose <jderose@jasonderose.org>
 #
@@ -21,33 +19,20 @@
 # You should have received a copy of the GNU Lesser General Public License along
 # with `media`.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Store meta-data in desktop-couch.
+"""
 
-import sys
-import os
-from os import path
-import optparse
-import medialib
-from medialib.filestore import FileStore
-from medialib.metastore import MetaStore
-
-args = sys.argv[1:]
-
-base = args[0]
-extensions = frozenset(a.lower() for a in args[1:])
+from desktopcouch.records.server import  CouchDatabase
+from desktopcouch.records.record import  Record
 
 
-store = FileStore()
-db = MetaStore()
+class MetaStore(object):
+    def __init__(self, name='media', type_url='http://example.com/media'):
+        self.db = CouchDatabase(name, create=True)
+        self.type_url = type_url
+        print dir(self.db)
 
-
-buf = []
-for (action, filename, key) in store.add_recursive(args[0], extensions):
-    print '  %s %r' % (action, filename)
-    if not db.db.record_exists(key):
-        r = db.new({
-            '_id': key[:32],
-            'bytes': path.getsize(filename),
-        })
-        buf.append(r)
-
-db.db.put_records_batch(buf)
+    def new(self, kw):
+        return Record(kw, self.type_url)
+#        self.db.put_record(record)

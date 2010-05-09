@@ -104,8 +104,8 @@ class FileStore(object):
         # Calculate hash, key:
         src = path.abspath(src)
         key = hash_file(src)
+        name = path.basename(src)
         if ext is None:
-            name = path.basename(src)
             ext = normalize_ext(name)
         if ext is not None:
             key += ('.' + ext.lower())

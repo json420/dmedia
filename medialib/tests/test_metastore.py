@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Authors:
 #   Jason Gerard DeRose <jderose@jasonderose.org>
 #
@@ -21,33 +19,20 @@
 # You should have received a copy of the GNU Lesser General Public License along
 # with `media`.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Unit tests for `medialib.metastore` module.
+"""
 
-import sys
-import os
-from os import path
-import optparse
-import medialib
-from medialib.filestore import FileStore
-from medialib.metastore import MetaStore
-
-args = sys.argv[1:]
-
-base = args[0]
-extensions = frozenset(a.lower() for a in args[1:])
+from helpers import TempDir, TempHome
+from medialib import metastore
+from desktopcouch.records.server import  CouchDatabase
+from desktopcouch.records.record import  Record
 
 
-store = FileStore()
-db = MetaStore()
+class test_MetaStore(object):
+    klass = metastore.MetaStore
 
-
-buf = []
-for (action, filename, key) in store.add_recursive(args[0], extensions):
-    print '  %s %r' % (action, filename)
-    if not db.db.record_exists(key):
-        r = db.new({
-            '_id': key[:32],
-            'bytes': path.getsize(filename),
-        })
-        buf.append(r)
-
-db.db.put_records_batch(buf)
+    def test_init(self):
+        inst = self.klass()
+        assert isinstance(inst.db, CouchDatabase)
+        assert inst.type_url == 'http://example.com/media'
