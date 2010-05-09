@@ -27,6 +27,7 @@ import os
 from os import path
 import shutil
 import hashlib
+import time
 
 
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
@@ -80,7 +81,8 @@ def scanfiles(base, extensions=None):
         if path.islink(fullname):
             continue
         if path.isfile(fullname):
-            if extensions is None or normalize_ext(name) in extensions:
+            ext = normalize_ext(name)
+            if extensions is None or ext in extensions:
                 yield fullname
         elif path.isdir(fullname):
             for f in scanfiles(fullname, extensions):
@@ -93,9 +95,9 @@ class FileStore(object):
             mediadir = path.join(os.environ['HOME'], *MEDIA_DIR)
         self.mediadir = mediadir
 
-    def resolve(self, key, create_parent=False):
-        dname = key[:2]
-        fname = key[2:]
+    def resolve(self, hexdigest, create_parent=False):
+        dname = hexdigest[:2]
+        fname = hexdigest[2:]
         if create_parent:
             d = path.join(self.mediadir, dname)
             if not path.exists(d):
@@ -123,6 +125,33 @@ class FileStore(object):
         shutil.copy2(src, dst)
         os.chmod(dst, 0o444)
         return ('copied', src, key)
+
+    def _do_add(self, d):
+        src = d['src']
+        hexdigest = hash_file(src)
+        if 'meta' not in d:
+            d['meta'] = {}
+        meta = d['meta']
+        meta['_id'] = hexdigest
+        dst = self.resolve(hexdigest, create_parent=True)
+        d['dst'] = dst
+
+        # If file already exists, return a 'skipped_duplicate' action
+        if path.exists(dst):
+            d['action'] = 'skipped_duplicate'
+            return d
+
+        # Otherwise copy or hard-link into mediadir:
+        meta['size'] = path.getsize(src)
+        meta['mtime'] = path.getmtime(src)
+        if os.stat(src).st_dev == os.stat(self.mediadir).st_dev:
+            os.link(src, dst)
+            d['action'] = 'linked'
+        else:
+            shutil.copy2(src, dst)
+            d['action'] = 'copied'
+        os.chmod(dst, 0o444)
+        return d
 
     def add_recursive(self, base, extensions=None):
         base = path.abspath(base)

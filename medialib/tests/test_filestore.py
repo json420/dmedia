@@ -94,3 +94,34 @@ class test_FileStore(object):
         dst = path.join(inst.mediadir, key[:2], key[2:])
         assert path.isfile(dst)
         assert open(dst, 'r').read() == msg
+
+    def test_do_add(self):
+        h = TempHome()
+        inst = self.klass()
+        assert inst.mediadir.startswith(h.path)
+
+        msg = 'I have a colon full of cookie'
+        hexdigest = hashlib.sha224(msg).hexdigest()
+        src = h.write(msg, 'ihacfoc.txt')
+        dst = path.join(inst.mediadir, hexdigest[:2], hexdigest[2:])
+        meta = {
+            '_id': hexdigest,
+            'size': path.getsize(src),
+            'mtime': path.getmtime(src),
+        }
+        assert inst._do_add({'src': src}) == {
+            'action': 'linked',
+            'src': src,
+            'dst': dst,
+            'meta': meta,
+        }
+        assert inst._do_add({'src': src}) == {
+            'action': 'skipped_duplicate',
+            'src': src,
+            'dst': dst,
+            'meta': {
+                '_id': hexdigest,
+            },
+        }
+        assert path.isfile(dst)
+        assert open(dst, 'r').read() == msg
