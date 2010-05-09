@@ -60,12 +60,21 @@ def test_scanfiles():
     names = []
     for (i, l) in enumerate(letters):
         ext = extensions[i % len(extensions)]
-        name = '.'.join([l, ext])
+        name = '.'.join([l, ext.upper()])
         names.append(name)
         tmp.touch('subdir', name)
 
     files = list(f(tmp.path, extensions))
-    assert files == [tmp.join('subdir', name) for name in sorted(names)]
+    assert files == list(
+        {
+            'src': tmp.join('subdir', name),
+            'meta': {
+                'name': name,
+                'ext': name.split('.')[1].lower(),
+            },
+        }
+        for name in sorted(names)
+    )
 
 
 class test_FileStore(object):

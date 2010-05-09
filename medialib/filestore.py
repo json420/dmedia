@@ -83,10 +83,16 @@ def scanfiles(base, extensions=None):
         if path.isfile(fullname):
             ext = normalize_ext(name)
             if extensions is None or ext in extensions:
-                yield fullname
+                yield {
+                    'src': fullname,
+                    'meta': {
+                        'name': name,
+                        'ext': ext,
+                    },
+                }
         elif path.isdir(fullname):
-            for f in scanfiles(fullname, extensions):
-                yield f
+            for d in scanfiles(fullname, extensions):
+                yield d
 
 
 class FileStore(object):
