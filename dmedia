@@ -74,9 +74,6 @@ import os
 from os import path
 import optparse
 import dmedialib
-from dmedialib.filestore import FileStore
-from dmedialib.metastore import MetaStore
-from dmedialib.extractor import merge_metadata
 
 BATCH_SIZE = 400
 
@@ -104,10 +101,13 @@ if not path.isdir(base):
     sys.exit('ERROR: not a directory: %r' % base)
 extensions = frozenset(a.lower() for a in args[1:])
 
+
+from dmedialib.filestore import FileStore
+from dmedialib.metastore import MetaStore
+from dmedialib.extractor import merge_metadata
+
 store = FileStore()
 db = MetaStore()
-
-
 
 
 buf = []
