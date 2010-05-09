@@ -71,5 +71,38 @@ def extract_exif(filename):
                 yield (key, d[src])
                 break
 
-
 register(extract_exif, 'jpg', 'cr2')
+
+
+_totem = {
+    'seconds': 'TOTEM_INFO_DURATION',
+    'width': 'TOTEM_INFO_VIDEO_WIDTH',
+    'height': 'TOTEM_INFO_VIDEO_HEIGHT',
+    'codec_video': 'TOTEM_INFO_VIDEO_CODEC',
+    'fps': 'TOTEM_INFO_FPS',
+    'codec_audio': 'TOTEM_INFO_AUDIO_CODEC',
+    'sample_rate': 'TOTEM_INFO_AUDIO_SAMPLE_RATE',
+    'channels': 'TOTEM_INFO_AUDIO_CHANNELS',
+}
+
+def _parse_totem(stdout):
+    for line in stdout.splitlines():
+        pair = line.split('=', 1)
+        if len(pair) != 2:
+            continue
+        (key, value) = pair
+        try:
+            value = int(value)
+        except ValueError:
+            pass
+        yield (key, value)
+
+def extract_totem(filename):
+    args = ['totem-video-indexer', filename]
+    (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
+    d = dict(_parse_totem(stdout))
+    for (key, src) in _totem.iteritems():
+        if src in d:
+            yield (key, d[src])
+
+register(extract_totem, 'mov', 'avi', 'ogg', 'ogv', 'oga')

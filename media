@@ -42,18 +42,23 @@ db = MetaStore()
 
 
 buf = []
+scanned = 0
+added = 0
 for (action, filename, key) in store.add_recursive(args[0], extensions):
+    scanned += 1
+    if action != 'skipped':
+        added += 1
     print '  %s %r' % (action, filename)
     if not db.db.record_exists(key):
         meta = dict(
             extract(filename, ('_id', key))
         )
         buf.append(db.new(meta))
-    if len(buf) >= 100:
-        print 'adding %d' % len(buf)
+    if len(buf) >= 200:
         db.db.put_records_batch(buf)
         buf = []
 
 if buf:
-    print 'adding %d' % len(buf)
     db.db.put_records_batch(buf)
+
+print 'Added %d files; scanned %d' % (added, scanned)
