@@ -110,29 +110,12 @@ class FileStore(object):
                 os.makedirs(d)
         return path.join(self.mediadir, dname, fname)
 
-    def add(self, src, ext=None):
-        # Calculate hash, key:
-        src = path.abspath(src)
-        key = hash_file(src)
-        name = path.basename(src)
-        if ext is None:
-            ext = normalize_ext(name)
-        if ext is not None:
-            key += ('.' + ext.lower())
-
-        # Copy, link, or do nothing
-        dst = self.resolve(key, create_parent=True)
-        if path.exists(dst):
-            return ('skipped', src, key)
-        if os.stat(src).st_dev == os.stat(self.mediadir).st_dev:
-            os.link(src, dst)
-            os.chmod(dst, 0o444)
-            return ('linked', src, key)
-        shutil.copy2(src, dst)
-        os.chmod(dst, 0o444)
-        return ('copied', src, key)
-
     def _do_add(self, d):
+        """
+        Low-level add operation.
+
+        Used by both `FileStore.add()` and `FileStore.add_recursive()`.
+        """
         src = d['src']
         hexdigest = hash_file(src)
         if 'meta' not in d:
@@ -158,6 +141,22 @@ class FileStore(object):
             d['action'] = 'copied'
         os.chmod(dst, 0o444)
         return d
+
+    def add(self, src, ext=None):
+        src = path.abspath(src)
+        name = path.basename(src)
+        if ext is None:
+            ext = normalize_ext(name)
+        else:
+            ext = ext.lower()
+        d = {
+            'src': src,
+            'meta': {
+                'name': name,
+                'ext': ext,
+            }
+        }
+        return self._do_add(d)
 
     def add_recursive(self, base, extensions=None):
         base = path.abspath(base)
