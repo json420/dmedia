@@ -43,7 +43,7 @@ import optparse
 import medialib
 from medialib.filestore import FileStore
 from medialib.metastore import MetaStore
-from medialib.extractor import extract
+from medialib.extractor import merge_metadata
 import json
 
 args = sys.argv[1:]
@@ -67,6 +67,7 @@ for d in store.add_recursive(base, extensions):
     counts[action] = counts.get(action, 0) + 1
     total += 1
     if not action.startswith('skipped'):
+        merge_metadata(d)
         buf.append(db.new(d['meta']))
     if len(buf) >= BATCH_SIZE:
         db.db.put_records_batch(buf)

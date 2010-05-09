@@ -38,20 +38,15 @@ def register(callback, *extensions):
         _extractors[ext] = callback
 
 
-def extract(filename, *pairs):
-    name = path.basename(filename)
-    ext = normalize_ext(name)
+def merge_metadata(d):
+    src = d['src']
+    meta = d['meta']
+    ext = meta['ext']
     if ext in _extractors:
         callback = _extractors[ext]
-        for (key, value) in callback(filename):
-            yield (key, value)
-    yield ('size', path.getsize(filename))
-    yield ('mtime', path.getmtime(filename))
-    yield ('name', name)
-    yield ('ext', ext)
-    for (key, value) in pairs:
-        yield (key, value)
-
+        for (key, value) in callback(src):
+            if key not in meta:
+                meta[key] = value
 
 _exif = {
     'width': ['ImageWidth'],
