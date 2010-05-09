@@ -21,10 +21,10 @@
 
 
 """
-`medialib` - distributed media library
+`dmedialib` - distributed media library
 """
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 
 class Media(object):
