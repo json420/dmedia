@@ -21,14 +21,14 @@
 
 
 """
-Unit tests for `medialib.filestore` module.
+Unit tests for `dmedialib.filestore` module.
 """
 
 import os
 from os import path
 import hashlib
 from helpers import TempDir, TempHome
-from medialib import filestore
+from dmedialib import filestore
 
 
 letters = 'gihdwaqoebxtcklrnsmjufyvpz'

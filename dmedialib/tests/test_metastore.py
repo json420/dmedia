@@ -19,7 +19,20 @@
 # You should have received a copy of the GNU Lesser General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Unit tests for `dmedialib.metastore` module.
+"""
 
-"""
-Unit tests for `medialib` package.
-"""
+from helpers import TempDir, TempHome
+from dmedialib import metastore
+from desktopcouch.records.server import  CouchDatabase
+from desktopcouch.records.record import  Record
+
+
+class test_MetaStore(object):
+    klass = metastore.MetaStore
+
+    def test_init(self):
+        inst = self.klass()
+        assert isinstance(inst.db, CouchDatabase)
+        assert inst.type_url == 'http://example.com/media'

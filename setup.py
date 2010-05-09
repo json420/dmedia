@@ -22,19 +22,19 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Install `media`
+Install `dmedia`
 """
 
 from distutils.core import setup
-import medialib
+import dmedialib
 
 setup(
     name='dmedia',
     description='distributed media library',
-    version=medialib.__version__,
+    version=dmedialib.__version__,
     author='Jason Gerard DeRose',
     author_email='jderose@jasonderose.org',
     license='LGPLv3+',
-    packages=['medialib'],
+    packages=['dmedialib'],
     scripts=['dmedia'],
 )
