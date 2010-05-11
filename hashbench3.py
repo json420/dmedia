@@ -83,6 +83,7 @@ def benchmark(hashfunc):
         hash_file(src, hashfunc)
     return (time.time() - start) / options.runs
 
+
 print('-' * 80)
 print('File size: %d bytes' % size)
 print('Read buffer size: %d KiB' % options.chunk)
