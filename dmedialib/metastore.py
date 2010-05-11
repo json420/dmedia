@@ -23,14 +23,34 @@
 Store meta-data in desktop-couch.
 """
 
+from textwrap import dedent
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
+
+
+total_size_map = """
+function(doc) {
+    if (doc.size) {
+        emit('total_size', doc.size);
+    }
+}
+"""
+
+
+total_size_reduce = """
+function(keys, values) {
+    return sum(values);
+}
+"""
 
 
 class MetaStore(object):
     def __init__(self, name='dmedia', type_url='http://example.com/dmedia'):
         self.db = CouchDatabase(name, create=True)
         self.type_url = type_url
+
+        if not self.db.view_exists('total_size'):
+            self.db.add_view('total_size', total_size_map, total_size_reduce)
 
     def new(self, kw):
         return Record(kw, self.type_url)

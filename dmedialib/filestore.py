@@ -75,7 +75,7 @@ def scanfiles(base, extensions=None):
     except StandardError:
         return
     for name in names:
-        if name.startswith('.'):
+        if name.startswith('.') or name.endswith('~'):
             continue
         fullname = path.join(base, name)
         if path.islink(fullname):
