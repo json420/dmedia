@@ -8,12 +8,15 @@ import time
 import hashlib
 import platform
 
-CHUNK = 2 ** 20  # Read in chunks of 1 MiB
-assert CHUNK == 1024 * 1024
-
 
 parser = optparse.OptionParser(
 	usage='Usage: %prog FILE',
+)
+parser.add_option('--chunk',
+    help='Read buffer size in KiB; default=1024',
+    metavar='KiB',
+    default=1024,
+    type='int',
 )
 parser.add_option('--runs',
     help='Runs per algorithm; default=4',
@@ -31,6 +34,7 @@ if not path.isfile(src):
     parser.print_usage()
     sys.exit('ERROR: not a file: %r' % src)
 size = path.getsize(src)
+chunk = options.chunk * 1024
 
 
 # Build list of hashes:
@@ -52,13 +56,13 @@ def hash_file(filename, hashfunc):
     h = hashfunc()
     while True:
         try:
-            chunk = fp.read(CHUNK)
+            buf = fp.read(chunk)
         except KeyboardInterrupt:
             print ''
             sys.exit()
-        if not chunk:
+        if not buf:
             break
-        h.update(chunk)
+        h.update(buf)
     return h.hexdigest()
 
 
@@ -68,9 +72,10 @@ def benchmark(hashfunc):
         hash_file(src, hashfunc)
     return (time.time() - start) / options.runs
 
+
 print '-' * 80
-print 'File size: %d bytes' % path.getsize(src)
-print 'Buffer size: %d KiB' % (CHUNK / 1024)
+print 'File size: %d bytes' % size
+print 'Read buffer size: %d KiB' % options.chunk
 print 'Runs per algorithm: %d' % options.runs
 print 'Python: %s, %s, %s' % (
     platform.python_version(), platform.machine(), platform.system()
