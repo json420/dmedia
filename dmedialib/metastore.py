@@ -63,3 +63,10 @@ class MetaStore(object):
 
     def new(self, kw):
         return Record(kw, self.type_url)
+
+    def total_size(self):
+        return tuple(self.db.execute_view('total_size'))[0].value
+
+    def extensions(self):
+        for r in self.db.execute_view('ext', group=True):
+            yield (r.key, r.value)
