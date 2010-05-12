@@ -28,7 +28,13 @@ from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 
 
-total_size_map = """
+reduce_sum = """
+function(keys, values) {
+    return sum(values);
+}
+"""
+
+map_size = """
 function(doc) {
     if (doc.size) {
         emit('total_size', doc.size);
@@ -36,10 +42,11 @@ function(doc) {
 }
 """
 
-
-total_size_reduce = """
-function(keys, values) {
-    return sum(values);
+map_ext = """
+function(doc) {
+    if (doc.ext) {
+        emit(doc.ext, 1);
+    }
 }
 """
 
@@ -50,7 +57,9 @@ class MetaStore(object):
         self.type_url = type_url
 
         if not self.db.view_exists('total_size'):
-            self.db.add_view('total_size', total_size_map, total_size_reduce)
+            self.db.add_view('total_size', map_size, reduce_sum)
+        if not self.db.view_exists('ext'):
+            self.db.add_view('ext', map_ext, reduce_sum)
 
     def new(self, kw):
         return Record(kw, self.type_url)
