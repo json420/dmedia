@@ -108,12 +108,12 @@ for hashfunc in hashes:
         )
     )
 
-output = [['Hash', 'Avg.', 'MB/s']]
+output = [['Hash', 'Time', 'MB/s']]
 for d in report:
     output.append(
         [
             '%(name)s' % d,
-            '%(avg).3f' % d,
+            '%(avg).2f' % d,
             '%(mbps).1f' % d,
         ]
     )
