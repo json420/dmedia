@@ -27,7 +27,7 @@ Unit tests for `dmedialib.filestore` module.
 import os
 from os import path
 import hashlib
-from helpers import TempDir, TempHome
+from helpers import TempDir, TempHome, raises
 from dmedialib import filestore
 
 
@@ -39,6 +39,10 @@ fname = '3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
 
 def get_dir():
     return path.join(os.environ['HOME'], '.local', 'share', 'dmedia')
+
+
+def user_dir():
+    return path.join(os.environ['HOME'], '.dmedia')
 
 
 def test_hash_file():
@@ -76,6 +80,68 @@ def test_scanfiles():
         }
         for name in sorted(names)
     )
+
+
+
+class test_FileStore2(object):
+    klass = filestore.FileStore2
+
+    def test_init(self):
+        inst = self.klass()
+        assert inst.user_dir == user_dir()
+        assert inst.shared_dir == '/home/.dmedia'
+
+    def test_chash(self):
+        inst = self.klass()
+        tmp = TempDir()
+        src = tmp.write('Novacut', 'msg.txt')
+        assert inst.chash(src) == 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        fp = open(src, 'rb')
+        assert inst.chash(fp=fp) == 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+    def test_relname(self):
+        inst = self.klass()
+        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW') == (
+            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', None) == (
+            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', '') == (
+            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'ogv') == (
+            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6') == (
+            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
+        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', None) == (
+            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
+        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', '') == (
+            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
+        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', 'mov') == (
+            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6.mov')
+
+    def test_fullname(self):
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        inst = self.klass()
+        assert inst.fullname(chash) == path.join(
+            user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        assert inst.fullname(chash, 'ogv') == path.join(
+            user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        assert inst.fullname(chash, None, True) == path.join(
+            '/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        assert inst.fullname(chash, 'ogv', True) == path.join(
+            '/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+
+    def test_locate(self):
+        user = TempDir()
+        shared = TempDir()
+        inst = self.klass(user.path, shared.path)
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        e = raises(filestore.FileNotFound, inst.locate, chash, 'txt')
+        assert e.chash == chash
+        assert e.extension == 'txt'
+        file1 = shared.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
+        assert inst.locate(chash, 'txt') == file1
+        file2 = user.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
+        assert inst.locate(chash, 'txt') == file2
 
 
 class test_FileStore(object):

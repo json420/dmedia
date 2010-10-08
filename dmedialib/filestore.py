@@ -27,11 +27,15 @@ import os
 from os import path
 import shutil
 import hashlib
+from hashlib import sha1
+from base64 import b32encode
 import time
 
 
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 MEDIA_DIR = ('.local', 'share', 'dmedia')
+
+DOTDIR = '.dmedia'
 
 
 def hash_file(filename, hashfunc=hashlib.sha224):
@@ -93,6 +97,118 @@ def scanfiles(base, extensions=None):
         elif path.isdir(fullname):
             for d in scanfiles(fullname, extensions):
                 yield d
+
+
+class FileNotFound(StandardError):
+    def __init__(self, chash, extension):
+        self.chash = chash
+        self.extension = extension
+
+
+class FileStore2(object):
+    def __init__(self, user_dir=None, shared_dir=None):
+        if user_dir is None:
+            user_dir = path.join(os.environ['HOME'], DOTDIR)
+        if shared_dir is None:
+            shared_dir = path.join('/home', DOTDIR)
+        self.user_dir = user_dir
+        self.shared_dir = shared_dir
+
+    def chash(self, filename=None, fp=None):
+        """
+        Compute the content-hash of the file at *filename*.
+
+        Note that dmedia will migrate to the skein-512-240 hash after the
+        Threefish constant change. See:
+
+          http://blog.novacut.com/2010/09/how-about-that-skein-hash.html
+
+        For example:
+        >>> from StringIO import StringIO
+        >>> fp = StringIO()
+        >>> fp.write('Novacut')
+        >>> fp.seek(0)
+        >>> store = FileStore2()
+        >>> store.chash(fp=fp)
+        'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        """
+        if filename:
+            fp = open(filename, 'rb')
+        h = sha1()
+        while True:
+            chunk = fp.read(CHUNK)
+            if not chunk:
+                break
+            h.update(chunk)
+        return b32encode(h.digest())
+
+    def relname(self, chash, extension=None):
+        """
+        Relative path components for file with *chash*, ending with *extension*.
+
+        For example:
+
+        >>> fs = FileStore2()
+        >>> fs.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        >>> fs.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', extension='txt')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
+        """
+        dname = chash[:2]
+        fname = chash[2:]
+        if extension:
+            return (dname, '.'.join((fname, extension)))
+        return (dname, fname)
+
+    def fullname(self, chash, extension=None, shared=False):
+        rel = self.relname(chash, extension)
+        if shared:
+            return path.join(self.shared_dir, *rel)
+        return path.join(self.user_dir, *rel)
+
+    def locate(self, chash, extension=None):
+        user = self.fullname(chash, extension)
+        if path.isfile(user):
+            return user
+        shared = self.fullname(chash, extension, shared=True)
+        if path.isfile(shared):
+            return shared
+        raise FileNotFound(chash, extension)
+
+    def _do_add(self, d, shared=False):
+        """
+        Low-level add operation.
+
+        Used by both `FileStore.add()` and `FileStore.add_recursive()`.
+        """
+        src = d['src']
+        chash = self.chash(src)
+        if 'meta' not in d:
+            d['meta'] = {}
+        meta = d['meta']
+        meta['_id'] = chash
+        dst = self.fullname(chash, create_parent=True)
+        d['dst'] = dst
+
+        # If file already exists, return a 'skipped_duplicate' action
+        if path.exists(dst):
+            d['action'] = 'skipped_duplicate'
+            return d
+
+        # Otherwise copy or hard-link into mediadir:
+        meta['size'] = path.getsize(src)
+        meta['mtime'] = path.getmtime(src)
+        if os.stat(src).st_dev == os.stat(self.mediadir).st_dev:
+            os.link(src, dst)
+            d['action'] = 'linked'
+        else:
+            shutil.copy2(src, dst)
+            d['action'] = 'copied'
+        try:
+            os.chmod(dst, 0o444)
+        except OSError:
+            pass
+        return d
 
 
 class FileStore(object):
