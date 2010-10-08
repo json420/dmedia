@@ -75,7 +75,7 @@ from os import path
 import optparse
 import dmedialib
 
-BATCH_SIZE = 400
+BATCH_SIZE = 25
 
 script = path.basename(sys.argv[0])
 

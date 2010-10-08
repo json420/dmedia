@@ -105,7 +105,7 @@ class FileNotFound(StandardError):
         self.extension = extension
 
 
-class FileStore2(object):
+class FileStore(object):
     def __init__(self, user_dir=None, shared_dir=None):
         if user_dir is None:
             user_dir = path.join(os.environ['HOME'], DOTDIR)
@@ -128,7 +128,7 @@ class FileStore2(object):
         >>> fp = StringIO()
         >>> fp.write('Novacut')
         >>> fp.seek(0)
-        >>> store = FileStore2()
+        >>> store = FileStore()
         >>> store.chash(fp=fp)
         'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         """
@@ -148,7 +148,7 @@ class FileStore2(object):
 
         For example:
 
-        >>> fs = FileStore2()
+        >>> fs = FileStore()
         >>> fs.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         >>> fs.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', extension='txt')
@@ -160,11 +160,15 @@ class FileStore2(object):
             return (dname, '.'.join((fname, extension)))
         return (dname, fname)
 
-    def fullname(self, chash, extension=None, shared=False):
-        rel = self.relname(chash, extension)
+    def mediadir(self, shared=False):
         if shared:
-            return path.join(self.shared_dir, *rel)
-        return path.join(self.user_dir, *rel)
+            return self.shared_dir
+        return self.user_dir
+
+    def fullname(self, chash, extension=None, shared=False):
+        return path.join(
+            self.mediadir(shared), *self.relname(chash, extension)
+        )
 
     def locate(self, chash, extension=None):
         user = self.fullname(chash, extension)
@@ -187,7 +191,7 @@ class FileStore2(object):
             d['meta'] = {}
         meta = d['meta']
         meta['_id'] = chash
-        dst = self.fullname(chash, create_parent=True)
+        dst = self.fullname(chash, meta.get('ext'), shared)
         d['dst'] = dst
 
         # If file already exists, return a 'skipped_duplicate' action
@@ -196,60 +200,13 @@ class FileStore2(object):
             return d
 
         # Otherwise copy or hard-link into mediadir:
+        parent = path.dirname(dst)
+        if not path.exists(parent):
+            os.makedirs(parent)
+
         meta['size'] = path.getsize(src)
         meta['mtime'] = path.getmtime(src)
-        if os.stat(src).st_dev == os.stat(self.mediadir).st_dev:
-            os.link(src, dst)
-            d['action'] = 'linked'
-        else:
-            shutil.copy2(src, dst)
-            d['action'] = 'copied'
-        try:
-            os.chmod(dst, 0o444)
-        except OSError:
-            pass
-        return d
-
-
-class FileStore(object):
-    def __init__(self, mediadir=None):
-        if mediadir is None:
-            mediadir = path.join(os.environ['HOME'], *MEDIA_DIR)
-        self.mediadir = mediadir
-
-    def resolve(self, hexdigest, create_parent=False):
-        dname = hexdigest[:2]
-        fname = hexdigest[2:]
-        if create_parent:
-            d = path.join(self.mediadir, dname)
-            if not path.exists(d):
-                os.makedirs(d)
-        return path.join(self.mediadir, dname, fname)
-
-    def _do_add(self, d):
-        """
-        Low-level add operation.
-
-        Used by both `FileStore.add()` and `FileStore.add_recursive()`.
-        """
-        src = d['src']
-        hexdigest = hash_file(src)
-        if 'meta' not in d:
-            d['meta'] = {}
-        meta = d['meta']
-        meta['_id'] = hexdigest
-        dst = self.resolve(hexdigest, create_parent=True)
-        d['dst'] = dst
-
-        # If file already exists, return a 'skipped_duplicate' action
-        if path.exists(dst):
-            d['action'] = 'skipped_duplicate'
-            return d
-
-        # Otherwise copy or hard-link into mediadir:
-        meta['size'] = path.getsize(src)
-        meta['mtime'] = path.getmtime(src)
-        if os.stat(src).st_dev == os.stat(self.mediadir).st_dev:
+        if os.stat(src).st_dev == os.stat(self.mediadir(shared)).st_dev:
             os.link(src, dst)
             d['action'] = 'linked'
         else:

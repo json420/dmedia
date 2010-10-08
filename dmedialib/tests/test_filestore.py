@@ -83,8 +83,8 @@ def test_scanfiles():
 
 
 
-class test_FileStore2(object):
-    klass = filestore.FileStore2
+class test_FileStore(object):
+    klass = filestore.FileStore
 
     def test_init(self):
         inst = self.klass()
@@ -143,79 +143,34 @@ class test_FileStore2(object):
         file2 = user.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
         assert inst.locate(chash, 'txt') == file2
 
-
-class test_FileStore(object):
-    klass = filestore.FileStore
-
-    def test_init(self):
-        inst = self.klass()
-        assert inst.mediadir == get_dir()
-
-    def test_resolve(self):
-        inst = self.klass()
-        assert inst.resolve(key) == path.join(get_dir(), dname, fname)
-
-    def test_add(self):
-        h = TempHome()
-        inst = self.klass()
-        assert inst.mediadir.startswith(h.path)
-
-        msg = 'I have a colon full of cookie'
-        hexdigest = hashlib.sha224(msg).hexdigest()
-        dst = path.join(inst.mediadir, hexdigest[:2], hexdigest[2:])
-        src = h.write(msg, 'ihacfoc.txt')
-        assert inst.add(src) == {
-            'action': 'linked',
-            'src': src,
-            'dst': dst,
-            'meta': {
-                '_id': hexdigest,
-                'name': 'ihacfoc.txt',
-                'ext': 'txt',
-                'size': path.getsize(src),
-                'mtime': path.getmtime(src),
-            },
-        }
-        assert inst.add(src) == {
-            'action': 'skipped_duplicate',
-            'src': src,
-            'dst': dst,
-            'meta': {
-                '_id': hexdigest,
-                'name': 'ihacfoc.txt',
-                'ext': 'txt',
-            },
-        }
-        assert path.isfile(dst)
-        assert open(dst, 'r').read() == msg
-
     def test_do_add(self):
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         h = TempHome()
         inst = self.klass()
-        assert inst.mediadir.startswith(h.path)
+        assert inst.user_dir.startswith(h.path)
 
-        msg = 'I have a colon full of cookie'
-        hexdigest = hashlib.sha224(msg).hexdigest()
-        src = h.write(msg, 'ihacfoc.txt')
-        dst = path.join(inst.mediadir, hexdigest[:2], hexdigest[2:])
+        src = h.write('Novacut', 'test.txt')
+        dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.txt')
         meta = {
-            '_id': hexdigest,
+            '_id': chash,
             'size': path.getsize(src),
             'mtime': path.getmtime(src),
+            'ext': 'txt',
         }
-        assert inst._do_add({'src': src}) == {
+        assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {
             'action': 'linked',
             'src': src,
             'dst': dst,
             'meta': meta,
         }
-        assert inst._do_add({'src': src}) == {
+        assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {
             'action': 'skipped_duplicate',
             'src': src,
             'dst': dst,
             'meta': {
-                '_id': hexdigest,
+                '_id': chash,
+                'ext': 'txt',
             },
         }
         assert path.isfile(dst)
-        assert open(dst, 'r').read() == msg
+        assert open(dst, 'r').read() == 'Novacut'
