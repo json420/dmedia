@@ -24,6 +24,7 @@
 Extract meta-data from media files.
 """
 
+from os import path
 from subprocess import check_call, Popen, PIPE
 import json
 
@@ -37,12 +38,11 @@ def register(callback, *extensions):
 
 
 def merge_metadata(d):
-    src = d['src']
     meta = d['meta']
     ext = meta['ext']
     if ext in _extractors:
         callback = _extractors[ext]
-        for (key, value) in callback(src):
+        for (key, value) in callback(d):
             if key not in meta:
                 meta[key] = value
 
@@ -52,18 +52,20 @@ _exif = {
     'iso': ['ISO'],
     'shutter': ['ShutterSpeed', 'ExposureTime'],
     'aperture': ['Aperture', 'FNumber', 'ApertureValue'],
-    #'focal_length': ['FocalLength', 'Lens'],
+    'lens': ['LensID', 'LensType'],
+    'camera': ['Model'],
+    'focal_length': ['FocalLength', 'Lens'],
 }
 
-def extract_exif(filename):
-    args = ['exiftool', '-j', filename]
+def extract_exif(d):
+    args = ['exiftool', '-j', d['src']]
     (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
-    d = json.loads(stdout)[0]
-    yield ('exif', d)
+    exif = json.loads(stdout)[0]
+    #yield ('exif', exif)
     for (key, sources) in _exif.iteritems():
         for src in sources:
-            if src in d:
-                yield (key, d[src])
+            if src in exif:
+                yield (key, exif[src])
                 break
 
 register(extract_exif, 'jpg', 'png', 'cr2')
@@ -92,12 +94,19 @@ def _parse_totem(stdout):
             pass
         yield (key, value)
 
-def extract_totem(filename):
+def extract_totem(d):
+    filename = d['src']
     args = ['totem-video-indexer', filename]
     (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
-    d = dict(_parse_totem(stdout))
+    meta = dict(_parse_totem(stdout))
     for (key, src) in _totem.iteritems():
-        if src in d:
-            yield (key, d[src])
+        if src in meta:
+            yield (key, meta[src])
+    if d['meta']['ext'] != 'mov':
+        return
+    thm = path.join(d['base'], d['root'] + '.THM')
+    if path.isfile(thm):
+        for (key, value) in extract_exif({'src': thm}):
+            yield (key, value)
 
 register(extract_totem, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga')
