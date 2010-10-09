@@ -28,11 +28,7 @@ from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 
 
-reduce_sum = """
-function(keys, values) {
-    return sum(values);
-}
-"""
+reduce_sum = '_sum'
 
 map_size = """
 function(doc) {
