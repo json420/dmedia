@@ -33,41 +33,27 @@ import time
 
 
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
-MEDIA_DIR = ('.local', 'share', 'dmedia')
-
 DOTDIR = '.dmedia'
-
-
-def hash_file(filename, hashfunc=hashlib.sha224):
-    """
-    Compute the content-hash of the file *filename*.
-    """
-    fp = open(filename, 'rb')
-    h = hashfunc()
-    while True:
-        chunk = fp.read(CHUNK)
-        if not chunk:
-            break
-        h.update(chunk)
-    return h.hexdigest()
 
 
 def normalize_ext(name):
     """
-    Return extension from *name* normalized to lower-case.
+    Return (root, ext) from *name* where extension is normalized to lower-case.
 
-    If *name* has no extension, ``None`` is returned.  For example:
+    If *name* has no extension, ``None`` is returned as 2nd item in (root, ext)
+    tuple:
 
     >>> normalize_ext('IMG_2140.CR2')
-    'cr2'
+    ('IMG_2140', 'cr2')
     >>> normalize_ext('test.jpg')
-    'jpg'
-    >>> normalize_ext('hello_world') is None
-    True
+    ('test', 'jpg')
+    >>> normalize_ext('hello_world')
+    ('hello_world', None)
     """
     parts = name.rsplit('.', 1)
     if len(parts) == 2:
-        return parts[1].lower()
+        return (parts[0], parts[1].lower())
+    return (parts[0], None)
 
 
 def scanfiles(base, extensions=None):
@@ -85,7 +71,7 @@ def scanfiles(base, extensions=None):
         if path.islink(fullname):
             continue
         if path.isfile(fullname):
-            ext = normalize_ext(name)
+            (root, ext) = normalize_ext(name)
             if extensions is None or ext in extensions:
                 yield {
                     'src': fullname,

@@ -37,21 +37,10 @@ key = '4e3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
 dname = '4e'
 fname = '3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
 
-def get_dir():
-    return path.join(os.environ['HOME'], '.local', 'share', 'dmedia')
 
 
 def user_dir():
     return path.join(os.environ['HOME'], '.dmedia')
-
-
-def test_hash_file():
-    f = filestore.hash_file
-    tmp = TempDir()
-    msg = 'I have a colon full of cookie'
-    src = tmp.write(msg, 'ihacfoc.txt')
-    assert f(src) == hashlib.sha224(msg).hexdigest()
-    assert f(src, hashfunc=hashlib.sha384) == hashlib.sha384(msg).hexdigest()
 
 
 def test_scanfiles():
