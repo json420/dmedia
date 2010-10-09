@@ -72,7 +72,7 @@ several commands.  For now it has a single function, to recursively import media
 files from a directory.  At this point, it's a quick-and-dirty demo of how media
 files might be stored and how their meta-data might be stored.
 
-For example, say we scan all the JPEG images in the '/usr/share/backgrounds'
+For example, say we scan all the JPG images in the '/usr/share/backgrounds'
 directory:
 
     dmedia /usr/share/backgrounds jpg
