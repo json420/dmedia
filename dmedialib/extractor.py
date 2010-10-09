@@ -52,13 +52,14 @@ _exif = {
     'iso': ['ISO'],
     'shutter': ['ShutterSpeed', 'ExposureTime'],
     'aperture': ['Aperture', 'FNumber', 'ApertureValue'],
-    'focal_length': ['FocalLength', 'Lens'],
+    #'focal_length': ['FocalLength', 'Lens'],
 }
 
 def extract_exif(filename):
     args = ['exiftool', '-j', filename]
     (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
     d = json.loads(stdout)[0]
+    yield ('exif', d)
     for (key, sources) in _exif.iteritems():
         for src in sources:
             if src in d:

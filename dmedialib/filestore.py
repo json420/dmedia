@@ -75,6 +75,8 @@ def scanfiles(base, extensions=None):
             if extensions is None or ext in extensions:
                 yield {
                     'src': fullname,
+                    'base': base,
+                    'root': root,
                     'meta': {
                         'name': name,
                         'ext': ext,

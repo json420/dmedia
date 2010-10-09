@@ -62,6 +62,8 @@ def test_scanfiles():
     assert files == list(
         {
             'src': tmp.join('subdir', name),
+            'base': tmp.join('subdir'),
+            'root': name.split('.')[0],
             'meta': {
                 'name': name,
                 'ext': name.split('.')[1].lower(),
