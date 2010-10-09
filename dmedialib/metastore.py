@@ -31,7 +31,7 @@ from desktopcouch.records.record import  Record
 reduce_sum = '_sum'
 reduce_count = '_count'
 
-map_bytes = """
+map_total_bytes = """
 function(doc) {
     if (doc.bytes) {
         emit('bytes', doc.bytes);
@@ -47,22 +47,36 @@ function(doc) {
 }
 """
 
+map_mtime = """
+function(doc) {
+    if (doc.mtime) {
+        emit(doc.mtime, null);
+    }
+}
+"""
+
+views = {
+    'total_bytes': (map_total_bytes, reduce_sum),
+    'ext': (map_ext, reduce_count),
+    'mtime': (map_mtime, None),
+}
+
 
 class MetaStore(object):
     def __init__(self, name='dmedia', type_url='http://example.com/dmedia'):
         self.db = CouchDatabase(name, create=True)
         self.type_url = type_url
 
-        if not self.db.view_exists('bytes'):
-            self.db.add_view('bytes', map_bytes, reduce_sum)
-        if not self.db.view_exists('ext'):
-            self.db.add_view('ext', map_ext, reduce_count)
+        for (key, value) in views.iteritems():
+            if not self.db.view_exists(key):
+                (map_, reduce_) = value
+                self.db.add_view(key, map_, reduce_)
 
     def new(self, kw):
         return Record(kw, self.type_url)
 
     def bytes(self):
-        return tuple(self.db.execute_view('bytes'))[0].value
+        return tuple(self.db.execute_view('total_bytes'))[0].value
 
     def extensions(self):
         for r in self.db.execute_view('ext', group=True):
