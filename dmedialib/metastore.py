@@ -30,10 +30,10 @@ from desktopcouch.records.record import  Record
 
 reduce_sum = '_sum'
 
-map_size = """
+map_bytes = """
 function(doc) {
-    if (doc.size) {
-        emit('total_size', doc.size);
+    if (doc.bytes) {
+        emit('bytes', doc.bytes);
     }
 }
 """
@@ -52,16 +52,16 @@ class MetaStore(object):
         self.db = CouchDatabase(name, create=True)
         self.type_url = type_url
 
-        if not self.db.view_exists('total_size'):
-            self.db.add_view('total_size', map_size, reduce_sum)
+        if not self.db.view_exists('bytes'):
+            self.db.add_view('bytes', map_bytes, reduce_sum)
         if not self.db.view_exists('ext'):
             self.db.add_view('ext', map_ext, reduce_sum)
 
     def new(self, kw):
         return Record(kw, self.type_url)
 
-    def total_size(self):
-        return tuple(self.db.execute_view('total_size'))[0].value
+    def bytes(self):
+        return tuple(self.db.execute_view('bytes'))[0].value
 
     def extensions(self):
         for r in self.db.execute_view('ext', group=True):

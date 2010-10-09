@@ -142,7 +142,7 @@ class test_FileStore(object):
         dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.txt')
         meta = {
             '_id': chash,
-            'size': path.getsize(src),
+            'bytes': path.getsize(src),
             'mtime': path.getmtime(src),
             'ext': 'txt',
         }

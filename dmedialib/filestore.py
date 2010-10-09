@@ -190,7 +190,7 @@ class FileStore(object):
         if not path.exists(parent):
             os.makedirs(parent)
 
-        meta['size'] = path.getsize(src)
+        meta['bytes'] = path.getsize(src)
         meta['mtime'] = path.getmtime(src)
         if os.stat(src).st_dev == os.stat(self.mediadir(shared)).st_dev:
             os.link(src, dst)
