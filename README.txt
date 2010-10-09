@@ -8,10 +8,24 @@ is small).  Actual media files can be loaded on-demand from peers or cloud when
 not available locally (media files are big).  Goals are to make synchronization
 super easy, and to lay groundwork for a distributed content creation workflow.
 
+Work on dmedia is coordinated through Launchpad.  For the latest code, to file a
+bug, or to otherwise get involved, see the dmedia project in Launchpad:
+
+    https://launchpad.net/dmedia
+
+Although it didn't start as such, dmedia has become a foundational component for
+the Novacut distributed video editor.  To learn more, see:
+
+    http://novacut.com/
+
+    https://launchpad.net/novacut
+
+    https://launchpad.net/~novacut-community
 
 
-Installation
-============
+
+Use and installation
+====================
 
 You can run the `dmedia` script directly from the source tree without any build
 or installation step.  This is the quickest way to try dmedia.  You can run the
