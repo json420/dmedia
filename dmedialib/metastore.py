@@ -29,6 +29,7 @@ from desktopcouch.records.record import  Record
 
 
 reduce_sum = '_sum'
+reduce_count = '_count'
 
 map_bytes = """
 function(doc) {
@@ -41,7 +42,7 @@ function(doc) {
 map_ext = """
 function(doc) {
     if (doc.ext) {
-        emit(doc.ext, 1);
+        emit(doc.ext, null);
     }
 }
 """
@@ -55,7 +56,7 @@ class MetaStore(object):
         if not self.db.view_exists('bytes'):
             self.db.add_view('bytes', map_bytes, reduce_sum)
         if not self.db.view_exists('ext'):
-            self.db.add_view('ext', map_ext, reduce_sum)
+            self.db.add_view('ext', map_ext, reduce_count)
 
     def new(self, kw):
         return Record(kw, self.type_url)
