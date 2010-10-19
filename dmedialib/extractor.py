@@ -31,6 +31,19 @@ import tempfile
 import shutil
 from base64 import b64encode
 
+# exiftool adds some metadata that doesn't make sense to include:
+EXIFTOOL_IGNORE = (
+    'SourceFile',  # '/home/jderose/bzr/dmedia/dmedialib/tests/data/MVI_5751.THM'
+    'Directory',  # '/home/jderose/bzr/dmedia/dmedialib/tests/data',
+    'ExifToolVersion',  # 8.1500000000000004
+
+    'FileModifyDate',  # '2010:10:19 20:43:18-06:00'
+    'FileName',  # 'MVI_5751.THM'
+    'FilePermissions',  # 'rw-r--r--'
+    'FileSize',  # '27 kB'
+    'FileType',  # 'JPEG'
+)
+
 def encode(fname):
     return b64encode(open(fname, 'rb').read())
 
@@ -71,7 +84,11 @@ def extract_exif2(src):
     try:
         args = ['exiftool', '-j', src]
         (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
-        return json.loads(stdout)[0]
+        exif = json.loads(stdout)[0]
+        assert isinstance(exif, dict)
+        for key in EXIFTOOL_IGNORE:
+            exif.pop(key, None)
+        return exif
     except Exception:
         return None
 
