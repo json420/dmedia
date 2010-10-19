@@ -156,17 +156,17 @@ class test_FileStore(object):
 
         src = h.write('Novacut', 'test.txt')
         dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.txt')
-        meta = {
-            '_id': chash,
-            'bytes': path.getsize(src),
-            'mtime': path.getmtime(src),
-            'ext': 'txt',
-        }
         assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {
             'action': 'linked',
             'src': src,
             'dst': dst,
-            'meta': meta,
+            'meta': {
+                '_id': chash,
+                'bytes': path.getsize(src),
+                'mtime': path.getmtime(src),
+                'ext': 'txt',
+                'links': [src],
+            },
         }
         assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {
             'action': 'skipped_duplicate',

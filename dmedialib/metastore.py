@@ -55,10 +55,21 @@ function(doc) {
 }
 """
 
+map_links = """
+function(doc) {
+    if (doc.links) {
+        doc.links.forEach(function(link) {
+            emit(link, null);
+        });
+    }
+}
+"""
+
 views = {
     'total_bytes': (map_total_bytes, reduce_sum),
     'ext': (map_ext, reduce_count),
     'mtime': (map_mtime, None),
+    'links': (map_links, None),
 }
 
 

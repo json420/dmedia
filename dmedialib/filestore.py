@@ -225,6 +225,7 @@ class FileStore(object):
         if os.stat(src).st_dev == os.stat(self.mediadir(shared)).st_dev:
             os.link(src, dst)
             d['action'] = 'linked'
+            meta['links'] = [src]
         else:
             shutil.copy2(src, dst)
             d['action'] = 'copied'
