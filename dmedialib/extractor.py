@@ -27,6 +27,8 @@ Extract meta-data from media files.
 from os import path
 from subprocess import check_call, Popen, PIPE
 import json
+import tempfile
+import shutil
 from base64 import b64encode
 
 def encode(fname):
@@ -98,6 +100,26 @@ def _parse_totem(stdout):
             pass
         yield (key, value)
 
+
+def extract_thumbnail(src):
+    tmp = tempfile.mkdtemp(prefix='dmedia.')
+    dst = path.join(tmp, 'thumbnail.jpg')
+    check_call([
+        'totem-video-thumbnailer',
+        '-r', # Create a "raw" thumbnail without film boarder
+        '-j', # Save as JPEG instead of PNG
+        '-s', '192', # Fit video into 192x192 pixel square (192x108 for 16:9)
+        src,
+        dst,
+    ])
+    ret = {
+        'content_type': 'image/jpeg',
+        'data': encode(dst),
+    }
+    shutil.rmtree(tmp)
+    return ret
+
+
 def extract_totem(d):
     filename = d['src']
     args = ['totem-video-indexer', filename]
@@ -114,7 +136,8 @@ def extract_totem(d):
             'canon.thm': {
                 'content_type': 'image/jpeg',
                 'data': encode(thm),
-            }
+            },
+            'thumbnail': extract_thumbnail(filename),
         }
         for (key, value) in extract_exif({'src': thm}):
             yield (key, value)
