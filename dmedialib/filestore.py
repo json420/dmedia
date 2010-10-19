@@ -99,8 +99,8 @@ class FileStore(object):
             user_dir = path.join(os.environ['HOME'], DOTDIR)
         if shared_dir is None:
             shared_dir = path.join('/home', DOTDIR)
-        self.user_dir = user_dir
-        self.shared_dir = shared_dir
+        self.user_dir = path.abspath(user_dir)
+        self.shared_dir = path.abspath(shared_dir)
 
     def chash(self, filename=None, fp=None):
         """
@@ -149,16 +149,44 @@ class FileStore(object):
         return (dname, fname)
 
     def mediadir(self, shared=False):
+        """
+        Returns user_dir or shared_dir based on *shared* flag.
+
+        By default *shared* is ``False``.  For example:
+
+        >>> fs = FileStore(user_dir='/foo', shared_dir='/bar')
+        >>> fs.mediadir()
+        '/foo'
+        >>> fs.mediadir(shared=True)
+        '/bar'
+        """
         if shared:
             return self.shared_dir
         return self.user_dir
 
     def fullname(self, chash, extension=None, shared=False):
+        """
+        Returns path of file with *chash* and *extension*.
+
+        If *shared* is ``True``, a path in the shared location is returned.
+        Otherwise the a path in the user's private dmedia store is returned.
+
+        For example:
+
+        >>> fs = FileStore('/foo', '/bar')
+        >>> fs.fullname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')
+        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        >>> fs.fullname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt', shared=True)
+        '/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        """
         return path.join(
             self.mediadir(shared), *self.relname(chash, extension)
         )
 
     def locate(self, chash, extension=None):
+        """
+        Attempt to locate file with *chash* and *extension*.
+        """
         user = self.fullname(chash, extension)
         if path.isfile(user):
             return user

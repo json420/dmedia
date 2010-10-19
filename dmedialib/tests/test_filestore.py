@@ -81,6 +81,12 @@ class test_FileStore(object):
         inst = self.klass()
         assert inst.user_dir == user_dir()
         assert inst.shared_dir == '/home/.dmedia'
+        inst = self.klass(user_dir='/foo', shared_dir='/bar')
+        assert inst.user_dir == '/foo'
+        assert inst.shared_dir == '/bar'
+        inst = self.klass('/foo', '/bar')
+        assert inst.user_dir == '/foo'
+        assert inst.shared_dir == '/bar'
 
     def test_chash(self):
         inst = self.klass()
@@ -108,6 +114,14 @@ class test_FileStore(object):
             '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
         assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', 'mov') == (
             '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6.mov')
+
+    def test_mediadir(self):
+        inst = self.klass('/foo', '/bar')
+        assert inst.mediadir() == '/foo'
+        assert inst.mediadir(False) == '/foo'
+        assert inst.mediadir(True) == '/bar'
+        assert inst.mediadir(shared=False) == '/foo'
+        assert inst.mediadir(shared=True) == '/bar'
 
     def test_fullname(self):
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
