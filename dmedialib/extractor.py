@@ -27,6 +27,10 @@ Extract meta-data from media files.
 from os import path
 from subprocess import check_call, Popen, PIPE
 import json
+from base64 import b64encode
+
+def encode(fname):
+    return b64encode(open(fname, 'rb').read())
 
 
 _extractors = {}
@@ -106,6 +110,12 @@ def extract_totem(d):
         return
     thm = path.join(d['base'], d['root'] + '.THM')
     if path.isfile(thm):
+        d['meta']['_attachments'] = {
+            'canon.thm': {
+                'content_type': 'image/jpeg',
+                'data': encode(thm),
+            }
+        }
         for (key, value) in extract_exif({'src': thm}):
             yield (key, value)
 
