@@ -67,7 +67,7 @@ def extract_exif(d):
     args = ['exiftool', '-j', d['src']]
     (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
     exif = json.loads(stdout)[0]
-    #yield ('exif', exif)
+    yield ('exif', exif)
     for (key, sources) in _exif.iteritems():
         for src in sources:
             if src in exif:
@@ -128,17 +128,17 @@ def extract_totem(d):
     for (key, src) in _totem.iteritems():
         if src in meta:
             yield (key, meta[src])
+    try:
+        yield (
+            '_attachments',
+            {'thumbnail': extract_thumbnail(filename)}
+        )
+    except Exception:
+        pass
     if d['meta']['ext'] != 'mov':
         return
     thm = path.join(d['base'], d['root'] + '.THM')
     if path.isfile(thm):
-        d['meta']['_attachments'] = {
-            'canon.thm': {
-                'content_type': 'image/jpeg',
-                'data': encode(thm),
-            },
-            'thumbnail': extract_thumbnail(filename),
-        }
         for (key, value) in extract_exif({'src': thm}):
             yield (key, value)
 
