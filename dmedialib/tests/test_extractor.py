@@ -230,6 +230,27 @@ def test_file_2_base64():
     assert base64.b64decode(f(src)) == 'Hello naughty nurse!'
 
 
+def test_generate_thumbnail():
+    f = extractor.generate_thumbnail
+    tmp = TempDir()
+
+    # Test with sample_mov from 5D Mark II:
+    d = f(sample_mov)
+    assert isinstance(d, dict)
+    assert sorted(d) == ['content_type', 'data']
+    assert d['content_type'] == 'image/jpeg'
+    data = base64.b64decode(d['data'])
+    jpg = tmp.write(data, 'thumbnail.jpg')
+    assert Image.open(jpg).size == (192, 108)
+
+    # Test invalid file:
+    invalid = tmp.write('Wont work!', 'invalid.mov')
+    assert f(invalid) is None
+
+    # Test with non-existent file:
+    nope = tmp.join('nope.mov')
+    assert f(nope) is None
+
 
 def test_extract_exif():
     f = extractor.extract_exif

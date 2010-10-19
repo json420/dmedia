@@ -133,23 +133,27 @@ def _parse_totem(stdout):
         yield (key, value)
 
 
-def extract_thumbnail(src):
-    tmp = tempfile.mkdtemp(prefix='dmedia.')
-    dst = path.join(tmp, 'thumbnail.jpg')
-    check_call([
-        'totem-video-thumbnailer',
-        '-r', # Create a "raw" thumbnail without film boarder
-        '-j', # Save as JPEG instead of PNG
-        '-s', '192', # Fit video into 192x192 pixel square (192x108 for 16:9)
-        src,
-        dst,
-    ])
-    ret = {
-        'content_type': 'image/jpeg',
-        'data': file_2_base64(dst),
-    }
-    shutil.rmtree(tmp)
-    return ret
+def generate_thumbnail(src):
+    try:
+        tmp = tempfile.mkdtemp(prefix='dmedia.')
+        dst = path.join(tmp, 'thumbnail.jpg')
+        check_call([
+            'totem-video-thumbnailer',
+            '-r', # Create a "raw" thumbnail without film boarder
+            '-j', # Save as JPEG instead of PNG
+            '-s', '192', # Fit video into 192x192 pixel square (192x108 for 16:9)
+            src,
+            dst,
+        ])
+        return {
+            'content_type': 'image/jpeg',
+            'data': file_2_base64(dst),
+        }
+    except Exception:
+        return None
+    finally:
+        if path.isdir(tmp):
+            shutil.rmtree(tmp)
 
 
 def extract_totem(d):
@@ -163,7 +167,7 @@ def extract_totem(d):
     try:
         yield (
             '_attachments',
-            {'thumbnail': extract_thumbnail(filename)}
+            {'thumbnail': generate_thumbnail(filename)}
         )
     except Exception:
         pass
