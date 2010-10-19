@@ -222,12 +222,65 @@ sample_thm_exif = {
     u'ZoomTargetWidth': 0, u'BitsPerSample': 8,
 }
 
+# Known video info from totem-video-indexer:
+sample_mov_info = {
+    'TOTEM_INFO_DURATION': '3',
+    'TOTEM_INFO_HAS_VIDEO': 'True',
+    'TOTEM_INFO_VIDEO_WIDTH': '1920',
+    'TOTEM_INFO_VIDEO_HEIGHT': '1080',
+    'TOTEM_INFO_VIDEO_CODEC': 'H.264 / AVC',
+    'TOTEM_INFO_FPS': '30',
+    'TOTEM_INFO_HAS_AUDIO': 'True',
+    'TOTEM_INFO_AUDIO_CODEC': 'Raw 16-bit PCM audio',
+    'TOTEM_INFO_AUDIO_SAMPLE_RATE': '48000',
+    'TOTEM_INFO_AUDIO_CHANNELS': 'Stereo',
+}
+
 
 def test_file_2_base64():
     f = extractor.file_2_base64
     tmp = TempDir()
     src = tmp.write('Hello naughty nurse!', 'sample.txt')
     assert base64.b64decode(f(src)) == 'Hello naughty nurse!'
+
+
+def test_extract_exif():
+    f = extractor.extract_exif
+    exif = f(sample_thm)
+    assert_deepequal(sample_thm_exif, exif)
+
+    # Test that error is returned for invalid file:
+    tmp = TempDir()
+    data = 'Foo Bar\n' * 1000
+    jpg = tmp.write(data, 'sample.jpg')
+    assert f(jpg) == {u'Error': u'File format error'}
+
+    # Test with non-existent file:
+    nope = tmp.join('nope.jpg')
+    assert f(nope) == {u'Error': u'ValueError: No JSON object could be decoded'}
+
+
+def test_extract_video_info():
+    f = extractor.extract_video_info
+    tmp = TempDir()
+
+    # Test with sample_mov from 5D Mark II:
+    info = f(sample_mov)
+    assert_deepequal(sample_mov_info, info)
+
+    # Test invalid file:
+    invalid = tmp.write('Wont work!', 'invalid.mov')
+    assert f(invalid) == {
+        'TOTEM_INFO_HAS_VIDEO': 'False',
+        'TOTEM_INFO_HAS_AUDIO': 'False',
+    }
+
+    # Test with non-existent file:
+    nope = tmp.join('nope.mov')
+    assert f(nope) == {
+        'TOTEM_INFO_HAS_VIDEO': 'False',
+        'TOTEM_INFO_HAS_AUDIO': 'False',
+    }
 
 
 def test_generate_thumbnail():
@@ -250,19 +303,3 @@ def test_generate_thumbnail():
     # Test with non-existent file:
     nope = tmp.join('nope.mov')
     assert f(nope) is None
-
-
-def test_extract_exif():
-    f = extractor.extract_exif
-    exif = f(sample_thm)
-    assert_deepequal(sample_thm_exif, exif)
-
-    # Test that error is returned for invalid file:
-    tmp = TempDir()
-    data = 'Foo Bar\n' * 1000
-    jpg = tmp.write(data, 'sample.jpg')
-    assert f(jpg) == {u'Error': u'File format error'}
-
-    # Test with non-existent file:
-    nope = tmp.join('nope.jpg')
-    assert f(nope) == {u'Error': u'ValueError: No JSON object could be decoded'}

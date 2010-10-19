@@ -54,12 +54,12 @@ def file_2_base64(filename):
     return b64encode(open(filename, 'rb').read())
 
 
-def extract_exif(src):
+def extract_exif(filename):
     """
-    Attempt to extract EXIF metadata from file *src*.
+    Attempt to extract EXIF metadata from file at *filename*.
     """
     try:
-        args = ['exiftool', '-j', src]
+        args = ['exiftool', '-j', filename]
         (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
         exif = json.loads(stdout)[0]
         assert isinstance(exif, dict)
@@ -70,9 +70,31 @@ def extract_exif(src):
         return {u'Error': u'%s: %s' % (e.__class__.__name__, e)}
 
 
-def generate_thumbnail(src):
+def extract_video_info(filename):
     """
-    Generate thumbnail for video file *src* using totem-video-thumbnailer.
+    Attempt to extract video metadata from video at *filename*.
+    """
+    try:
+        args = ['totem-video-indexer', filename]
+        popen = Popen(args, stdout=PIPE)
+        (stdout, stderr) = popen.communicate()
+        if popen.returncode != 0:
+            return {}
+        info = {}
+        for line in stdout.splitlines():
+            pair = line.split('=', 1)
+            if len(pair) != 2:
+                continue
+            (key, value) = pair
+            info[key] = value
+        return info
+    except Exception:
+        return {}
+
+
+def generate_thumbnail(filename):
+    """
+    Generate thumbnail for video at *filename*.
     """
     try:
         tmp = tempfile.mkdtemp(prefix='dmedia.')
@@ -82,7 +104,7 @@ def generate_thumbnail(src):
             '-r', # Create a "raw" thumbnail without film boarder
             '-j', # Save as JPEG instead of PNG
             '-s', '192', # Fit video into 192x192 pixel square (192x108 for 16:9)
-            src,
+            filename,
             dst,
         ])
         return {
