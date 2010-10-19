@@ -63,6 +63,19 @@ _exif = {
     'focal_length': ['FocalLength', 'Lens'],
 }
 
+
+def extract_exif2(src):
+    """
+    Attempt to extract EXIF metadata from file *src*.
+    """
+    try:
+        args = ['exiftool', '-j', src]
+        (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
+        return json.loads(stdout)[0]
+    except Exception:
+        return None
+
+
 def extract_exif(d):
     args = ['exiftool', '-j', d['src']]
     (stdout, stderr) = Popen(args, stdout=PIPE).communicate()

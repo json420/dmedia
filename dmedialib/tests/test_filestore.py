@@ -27,7 +27,7 @@ Unit tests for `dmedialib.filestore` module.
 import os
 from os import path
 import hashlib
-from helpers import TempDir, TempHome, raises
+from .helpers import TempDir, TempHome, raises
 from dmedialib import filestore
 
 
