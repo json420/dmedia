@@ -24,7 +24,7 @@
 Unit tests for `dmedialib.extractor` module.
 """
 
-from .helpers import sample_mov, sample_thm, assert_deepequal
+from .helpers import sample_mov, sample_thm, assert_deepequal, TempDir
 from dmedialib import extractor
 
 # Known EXIF data as returned be exiftool:
@@ -222,6 +222,16 @@ sample_thm_exif = {
 
 
 def test_extract_exif():
-    f = extractor.extract_exif2
+    f = extractor.extract_exif
     exif = f(sample_thm)
     assert_deepequal(sample_thm_exif, exif)
+
+    # Test that error is returned for invalid file:
+    tmp = TempDir()
+    data = 'Foo Bar\n' * 1000
+    jpg = tmp.write(data, 'sample.jpg')
+    assert f(jpg) == {u'Error': u'File format error'}
+
+    # Test with non-existent file:
+    nope = tmp.join('nope.jpg')
+    assert f(nope) == {u'Error': u'ValueError: No JSON object could be decoded'}

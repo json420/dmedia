@@ -77,7 +77,7 @@ _exif = {
 }
 
 
-def extract_exif2(src):
+def extract_exif(src):
     """
     Attempt to extract EXIF metadata from file *src*.
     """
@@ -89,14 +89,12 @@ def extract_exif2(src):
         for key in EXIFTOOL_IGNORE:
             exif.pop(key, None)
         return exif
-    except Exception:
-        return None
+    except Exception as e:
+        return {u'Error': u'%s: %s' % (e.__class__.__name__, e)}
 
 
-def extract_exif(d):
-    args = ['exiftool', '-j', d['src']]
-    (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
-    exif = json.loads(stdout)[0]
+def merge_exif(d):
+    exif = extract_exif(d['src'])
     yield ('exif', exif)
     for (key, sources) in _exif.iteritems():
         for src in sources:
@@ -104,7 +102,7 @@ def extract_exif(d):
                 yield (key, exif[src])
                 break
 
-register(extract_exif, 'jpg', 'png', 'cr2')
+register(merge_exif, 'jpg', 'png', 'cr2')
 
 
 _totem = {
@@ -169,7 +167,7 @@ def extract_totem(d):
         return
     thm = path.join(d['base'], d['root'] + '.THM')
     if path.isfile(thm):
-        for (key, value) in extract_exif({'src': thm}):
+        for (key, value) in merge_exif({'src': thm}):
             yield (key, value)
 
 register(extract_totem, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga')
