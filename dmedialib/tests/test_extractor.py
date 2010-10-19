@@ -24,6 +24,8 @@
 Unit tests for `dmedialib.extractor` module.
 """
 
+import base64
+import Image
 from .helpers import sample_mov, sample_thm, assert_deepequal, TempDir
 from dmedialib import extractor
 
@@ -219,6 +221,14 @@ sample_thm_exif = {
     u'ZoomSourceWidth': 0,
     u'ZoomTargetWidth': 0, u'BitsPerSample': 8,
 }
+
+
+def test_file_2_base64():
+    f = extractor.file_2_base64
+    tmp = TempDir()
+    src = tmp.write('Hello naughty nurse!', 'sample.txt')
+    assert base64.b64decode(f(src)) == 'Hello naughty nurse!'
+
 
 
 def test_extract_exif():

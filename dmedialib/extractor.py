@@ -44,8 +44,12 @@ EXIFTOOL_IGNORE = (
     'FileType',  # 'JPEG'
 )
 
-def encode(fname):
-    return b64encode(open(fname, 'rb').read())
+
+def file_2_base64(filename):
+    """
+    Return contents of file at *filename* base64-encoded.
+    """
+    return b64encode(open(filename, 'rb').read())
 
 
 _extractors = {}
@@ -142,7 +146,7 @@ def extract_thumbnail(src):
     ])
     ret = {
         'content_type': 'image/jpeg',
-        'data': encode(dst),
+        'data': file_2_base64(dst),
     }
     shutil.rmtree(tmp)
     return ret
