@@ -45,12 +45,59 @@ EXIFTOOL_IGNORE = (
 )
 
 
+#### Utility functions that do heavy lifting:
+
 def file_2_base64(filename):
     """
     Return contents of file at *filename* base64-encoded.
     """
     return b64encode(open(filename, 'rb').read())
 
+
+def extract_exif(src):
+    """
+    Attempt to extract EXIF metadata from file *src*.
+    """
+    try:
+        args = ['exiftool', '-j', src]
+        (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
+        exif = json.loads(stdout)[0]
+        assert isinstance(exif, dict)
+        for key in EXIFTOOL_IGNORE:
+            exif.pop(key, None)
+        return exif
+    except Exception as e:
+        return {u'Error': u'%s: %s' % (e.__class__.__name__, e)}
+
+
+def generate_thumbnail(src):
+    """
+    Generate thumbnail for video file *src* using totem-video-thumbnailer.
+    """
+    try:
+        tmp = tempfile.mkdtemp(prefix='dmedia.')
+        dst = path.join(tmp, 'thumbnail.jpg')
+        check_call([
+            'totem-video-thumbnailer',
+            '-r', # Create a "raw" thumbnail without film boarder
+            '-j', # Save as JPEG instead of PNG
+            '-s', '192', # Fit video into 192x192 pixel square (192x108 for 16:9)
+            src,
+            dst,
+        ])
+        return {
+            'content_type': 'image/jpeg',
+            'data': file_2_base64(dst),
+        }
+    except Exception:
+        return None
+    finally:
+        if path.isdir(tmp):
+            shutil.rmtree(tmp)
+
+
+
+#### High-level meta-data extract/merge functions:
 
 _extractors = {}
 
@@ -69,6 +116,7 @@ def merge_metadata(d):
             if key not in meta:
                 meta[key] = value
 
+
 _exif = {
     'width': ['ImageWidth'],
     'height': ['ImageHeight'],
@@ -81,20 +129,7 @@ _exif = {
 }
 
 
-def extract_exif(src):
-    """
-    Attempt to extract EXIF metadata from file *src*.
-    """
-    try:
-        args = ['exiftool', '-j', src]
-        (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
-        exif = json.loads(stdout)[0]
-        assert isinstance(exif, dict)
-        for key in EXIFTOOL_IGNORE:
-            exif.pop(key, None)
-        return exif
-    except Exception as e:
-        return {u'Error': u'%s: %s' % (e.__class__.__name__, e)}
+
 
 
 def merge_exif(d):
@@ -133,27 +168,7 @@ def _parse_totem(stdout):
         yield (key, value)
 
 
-def generate_thumbnail(src):
-    try:
-        tmp = tempfile.mkdtemp(prefix='dmedia.')
-        dst = path.join(tmp, 'thumbnail.jpg')
-        check_call([
-            'totem-video-thumbnailer',
-            '-r', # Create a "raw" thumbnail without film boarder
-            '-j', # Save as JPEG instead of PNG
-            '-s', '192', # Fit video into 192x192 pixel square (192x108 for 16:9)
-            src,
-            dst,
-        ])
-        return {
-            'content_type': 'image/jpeg',
-            'data': file_2_base64(dst),
-        }
-    except Exception:
-        return None
-    finally:
-        if path.isdir(tmp):
-            shutil.rmtree(tmp)
+
 
 
 def extract_totem(d):
