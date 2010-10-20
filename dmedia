@@ -88,6 +88,7 @@ import sys
 import os
 from os import path
 import optparse
+import logging
 import dmedialib
 
 BATCH_SIZE = 25
@@ -132,6 +133,17 @@ if not path.isdir(base):
 extensions = frozenset(a.lower() for a in args[1:])
 
 
+cache = path.join(os.environ['HOME'], '.cache', 'dmedia')
+if not path.exists(cache):
+    os.makedirs(cache)
+if path.isdir(cache):
+    logfile = path.join(cache, 'log.txt')
+    logging.basicConfig(
+        filename=logfile,
+        filemode='w',
+    )
+
+
 from dmedialib.filestore import FileStore
 from dmedialib.metastore import MetaStore
 from dmedialib.extractor import merge_metadata
@@ -142,6 +154,7 @@ db = MetaStore()
 common = dict(
     project=options.project,
     tags=options.tags,
+    level=logging.DEBUG,
 )
 
 
@@ -162,7 +175,10 @@ for d in store.add_recursive(base, extensions):
         db.db.put_records_batch(buf)
         buf = []
 if buf:
-    db.db.put_records_batch(buf)
+    try:
+        db.db.put_records_batch(buf)
+    except Exception as e:
+        logging.exception('Error adding records with put_records_batch()')
 
 print ''
 for key in sorted(counts):
