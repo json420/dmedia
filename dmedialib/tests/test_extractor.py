@@ -324,3 +324,22 @@ def test_merge_exif():
             focal_length=u'138.0 mm',
         ),
     )
+
+
+def test_merge_video_info():
+    f = extractor.merge_video_info
+    d = dict(src=sample_mov)
+
+    assert_deepequal(
+        dict(f(d)),
+        dict(
+            width=1920,
+            height=1080,
+            duration=3,
+            codec_video='H.264 / AVC',
+            codec_audio='Raw 16-bit PCM audio',
+            sample_rate=48000,
+            fps=30,
+            channels='Stereo',
+        ),
+    )

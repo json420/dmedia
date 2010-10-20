@@ -59,6 +59,18 @@ EXIF_REMAP = {
 }
 
 
+TOTEM_REMAP = (
+    ('duration', 'TOTEM_INFO_DURATION'),
+    ('width', 'TOTEM_INFO_VIDEO_WIDTH'),
+    ('height', 'TOTEM_INFO_VIDEO_HEIGHT'),
+    ('codec_video', 'TOTEM_INFO_VIDEO_CODEC'),
+    ('fps', 'TOTEM_INFO_FPS'),
+    ('codec_audio', 'TOTEM_INFO_AUDIO_CODEC'),
+    ('sample_rate', 'TOTEM_INFO_AUDIO_SAMPLE_RATE'),
+    ('channels', 'TOTEM_INFO_AUDIO_CHANNELS'),
+)
+
+
 #### Utility functions that do heavy lifting:
 
 def file_2_base64(filename):
@@ -165,16 +177,7 @@ def merge_exif(d):
 register(merge_exif, 'jpg', 'png', 'cr2')
 
 
-_totem = {
-    'duration': 'TOTEM_INFO_DURATION',
-    'width': 'TOTEM_INFO_VIDEO_WIDTH',
-    'height': 'TOTEM_INFO_VIDEO_HEIGHT',
-    'codec_video': 'TOTEM_INFO_VIDEO_CODEC',
-    'fps': 'TOTEM_INFO_FPS',
-    'codec_audio': 'TOTEM_INFO_AUDIO_CODEC',
-    'sample_rate': 'TOTEM_INFO_AUDIO_SAMPLE_RATE',
-    'channels': 'TOTEM_INFO_AUDIO_CHANNELS',
-}
+
 
 def _parse_totem(stdout):
     for line in stdout.splitlines():
@@ -189,17 +192,18 @@ def _parse_totem(stdout):
         yield (key, value)
 
 
-
-
-
-def extract_totem(d):
+def merge_video_info(d):
     filename = d['src']
-    args = ['totem-video-indexer', filename]
-    (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
-    meta = dict(_parse_totem(stdout))
-    for (key, src) in _totem.iteritems():
-        if src in meta:
-            yield (key, meta[src])
+    info = extract_video_info(filename)
+    for (dst_key, src_key) in TOTEM_REMAP:
+        if src_key in info:
+            value = info[src_key]
+            try:
+                value = int(value)
+            except ValueError:
+                pass
+            yield (dst_key, value)
+    return
     try:
         yield (
             '_attachments',
@@ -214,4 +218,4 @@ def extract_totem(d):
         for (key, value) in merge_exif({'src': thm}):
             yield (key, value)
 
-register(extract_totem, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga')
+register(merge_video_info, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga')
