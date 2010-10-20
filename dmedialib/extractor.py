@@ -33,18 +33,16 @@ from base64 import b64encode
 
 # exiftool adds some metadata that doesn't make sense to include:
 EXIFTOOL_IGNORE = (
-    'SourceFile',  # '/home/jderose/bzr/dmedia/dmedialib/tests/data/MVI_5751.THM'
-    'Directory',  # '/home/jderose/bzr/dmedia/dmedialib/tests/data',
-    'ExifToolVersion',  # 8.1500000000000004
-
-    'FileModifyDate',  # '2010:10:19 20:43:18-06:00'
+    'SourceFile',  # 'dmedialib/tests/data/MVI_5751.THM'
+    'ExifToolVersion',  # 8.15
     'FileName',  # 'MVI_5751.THM'
-    'FilePermissions',  # 'rw-r--r--'
+    'Directory',  # 'dmedialib/tests/data',
     'FileSize',  # '27 kB'
+    'FileModifyDate',  # '2010:10:19 20:43:18-06:00'
+    'FilePermissions',  # 'rw-r--r--'
     'FileType',  # 'JPEG'
-
-#MIME Type                       : image/jpeg
-#Exif Byte Order
+    'MIMEType',  # 'image/jpeg'
+    'ExifByteOrder',  # 'Little-endian (Intel, II)'
 )
 
 
