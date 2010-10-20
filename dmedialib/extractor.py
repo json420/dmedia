@@ -177,21 +177,6 @@ def merge_exif(d):
 register(merge_exif, 'jpg', 'png', 'cr2')
 
 
-
-
-def _parse_totem(stdout):
-    for line in stdout.splitlines():
-        pair = line.split('=', 1)
-        if len(pair) != 2:
-            continue
-        (key, value) = pair
-        try:
-            value = int(value)
-        except ValueError:
-            pass
-        yield (key, value)
-
-
 def merge_video_info(d):
     filename = d['src']
     info = extract_video_info(filename)
@@ -203,7 +188,6 @@ def merge_video_info(d):
             except ValueError:
                 pass
             yield (dst_key, value)
-    return
     try:
         yield (
             '_attachments',
@@ -216,6 +200,8 @@ def merge_video_info(d):
     thm = path.join(d['base'], d['root'] + '.THM')
     if path.isfile(thm):
         for (key, value) in merge_exif({'src': thm}):
+            if key in ('width', 'height'):
+                continue
             yield (key, value)
 
 register(merge_video_info, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga')

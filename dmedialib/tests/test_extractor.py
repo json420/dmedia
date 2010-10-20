@@ -25,6 +25,7 @@ Unit tests for `dmedialib.extractor` module.
 """
 
 import base64
+from os import path
 import Image
 from .helpers import sample_mov, sample_thm, assert_deepequal, TempDir
 from dmedialib import extractor
@@ -320,18 +321,30 @@ def test_merge_exif():
             aperture=11.0,
             lens=u'Canon EF 70-200mm f/4L IS',
             camera=u'Canon EOS 5D Mark II',
-            exif=sample_thm_exif,
             focal_length=u'138.0 mm',
+            exif=sample_thm_exif,
         ),
     )
 
 
 def test_merge_video_info():
     f = extractor.merge_video_info
-    d = dict(src=sample_mov)
+    d = dict(
+        src=sample_mov,
+        base=path.dirname(sample_mov),
+        root='MVI_5751',
+        meta=dict(
+            ext='mov',
+        ),
+    )
+
+    merged = dict(f(d))
+    att = merged.pop('_attachments')
+    assert isinstance(att, dict)
+    assert sorted(att) == ['thumbnail']
 
     assert_deepequal(
-        dict(f(d)),
+        merged,
         dict(
             width=1920,
             height=1080,
@@ -341,5 +354,12 @@ def test_merge_video_info():
             sample_rate=48000,
             fps=30,
             channels='Stereo',
+            iso=100,
+            shutter=u'1/100',
+            aperture=11.0,
+            lens=u'Canon EF 70-200mm f/4L IS',
+            camera=u'Canon EOS 5D Mark II',
+            focal_length=u'138.0 mm',
+            exif=sample_thm_exif,
         ),
     )
