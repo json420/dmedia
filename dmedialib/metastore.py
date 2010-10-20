@@ -65,11 +65,31 @@ function(doc) {
 }
 """
 
+map_tags = """
+function(doc) {
+    if (doc.tags) {
+        doc.tags.forEach(function(tag) {
+            emit(tag, null);
+        });
+    }
+}
+"""
+
+map_project = """
+function(doc) {
+    if (doc.project) {
+        emit(doc.project, null);
+    }
+}
+"""
+
 views = {
     'total_bytes': (map_total_bytes, reduce_sum),
     'ext': (map_ext, reduce_count),
     'mtime': (map_mtime, None),
     'links': (map_links, None),
+    'tags': (map_tags, reduce_count),
+    'project': (map_project, reduce_count),
 }
 
 
