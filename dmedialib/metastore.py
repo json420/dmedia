@@ -47,6 +47,14 @@ function(doc) {
 }
 """
 
+map_mime = """
+function(doc) {
+    if (doc.mime) {
+        emit(doc.mime, null);
+    }
+}
+"""
+
 map_mtime = """
 function(doc) {
     if (doc.mtime) {
@@ -90,6 +98,7 @@ class MetaStore(object):
     views = {
         'total_bytes': (map_total_bytes, reduce_sum),
         'ext': (map_ext, reduce_count),
+        'mime': (map_mime, reduce_count),
         'mtime': (map_mtime, None),
         'links': (map_links, None),
         'tags': (map_tags, reduce_count),
