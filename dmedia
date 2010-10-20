@@ -172,11 +172,11 @@ for d in store.add_recursive(base, extensions):
             merge_metadata(d)
         buf.append(db.new(d['meta']))
     if len(buf) >= BATCH_SIZE:
-        db.db.put_records_batch(buf)
+        db.desktop.put_records_batch(buf)
         buf = []
 if buf:
     try:
-        db.db.put_records_batch(buf)
+        db.desktop.put_records_batch(buf)
     except Exception as e:
         logging.exception('Error adding records with put_records_batch()')
 
