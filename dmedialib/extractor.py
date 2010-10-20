@@ -190,15 +190,19 @@ def merge_video_info(d):
             except ValueError:
                 pass
             yield (dst_key, value)
-    try:
+
+    # Try to generate thumbnail:
+    thumbnail = generate_thumbnail(filename)
+    if thumbnail is not None:
         yield (
             '_attachments',
-            {'thumbnail': generate_thumbnail(filename)}
+            {'thumbnail': thumbnail}
         )
-    except Exception:
-        pass
+
     if d['meta']['ext'] != 'mov':
         return
+
+    # Extract EXIF metadata from Canon .THM file if present:
     thm = path.join(d['base'], d['root'] + '.THM')
     if path.isfile(thm):
         for (key, value) in merge_exif({'src': thm}):

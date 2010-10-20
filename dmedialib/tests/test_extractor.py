@@ -431,3 +431,18 @@ def test_merge_video_info():
             exif=sample_thm_exif,
         ),
     )
+
+    # Test invalid file:
+    invalid_mov = tmp.write('Wont work!', 'invalid.mov')
+    invalid_thm = tmp.write('Wont work either!', 'invalid.thm')
+    d = dict(
+        src=invalid_mov,
+        base=tmp.path,
+        root='invalid',
+        meta=dict(
+            ext='mov',
+        ),
+    )
+    merged = dict(f(d))
+    assert '_attachments' not in merged
+    assert merged == {}
