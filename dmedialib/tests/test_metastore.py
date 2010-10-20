@@ -25,6 +25,7 @@ Unit tests for `dmedialib.metastore` module.
 
 from helpers import TempDir, TempHome
 from dmedialib import metastore
+import couchdb
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 
@@ -32,7 +33,58 @@ from desktopcouch.records.record import  Record
 class test_MetaStore(object):
     klass = metastore.MetaStore
 
+    def new(self):
+        return self.klass(test=True)
+
     def test_init(self):
+        assert self.klass.type_url == 'http://example.com/dmedia'
+
         inst = self.klass()
-        assert isinstance(inst.db, CouchDatabase)
-        assert inst.type_url == 'http://example.com/dmedia'
+        assert inst.name == 'dmedia'
+        assert inst.test is False
+        assert isinstance(inst.desktop, CouchDatabase)
+        assert isinstance(inst.server, couchdb.Server)
+
+        inst = self.new()
+        assert inst.name == 'dmedia_test'
+        assert inst.test is True
+        assert isinstance(inst.desktop, CouchDatabase)
+        assert isinstance(inst.server, couchdb.Server)
+
+    def test_total_bytes(self):
+        inst = self.new()
+        assert inst.total_bytes() == 0
+        total = 0
+        for exp in xrange(20, 31):
+            size = 2 ** exp + 1
+            total += size
+            inst.db.create({'bytes': size})
+            assert inst.total_bytes() == total
+
+    def test_extensions(self):
+        inst = self.new()
+        assert list(inst.extensions()) == []
+        for i in xrange(17):
+            inst.db.create({'ext': 'mov'})
+            inst.db.create({'ext': 'jpg'})
+            inst.db.create({'ext': 'cr2'})
+        assert list(inst.extensions()) == [
+            ('cr2', 17),
+            ('jpg', 17),
+            ('mov', 17),
+        ]
+        for i in xrange(27):
+            inst.db.create({'ext': 'mov'})
+            inst.db.create({'ext': 'jpg'})
+        assert list(inst.extensions()) == [
+            ('cr2', 17),
+            ('jpg', 44),
+            ('mov', 44),
+        ]
+        for i in xrange(25):
+            inst.db.create({'ext': 'mov'})
+        assert list(inst.extensions()) == [
+            ('cr2', 17),
+            ('jpg', 44),
+            ('mov', 69),
+        ]

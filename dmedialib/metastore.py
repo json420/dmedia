@@ -83,32 +83,47 @@ function(doc) {
 }
 """
 
-views = {
-    'total_bytes': (map_total_bytes, reduce_sum),
-    'ext': (map_ext, reduce_count),
-    'mtime': (map_mtime, None),
-    'links': (map_links, None),
-    'tags': (map_tags, reduce_count),
-    'project': (map_project, reduce_count),
-}
-
 
 class MetaStore(object):
-    def __init__(self, name='dmedia', type_url='http://example.com/dmedia'):
-        self.db = CouchDatabase(name, create=True)
-        self.type_url = type_url
+    type_url = 'http://example.com/dmedia'
 
-        for (key, value) in views.iteritems():
-            if not self.db.view_exists(key):
+    views = {
+        'total_bytes': (map_total_bytes, reduce_sum),
+        'ext': (map_ext, reduce_count),
+        'mtime': (map_mtime, None),
+        'links': (map_links, None),
+        'tags': (map_tags, reduce_count),
+        'project': (map_project, reduce_count),
+    }
+
+    def __init__(self, name='dmedia', test=False):
+        if test:
+            self.name = name + '_test'
+        else:
+            self.name = name
+        self.test = test
+        self.desktop = CouchDatabase(self.name, create=True)
+        self.server = self.desktop._server
+        if test:
+            del self.server[self.name]
+            self.server.create(self.name)
+        self.db = self.server[self.name]
+        self.create_views()
+
+    def create_views(self):
+        for (key, value) in self.views.iteritems():
+            if not self.desktop.view_exists(key):
                 (map_, reduce_) = value
-                self.db.add_view(key, map_, reduce_)
+                self.desktop.add_view(key, map_, reduce_)
 
     def new(self, kw):
         return Record(kw, self.type_url)
 
-    def bytes(self):
-        return tuple(self.db.execute_view('total_bytes'))[0].value
+    def total_bytes(self):
+        for row in self.desktop.execute_view('total_bytes'):
+            return row.value
+        return 0
 
     def extensions(self):
-        for r in self.db.execute_view('ext', group=True):
-            yield (r.key, r.value)
+        for row in self.desktop.execute_view('ext', group=True):
+            yield (row.key, row.value)
