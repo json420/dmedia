@@ -33,6 +33,9 @@ import mimetypes
 import time
 
 
+mimetypes.init()
+
+
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 DOTDIR = '.dmedia'
 

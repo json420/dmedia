@@ -182,3 +182,21 @@ class test_FileStore(object):
         }
         assert path.isfile(dst)
         assert open(dst, 'r').read() == 'Novacut'
+
+        # Test that correct mime-type is retrieved for .cr2 files:
+        chash = 'HECAODPVLQKOWHA3UVQO6ULCHW4PM3DZ'
+        src = h.write('A Canon .cr2 RAW image', 'Pictures', 'IMG_1300.CR2')
+        dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.cr2')
+        assert inst._do_add({'src': src, 'meta': {'ext': 'cr2'}}) == {
+            'action': 'linked',
+            'src': src,
+            'dst': dst,
+            'meta': {
+                '_id': chash,
+                'bytes': path.getsize(src),
+                'mtime': path.getmtime(src),
+                'ext': 'cr2',
+                'mime': 'image/x-canon-cr2',
+                'links': ['Pictures/IMG_1300.CR2'],
+            },
+        }
