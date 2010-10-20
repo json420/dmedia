@@ -151,7 +151,9 @@ _extractors = {}
 
 
 def register(callback, *extensions):
+    assert callable(callback)
     for ext in extensions:
+        assert isinstance(ext, str)
         _extractors[ext] = callback
 
 

@@ -308,6 +308,62 @@ def test_generate_thumbnail():
     assert f(nope) is None
 
 
+def test_merge_metadata():
+    f = extractor.merge_metadata
+    tmp = TempDir()
+    d = dict(
+        src=sample_mov,
+        base=path.dirname(sample_mov),
+        root='MVI_5751',
+        meta=dict(
+            ext='mov',
+        ),
+    )
+
+    f(d)
+
+    # Check thumbnail
+    att = d['meta'].pop('_attachments')
+    assert isinstance(att, dict)
+    assert sorted(att) == ['thumbnail']
+    thm = att['thumbnail']
+    assert isinstance(thm, dict)
+    assert sorted(thm) == ['content_type', 'data']
+    assert thm['content_type'] == 'image/jpeg'
+    data = base64.b64decode(thm['data'])
+    jpg = tmp.write(data, 'thumbnail.jpg')
+    img = Image.open(jpg)
+    assert img.size == (192, 108)
+    assert img.format == 'JPEG'
+
+    assert_deepequal(
+        d,
+        dict(
+            src=sample_mov,
+            base=path.dirname(sample_mov),
+            root='MVI_5751',
+            meta=dict(
+                ext='mov',
+                width=1920,
+                height=1080,
+                duration=3,
+                codec_video='H.264 / AVC',
+                codec_audio='Raw 16-bit PCM audio',
+                sample_rate=48000,
+                fps=30,
+                channels='Stereo',
+                iso=100,
+                shutter=u'1/100',
+                aperture=11.0,
+                lens=u'Canon EF 70-200mm f/4L IS',
+                camera=u'Canon EOS 5D Mark II',
+                focal_length=u'138.0 mm',
+                exif=sample_thm_exif,
+            ),
+        )
+    )
+
+
 def test_merge_exif():
     f = extractor.merge_exif
     d = dict(src=sample_thm)
@@ -329,6 +385,7 @@ def test_merge_exif():
 
 def test_merge_video_info():
     f = extractor.merge_video_info
+    tmp = TempDir()
     d = dict(
         src=sample_mov,
         base=path.dirname(sample_mov),
@@ -339,9 +396,20 @@ def test_merge_video_info():
     )
 
     merged = dict(f(d))
+
+    # Check thumbnail
     att = merged.pop('_attachments')
     assert isinstance(att, dict)
     assert sorted(att) == ['thumbnail']
+    thm = att['thumbnail']
+    assert isinstance(thm, dict)
+    assert sorted(thm) == ['content_type', 'data']
+    assert thm['content_type'] == 'image/jpeg'
+    data = base64.b64decode(thm['data'])
+    jpg = tmp.write(data, 'thumbnail.jpg')
+    img = Image.open(jpg)
+    assert img.size == (192, 108)
+    assert img.format == 'JPEG'
 
     assert_deepequal(
         merged,
