@@ -294,7 +294,9 @@ def test_generate_thumbnail():
     assert d['content_type'] == 'image/jpeg'
     data = base64.b64decode(d['data'])
     jpg = tmp.write(data, 'thumbnail.jpg')
-    assert Image.open(jpg).size == (192, 108)
+    img = Image.open(jpg)
+    assert img.size == (192, 108)
+    assert img.format == 'JPEG'
 
     # Test invalid file:
     invalid = tmp.write('Wont work!', 'invalid.mov')
