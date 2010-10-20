@@ -29,6 +29,7 @@ import shutil
 import hashlib
 from hashlib import sha1
 from base64 import b32encode
+import mimetypes
 import time
 
 
@@ -223,6 +224,8 @@ class FileStore(object):
 
         meta['bytes'] = path.getsize(src)
         meta['mtime'] = path.getmtime(src)
+        if meta.get('ext') is not None:
+            meta['mime'] = mimetypes.types_map.get('.' + meta['ext'])
         if os.stat(src).st_dev == os.stat(self.mediadir(shared)).st_dev:
             os.link(src, dst)
             d['action'] = 'linked'

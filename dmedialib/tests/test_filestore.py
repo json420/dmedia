@@ -167,6 +167,7 @@ class test_FileStore(object):
                 'bytes': path.getsize(src),
                 'mtime': path.getmtime(src),
                 'ext': 'txt',
+                'mime': 'text/plain',
                 'links': ['Documents/test.txt'],
             },
         }
