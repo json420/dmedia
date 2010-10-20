@@ -42,7 +42,23 @@ EXIFTOOL_IGNORE = (
     'FilePermissions',  # 'rw-r--r--'
     'FileSize',  # '27 kB'
     'FileType',  # 'JPEG'
+
+#MIME Type                       : image/jpeg
+#Exif Byte Order
 )
+
+
+# Store some EXIF data using standardized keys in document:
+EXIF_REMAP = {
+    'width': ['ImageWidth'],
+    'height': ['ImageHeight'],
+    'iso': ['ISO'],
+    'shutter': ['ShutterSpeed', 'ExposureTime'],
+    'aperture': ['Aperture', 'FNumber', 'ApertureValue'],
+    'lens': ['LensID', 'LensType'],
+    'camera': ['Model'],
+    'focal_length': ['FocalLength'],
+}
 
 
 #### Utility functions that do heavy lifting:
@@ -139,25 +155,10 @@ def merge_metadata(d):
                 meta[key] = value
 
 
-_exif = {
-    'width': ['ImageWidth'],
-    'height': ['ImageHeight'],
-    'iso': ['ISO'],
-    'shutter': ['ShutterSpeed', 'ExposureTime'],
-    'aperture': ['Aperture', 'FNumber', 'ApertureValue'],
-    'lens': ['LensID', 'LensType'],
-    'camera': ['Model'],
-    'focal_length': ['FocalLength', 'Lens'],
-}
-
-
-
-
-
 def merge_exif(d):
     exif = extract_exif(d['src'])
     yield ('exif', exif)
-    for (key, sources) in _exif.iteritems():
+    for (key, sources) in EXIF_REMAP.iteritems():
         for src in sources:
             if src in exif:
                 yield (key, exif[src])

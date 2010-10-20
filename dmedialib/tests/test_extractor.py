@@ -303,3 +303,22 @@ def test_generate_thumbnail():
     # Test with non-existent file:
     nope = tmp.join('nope.mov')
     assert f(nope) is None
+
+
+def test_merge_exif():
+    f = extractor.merge_exif
+    d = dict(src=sample_thm)
+    assert_deepequal(
+        dict(f(d)),
+        dict(
+            width=160,
+            height=120,
+            iso=100,
+            shutter=u'1/100',
+            aperture=11.0,
+            lens=u'Canon EF 70-200mm f/4L IS',
+            camera=u'Canon EOS 5D Mark II',
+            exif=sample_thm_exif,
+            focal_length=u'138.0 mm',
+        ),
+    )
