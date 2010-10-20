@@ -78,7 +78,9 @@ class test_FileStore(object):
     klass = filestore.FileStore
 
     def test_init(self):
+        home = TempHome()
         inst = self.klass()
+        assert inst.home == home.path
         assert inst.user_dir == user_dir()
         assert inst.shared_dir == '/home/.dmedia'
         inst = self.klass(user_dir='/foo', shared_dir='/bar')
@@ -154,7 +156,7 @@ class test_FileStore(object):
         inst = self.klass()
         assert inst.user_dir.startswith(h.path)
 
-        src = h.write('Novacut', 'test.txt')
+        src = h.write('Novacut', 'Documents', 'test.txt')
         dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.txt')
         assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {
             'action': 'linked',
@@ -165,7 +167,7 @@ class test_FileStore(object):
                 'bytes': path.getsize(src),
                 'mtime': path.getmtime(src),
                 'ext': 'txt',
-                'links': [src],
+                'links': ['Documents/test.txt'],
             },
         }
         assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {

@@ -95,8 +95,9 @@ class FileNotFound(StandardError):
 
 class FileStore(object):
     def __init__(self, user_dir=None, shared_dir=None):
+        self.home = path.abspath(os.environ['HOME'])
         if user_dir is None:
-            user_dir = path.join(os.environ['HOME'], DOTDIR)
+            user_dir = path.join(self.home, DOTDIR)
         if shared_dir is None:
             shared_dir = path.join('/home', DOTDIR)
         self.user_dir = path.abspath(user_dir)
@@ -225,7 +226,10 @@ class FileStore(object):
         if os.stat(src).st_dev == os.stat(self.mediadir(shared)).st_dev:
             os.link(src, dst)
             d['action'] = 'linked'
-            meta['links'] = [src]
+            if src.startswith(self.home):
+                meta['links'] = [path.relpath(src, self.home)]
+            else:
+                meta['links'] = [src]
         else:
             shutil.copy2(src, dst)
             d['action'] = 'copied'
