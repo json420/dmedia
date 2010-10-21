@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Authors:
 #   Jason Gerard DeRose <jderose@jasonderose.org>
 #
@@ -19,36 +21,38 @@
 # You should have received a copy of the GNU Lesser General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-"""
-`dmedialib` - distributed media library
-"""
-
-__version__ = '0.0.3'
-
 from os import path
 
-datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
-assert path.isdir(datadir)
+import gtk
+import webkit
+from genshi.template import MarkupTemplate
+
+from dmedialib import datadir
+
+def load(f):
+    assert path.isfile(f), 'not file: %r' % f
+    return MarkupTemplate(open(f, 'r').read())
+
+template = load(path.join(datadir, 'browser.xml'))
+
+kw = dict(
+    lang='en',
+    title='Media Browser',
+    content_type='application/xhtml+xml; charset=utf-8',
+    inline_css=None,
+    inline_js=None,
+)
+
+xhtml = template.generate(**kw).render('xhtml', doctype='xhtml11')
 
 
+window = gtk.Window()
+window.connect('destroy', gtk.main_quit)
 
+view = webkit.WebView()
+view.load_string(xhtml, 'application/xhtml+xml', '', 'file:///')
 
-class Media(object):
+window.add(view)
+window.show_all()
 
-    def add(self, filename):
-        pass
-
-    def hasfile(self, filename):
-        pass
-
-    def haskey(self, key):
-        pass
-
-    def resolve(self, key):
-        pass
-
-    def get(self, key, resolve=False):
-        pass
-
-    def update(self, entry):
-        pass
+gtk.main()

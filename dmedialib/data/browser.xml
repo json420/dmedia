@@ -1,0 +1,23 @@
+<html
+    xmlns:py="http://genshi.edgewall.org/"
+    xmlns="http://www.w3.org/1999/xhtml"
+    xml:lang="${lang}"
+>
+<head>
+<meta http-equiv="Content-Type" content="${content_type}" />
+<title py:content="title" />
+<style
+    py:if="inline_css"
+    py:content="inline_css"
+    type="text/css"
+/>
+<script
+    py:if="inline_js"
+    py:content="inline_js"
+    type="text/javascript"
+/>
+</head>
+<body>
+Hello from dmedia!
+</body>
+</html>
