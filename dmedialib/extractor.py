@@ -231,8 +231,8 @@ def merge_metadata(d):
 
 
 def merge_exif(d):
-    exif = extract_exif(d['src'])
-    yield ('exif', exif)
+    filename = d['src']
+    exif = extract_exif(filename)
     for (key, sources) in EXIF_REMAP.iteritems():
         for src in sources:
             if src in exif:
@@ -241,6 +241,8 @@ def merge_exif(d):
     mtime = extract_mtime_from_exif(exif)
     if mtime is not None:
         yield ('mtime', mtime)
+    if filename.endswith('.THM'):
+        yield ('exif', exif)
 
 
 register(merge_exif, 'jpg', 'png', 'cr2')

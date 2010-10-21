@@ -416,6 +416,7 @@ def test_merge_metadata():
 def test_merge_exif():
     f = extractor.merge_exif
     d = dict(src=sample_thm, meta={})
+    assert sample_thm.endswith('.THM')
     assert_deepequal(
         dict(f(d)),
         dict(
