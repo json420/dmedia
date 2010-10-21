@@ -407,6 +407,7 @@ def test_merge_metadata():
                 camera=u'Canon EOS 5D Mark II',
                 focal_length=u'138.0 mm',
                 exif=sample_thm_exif,
+                mtime=1287520994 + 68 / 100.0,
             ),
         )
     )
@@ -414,7 +415,7 @@ def test_merge_metadata():
 
 def test_merge_exif():
     f = extractor.merge_exif
-    d = dict(src=sample_thm)
+    d = dict(src=sample_thm, meta={})
     assert_deepequal(
         dict(f(d)),
         dict(
@@ -427,6 +428,7 @@ def test_merge_exif():
             camera=u'Canon EOS 5D Mark II',
             focal_length=u'138.0 mm',
             exif=sample_thm_exif,
+            mtime=1287520994 + 68 / 100.0,
         ),
     )
 
@@ -477,6 +479,7 @@ def test_merge_video_info():
             camera=u'Canon EOS 5D Mark II',
             focal_length=u'138.0 mm',
             exif=sample_thm_exif,
+            mtime=1287520994 + 68 / 100.0,
         ),
     )
 

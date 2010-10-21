@@ -226,7 +226,7 @@ def merge_metadata(d):
     if ext in _extractors:
         callback = _extractors[ext]
         for (key, value) in callback(d):
-            if key not in meta:
+            if key not in meta or key == 'mtime':
                 meta[key] = value
 
 
@@ -238,6 +238,10 @@ def merge_exif(d):
             if src in exif:
                 yield (key, exif[src])
                 break
+    mtime = extract_mtime_from_exif(exif)
+    if mtime is not None:
+        yield ('mtime', mtime)
+
 
 register(merge_exif, 'jpg', 'png', 'cr2')
 
