@@ -31,6 +31,7 @@ from hashlib import sha1
 from base64 import b32encode
 import mimetypes
 import time
+import calendar
 
 
 mimetypes.init()
@@ -38,6 +39,39 @@ mimetypes.init()
 
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 DOTDIR = '.dmedia'
+
+
+def parse_subsec_datetime(string):
+    """
+    For example:
+
+    >>> parse_subsec_datetime('2010:10:21 01:44:37.40')
+    1287625477.4000001
+
+    This function also works on timestamps without sub-seconds:
+
+    >>> parse_subsec_datetime('2010:10:21 01:44:37')
+    1287625477.0
+    """
+    parts = string.split('.')
+    if len(parts) == 1:
+        stamp = parts[0]
+        subsec = '00'
+    elif len(parts) == 2:
+        (stamp, subsec) = parts
+    else:
+        return
+    if len(stamp) != 19 or len(subsec) != 2:
+        return
+    try:
+        struct_time = time.strptime(stamp, '%Y:%m:%d %H:%M:%S')
+        subsec = int(subsec)
+        if not (0 <= subsec < 100):
+            return
+        hundredths = subsec / 100.0
+    except ValueError:
+        return
+    return calendar.timegm(struct_time) + hundredths
 
 
 def normalize_ext(name):

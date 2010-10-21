@@ -43,6 +43,37 @@ def user_dir():
     return path.join(os.environ['HOME'], '.dmedia')
 
 
+def test_parse_subsec_datetime():
+    f = filestore.parse_subsec_datetime
+
+    # Test with multiple periods:
+    assert f('2010:10:21.01:44:37.40') is None
+
+    # Test with incorrect datetime length:
+    assert f('2010:10:21  01:44:37.40') is None
+    assert f('2010:10:2101:44:37.40') is None
+    assert f('2010:10:21  01:44:37') is None
+    assert f('2010:10:2101:44:37') is None
+
+    # Test with nonesense datetime:
+    assert f('2010:80:21 01:44:37.40') is None
+    assert f('2010:80:21 01:44:37') is None
+
+    # Test with incorrect subsec length:
+    assert f('2010:10:21 01:44:37.404') is None
+    assert f('2010:10:21 01:44:37.4') is None
+
+    # Test with negative subsec:
+    assert f('2010:10:21 01:44:37.-4') is None
+
+    # Test with nonsense subsec:
+    assert f('2010:10:21 01:44:37.AB') is None
+
+    # Test with valid timestamps:
+    assert f('2010:10:21 01:44:37.40') == 1287625477 + 40 / 100.0
+    assert f('2010:10:21 01:44:37') == 1287625477
+
+
 def test_scanfiles():
     f = filestore.scanfiles
     tmp = TempDir()
