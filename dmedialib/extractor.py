@@ -30,6 +30,8 @@ import json
 import tempfile
 import shutil
 from base64 import b64encode
+import time
+import calendar
 
 # exiftool adds some metadata that doesn't make sense to include:
 EXIFTOOL_IGNORE = (
@@ -43,6 +45,14 @@ EXIFTOOL_IGNORE = (
     'FileType',  # 'JPEG'
     'MIMEType',  # 'image/jpeg'
     'ExifByteOrder',  # 'Little-endian (Intel, II)'
+)
+
+
+# We try to pull an authoritative mtime from these EXIF keys:
+EXIF_MTIME_KEYS = (
+    'SubSecCreateDate',
+    'SubSecDateTimeOriginal',
+    'SubSecModifyDate',
 )
 
 
@@ -94,6 +104,59 @@ def extract_exif(filename):
         return exif
     except Exception as e:
         return {u'Error': u'%s: %s' % (e.__class__.__name__, e)}
+
+
+def parse_subsec_datetime(string):
+    """
+    For example:
+
+    >>> parse_subsec_datetime('2010:10:21 01:44:37.40')
+    1287625477.4000001
+
+    This function also works on timestamps without sub-seconds:
+
+    >>> parse_subsec_datetime('2010:10:21 01:44:37')
+    1287625477.0
+    """
+    if not isinstance(string, basestring):
+        return
+    parts = string.split('.')
+    if len(parts) == 1:
+        stamp = parts[0]
+        subsec = '00'
+    elif len(parts) == 2:
+        (stamp, subsec) = parts
+    else:
+        return
+    if len(stamp) != 19 or len(subsec) != 2:
+        return
+    try:
+        struct_time = time.strptime(stamp, '%Y:%m:%d %H:%M:%S')
+        subsec = int(subsec)
+        if not (0 <= subsec < 100):
+            return
+        hundredths = subsec / 100.0
+    except ValueError:
+        return
+    return calendar.timegm(struct_time) + hundredths
+
+
+def extract_mtime_from_exif(exif):
+    """
+    Attempt to extract accurate mtime from EXIF data in *exif*.
+
+    For example:
+
+    >>> exif = {'SubSecCreateDate': '2010:10:19 20:43:14.68'}
+    >>> extract_mtime_from_exif(exif)
+    1287520994.6800001
+    """
+    for key in EXIF_MTIME_KEYS:
+        if key in exif:
+            value = parse_subsec_datetime(exif[key])
+            if value is not None:
+                return value
+    return None
 
 
 def extract_video_info(filename):
