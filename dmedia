@@ -141,6 +141,7 @@ if path.isdir(cache):
     logging.basicConfig(
         filename=logfile,
         filemode='w',
+        level=logging.DEBUG,
     )
 
 
@@ -151,11 +152,11 @@ from dmedialib.extractor import merge_metadata
 store = FileStore()
 db = MetaStore()
 
-common = dict(
-    project=options.project,
-    tags=options.tags,
-    level=logging.DEBUG,
-)
+common = {}
+if options.project:
+    common['project'] = options.project
+if options.tags:
+    common['tags'] = options.tags
 
 
 buf = []
