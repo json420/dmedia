@@ -220,7 +220,8 @@ sample_thm_exif = {
     u'YCbCrSubSampling': u'YCbCr4:2:2 (2 1)',
     u'YResolution': 72,
     u'ZoomSourceWidth': 0,
-    u'ZoomTargetWidth': 0, u'BitsPerSample': 8,
+    u'ZoomTargetWidth': 0,
+    u'BitsPerSample': 8,
 }
 
 # Known video info from totem-video-indexer:
