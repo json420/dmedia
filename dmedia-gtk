@@ -22,6 +22,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 from os import path
+import sys
 
 import gtk
 import gobject
@@ -37,19 +38,22 @@ def load(f):
     return MarkupTemplate(open(f, 'r').read())
 
 template = load(path.join(datadir, 'browser.xml'))
+js = open(path.join(datadir, 'mootools.js'), 'r').read()
+
 
 kw = dict(
     lang='en',
     title='Media Browser',
     content_type='application/xhtml+xml; charset=utf-8',
     inline_css=None,
-    inline_js=None,
+    inline_js=js,
 )
 
 xhtml = template.generate(**kw).render('xhtml', doctype='xhtml11')
 
 
 window = gtk.Window()
+window.set_title(kw['title'])
 window.set_default_size(640, 480)
 window.connect('destroy', gtk.main_quit)
 
