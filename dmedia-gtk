@@ -24,10 +24,13 @@
 from os import path
 
 import gtk
+import gobject
 import webkit
 from genshi.template import MarkupTemplate
 
 from dmedialib import datadir
+
+gobject.threads_init()
 
 def load(f):
     assert path.isfile(f), 'not file: %r' % f
@@ -47,12 +50,35 @@ xhtml = template.generate(**kw).render('xhtml', doctype='xhtml11')
 
 
 window = gtk.Window()
+window.set_default_size(640, 480)
 window.connect('destroy', gtk.main_quit)
 
-view = webkit.WebView()
-view.load_string(xhtml, 'application/xhtml+xml', '', 'file:///')
+box = gtk.VBox()
+window.add(box)
 
-window.add(view)
+view = webkit.WebView()
+settings = view.get_settings()
+settings.set_property('enable-developer-extras', True)
+
+view.load_string(xhtml, 'application/xhtml+xml', '', 'file:///')
+box.pack_start(view, True, True, 2)
+
+inspector = view.get_web_inspector()
+inspector.set_property('javascript-profiling-enabled', True)
+
+# Enabling this causes a seg-fault, see lp:664896:
+#   https://bugs.launchpad.net/ubuntu/+source/pywebkitgtk/+bug/664896
+#inspector.set_property('timeline-profiling-enabled', True)
+
+def on_inspect(*args):
+    view2 = webkit.WebView()
+    box.pack_start(view2, True, True, 2)
+    return view2
+
+inspector.connect('inspect-web-view', on_inspect)
+
+
+
 window.show_all()
 
 gtk.main()
