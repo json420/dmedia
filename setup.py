@@ -36,5 +36,8 @@ setup(
     author_email='jderose@jasonderose.org',
     license='LGPLv3+',
     packages=['dmedialib'],
-    scripts=['dmedia'],
+    package_data=dict(
+        dmedialib=['data/*'],
+    ),
+    scripts=['dmedia', 'dmedia-gtk'],
 )
