@@ -11,4 +11,9 @@ Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, python-desktopcouch-records, totem, libimage-exiftool-perl, python-genshi, python-webkit, python-paste
 XB-Python-Version: ${python:Versions}
 Description: distributed media library
- FIXME.
+ A simple distributed media library.  Media files are given a globally unique ID
+ based on their content-hash.  Meta-data is stored in CouchDB.  Meta-data for a
+ large number of media files can be available locally (meta-data is small).
+ Actual media files can be loaded on-demand from peers or cloud when not
+ available locally (media files are big). Goals are to make synchronization
+ super easy, and to lay groundwork for a distributed content creation workflow.
