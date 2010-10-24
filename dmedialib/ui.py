@@ -60,9 +60,11 @@ def render_template(template, **kw):
 
 
 class WSGIApp(object):
+    scripts = ('mootools.js', 'dmedia.js')
+
     def __init__(self):
         self.template = load_template('browser.xml')
-        self.js = '\n' + load_datafile('mootools.js') + '\n'
+        self.js = '\n\n'.join(load_datafile(n) for n in self.scripts)
 
     def __call__(self, environ, start_response):
         s = render_template(self.template, inline_js=self.js)

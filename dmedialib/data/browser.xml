@@ -18,6 +18,6 @@
 />
 </head>
 <body>
-Hello from dmedia!
+Hello from dmedia! <button id="button">Click Me</button>
 </body>
 </html>
