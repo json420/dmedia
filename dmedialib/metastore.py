@@ -105,17 +105,9 @@ class MetaStore(object):
         'project': (map_project, reduce_count),
     }
 
-    def __init__(self, name='dmedia', test=False):
-        if test:
-            self.name = name + '_test'
-        else:
-            self.name = name
-        self.test = test
-        self.desktop = CouchDatabase(self.name, create=True)
+    def __init__(self, name='dmedia', context=None):
+        self.desktop = CouchDatabase(self.name, create=True, ctx=context)
         self.server = self.desktop._server
-        if test:
-            del self.server[self.name]
-            self.server.create(self.name)
         self.db = self.server[self.name]
         self.create_views()
 
