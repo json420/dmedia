@@ -34,7 +34,7 @@ reduce_count = '_count'
 map_total_bytes = """
 function(doc) {
     if (doc.bytes) {
-        emit('bytes', doc.bytes);
+        emit(doc.bytes, doc.bytes);
     }
 }
 """
