@@ -96,23 +96,23 @@ BATCH_SIZE = 25
 script = path.basename(sys.argv[0])
 
 parser = optparse.OptionParser(
-	version=dmedialib.__version__,
-	usage='Usage: %s DIRECTORY EXTENSIONS...' % script,
-	epilog='Example: %s /media/EOS_DIGITAL jpg cr2 mov' % script,
+    version=dmedialib.__version__,
+    usage='Usage: %s DIRECTORY EXTENSIONS...' % script,
+    epilog='Example: %s /media/EOS_DIGITAL jpg cr2 mov' % script,
 )
 parser.add_option('--quick',
-	action='store_true',
-	default=False,
-	help='Do a fast scan without extracting extra metadata',
+    action='store_true',
+    default=False,
+    help='Do a fast scan without extracting extra metadata',
 )
 parser.add_option('--project',
-	default=None,
-	help='Add imported files to specified PROJECT',
+    default=None,
+    help='Add imported files to specified PROJECT',
 )
 parser.add_option('--tag',
     action='append',
     default=[],
-	help='Add specified TAG to imported files',
+    help='Add specified TAG to imported files',
 )
 
 (options, args) = parser.parse_args()
