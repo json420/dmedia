@@ -48,27 +48,17 @@ class test_MetaStore(object):
         cache = os.path.join(self.test_data_dir, 'cache')
         data = os.path.join(self.test_data_dir, 'data')
         config = os.path.join(self.test_data_dir, 'config')
-
         self.ctx = desktopcouch.local_files.Context(cache, data, config)
 
     def tearDown(self):
-        pid = desktopcouch.read_pidfile(self.ctx)
-
-        stop_couchdb(pid=pid)
+        stop_couchdb(ctx=self.ctx)
         shutil.rmtree(self.test_data_dir)
 
     def test_init(self):
         assert self.klass.type_url == 'http://example.com/dmedia'
 
-        inst = self.klass(context=self.ctx)
-        assert inst.name == 'dmedia'
-        assert inst.test is False
-        assert isinstance(inst.desktop, CouchDatabase)
-        assert isinstance(inst.server, couchdb.Server)
-
         inst = self.new()
-        assert inst.name == 'dmedia_test'
-        assert inst.test is True
+        assert inst.name == 'dmedia'
         assert isinstance(inst.desktop, CouchDatabase)
         assert isinstance(inst.server, couchdb.Server)
 

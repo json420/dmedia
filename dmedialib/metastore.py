@@ -94,6 +94,7 @@ function(doc) {
 
 class MetaStore(object):
     type_url = 'http://example.com/dmedia'
+    name = 'dmedia'  # Name of CouchDB database
 
     views = {
         'total_bytes': (map_total_bytes, reduce_sum),
