@@ -29,17 +29,38 @@ import couchdb
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 
+from desktopcouch.stop_local_couchdb import stop_couchdb
+import desktopcouch
+import tempfile
+import os
+import shutil
 
 class test_MetaStore(object):
     klass = metastore.MetaStore
 
     def new(self):
-        return self.klass(test=True)
+        return self.klass(context=self.ctx)
+
+    def setUp(self):
+        self.test_data_dir = tempfile.mkdtemp()
+        if not os.path.exists(self.test_data_dir):
+            os.mkdir(self.test_data_dir)
+        cache = os.path.join(self.test_data_dir, 'cache')
+        data = os.path.join(self.test_data_dir, 'data')
+        config = os.path.join(self.test_data_dir, 'config')
+
+        self.ctx = desktopcouch.local_files.Context(cache, data, config)
+
+    def tearDown(self):
+        pid = desktopcouch.read_pidfile(self.ctx)
+
+        stop_couchdb(pid=pid)
+        shutil.rmtree(self.test_data_dir)
 
     def test_init(self):
         assert self.klass.type_url == 'http://example.com/dmedia'
 
-        inst = self.klass()
+        inst = self.klass(context=self.ctx)
         assert inst.name == 'dmedia'
         assert inst.test is False
         assert isinstance(inst.desktop, CouchDatabase)
