@@ -31,6 +31,7 @@ from os import path
 from distutils.core import setup
 from distutils.cmd import Command
 from unittest import TestLoader, TextTestRunner
+from doctest import DocTestSuite
 import dmedialib
 
 
@@ -71,6 +72,8 @@ class Test(Command):
         names = tuple(pynames(dmedialib.packagedir))
         loader = TestLoader()
         suite = loader.loadTestsFromNames(names)
+        for mod in names:
+            suite.addTest(DocTestSuite(mod))
         runner = TextTestRunner(verbosity=2)
         result = runner.run(suite)
         if not result.wasSuccessful():
