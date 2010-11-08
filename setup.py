@@ -25,37 +25,62 @@
 Install `dmedia`
 """
 
+import sys
+import os
+from os import path
 from distutils.core import setup
 from distutils.cmd import Command
+from unittest import TestLoader, TextTestRunner
 import dmedialib
 
-cmdclass = {}
 
-try:
-    from unittest2 import TestLoader, TextTestRunner
+def pynames(pkdir, pkname=None):
+    """
+    Recursively yield dotted names for *.py files in directory *pydir*.
+    """
+    try:
+        names = sorted(os.listdir(pkdir))
+    except StandardError:
+        return
+    if not path.isfile(path.join(pkdir, '__init__.py')):
+        return
+    if pkname is None:
+        pkname = path.basename(pkdir)
+    yield pkname
+    for name in names:
+        if name == '__init__.py':
+            continue
+        if name.startswith('.') or name.endswith('~'):
+            continue
+        fullname = path.join(pkdir, name)
+        if path.islink(fullname):
+            continue
+        if path.isfile(fullname) and name.endswith('.py'):
+            parts = name.split('.')
+            if len(parts) == 2:
+                yield '.'.join([pkname, parts[0]])
+        elif path.isdir(fullname):
+            for n in pynames(fullname, '.'.join([pkname, name])):
+                yield n
 
-    class Test(Command):
-        user_options = []
 
-        def run(self):
-            loader = TestLoader()
-            suite = loader.discover(dmedialib.packagedir)
-            runner = TextTestRunner(verbosity=2)
-            result = runner.run(suite)
-            if not result.wasSuccessful():
-                sys.exit(1)
+class Test(Command):
+    user_options = []
 
-        def initialize_options(self):
-            pass
+    def run(self):
+        names = tuple(pynames(dmedialib.packagedir))
+        loader = TestLoader()
+        suite = loader.loadTestsFromNames(names)
+        runner = TextTestRunner(verbosity=2)
+        result = runner.run(suite)
+        if not result.wasSuccessful():
+            sys.exit(1)
 
-        def finalize_options(self):
-            pass
+    def initialize_options(self):
+        pass
 
-
-    cmdclass['test'] = Test
-
-except ImportError:
-    pass
+    def finalize_options(self):
+        pass
 
 
 setup(
@@ -66,7 +91,7 @@ setup(
     author_email='jderose@jasonderose.org',
     license='LGPLv3+',
 
-    cmdclass=cmdclass,
+    cmdclass={'test': Test},
     packages=['dmedialib'],
     package_data=dict(
         dmedialib=['data/*'],
