@@ -23,33 +23,42 @@
 Unit tests for `dmedialib.ui` module.
 """
 
+from unittest import TestCase
 from os import path
 from genshi.template import MarkupTemplate
 from dmedialib import ui, datadir
 
 
-def test_datafile():
-    f = ui.datafile
-    assert f('foo.xml') == path.join(datadir, 'foo.xml')
+class test_functions(TestCase):
+
+    def test_datafile(self):
+        f = ui.datafile
+        self.assertEqual(
+            f('foo.xml'),
+            path.join(datadir, 'foo.xml')
+        )
 
 
-def test_load_datafile():
-    f = ui.load_datafile
-    mootools = path.join(datadir, 'mootools.js')
-    assert f('mootools.js') == open(mootools, 'r').read()
+    def test_load_datafile(self):
+        f = ui.load_datafile
+        mootools = path.join(datadir, 'mootools.js')
+        self.assertEqual(
+            f('mootools.js'),
+            open(mootools, 'r').read()
+        )
 
 
-def test_load_template():
-    f = ui.load_template
-    xml = path.join(datadir, 'browser.xml')
-    t = f('browser.xml')
-    assert isinstance(t, MarkupTemplate)
-    assert t.filename == xml
+    def test_load_template(self):
+        f = ui.load_template
+        xml = path.join(datadir, 'browser.xml')
+        t = f('browser.xml')
+        self.assertTrue(isinstance(t, MarkupTemplate))
+        self.assertEqual(t.filename, xml)
 
 
-def test_render_template():
-    f = ui.render_template
-    t = ui.load_template('browser.xml')
-    s = f(t)
-    assert isinstance(s, str)
-    assert s.startswith('<!DOCTYPE html PUBLIC')
+    def test_render_template(self):
+        f = ui.render_template
+        t = ui.load_template('browser.xml')
+        s = f(t)
+        self.assertTrue(isinstance(s, str))
+        self.assertTrue(s.startswith('<!DOCTYPE html PUBLIC'))
