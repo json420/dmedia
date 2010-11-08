@@ -55,8 +55,20 @@ class test_MetaStore(TestCase):
 
     def test_init(self):
         self.assertEqual(self.klass.type_url, 'http://example.com/dmedia')
-        self.assertEqual(self.klass.name, 'dmedia')
+
+        # Test with context=None:
+        inst = self.klass()
+        self.assertEqual(inst.dbname, 'dmedia')
+
+        # Test with testing context:
         inst = self.new()
+        self.assertEqual(inst.dbname, 'dmedia')
+        self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
+        self.assertEqual(isinstance(inst.server, couchdb.Server), True)
+
+        # Test when overriding dbname:
+        inst = self.klass(dbname='dmedia_test', context=self.ctx)
+        self.assertEqual(inst.dbname, 'dmedia_test')
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 

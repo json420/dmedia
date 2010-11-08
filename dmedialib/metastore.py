@@ -26,6 +26,7 @@ Store meta-data in desktop-couch.
 from textwrap import dedent
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
+from desktopcouch.local_files import DEFAULT_CONTEXT
 
 
 reduce_sum = '_sum'
@@ -94,7 +95,6 @@ function(doc) {
 
 class MetaStore(object):
     type_url = 'http://example.com/dmedia'
-    name = 'dmedia'  # Name of CouchDB database
 
     views = {
         'total_bytes': (map_total_bytes, reduce_sum),
@@ -106,10 +106,16 @@ class MetaStore(object):
         'project': (map_project, reduce_count),
     }
 
-    def __init__(self, name='dmedia', context=None):
-        self.desktop = CouchDatabase(self.name, create=True, ctx=context)
+    def __init__(self, dbname='dmedia', context=None):
+        self.dbname = dbname
+        # FIXME: once lp:672481 is fixed, this wont be needed.  See:
+        # https://bugs.launchpad.net/desktopcouch/+bug/672481
+        if context is None:
+            context = DEFAULT_CONTEXT
+        # /FIXME
+        self.desktop = CouchDatabase(self.dbname, create=True, ctx=context)
         self.server = self.desktop._server
-        self.db = self.server[self.name]
+        self.db = self.server[self.dbname]
         self.create_views()
 
     def create_views(self):
