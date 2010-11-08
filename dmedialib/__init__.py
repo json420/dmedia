@@ -27,7 +27,9 @@ __version__ = '0.0.4'
 
 from os import path
 
-datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
+packagedir = path.dirname(path.abspath(__file__))
+assert path.isdir(packagedir)
+datadir = path.join(packagedir, 'data')
 assert path.isdir(datadir)
 
 

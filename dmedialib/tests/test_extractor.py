@@ -24,6 +24,7 @@
 Unit tests for `dmedialib.extractor` module.
 """
 
+from unittest import TestCase
 import base64
 from os import path
 import Image
@@ -239,159 +240,255 @@ sample_mov_info = {
 }
 
 
-def test_file_2_base64():
-    f = extractor.file_2_base64
-    tmp = TempDir()
-    src = tmp.write('Hello naughty nurse!', 'sample.txt')
-    assert base64.b64decode(f(src)) == 'Hello naughty nurse!'
+class test_functions(TestCase):
+
+    def test_file_2_base64(self):
+        f = extractor.file_2_base64
+        tmp = TempDir()
+        src = tmp.write('Hello naughty nurse!', 'sample.txt')
+        self.assertEqual(
+            base64.b64decode(f(src)),
+            'Hello naughty nurse!'
+        )
 
 
-def test_extract_exif():
-    f = extractor.extract_exif
-    exif = f(sample_thm)
-    assert_deepequal(sample_thm_exif, exif)
+    def test_extract_exif(self):
+        f = extractor.extract_exif
+        exif = f(sample_thm)
+        assert_deepequal(sample_thm_exif, exif)
 
-    # Test that error is returned for invalid file:
-    tmp = TempDir()
-    data = 'Foo Bar\n' * 1000
-    jpg = tmp.write(data, 'sample.jpg')
-    assert f(jpg) == {u'Error': u'File format error'}
+        # Test that error is returned for invalid file:
+        tmp = TempDir()
+        data = 'Foo Bar\n' * 1000
+        jpg = tmp.write(data, 'sample.jpg')
+        self.assertEqual(
+            f(jpg),
+            {u'Error': u'File format error'}
+        )
 
-    # Test with non-existent file:
-    nope = tmp.join('nope.jpg')
-    assert f(nope) == {u'Error': u'ValueError: No JSON object could be decoded'}
-
-
-def test_parse_subsec_datetime():
-    f = extractor.parse_subsec_datetime
-
-    # Test with wrong type:
-    assert f(None) is None
-    assert f(17) is None
-
-    # Test with multiple periods:
-    assert f('2010:10:21.01:44:37.40') is None
-
-    # Test with incorrect datetime length:
-    assert f('2010:10:21  01:44:37.40') is None
-    assert f('2010:10:2101:44:37.40') is None
-    assert f('2010:10:21  01:44:37') is None
-    assert f('2010:10:2101:44:37') is None
-
-    # Test with nonesense datetime:
-    assert f('2010:80:21 01:44:37.40') is None
-    assert f('2010:80:21 01:44:37') is None
-
-    # Test with incorrect subsec length:
-    assert f('2010:10:21 01:44:37.404') is None
-    assert f('2010:10:21 01:44:37.4') is None
-
-    # Test with negative subsec:
-    assert f('2010:10:21 01:44:37.-4') is None
-
-    # Test with nonsense subsec:
-    assert f('2010:10:21 01:44:37.AB') is None
-
-    # Test with valid timestamps:
-    assert f('2010:10:21 01:44:37.40') == 1287625477 + 40 / 100.0
-    assert f('2010:10:21 01:44:37') == 1287625477
+        # Test with non-existent file:
+        nope = tmp.join('nope.jpg')
+        self.assertEqual(
+            f(nope),
+            {u'Error': u'ValueError: No JSON object could be decoded'}
+        )
 
 
-def test_extract_mtime_from_exif():
-    f = extractor.extract_mtime_from_exif
-    assert f(sample_thm_exif) == 1287520994 + 68 / 100.0
-    d = dict(sample_thm_exif)
-    del d['SubSecCreateDate']
-    assert f(d) == 1287520994 + 68 / 100.0
-    del d['SubSecDateTimeOriginal']
-    assert f(d) == 1287520994 + 68 / 100.0
-    del d['SubSecModifyDate']
-    assert f(d) is None
+    def test_parse_subsec_datetime(self):
+        f = extractor.parse_subsec_datetime
+
+        # Test with wrong type:
+        self.assertEqual(f(None), None)
+        self.assertEqual(f(17), None)
+
+        # Test with multiple periods:
+        self.assertEqual(f('2010:10:21.01:44:37.40'), None)
+
+        # Test with incorrect datetime length:
+        self.assertEqual(f('2010:10:21  01:44:37.40'), None)
+        self.assertEqual(f('2010:10:2101:44:37.40'), None)
+        self.assertEqual(f('2010:10:21  01:44:37'), None)
+        self.assertEqual(f('2010:10:2101:44:37'), None)
+
+        # Test with nonesense datetime:
+        self.assertEqual(f('2010:80:21 01:44:37.40'), None)
+        self.assertEqual(f('2010:80:21 01:44:37'), None)
+
+        # Test with incorrect subsec length:
+        self.assertEqual(f('2010:10:21 01:44:37.404'), None)
+        self.assertEqual(f('2010:10:21 01:44:37.4'), None)
+
+        # Test with negative subsec:
+        self.assertEqual(f('2010:10:21 01:44:37.-4'), None)
+
+        # Test with nonsense subsec:
+        self.assertEqual(f('2010:10:21 01:44:37.AB'), None)
+
+        # Test with valid timestamps:
+        self.assertEqual(
+            f('2010:10:21 01:44:37.40'),
+            (1287625477 + 40 / 100.0)
+        )
+        self.assertEqual(f('2010:10:21 01:44:37'), 1287625477)
 
 
-def test_extract_video_info():
-    f = extractor.extract_video_info
-    tmp = TempDir()
-
-    # Test with sample_mov from 5D Mark II:
-    info = f(sample_mov)
-    assert_deepequal(sample_mov_info, info)
-
-    # Test invalid file:
-    invalid = tmp.write('Wont work!', 'invalid.mov')
-    assert f(invalid) == {
-        'TOTEM_INFO_HAS_VIDEO': 'False',
-        'TOTEM_INFO_HAS_AUDIO': 'False',
-    }
-
-    # Test with non-existent file:
-    nope = tmp.join('nope.mov')
-    assert f(nope) == {
-        'TOTEM_INFO_HAS_VIDEO': 'False',
-        'TOTEM_INFO_HAS_AUDIO': 'False',
-    }
+    def test_extract_mtime_from_exif(self):
+        f = extractor.extract_mtime_from_exif
+        self.assertEqual(
+            f(sample_thm_exif),
+            (1287520994 + 68 / 100.0)
+        )
+        d = dict(sample_thm_exif)
+        del d['SubSecCreateDate']
+        self.assertEqual(f(d), 1287520994 + 68 / 100.0)
+        del d['SubSecDateTimeOriginal']
+        self.assertEqual(f(d), 1287520994 + 68 / 100.0)
+        del d['SubSecModifyDate']
+        self.assertEqual(f(d), None)
 
 
-def test_generate_thumbnail():
-    f = extractor.generate_thumbnail
-    tmp = TempDir()
+    def test_extract_video_info(self):
+        f = extractor.extract_video_info
+        tmp = TempDir()
 
-    # Test with sample_mov from 5D Mark II:
-    d = f(sample_mov)
-    assert isinstance(d, dict)
-    assert sorted(d) == ['content_type', 'data']
-    assert d['content_type'] == 'image/jpeg'
-    data = base64.b64decode(d['data'])
-    jpg = tmp.write(data, 'thumbnail.jpg')
-    img = Image.open(jpg)
-    assert img.size == (192, 108)
-    assert img.format == 'JPEG'
+        # Test with sample_mov from 5D Mark II:
+        info = f(sample_mov)
+        assert_deepequal(sample_mov_info, info)
 
-    # Test invalid file:
-    invalid = tmp.write('Wont work!', 'invalid.mov')
-    assert f(invalid) is None
+        # Test invalid file:
+        invalid = tmp.write('Wont work!', 'invalid.mov')
+        self.assertEqual(
+            f(invalid),
+            {
+                'TOTEM_INFO_HAS_VIDEO': 'False',
+                'TOTEM_INFO_HAS_AUDIO': 'False',
+            }
+        )
 
-    # Test with non-existent file:
-    nope = tmp.join('nope.mov')
-    assert f(nope) is None
+        # Test with non-existent file:
+        nope = tmp.join('nope.mov')
+        self.assertEqual(
+            f(nope),
+            {
+                'TOTEM_INFO_HAS_VIDEO': 'False',
+                'TOTEM_INFO_HAS_AUDIO': 'False',
+            }
+        )
 
 
-def test_merge_metadata():
-    f = extractor.merge_metadata
-    tmp = TempDir()
-    d = dict(
-        src=sample_mov,
-        base=path.dirname(sample_mov),
-        root='MVI_5751',
-        meta=dict(
-            ext='mov',
-        ),
-    )
+    def test_generate_thumbnail(self):
+        f = extractor.generate_thumbnail
+        tmp = TempDir()
 
-    f(d)
+        # Test with sample_mov from 5D Mark II:
+        d = f(sample_mov)
+        self.assertTrue(isinstance(d, dict))
+        self.assertEqual(sorted(d), ['content_type', 'data'])
+        self.assertEqual(d['content_type'], 'image/jpeg')
+        data = base64.b64decode(d['data'])
+        jpg = tmp.write(data, 'thumbnail.jpg')
+        img = Image.open(jpg)
+        self.assertEqual(img.size, (192, 108))
+        self.assertEqual(img.format, 'JPEG')
 
-    # Check thumbnail
-    att = d['meta'].pop('_attachments')
-    assert isinstance(att, dict)
-    assert sorted(att) == ['thumbnail']
-    thm = att['thumbnail']
-    assert isinstance(thm, dict)
-    assert sorted(thm) == ['content_type', 'data']
-    assert thm['content_type'] == 'image/jpeg'
-    data = base64.b64decode(thm['data'])
-    jpg = tmp.write(data, 'thumbnail.jpg')
-    img = Image.open(jpg)
-    assert img.size == (192, 108)
-    assert img.format == 'JPEG'
+        # Test invalid file:
+        invalid = tmp.write('Wont work!', 'invalid.mov')
+        self.assertEqual(f(invalid), None)
 
-    assert_deepequal(
-        d,
-        dict(
+        # Test with non-existent file:
+        nope = tmp.join('nope.mov')
+        self.assertEqual(f(nope), None)
+
+
+    def test_merge_metadata(self):
+        f = extractor.merge_metadata
+        tmp = TempDir()
+        d = dict(
             src=sample_mov,
             base=path.dirname(sample_mov),
             root='MVI_5751',
             meta=dict(
                 ext='mov',
+            ),
+        )
+
+        f(d)
+
+        # Check thumbnail
+        att = d['meta'].pop('_attachments')
+        self.assertTrue(isinstance(att, dict))
+        self.assertEqual(sorted(att), ['thumbnail'])
+        thm = att['thumbnail']
+        self.assertTrue(isinstance(thm, dict))
+        self.assertEqual(sorted(thm), ['content_type', 'data'])
+        self.assertEqual(thm['content_type'], 'image/jpeg')
+        data = base64.b64decode(thm['data'])
+        jpg = tmp.write(data, 'thumbnail.jpg')
+        img = Image.open(jpg)
+        self.assertEqual(img.size, (192, 108))
+        self.assertEqual(img.format, 'JPEG')
+
+        self.assertEqual(
+            d,
+            dict(
+                src=sample_mov,
+                base=path.dirname(sample_mov),
+                root='MVI_5751',
+                meta=dict(
+                    ext='mov',
+                    width=1920,
+                    height=1080,
+                    duration=3,
+                    codec_video='H.264 / AVC',
+                    codec_audio='Raw 16-bit PCM audio',
+                    sample_rate=48000,
+                    fps=30,
+                    channels='Stereo',
+                    iso=100,
+                    shutter=u'1/100',
+                    aperture=11.0,
+                    lens=u'Canon EF 70-200mm f/4L IS',
+                    camera=u'Canon EOS 5D Mark II',
+                    focal_length=u'138.0 mm',
+                    exif=sample_thm_exif,
+                    mtime=1287520994 + 68 / 100.0,
+                ),
+            )
+        )
+
+
+    def test_merge_exif(self):
+        f = extractor.merge_exif
+        d = dict(src=sample_thm, meta={})
+        self.assertTrue(sample_thm.endswith('.THM'))
+        assert_deepequal(
+            dict(f(d)),
+            dict(
+                width=160,
+                height=120,
+                iso=100,
+                shutter=u'1/100',
+                aperture=11.0,
+                lens=u'Canon EF 70-200mm f/4L IS',
+                camera=u'Canon EOS 5D Mark II',
+                focal_length=u'138.0 mm',
+                exif=sample_thm_exif,
+                mtime=1287520994 + 68 / 100.0,
+            ),
+        )
+
+
+    def test_merge_video_info(self):
+        f = extractor.merge_video_info
+        tmp = TempDir()
+        d = dict(
+            src=sample_mov,
+            base=path.dirname(sample_mov),
+            root='MVI_5751',
+            meta=dict(
+                ext='mov',
+            ),
+        )
+
+        merged = dict(f(d))
+
+        # Check thumbnail
+        att = merged.pop('_attachments')
+        self.assertTrue(isinstance(att, dict))
+        self.assertEqual(sorted(att), ['thumbnail'])
+        thm = att['thumbnail']
+        self.assertTrue(isinstance(thm, dict))
+        self.assertEqual(sorted(thm), ['content_type', 'data'])
+        self.assertEqual(thm['content_type'], 'image/jpeg')
+        data = base64.b64decode(thm['data'])
+        jpg = tmp.write(data, 'thumbnail.jpg')
+        img = Image.open(jpg)
+        self.assertEqual(img.size, (192, 108))
+        self.assertEqual(img.format, 'JPEG')
+
+        self.assertEqual(
+            merged,
+            dict(
                 width=1920,
                 height=1080,
                 duration=3,
@@ -408,93 +505,20 @@ def test_merge_metadata():
                 focal_length=u'138.0 mm',
                 exif=sample_thm_exif,
                 mtime=1287520994 + 68 / 100.0,
+            )
+        )
+
+        # Test invalid file:
+        invalid_mov = tmp.write('Wont work!', 'invalid.mov')
+        invalid_thm = tmp.write('Wont work either!', 'invalid.thm')
+        d = dict(
+            src=invalid_mov,
+            base=tmp.path,
+            root='invalid',
+            meta=dict(
+                ext='mov',
             ),
         )
-    )
-
-
-def test_merge_exif():
-    f = extractor.merge_exif
-    d = dict(src=sample_thm, meta={})
-    assert sample_thm.endswith('.THM')
-    assert_deepequal(
-        dict(f(d)),
-        dict(
-            width=160,
-            height=120,
-            iso=100,
-            shutter=u'1/100',
-            aperture=11.0,
-            lens=u'Canon EF 70-200mm f/4L IS',
-            camera=u'Canon EOS 5D Mark II',
-            focal_length=u'138.0 mm',
-            exif=sample_thm_exif,
-            mtime=1287520994 + 68 / 100.0,
-        ),
-    )
-
-
-def test_merge_video_info():
-    f = extractor.merge_video_info
-    tmp = TempDir()
-    d = dict(
-        src=sample_mov,
-        base=path.dirname(sample_mov),
-        root='MVI_5751',
-        meta=dict(
-            ext='mov',
-        ),
-    )
-
-    merged = dict(f(d))
-
-    # Check thumbnail
-    att = merged.pop('_attachments')
-    assert isinstance(att, dict)
-    assert sorted(att) == ['thumbnail']
-    thm = att['thumbnail']
-    assert isinstance(thm, dict)
-    assert sorted(thm) == ['content_type', 'data']
-    assert thm['content_type'] == 'image/jpeg'
-    data = base64.b64decode(thm['data'])
-    jpg = tmp.write(data, 'thumbnail.jpg')
-    img = Image.open(jpg)
-    assert img.size == (192, 108)
-    assert img.format == 'JPEG'
-
-    assert_deepequal(
-        merged,
-        dict(
-            width=1920,
-            height=1080,
-            duration=3,
-            codec_video='H.264 / AVC',
-            codec_audio='Raw 16-bit PCM audio',
-            sample_rate=48000,
-            fps=30,
-            channels='Stereo',
-            iso=100,
-            shutter=u'1/100',
-            aperture=11.0,
-            lens=u'Canon EF 70-200mm f/4L IS',
-            camera=u'Canon EOS 5D Mark II',
-            focal_length=u'138.0 mm',
-            exif=sample_thm_exif,
-            mtime=1287520994 + 68 / 100.0,
-        ),
-    )
-
-    # Test invalid file:
-    invalid_mov = tmp.write('Wont work!', 'invalid.mov')
-    invalid_thm = tmp.write('Wont work either!', 'invalid.thm')
-    d = dict(
-        src=invalid_mov,
-        base=tmp.path,
-        root='invalid',
-        meta=dict(
-            ext='mov',
-        ),
-    )
-    merged = dict(f(d))
-    assert '_attachments' not in merged
-    assert merged == {}
+        merged = dict(f(d))
+        self.assertTrue('_attachments' not in merged)
+        self.assertEqual(merged, {})

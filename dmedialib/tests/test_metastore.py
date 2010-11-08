@@ -23,68 +23,86 @@
 Unit tests for `dmedialib.metastore` module.
 """
 
+from unittest import TestCase
 from helpers import TempDir, TempHome
 from dmedialib import metastore
 import couchdb
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 
+from desktopcouch.stop_local_couchdb import stop_couchdb
+import desktopcouch
+import tempfile
+import os
+import shutil
 
-class test_MetaStore(object):
+class test_MetaStore(TestCase):
     klass = metastore.MetaStore
 
     def new(self):
-        return self.klass(test=True)
+        return self.klass(context=self.ctx)
+
+    def setUp(self):
+        self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
+        cache = os.path.join(self.data_dir, 'cache')
+        data = os.path.join(self.data_dir, 'data')
+        config = os.path.join(self.data_dir, 'config')
+        self.ctx = desktopcouch.local_files.Context(cache, data, config)
+
+    def tearDown(self):
+        stop_couchdb(ctx=self.ctx)
+        shutil.rmtree(self.data_dir)
 
     def test_init(self):
-        assert self.klass.type_url == 'http://example.com/dmedia'
-
-        inst = self.klass()
-        assert inst.name == 'dmedia'
-        assert inst.test is False
-        assert isinstance(inst.desktop, CouchDatabase)
-        assert isinstance(inst.server, couchdb.Server)
-
+        self.assertEqual(self.klass.type_url, 'http://example.com/dmedia')
+        self.assertEqual(self.klass.name, 'dmedia')
         inst = self.new()
-        assert inst.name == 'dmedia_test'
-        assert inst.test is True
-        assert isinstance(inst.desktop, CouchDatabase)
-        assert isinstance(inst.server, couchdb.Server)
+        self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
+        self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 
     def test_total_bytes(self):
         inst = self.new()
-        assert inst.total_bytes() == 0
+        self.assertEqual(inst.total_bytes(), 0)
         total = 0
         for exp in xrange(20, 31):
             size = 2 ** exp + 1
             total += size
             inst.db.create({'bytes': size})
-            assert inst.total_bytes() == total
+            self.assertEqual(inst.total_bytes(), total)
 
     def test_extensions(self):
         inst = self.new()
-        assert list(inst.extensions()) == []
+        self.assertEqual(list(inst.extensions()), [])
         for i in xrange(17):
             inst.db.create({'ext': 'mov'})
             inst.db.create({'ext': 'jpg'})
             inst.db.create({'ext': 'cr2'})
-        assert list(inst.extensions()) == [
-            ('cr2', 17),
-            ('jpg', 17),
-            ('mov', 17),
-        ]
+        self.assertEqual(
+            list(inst.extensions()),
+            [
+                ('cr2', 17),
+                ('jpg', 17),
+                ('mov', 17),
+            ]
+        )
         for i in xrange(27):
             inst.db.create({'ext': 'mov'})
             inst.db.create({'ext': 'jpg'})
-        assert list(inst.extensions()) == [
-            ('cr2', 17),
-            ('jpg', 44),
-            ('mov', 44),
-        ]
+        self.assertEqual(
+            list(inst.extensions()),
+            [
+                ('cr2', 17),
+                ('jpg', 44),
+                ('mov', 44),
+            ]
+        )
         for i in xrange(25):
             inst.db.create({'ext': 'mov'})
-        assert list(inst.extensions()) == [
-            ('cr2', 17),
-            ('jpg', 44),
-            ('mov', 69),
-        ]
+        self.assertEqual(
+            list(inst.extensions()),
+            [
+                ('cr2', 17),
+                ('jpg', 44),
+                ('mov', 69),
+            ]
+        )

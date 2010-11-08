@@ -27,6 +27,7 @@ Unit tests for `dmedialib.filestore` module.
 import os
 from os import path
 import hashlib
+from unittest import TestCase
 from .helpers import TempDir, TempHome, raises
 from dmedialib import filestore
 
@@ -38,104 +39,131 @@ dname = '4e'
 fname = '3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
 
 
-
 def user_dir():
     return path.join(os.environ['HOME'], '.dmedia')
 
 
-def test_scanfiles():
-    f = filestore.scanfiles
-    tmp = TempDir()
-    assert list(f(tmp.path)) == []
-    somefile = tmp.touch('somefile.txt')
-    assert list(f(somefile)) == []
 
-    # Create files in a non-alphabetic order:
-    names = []
-    for (i, l) in enumerate(letters):
-        ext = extensions[i % len(extensions)]
-        name = '.'.join([l, ext.upper()])
-        names.append(name)
-        tmp.touch('subdir', name)
+class test_functions(TestCase):
 
-    files = list(f(tmp.path, extensions))
-    assert files == list(
-        {
-            'src': tmp.join('subdir', name),
-            'base': tmp.join('subdir'),
-            'root': name.split('.')[0],
-            'meta': {
-                'name': name,
-                'ext': name.split('.')[1].lower(),
-            },
-        }
-        for name in sorted(names)
-    )
+    def test_scanfiles(self):
+        f = filestore.scanfiles
+        tmp = TempDir()
+        self.assertEqual(list(f(tmp.path)), [])
+        somefile = tmp.touch('somefile.txt')
+        self.assertEqual(list(f(somefile)), [])
+
+        # Create files in a non-alphabetic order:
+        names = []
+        for (i, l) in enumerate(letters):
+            ext = extensions[i % len(extensions)]
+            name = '.'.join([l, ext.upper()])
+            names.append(name)
+            tmp.touch('subdir', name)
+
+        got = list(f(tmp.path, extensions))
+        expected = list(
+            {
+                'src': tmp.join('subdir', name),
+                'base': tmp.join('subdir'),
+                'root': name.split('.')[0],
+                'meta': {
+                    'name': name,
+                    'ext': name.split('.')[1].lower(),
+                },
+            }
+            for name in sorted(names)
+        )
+        self.assertEqual(got, expected)
 
 
 
-class test_FileStore(object):
+class test_FileStore(TestCase):
     klass = filestore.FileStore
 
     def test_init(self):
         home = TempHome()
         inst = self.klass()
-        assert inst.home == home.path
-        assert inst.user_dir == user_dir()
-        assert inst.shared_dir == '/home/.dmedia'
+        self.assertEqual(inst.home, home.path)
+        self.assertEqual(inst.user_dir, user_dir())
+        self.assertEqual(inst.shared_dir, '/home/.dmedia')
         inst = self.klass(user_dir='/foo', shared_dir='/bar')
-        assert inst.user_dir == '/foo'
-        assert inst.shared_dir == '/bar'
+        self.assertEqual(inst.user_dir, '/foo')
+        self.assertEqual(inst.shared_dir, '/bar')
         inst = self.klass('/foo', '/bar')
-        assert inst.user_dir == '/foo'
-        assert inst.shared_dir == '/bar'
+        self.assertEqual(inst.user_dir, '/foo')
+        self.assertEqual(inst.shared_dir, '/bar')
 
     def test_chash(self):
         inst = self.klass()
         tmp = TempDir()
         src = tmp.write('Novacut', 'msg.txt')
-        assert inst.chash(src) == 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        self.assertEqual(inst.chash(src), 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         fp = open(src, 'rb')
-        assert inst.chash(fp=fp) == 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        self.assertEqual(inst.chash(fp=fp), 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
 
     def test_relname(self):
         inst = self.klass()
-        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW') == (
-            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', None) == (
-            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', '') == (
-            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        assert inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'ogv') == (
-            'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
-        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6') == (
-            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
-        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', None) == (
-            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
-        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', '') == (
-            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
-        assert inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', 'mov') == (
-            '6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6.mov')
+        self.assertEqual(
+            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', None),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ''),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'ogv'),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+        self.assertEqual(
+            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6'),
+            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
+        )
+        self.assertEqual(
+            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', None),
+            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
+        )
+        self.assertEqual(
+            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', ''),
+            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
+        )
+        self.assertEqual(
+            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', 'mov'),
+            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6.mov')
+        )
 
     def test_mediadir(self):
         inst = self.klass('/foo', '/bar')
-        assert inst.mediadir() == '/foo'
-        assert inst.mediadir(False) == '/foo'
-        assert inst.mediadir(True) == '/bar'
-        assert inst.mediadir(shared=False) == '/foo'
-        assert inst.mediadir(shared=True) == '/bar'
+        self.assertEqual(inst.mediadir(), '/foo')
+        self.assertEqual(inst.mediadir(False), '/foo')
+        self.assertEqual(inst.mediadir(True), '/bar')
+        self.assertEqual(inst.mediadir(shared=False), '/foo')
+        self.assertEqual(inst.mediadir(shared=True), '/bar')
 
     def test_fullname(self):
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         inst = self.klass()
-        assert inst.fullname(chash) == path.join(
-            user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        assert inst.fullname(chash, 'ogv') == path.join(
-            user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
-        assert inst.fullname(chash, None, True) == path.join(
-            '/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        assert inst.fullname(chash, 'ogv', True) == path.join(
-            '/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        self.assertEqual(
+            inst.fullname(chash),
+            path.join(user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.fullname(chash, 'ogv'),
+            path.join(user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+        self.assertEqual(
+            inst.fullname(chash, None, True),
+            path.join('/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.fullname(chash, 'ogv', True),
+            path.join('/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
 
     def test_locate(self):
         user = TempDir()
@@ -143,60 +171,69 @@ class test_FileStore(object):
         inst = self.klass(user.path, shared.path)
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         e = raises(filestore.FileNotFound, inst.locate, chash, 'txt')
-        assert e.chash == chash
-        assert e.extension == 'txt'
+        self.assertEqual(e.chash, chash)
+        self.assertEqual(e.extension, 'txt')
         file1 = shared.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
-        assert inst.locate(chash, 'txt') == file1
+        self.assertEqual(inst.locate(chash, 'txt'), file1)
         file2 = user.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
-        assert inst.locate(chash, 'txt') == file2
+        self.assertEqual(inst.locate(chash, 'txt'), file2)
 
     def test_do_add(self):
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         h = TempHome()
         inst = self.klass()
-        assert inst.user_dir.startswith(h.path)
+        self.assertEqual(inst.user_dir.startswith(h.path), True)
 
         src = h.write('Novacut', 'Documents', 'test.txt')
         dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.txt')
-        assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {
-            'action': 'linked',
-            'src': src,
-            'dst': dst,
-            'meta': {
-                '_id': chash,
-                'bytes': path.getsize(src),
-                'mtime': path.getmtime(src),
-                'ext': 'txt',
-                'mime': 'text/plain',
-                'links': ['Documents/test.txt'],
-            },
-        }
-        assert inst._do_add({'src': src, 'meta': {'ext': 'txt'}}) == {
-            'action': 'skipped_duplicate',
-            'src': src,
-            'dst': dst,
-            'meta': {
-                '_id': chash,
-                'ext': 'txt',
-            },
-        }
-        assert path.isfile(dst)
-        assert open(dst, 'r').read() == 'Novacut'
+        self.assertEqual(
+            inst._do_add({'src': src, 'meta': {'ext': 'txt'}}),
+            {
+                'action': 'linked',
+                'src': src,
+                'dst': dst,
+                'meta': {
+                    '_id': chash,
+                    'bytes': path.getsize(src),
+                    'mtime': path.getmtime(src),
+                    'ext': 'txt',
+                    'mime': 'text/plain',
+                    'links': ['Documents/test.txt'],
+                },
+            }
+        )
+        self.assertEqual(
+            inst._do_add({'src': src, 'meta': {'ext': 'txt'}}),
+            {
+                'action': 'skipped_duplicate',
+                'src': src,
+                'dst': dst,
+                'meta': {
+                    '_id': chash,
+                    'ext': 'txt',
+                },
+            }
+        )
+        self.assertEqual(path.isfile(dst), True)
+        self.assertEqual(open(dst, 'r').read(), 'Novacut')
 
         # Test that correct mime-type is retrieved for .cr2 files:
         chash = 'HECAODPVLQKOWHA3UVQO6ULCHW4PM3DZ'
         src = h.write('A Canon .cr2 RAW image', 'Pictures', 'IMG_1300.CR2')
         dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.cr2')
-        assert inst._do_add({'src': src, 'meta': {'ext': 'cr2'}}) == {
-            'action': 'linked',
-            'src': src,
-            'dst': dst,
-            'meta': {
-                '_id': chash,
-                'bytes': path.getsize(src),
-                'mtime': path.getmtime(src),
-                'ext': 'cr2',
-                'mime': 'image/x-canon-cr2',
-                'links': ['Pictures/IMG_1300.CR2'],
-            },
-        }
+        self.assertEqual(
+            inst._do_add({'src': src, 'meta': {'ext': 'cr2'}}),
+                {
+                'action': 'linked',
+                'src': src,
+                'dst': dst,
+                'meta': {
+                    '_id': chash,
+                    'bytes': path.getsize(src),
+                    'mtime': path.getmtime(src),
+                    'ext': 'cr2',
+                    'mime': 'image/x-canon-cr2',
+                    'links': ['Pictures/IMG_1300.CR2'],
+                },
+            }
+        )
