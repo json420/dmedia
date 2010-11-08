@@ -26,7 +26,37 @@ Install `dmedia`
 """
 
 from distutils.core import setup
+from distutils.cmd import Command
 import dmedialib
+
+cmdclass = {}
+
+try:
+    from unittest2 import TestLoader, TextTestRunner
+
+    class Test(Command):
+        user_options = []
+
+        def run(self):
+            loader = TestLoader()
+            suite = loader.discover(dmedialib.packagedir)
+            runner = TextTestRunner(verbosity=2)
+            result = runner.run(suite)
+            if not result.wasSuccessful():
+                sys.exit(1)
+
+        def initialize_options(self):
+            pass
+
+        def finalize_options(self):
+            pass
+
+
+    cmdclass['test'] = Test
+
+except ImportError:
+    pass
+
 
 setup(
     name='dmedia',
@@ -35,6 +65,8 @@ setup(
     author='Jason Gerard DeRose',
     author_email='jderose@jasonderose.org',
     license='LGPLv3+',
+
+    cmdclass=cmdclass,
     packages=['dmedialib'],
     package_data=dict(
         dmedialib=['data/*'],
