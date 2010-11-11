@@ -394,11 +394,18 @@ class test_functions(TestCase):
 
         f(d)
 
-        # Check thumbnail
+        # Check canon.thm attachment
         att = d['meta'].pop('_attachments')
-        self.assertTrue(isinstance(att, dict))
-        self.assertEqual(sorted(att), ['thumbnail'])
-        thm = att['thumbnail']
+        self.assertEqual(set(att), set(['canon.thm']))
+        self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
+        self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
+        self.assertEqual(
+            base64.b64decode(att['canon.thm']['data']),
+            open(sample_thm, 'r').read()
+        )
+
+        # Check thumbnail
+        thm = d['meta'].pop('thumbnail')
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -430,7 +437,6 @@ class test_functions(TestCase):
                     lens=u'Canon EF 70-200mm f/4L IS',
                     camera=u'Canon EOS 5D Mark II',
                     focal_length=u'138.0 mm',
-                    exif=sample_thm_exif,
                     mtime=1287520994 + 68 / 100.0,
                 ),
             )
@@ -452,7 +458,6 @@ class test_functions(TestCase):
                 lens=u'Canon EF 70-200mm f/4L IS',
                 camera=u'Canon EOS 5D Mark II',
                 focal_length=u'138.0 mm',
-                exif=sample_thm_exif,
                 mtime=1287520994 + 68 / 100.0,
             ),
         )
@@ -472,11 +477,18 @@ class test_functions(TestCase):
 
         merged = dict(f(d))
 
-        # Check thumbnail
+        # Check canon.thm attachment
         att = merged.pop('_attachments')
-        self.assertTrue(isinstance(att, dict))
-        self.assertEqual(sorted(att), ['thumbnail'])
-        thm = att['thumbnail']
+        self.assertEqual(set(att), set(['canon.thm']))
+        self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
+        self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
+        self.assertEqual(
+            base64.b64decode(att['canon.thm']['data']),
+            open(sample_thm, 'r').read()
+        )
+
+        # Check thumbnail
+        thm = merged.pop('thumbnail')
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -503,7 +515,6 @@ class test_functions(TestCase):
                 lens=u'Canon EF 70-200mm f/4L IS',
                 camera=u'Canon EOS 5D Mark II',
                 focal_length=u'138.0 mm',
-                exif=sample_thm_exif,
                 mtime=1287520994 + 68 / 100.0,
             )
         )
@@ -520,5 +531,5 @@ class test_functions(TestCase):
             ),
         )
         merged = dict(f(d))
-        self.assertTrue('_attachments' not in merged)
+        self.assertTrue('thumbnail' not in merged)
         self.assertEqual(merged, {})
