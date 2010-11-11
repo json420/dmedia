@@ -241,8 +241,6 @@ def merge_exif(d):
     mtime = extract_mtime_from_exif(exif)
     if mtime is not None:
         yield ('mtime', mtime)
-    if filename.endswith('.THM'):
-        yield ('exif', exif)
 
 
 register(merge_exif, 'jpg', 'png', 'cr2')
@@ -271,6 +269,13 @@ def merge_video_info(d):
     # Extract EXIF metadata from Canon .THM file if present:
     thm = path.join(d['base'], d['root'] + '.THM')
     if path.isfile(thm):
+        att = {
+            'canon.thm': {
+                'content_type': 'image/jpeg',
+                'data': file_2_base64(thm),
+            }
+        }
+        yield ('_attachments', att)
         for (key, value) in merge_exif({'src': thm}):
             if key in ('width', 'height'):
                 continue
