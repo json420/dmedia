@@ -263,10 +263,7 @@ def merge_video_info(d):
     # Try to generate thumbnail:
     thumbnail = generate_thumbnail(filename)
     if thumbnail is not None:
-        yield (
-            '_attachments',
-            {'thumbnail': thumbnail}
-        )
+        yield ('thumbnail', thumbnail)
 
     if d['meta']['ext'] != 'mov':
         return

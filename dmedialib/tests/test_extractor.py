@@ -395,10 +395,7 @@ class test_functions(TestCase):
         f(d)
 
         # Check thumbnail
-        att = d['meta'].pop('_attachments')
-        self.assertTrue(isinstance(att, dict))
-        self.assertEqual(sorted(att), ['thumbnail'])
-        thm = att['thumbnail']
+        thm = d['meta'].pop('thumbnail')
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -473,10 +470,7 @@ class test_functions(TestCase):
         merged = dict(f(d))
 
         # Check thumbnail
-        att = merged.pop('_attachments')
-        self.assertTrue(isinstance(att, dict))
-        self.assertEqual(sorted(att), ['thumbnail'])
-        thm = att['thumbnail']
+        thm = merged.pop('thumbnail')
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -520,5 +514,5 @@ class test_functions(TestCase):
             ),
         )
         merged = dict(f(d))
-        self.assertTrue('_attachments' not in merged)
+        self.assertTrue('thumbnail' not in merged)
         self.assertEqual(merged, {})
