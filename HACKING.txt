@@ -1,0 +1,59 @@
+                           Contribute code to dmedia!
+                           **************************
+
+Testing
+=======
+
+The dmedia tests are run through `setup.py` like this:
+
+    ./setup.py test
+
+This will run the unit tests and doc tests.  dmedia is very focused on rapid,
+test-drive development.  If you contribute a feature to dmedia, it must include
+comprehensive unit/doc tests for the feature.  This is a good thing.  :)
+
+
+Coding Style
+============
+
+Contributions must follow good PEP-8, PEP-257 style:
+
+    http://www.python.org/dev/peps/pep-0008/
+
+    http://www.python.org/dev/peps/pep-0257/
+
+
+Workflow
+========
+
+Work on dmedia is coordinated through its Launchpad project:
+
+    https://launchpad.net/dmedia
+
+To get a feel for the codebase, consider starting with a small feature bug
+tagged with "bitesize", which you can search for here:
+
+    https://bugs.launchpad.net/dmedia/+bugs?field.tag=bitesize
+
+Once you begin work on a bug, change the "Assigned To" field to youself so that
+others know it's being worked on.  The bzr workflow will go something this:
+
+    bzr branch lp:dmedia cool-feature
+    cd cool-feature
+    # Do stuff...
+    bzr commit -m "Added basic cool-feature and tests"
+    # Do more stuff...
+    bzr commit -m "Added docstrings"
+    bzr push lp:~username/dmedia/cool-feature
+
+You should now see your branch in the list of un-merged dmedia branches:
+
+    https://code.launchpad.net/dmedia
+
+Visit that page and propose a merge into lp:dmedia (the trunk, always the focus
+of active development).  Tests will be automatically run using Tarmac, and if
+they pass, your merge will be reviewed (by Jason most likely).  Your merge might
+be accepted as is, or you might be asked to make some further improvements
+first.
+
+If you need help, ping jderose on the #novacut IRC channel.
