@@ -1,6 +1,7 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@jasonderose.org>
 #   Akshat Jain <ssj6akshat1234@gmail.com)
+#
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
 #
@@ -41,10 +42,10 @@ DOTDIR = '.dmedia'
 
 def quick_id(filename):
  
- hash_ = sha1()
- hash_.update(str(path.getsize(filename)))
- hash_.update(open(filename, 'rb').read(QUICK_ID_CHUNK))
- return b32encode(hash_.digest())
+   hash_ = sha1()
+   hash_.update(str(path.getsize(filename)))
+   hash_.update(open(filename, 'rb').read(QUICK_ID_CHUNK))
+   return b32encode(hash_.digest())
  
 
 def normalize_ext(name):

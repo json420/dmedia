@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Akshat Jain <ssj6akshat1234@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
