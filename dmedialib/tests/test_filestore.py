@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Akshat Jain <ssj6akshat1234@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
@@ -28,7 +29,7 @@ import os
 from os import path
 import hashlib
 from unittest import TestCase
-from .helpers import TempDir, TempHome, raises
+from .helpers import TempDir, TempHome, raises, sample_mov
 from dmedialib import filestore
 
 
@@ -45,7 +46,10 @@ def user_dir():
 
 
 class test_functions(TestCase):
-
+    def test_quick_id(self):
+        f = filestore.quick_id
+        self.assertEqual(f(sample_mov), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
+        
     def test_scanfiles(self):
         f = filestore.scanfiles
         tmp = TempDir()
