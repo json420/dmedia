@@ -60,7 +60,7 @@ def render_template(template, **kw):
 
 
 class WSGIApp(object):
-    scripts = ('mootools.js', 'dmedia.js')
+    scripts = ('dmedia.js',)
 
     def __init__(self):
         self.template = load_template('browser.xml')
@@ -74,3 +74,6 @@ class WSGIApp(object):
         ]
         start_response('200 OK', response_headers)
         return [s]
+
+    def render(self):
+        return render_template(self.template, inline_js=self.js)
