@@ -52,6 +52,43 @@ var CouchRequest = new Class({
 });
 
 
+function minsec(seconds) {
+    if (typeof(seconds) != 'number') {
+        return null;
+    }
+    var m = (seconds / 60).toFixed().toString();
+    var s = (seconds % 60).toString();
+    if (s.length == 1) {
+        s = '0' + s;
+    }
+    return m + ':' + s;
+}
+console.assert(minsec('hello') === null);
+console.assert(minsec(0) == '0:00');
+console.assert(minsec(3) == '0:03');
+console.assert(minsec(17) == '0:17');
+console.assert(minsec(69) == '1:09');
+
+
+function todata(obj) {
+    if (typeof(obj) != 'object') {
+        return null;
+    }
+    if (typeof(obj.content_type) != 'string') {
+        return null;
+    }
+    if (typeof(obj.data) != 'string') {
+        return null;
+    }
+    return 'data:' + obj.content_type + ';base64,' + obj.data;
+}
+console.assert(todata(17) === null);
+console.assert(todata({}) === null);
+console.assert(todata({content_type: true, data: 'foo'}) === null);
+console.assert(todata({content_type: 'image/jpeg', data: 17}) === null);
+console.assert(todata({content_type: 'image/jpeg', data: 'foo'}) == 'data:image/jpeg;base64,foo');
+
+
 /*
 function cb(ret) {
     console.time('Redraw');
@@ -77,9 +114,14 @@ function cb(ret) {
     console.time('Redraw');
     var replacement = new Element('div', {id: 'target'});
     ret.object.rows.forEach(function(row) {
-        var thm = row.doc.thumbnail;
-        var data = 'data:' + thm.content_type + ';base64,' + thm.data;
-        var img = new Element('img', {src: data, width: '192', height: '108'});
+        var doc = row.doc;
+        var img = new Element('img', {
+            id: doc._id,
+            src: todata(doc.thumbnail),
+            width: '192',
+            height: '108',
+            title: minsec(doc.duration),
+        });
         replacement.appendChild(img);
     });
     $('stage').replaceChild(replacement, $('target'));
@@ -91,7 +133,7 @@ function testClick() {
     //r.post('/dmedia/_design/ext/_view/ext?reduce=false',);
     r.post(
         '/dmedia/_design/ext/_view/ext',
-        {reduce: false, include_docs: true, limit: 50},
+        {reduce: false, include_docs: true},
         {keys: ['mov']}
     );
 }
