@@ -60,7 +60,7 @@ def render_template(template, **kw):
 
 
 class WSGIApp(object):
-    scripts = ('dmedia.js',)
+    scripts = ('mootools.js', 'dmedia.js')
 
     def __init__(self):
         self.template = load_template('browser.xml')

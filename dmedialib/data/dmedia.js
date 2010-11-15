@@ -1,21 +1,82 @@
+var CouchRequest = new Class({
+    initialize: function(callback) {
+        console.assert(typeof(callback) == 'function');
+        this.callback = callback;
+        this.request =  new XMLHttpRequest();
+        this.request.onreadystatechange = this._on_readystatechange.bind(this);
+    },
 
-
-
-function on_load() {
-    console.log('on_load');
-    var r = new XMLHttpRequest();
-    r.onreadystatechange = function () {
-        console.log(r.readyState);
-        console.log(r.status);
-        if (r.readyState == 4) {
-            console.log(JSON.parse(r.responseText));
-            document.getElementById('target').textContent = r.responseText;
+    _on_readystatechange: function() {
+        if (this.request.readyState != 4) {
+            return;
         }
-    };
-    r.open('GET', 'http://localhost:5984/dmedia');
-    r.setRequestHeader('Accept', 'application/json');
-    r.send();
+        if (this.request.status == 200) {
+            console.time('JSON.parse');
+            var object = JSON.parse(this.request.responseText);
+            console.timeEnd('JSON.parse');
+            var response = {
+                success: true,
+                request: this.request,
+                string: this.request.responseText,
+                object: object,
+            };
+            this.callback(response);
+        }
+        else {
+            this.callback({
+                success: false,
+                request: this.request,
+            });
+        }
+    },
+
+    _open: function(method, url, options) {
+        this.request.open(method, url + '?' + Object.toQueryString(options));
+        this.request.setRequestHeader('Accept', 'application/json');
+    },
+
+    _send_json: function(body) {
+        this.request.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
+        this.request.send(JSON.stringify(body));
+    },
+
+    get: function(url, options) {
+        this._open('GET', url, options);
+        this.request.send();
+    },
+
+    post: function(url, options, body) {
+        this._open('POST', url, options);
+        this._send_json(body);
+    },
+});
+
+
+function cb(ret) {
+    console.time('Redraw');
+    var table = $('target');
+    while (table.rows.length) {
+        table.deleteRow(-1);
+    }
+    ret.object.rows.forEach(function(row) {
+        var thm = row.doc.thumbnail;
+        var data = 'data:' + thm.content_type + ';base64,' + thm.data;
+        var tr = new Element('tr');
+        var td = new Element('td');
+        var img = new Element('img', {src: data, width: '192', height: '108'});
+        td.appendChild(img);
+        tr.appendChild(td);
+        table.appendChild(tr);
+    });
+    console.timeEnd('Redraw');
 }
 
-
-window.onload = on_load;
+function testClick() {
+    var r = new CouchRequest(cb);
+    //r.post('/dmedia/_design/ext/_view/ext?reduce=false',);
+    r.post(
+        '/dmedia/_design/ext/_view/ext',
+        {reduce: false, include_docs: true, limit: 50},
+        {keys: ['mov']}
+    );
+}

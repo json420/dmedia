@@ -18,7 +18,9 @@
 />
 </head>
 <body>
-Hello from dmedia! <button id="button">Click Me</button>
-<div id="target" />
+Hello from dmedia! <button id="button" onclick="testClick()">Click Me</button>
+<div>
+<table id="target" />
+</div>
 </body>
 </html>
