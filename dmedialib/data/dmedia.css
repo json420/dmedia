@@ -4,8 +4,8 @@ body {
 }
 
 img {
-    margin: 3px;
-    border: 2px solid #000;
+    margin: 4px;
+    border: 1px solid #333;
 }
 
 img:hover {

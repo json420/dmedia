@@ -2,6 +2,7 @@ var CouchRequest = new Class({
     initialize: function(callback) {
         console.assert(typeof(callback) == 'function');
         this.callback = callback;
+        this.options = {};
         this.request =  new XMLHttpRequest();
         this.request.onreadystatechange = this._on_readystatechange.bind(this);
     },
@@ -31,7 +32,13 @@ var CouchRequest = new Class({
     },
 
     _open: function(method, url, options) {
-        this.request.open(method, url + '?' + Object.toQueryString(options));
+        if (options) {
+            var query = Object.toQueryString(options);
+            if (query) {
+                url += ('?' + query);
+            }
+        }
+        this.request.open(method, url);
         this.request.setRequestHeader('Accept', 'application/json');
     },
 
@@ -40,15 +47,33 @@ var CouchRequest = new Class({
         this.request.send(JSON.stringify(body));
     },
 
+    post: function(url, body, options) {
+        this._open('POST', url, options);
+        this._send_json(body);
+    },
+
     get: function(url, options) {
         this._open('GET', url, options);
         this.request.send();
     },
 
-    post: function(url, options, body) {
-        this._open('POST', url, options);
+    put: function(url, body, options) {
+        this._open('PUT', url, options);
         this._send_json(body);
     },
+
+});
+
+
+var CouchDB = new Class({
+    initialize: function(db) {
+        this.db = db;
+    },
+
+    get: function(callback, id) {
+        var r = new CouchRequest(callback);
+    },
+
 });
 
 
@@ -110,11 +135,24 @@ function cb(ret) {
 }
 */
 
+function on_click() {
+    console.log('click', this._doc._id);
+    var doc = this._doc;
+    doc.rating = 4;
+    var r = new CouchRequest(function(ret) {
+        console.log(ret.string);
+    });
+    r.put('/dmedia/' + doc._id, doc);
+}
+
 function cb(ret) {
     console.time('Redraw');
     var replacement = new Element('div', {id: 'target'});
     ret.object.rows.forEach(function(row) {
         var doc = row.doc;
+        if (doc.ext != 'mov') {
+            return;
+        }
         var img = new Element('img', {
             id: doc._id,
             src: todata(doc.thumbnail),
@@ -122,6 +160,8 @@ function cb(ret) {
             height: '108',
             title: minsec(doc.duration),
         });
+        img.addEvent('click', on_click.bind(img));
+        img._doc = doc;
         replacement.appendChild(img);
     });
     $('stage').replaceChild(replacement, $('target'));
@@ -131,9 +171,5 @@ function cb(ret) {
 function testClick() {
     var r = new CouchRequest(cb);
     //r.post('/dmedia/_design/ext/_view/ext?reduce=false',);
-    r.post(
-        '/dmedia/_design/ext/_view/ext',
-        {reduce: false, include_docs: true},
-        {keys: ['mov']}
-    );
+    r.get('/dmedia/_design/mtime/_view/mtime', {include_docs: true});
 }
