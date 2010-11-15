@@ -52,6 +52,7 @@ var CouchRequest = new Class({
 });
 
 
+/*
 function cb(ret) {
     console.time('Redraw');
     var table = $('target');
@@ -68,6 +69,20 @@ function cb(ret) {
         tr.appendChild(td);
         table.appendChild(tr);
     });
+    console.timeEnd('Redraw');
+}
+*/
+
+function cb(ret) {
+    console.time('Redraw');
+    var replacement = new Element('div', {id: 'target'});
+    ret.object.rows.forEach(function(row) {
+        var thm = row.doc.thumbnail;
+        var data = 'data:' + thm.content_type + ';base64,' + thm.data;
+        var img = new Element('img', {src: data, width: '192', height: '108'});
+        replacement.appendChild(img);
+    });
+    $('stage').replaceChild(replacement, $('target'));
     console.timeEnd('Redraw');
 }
 

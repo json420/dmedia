@@ -19,8 +19,8 @@
 </head>
 <body>
 Hello from dmedia! <button id="button" onclick="testClick()">Click Me</button>
-<div>
-<table id="target" />
+<div id="stage">
+<div id="target" />
 </div>
 </body>
 </html>
