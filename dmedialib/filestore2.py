@@ -276,7 +276,10 @@ class FileStore(object):
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
         """
-        return self.join(*self.relpath(chash, ext))
+        filename = self.join(*self.relpath(chash, ext))
+        if create:
+            self.create_parent(filename)
+        return filename
 
     def tmp(self, quickid=None, chash=None, ext=None, create=False):
         """
@@ -300,7 +303,10 @@ class FileStore(object):
 
         Also see `FileStore.path()`, `FileStore.allocate_tmp()`.
         """
-        return self.join(*self.reltmp(quickid, chash, ext))
+        filename = self.join(*self.reltmp(quickid, chash, ext))
+        if create:
+            self.create_parent(filename)
+        return filename
 
     def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
         """

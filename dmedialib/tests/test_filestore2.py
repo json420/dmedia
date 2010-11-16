@@ -280,6 +280,27 @@ class test_FileStore(TestCase):
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
         )
 
+        # Test with create=True
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('NW')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', create=True),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
     def test_tmp(self):
         inst = self.klass('/foo')
 
