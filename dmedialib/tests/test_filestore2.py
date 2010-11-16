@@ -219,8 +219,80 @@ class test_FileStore(TestCase):
         self.assertEqual(inst.create_parent('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'), f)
         self.assertTrue(path.isdir(d))
         self.assertFalse(path.exists(f))
-        return
+
+        # Confirm that it's using os.makedirs(), not os.mkdir()
+        f = tmp.join('OM', 'LU', 'WE', 'IP')
+        d = tmp.join('OM', 'LU', 'WE')
+        self.assertFalse(path.exists(d))
+        self.assertFalse(path.exists(f))
+        self.assertEqual(inst.create_parent('OM', 'LU', 'WE', 'IP'), f)
+        self.assertTrue(path.isdir(d))
+        self.assertFalse(path.exists(f))
+
+        # Test with 1-deep:
+        f = tmp.join('foo')
+        self.assertFalse(path.exists(f))
+        self.assertEqual(inst.create_parent('foo'), f)
+        self.assertFalse(path.exists(f))
+
+    def test_path(self):
+        inst = self.klass('/foo')
+
         self.assertEqual(
-            inst.join('NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         )
+        self.assertEqual(
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv'
+        )
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.path, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.path, bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+    def test_tmp(self):
+        inst = self.klass('/foo')
+
+        self.assertEqual(
+            inst.tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/imports/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+        self.assertEqual(
+            inst.tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            '/foo/imports/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov'
+        )
+        self.assertEqual(
+            inst.tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/downloads/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+        self.assertEqual(
+            inst.tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            '/foo/downloads/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov'
+        )
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.tmp, quickid=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.tmp, chash=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test when neither quickid nor chash is provided:
+        e = raises(TypeError, inst.tmp)
+        self.assertEqual(str(e), 'must provide either `chash` or `quickid`')

@@ -21,7 +21,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Store media files based on content-hash.
+Store media files in a special layout according to their content hash.
 
 Security note: this module must be carefully designed to prevent path traversal!
 Two lines of defense are used:
@@ -274,26 +274,37 @@ class FileStore(object):
         >>> fs = FileStore('/foo')
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+        Or with a file extension:
+
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
         """
         return self.join(*self.relpath(chash, ext))
 
-    def tmp(self, chash=None, quickid=None):
+    def tmp(self, quickid=None, chash=None, ext=None):
         """
-        Returns path of temporary file by either *chash* or *quickid*.
+        Returns path of temporary file.
+
+        Temporary files are created in either an ``'imports'`` or a
+        ``'downloads'`` sub-directory based on whether you're doing an initial
+        import or downloading a file already present in the library.
+
+        For initial imports, provide the *quickid* like this:
 
         >>> fs = FileStore('/foo')
-        >>> fs.tmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        '/foo/downloads/OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
-        >>> fs.tmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
-        '/foo/imports/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
+        >>> fs.tmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
+        '/foo/imports/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov'
+
+        For downloads, the content-hash will already be known, so provide the
+        *chash* like this:
+
+        >>> fs.tmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
+        '/foo/downloads/OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov'
+
+        Also see `FileStore.path()`, `FileStore.allocate_tmp()`.
         """
-        if chash:
-            return self.join('downloads', issafe(chash))
-        if quickid:
-            return self.join('imports', issafe(quickid))
-        raise TypeError('must provide either `chash` or `quickid`')
+        return self.join(*self.reltmp(quickid, chash, ext))
 
     def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
         tmp = self.tmp(chash, quickid)
