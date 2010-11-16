@@ -85,11 +85,19 @@ def issafe(b32):
     return b32
 
 
-def hash_file(filename):
+def hash_file(filename=None, fp=None):
     """
     Compute the content-hash of the file at *filename*.
     """
-    fp = open(filename, 'rb')
+    if filename:
+        fp = open(filename, 'rb')
+    if not isinstance(fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('fp', file, type(fp), fp)
+        )
+    if fp.mode != 'rb':
+        raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
+    fp.seek(0)  # Make sure we are at beginning of file
     h = HASH()
     while True:
         chunk = fp.read(CHUNK)

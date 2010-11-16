@@ -73,6 +73,31 @@ class test_functions(TestCase):
         self.assertEqual(f(sample_mov), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
         self.assertEqual(f(sample_thm), 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
 
+        # Test with open file:
+        fp = open(sample_mov, 'rb')
+        self.assertEqual(f(fp=fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+
+        # Make user seek(0) is being called:
+        fp = open(sample_mov, 'rb')
+        fp.seek(1024)
+        self.assertEqual(f(fp=fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+
+        # Test with fp of wrong type
+        e = raises(TypeError, f, fp='hello')
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('fp', file, str, 'hello')
+        )
+
+        # Test with fp opened in wrong mode
+        fp = open(sample_mov, 'r')
+        e = raises(ValueError, f, fp=fp)
+        self.assertEqual(
+            str(e),
+            "fp: must be opened in mode 'rb'; got 'r'"
+        )
+
+
     def test_hash_and_copy(self):
         f = filestore2.hash_and_copy
         hash_file = filestore2.hash_file
