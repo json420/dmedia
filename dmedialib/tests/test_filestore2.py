@@ -338,6 +338,47 @@ class test_FileStore(TestCase):
         e = raises(TypeError, inst.tmp)
         self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
 
+        # Test with create=True
+        tmp = TempDir()
+        b32 = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        inst = self.klass(tmp.path)
+
+        # With quickid
+        f = tmp.join('imports', b32 + '.mov')
+        d = tmp.join('imports')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(quickid=b32, ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(quickid=b32, ext='mov', create=True),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # With chash
+        f = tmp.join('downloads', b32 + '.mov')
+        d = tmp.join('downloads')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(chash=b32, ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(chash=b32, ext='mov', create=True),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
     def test_allocate_tmp(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)

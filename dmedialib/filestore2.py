@@ -323,8 +323,7 @@ class FileStore(object):
 
         The temporary filename is returned.
         """
-        tmp = self.tmp(quickid, chash, ext)
-        self.create_parent(tmp)
+        tmp = self.tmp(quickid, chash, ext, create=True)
         if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
             try:
                 check_call([FALLOCATE, '-l', str(size), tmp])
