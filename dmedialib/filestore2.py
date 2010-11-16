@@ -252,6 +252,30 @@ class FileStore(object):
         )
 
     def create_parent(self, filename):
+        """
+        Safely create the directory containing *filename*.
+
+        To prevent path traversal attacks, this method will only create
+        directories within the `FileStore` base directory.  For example:
+
+        >>> fs = FileStore('/foo')
+        >>> fs.create_parent('/bar/my/movie.ogv')
+        Traceback (most recent call last):
+          ...
+        ValueError: Wont create '/bar/my' outside of base '/foo' for file '/bar/my/movie.ogv'
+
+        It also protects against malicious filenames like this:
+
+        >>> fs.create_parent('/foo/my/../../bar/movie.ogv')
+        Traceback (most recent call last):
+          ...
+        ValueError: Wont create '/bar' outside of base '/foo' for file '/foo/my/../../bar/movie.ogv'
+
+        If doesn't already exists, the directory containing *filename* is
+        created.
+
+        Returns the directory containing *filename*.
+        """
         containing = path.dirname(path.abspath(filename))
         if not containing.startswith(self.base):
             raise ValueError('Wont create %r outside of base %r for file %r' %
@@ -312,9 +336,9 @@ class FileStore(object):
         """
         Create parent directory and attempt to preallocate temporary file.
 
-        The temporary filename is constructed by called `FileStore.tmp()`.
-        Then the temporary file's containing directory is created if it doesn't
-        already exist.
+        The temporary filename is constructed by calling `FileStore.tmp()` with
+        ``create=True``, which will create the temporary file's containing
+        directory if it doesn't already exist.
 
         If *size* is a nonzero ``int``, an attempt is made to make a persistent
         pre-allocation with the ``fallocate`` command, something like this:
