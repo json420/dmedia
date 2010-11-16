@@ -24,6 +24,15 @@
 Store media files based on content-hash.
 
 Security note: this module must be carefully designed to prevent path traversal!
+Two lines of defense are used:
+
+    * `issafe()` - ensures that a chash is well-formed
+
+    * `FileStore.join()` - used in place of ``path.join()``, detects when
+      untrusted portions of path cause a path traversal
+
+Either should fully prevent path traversal but are used together for extra
+safety.
 """
 
 import os
@@ -41,39 +50,39 @@ FALLOCATE = '/usr/bin/fallocate'
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
-def safehash(chash):
+def issafe(b32):
     """
-    Verify that *chash* is valid base32-encoding and correct length.
+    Verify that *b32* is valid base32-encoding and correct length.
 
-    A malicious *chash* could cause path traversal or other security gotchas,
-    thus this sanity check.  When *chash* is valid, it is returned unchanged:
+    A malicious *b32* could cause path traversal or other security gotchas,
+    thus this sanity check.  When *b2* is valid, it is returned unchanged:
 
-    >>> safehash('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
     'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-    However, when *chash* does not conform, a ``TypeError`` or ``ValueError`` is
+    However, when *b32* does not conform, a ``TypeError`` or ``ValueError`` is
     raised:
 
-    >>> safehash('NWBNVXVK5DQGIOW7MYR4K3KA')
+    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA')
     Traceback (most recent call last):
       ...
-    ValueError: len(chash) must be 32; got 24: 'NWBNVXVK5DQGIOW7MYR4K3KA'
+    ValueError: len(b32) must be 32; got 24: 'NWBNVXVK5DQGIOW7MYR4K3KA'
 
     For other protections against path traversal, see `FileStore.join()`.
     """
-    if not isinstance(chash, basestring):
+    if not isinstance(b32, basestring):
         raise TypeError(
-            TYPE_ERROR % ('chash', basestring, type(chash), chash)
+            TYPE_ERROR % ('b32', basestring, type(b32), b32)
         )
     try:
-        b32decode(chash)
+        b32decode(b32)
     except TypeError as e:
-        raise ValueError('chash: cannot b32decode %r: %s' % (chash, e))
-    if len(chash) != B32LENGTH:
-        raise ValueError('len(chash) must be %d; got %d: %r' %
-            (B32LENGTH, len(chash), chash)
+        raise ValueError('b32: cannot b32decode %r: %s' % (b32, e))
+    if len(b32) != B32LENGTH:
+        raise ValueError('len(b32) must be %d; got %d: %r' %
+            (B32LENGTH, len(b32), b32)
         )
-    return chash
+    return b32
 
 
 def hash_file(filename):
@@ -161,13 +170,17 @@ class FileStore(object):
         >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         '/home/name/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-        However, a ``ValueError`` is raised if *parts* cause a traversal
+        However, a ``ValueError`` is raised if *parts* cause a path traversal
         outside of the `FileStore` base directory:
 
         >>> fs.join('../.ssh/id_rsa')
         Traceback (most recent call last):
           ...
         ValueError: parts ('../.ssh/id_rsa',) cause path traversal to '/home/name/.ssh/id_rsa'
+
+        Or Likewise if an absolute
+
+        For other protections against path traversal, see `issafe()`.
         """
         fullpath = path.normpath(path.join(self.base, *parts))
         if fullpath.startswith(self.base):
@@ -177,37 +190,76 @@ class FileStore(object):
         )
 
     @staticmethod
-    def relpath(chash, extension=None):
+    def relpath(chash, ext=None):
         """
-        Relative path components for file with *chash*, ending with *extension*.
+        Relative path components for file with *chash*, ending with *ext*.
 
         For example:
 
-        >>> fs = FileStore('/foo')
-        >>> fs.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        >>> fs.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', extension='txt')
+
+        Or with the file extension *ext*:
+
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
+
+        Also see `FileStore.reltmp()`.
         """
+        chash = issafe(chash)
         dname = chash[:2]
         fname = chash[2:]
-        if extension:
-            return (dname, '.'.join((fname, extension)))
+        if ext:
+            return (dname, '.'.join((fname, ext)))
         return (dname, fname)
 
-    def path(self, chash, extension=None):
+    def path(self, chash, ext=None):
         """
-        Returns path of file with *chash* and *extension*.
+        Returns path of file with content-hash *chash* and extension *ext*.
 
         For example:
 
         >>> fs = FileStore('/foo')
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', extension='txt')
+        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
         """
-        return self.join(*self.relpath(chash, extension))
+        return self.join(*self.relpath(chash, ext))
+
+    @staticmethod
+    def reltmp(quickid=None, chash=None, ext=None):
+        """
+        Relative path components of temporary file.
+
+        Temporary files are created in either an ``'imports'`` or
+        ``'downloads'`` sub-directory based on whether you're doing an initial
+        import or downloading a file already present in the library.
+
+        For initial imports, provide the *quickid* like this:
+
+        >>> FileStore.reltmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
+        ('imports', 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov')
+
+        For downloads, the content-hash will already be known, so provide the
+        *chash* like this:
+
+        >>> FileStore.reltmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
+        ('downloads', 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+
+        Also see `FileStore.relpath()`.
+        """
+        if quickid:
+            dname = 'imports'
+            fname = issafe(quickid)
+        elif chash:
+            dname = 'downloads'
+            fname = issafe(chash)
+        else:
+            raise TypeError('must provide either `chash` or `quickid`')
+        if ext:
+            return (dname, '.'.join((fname, ext)))
+        return (dname, fname)
 
     def tmp(self, chash=None, quickid=None):
         """
@@ -220,17 +272,17 @@ class FileStore(object):
         '/foo/imports/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
         """
         if chash:
-            return self.join('downloads', safehash(chash))
+            return self.join('downloads', issafe(chash))
         if quickid:
-            return self.join('imports', safehash(quickid))
+            return self.join('imports', issafe(quickid))
         raise TypeError('must provide either `chash` or `quickid`')
 
-    def allocate_tmp(self, chash=None, quickid=None, size=None):
+    def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
         tmp = self.tmp(chash, quickid)
         parent = path.dirname(tmp)
         if not path.exists(parent):
             os.makedirs(parent)
-        if isinstance(size, int) and size > 0:
+        if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
             try:
                 check_call([FALLOCATE, '-l', str(size), tmp])
             except CalledProcessError as e:

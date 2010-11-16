@@ -33,8 +33,39 @@ from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
 from dmedialib import filestore2
 
 
+TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
+
 
 class test_functions(TestCase):
+    def test_issafe(self):
+        f = filestore2.issafe
+
+        # Test with wrong type
+        e = raises(TypeError, f, 42)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('b32', basestring, int, 42)
+        )
+
+        # Test with invalid base32 encoding:
+        bad = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7N'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Incorrect padding' % bad
+        )
+
+        # Test with wrong length:
+        bad = 'NWBNVXVK5DQGIOW7MYR4K3KA'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'len(b32) must be 32; got 24: %r' % bad
+        )
+
+        # Test with a good chash:
+        good = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        assert f(good) is good
 
     def test_hash_file(self):
         f = filestore2.hash_file
@@ -56,3 +87,98 @@ class test_functions(TestCase):
         f = filestore2.quick_id
         self.assertEqual(f(sample_mov), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
         self.assertEqual(f(sample_thm), 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M')
+
+
+class test_FileStore(TestCase):
+    klass = filestore2.FileStore
+
+    def test_init(self):
+        tmp = TempDir()
+        orig = os.getcwd()
+        try:
+            os.chdir(tmp.path)
+            inst = self.klass('foo/bar')
+            self.assertEqual(inst.base, tmp.join('foo/bar'))
+        finally:
+            os.chdir(orig)
+
+    def test_join(self):
+        inst = self.klass('/foo/bar')
+        TRAVERSAL = 'parts %r cause path traversal to %r'
+
+        # Test with an absolute path in parts:
+        e = raises(ValueError, inst.join, 'dmedia', '/root')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('dmedia', '/root'), '/root')
+        )
+
+        # Test with some .. climbers:
+        e = raises(ValueError, inst.join, 'NW/../../.ssh')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('NW/../../.ssh',), '/foo/.ssh')
+        )
+
+
+    def test_relpath(self):
+        inst = self.klass('/foo')
+
+        self.assertEqual(
+            inst.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.relpath, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.relpath, bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+    def test_reltmp(self):
+        inst = self.klass('/foo')
+
+        self.assertEqual(
+            inst.reltmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('imports', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.reltmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            ('imports', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+        )
+        self.assertEqual(
+            inst.reltmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.reltmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            ('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+        )
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.reltmp, quickid=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.reltmp, chash=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test when neither quickid nor chash is provided:
+        e = raises(TypeError, inst.reltmp)
+        self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
