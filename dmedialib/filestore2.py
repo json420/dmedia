@@ -160,35 +160,6 @@ class FileStore(object):
     def __init__(self, base):
         self.base = path.abspath(base)
 
-    def join(self, *parts):
-        """
-        Safely join *parts* with base directory to prevent path traversal.
-
-        For example:
-
-        >>> fs = FileStore('/home/name/.dmedia')
-        >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        '/home/name/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-
-        However, a ``ValueError`` is raised if *parts* cause a path traversal
-        outside of the `FileStore` base directory:
-
-        >>> fs.join('../.ssh/id_rsa')
-        Traceback (most recent call last):
-          ...
-        ValueError: parts ('../.ssh/id_rsa',) cause path traversal to '/home/name/.ssh/id_rsa'
-
-        Or Likewise if an absolute
-
-        For other protections against path traversal, see `issafe()`.
-        """
-        fullpath = path.normpath(path.join(self.base, *parts))
-        if fullpath.startswith(self.base):
-            return fullpath
-        raise ValueError('parts %r cause path traversal to %r' %
-            (parts, fullpath)
-        )
-
     @staticmethod
     def relpath(chash, ext=None):
         """
@@ -212,20 +183,6 @@ class FileStore(object):
         if ext:
             return (dname, '.'.join((fname, ext)))
         return (dname, fname)
-
-    def path(self, chash, ext=None):
-        """
-        Returns path of file with content-hash *chash* and extension *ext*.
-
-        For example:
-
-        >>> fs = FileStore('/foo')
-        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
-        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
-        """
-        return self.join(*self.relpath(chash, ext))
 
     @staticmethod
     def reltmp(quickid=None, chash=None, ext=None):
@@ -260,6 +217,67 @@ class FileStore(object):
         if ext:
             return (dname, '.'.join((fname, ext)))
         return (dname, fname)
+
+    def join(self, *parts):
+        """
+        Safely join *parts* with base directory to prevent path traversal.
+
+        For security reasons, it's very important that you use this method
+        rather than ``path.join()`` directly.  This method will prevent
+        directory/path traversal, ``path.join()`` will not.
+
+        For example:
+
+        >>> fs = FileStore('/home/name/.dmedia')
+        >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        '/home/name/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+        However, a ``ValueError`` is raised if *parts* cause a path traversal
+        outside of the `FileStore` base directory:
+
+        >>> fs.join('../.ssh/id_rsa')
+        Traceback (most recent call last):
+          ...
+        ValueError: parts ('../.ssh/id_rsa',) cause path traversal to '/home/name/.ssh/id_rsa'
+
+        Or Likewise if an absolute
+
+        For other protections against path traversal, see `issafe()`.
+        """
+        fullpath = path.normpath(path.join(self.base, *parts))
+        if fullpath.startswith(self.base):
+            return fullpath
+        raise ValueError('parts %r cause path traversal to %r' %
+            (parts, fullpath)
+        )
+
+    def create_parent(self, *parts):
+        """
+        Safely join *parts* with base and create containing directory if needed.
+
+        This method will construct an absolute filename using `FileStore.join()`
+        and then create this file's containing directory if it doesn't already
+        exist.  Returns the absolute filename.
+        """
+        filename = self.join(*parts)
+        containing = path.dirname(filename)
+        if not path.exists(containing):
+            os.makedirs(containing)
+        return filename
+
+    def path(self, chash, ext=None):
+        """
+        Returns path of file with content-hash *chash* and extension *ext*.
+
+        For example:
+
+        >>> fs = FileStore('/foo')
+        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
+        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        """
+        return self.join(*self.relpath(chash, ext))
 
     def tmp(self, chash=None, quickid=None):
         """

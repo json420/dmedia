@@ -102,25 +102,6 @@ class test_FileStore(TestCase):
         finally:
             os.chdir(orig)
 
-    def test_join(self):
-        inst = self.klass('/foo/bar')
-        TRAVERSAL = 'parts %r cause path traversal to %r'
-
-        # Test with an absolute path in parts:
-        e = raises(ValueError, inst.join, 'dmedia', '/root')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('dmedia', '/root'), '/root')
-        )
-
-        # Test with some .. climbers:
-        e = raises(ValueError, inst.join, 'NW/../../.ssh')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('NW/../../.ssh',), '/foo/.ssh')
-        )
-
-
     def test_relpath(self):
         inst = self.klass('/foo')
 
@@ -182,3 +163,64 @@ class test_FileStore(TestCase):
         # Test when neither quickid nor chash is provided:
         e = raises(TypeError, inst.reltmp)
         self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
+
+    def test_join(self):
+        inst = self.klass('/foo/bar')
+        TRAVERSAL = 'parts %r cause path traversal to %r'
+
+        # Test with an absolute path in parts:
+        e = raises(ValueError, inst.join, 'dmedia', '/root')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('dmedia', '/root'), '/root')
+        )
+
+        # Test with some .. climbers:
+        e = raises(ValueError, inst.join, 'NW/../../.ssh')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('NW/../../.ssh',), '/foo/.ssh')
+        )
+
+        # Test with some correct parts:
+        self.assertEqual(
+            inst.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+        self.assertEqual(
+            inst.join('NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+
+    def test_create_parent(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+        TRAVERSAL = 'parts %r cause path traversal to %r'
+
+        # Test with an absolute path in parts:
+        e = raises(ValueError, inst.create_parent, 'dmedia', '/root')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('dmedia', '/root'), '/root')
+        )
+
+        # Test with some .. climbers:
+        e = raises(ValueError, inst.create_parent, 'NW/../../.ssh')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('NW/../../.ssh',), '/tmp/.ssh')
+        )
+
+        # Test with some correct parts:
+        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('NW')
+        self.assertFalse(path.exists(d))
+        self.assertFalse(path.exists(f))
+        self.assertEqual(inst.create_parent('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'), f)
+        self.assertTrue(path.isdir(d))
+        self.assertFalse(path.exists(f))
+        return
+        self.assertEqual(
+            inst.join('NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
