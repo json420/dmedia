@@ -235,6 +235,69 @@ class test_FileStore(TestCase):
         self.assertEqual(inst.create_parent('foo'), f)
         self.assertFalse(path.exists(f))
 
+    def test_create_parent2(self):
+        tmp = TempDir()
+        tmp2 = TempDir()
+        inst = self.klass(tmp.path)
+        TRAVERSAL = 'Wont create %r outside of base %r for file %r'
+
+        # Test with a normpath but outside of base:
+        f = tmp2.join('foo', 'bar')
+        d = tmp2.join('foo')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        e = raises(ValueError, inst.create_parent2, f)
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (d, inst.base, f)
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+
+        # Test with some .. climbers:
+        name = path.basename(tmp2.path)
+        f = tmp.join('foo', '..', '..', name, 'baz', 'f')
+        d = tmp2.join('baz')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        e = raises(ValueError, inst.create_parent2, f)
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (d, inst.base, f)
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+
+        # Test with some correct parts:
+        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('NW')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(inst.create_parent2(f), d)
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+        self.assertEqual(inst.create_parent2(f), d)  # When d already exists
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # Confirm that it's using os.makedirs(), not os.mkdir()
+        f = tmp.join('OM', 'LU', 'WE', 'IP')
+        d = tmp.join('OM', 'LU', 'WE')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(inst.create_parent2(f), d)
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+        self.assertEqual(inst.create_parent2(f), d)  # When d already exists
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # Test with 1-deep:
+        f = tmp.join('woot')
+        self.assertFalse(path.exists(f))
+        self.assertEqual(inst.create_parent2(f), tmp.path)
+        self.assertFalse(path.exists(f))
+
     def test_path(self):
         inst = self.klass('/foo')
 

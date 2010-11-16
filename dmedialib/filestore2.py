@@ -267,7 +267,17 @@ class FileStore(object):
             os.makedirs(containing)
         return filename
 
-    def path(self, chash, ext=None):
+    def create_parent2(self, filename):
+        containing = path.dirname(path.abspath(filename))
+        if not containing.startswith(self.base):
+            raise ValueError('Wont create %r outside of base %r for file %r' %
+                (containing, self.base, filename)
+            )
+        if not path.exists(containing):
+            os.makedirs(containing)
+        return containing
+
+    def path(self, chash, ext=None, create=False):
         """
         Returns path of file with content-hash *chash* and extension *ext*.
 
@@ -284,7 +294,7 @@ class FileStore(object):
         """
         return self.join(*self.relpath(chash, ext))
 
-    def tmp(self, quickid=None, chash=None, ext=None):
+    def tmp(self, quickid=None, chash=None, ext=None, create=False):
         """
         Returns path of temporary file.
 
@@ -331,3 +341,19 @@ class FileStore(object):
             except CalledProcessError as e:
                 pass
         return tmp
+
+    def import_file(self, src, quickid, ext=None):
+        if os.stat(src).st_dev == os.stat(self.base).st_dev:
+            os.chmod(src, 0o444)
+            chash = hash_file(src)
+            dst = self.path(chash, ext, create=True)
+            os.link(src, dst)
+            return chash
+        tmp = self.allocate_tmp(
+            quickid=quickid, ext=ext, size=path.getsize(src)
+        )
+        chash = hash_and_copy(src, tmp)
+        os.chmod(tmp, 0o444)
+        dst = self.path(chash, ext, create=True)
+        os.rename(tmp, dst)
+        return chash
