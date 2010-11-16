@@ -28,6 +28,7 @@ Unit tests for `dmedialib.filestore` module.
 import os
 from os import path
 import hashlib
+import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
 from dmedialib import filestore2
@@ -423,3 +424,52 @@ class test_FileStore(TestCase):
         )
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
+
+    def test_import_file(self):
+        # Known quickid and chash for sample_mov:
+        quickid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
+        chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+
+        # Test when src and base are on same filesystem:
+        tmp = TempDir()
+        src = tmp.join('movie.mov')
+        base = tmp.join('.dmedia')
+        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+        shutil.copy(sample_mov, src)
+
+        inst = self.klass(base)
+        self.assertTrue(path.isfile(src))
+        self.assertFalse(path.exists(base))
+        self.assertFalse(path.exists(dst))
+        self.assertEqual(
+            inst.import_file(src, quickid, ext='mov'),
+            (chash, 'linked')
+        )
+        self.assertTrue(path.isfile(src))
+        self.assertTrue(path.isdir(base))
+        self.assertTrue(path.isfile(dst))
+        src_stat = os.stat(src)
+        dst_stat = os.stat(dst)
+        self.assertEqual(src_stat.st_ino, dst_stat.st_ino)
+        self.assertEqual(dst_stat.st_nlink, 2)
+
+        # Test when src and base are on *different* filesystem:
+        tmp = TempDir()
+        tmp2 = TempDir(dir='/dev/shm')
+        src = tmp2.join('movie.mov')
+        base = tmp.join('.dmedia')
+        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+        shutil.copy(sample_mov, src)
+
+        inst = self.klass(base)
+        self.assertTrue(path.isfile(src))
+        self.assertFalse(path.exists(base))
+        self.assertFalse(path.exists(dst))
+        self.assertEqual(
+            inst.import_file(src, quickid, ext='mov'),
+            (chash, 'copied')
+        )
+        self.assertTrue(path.isfile(src))
+        self.assertTrue(path.isdir(base))
+        self.assertTrue(path.isfile(dst))
+        self.assertEqual(filestore2.hash_file(dst), chash)

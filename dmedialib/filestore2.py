@@ -363,12 +363,18 @@ class FileStore(object):
         return tmp
 
     def import_file(self, src, quickid, ext=None):
+        if not path.exists(self.base):
+            os.makedirs(self.base)
+        assert path.isdir(self.base)
         if os.stat(src).st_dev == os.stat(self.base).st_dev:
+            # Same filesystem, we hardlink:
             os.chmod(src, 0o444)
             chash = hash_file(src)
             dst = self.path(chash, ext, create=True)
             os.link(src, dst)
-            return chash
+            return (chash, 'linked')
+
+        # Different filesystem, we copy:
         tmp = self.allocate_tmp(
             quickid=quickid, ext=ext, size=path.getsize(src)
         )
@@ -376,4 +382,4 @@ class FileStore(object):
         os.chmod(tmp, 0o444)
         dst = self.path(chash, ext, create=True)
         os.rename(tmp, dst)
-        return chash
+        return (chash, 'copied')
