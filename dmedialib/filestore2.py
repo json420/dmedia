@@ -251,23 +251,7 @@ class FileStore(object):
             (parts, fullpath)
         )
 
-    def create_parent(self, *parts):
-        """
-        Safely join *parts* with base and create containing directory if needed.
-
-        This method will construct an absolute filename using `FileStore.join()`
-        and then create this file's containing directory if it doesn't already
-        exist.
-
-        Returns the absolute filename.
-        """
-        filename = self.join(*parts)
-        containing = path.dirname(filename)
-        if not path.exists(containing):
-            os.makedirs(containing)
-        return filename
-
-    def create_parent2(self, filename):
+    def create_parent(self, filename):
         containing = path.dirname(path.abspath(filename))
         if not containing.startswith(self.base):
             raise ValueError('Wont create %r outside of base %r for file %r' %
@@ -333,7 +317,8 @@ class FileStore(object):
 
         The temporary filename is returned.
         """
-        tmp = self.create_parent(*self.reltmp(quickid, chash, ext))
+        tmp = self.tmp(quickid, chash, ext)
+        self.create_parent(tmp)
         if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
             try:
                 check_call([FALLOCATE, '-l', str(size), tmp])

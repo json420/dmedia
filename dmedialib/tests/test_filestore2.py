@@ -194,49 +194,6 @@ class test_FileStore(TestCase):
 
     def test_create_parent(self):
         tmp = TempDir()
-        inst = self.klass(tmp.path)
-        TRAVERSAL = 'parts %r cause path traversal to %r'
-
-        # Test with an absolute path in parts:
-        e = raises(ValueError, inst.create_parent, 'dmedia', '/root')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('dmedia', '/root'), '/root')
-        )
-
-        # Test with some .. climbers:
-        e = raises(ValueError, inst.create_parent, 'NW/../../.ssh')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('NW/../../.ssh',), '/tmp/.ssh')
-        )
-
-        # Test with some correct parts:
-        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        d = tmp.join('NW')
-        self.assertFalse(path.exists(d))
-        self.assertFalse(path.exists(f))
-        self.assertEqual(inst.create_parent('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'), f)
-        self.assertTrue(path.isdir(d))
-        self.assertFalse(path.exists(f))
-
-        # Confirm that it's using os.makedirs(), not os.mkdir()
-        f = tmp.join('OM', 'LU', 'WE', 'IP')
-        d = tmp.join('OM', 'LU', 'WE')
-        self.assertFalse(path.exists(d))
-        self.assertFalse(path.exists(f))
-        self.assertEqual(inst.create_parent('OM', 'LU', 'WE', 'IP'), f)
-        self.assertTrue(path.isdir(d))
-        self.assertFalse(path.exists(f))
-
-        # Test with 1-deep:
-        f = tmp.join('foo')
-        self.assertFalse(path.exists(f))
-        self.assertEqual(inst.create_parent('foo'), f)
-        self.assertFalse(path.exists(f))
-
-    def test_create_parent2(self):
-        tmp = TempDir()
         tmp2 = TempDir()
         inst = self.klass(tmp.path)
         TRAVERSAL = 'Wont create %r outside of base %r for file %r'
@@ -246,7 +203,7 @@ class test_FileStore(TestCase):
         d = tmp2.join('foo')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        e = raises(ValueError, inst.create_parent2, f)
+        e = raises(ValueError, inst.create_parent, f)
         self.assertEqual(
             str(e),
             TRAVERSAL % (d, inst.base, f)
@@ -260,7 +217,7 @@ class test_FileStore(TestCase):
         d = tmp2.join('baz')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        e = raises(ValueError, inst.create_parent2, f)
+        e = raises(ValueError, inst.create_parent, f)
         self.assertEqual(
             str(e),
             TRAVERSAL % (d, inst.base, f)
@@ -273,10 +230,10 @@ class test_FileStore(TestCase):
         d = tmp.join('NW')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        self.assertEqual(inst.create_parent2(f), d)
+        self.assertEqual(inst.create_parent(f), d)
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
-        self.assertEqual(inst.create_parent2(f), d)  # When d already exists
+        self.assertEqual(inst.create_parent(f), d)  # When d already exists
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
 
@@ -285,17 +242,17 @@ class test_FileStore(TestCase):
         d = tmp.join('OM', 'LU', 'WE')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        self.assertEqual(inst.create_parent2(f), d)
+        self.assertEqual(inst.create_parent(f), d)
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
-        self.assertEqual(inst.create_parent2(f), d)  # When d already exists
+        self.assertEqual(inst.create_parent(f), d)  # When d already exists
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
 
         # Test with 1-deep:
         f = tmp.join('woot')
         self.assertFalse(path.exists(f))
-        self.assertEqual(inst.create_parent2(f), tmp.path)
+        self.assertEqual(inst.create_parent(f), tmp.path)
         self.assertFalse(path.exists(f))
 
     def test_path(self):
