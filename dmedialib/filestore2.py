@@ -240,9 +240,15 @@ class FileStore(object):
           ...
         ValueError: parts ('../.ssh/id_rsa',) cause path traversal to '/home/name/.ssh/id_rsa'
 
-        Or Likewise if an absolute
+        Or Likewise if an absolute path is included in *parts*:
 
-        For other protections against path traversal, see `issafe()`.
+        >>> fs.join('NW', '/etc', 'ssh')
+        Traceback (most recent call last):
+          ...
+        ValueError: parts ('NW', '/etc', 'ssh') cause path traversal to '/etc/ssh'
+
+        For other protections against path traversal, see `issafe()` and
+        `FileStore.create_parent()`.
         """
         fullpath = path.normpath(path.join(self.base, *parts))
         if fullpath.startswith(self.base):
