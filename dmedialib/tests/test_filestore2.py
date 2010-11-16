@@ -453,6 +453,11 @@ class test_FileStore(TestCase):
         self.assertEqual(src_stat.st_ino, dst_stat.st_ino)
         self.assertEqual(dst_stat.st_nlink, 2)
 
+        self.assertEqual(  # dst already exists
+            inst.import_file(src, quickid, ext='mov'),
+            (chash, 'exists')
+        )
+
         # Test when src and base are on *different* filesystem:
         tmp = TempDir()
         tmp2 = TempDir(dir='/dev/shm')
@@ -473,3 +478,8 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(base))
         self.assertTrue(path.isfile(dst))
         self.assertEqual(filestore2.hash_file(dst), chash)
+
+        self.assertEqual(  # dst already exists
+            inst.import_file(src, quickid, ext='mov'),
+            (chash, 'exists')
+        )

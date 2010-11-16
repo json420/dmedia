@@ -371,6 +371,8 @@ class FileStore(object):
             os.chmod(src, 0o444)
             chash = hash_file(src)
             dst = self.path(chash, ext, create=True)
+            if path.exists(dst):
+                return (chash, 'exists')
             os.link(src, dst)
             return (chash, 'linked')
 
@@ -381,5 +383,7 @@ class FileStore(object):
         chash = hash_and_copy(src, tmp)
         os.chmod(tmp, 0o444)
         dst = self.path(chash, ext, create=True)
+        if path.exists(dst):
+            return (chash, 'exists')
         os.rename(tmp, dst)
         return (chash, 'copied')
