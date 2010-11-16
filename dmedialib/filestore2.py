@@ -257,7 +257,9 @@ class FileStore(object):
 
         This method will construct an absolute filename using `FileStore.join()`
         and then create this file's containing directory if it doesn't already
-        exist.  Returns the absolute filename.
+        exist.
+
+        Returns the absolute filename.
         """
         filename = self.join(*parts)
         containing = path.dirname(filename)
@@ -307,20 +309,25 @@ class FileStore(object):
         return self.join(*self.reltmp(quickid, chash, ext))
 
     def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
-        tmp = self.tmp(chash, quickid)
-        parent = path.dirname(tmp)
-        if not path.exists(parent):
-            os.makedirs(parent)
+        """
+        Create parent directory and attempt to preallocate temporary file.
+
+        The temporary filename is constructed by called `FileStore.tmp()`.
+        Then the temporary file's containing directory is created if it doesn't
+        already exist.
+
+        If *size* is a nonzero ``int``, an attempt is made to make a persistent
+        pre-allocation with the ``fallocate`` command, something like this:
+
+            fallocate -l 4284061229 HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov
+
+        The temporary filename is returned.
+        """
+        tmp = self.create_parent(*self.reltmp(quickid, chash, ext))
         if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
             try:
                 check_call([FALLOCATE, '-l', str(size), tmp])
+                assert path.getsize(tmp) == size
             except CalledProcessError as e:
                 pass
         return tmp
-
-
-
-
-
-
-#fallocate -l 340064241 MVI_6172.MOV

@@ -296,3 +296,48 @@ class test_FileStore(TestCase):
         # Test when neither quickid nor chash is provided:
         e = raises(TypeError, inst.tmp)
         self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
+
+    def test_allocate_tmp(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.allocate_tmp, quickid=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.allocate_tmp, chash=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test when neither quickid nor chash is provided:
+        e = raises(TypeError, inst.allocate_tmp)
+        self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
+
+        # Test with good quickid
+        f = tmp.join('imports', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+        d = tmp.join('imports')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.allocate_tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # Test with good chash
+        f = tmp.join('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+        d = tmp.join('downloads')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.allocate_tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
