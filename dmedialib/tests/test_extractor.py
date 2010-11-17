@@ -387,7 +387,7 @@ class test_functions(TestCase):
             src=sample_mov,
             base=path.dirname(sample_mov),
             root='MVI_5751',
-            meta=dict(
+            doc=dict(
                 ext='mov',
             ),
         )
@@ -395,7 +395,7 @@ class test_functions(TestCase):
         f(d)
 
         # Check canon.thm attachment
-        att = d['meta'].pop('_attachments')
+        att = d['doc'].pop('_attachments')
         self.assertEqual(set(att), set(['canon.thm']))
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
@@ -405,7 +405,7 @@ class test_functions(TestCase):
         )
 
         # Check thumbnail
-        thm = d['meta'].pop('thumbnail')
+        thm = d['doc'].pop('thumbnail')
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -421,7 +421,7 @@ class test_functions(TestCase):
                 src=sample_mov,
                 base=path.dirname(sample_mov),
                 root='MVI_5751',
-                meta=dict(
+                doc=dict(
                     ext='mov',
                     width=1920,
                     height=1080,
@@ -445,7 +445,7 @@ class test_functions(TestCase):
 
     def test_merge_exif(self):
         f = extractor.merge_exif
-        d = dict(src=sample_thm, meta={})
+        d = dict(src=sample_thm, doc={})
         self.assertTrue(sample_thm.endswith('.THM'))
         assert_deepequal(
             dict(f(d)),
@@ -470,7 +470,7 @@ class test_functions(TestCase):
             src=sample_mov,
             base=path.dirname(sample_mov),
             root='MVI_5751',
-            meta=dict(
+            doc=dict(
                 ext='mov',
             ),
         )
@@ -526,7 +526,7 @@ class test_functions(TestCase):
             src=invalid_mov,
             base=tmp.path,
             root='invalid',
-            meta=dict(
+            doc=dict(
                 ext='mov',
             ),
         )

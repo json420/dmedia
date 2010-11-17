@@ -66,7 +66,7 @@ class test_functions(TestCase):
                 'src': tmp.join('subdir', name),
                 'base': tmp.join('subdir'),
                 'root': name.split('.')[0],
-                'meta': {
+                'doc': {
                     'name': name,
                     'ext': name.split('.')[1].lower(),
                 },

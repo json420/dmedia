@@ -27,8 +27,9 @@ Store media files based on content-hash.
 import os
 from os import path
 import mimetypes
-from .filestore import FileStore
+from .filestore import FileStore, quick_id
 from .metastore import MetaStore
+from dmedialib.extractor import merge_metadata
 
 mimetypes.init()
 
@@ -78,7 +79,7 @@ def scanfiles(base, extensions=None):
                     'src': fullname,
                     'base': base,
                     'root': root,
-                    'meta': {
+                    'doc': {
                         'name': name,
                         'ext': ext,
                     },
@@ -95,3 +96,37 @@ class Importer(object):
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(path.join(self.home, DOTDIR))
         self.metastore = MetaStore(ctx=ctx)
+
+    def _import_one(self, d, extract=True):
+        try:
+            fp = open(d['src'], 'rb')
+        except IOError:
+            d['action'] = 'ioerror'
+            return d
+        doc = d['doc']
+        stat = os.fstat(fp.fileno())
+        quickid = quick_id(fp)
+        doc.update({
+            'quickid': quickid,
+            'mtime': stat.st_mtime,
+            'bytes': stat.st_size,
+        })
+        ids = list(self.metastore.by_quickid(quickid))
+        if ids:
+            d['action'] = 'skipped_duplicate'
+            return d
+        (chash, action) = self.filestore.import_file(fp, quickid, doc['ext'])
+        doc['_id'] = chash
+        if doc['ext']:
+            doc['mime'] = mimetypes.types_map.get('.' + doc['ext'])
+        d['action'] = action
+        if extract:
+            merge_metadata(d)
+        self.metastore.db.create(d['doc'])
+        return d
+
+    def recursive_import(self, base, extensions, common=None, extract=True):
+        for d in scanfiles(base, extensions):
+            if common:
+                d['doc'].update(common)
+            yield self._import_one(d)
