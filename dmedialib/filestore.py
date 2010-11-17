@@ -121,10 +121,15 @@ def hash_and_copy(src_fp, dst_fp):
         raise TypeError(
             TYPE_ERROR % ('dst_fp', file, type(dst_fp), dst_fp)
         )
-    if dst_fp.mode != 'wb':
+    if dst_fp.mode not in ('wb', 'r+b'):
         raise ValueError(
-            "dst_fp: must be opened in mode 'wb'; got %r" % dst_fp.mode
+            "dst_fp: must be opened in mode 'wb' or 'r+b'; got %r" % dst_fp.mode
         )
+    dst_size = os.fstat(dst_fp.fileno()).st_size
+    if dst_fp.mode == 'r+b':
+        assert dst_size == os.fstat(src_fp.fileno()).st_size
+    else:
+        assert dst_size == 0
     src_fp.seek(0)  # Make sure we are at beginning of file
     h = HASH()
     while True:
@@ -381,16 +386,17 @@ class FileStore(object):
 
             fallocate -l 4284061229 HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov
 
-        The temporary filename is returned.
+        Returns a ``file`` instance opened with ``open()``.
         """
         tmp = self.tmp(quickid, chash, ext, create=True)
         if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
             try:
                 check_call([FALLOCATE, '-l', str(size), tmp])
                 assert path.getsize(tmp) == size
+                return open(tmp, 'r+b')
             except CalledProcessError as e:
                 pass
-        return tmp
+        return open(tmp, 'wb')
 
     def import_file(self, src_fp, quickid, ext=None):
         if not path.exists(self.base):
@@ -408,11 +414,10 @@ class FileStore(object):
             return (chash, 'linked')
 
         # Different filesystem, we copy:
-        tmp = self.allocate_tmp(quickid=quickid, ext=ext, size=stat.st_size)
-        tmp_fp = open(tmp, 'wb')
+        tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=stat.st_size)
         chash = hash_and_copy(src_fp, tmp_fp)
         dst = self.path(chash, ext, create=True)
         if path.exists(dst):
             return (chash, 'exists')
-        os.rename(tmp, dst)
+        os.rename(tmp_fp.name, dst)
         return (chash, 'copied')

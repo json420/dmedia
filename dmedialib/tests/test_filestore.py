@@ -134,7 +134,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, src_fp, open(tmp.join('wrong.mov'), 'w'))
         self.assertEqual(
             str(e),
-            "dst_fp: must be opened in mode 'wb'; got 'w'"
+            "dst_fp: must be opened in mode 'wb' or 'r+b'; got 'w'"
         )
 
         # Test with some known files/values:
@@ -149,8 +149,10 @@ class test_functions(TestCase):
             'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
         )
 
+        # Simulate a fallocate pre-allocation:
         src_fp = open(sample_thm, 'rb')
-        dst_fp = open(tmp.join('sample.thm'), 'wb')
+        open(tmp.join('sample.thm'), 'wb').write('a' * path.getsize(sample_thm))
+        dst_fp = open(tmp.join('sample.thm'), 'r+b')
         self.assertEqual(f(src_fp, dst_fp), 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
         self.assertFalse(src_fp.closed)  # Should not close file
         self.assertFalse(dst_fp.closed)  # Should not close file
@@ -523,11 +525,11 @@ class test_FileStore(TestCase):
         d = tmp.join('imports')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        self.assertEqual(
-            inst.allocate_tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
-            f
-        )
-        self.assertFalse(path.exists(f))
+        fp = inst.allocate_tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertTrue(fp.mode in ['wb', 'r+b'])
+        self.assertEqual(fp.name, f)
+        self.assertTrue(path.isfile(f))
         self.assertTrue(path.isdir(d))
 
         # Test with good chash
@@ -535,11 +537,11 @@ class test_FileStore(TestCase):
         d = tmp.join('downloads')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        self.assertEqual(
-            inst.allocate_tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
-            f
-        )
-        self.assertFalse(path.exists(f))
+        fp = inst.allocate_tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertTrue(fp.mode in ['wb', 'r+b'])
+        self.assertEqual(fp.name, f)
+        self.assertTrue(path.isfile(f))
         self.assertTrue(path.isdir(d))
 
     def test_import_file(self):
