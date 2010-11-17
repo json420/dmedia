@@ -64,9 +64,9 @@ def raises(exception, callback, *args, **kw):
 
 
 class TempDir(object):
-    def __init__(self, prefix='unit-tests.'):
+    def __init__(self, prefix='unit-tests.', dir=None):
         self.__prefix = prefix
-        self.__path = tempfile.mkdtemp(prefix=self.__prefix)
+        self.__path = tempfile.mkdtemp(prefix=self.__prefix, dir=dir)
         assert self.path == self.__path
 
     def __iter__(self):
@@ -75,7 +75,6 @@ class TempDir(object):
 
     def __get_path(self):
         assert path.abspath(self.__path) == self.__path
-        assert self.__path.startswith(path.join('/tmp', self.__prefix))
         assert path.isdir(self.__path) and not path.islink(self.__path)
         return self.__path
     path = property(__get_path)

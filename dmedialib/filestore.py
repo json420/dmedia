@@ -21,255 +21,398 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Store media files based on content-hash.
+Store media files in a special layout according to their content hash.
+
+Security note: this module must be carefully designed to prevent path traversal!
+Two lines of defense are used:
+
+    * `issafe()` - ensures that a chash is well-formed
+
+    * `FileStore.join()` - used in place of ``path.join()``, detects when
+      untrusted portions of path cause a path traversal
+
+Either should fully prevent path traversal but are used together for extra
+safety.
 """
 
 import os
 from os import path
-import shutil
-import hashlib
-from hashlib import sha1
-from base64 import b32encode
-import mimetypes
+from hashlib import sha1 as HASH
+from base64 import b32encode, b32decode
+import logging
+from subprocess import check_call, CalledProcessError
 
 
-mimetypes.init()
-
-
+B32LENGTH = 32  # Length of base32-encoded hash
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
-QUICK_ID_CHUNK = 2 ** 20
-DOTDIR = '.dmedia'
+QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
+FALLOCATE = '/usr/bin/fallocate'
+TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
-def quick_id(filename):
- 
-   hash_ = sha1()
-   hash_.update(str(path.getsize(filename)))
-   hash_.update(open(filename, 'rb').read(QUICK_ID_CHUNK))
-   return b32encode(hash_.digest())
- 
 
-def normalize_ext(name):
+def issafe(b32):
     """
-    Return (root, ext) from *name* where extension is normalized to lower-case.
+    Verify that *b32* is valid base32-encoding and correct length.
 
-    If *name* has no extension, ``None`` is returned as 2nd item in (root, ext)
-    tuple:
+    A malicious *b32* could cause path traversal or other security gotchas,
+    thus this sanity check.  When *b2* is valid, it is returned unchanged:
 
-    >>> normalize_ext('IMG_2140.CR2')
-    ('IMG_2140', 'cr2')
-    >>> normalize_ext('test.jpg')
-    ('test', 'jpg')
-    >>> normalize_ext('hello_world')
-    ('hello_world', None)
+    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+    'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+    However, when *b32* does not conform, a ``TypeError`` or ``ValueError`` is
+    raised:
+
+    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA')
+    Traceback (most recent call last):
+      ...
+    ValueError: len(b32) must be 32; got 24: 'NWBNVXVK5DQGIOW7MYR4K3KA'
+
+    For other protections against path traversal, see `FileStore.join()`.
     """
-    parts = name.rsplit('.', 1)
-    if len(parts) == 2:
-        return (parts[0], parts[1].lower())
-    return (parts[0], None)
-
-
-def scanfiles(base, extensions=None):
-    """
-    Recursively iterate through files in directory *base*.
-    """
+    if not isinstance(b32, basestring):
+        raise TypeError(
+            TYPE_ERROR % ('b32', basestring, type(b32), b32)
+        )
     try:
-        names = sorted(os.listdir(base))
-    except StandardError:
-        return
-    for name in names:
-        if name.startswith('.') or name.endswith('~'):
-            continue
-        fullname = path.join(base, name)
-        if path.islink(fullname):
-            continue
-        if path.isfile(fullname):
-            (root, ext) = normalize_ext(name)
-            if extensions is None or ext in extensions:
-                yield {
-                    'src': fullname,
-                    'base': base,
-                    'root': root,
-                    'meta': {
-                        'name': name,
-                        'ext': ext,
-                    },
-                }
-        elif path.isdir(fullname):
-            for d in scanfiles(fullname, extensions):
-                yield d
+        b32decode(b32)
+    except TypeError as e:
+        raise ValueError('b32: cannot b32decode %r: %s' % (b32, e))
+    if len(b32) != B32LENGTH:
+        raise ValueError('len(b32) must be %d; got %d: %r' %
+            (B32LENGTH, len(b32), b32)
+        )
+    return b32
 
 
-class FileNotFound(StandardError):
-    def __init__(self, chash, extension):
-        self.chash = chash
-        self.extension = extension
+def hash_file(fp):
+    """
+    Compute the content-hash of the open file *fp*.
+    """
+    if not isinstance(fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('fp', file, type(fp), fp)
+        )
+    if fp.mode != 'rb':
+        raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
+    fp.seek(0)  # Make sure we are at beginning of file
+    h = HASH()
+    while True:
+        chunk = fp.read(CHUNK)
+        if not chunk:
+            break
+        h.update(chunk)
+    return b32encode(h.digest())
+
+
+def hash_and_copy(src_fp, dst_fp):
+    """
+    Efficiently copy file *src_fp* to *dst_fp* while computing content-hash.
+    """
+    if not isinstance(src_fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('src_fp', file, type(src_fp), src_fp)
+        )
+    if src_fp.mode != 'rb':
+        raise ValueError(
+            "src_fp: must be opened in mode 'rb'; got %r" % src_fp.mode
+        )
+    if not isinstance(dst_fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('dst_fp', file, type(dst_fp), dst_fp)
+        )
+    if dst_fp.mode != 'wb':
+        raise ValueError(
+            "dst_fp: must be opened in mode 'wb'; got %r" % dst_fp.mode
+        )
+    src_fp.seek(0)  # Make sure we are at beginning of file
+    h = HASH()
+    while True:
+        chunk = src_fp.read(CHUNK)
+        if not chunk:
+            break
+        dst_fp.write(chunk)
+        h.update(chunk)
+    os.fchmod(dst_fp.fileno(), 0o444)
+    return b32encode(h.digest())
+
+
+def quick_id(fp):
+    """
+    Compute a quick reasonably unique ID for the open file *fp*.
+    """
+    if not isinstance(fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('fp', file, type(fp), fp)
+        )
+    if fp.mode != 'rb':
+        raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
+    fp.seek(0)  # Make sure we are at beginning of file
+    h = HASH()
+    size = os.fstat(fp.fileno()).st_size
+    h.update(str(size).encode('utf-8'))
+    h.update(fp.read(QUICK_ID_CHUNK))
+    return b32encode(h.digest())
 
 
 class FileStore(object):
-    def __init__(self, user_dir=None, shared_dir=None):
-        self.home = path.abspath(os.environ['HOME'])
-        if user_dir is None:
-            user_dir = path.join(self.home, DOTDIR)
-        if shared_dir is None:
-            shared_dir = path.join('/home', DOTDIR)
-        self.user_dir = path.abspath(user_dir)
-        self.shared_dir = path.abspath(shared_dir)
+    """
+    Arranges files in a special layout according to their content-hash.
 
-    def chash(self, filename=None, fp=None):
+    Security note: this class must be carefully designed to prevent path
+    traversal!
+
+    As the files are assumed to be read-only and unchanging, moving a file into
+    its canonical location must be atomic.  There are 3 scenarios that must be
+    considered:
+
+        1. Initial import of file on same disk device as `FileStore` - this is
+           the simplest case.  Imported file is hashed and then hard-linked into
+           its canonical location.
+
+        2. Initial import - as file will be copied from another disk device,
+           requires the use of a temporary file.  When copy completes, file is
+           is renamed to its canonical name.  During an initial import, the
+           temporary file is named based on the quick_id(), which will be known
+           prior to the import.
+
+        3. Download - as download might fail and be resumed, requires a
+           canonically named temporary file.  As content-hash is already known
+           (file is already in library), the temporary file should be named by
+           content-hash.  Once download completes and content is verified, file
+           is renamed to its canonical name.
+
+    In scenario (2) and (3), the filesize will be known when the temporary file
+    is created, so an attempt is made to preallocate the entire file using the
+    ``fallocate`` command.
+    """
+
+    def __init__(self, base):
+        self.base = path.abspath(base)
+
+    @staticmethod
+    def relpath(chash, ext=None):
         """
-        Compute the content-hash of the file at *filename*.
-
-        Note that dmedia will migrate to the skein-512-240 hash after the
-        Threefish constant change. See:
-
-          http://blog.novacut.com/2010/09/how-about-that-skein-hash.html
-
-        For example:
-        >>> from StringIO import StringIO
-        >>> fp = StringIO()
-        >>> fp.write('Novacut')
-        >>> fp.seek(0)
-        >>> store = FileStore()
-        >>> store.chash(fp=fp)
-        'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        """
-        if filename:
-            fp = open(filename, 'rb')
-        h = sha1()
-        while True:
-            chunk = fp.read(CHUNK)
-            if not chunk:
-                break
-            h.update(chunk)
-        return b32encode(h.digest())
-
-    def relname(self, chash, extension=None):
-        """
-        Relative path components for file with *chash*, ending with *extension*.
+        Relative path components for file with *chash*, ending with *ext*.
 
         For example:
 
-        >>> fs = FileStore()
-        >>> fs.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        >>> fs.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', extension='txt')
+
+        Or with the file extension *ext*:
+
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
+
+        Also see `FileStore.reltmp()`.
         """
+        chash = issafe(chash)
         dname = chash[:2]
         fname = chash[2:]
-        if extension:
-            return (dname, '.'.join((fname, extension)))
+        if ext:
+            return (dname, '.'.join((fname, ext)))
         return (dname, fname)
 
-    def mediadir(self, shared=False):
+    @staticmethod
+    def reltmp(quickid=None, chash=None, ext=None):
         """
-        Returns user_dir or shared_dir based on *shared* flag.
+        Relative path components of temporary file.
 
-        By default *shared* is ``False``.  For example:
+        Temporary files are created in either an ``'imports'`` or
+        ``'downloads'`` sub-directory based on whether you're doing an initial
+        import or downloading a file already present in the library.
 
-        >>> fs = FileStore(user_dir='/foo', shared_dir='/bar')
-        >>> fs.mediadir()
-        '/foo'
-        >>> fs.mediadir(shared=True)
-        '/bar'
+        For initial imports, provide the *quickid* like this:
+
+        >>> FileStore.reltmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
+        ('imports', 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov')
+
+        For downloads, the content-hash will already be known, so provide the
+        *chash* like this:
+
+        >>> FileStore.reltmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
+        ('downloads', 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+
+        Also see `FileStore.relpath()`.
         """
-        if shared:
-            return self.shared_dir
-        return self.user_dir
+        if quickid:
+            dname = 'imports'
+            fname = issafe(quickid)
+        elif chash:
+            dname = 'downloads'
+            fname = issafe(chash)
+        else:
+            raise TypeError('must provide either `chash` or `quickid`')
+        if ext:
+            return (dname, '.'.join((fname, ext)))
+        return (dname, fname)
 
-    def fullname(self, chash, extension=None, shared=False):
+    def join(self, *parts):
         """
-        Returns path of file with *chash* and *extension*.
+        Safely join *parts* with base directory to prevent path traversal.
 
-        If *shared* is ``True``, a path in the shared location is returned.
-        Otherwise the a path in the user's private dmedia store is returned.
+        For security reasons, it's very important that you use this method
+        rather than ``path.join()`` directly.  This method will prevent
+        directory/path traversal, ``path.join()`` will not.
 
         For example:
 
-        >>> fs = FileStore('/foo', '/bar')
-        >>> fs.fullname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')
-        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
-        >>> fs.fullname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt', shared=True)
-        '/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        >>> fs = FileStore('/home/name/.dmedia')
+        >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        '/home/name/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+        However, a ``ValueError`` is raised if *parts* cause a path traversal
+        outside of the `FileStore` base directory:
+
+        >>> fs.join('../.ssh/id_rsa')
+        Traceback (most recent call last):
+          ...
+        ValueError: parts ('../.ssh/id_rsa',) cause path traversal to '/home/name/.ssh/id_rsa'
+
+        Or Likewise if an absolute path is included in *parts*:
+
+        >>> fs.join('NW', '/etc', 'ssh')
+        Traceback (most recent call last):
+          ...
+        ValueError: parts ('NW', '/etc', 'ssh') cause path traversal to '/etc/ssh'
+
+        For other protections against path traversal, see `issafe()` and
+        `FileStore.create_parent()`.
         """
-        return path.join(
-            self.mediadir(shared), *self.relname(chash, extension)
+        fullpath = path.normpath(path.join(self.base, *parts))
+        if fullpath.startswith(self.base):
+            return fullpath
+        raise ValueError('parts %r cause path traversal to %r' %
+            (parts, fullpath)
         )
 
-    def locate(self, chash, extension=None):
+    def create_parent(self, filename):
         """
-        Attempt to locate file with *chash* and *extension*.
-        """
-        user = self.fullname(chash, extension)
-        if path.isfile(user):
-            return user
-        shared = self.fullname(chash, extension, shared=True)
-        if path.isfile(shared):
-            return shared
-        raise FileNotFound(chash, extension)
+        Safely create the directory containing *filename*.
 
-    def _do_add(self, d, shared=False):
-        """
-        Low-level add operation.
+        To prevent path traversal attacks, this method will only create
+        directories within the `FileStore` base directory.  For example:
 
-        Used by both `FileStore.add()` and `FileStore.add_recursive()`.
-        """
-        src = d['src']
-        chash = self.chash(src)
-        if 'meta' not in d:
-            d['meta'] = {}
-        meta = d['meta']
-        meta['_id'] = chash
-        dst = self.fullname(chash, meta.get('ext'), shared)
-        d['dst'] = dst
+        >>> fs = FileStore('/foo')
+        >>> fs.create_parent('/bar/my/movie.ogv')
+        Traceback (most recent call last):
+          ...
+        ValueError: Wont create '/bar/my' outside of base '/foo' for file '/bar/my/movie.ogv'
 
-        # If file already exists, return a 'skipped_duplicate' action
+        It also protects against malicious filenames like this:
+
+        >>> fs.create_parent('/foo/my/../../bar/movie.ogv')
+        Traceback (most recent call last):
+          ...
+        ValueError: Wont create '/bar' outside of base '/foo' for file '/foo/my/../../bar/movie.ogv'
+
+        If doesn't already exists, the directory containing *filename* is
+        created.
+
+        Returns the directory containing *filename*.
+        """
+        containing = path.dirname(path.abspath(filename))
+        if not containing.startswith(self.base):
+            raise ValueError('Wont create %r outside of base %r for file %r' %
+                (containing, self.base, filename)
+            )
+        if not path.exists(containing):
+            os.makedirs(containing)
+        return containing
+
+    def path(self, chash, ext=None, create=False):
+        """
+        Returns path of file with content-hash *chash* and extension *ext*.
+
+        For example:
+
+        >>> fs = FileStore('/foo')
+        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+        Or with a file extension:
+
+        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
+        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        """
+        filename = self.join(*self.relpath(chash, ext))
+        if create:
+            self.create_parent(filename)
+        return filename
+
+    def tmp(self, quickid=None, chash=None, ext=None, create=False):
+        """
+        Returns path of temporary file.
+
+        Temporary files are created in either an ``'imports'`` or a
+        ``'downloads'`` sub-directory based on whether you're doing an initial
+        import or downloading a file already present in the library.
+
+        For initial imports, provide the *quickid* like this:
+
+        >>> fs = FileStore('/foo')
+        >>> fs.tmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
+        '/foo/imports/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov'
+
+        For downloads, the content-hash will already be known, so provide the
+        *chash* like this:
+
+        >>> fs.tmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
+        '/foo/downloads/OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov'
+
+        Also see `FileStore.path()`, `FileStore.allocate_tmp()`.
+        """
+        filename = self.join(*self.reltmp(quickid, chash, ext))
+        if create:
+            self.create_parent(filename)
+        return filename
+
+    def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
+        """
+        Create parent directory and attempt to preallocate temporary file.
+
+        The temporary filename is constructed by calling `FileStore.tmp()` with
+        ``create=True``, which will create the temporary file's containing
+        directory if it doesn't already exist.
+
+        If *size* is a nonzero ``int``, an attempt is made to make a persistent
+        pre-allocation with the ``fallocate`` command, something like this:
+
+            fallocate -l 4284061229 HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov
+
+        The temporary filename is returned.
+        """
+        tmp = self.tmp(quickid, chash, ext, create=True)
+        if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
+            try:
+                check_call([FALLOCATE, '-l', str(size), tmp])
+                assert path.getsize(tmp) == size
+            except CalledProcessError as e:
+                pass
+        return tmp
+
+    def import_file(self, src_fp, quickid, ext=None):
+        if not path.exists(self.base):
+            os.makedirs(self.base)
+        assert path.isdir(self.base)
+        stat = os.fstat(src_fp.fileno())
+        if stat.st_dev == os.stat(self.base).st_dev:
+            # Same filesystem, we hardlink:
+            chash = hash_file(src_fp)
+            dst = self.path(chash, ext, create=True)
+            if path.exists(dst):
+                return (chash, 'exists')
+            os.fchmod(src_fp.fileno(), 0o444)
+            os.link(src_fp.name, dst)
+            return (chash, 'linked')
+
+        # Different filesystem, we copy:
+        tmp = self.allocate_tmp(quickid=quickid, ext=ext, size=stat.st_size)
+        tmp_fp = open(tmp, 'wb')
+        chash = hash_and_copy(src_fp, tmp_fp)
+        dst = self.path(chash, ext, create=True)
         if path.exists(dst):
-            d['action'] = 'skipped_duplicate'
-            return d
-
-        # Otherwise copy or hard-link into mediadir:
-        parent = path.dirname(dst)
-        if not path.exists(parent):
-            os.makedirs(parent)
-
-        meta['bytes'] = path.getsize(src)
-        meta['mtime'] = path.getmtime(src)
-        if meta.get('ext') is not None:
-            meta['mime'] = mimetypes.types_map.get('.' + meta['ext'])
-        if os.stat(src).st_dev == os.stat(self.mediadir(shared)).st_dev:
-            os.link(src, dst)
-            d['action'] = 'linked'
-            if src.startswith(self.home):
-                meta['links'] = [path.relpath(src, self.home)]
-            else:
-                meta['links'] = [src]
-        else:
-            shutil.copy2(src, dst)
-            d['action'] = 'copied'
-        try:
-            os.chmod(dst, 0o444)
-        except OSError:
-            pass
-        return d
-
-    def add(self, src, ext=None):
-        src = path.abspath(src)
-        name = path.basename(src)
-        if ext is None:
-            ext = normalize_ext(name)
-        else:
-            ext = ext.lower()
-        d = {
-            'src': src,
-            'meta': {
-                'name': name,
-                'ext': ext,
-            }
-        }
-        return self._do_add(d)
-
-    def add_recursive(self, base, extensions=None):
-        base = path.abspath(base)
-        for d in scanfiles(base, extensions):
-            yield self._do_add(d)
+            return (chash, 'exists')
+        os.rename(tmp, dst)
+        return (chash, 'copied')

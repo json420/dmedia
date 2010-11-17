@@ -28,216 +28,583 @@ Unit tests for `dmedialib.filestore` module.
 import os
 from os import path
 import hashlib
+import shutil
 from unittest import TestCase
-from .helpers import TempDir, TempHome, raises, sample_mov
+from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
 from dmedialib import filestore
 
 
-letters = 'gihdwaqoebxtcklrnsmjufyvpz'
-extensions = ('png', 'jpg', 'mov')
-key = '4e3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
-dname = '4e'
-fname = '3a57109f226b07fe00e0abac88544b2e8331d0ec47ee00340138dd.iso'
-
-
-def user_dir():
-    return path.join(os.environ['HOME'], '.dmedia')
-
+TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
 class test_functions(TestCase):
+    def test_issafe(self):
+        f = filestore.issafe
+
+        # Test with wrong type
+        e = raises(TypeError, f, 42)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('b32', basestring, int, 42)
+        )
+
+        # Test with invalid base32 encoding:
+        bad = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7N'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Incorrect padding' % bad
+        )
+
+        # Test with wrong length:
+        bad = 'NWBNVXVK5DQGIOW7MYR4K3KA'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'len(b32) must be 32; got 24: %r' % bad
+        )
+
+        # Test with a good chash:
+        good = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        assert f(good) is good
+
+    def test_hash_file(self):
+        f = filestore.hash_file
+
+        # Test with fp of wrong type
+        e = raises(TypeError, f, 'hello')
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('fp', file, str, 'hello')
+        )
+
+        # Test with fp opened in wrong mode
+        fp = open(sample_mov, 'r')
+        e = raises(ValueError, f, fp)
+        self.assertEqual(
+            str(e),
+            "fp: must be opened in mode 'rb'; got 'r'"
+        )
+
+        # Test with some known files/values:
+        fp = open(sample_mov, 'rb')
+        self.assertEqual(f(fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        self.assertFalse(fp.closed)  # Should not close file
+
+        fp = open(sample_thm, 'rb')
+        self.assertEqual(f(fp), 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
+        self.assertFalse(fp.closed)  # Should not close file
+
+        # Make user seek(0) is being called:
+        fp = open(sample_mov, 'rb')
+        fp.seek(1024)
+        self.assertEqual(f(fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        self.assertFalse(fp.closed)  # Should not close file
+
+    def test_hash_and_copy(self):
+        f = filestore.hash_and_copy
+        hash_file = filestore.hash_file
+        tmp = TempDir()
+
+        src_fp = open(sample_mov, 'rb')
+        dst_fp = open(tmp.join('test.mov'), 'wb')
+
+        # Test with src_fp of wrong type
+        e = raises(TypeError, f, 'hello', dst_fp)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('src_fp', file, str, 'hello')
+        )
+
+        # Test with src_fp opened in wrong mode
+        e = raises(ValueError, f, open(sample_mov, 'r'), dst_fp)
+        self.assertEqual(
+            str(e),
+            "src_fp: must be opened in mode 'rb'; got 'r'"
+        )
+
+        # Test with dst_fp of wrong type
+        e = raises(TypeError, f, src_fp, 17)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('dst_fp', file, int, 17)
+        )
+
+        # Test with dst_fp opened in wrong mode
+        e = raises(ValueError, f, src_fp, open(tmp.join('wrong.mov'), 'w'))
+        self.assertEqual(
+            str(e),
+            "dst_fp: must be opened in mode 'wb'; got 'w'"
+        )
+
+        # Test with some known files/values:
+        src_fp = open(sample_mov, 'rb')
+        dst_fp = open(tmp.join('sample.mov'), 'wb')
+        self.assertEqual(f(src_fp, dst_fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        self.assertFalse(src_fp.closed)  # Should not close file
+        self.assertFalse(dst_fp.closed)  # Should not close file
+        dst_fp.close()
+        self.assertEqual(
+            hash_file(open(dst_fp.name, 'rb')),
+            'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+        )
+
+        src_fp = open(sample_thm, 'rb')
+        dst_fp = open(tmp.join('sample.thm'), 'wb')
+        self.assertEqual(f(src_fp, dst_fp), 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
+        self.assertFalse(src_fp.closed)  # Should not close file
+        self.assertFalse(dst_fp.closed)  # Should not close file
+        dst_fp.close()
+        self.assertEqual(
+            hash_file(open(dst_fp.name, 'rb')),
+            'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A'
+        )
+
+        # Make user seek(0) is being called:
+        src_fp = open(sample_mov, 'rb')
+        src_fp.seek(1024)
+        dst_fp = open(tmp.join('seek.mov'), 'wb')
+        self.assertEqual(f(src_fp, dst_fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        self.assertFalse(src_fp.closed)  # Should not close file
+        self.assertFalse(dst_fp.closed)  # Should not close file
+        dst_fp.close()
+        self.assertEqual(
+            hash_file(open(dst_fp.name, 'rb')),
+            'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+        )
+
     def test_quick_id(self):
         f = filestore.quick_id
-        self.assertEqual(f(sample_mov), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
-        
-    def test_scanfiles(self):
-        f = filestore.scanfiles
-        tmp = TempDir()
-        self.assertEqual(list(f(tmp.path)), [])
-        somefile = tmp.touch('somefile.txt')
-        self.assertEqual(list(f(somefile)), [])
 
-        # Create files in a non-alphabetic order:
-        names = []
-        for (i, l) in enumerate(letters):
-            ext = extensions[i % len(extensions)]
-            name = '.'.join([l, ext.upper()])
-            names.append(name)
-            tmp.touch('subdir', name)
-
-        got = list(f(tmp.path, extensions))
-        expected = list(
-            {
-                'src': tmp.join('subdir', name),
-                'base': tmp.join('subdir'),
-                'root': name.split('.')[0],
-                'meta': {
-                    'name': name,
-                    'ext': name.split('.')[1].lower(),
-                },
-            }
-            for name in sorted(names)
+        # Test with fp of wrong type
+        e = raises(TypeError, f, 'hello')
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('fp', file, str, 'hello')
         )
-        self.assertEqual(got, expected)
 
+        # Test with fp opened in wrong mode
+        fp = open(sample_mov, 'r')
+        e = raises(ValueError, f, fp)
+        self.assertEqual(
+            str(e),
+            "fp: must be opened in mode 'rb'; got 'r'"
+        )
+
+        # Test with some known files/values:
+        fp = open(sample_mov, 'rb')
+        self.assertEqual(f(fp), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
+        self.assertFalse(fp.closed)  # Should not close file
+
+        fp = open(sample_thm, 'rb')
+        self.assertEqual(f(fp), 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M')
+        self.assertFalse(fp.closed)  # Should not close file
+
+        # Make user seek(0) is being called:
+        fp = open(sample_mov, 'rb')
+        fp.seek(1024)
+        self.assertEqual(f(fp), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
+        self.assertFalse(fp.closed)  # Should not close file
 
 
 class test_FileStore(TestCase):
     klass = filestore.FileStore
 
     def test_init(self):
-        home = TempHome()
-        inst = self.klass()
-        self.assertEqual(inst.home, home.path)
-        self.assertEqual(inst.user_dir, user_dir())
-        self.assertEqual(inst.shared_dir, '/home/.dmedia')
-        inst = self.klass(user_dir='/foo', shared_dir='/bar')
-        self.assertEqual(inst.user_dir, '/foo')
-        self.assertEqual(inst.shared_dir, '/bar')
-        inst = self.klass('/foo', '/bar')
-        self.assertEqual(inst.user_dir, '/foo')
-        self.assertEqual(inst.shared_dir, '/bar')
-
-    def test_chash(self):
-        inst = self.klass()
         tmp = TempDir()
-        src = tmp.write('Novacut', 'msg.txt')
-        self.assertEqual(inst.chash(src), 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        fp = open(src, 'rb')
-        self.assertEqual(inst.chash(fp=fp), 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        orig = os.getcwd()
+        try:
+            os.chdir(tmp.path)
+            inst = self.klass('foo/bar')
+            self.assertEqual(inst.base, tmp.join('foo/bar'))
+        finally:
+            os.chdir(orig)
 
-    def test_relname(self):
-        inst = self.klass()
+    def test_relpath(self):
+        inst = self.klass('/foo')
+
         self.assertEqual(
-            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            inst.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
             ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
-            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', None),
-            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        )
-        self.assertEqual(
-            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ''),
-            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        )
-        self.assertEqual(
-            inst.relname('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'ogv'),
+            inst.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
             ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.relpath, bad)
         self.assertEqual(
-            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6'),
-            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
         )
+        e = raises(ValueError, inst.relpath, bad, ext='ogv')
         self.assertEqual(
-            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', None),
-            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
-        )
-        self.assertEqual(
-            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', ''),
-            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6')
-        )
-        self.assertEqual(
-            inst.relname('6d82dadeaae8e0643adf6623c56d40eab5ab7db6', 'mov'),
-            ('6d', '82dadeaae8e0643adf6623c56d40eab5ab7db6.mov')
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
         )
 
-    def test_mediadir(self):
-        inst = self.klass('/foo', '/bar')
-        self.assertEqual(inst.mediadir(), '/foo')
-        self.assertEqual(inst.mediadir(False), '/foo')
-        self.assertEqual(inst.mediadir(True), '/bar')
-        self.assertEqual(inst.mediadir(shared=False), '/foo')
-        self.assertEqual(inst.mediadir(shared=True), '/bar')
+    def test_reltmp(self):
+        inst = self.klass('/foo')
 
-    def test_fullname(self):
-        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        inst = self.klass()
         self.assertEqual(
-            inst.fullname(chash),
-            path.join(user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+            inst.reltmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('imports', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
-            inst.fullname(chash, 'ogv'),
-            path.join(user_dir(), 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+            inst.reltmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            ('imports', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
         )
         self.assertEqual(
-            inst.fullname(chash, None, True),
-            path.join('/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+            inst.reltmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
-            inst.fullname(chash, 'ogv', True),
-            path.join('/home/.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+            inst.reltmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            ('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
         )
 
-    def test_locate(self):
-        user = TempDir()
-        shared = TempDir()
-        inst = self.klass(user.path, shared.path)
-        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        e = raises(filestore.FileNotFound, inst.locate, chash, 'txt')
-        self.assertEqual(e.chash, chash)
-        self.assertEqual(e.extension, 'txt')
-        file1 = shared.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
-        self.assertEqual(inst.locate(chash, 'txt'), file1)
-        file2 = user.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
-        self.assertEqual(inst.locate(chash, 'txt'), file2)
-
-    def test_do_add(self):
-        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        h = TempHome()
-        inst = self.klass()
-        self.assertEqual(inst.user_dir.startswith(h.path), True)
-
-        src = h.write('Novacut', 'Documents', 'test.txt')
-        dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.txt')
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.reltmp, quickid=bad)
         self.assertEqual(
-            inst._do_add({'src': src, 'meta': {'ext': 'txt'}}),
-            {
-                'action': 'linked',
-                'src': src,
-                'dst': dst,
-                'meta': {
-                    '_id': chash,
-                    'bytes': path.getsize(src),
-                    'mtime': path.getmtime(src),
-                    'ext': 'txt',
-                    'mime': 'text/plain',
-                    'links': ['Documents/test.txt'],
-                },
-            }
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.reltmp, chash=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test when neither quickid nor chash is provided:
+        e = raises(TypeError, inst.reltmp)
+        self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
+
+    def test_join(self):
+        inst = self.klass('/foo/bar')
+        TRAVERSAL = 'parts %r cause path traversal to %r'
+
+        # Test with an absolute path in parts:
+        e = raises(ValueError, inst.join, 'dmedia', '/root')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('dmedia', '/root'), '/root')
+        )
+
+        # Test with some .. climbers:
+        e = raises(ValueError, inst.join, 'NW/../../.ssh')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('NW/../../.ssh',), '/foo/.ssh')
+        )
+
+        # Test with some correct parts:
+        self.assertEqual(
+            inst.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         )
         self.assertEqual(
-            inst._do_add({'src': src, 'meta': {'ext': 'txt'}}),
-            {
-                'action': 'skipped_duplicate',
-                'src': src,
-                'dst': dst,
-                'meta': {
-                    '_id': chash,
-                    'ext': 'txt',
-                },
-            }
+            inst.join('NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         )
-        self.assertEqual(path.isfile(dst), True)
-        self.assertEqual(open(dst, 'r').read(), 'Novacut')
 
-        # Test that correct mime-type is retrieved for .cr2 files:
-        chash = 'HECAODPVLQKOWHA3UVQO6ULCHW4PM3DZ'
-        src = h.write('A Canon .cr2 RAW image', 'Pictures', 'IMG_1300.CR2')
-        dst = path.join(inst.user_dir, chash[:2], chash[2:] + '.cr2')
+    def test_create_parent(self):
+        tmp = TempDir()
+        tmp2 = TempDir()
+        inst = self.klass(tmp.path)
+        TRAVERSAL = 'Wont create %r outside of base %r for file %r'
+
+        # Test with a normpath but outside of base:
+        f = tmp2.join('foo', 'bar')
+        d = tmp2.join('foo')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        e = raises(ValueError, inst.create_parent, f)
         self.assertEqual(
-            inst._do_add({'src': src, 'meta': {'ext': 'cr2'}}),
-                {
-                'action': 'linked',
-                'src': src,
-                'dst': dst,
-                'meta': {
-                    '_id': chash,
-                    'bytes': path.getsize(src),
-                    'mtime': path.getmtime(src),
-                    'ext': 'cr2',
-                    'mime': 'image/x-canon-cr2',
-                    'links': ['Pictures/IMG_1300.CR2'],
-                },
-            }
+            str(e),
+            TRAVERSAL % (d, inst.base, f)
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+
+        # Test with some .. climbers:
+        name = path.basename(tmp2.path)
+        f = tmp.join('foo', '..', '..', name, 'baz', 'f')
+        d = tmp2.join('baz')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        e = raises(ValueError, inst.create_parent, f)
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (d, inst.base, f)
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+
+        # Test with some correct parts:
+        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('NW')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(inst.create_parent(f), d)
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+        self.assertEqual(inst.create_parent(f), d)  # When d already exists
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # Confirm that it's using os.makedirs(), not os.mkdir()
+        f = tmp.join('OM', 'LU', 'WE', 'IP')
+        d = tmp.join('OM', 'LU', 'WE')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(inst.create_parent(f), d)
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+        self.assertEqual(inst.create_parent(f), d)  # When d already exists
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # Test with 1-deep:
+        f = tmp.join('woot')
+        self.assertFalse(path.exists(f))
+        self.assertEqual(inst.create_parent(f), tmp.path)
+        self.assertFalse(path.exists(f))
+
+    def test_path(self):
+        inst = self.klass('/foo')
+
+        self.assertEqual(
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+        self.assertEqual(
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv'
+        )
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.path, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.path, bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test with create=True
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('NW')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', create=True),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+    def test_tmp(self):
+        inst = self.klass('/foo')
+
+        self.assertEqual(
+            inst.tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/imports/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+        self.assertEqual(
+            inst.tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            '/foo/imports/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov'
+        )
+        self.assertEqual(
+            inst.tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/downloads/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+        self.assertEqual(
+            inst.tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            '/foo/downloads/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov'
+        )
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.tmp, quickid=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.tmp, chash=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test when neither quickid nor chash is provided:
+        e = raises(TypeError, inst.tmp)
+        self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
+
+        # Test with create=True
+        tmp = TempDir()
+        b32 = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        inst = self.klass(tmp.path)
+
+        # With quickid
+        f = tmp.join('imports', b32 + '.mov')
+        d = tmp.join('imports')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(quickid=b32, ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(quickid=b32, ext='mov', create=True),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # With chash
+        f = tmp.join('downloads', b32 + '.mov')
+        d = tmp.join('downloads')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(chash=b32, ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.tmp(chash=b32, ext='mov', create=True),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+    def test_allocate_tmp(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # Test to make sure hashes are getting checked with issafe():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.allocate_tmp, quickid=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.allocate_tmp, chash=bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test when neither quickid nor chash is provided:
+        e = raises(TypeError, inst.allocate_tmp)
+        self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
+
+        # Test with good quickid
+        f = tmp.join('imports', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+        d = tmp.join('imports')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.allocate_tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+        # Test with good chash
+        f = tmp.join('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+        d = tmp.join('downloads')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.allocate_tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
+    def test_import_file(self):
+        # Known quickid and chash for sample_mov:
+        hash_file = filestore.hash_file
+        quickid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
+        chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+
+        # Test when src and base are on same filesystem:
+        tmp = TempDir()
+        src = tmp.join('movie.mov')
+        base = tmp.join('.dmedia')
+        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+        shutil.copy(sample_mov, src)
+
+        inst = self.klass(base)
+        self.assertTrue(path.isfile(src))
+        self.assertFalse(path.exists(base))
+        self.assertFalse(path.exists(dst))
+        src_fp = open(src, 'rb')
+        self.assertEqual(
+            inst.import_file(src_fp, quickid, ext='mov'),
+            (chash, 'linked')
+        )
+        self.assertTrue(path.isfile(src))
+        self.assertTrue(path.isdir(base))
+        self.assertTrue(path.isfile(dst))
+        src_stat = os.stat(src)
+        dst_stat = os.stat(dst)
+        self.assertEqual(src_stat.st_ino, dst_stat.st_ino)
+        self.assertEqual(dst_stat.st_nlink, 2)
+
+        src_fp = open(src, 'rb')
+        self.assertEqual(  # dst already exists
+            inst.import_file(src_fp, quickid, ext='mov'),
+            (chash, 'exists')
+        )
+
+        # Test when src and base are on *different* filesystem:
+        tmp = TempDir()
+        tmp2 = TempDir(dir='/dev/shm')
+        src = tmp2.join('movie.mov')
+        base = tmp.join('.dmedia')
+        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+        shutil.copy(sample_mov, src)
+
+        inst = self.klass(base)
+        self.assertTrue(path.isfile(src))
+        self.assertFalse(path.exists(base))
+        self.assertFalse(path.exists(dst))
+        src_fp = open(src, 'rb')
+        self.assertEqual(
+            inst.import_file(src_fp, quickid, ext='mov'),
+            (chash, 'copied')
+        )
+        self.assertTrue(path.isfile(src))
+        self.assertTrue(path.isdir(base))
+        self.assertTrue(path.isfile(dst))
+        self.assertEqual(
+            hash_file(open(dst, 'rb')),
+            chash
+        )
+
+        src_fp = open(src, 'rb')
+        self.assertEqual(  # dst already exists
+            inst.import_file(src_fp, quickid, ext='mov'),
+            (chash, 'exists')
         )

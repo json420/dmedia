@@ -145,12 +145,7 @@ if path.isdir(cache):
     )
 
 
-from dmedialib.filestore import FileStore
-from dmedialib.metastore import MetaStore
-from dmedialib.extractor import merge_metadata
-
-store = FileStore()
-db = MetaStore()
+from dmedialib.importer import Importer
 
 common = {}
 if options.project:
@@ -158,28 +153,16 @@ if options.project:
 if options.tags:
     common['tags'] = options.tags
 
+importer = Importer()
 
-buf = []
 total = 0
 counts = {}
-for d in store.add_recursive(base, extensions):
+extract = not options.quick
+for d in importer.recursive_import(base, extensions, common, extract):
     print '  %(action)s %(src)r' % d
     action = d['action']
     counts[action] = counts.get(action, 0) + 1
     total += 1
-    if not action.startswith('skipped'):
-        d['meta'].update(common)
-        if not options.quick:
-            merge_metadata(d)
-        buf.append(db.new(d['meta']))
-    if len(buf) >= BATCH_SIZE:
-        db.desktop.put_records_batch(buf)
-        buf = []
-if buf:
-    try:
-        db.desktop.put_records_batch(buf)
-    except Exception as e:
-        logging.exception('Error adding records with put_records_batch()')
 
 print ''
 for key in sorted(counts):
