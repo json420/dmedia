@@ -22,7 +22,7 @@
 
 
 """
-Unit tests for `dmedialib.filestore` module.
+Unit tests for `dmedialib.importer` module.
 """
 
 import os
@@ -30,7 +30,7 @@ from os import path
 import hashlib
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov
-from dmedialib import filestore
+from dmedialib import importer
 
 
 letters = 'gihdwaqoebxtcklrnsmjufyvpz'
@@ -47,11 +47,11 @@ def user_dir():
 
 class test_functions(TestCase):
     def test_quick_id(self):
-        f = filestore.quick_id
+        f = importer.quick_id
         self.assertEqual(f(sample_mov), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
-        
+
     def test_scanfiles(self):
-        f = filestore.scanfiles
+        f = importer.scanfiles
         tmp = TempDir()
         self.assertEqual(list(f(tmp.path)), [])
         somefile = tmp.touch('somefile.txt')
@@ -83,7 +83,7 @@ class test_functions(TestCase):
 
 
 class test_FileStore(TestCase):
-    klass = filestore.FileStore
+    klass = importer.FileStore
 
     def test_init(self):
         home = TempHome()
@@ -174,7 +174,7 @@ class test_FileStore(TestCase):
         shared = TempDir()
         inst = self.klass(user.path, shared.path)
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        e = raises(filestore.FileNotFound, inst.locate, chash, 'txt')
+        e = raises(importer.FileNotFound, inst.locate, chash, 'txt')
         self.assertEqual(e.chash, chash)
         self.assertEqual(e.extension, 'txt')
         file1 = shared.write('Novacut', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
