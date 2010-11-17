@@ -85,12 +85,10 @@ def issafe(b32):
     return b32
 
 
-def hash_file(filename=None, fp=None):
+def hash_file(fp):
     """
-    Compute the content-hash of the file at *filename*.
+    Compute the content-hash of the open file *fp*.
     """
-    if filename:
-        fp = open(filename, 'rb')
     if not isinstance(fp, file):
         raise TypeError(
             TYPE_ERROR % ('fp', file, type(fp), fp)
