@@ -149,7 +149,8 @@ def quick_id(fp):
         raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
     fp.seek(0)  # Make sure we are at beginning of file
     h = HASH()
-    h.update(str(path.getsize(fp.name)).encode('utf-8'))
+    size = os.fstat(fp.fileno()).st_size
+    h.update(str(size).encode('utf-8'))
     h.update(fp.read(QUICK_ID_CHUNK))
     return b32encode(h.digest())
 
