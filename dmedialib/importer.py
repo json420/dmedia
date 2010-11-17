@@ -64,6 +64,7 @@ def scanfiles(base, extensions=None):
         names = sorted(os.listdir(base))
     except StandardError:
         return
+    dirs = []
     for name in names:
         if name.startswith('.') or name.endswith('~'):
             continue
@@ -83,8 +84,10 @@ def scanfiles(base, extensions=None):
                     },
                 }
         elif path.isdir(fullname):
-            for d in scanfiles(fullname, extensions):
-                yield d
+            dirs.append(fullname)
+    for fullname in dirs:
+        for d in scanfiles(fullname, extensions):
+            yield d
 
 
 class Importer(object):
