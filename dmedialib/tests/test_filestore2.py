@@ -111,8 +111,35 @@ class test_functions(TestCase):
 
     def test_quick_id(self):
         f = filestore2.quick_id
-        self.assertEqual(f(sample_mov), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
-        self.assertEqual(f(sample_thm), 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M')
+
+        # Test with fp of wrong type
+        e = raises(TypeError, f, fp='hello')
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('fp', file, str, 'hello')
+        )
+
+        # Test with fp opened in wrong mode
+        fp = open(sample_mov, 'r')
+        e = raises(ValueError, f, fp=fp)
+        self.assertEqual(
+            str(e),
+            "fp: must be opened in mode 'rb'; got 'r'"
+        )
+
+        # Test with some known files/values:
+        fp = open(sample_mov, 'rb')
+        self.assertEqual(f(fp), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
+        self.assertFalse(fp.closed)  # Should not close file
+
+        fp = open(sample_thm, 'rb')
+        self.assertEqual(f(fp), 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M')
+        self.assertFalse(fp.closed)  # Should not close file
+
+        # Make user seek(0) is being called:
+        fp = open(sample_mov, 'rb')
+        fp.seek(1024)
+        self.assertEqual(f(fp), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
 
 
 class test_FileStore(TestCase):

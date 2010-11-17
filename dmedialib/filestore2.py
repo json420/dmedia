@@ -123,13 +123,20 @@ def hash_and_copy(src, dst):
     return b32encode(h.digest())
 
 
-def quick_id(filename):
+def quick_id(fp):
     """
-    Compute a quick reasonably unique ID for the file at *filename*.
+    Compute a quick reasonably unique ID for the open file *fp*.
     """
+    if not isinstance(fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('fp', file, type(fp), fp)
+        )
+    if fp.mode != 'rb':
+        raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
+    fp.seek(0)  # Make sure we are at beginning of file
     h = HASH()
-    h.update(str(path.getsize(filename)).encode('utf-8'))
-    h.update(open(filename, 'rb').read(QUICK_ID_CHUNK))
+    h.update(str(path.getsize(fp.name)).encode('utf-8'))
+    h.update(fp.read(QUICK_ID_CHUNK))
     return b32encode(h.digest())
 
 
