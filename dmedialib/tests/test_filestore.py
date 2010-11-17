@@ -31,7 +31,7 @@ import hashlib
 import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
-from dmedialib import filestore2
+from dmedialib import filestore
 
 
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
@@ -39,7 +39,7 @@ TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 class test_functions(TestCase):
     def test_issafe(self):
-        f = filestore2.issafe
+        f = filestore.issafe
 
         # Test with wrong type
         e = raises(TypeError, f, 42)
@@ -69,7 +69,7 @@ class test_functions(TestCase):
         assert f(good) is good
 
     def test_hash_file(self):
-        f = filestore2.hash_file
+        f = filestore.hash_file
 
         # Test with fp of wrong type
         e = raises(TypeError, f, 'hello')
@@ -102,8 +102,8 @@ class test_functions(TestCase):
         self.assertFalse(fp.closed)  # Should not close file
 
     def test_hash_and_copy(self):
-        f = filestore2.hash_and_copy
-        hash_file = filestore2.hash_file
+        f = filestore.hash_and_copy
+        hash_file = filestore.hash_file
         tmp = TempDir()
 
         src_fp = open(sample_mov, 'rb')
@@ -174,7 +174,7 @@ class test_functions(TestCase):
         )
 
     def test_quick_id(self):
-        f = filestore2.quick_id
+        f = filestore.quick_id
 
         # Test with fp of wrong type
         e = raises(TypeError, f, 'hello')
@@ -208,7 +208,7 @@ class test_functions(TestCase):
 
 
 class test_FileStore(TestCase):
-    klass = filestore2.FileStore
+    klass = filestore.FileStore
 
     def test_init(self):
         tmp = TempDir()
@@ -544,7 +544,7 @@ class test_FileStore(TestCase):
 
     def test_import_file(self):
         # Known quickid and chash for sample_mov:
-        hash_file = filestore2.hash_file
+        hash_file = filestore.hash_file
         quickid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
         chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
 
