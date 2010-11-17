@@ -92,11 +92,20 @@ function(doc) {
 }
 """
 
+map_quickid = """
+function(doc) {
+    if (doc.quickid) {
+        emit(doc.quickid, null);
+    }
+}
+"""
+
 
 class MetaStore(object):
     type_url = 'http://example.com/dmedia'
 
     views = {
+        'quickid': (map_quickid, None),
         'total_bytes': (map_total_bytes, reduce_sum),
         'ext': (map_ext, reduce_count),
         'mime': (map_mime, reduce_count),
@@ -126,6 +135,10 @@ class MetaStore(object):
 
     def new(self, kw):
         return Record(kw, self.type_url)
+
+    def by_quickid(self, quickid):
+        for row in self.desktop.execute_view('quickid', key=quickid):
+            yield row.id
 
     def total_bytes(self):
         for row in self.desktop.execute_view('total_bytes'):

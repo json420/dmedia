@@ -72,6 +72,36 @@ class test_MetaStore(TestCase):
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 
+    def test_by_quickid(self):
+        mov_chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+        mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
+        thm_chash = 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A'
+        thm_qid =  'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
+        inst = self.new()
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            []
+        )
+        inst.db.create({'_id': thm_chash, 'quickid': thm_qid})
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            []
+        )
+        inst.db.create({'_id': mov_chash, 'quickid': mov_qid})
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            [mov_chash]
+        )
+        self.assertEqual(
+            list(inst.by_quickid(thm_qid)),
+            [thm_chash]
+        )
+        inst.db.create({'_id': 'should-not-happen', 'quickid': mov_qid})
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            [mov_chash, 'should-not-happen']
+        )
+
     def test_total_bytes(self):
         inst = self.new()
         self.assertEqual(inst.total_bytes(), 0)
