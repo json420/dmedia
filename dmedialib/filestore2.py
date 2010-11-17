@@ -105,12 +105,27 @@ def hash_file(fp):
     return b32encode(h.digest())
 
 
-def hash_and_copy(src, dst):
+def hash_and_copy(src_fp, dst_fp):
     """
-    Efficiently copy file from *src* to *dst* while computing content-hash.
+    Efficiently copy file *src_fp* to *dst_fp* while computing content-hash.
     """
-    src_fp = open(src, 'rb')
-    dst_fp = open(dst, 'wb')
+    if not isinstance(src_fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('src_fp', file, type(src_fp), src_fp)
+        )
+    if src_fp.mode != 'rb':
+        raise ValueError(
+            "src_fp: must be opened in mode 'rb'; got %r" % src_fp.mode
+        )
+    if not isinstance(dst_fp, file):
+        raise TypeError(
+            TYPE_ERROR % ('dst_fp', file, type(dst_fp), dst_fp)
+        )
+    if dst_fp.mode != 'wb':
+        raise ValueError(
+            "dst_fp: must be opened in mode 'wb'; got %r" % dst_fp.mode
+        )
+    src_fp.seek(0)  # Make sure we are at beginning of file
     h = HASH()
     while True:
         chunk = src_fp.read(CHUNK)
@@ -118,6 +133,7 @@ def hash_and_copy(src, dst):
             break
         dst_fp.write(chunk)
         h.update(chunk)
+    os.fchmod(dst_fp.fileno(), 0o444)
     return b32encode(h.digest())
 
 
@@ -375,26 +391,25 @@ class FileStore(object):
                 pass
         return tmp
 
-    def import_file(self, src, quickid, ext=None):
+    def import_file(self, src_fp, quickid, ext=None):
         if not path.exists(self.base):
             os.makedirs(self.base)
         assert path.isdir(self.base)
-        if os.stat(src).st_dev == os.stat(self.base).st_dev:
+        stat = os.fstat(src_fp.fileno())
+        if stat.st_dev == os.stat(self.base).st_dev:
             # Same filesystem, we hardlink:
-            os.chmod(src, 0o444)
-            chash = hash_file(src)
+            chash = hash_file(src_fp)
             dst = self.path(chash, ext, create=True)
             if path.exists(dst):
                 return (chash, 'exists')
-            os.link(src, dst)
+            os.fchmod(src_fp.fileno(), 0o444)
+            os.link(src_fp.name, dst)
             return (chash, 'linked')
 
         # Different filesystem, we copy:
-        tmp = self.allocate_tmp(
-            quickid=quickid, ext=ext, size=path.getsize(src)
-        )
-        chash = hash_and_copy(src, tmp)
-        os.chmod(tmp, 0o444)
+        tmp = self.allocate_tmp(quickid=quickid, ext=ext, size=stat.st_size)
+        tmp_fp = open(tmp, 'wb')
+        chash = hash_and_copy(src_fp, tmp_fp)
         dst = self.path(chash, ext, create=True)
         if path.exists(dst):
             return (chash, 'exists')
