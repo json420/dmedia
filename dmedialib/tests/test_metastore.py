@@ -40,7 +40,7 @@ class test_MetaStore(TestCase):
     klass = metastore.MetaStore
 
     def new(self):
-        return self.klass(context=self.ctx)
+        return self.klass(ctx=self.ctx)
 
     def setUp(self):
         self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
@@ -56,18 +56,18 @@ class test_MetaStore(TestCase):
     def test_init(self):
         self.assertEqual(self.klass.type_url, 'http://example.com/dmedia')
 
-        # Test with context=None:
+        # Test with ctx=None:
         inst = self.klass()
         self.assertEqual(inst.dbname, 'dmedia')
 
-        # Test with testing context:
+        # Test with testing ctx:
         inst = self.new()
         self.assertEqual(inst.dbname, 'dmedia')
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 
         # Test when overriding dbname:
-        inst = self.klass(dbname='dmedia_test', context=self.ctx)
+        inst = self.klass(dbname='dmedia_test', ctx=self.ctx)
         self.assertEqual(inst.dbname, 'dmedia_test')
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)

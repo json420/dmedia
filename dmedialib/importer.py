@@ -27,7 +27,8 @@ Store media files based on content-hash.
 import os
 from os import path
 import mimetypes
-
+from .filestore import FileStore
+from .metastore import MetaStore
 
 mimetypes.init()
 
@@ -84,3 +85,10 @@ def scanfiles(base, extensions=None):
         elif path.isdir(fullname):
             for d in scanfiles(fullname, extensions):
                 yield d
+
+
+class Importer(object):
+    def __init__(self, ctx=None):
+        self.home = path.abspath(os.environ['HOME'])
+        self.filestore = FileStore(path.join(self.home, DOTDIR))
+        self.metastore = MetaStore(ctx=ctx)
