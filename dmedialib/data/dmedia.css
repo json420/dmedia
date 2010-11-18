@@ -1,6 +1,12 @@
+.hide {
+    display: none;
+}
+
 body {
     background-color: #000;
-    color: #fff;
+    color: #eee;
+    font-size: 15px;
+    font-family: sans-serif;
 }
 
 img {
@@ -10,4 +16,12 @@ img {
 
 img:hover {
     border-color: #fff;
+}
+
+#details th {
+    text-align: right;
+}
+
+#details table {
+    display: inline-block;
 }

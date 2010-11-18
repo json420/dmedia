@@ -137,12 +137,7 @@ function cb(ret) {
 
 function on_click() {
     console.log('click', this._doc._id);
-    var doc = this._doc;
-    doc.rating = 4;
-    var r = new CouchRequest(function(ret) {
-        console.log(ret.string);
-    });
-    r.put('/dmedia/' + doc._id, doc);
+    location.hash = '#' + this._doc._id;
 }
 
 function cb(ret) {
@@ -154,7 +149,6 @@ function cb(ret) {
             return;
         }
         var img = new Element('img', {
-            id: doc._id,
             src: todata(doc.thumbnail),
             width: '192',
             height: '108',
@@ -173,3 +167,18 @@ function testClick() {
     //r.post('/dmedia/_design/ext/_view/ext?reduce=false',);
     r.get('/dmedia/_design/mtime/_view/mtime', {include_docs: true});
 }
+
+
+function get_hash() {
+    if (location.hash) {
+        return location.hash.slice(1);
+    }
+    return null;
+}
+
+
+function on_hashchange() {
+    console.log('hashchange', get_hash());
+}
+
+window.onhashchange = on_hashchange;
