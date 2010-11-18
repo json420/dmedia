@@ -221,13 +221,13 @@ def register(callback, *extensions):
 
 
 def merge_metadata(d):
-    meta = d['meta']
-    ext = meta['ext']
+    doc = d['doc']
+    ext = doc['ext']
     if ext in _extractors:
         callback = _extractors[ext]
         for (key, value) in callback(d):
-            if key not in meta or key == 'mtime':
-                meta[key] = value
+            if key not in doc or key == 'mtime':
+                doc[key] = value
 
 
 def merge_exif(d):
@@ -263,7 +263,7 @@ def merge_video_info(d):
     if thumbnail is not None:
         yield ('thumbnail', thumbnail)
 
-    if d['meta']['ext'] != 'mov':
+    if d['doc']['ext'] != 'mov':
         return
 
     # Extract EXIF metadata from Canon .THM file if present:

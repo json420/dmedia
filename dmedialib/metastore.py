@@ -92,11 +92,20 @@ function(doc) {
 }
 """
 
+map_quickid = """
+function(doc) {
+    if (doc.quickid) {
+        emit(doc.quickid, null);
+    }
+}
+"""
+
 
 class MetaStore(object):
     type_url = 'http://example.com/dmedia'
 
     views = {
+        'quickid': (map_quickid, None),
         'total_bytes': (map_total_bytes, reduce_sum),
         'ext': (map_ext, reduce_count),
         'mime': (map_mime, reduce_count),
@@ -106,14 +115,14 @@ class MetaStore(object):
         'project': (map_project, reduce_count),
     }
 
-    def __init__(self, dbname='dmedia', context=None):
+    def __init__(self, dbname='dmedia', ctx=None):
         self.dbname = dbname
         # FIXME: once lp:672481 is fixed, this wont be needed.  See:
         # https://bugs.launchpad.net/desktopcouch/+bug/672481
-        if context is None:
-            context = DEFAULT_CONTEXT
+        if ctx is None:
+            ctx = DEFAULT_CONTEXT
         # /FIXME
-        self.desktop = CouchDatabase(self.dbname, create=True, ctx=context)
+        self.desktop = CouchDatabase(self.dbname, create=True, ctx=ctx)
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
         self.create_views()
@@ -126,6 +135,10 @@ class MetaStore(object):
 
     def new(self, kw):
         return Record(kw, self.type_url)
+
+    def by_quickid(self, quickid):
+        for row in self.desktop.execute_view('quickid', key=quickid):
+            yield row.id
 
     def total_bytes(self):
         for row in self.desktop.execute_view('total_bytes'):
