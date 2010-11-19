@@ -168,3 +168,10 @@ print ''
 for key in sorted(counts):
     print '%s: %d' % (key, counts[key])
 print 'total_scanned: %d' % total
+
+dc = path.join(
+    os.environ['HOME'], '.local', 'share', 'desktop-couch', 'couchdb.html'
+)
+
+print 'To browse dmedia database in CouchDB, run:'
+print '  firefox file://%s' % dc
