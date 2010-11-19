@@ -26,10 +26,12 @@ Store media files in a special layout according to their content hash.
 Security note: this module must be carefully designed to prevent path traversal!
 Two lines of defense are used:
 
-    * `issafe()` - ensures that a chash is well-formed
+    * `safe_b32()` and `safe_ext()` validate the (assumed) untrusted *chash*,
+      *quickid*, and *ext* values
 
-    * `FileStore.join()` - used in place of ``path.join()``, detects when
-      untrusted portions of path cause a path traversal
+    * `FileStore.join()` and `FileStore.create_parent()` check the paths they
+       create to insure that the path did not traverse outside of the file store
+       base directory
 
 Either should fully prevent path traversal but are used together for extra
 safety.
@@ -39,10 +41,12 @@ import os
 from os import path
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
+from string import ascii_lowercase
 import logging
 from subprocess import check_call, CalledProcessError
 
 
+ascii_lowercase = frozenset(ascii_lowercase)
 B32LENGTH = 32  # Length of base32-encoded hash
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
@@ -50,25 +54,56 @@ FALLOCATE = '/usr/bin/fallocate'
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
-def issafe(b32):
+def safe_ext(ext):
+    """
+    Verify that extension *ext* contains only lowercase ascii letters.
+
+    A malicious *ext* could cause path traversal or other security gotchas,
+    thus this sanity check.  When *wav* is valid, it is returned unchanged:
+
+    >>> safe_ext('ogv')
+    'ogv'
+
+    However, when *ext* does not conform, a ``TypeError`` or ``ValueError`` is
+    raised:
+
+    >>> safe_ext('/../.ssh')
+    Traceback (most recent call last):
+      ...
+    ValueError: ext: can only contain ascii lowercase letters; got '/../.ssh'
+
+    Also see `safe_b32()`.
+    """
+    if not isinstance(ext, basestring):
+        raise TypeError(
+            TYPE_ERROR % ('ext', basestring, type(ext), ext)
+        )
+    if not ascii_lowercase.issuperset(ext):
+        raise ValueError(
+            'ext: can only contain ascii lowercase letters; got %r' % ext
+        )
+    return ext
+
+
+def safe_b32(b32):
     """
     Verify that *b32* is valid base32-encoding and correct length.
 
     A malicious *b32* could cause path traversal or other security gotchas,
     thus this sanity check.  When *b2* is valid, it is returned unchanged:
 
-    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+    >>> safe_b32('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
     'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
     However, when *b32* does not conform, a ``TypeError`` or ``ValueError`` is
     raised:
 
-    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA')
+    >>> safe_b32('NWBNVXVK5DQGIOW7MYR4K3KA')
     Traceback (most recent call last):
       ...
     ValueError: len(b32) must be 32; got 24: 'NWBNVXVK5DQGIOW7MYR4K3KA'
 
-    For other protections against path traversal, see `FileStore.join()`.
+    Also see `safe_ext()`.
     """
     if not isinstance(b32, basestring):
         raise TypeError(
@@ -218,11 +253,11 @@ class FileStore(object):
 
         Also see `FileStore.reltmp()`.
         """
-        chash = issafe(chash)
+        chash = safe_b32(chash)
         dname = chash[:2]
         fname = chash[2:]
         if ext:
-            return (dname, '.'.join((fname, ext)))
+            return (dname, '.'.join((fname, safe_ext(ext))))
         return (dname, fname)
 
     @staticmethod
@@ -249,14 +284,14 @@ class FileStore(object):
         """
         if quickid:
             dname = 'imports'
-            fname = issafe(quickid)
+            fname = safe_b32(quickid)
         elif chash:
             dname = 'downloads'
-            fname = issafe(chash)
+            fname = safe_b32(chash)
         else:
             raise TypeError('must provide either `chash` or `quickid`')
         if ext:
-            return (dname, '.'.join((fname, ext)))
+            return (dname, '.'.join((fname, safe_ext(ext))))
         return (dname, fname)
 
     def join(self, *parts):
@@ -288,8 +323,7 @@ class FileStore(object):
           ...
         ValueError: parts ('NW', '/etc', 'ssh') cause path traversal to '/etc/ssh'
 
-        For other protections against path traversal, see `issafe()` and
-        `FileStore.create_parent()`.
+        Also see `FileStore.create_parent()`.
         """
         fullpath = path.normpath(path.join(self.base, *parts))
         if fullpath.startswith(self.base):
@@ -319,9 +353,9 @@ class FileStore(object):
         ValueError: Wont create '/bar' outside of base '/foo' for file '/foo/my/../../bar/movie.ogv'
 
         If doesn't already exists, the directory containing *filename* is
-        created.
+        created.  Returns the directory containing *filename*.
 
-        Returns the directory containing *filename*.
+        Also see `FileStore.join()`.
         """
         containing = path.dirname(path.abspath(filename))
         if not containing.startswith(self.base):
