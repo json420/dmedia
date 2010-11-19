@@ -21,6 +21,14 @@
 
 """
 `dmedialib` - distributed media library
+
+Note: the dmedia content-hash and schema are *not* yet stable and may change
+wildly and without warning!
+
+The `dmedialib` API will go through significant changes in the next few months,
+so keep your hardhats on!  A good place to start is the `FileStore` class in the
+`filestore` module, which also probably has the most stable API of any of the
+current code.
 """
 
 __version__ = '0.1.0'
@@ -31,26 +39,3 @@ packagedir = path.dirname(path.abspath(__file__))
 assert path.isdir(packagedir)
 datadir = path.join(packagedir, 'data')
 assert path.isdir(datadir)
-
-
-
-
-class Media(object):
-
-    def add(self, filename):
-        pass
-
-    def hasfile(self, filename):
-        pass
-
-    def haskey(self, key):
-        pass
-
-    def resolve(self, key):
-        pass
-
-    def get(self, key, resolve=False):
-        pass
-
-    def update(self, entry):
-        pass

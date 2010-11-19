@@ -164,6 +164,12 @@ class FileStore(object):
     """
     Arranges files in a special layout according to their content-hash.
 
+    For example:
+
+    >>> fs = FileStore('/home/user/.dmedia')
+    >>> fs.path('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'mov')
+    '/home/user/.dmedia/HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
+
     Security note: this class must be carefully designed to prevent path
     traversal!
 
@@ -399,6 +405,29 @@ class FileStore(object):
         return open(tmp, 'wb')
 
     def import_file(self, src_fp, quickid, ext=None):
+        """
+        Atomically copy or hard-link open file *src_fp* into this file store.
+
+        The method will compute the content-hash of *src_fp* and then copy or
+        hard-link it into it's canonical location in this store, or do nothing
+        if a file with that canonical name already exists.
+
+        This method returns a ``(chash, action)`` tuple with the content hash a
+        a string indicating the action, something like this:
+
+            ``('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')``
+
+        The action will be either ``'copied'``, ``'linked'``, or ``'exists'``.
+        When copying, the file is copied to a temporary location, then renamed
+        to the canonical location once completed, guaranteeing an atomic
+        operation.
+
+        Note that *src_fp* must have been opened in ``'rb'`` mode.
+
+        :param src_fp: A ``file`` instance created with ``open()``
+        :param quickid: The quickid computed by ``quick_id()``
+        :param ext: The file's extension, e.g., ``'ogv'``
+        """
         if not path.exists(self.base):
             os.makedirs(self.base)
         assert path.isdir(self.base)
