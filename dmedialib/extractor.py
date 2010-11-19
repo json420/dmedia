@@ -1,22 +1,22 @@
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 
@@ -259,9 +259,11 @@ def merge_video_info(d):
             yield (dst_key, value)
 
     # Try to generate thumbnail:
+    attachments = {}
+    yield ('_attachments', attachments)
     thumbnail = generate_thumbnail(filename)
     if thumbnail is not None:
-        yield ('thumbnail', thumbnail)
+        attachments['thumbnail'] = thumbnail
 
     if d['doc']['ext'] != 'mov':
         return
@@ -269,13 +271,10 @@ def merge_video_info(d):
     # Extract EXIF metadata from Canon .THM file if present:
     thm = path.join(d['base'], d['root'] + '.THM')
     if path.isfile(thm):
-        att = {
-            'canon.thm': {
-                'content_type': 'image/jpeg',
-                'data': file_2_base64(thm),
-            }
+        attachments['canon.thm'] = {
+            'content_type': 'image/jpeg',
+            'data': file_2_base64(thm),
         }
-        yield ('_attachments', att)
         for (key, value) in merge_exif({'src': thm}):
             if key in ('width', 'height'):
                 continue

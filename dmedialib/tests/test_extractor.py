@@ -1,24 +1,23 @@
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-
 
 """
 Unit tests for `dmedialib.extractor` module.
@@ -396,7 +395,7 @@ class test_functions(TestCase):
 
         # Check canon.thm attachment
         att = d['doc'].pop('_attachments')
-        self.assertEqual(set(att), set(['canon.thm']))
+        self.assertEqual(set(att), set(['canon.thm', 'thumbnail']))
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
@@ -405,7 +404,7 @@ class test_functions(TestCase):
         )
 
         # Check thumbnail
-        thm = d['doc'].pop('thumbnail')
+        thm = att['thumbnail']
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -479,7 +478,7 @@ class test_functions(TestCase):
 
         # Check canon.thm attachment
         att = merged.pop('_attachments')
-        self.assertEqual(set(att), set(['canon.thm']))
+        self.assertEqual(set(att), set(['thumbnail', 'canon.thm']))
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
@@ -488,7 +487,7 @@ class test_functions(TestCase):
         )
 
         # Check thumbnail
-        thm = merged.pop('thumbnail')
+        thm = att['thumbnail']
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -532,4 +531,4 @@ class test_functions(TestCase):
         )
         merged = dict(f(d))
         self.assertTrue('thumbnail' not in merged)
-        self.assertEqual(merged, {})
+        self.assertEqual(merged, {'_attachments': {}})

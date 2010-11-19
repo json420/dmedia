@@ -1,23 +1,23 @@
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #   Akshat Jain <ssj6akshat1234@gmail.com)
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
@@ -26,10 +26,12 @@ Store media files in a special layout according to their content hash.
 Security note: this module must be carefully designed to prevent path traversal!
 Two lines of defense are used:
 
-    * `issafe()` - ensures that a chash is well-formed
+    * `safe_b32()` and `safe_ext()` validate the (assumed) untrusted *chash*,
+      *quickid*, and *ext* values
 
-    * `FileStore.join()` - used in place of ``path.join()``, detects when
-      untrusted portions of path cause a path traversal
+    * `FileStore.join()` and `FileStore.create_parent()` check the paths they
+       create to insure that the path did not traverse outside of the file store
+       base directory
 
 Either should fully prevent path traversal but are used together for extra
 safety.
@@ -39,10 +41,12 @@ import os
 from os import path
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
+from string import ascii_lowercase
 import logging
 from subprocess import check_call, CalledProcessError
 
 
+ascii_lowercase = frozenset(ascii_lowercase)
 B32LENGTH = 32  # Length of base32-encoded hash
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
@@ -50,25 +54,56 @@ FALLOCATE = '/usr/bin/fallocate'
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
-def issafe(b32):
+def safe_ext(ext):
+    """
+    Verify that extension *ext* contains only lowercase ascii letters.
+
+    A malicious *ext* could cause path traversal or other security gotchas,
+    thus this sanity check.  When *wav* is valid, it is returned unchanged:
+
+    >>> safe_ext('ogv')
+    'ogv'
+
+    However, when *ext* does not conform, a ``TypeError`` or ``ValueError`` is
+    raised:
+
+    >>> safe_ext('/../.ssh')
+    Traceback (most recent call last):
+      ...
+    ValueError: ext: can only contain ascii lowercase letters; got '/../.ssh'
+
+    Also see `safe_b32()`.
+    """
+    if not isinstance(ext, basestring):
+        raise TypeError(
+            TYPE_ERROR % ('ext', basestring, type(ext), ext)
+        )
+    if not ascii_lowercase.issuperset(ext):
+        raise ValueError(
+            'ext: can only contain ascii lowercase letters; got %r' % ext
+        )
+    return ext
+
+
+def safe_b32(b32):
     """
     Verify that *b32* is valid base32-encoding and correct length.
 
     A malicious *b32* could cause path traversal or other security gotchas,
     thus this sanity check.  When *b2* is valid, it is returned unchanged:
 
-    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+    >>> safe_b32('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
     'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
     However, when *b32* does not conform, a ``TypeError`` or ``ValueError`` is
     raised:
 
-    >>> issafe('NWBNVXVK5DQGIOW7MYR4K3KA')
+    >>> safe_b32('NWBNVXVK5DQGIOW7MYR4K3KA')
     Traceback (most recent call last):
       ...
     ValueError: len(b32) must be 32; got 24: 'NWBNVXVK5DQGIOW7MYR4K3KA'
 
-    For other protections against path traversal, see `FileStore.join()`.
+    Also see `safe_ext()`.
     """
     if not isinstance(b32, basestring):
         raise TypeError(
@@ -167,6 +202,25 @@ class FileStore(object):
     Security note: this class must be carefully designed to prevent path
     traversal!
 
+    To create a `FileStore`, you give it the directory that will be its base on
+    the filesystem:
+
+    >>> fs = FileStore('/home/user/.dmedia')
+    >>> fs.base
+    '/home/user/.dmedia'
+
+    You can add files to the store using `FileStore.import_file()`:
+
+    >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
+    >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
+    ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
+
+    And when you have the content-hash and extension, you can retrieve the full
+    path of the file using `FileStore.path()`:
+
+    >>> fs.path('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'mov')
+    '/home/user/.dmedia/HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
+
     As the files are assumed to be read-only and unchanging, moving a file into
     its canonical location must be atomic.  There are 3 scenarios that must be
     considered:
@@ -212,11 +266,11 @@ class FileStore(object):
 
         Also see `FileStore.reltmp()`.
         """
-        chash = issafe(chash)
+        chash = safe_b32(chash)
         dname = chash[:2]
         fname = chash[2:]
         if ext:
-            return (dname, '.'.join((fname, ext)))
+            return (dname, '.'.join((fname, safe_ext(ext))))
         return (dname, fname)
 
     @staticmethod
@@ -243,14 +297,14 @@ class FileStore(object):
         """
         if quickid:
             dname = 'imports'
-            fname = issafe(quickid)
+            fname = safe_b32(quickid)
         elif chash:
             dname = 'downloads'
-            fname = issafe(chash)
+            fname = safe_b32(chash)
         else:
             raise TypeError('must provide either `chash` or `quickid`')
         if ext:
-            return (dname, '.'.join((fname, ext)))
+            return (dname, '.'.join((fname, safe_ext(ext))))
         return (dname, fname)
 
     def join(self, *parts):
@@ -282,8 +336,7 @@ class FileStore(object):
           ...
         ValueError: parts ('NW', '/etc', 'ssh') cause path traversal to '/etc/ssh'
 
-        For other protections against path traversal, see `issafe()` and
-        `FileStore.create_parent()`.
+        Also see `FileStore.create_parent()`.
         """
         fullpath = path.normpath(path.join(self.base, *parts))
         if fullpath.startswith(self.base):
@@ -313,9 +366,9 @@ class FileStore(object):
         ValueError: Wont create '/bar' outside of base '/foo' for file '/foo/my/../../bar/movie.ogv'
 
         If doesn't already exists, the directory containing *filename* is
-        created.
+        created.  Returns the directory containing *filename*.
 
-        Returns the directory containing *filename*.
+        Also see `FileStore.join()`.
         """
         containing = path.dirname(path.abspath(filename))
         if not containing.startswith(self.base):
@@ -399,6 +452,31 @@ class FileStore(object):
         return open(tmp, 'wb')
 
     def import_file(self, src_fp, quickid, ext=None):
+        """
+        Atomically copy or hard-link open file *src_fp* into this file store.
+
+        The method will compute the content-hash of *src_fp* and then copy or
+        hard-link it into its canonical location in this store, or do nothing
+        if a file with that canonical name already exists.
+
+        This method returns a ``(chash, action)`` tuple with the content hash
+        and a string indicating the action, for example:
+
+        >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
+        >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
+        ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
+
+        The action will be either ``'copied'``, ``'linked'``, or ``'exists'``.
+        When copying, the file is copied to a temporary location, then renamed
+        to the canonical location once completed, guaranteeing an atomic
+        operation.
+
+        Note that *src_fp* must have been opened in ``'rb'`` mode.
+
+        :param src_fp: A ``file`` instance created with ``open()``
+        :param quickid: The quickid computed by ``quick_id()``
+        :param ext: The file's extension, e.g., ``'ogv'``
+        """
         if not path.exists(self.base):
             os.makedirs(self.base)
         assert path.isdir(self.base)

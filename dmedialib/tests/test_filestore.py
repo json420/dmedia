@@ -1,25 +1,24 @@
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
-#   Akshat Jain <ssj6akshat1234@gmail.com>
+#   Jason Gerard DeRose <jderose@novacut.com>
+#   Akshat Jain <ssj6akshat1234@gmail.com)
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-
 
 """
 Unit tests for `dmedialib.filestore` module.
@@ -38,8 +37,46 @@ TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
 class test_functions(TestCase):
-    def test_issafe(self):
-        f = filestore.issafe
+    def test_safe_ext(self):
+        f = filestore.safe_ext
+
+        # Test with wrong type
+        e = raises(TypeError, f, 42)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('ext', basestring, int, 42)
+        )
+
+        # Test with invalid case:
+        bad = 'ogV'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
+        )
+
+        # Test with invalid charaters:
+        bad = '$home'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
+        )
+
+        # Test with path traversal:
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
+        )
+
+        # Test with a good chash:
+        good = 'wav'
+        assert f(good) is good
+
+    def test_safe_b32(self):
+        f = filestore.safe_b32
 
         # Test with wrong type
         e = raises(TypeError, f, 42)
@@ -234,7 +271,7 @@ class test_FileStore(TestCase):
             ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
-        # Test to make sure hashes are getting checked with issafe():
+        # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
         e = raises(ValueError, inst.relpath, bad)
         self.assertEqual(
@@ -245,6 +282,15 @@ class test_FileStore(TestCase):
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, inst.relpath, chash, bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
         )
 
     def test_reltmp(self):
@@ -267,7 +313,7 @@ class test_FileStore(TestCase):
             ('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
         )
 
-        # Test to make sure hashes are getting checked with issafe():
+        # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
         e = raises(ValueError, inst.reltmp, quickid=bad)
         self.assertEqual(
@@ -283,6 +329,20 @@ class test_FileStore(TestCase):
         # Test when neither quickid nor chash is provided:
         e = raises(TypeError, inst.reltmp)
         self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
+
+        # Test to make sure ext is getting checked with safe_ext():
+        b32 = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, inst.reltmp, quickid=b32, ext=bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
+        )
+        e = raises(ValueError, inst.reltmp, chash=b32, ext=bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
+        )
 
     def test_join(self):
         inst = self.klass('/foo/bar')
@@ -387,7 +447,7 @@ class test_FileStore(TestCase):
             '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv'
         )
 
-        # Test to make sure hashes are getting checked with issafe():
+        # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
         e = raises(ValueError, inst.path, bad)
         self.assertEqual(
@@ -398,6 +458,15 @@ class test_FileStore(TestCase):
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, inst.path, chash, bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
         )
 
         # Test with create=True
@@ -441,7 +510,7 @@ class test_FileStore(TestCase):
             '/foo/downloads/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov'
         )
 
-        # Test to make sure hashes are getting checked with issafe():
+        # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
         e = raises(ValueError, inst.tmp, quickid=bad)
         self.assertEqual(
@@ -452,6 +521,20 @@ class test_FileStore(TestCase):
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        b32 = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, inst.tmp, quickid=b32, ext=bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
+        )
+        e = raises(ValueError, inst.tmp, chash=b32, ext=bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase letters; got %r' % bad
         )
 
         # Test when neither quickid nor chash is provided:
@@ -503,7 +586,7 @@ class test_FileStore(TestCase):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
-        # Test to make sure hashes are getting checked with issafe():
+        # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
         e = raises(ValueError, inst.allocate_tmp, quickid=bad)
         self.assertEqual(
