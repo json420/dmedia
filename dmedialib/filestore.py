@@ -199,9 +199,22 @@ class FileStore(object):
     """
     Arranges files in a special layout according to their content-hash.
 
-    For example:
+    For example, to create a `FileStore` you give it the directory that will be
+    its base on the filesystem:
 
     >>> fs = FileStore('/home/user/.dmedia')
+    >>> fs.base
+    '/home/user/.dmedia'
+
+    You can add files to the store using `FileStore.import_file()`:
+
+    >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
+    >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
+    ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
+
+    And when you have the content-hash and extension, you can retrieve the full
+    path of the file using `FileStore.path()`:
+
     >>> fs.path('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'mov')
     '/home/user/.dmedia/HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
 
