@@ -199,8 +199,11 @@ class FileStore(object):
     """
     Arranges files in a special layout according to their content-hash.
 
-    For example, to create a `FileStore` you give it the directory that will be
-    its base on the filesystem:
+    Security note: this class must be carefully designed to prevent path
+    traversal!
+
+    To create a `FileStore`, you give it the directory that will be its base on
+    the filesystem:
 
     >>> fs = FileStore('/home/user/.dmedia')
     >>> fs.base
@@ -217,9 +220,6 @@ class FileStore(object):
 
     >>> fs.path('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'mov')
     '/home/user/.dmedia/HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
-
-    Security note: this class must be carefully designed to prevent path
-    traversal!
 
     As the files are assumed to be read-only and unchanging, moving a file into
     its canonical location must be atomic.  There are 3 scenarios that must be
@@ -460,9 +460,11 @@ class FileStore(object):
         if a file with that canonical name already exists.
 
         This method returns a ``(chash, action)`` tuple with the content hash
-        and a string indicating the action, something like this:
+        and a string indicating the action, for example:
 
-            ``('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')``
+        >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
+        >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
+        ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
 
         The action will be either ``'copied'``, ``'linked'``, or ``'exists'``.
         When copying, the file is copied to a temporary location, then renamed
