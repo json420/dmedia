@@ -412,8 +412,8 @@ class FileStore(object):
         hard-link it into its canonical location in this store, or do nothing
         if a file with that canonical name already exists.
 
-        This method returns a ``(chash, action)`` tuple with the content hash a
-        a string indicating the action, something like this:
+        This method returns a ``(chash, action)`` tuple with the content hash
+        and a string indicating the action, something like this:
 
             ``('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')``
 

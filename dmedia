@@ -23,6 +23,9 @@
 
 
 """
+WARNING: the dmedia content-hash and schema are *not* yet stable, may change
+wildly and without warning!
+
 This will eventually be turned into a VCS-style script with several commands.
 For now it has a single function, to recursively import media files from a
 directory.  At this point, is is a quick-and-dirty demo of how media files might
@@ -91,8 +94,6 @@ import optparse
 import logging
 import dmedialib
 
-BATCH_SIZE = 25
-
 script = path.basename(sys.argv[0])
 
 parser = optparse.OptionParser(
@@ -101,7 +102,8 @@ parser = optparse.OptionParser(
     epilog='Example: %s /media/EOS_DIGITAL jpg cr2 mov' % script,
 )
 parser.add_option('--quick',
-    action='store_true',
+    dest="extract",
+    action='store_false',
     default=False,
     help='Do a fast scan without extracting extra metadata',
 )
@@ -157,8 +159,7 @@ importer = Importer()
 
 total = 0
 counts = {}
-extract = not options.quick
-for d in importer.recursive_import(base, extensions, common, extract):
+for d in importer.recursive_import(base, extensions, common, options.extract):
     print '  %(action)s %(src)r' % d
     action = d['action']
     counts[action] = counts.get(action, 0) + 1
@@ -172,6 +173,8 @@ print 'total_scanned: %d' % total
 dc = path.join(
     os.environ['HOME'], '.local', 'share', 'desktop-couch', 'couchdb.html'
 )
-
+print ''
 print 'To browse dmedia database in CouchDB, run:'
 print '  firefox file://%s' % dc
+print ''
+print 'WARNING: content-hash and schema are not yet final, may change wildly!'

@@ -129,4 +129,4 @@ class Importer(object):
         for d in scanfiles(base, extensions):
             if common:
                 d['doc'].update(common)
-            yield self._import_one(d)
+            yield self._import_one(d, extract)

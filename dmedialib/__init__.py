@@ -22,7 +22,7 @@
 """
 `dmedialib` - distributed media library
 
-Note: the dmedia content-hash and schema are *not* yet stable and may change
+WARNING: the dmedia content-hash and schema are *not* yet stable, may change
 wildly and without warning!
 
 The `dmedialib` API will go through significant changes in the next few months,
