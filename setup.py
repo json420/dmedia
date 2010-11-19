@@ -89,10 +89,11 @@ class Test(Command):
 setup(
     name='dmedia',
     description='distributed media library',
+    url='https://launchpad.net/dmedia',
     version=dmedialib.__version__,
     author='Jason Gerard DeRose',
     author_email='jderose@jasonderose.org',
-    license='LGPLv3+',
+    license='AGPLv3+',
 
     cmdclass={'test': Test},
     packages=['dmedialib'],
