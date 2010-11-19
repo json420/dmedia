@@ -99,5 +99,5 @@ setup(
     package_data=dict(
         dmedialib=['data/*'],
     ),
-    scripts=['dmedia', 'dmedia-gtk'],
+    scripts=['dmedia'],
 )
