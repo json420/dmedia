@@ -396,7 +396,7 @@ class test_functions(TestCase):
 
         # Check canon.thm attachment
         att = d['doc'].pop('_attachments')
-        self.assertEqual(set(att), set(['canon.thm']))
+        self.assertEqual(set(att), set(['canon.thm', 'thumbnail']))
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
@@ -405,7 +405,7 @@ class test_functions(TestCase):
         )
 
         # Check thumbnail
-        thm = d['doc'].pop('thumbnail')
+        thm = att['thumbnail']
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -479,7 +479,7 @@ class test_functions(TestCase):
 
         # Check canon.thm attachment
         att = merged.pop('_attachments')
-        self.assertEqual(set(att), set(['canon.thm']))
+        self.assertEqual(set(att), set(['thumbnail', 'canon.thm']))
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
@@ -488,7 +488,7 @@ class test_functions(TestCase):
         )
 
         # Check thumbnail
-        thm = merged.pop('thumbnail')
+        thm = att['thumbnail']
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
@@ -532,4 +532,4 @@ class test_functions(TestCase):
         )
         merged = dict(f(d))
         self.assertTrue('thumbnail' not in merged)
-        self.assertEqual(merged, {})
+        self.assertEqual(merged, {'_attachments': {}})

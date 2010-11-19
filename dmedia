@@ -104,7 +104,7 @@ parser = optparse.OptionParser(
 parser.add_option('--quick',
     dest="extract",
     action='store_false',
-    default=False,
+    default=True,
     help='Do a fast scan without extracting extra metadata',
 )
 parser.add_option('--project',
