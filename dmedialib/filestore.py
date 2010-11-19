@@ -41,12 +41,12 @@ import os
 from os import path
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
-from string import ascii_lowercase
+from string import ascii_lowercase, digits
 import logging
 from subprocess import check_call, CalledProcessError
 
 
-ascii_lowercase = frozenset(ascii_lowercase)
+chars = frozenset(ascii_lowercase + digits)
 B32LENGTH = 32  # Length of base32-encoded hash
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
@@ -56,7 +56,7 @@ TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 def safe_ext(ext):
     """
-    Verify that extension *ext* contains only lowercase ascii letters.
+    Verify that extension *ext* contains only lowercase ascii letters, digits.
 
     A malicious *ext* could cause path traversal or other security gotchas,
     thus this sanity check.  When *wav* is valid, it is returned unchanged:
@@ -70,7 +70,7 @@ def safe_ext(ext):
     >>> safe_ext('/../.ssh')
     Traceback (most recent call last):
       ...
-    ValueError: ext: can only contain ascii lowercase letters; got '/../.ssh'
+    ValueError: ext: can only contain ascii lowercase, digits; got '/../.ssh'
 
     Also see `safe_b32()`.
     """
@@ -78,9 +78,9 @@ def safe_ext(ext):
         raise TypeError(
             TYPE_ERROR % ('ext', basestring, type(ext), ext)
         )
-    if not ascii_lowercase.issuperset(ext):
+    if not chars.issuperset(ext):
         raise ValueError(
-            'ext: can only contain ascii lowercase letters; got %r' % ext
+            'ext: can only contain ascii lowercase, digits; got %r' % ext
         )
     return ext
 

@@ -52,7 +52,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
         # Test with invalid charaters:
@@ -60,7 +60,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
         # Test with path traversal:
@@ -68,11 +68,13 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
-        # Test with a good chash:
+        # Test with a good ext:
         good = 'wav'
+        assert f(good) is good
+        good = 'cr2'
         assert f(good) is good
 
     def test_safe_b32(self):
@@ -290,7 +292,7 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.relpath, chash, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
     def test_reltmp(self):
@@ -336,12 +338,12 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.reltmp, quickid=b32, ext=bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
         e = raises(ValueError, inst.reltmp, chash=b32, ext=bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
     def test_join(self):
@@ -466,7 +468,7 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.path, chash, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
         # Test with create=True
@@ -529,12 +531,12 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.tmp, quickid=b32, ext=bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
         e = raises(ValueError, inst.tmp, chash=b32, ext=bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase letters; got %r' % bad
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
         # Test when neither quickid nor chash is provided:
