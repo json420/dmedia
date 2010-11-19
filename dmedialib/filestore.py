@@ -409,7 +409,7 @@ class FileStore(object):
         Atomically copy or hard-link open file *src_fp* into this file store.
 
         The method will compute the content-hash of *src_fp* and then copy or
-        hard-link it into it's canonical location in this store, or do nothing
+        hard-link it into its canonical location in this store, or do nothing
         if a file with that canonical name already exists.
 
         This method returns a ``(chash, action)`` tuple with the content hash a
