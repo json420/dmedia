@@ -1,2 +1,2 @@
-include AUTHORS COPYING COPYING.LESSER HACKING.txt README.txt
+include AUTHORS COPYING HACKING.txt README.txt
 include dmedialib/tests/*.py
