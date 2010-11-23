@@ -14,12 +14,7 @@ dmedia \- The Distributed Media Library
 .br
 
 .SH DESCRIPTION
-dmedia is simple distributed media library.  Media files are given a globally
-unique ID based on their content-hash.  Meta-data is stored in CouchDB.
-Meta-data for a large number of media files can be available locally (meta-data
-is small).  Actual media files can be loaded on-demand from peers or cloud when
-not available locally (media files are big).  Goals are to make synchronization
-super easy, and to lay groundwork for a distributed content creation workflow.
+dmedia is simple distributed media library. Media files are given a globally unique ID based on their content-hash. Meta-data is stored in CouchDB. Meta-data for a large number of media files can be available locally (meta-data is small).  Actual media files can be loaded on-demand from peers or cloud when not available locally (media files are big).  Goals are to make synchronization super easy, and to lay groundwork for a distributed content creation workflow.
 
 .SH OPTIONS
 .IP \fB\--version\fP
@@ -35,20 +30,10 @@ Add specified TAG to imported files
 
 
 .SH EXAMPLES
-.RI dmedia
-.RI /media/EOS_DIGITAL 
-.RI jpg 
-.RI cr2
-.TP
+.IP \fB\ dmedia\ /media/EOS_DIGITAL\ jpg\ cr2\fp
 This will recursively import all JPG and CR2 files from your memory card mounted at '/media/EOS_DIGITAL'.
 .PP
-.RI dmedia
-.RI /usr/share/backgrounds
-.RI  jpg
-.RI png
-.RI --tag=wallpaper
-.RI --tag=desktop
-.TP
+.IP \fB\ dmedia\ /usr/share/backgrounds\ jpg\ png\  --tag=wallpaper\ --tag=desktop\fp
 This will add all files with the extensions 'png' and 'jpg' in the directory '/usr/share/backgrounds' and its subdirectories. The files will be tagged with 'wallpaper' and 'desktop' in the media database.
 
 
