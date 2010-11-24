@@ -1,0 +1,60 @@
+.\"Created with GNOME Manpages Editor
+.\"http://sourceforge.net/projects/gmanedit2
+
+.\"Replace <program> with the program name, x with the Section Number
+
+.TH dmedia 1 "November 23 2010" "python-dmedia"
+
+.SH NAME
+dmedia \- The Distributed Media Library
+
+.SH SYNOPSIS
+.B dmedia
+.RI DIRECTORY 
+.RI EXTENSIONS...
+.br
+
+.SH DESCRIPTION
+dmedia is simple distributed media library. Media files are given a globally unique ID based on their content-hash. Meta-data is stored in CouchDB. Meta-data for a large number of media files can be available locally (meta-data is small).  Actual media files can be loaded on-demand from peers or cloud when not available locally (media files are big).  Goals are to make synchronization super easy, and to lay groundwork for a distributed content creation workflow.
+
+.SH OPTIONS
+.IP \fB\--version\fP
+Show program's version number and exit
+.IP \fB\--help,-h\fP
+Show a help message and exit
+.IP \fB\--quick\fP
+Do a fast scan without extracting extra metadata
+.IP\fB\ --project=PROJECT\fP
+Add imported files to specified PROJECT
+.IP\fB\ --tag=TAG\fP
+Add specified TAG to imported files
+
+
+.SH EXAMPLES
+.IP \fB\ dmedia\ /media/EOS_DIGITAL\ jpg\ cr2\fp
+This will recursively import all JPG and CR2 files from your memory card mounted at '/media/EOS_DIGITAL'.
+.PP
+.IP \fB\ dmedia\ /usr/share/backgrounds\ jpg\ png\ --tag=wallpaper\ --tag=desktop\fp
+This will add all files with the extensions 'png' and 'jpg' in the directory '/usr/share/backgrounds' and its subdirectories. The files will be tagged with 'wallpaper' and 'desktop' in the media database.
+
+
+
+.SH NOTES
+dmedia is at an early state still, but the functionality it has so far should
+be quite stable.
+.PP
+The `dmedia` script will eventually be turned into a VCS-style script with
+several commands.  For now it has a single function, to recursively import media
+files from a directory.  At this point, it's a quick-and-dirty demo of how media
+files might be stored and how their meta-data might be stored.
+
+
+.SH BUGS
+If you find any bugs, please report them at http://bugs.launchpad.net/dmedia.
+
+.SH DEVELOPMENT
+The development of dmedia is managed at http://launchpad.net/dmedia, where you can find the source code, report bugs and ask questions.
+
+.SH AUTHOR
+This man page was originally written by David Green <david4dev@gmail.com> using text from the README by Jason Gerard DeRose.
+
