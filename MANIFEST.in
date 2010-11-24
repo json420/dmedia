@@ -1,2 +1,5 @@
-include AUTHORS COPYING COPYING.LESSER
+include AUTHORS COPYING HACKING.txt README.txt dmedia.1
+include dmedialib/data/*.js
+include dmedialib/data/*.xml
 include dmedialib/tests/*.py
+include dmedialib/tests/data/*

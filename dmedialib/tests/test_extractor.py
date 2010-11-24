@@ -1,24 +1,23 @@
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-
 
 """
 Unit tests for `dmedialib.extractor` module.
@@ -387,17 +386,24 @@ class test_functions(TestCase):
             src=sample_mov,
             base=path.dirname(sample_mov),
             root='MVI_5751',
-            meta=dict(
+            doc=dict(
                 ext='mov',
             ),
         )
 
         f(d)
 
+        # Check canon.thm attachment
+        att = d['doc'].pop('_attachments')
+        self.assertEqual(set(att), set(['canon.thm', 'thumbnail']))
+        self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
+        self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
+        self.assertEqual(
+            base64.b64decode(att['canon.thm']['data']),
+            open(sample_thm, 'r').read()
+        )
+
         # Check thumbnail
-        att = d['meta'].pop('_attachments')
-        self.assertTrue(isinstance(att, dict))
-        self.assertEqual(sorted(att), ['thumbnail'])
         thm = att['thumbnail']
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
@@ -414,7 +420,7 @@ class test_functions(TestCase):
                 src=sample_mov,
                 base=path.dirname(sample_mov),
                 root='MVI_5751',
-                meta=dict(
+                doc=dict(
                     ext='mov',
                     width=1920,
                     height=1080,
@@ -430,7 +436,6 @@ class test_functions(TestCase):
                     lens=u'Canon EF 70-200mm f/4L IS',
                     camera=u'Canon EOS 5D Mark II',
                     focal_length=u'138.0 mm',
-                    exif=sample_thm_exif,
                     mtime=1287520994 + 68 / 100.0,
                 ),
             )
@@ -439,7 +444,7 @@ class test_functions(TestCase):
 
     def test_merge_exif(self):
         f = extractor.merge_exif
-        d = dict(src=sample_thm, meta={})
+        d = dict(src=sample_thm, doc={})
         self.assertTrue(sample_thm.endswith('.THM'))
         assert_deepequal(
             dict(f(d)),
@@ -452,7 +457,6 @@ class test_functions(TestCase):
                 lens=u'Canon EF 70-200mm f/4L IS',
                 camera=u'Canon EOS 5D Mark II',
                 focal_length=u'138.0 mm',
-                exif=sample_thm_exif,
                 mtime=1287520994 + 68 / 100.0,
             ),
         )
@@ -465,17 +469,24 @@ class test_functions(TestCase):
             src=sample_mov,
             base=path.dirname(sample_mov),
             root='MVI_5751',
-            meta=dict(
+            doc=dict(
                 ext='mov',
             ),
         )
 
         merged = dict(f(d))
 
-        # Check thumbnail
+        # Check canon.thm attachment
         att = merged.pop('_attachments')
-        self.assertTrue(isinstance(att, dict))
-        self.assertEqual(sorted(att), ['thumbnail'])
+        self.assertEqual(set(att), set(['thumbnail', 'canon.thm']))
+        self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
+        self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
+        self.assertEqual(
+            base64.b64decode(att['canon.thm']['data']),
+            open(sample_thm, 'r').read()
+        )
+
+        # Check thumbnail
         thm = att['thumbnail']
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
@@ -503,7 +514,6 @@ class test_functions(TestCase):
                 lens=u'Canon EF 70-200mm f/4L IS',
                 camera=u'Canon EOS 5D Mark II',
                 focal_length=u'138.0 mm',
-                exif=sample_thm_exif,
                 mtime=1287520994 + 68 / 100.0,
             )
         )
@@ -515,10 +525,10 @@ class test_functions(TestCase):
             src=invalid_mov,
             base=tmp.path,
             root='invalid',
-            meta=dict(
+            doc=dict(
                 ext='mov',
             ),
         )
         merged = dict(f(d))
-        self.assertTrue('_attachments' not in merged)
-        self.assertEqual(merged, {})
+        self.assertTrue('thumbnail' not in merged)
+        self.assertEqual(merged, {'_attachments': {}})

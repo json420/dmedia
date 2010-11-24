@@ -1,24 +1,24 @@
 #!/usr/bin/env python
 
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
@@ -89,15 +89,19 @@ class Test(Command):
 setup(
     name='dmedia',
     description='distributed media library',
+    url='https://launchpad.net/dmedia',
     version=dmedialib.__version__,
     author='Jason Gerard DeRose',
     author_email='jderose@jasonderose.org',
-    license='LGPLv3+',
+    license='AGPLv3+',
 
     cmdclass={'test': Test},
     packages=['dmedialib'],
     package_data=dict(
         dmedialib=['data/*'],
     ),
-    scripts=['dmedia', 'dmedia-gtk'],
+    scripts=['dmedia'],
+    data_files=[
+        ('share/man/man1', ['dmedia.1']),
+    ],
 )

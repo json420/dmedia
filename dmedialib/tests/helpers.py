@@ -1,24 +1,23 @@
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-
 
 """
 Some test helpers.
@@ -64,9 +63,9 @@ def raises(exception, callback, *args, **kw):
 
 
 class TempDir(object):
-    def __init__(self, prefix='unit-tests.'):
+    def __init__(self, prefix='unit-tests.', dir=None):
         self.__prefix = prefix
-        self.__path = tempfile.mkdtemp(prefix=self.__prefix)
+        self.__path = tempfile.mkdtemp(prefix=self.__prefix, dir=dir)
         assert self.path == self.__path
 
     def __iter__(self):
@@ -75,7 +74,6 @@ class TempDir(object):
 
     def __get_path(self):
         assert path.abspath(self.__path) == self.__path
-        assert self.__path.startswith(path.join('/tmp', self.__prefix))
         assert path.isdir(self.__path) and not path.islink(self.__path)
         return self.__path
     path = property(__get_path)

@@ -1,22 +1,22 @@
 # Authors:
-#   Jason Gerard DeRose <jderose@jasonderose.org>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@jasonderose.org>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
 # `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Lesser General Public License as published by the Free
+# terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
-# A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
 #
-# You should have received a copy of the GNU Lesser General Public License along
+# You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
@@ -40,7 +40,7 @@ class test_MetaStore(TestCase):
     klass = metastore.MetaStore
 
     def new(self):
-        return self.klass(context=self.ctx)
+        return self.klass(ctx=self.ctx)
 
     def setUp(self):
         self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
@@ -56,21 +56,51 @@ class test_MetaStore(TestCase):
     def test_init(self):
         self.assertEqual(self.klass.type_url, 'http://example.com/dmedia')
 
-        # Test with context=None:
+        # Test with ctx=None:
         inst = self.klass()
         self.assertEqual(inst.dbname, 'dmedia')
 
-        # Test with testing context:
+        # Test with testing ctx:
         inst = self.new()
         self.assertEqual(inst.dbname, 'dmedia')
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 
         # Test when overriding dbname:
-        inst = self.klass(dbname='dmedia_test', context=self.ctx)
+        inst = self.klass(dbname='dmedia_test', ctx=self.ctx)
         self.assertEqual(inst.dbname, 'dmedia_test')
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
+
+    def test_by_quickid(self):
+        mov_chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+        mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
+        thm_chash = 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A'
+        thm_qid =  'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
+        inst = self.new()
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            []
+        )
+        inst.db.create({'_id': thm_chash, 'quickid': thm_qid})
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            []
+        )
+        inst.db.create({'_id': mov_chash, 'quickid': mov_qid})
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            [mov_chash]
+        )
+        self.assertEqual(
+            list(inst.by_quickid(thm_qid)),
+            [thm_chash]
+        )
+        inst.db.create({'_id': 'should-not-happen', 'quickid': mov_qid})
+        self.assertEqual(
+            list(inst.by_quickid(mov_qid)),
+            [mov_chash, 'should-not-happen']
+        )
 
     def test_total_bytes(self):
         inst = self.new()
