@@ -2,7 +2,7 @@
 Name=Dmedia Media Importer
 GenericName=Media Importer
 Comment=Import media files into the dmedia library
-Exec=dmedia-import
+Exec=dmedia-import %U
 Icon=dmedia
 Terminal=false
 Type=Application
