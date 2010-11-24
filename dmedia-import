@@ -27,17 +27,50 @@ import gtk
 import gettext
 _ = gettext.gettext
 
-#set up window
-window = gtk.Window()
-window.set_title(_('dmedia Media Importer'))
+
+class ImporterGUI(gtk.Window):
+    def __init__(self):
+        super(ImporterGUI, self).__init__()
+
+        self.set_title(_('dmedia Media Importer'))
+        self.resize(500, 500)
+
+        self.add_content()
+
+        self.connect_signals()
 
 
-#create window content
-label = gtk.Label(_('This will become the dmedia importer.'))
-label.show()
-window.add(label)
+    def add_content(self):
+        self.container = gtk.HBox()
+
+        self.label = gtk.Label(_('This will become the dmedia importer.'))
+        self.label.show()
+
+        self.container.add(self.label)
+        self.label.show()
+        self.container.show()
+        self.add(self.container)
 
 
-#start application
-window.show_all()
-gtk.main()
+    def connect_signals(self):
+        self.connect("delete_event", self.delete_event)
+        self.connect("destroy", self.destroy)
+
+
+    def destroy(self, widget, data=None):
+        gtk.main_quit()
+
+
+    def delete_event(self, widget, event, data=None):
+        return False
+
+
+    def go(self):
+        self.show_all()
+        gtk.main()
+
+
+
+if __name__ == '__main__':
+    app = ImporterGUI()
+    app.go()
