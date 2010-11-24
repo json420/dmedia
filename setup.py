@@ -101,4 +101,7 @@ setup(
         dmedialib=['data/*'],
     ),
     scripts=['dmedia'],
+    data_files=[
+        ('share/man/man1', ['dmedia.1']),
+    ],
 )
