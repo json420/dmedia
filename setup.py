@@ -2,6 +2,7 @@
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -100,8 +101,14 @@ setup(
     package_data=dict(
         dmedialib=['data/*'],
     ),
-    scripts=['dmedia'],
+    scripts=['dmedia', 'dmedia-import'],
     data_files=[
         ('share/man/man1', ['dmedia.1']),
+        ('share/applications', ['dmedia-import.desktop']),
+        #^ this enables Nautilus to use dmedia-import as a handler for
+        #media devices such as cameras. `sudo update-desktop-database`
+        #may need to run for this to show up in the Nautilus
+        #media handling preferences.
+        ('share/pixmaps', ['dmedia.svg']) #installs the icon
     ],
 )

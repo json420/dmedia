@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+# Authors:
+#   David Green <david4dev@gmail.com>
+#
+# dmedia: distributed media library
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under the
+# terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+
+#This is a placeholder file for the dmedia importer.
+
+import gtk
+import gettext
+_ = gettext.gettext
+import sys
+
+
+class ImporterGUI(gtk.Window):
+    def __init__(self):
+        super(ImporterGUI, self).__init__()
+
+        self.set_title(_('dmedia Media Importer'))
+        self.resize(500, 500)
+
+        self.add_content()
+
+        self.connect_signals()
+
+
+    def add_content(self):
+        self.container = gtk.HBox()
+
+        self.label = gtk.Label(_('This will become the dmedia importer.'))
+        self.label.show()
+
+        self.container.add(self.label)
+        self.label.show()
+        self.container.show()
+        self.add(self.container)
+
+
+    def connect_signals(self):
+        self.connect("delete_event", self.delete_event)
+        self.connect("destroy", self.destroy)
+
+
+    def destroy(self, widget, data=None):
+        gtk.main_quit()
+
+
+    def delete_event(self, widget, event, data=None):
+        return False
+
+
+    def go(self, args=[]):
+        self.label.set_text(self.label.get_text() + "\n\n" + ', '.join(args))
+        self.show_all()
+        gtk.main()
+
+
+
+if __name__ == '__main__':
+    app = ImporterGUI()
+    app.go(args=sys.argv)
