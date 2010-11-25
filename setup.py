@@ -93,7 +93,7 @@ setup(
     url='https://launchpad.net/dmedia',
     version=dmedialib.__version__,
     author='Jason Gerard DeRose',
-    author_email='jderose@jasonderose.org',
+    author_email='jderose@novacut.com',
     license='AGPLv3+',
 
     cmdclass={'test': Test},
