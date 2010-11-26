@@ -24,6 +24,7 @@ Makes dmedia functionality avaible over D-Bus.
 """
 
 from dmedialib import __version__
+from os import path
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE
@@ -36,10 +37,6 @@ class DMedia(dbus.service.Object):
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self.__busname = dbus.service.BusName(self._busname, self._conn)
-
-    @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
-    def test(self):
-        return 'okay'
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):
@@ -56,12 +53,15 @@ class DMedia(dbus.service.Object):
         """
         return __version__
 
-    @dbus.service.method(INTERFACE, in_signature='s', out_signature='b')
+    @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
     def import_start(self, base):
         """
         Start recursive import at directory *base*.
         """
-        return True
+        if path.abspath(base) != base:
+            return 'not_abspath'
+        if not (path.isdir(base) or path.isfile(base)):
+            return 'not_dir_or_file'
 
     @dbus.service.method(INTERFACE, in_signature='s', out_signature='b')
     def import_stop(self, base):

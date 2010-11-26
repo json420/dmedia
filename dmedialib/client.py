@@ -52,6 +52,18 @@ class Client(gobject.GObject):
 
     def kill(self):
         """
-        Shutdown the dmedia dbus daemon.
+        Shutdown the dmedia daemon.
         """
         self._proxy.kill()
+
+    def version(self):
+        """
+        Return version number of running dmedia daemon.
+        """
+        return self._proxy.version()
+
+    def import_start(self, base):
+        """
+        Recursively import files found in directory *base*.
+        """
+        return self._proxy.import_start(base)

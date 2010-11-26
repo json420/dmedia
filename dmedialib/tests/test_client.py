@@ -32,6 +32,7 @@ from base64 import b32encode
 import dbus
 import dmedialib
 from dmedialib import client, service
+from .helpers import TempDir
 
 tree = path.dirname(path.dirname(path.abspath(dmedialib.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
@@ -81,8 +82,11 @@ class test_Client(TestCase):
 
     def test_proxy(self):
         inst = self.new()
+        self.assertTrue(inst._Client__proxy is None)
         p = inst._proxy
         self.assertTrue(isinstance(p, dbus.proxies.ProxyObject))
+        self.assertTrue(inst._Client__proxy is p)
+        self.assertTrue(inst._proxy is p)
 
     def test_kill(self):
         inst = self.new()
@@ -90,3 +94,14 @@ class test_Client(TestCase):
         inst.kill()
         time.sleep(1)
         self.assertEqual(self.service.poll(), 0)
+
+    def test_version(self):
+        inst = self.new()
+        self.assertEqual(inst.version(), dmedialib.__version__)
+
+    def test_import_start(self):
+        tmp = TempDir()
+        nope = tmp.join('memory_card')
+        inst = self.new()
+        self.assertEqual(inst.import_start(nope), 'not_dir_or_file')
+        self.assertEqual(inst.import_start('some/relative/path'), 'not_abspath')
