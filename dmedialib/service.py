@@ -117,6 +117,7 @@ class DMedia(dbus.service.Object):
         if base in self.__imports:
             p = self.__imports.pop(base)
             p.terminate()
+            p.join()
             return 'stopped'
         return 'not_running'
 
