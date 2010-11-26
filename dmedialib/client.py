@@ -43,6 +43,15 @@ class Client(gobject.GObject):
 
     @property
     def _proxy(self):
+        """
+        Lazily create proxy object so dmedia service starts only when needed.
+        """
         if self.__proxy is None:
             self.__proxy = self._conn.get_object(self._busname, '/')
         return self.__proxy
+
+    def kill(self):
+        """
+        Shutdown the dmedia dbus daemon.
+        """
+        self._proxy.kill()

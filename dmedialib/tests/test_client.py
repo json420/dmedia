@@ -43,14 +43,25 @@ class test_Client(TestCase):
     klass = client.Client
 
     def setUp(self):
-        b32 = b32encode(os.urandom(15))
-        self.busname = '.'.join(['test', b32, 'DMedia'])
+        """
+        Launch dmedia dbus service using a random bus name.
+        """
+        random = 'test' + b32encode(os.urandom(10))
+        self.busname = '.'.join(['org', random, 'DMedia'])
         self.service = Popen([script, '--bus', self.busname])
-        time.sleep(2)
+        time.sleep(1)
 
     def tearDown(self):
-        self.service.terminate()
-        self.service.wait()
+        try:
+            self.service.terminate()
+            self.service.wait()
+        except OSError:
+            pass
+        finally:
+            self.service = None
+
+    def new(self):
+        return self.klass(busname=self.busname)
 
     def test_init(self):
         # Test with no busname
@@ -69,6 +80,13 @@ class test_Client(TestCase):
         self.assertTrue(inst._conn, dbus.SessionBus)
 
     def test_proxy(self):
-        inst = self.klass(self.busname)
+        inst = self.new()
         p = inst._proxy
         self.assertTrue(isinstance(p, dbus.proxies.ProxyObject))
+
+    def test_kill(self):
+        inst = self.new()
+        self.assertEqual(self.service.poll(), None)
+        inst.kill()
+        time.sleep(1)
+        self.assertEqual(self.service.poll(), 0)
