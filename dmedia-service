@@ -29,8 +29,6 @@ import gobject
 
 if __name__ == '__main__':
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    session_bus = dbus.SessionBus()
-    dbus.service.BusName(service.BUS_NAME, session_bus)
-    obj = service.DMedia(session_bus)
+    obj = service.DMedia()
     loop = gobject.MainLoop()
     loop.run()

@@ -32,9 +32,11 @@ OBJECT_PATH = '/org/freedesktop/DMedia'
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, conn):
-        super(DMedia, self).__init__(conn, OBJECT_PATH)
+    def __init__(self):
+        self.conn = dbus.SessionBus()
+        super(DMedia, self).__init__(self.conn, object_path='/')
+        self.bus_name = dbus.service.BusName(BUS_NAME, self.conn)
 
-    @dbus.service.method(BUS_NAME)
+    @dbus.service.method(BUS_NAME, in_signature='', out_signature='s')
     def test(self):
         return 'okay'
