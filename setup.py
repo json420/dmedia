@@ -111,6 +111,7 @@ setup(
         #media handling preferences.
         ('share/pixmaps', ['dmedia.svg']),  #installs the icon
 
-        ('share/dbus-1/services', ['org.dmedia.DMedia.service']),
+        ('share/dbus-1/services', ['org.freedesktop.DMedia.service']),
+        ('share/lib/dmedia', ['dmedia-service']),
     ],
 )

@@ -1,3 +1,3 @@
 [D-BUS Service]
-Name=org.dmedia.DMedia
+Name=org.freedesktop.DMedia
 Exec=/usr/lib/dmedia/dmedia-service
