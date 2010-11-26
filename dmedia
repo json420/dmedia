@@ -135,8 +135,8 @@ if not path.isdir(base):
     sys.exit('ERROR: not a directory: %r' % base)
 extensions = frozenset(a.lower() for a in args[1:])
 
-
-cache = path.join(os.environ['HOME'], '.cache', 'dmedia')
+xdg_cache_path = xdg.BaseDirectory.xdg_cache_home
+cache = path.join(xdg_cache_path, 'dmedia')
 if not path.exists(cache):
     os.makedirs(cache)
 if path.isdir(cache):
