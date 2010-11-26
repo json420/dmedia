@@ -36,6 +36,7 @@ parser.add_option('--bus',
 
 
 if __name__ == '__main__':
+    gobject.threads_init()
     (options, args) = parser.parse_args()
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     mainloop = gobject.MainLoop()

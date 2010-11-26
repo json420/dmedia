@@ -25,9 +25,31 @@ Makes dmedia functionality avaible over D-Bus.
 
 from dmedialib import __version__
 from os import path
+import time
+import multiprocessing
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE
+
+
+def import_files(status, progress, base):
+    status.put(
+        (base, 'start')
+    )
+    time.sleep(1)  # Scan list of files
+    count = 10
+    progress.put(
+        (base, 0, count)
+    )
+    for i in xrange(count):
+        time.sleep(1)
+        progress.put(
+            (base, i + 1, count)
+        )
+    time.sleep(1)
+    status.put(
+        (base, 'finish')
+    )
 
 
 class DMedia(dbus.service.Object):
@@ -38,6 +60,8 @@ class DMedia(dbus.service.Object):
         super(DMedia, self).__init__(self._conn, object_path='/')
         self.__busname = dbus.service.BusName(self._busname, self._conn)
         self.__imports = {}
+        self.__import_status = multiprocessing.Queue()
+        self.__import_progress = multiprocessing.Queue()
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):
@@ -65,7 +89,13 @@ class DMedia(dbus.service.Object):
             return 'not_dir_or_file'
         if base in self.__imports:
             return 'already_running'
-        self.__imports[base] = None
+        p = multiprocessing.Process(
+            target=import_files,
+            args=(self.__import_status, self.__import_progress, base),
+        )
+        p.daemon = True
+        self.__imports[base] = p
+        p.start()
         return 'started'
 
     @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
@@ -74,7 +104,8 @@ class DMedia(dbus.service.Object):
         In running, stop the import of directory or file at *base*.
         """
         if base in self.__imports:
-            del self.__imports[base]
+            p = self.__imports.pop(base)
+            p.terminate()
             return 'stopped'
         return 'not_running'
 
