@@ -112,6 +112,6 @@ setup(
         ('share/pixmaps', ['dmedia.svg']),  #installs the icon
 
         ('share/dbus-1/services', ['org.freedesktop.DMedia.service']),
-        ('share/lib/dmedia', ['dmedia-service']),
+        ('lib/dmedia', ['dmedia-service']),
     ],
 )
