@@ -30,38 +30,45 @@ import multiprocessing
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE
+from .importer import import_files
 
 
-def import_files(status, progress, base):
-    status.put(
-        (base, 'start')
-    )
+def dummy_import_files(q, base):
+    def put(kind, **kw):
+        kw.update(dict(
+            domain='import',
+            kind=kind,
+            key=base,
+        ))
+        q.put(kw)
+
+    put('start')
     time.sleep(1)  # Scan list of files
     count = 10
-    progress.put(
-        (base, 0, count)
+    put('progress',
+        current=0,
+        total=count,
     )
     for i in xrange(count):
         time.sleep(1)
-        progress.put(
-            (base, i + 1, count)
+        put('progress',
+            current=i + 1,
+            total=count,
         )
     time.sleep(1)
-    status.put(
-        (base, 'finish')
-    )
+    put('finish')
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, busname=None, killfunc=None):
+    def __init__(self, busname=None, killfunc=None, dummy=False):
         self._busname = (BUS if busname is None else busname)
         self._killfunc = killfunc
+        self._dummy = dummy
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self.__busname = dbus.service.BusName(self._busname, self._conn)
         self.__imports = {}
-        self.__import_status = multiprocessing.Queue()
-        self.__import_progress = multiprocessing.Queue()
+        self.__queue = multiprocessing.Queue()
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):
@@ -90,8 +97,8 @@ class DMedia(dbus.service.Object):
         if base in self.__imports:
             return 'already_running'
         p = multiprocessing.Process(
-            target=import_files,
-            args=(self.__import_status, self.__import_progress, base),
+            target=(dummy_import_files if self._dummy else import_files),
+            args=(self.__queue, base),
         )
         p.daemon = True
         self.__imports[base] = p

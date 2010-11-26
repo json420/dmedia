@@ -56,7 +56,7 @@ class test_Client(TestCase):
         """
         random = 'test' + b32encode(os.urandom(10))  # 80-bits of entropy
         self.busname = '.'.join(['org', random, 'DMedia'])
-        self.service = Popen([script, '--bus', self.busname])
+        self.service = Popen([script, '--dummy', '--bus', self.busname])
         time.sleep(1)  # Give dmedia-service time to start
 
     def tearDown(self):

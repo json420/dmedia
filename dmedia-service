@@ -28,7 +28,13 @@ import dbus.service
 import dbus.mainloop.glib
 import gobject
 
+
 parser = optparse.OptionParser()
+parser.add_option('--dummy',
+    action='store_true',
+    default=False,
+    help='Run in dummy mode (for testing)',
+)
 parser.add_option('--bus',
     default=service.BUS,
     help='D-Bus bus name; default is %r' % service.BUS,
@@ -40,5 +46,5 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     mainloop = gobject.MainLoop()
-    obj = service.DMedia(busname=options.bus, killfunc=mainloop.quit)
+    obj = service.DMedia(options.bus, mainloop.quit, options.dummy)
     mainloop.run()
