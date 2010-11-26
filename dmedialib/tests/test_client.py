@@ -112,7 +112,31 @@ class test_Client(TestCase):
         inst = self.new()
         self.assertEqual(inst.import_start(nope), 'not_dir_or_file')
         self.assertEqual(inst.import_start('some/relative/path'), 'not_abspath')
+        self.assertEqual(inst.import_start(tmp.path), 'started')
+        self.assertEqual(inst.import_start(tmp.path), 'already_running')
+
+    def test_import_stop(self):
+        tmp = TempDir()
+        inst = self.new()
+        self.assertEqual(inst.import_stop(tmp.path), 'not_running')
+        self.assertEqual(inst.import_start(tmp.path), 'started')
+        self.assertEqual(inst.import_stop(tmp.path), 'stopped')
+        self.assertEqual(inst.import_stop(tmp.path), 'not_running')
 
     def test_import_list(self):
         inst = self.new()
+        tmp1 = TempDir()
+        tmp2 = TempDir()
+
+        # Add them in
+        self.assertEqual(inst.import_list(), [])
+        self.assertEqual(inst.import_start(tmp1.path), 'started')
+        self.assertEqual(inst.import_list(), [tmp1.path])
+        self.assertEqual(inst.import_start(tmp2.path), 'started')
+        self.assertEqual(inst.import_list(), sorted([tmp1.path, tmp2.path]))
+
+        # Take them out
+        self.assertEqual(inst.import_stop(tmp1.path), 'stopped')
+        self.assertEqual(inst.import_list(), [tmp2.path])
+        self.assertEqual(inst.import_stop(tmp2.path), 'stopped')
         self.assertEqual(inst.import_list(), [])

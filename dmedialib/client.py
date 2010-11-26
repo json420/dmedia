@@ -64,12 +64,18 @@ class Client(gobject.GObject):
 
     def import_start(self, base):
         """
-        Recursively import files found in directory *base*.
+        Start import of directory or file at *base*.
         """
         return self._proxy.import_start(base)
 
+    def import_stop(self, base):
+        """
+        In running, stop the import of directory or file at *base*.
+        """
+        return self._proxy.import_stop(base)
+
     def import_list(self):
         """
-        Recursively import files found in directory *base*.
+        Return list of currently running imports.
         """
         return self._proxy.import_list()

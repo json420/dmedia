@@ -37,6 +37,7 @@ class DMedia(dbus.service.Object):
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self.__busname = dbus.service.BusName(self._busname, self._conn)
+        self.__imports = {}
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):
@@ -56,23 +57,30 @@ class DMedia(dbus.service.Object):
     @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
     def import_start(self, base):
         """
-        Start recursive import at directory *base*.
+        Start import of directory or file at *base*.
         """
         if path.abspath(base) != base:
             return 'not_abspath'
         if not (path.isdir(base) or path.isfile(base)):
             return 'not_dir_or_file'
+        if base in self.__imports:
+            return 'already_running'
+        self.__imports[base] = None
+        return 'started'
 
-    @dbus.service.method(INTERFACE, in_signature='s', out_signature='b')
+    @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
     def import_stop(self, base):
         """
-        In running, stop the recursive import of directory *base*.
+        In running, stop the import of directory or file at *base*.
         """
-        return True
+        if base in self.__imports:
+            del self.__imports[base]
+            return 'stopped'
+        return 'not_running'
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='as')
     def import_list(self):
         """
         Return list of currently running imports.
         """
-        return []
+        return sorted(self.__imports)
