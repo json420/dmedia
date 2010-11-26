@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
@@ -21,23 +19,11 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-from dmedialib import service
-import optparse
-import dbus
-import dbus.service
-import dbus.mainloop.glib
-import gobject
+"""
+Various constants conveniently located in one place.
+"""
 
-parser = optparse.OptionParser()
-parser.add_option('--bus',
-    default=service.BUS,
-    help='D-Bus bus name; default is %r' % service.BUS,
-)
+BUS = 'org.freedesktop.DMedia'
+INTERFACE = 'org.freedesktop.DMedia'
 
-
-if __name__ == '__main__':
-    (options, args) = parser.parse_args()
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    mainloop = gobject.MainLoop()
-    obj = service.DMedia(busname=options.bus, killfunc=mainloop.quit)
-    mainloop.run()
+TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message

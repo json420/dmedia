@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
@@ -21,23 +19,30 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-from dmedialib import service
-import optparse
+"""
+Convenience wrapper for Python applications talking to dmedia dbus service.
+"""
+
 import dbus
-import dbus.service
-import dbus.mainloop.glib
 import gobject
-
-parser = optparse.OptionParser()
-parser.add_option('--bus',
-    default=service.BUS,
-    help='D-Bus bus name; default is %r' % service.BUS,
-)
+from .constants import BUS, INTERFACE
 
 
-if __name__ == '__main__':
-    (options, args) = parser.parse_args()
-    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    mainloop = gobject.MainLoop()
-    obj = service.DMedia(busname=options.bus, killfunc=mainloop.quit)
-    mainloop.run()
+class Client(gobject.GObject):
+    __gsignals__ = {
+        'import_progress': (
+            gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
+        ),
+    }
+
+    def __init__(self, busname=None):
+        super(Client, self).__init__()
+        self._busname = (BUS if busname is None else busname)
+        self._conn = dbus.SessionBus()
+        self.__proxy = None
+
+    @property
+    def _proxy(self):
+        if self.__proxy is None:
+            self.__proxy = self._conn.get_object(self._busname, '/')
+        return self.__proxy

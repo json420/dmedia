@@ -26,19 +26,16 @@ Makes dmedia functionality avaible over D-Bus.
 from dmedialib import __version__
 import dbus
 import dbus.service
-import time
-
-
-BUS = 'org.freedesktop.DMedia'
-INTERFACE = 'org.freedesktop.DMedia'
+from .constants import BUS, INTERFACE
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, killfunc=None):
-        self.killfunc = killfunc
-        self.conn = dbus.SessionBus()
-        super(DMedia, self).__init__(self.conn, object_path='/')
-        self.bus_name = dbus.service.BusName(BUS, self.conn)
+    def __init__(self, busname=None, killfunc=None):
+        self._busname = (BUS if busname is None else busname)
+        self._killfunc = killfunc
+        self._conn = dbus.SessionBus()
+        super(DMedia, self).__init__(self._conn, object_path='/')
+        self.__busname = dbus.service.BusName(self._busname, self._conn)
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
     def test(self):
@@ -49,8 +46,8 @@ class DMedia(dbus.service.Object):
         """
         Kill the dmedia service process.
         """
-        if callable(self.killfunc):
-            self.killfunc()
+        if callable(self._killfunc):
+            self._killfunc()
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
     def version(self):
