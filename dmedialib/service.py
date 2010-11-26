@@ -32,7 +32,8 @@ OBJECT_PATH = '/org/freedesktop/DMedia'
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self):
+    def __init__(self, killfunc=None):
+        self.killfunc = killfunc
         self.conn = dbus.SessionBus()
         super(DMedia, self).__init__(self.conn, object_path='/')
         self.bus_name = dbus.service.BusName(BUS_NAME, self.conn)
@@ -40,3 +41,8 @@ class DMedia(dbus.service.Object):
     @dbus.service.method(BUS_NAME, in_signature='', out_signature='s')
     def test(self):
         return 'okay'
+
+    @dbus.service.method(BUS_NAME, in_signature='', out_signature='')
+    def kill(self):
+        if callable(self.killfunc):
+            self.killfunc()

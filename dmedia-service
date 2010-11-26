@@ -29,6 +29,6 @@ import gobject
 
 if __name__ == '__main__':
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-    obj = service.DMedia()
     loop = gobject.MainLoop()
+    obj = service.DMedia(killfunc=loop.quit)
     loop.run()
