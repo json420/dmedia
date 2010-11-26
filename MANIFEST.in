@@ -1,5 +1,6 @@
 include AUTHORS COPYING HACKING.txt README.txt
 include dmedia.1 dmedia-import.desktop dmedia.svg
+include org.dmedia.DMedia.service
 include dmedialib/data/*.js
 include dmedialib/data/*.xml
 include dmedialib/tests/*.py
