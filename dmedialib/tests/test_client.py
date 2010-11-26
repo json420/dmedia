@@ -46,11 +46,18 @@ class test_Client(TestCase):
     def setUp(self):
         """
         Launch dmedia dbus service using a random bus name.
+
+        This will launch dmedia-service with a random bus name like this:
+
+            dmedia-service --bus org.test3ISHAWZVSWVN5I5S.DMedia
+
+        How do people usually unit test dbus services?  This works, but not sure
+        if there is a better idiom in common use.  --jderose
         """
-        random = 'test' + b32encode(os.urandom(10))
+        random = 'test' + b32encode(os.urandom(10))  # 80-bits of entropy
         self.busname = '.'.join(['org', random, 'DMedia'])
         self.service = Popen([script, '--bus', self.busname])
-        time.sleep(1)
+        time.sleep(1)  # Give dmedia-service time to start
 
     def tearDown(self):
         try:
@@ -92,7 +99,7 @@ class test_Client(TestCase):
         inst = self.new()
         self.assertEqual(self.service.poll(), None)
         inst.kill()
-        time.sleep(1)
+        time.sleep(1)  # Give dmedia-service time to shutdown
         self.assertEqual(self.service.poll(), 0)
 
     def test_version(self):
@@ -105,3 +112,7 @@ class test_Client(TestCase):
         inst = self.new()
         self.assertEqual(inst.import_start(nope), 'not_dir_or_file')
         self.assertEqual(inst.import_start('some/relative/path'), 'not_abspath')
+
+    def test_import_list(self):
+        inst = self.new()
+        self.assertEqual(inst.import_list(), [])

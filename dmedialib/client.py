@@ -67,3 +67,9 @@ class Client(gobject.GObject):
         Recursively import files found in directory *base*.
         """
         return self._proxy.import_start(base)
+
+    def import_list(self):
+        """
+        Recursively import files found in directory *base*.
+        """
+        return self._proxy.import_list()

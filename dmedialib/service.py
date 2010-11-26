@@ -69,3 +69,10 @@ class DMedia(dbus.service.Object):
         In running, stop the recursive import of directory *base*.
         """
         return True
+
+    @dbus.service.method(INTERFACE, in_signature='', out_signature='as')
+    def import_list(self):
+        """
+        Return list of currently running imports.
+        """
+        return []
