@@ -23,12 +23,14 @@
 Makes dmedia functionality avaible over D-Bus.
 """
 
+from dmedialib import __version__
 import dbus
 import dbus.service
+import time
 
 
-BUS_NAME = 'org.freedesktop.DMedia'
-OBJECT_PATH = '/org/freedesktop/DMedia'
+BUS = 'org.freedesktop.DMedia'
+INTERFACE = 'org.freedesktop.DMedia'
 
 
 class DMedia(dbus.service.Object):
@@ -36,13 +38,37 @@ class DMedia(dbus.service.Object):
         self.killfunc = killfunc
         self.conn = dbus.SessionBus()
         super(DMedia, self).__init__(self.conn, object_path='/')
-        self.bus_name = dbus.service.BusName(BUS_NAME, self.conn)
+        self.bus_name = dbus.service.BusName(BUS, self.conn)
 
-    @dbus.service.method(BUS_NAME, in_signature='', out_signature='s')
+    @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
     def test(self):
         return 'okay'
 
-    @dbus.service.method(BUS_NAME, in_signature='', out_signature='')
+    @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):
+        """
+        Kill the dmedia service process.
+        """
         if callable(self.killfunc):
             self.killfunc()
+
+    @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
+    def version(self):
+        """
+        Return dmedia version.
+        """
+        return __version__
+
+    @dbus.service.method(INTERFACE, in_signature='s', out_signature='b')
+    def import_start(self, base):
+        """
+        Start recursive import at directory *base*.
+        """
+        return True
+
+    @dbus.service.method(INTERFACE, in_signature='s', out_signature='b')
+    def import_stop(self, base):
+        """
+        In running, stop the recursive import of directory *base*.
+        """
+        return True
