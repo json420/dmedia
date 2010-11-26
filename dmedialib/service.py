@@ -33,7 +33,10 @@ from .constants import BUS, INTERFACE
 from .importer import import_files
 
 
-def dummy_import_files(q, base):
+EXTENSIONS = frozenset(['mov', 'cr2', 'wav', 'jpg'])
+
+
+def dummy_import_files(q, base, extensions):
     def put(kind, **kw):
         kw.update(dict(
             domain='import',
@@ -57,6 +60,7 @@ def dummy_import_files(q, base):
         )
     time.sleep(1)
     put('finish')
+
 
 
 class DMedia(dbus.service.Object):
@@ -98,7 +102,7 @@ class DMedia(dbus.service.Object):
             return 'already_running'
         p = multiprocessing.Process(
             target=(dummy_import_files if self._dummy else import_files),
-            args=(self.__queue, base),
+            args=(self.__queue, base, EXTENSIONS),
         )
         p.daemon = True
         self.__imports[base] = p

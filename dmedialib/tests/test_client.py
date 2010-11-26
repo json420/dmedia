@@ -49,7 +49,7 @@ class test_Client(TestCase):
 
         This will launch dmedia-service with a random bus name like this:
 
-            dmedia-service --bus org.test3ISHAWZVSWVN5I5S.DMedia
+            dmedia-service --dummy --bus org.test3ISHAWZVSWVN5I5S.DMedia
 
         How do people usually unit test dbus services?  This works, but not sure
         if there is a better idiom in common use.  --jderose
