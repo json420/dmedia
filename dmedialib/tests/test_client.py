@@ -122,6 +122,7 @@ class test_Client(TestCase):
 
     def test_connect_signals(self):
         tmp = TempDir()
+        base = unicode(tmp.path)
         inst = self.new()
         c = SignalCapture()
         inst.connect('import_status', c.on_status)
@@ -134,7 +135,18 @@ class test_Client(TestCase):
         self.assertEqual(inst.import_start(tmp.path), 'started')
         mainloop.run()
 
-        self.assertEqual(len(c.signals), 7)
+        self.assertEqual(
+            c.signals,
+            [
+                ('status', dict(base=base, status='started')),
+                ('progress', dict(base=base, current=0, total=4)),
+                ('progress', dict(base=base, current=1, total=4)),
+                ('progress', dict(base=base, current=2, total=4)),
+                ('progress', dict(base=base, current=3, total=4)),
+                ('progress', dict(base=base, current=4, total=4)),
+                ('status', dict(base=base, status='finished')),
+            ]
+        )
 
     def test_kill(self):
         inst = self.new()

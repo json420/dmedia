@@ -74,14 +74,19 @@ class Client(gobject.GObject):
         )
 
     def _on_import_status(self, base, status):
-        self.emit('import_status', {'base': base, 'status': status})
+        self.emit('import_status',
+            {
+                'base': unicode(base),
+                'status': unicode(status),
+            }
+        )
 
     def _on_import_progress(self, base, current, total):
         self.emit('import_progress',
             {
-                'base': base,
-                'current': current,
-                'totol': total,
+                'base': unicode(base),
+                'current': int(current),
+                'total': int(total),
             }
         )
 
