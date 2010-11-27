@@ -40,11 +40,11 @@ def dummy_import_files(q, base, extensions):
         kw.update(dict(
             domain='import',
             kind=kind,
-            key=base,
+            base=base,
         ))
         q.put(kw)
 
-    put('start')
+    put('status', status='started')
     time.sleep(1)  # Scan list of files
     count = 4
     put('progress',
@@ -58,7 +58,7 @@ def dummy_import_files(q, base, extensions):
             total=count,
         )
     time.sleep(1)
-    put('finish')
+    put('status', status='finished')
 
 
 
@@ -86,12 +86,23 @@ class DMedia(dbus.service.Object):
                 pass
 
     def _handle_msg(self, msg):
-        print msg
-        if msg['kind'] == 'finish':
-            p = self.__imports.pop(msg['key'], None)
+        kind = msg.get('kind')
+        if kind == 'status':
+            self.import_status(msg['base'], msg['status'])
+        elif kind == 'progress':
+            self.import_progress(msg['base'], msg['current'], msg['total'])
+
+    @dbus.service.signal(INTERFACE, signature='ss')
+    def import_status(self, base, status):
+        if status == 'finished':
+            p = self.__imports.pop(base, None)
             if p is None:
                 return
-            p.join()
+                p.join()
+
+    @dbus.service.signal(INTERFACE, signature='sii')
+    def import_progress(self, base, current, total):
+        pass
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):

@@ -42,11 +42,11 @@ def import_files(q, base, extensions):
         kw.update(dict(
             domain='import',
             kind=kind,
-            key=base,
+            base=base,
         ))
         q.put(kw)
 
-    put('start')
+    put('status', status='started')
 
     # Get the file list:
     files = tuple(scanfiles(base, extensions))
@@ -69,7 +69,7 @@ def import_files(q, base, extensions):
             total=count,
         )
 
-    put('finish')
+    put('status', status='finished')
 
 
 def normalize_ext(name):

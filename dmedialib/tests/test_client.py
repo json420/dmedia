@@ -144,6 +144,16 @@ class test_Client(TestCase):
         self.assertEqual(inst.import_start(tmp.path), 'started')
         self.assertEqual(inst.import_start(tmp.path), 'already_running')
 
+    def test_handle_msg(self):
+        # Test that DMedia._handle_imports is removing process from active
+        # imports after it gets the 'finished' status message.
+        tmp = TempDir()
+        inst = self.new()
+        self.assertEqual(inst.import_start(tmp.path), 'started')
+        self.assertEqual(inst.import_list(), [tmp.path])
+        time.sleep(7)  # dummy_import_files should run for ~6 seconds
+        self.assertEqual(inst.import_list(), [])
+
     def test_import_stop(self):
         tmp = TempDir()
         inst = self.new()

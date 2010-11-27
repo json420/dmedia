@@ -34,6 +34,11 @@ class Client(gobject.GObject):
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
         ),
     }
+    __gsignals__ = {
+        'import_status': (
+            gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
+        ),
+    }
 
     def __init__(self, busname=None):
         super(Client, self).__init__()
