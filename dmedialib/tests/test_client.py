@@ -32,6 +32,7 @@ from base64 import b32encode
 import dbus
 import dmedialib
 from dmedialib import client, service
+from dmedialib.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
 from .helpers import TempDir
 
 tree = path.dirname(path.dirname(path.abspath(dmedialib.__file__)))
@@ -105,6 +106,34 @@ class test_Client(TestCase):
     def test_version(self):
         inst = self.new()
         self.assertEqual(inst.version(), dmedialib.__version__)
+
+    def test_get_extensions(self):
+        inst = self.new()
+        self.assertEqual(inst.get_extensions(['video']), sorted(VIDEO))
+        self.assertEqual(inst.get_extensions(['audio']), sorted(AUDIO))
+        self.assertEqual(inst.get_extensions(['image']), sorted(IMAGE))
+        self.assertEqual(inst.get_extensions(['all']), sorted(EXTENSIONS))
+        self.assertEqual(
+            inst.get_extensions(['video', 'audio']),
+            sorted(VIDEO + AUDIO)
+        )
+        self.assertEqual(
+            inst.get_extensions(['video', 'image']),
+            sorted(VIDEO + IMAGE)
+        )
+        self.assertEqual(
+            inst.get_extensions(['audio', 'image']),
+            sorted(AUDIO + IMAGE)
+        )
+        self.assertEqual(
+            inst.get_extensions(['video', 'audio', 'image']),
+            sorted(EXTENSIONS)
+        )
+        self.assertEqual(
+            inst.get_extensions(['video', 'audio', 'image', 'all']),
+            sorted(EXTENSIONS)
+        )
+        self.assertEqual(inst.get_extensions(['foo', 'bar']), [])
 
     def test_import_start(self):
         tmp = TempDir()

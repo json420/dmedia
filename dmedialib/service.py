@@ -29,7 +29,7 @@ import time
 import multiprocessing
 import dbus
 import dbus.service
-from .constants import BUS, INTERFACE
+from .constants import BUS, INTERFACE, EXT_MAP
 from .importer import import_files
 
 
@@ -89,10 +89,32 @@ class DMedia(dbus.service.Object):
         """
         return __version__
 
+    @dbus.service.method(INTERFACE, in_signature='as', out_signature='as')
+    def get_extensions(self, types):
+        """
+        Get a list of extensions based on broad categories in *types*.
+
+        Currently recognized categories include ``'video'``, ``'audio'``,
+        ``'images'``, and ``'all'``.  You can safely include categories that
+        don't yet exist.
+
+        :param types: A list of general categories, e.g. ``['video', 'audio']``
+        """
+            extensions = set()
+            for key in types:
+                if key in EXT_MAP:
+                    extensions.update(EXT_MAP[key])
+            return sorted(extensions)
+
     @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
     def import_start(self, base, extensions):
         """
         Start import of directory or file at *base*, matching *extensions*.
+
+        :param base: File-system path from which to import, e.g.
+            ``'/media/EOS_DIGITAL'``
+        :param extensions: List of file extensions to match, e.g.
+            ``['mov', 'cr2', 'wav']``
         """
         if path.abspath(base) != base:
             return 'not_abspath'

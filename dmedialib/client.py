@@ -62,6 +62,18 @@ class Client(gobject.GObject):
         """
         return self._proxy.version()
 
+    def get_extensions(self, types):
+        """
+        Get a list of extensions based on broad categories in *types*.
+
+        Currently recognized categories include ``'video'``, ``'audio'``,
+        ``'images'``, and ``'all'``.  You can safely include categories that
+        don't yet exist.
+
+        :param types: A list of general categories, e.g. ``['video', 'audio']``
+        """
+        return self._proxy.get_extensions(types)
+
     def import_start(self, base, extensions=None):
         """
         Start import of directory or file at *base*, matching *extensions*.
