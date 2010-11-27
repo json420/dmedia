@@ -24,11 +24,17 @@ Convenience wrapper for Python applications talking to dmedia dbus service.
 """
 
 import dbus
+import dbus.mainloop.glib
 import gobject
 from .constants import BUS, INTERFACE, EXTENSIONS
 
 
+# We need mainloop integration to test signals:
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+
 class Client(gobject.GObject):
+
     __gsignals__ = {
         'import_progress': (
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
@@ -40,9 +46,10 @@ class Client(gobject.GObject):
         ),
     }
 
-    def __init__(self, busname=None):
+    def __init__(self, busname=None, signals=True):
         super(Client, self).__init__()
         self._busname = (BUS if busname is None else busname)
+        self._signals = signals
         self._conn = dbus.SessionBus()
         self.__proxy = None
 
@@ -53,7 +60,29 @@ class Client(gobject.GObject):
         """
         if self.__proxy is None:
             self.__proxy = self._conn.get_object(self._busname, '/')
+            if self._signals:
+                self._connect_signals()
         return self.__proxy
+
+    def _connect_signals(self):
+        self._proxy.connect_to_signal(
+            'import_status', self._on_import_status, INTERFACE
+        )
+        self._proxy.connect_to_signal(
+            'import_progress', self._on_import_progress, INTERFACE
+        )
+
+    def _on_import_status(self, base, status):
+        self.emit('import_status', {'base': base, 'status': status})
+
+    def _on_import_progress(self, base, current, total):
+        self.emit('import_progress',
+            {
+                'base': base,
+                'current': current,
+                'totol': total,
+            }
+        )
 
     def kill(self):
         """

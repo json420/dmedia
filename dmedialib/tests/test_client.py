@@ -30,15 +30,25 @@ from subprocess import Popen
 import time
 from base64 import b32encode
 import dbus
+import gobject
 import dmedialib
 from dmedialib import client, service
 from dmedialib.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
 from .helpers import TempDir
 
+
 tree = path.dirname(path.dirname(path.abspath(dmedialib.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
 script = path.join(tree, 'dmedia-service')
 assert path.isfile(script)
+
+
+class SignalCapture(object):
+    def __init__(self, emmiter):
+        self.emmiter = emmiter
+        self.signals = []
+
+    def on_status(self, obj, msg):
 
 
 class test_Client(TestCase):
@@ -70,12 +80,19 @@ class test_Client(TestCase):
             self.service = None
 
     def new(self):
-        return self.klass(busname=self.busname)
+        return self.klass(busname=self.busname, signals=False)
 
     def test_init(self):
         # Test with no busname
         inst = self.klass()
         self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
+        self.assertTrue(inst._signals is True)
+        self.assertTrue(inst._conn, dbus.SessionBus)
+
+        # Test with signals=False
+        inst = self.klass(signals=False)
+        self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
+        self.assertTrue(inst._signals is False)
         self.assertTrue(inst._conn, dbus.SessionBus)
 
         # Test with busname=None
@@ -95,6 +112,11 @@ class test_Client(TestCase):
         self.assertTrue(isinstance(p, dbus.proxies.ProxyObject))
         self.assertTrue(inst._Client__proxy is p)
         self.assertTrue(inst._proxy is p)
+
+    def test_connect_signals(self):
+
+        inst = self.klass(self.busname)
+        inst._connect_signals()
 
     def test_kill(self):
         inst = self.new()
