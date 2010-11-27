@@ -92,6 +92,9 @@ class Client(gobject.GObject):
     def import_stop(self, base):
         """
         In running, stop the import of directory or file at *base*.
+
+        :param base: File-system path from which to import, e.g.
+            ``'/media/EOS_DIGITAL'``
         """
         return self._proxy.import_stop(base)
 

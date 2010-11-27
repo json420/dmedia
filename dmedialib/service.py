@@ -100,11 +100,11 @@ class DMedia(dbus.service.Object):
 
         :param types: A list of general categories, e.g. ``['video', 'audio']``
         """
-            extensions = set()
-            for key in types:
-                if key in EXT_MAP:
-                    extensions.update(EXT_MAP[key])
-            return sorted(extensions)
+        extensions = set()
+        for key in types:
+            if key in EXT_MAP:
+                extensions.update(EXT_MAP[key])
+        return sorted(extensions)
 
     @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
     def import_start(self, base, extensions):
