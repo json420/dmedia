@@ -25,7 +25,7 @@ Convenience wrapper for Python applications talking to dmedia dbus service.
 
 import dbus
 import gobject
-from .constants import BUS, INTERFACE
+from .constants import BUS, INTERFACE, EXTENSIONS
 
 
 class Client(gobject.GObject):
@@ -62,11 +62,20 @@ class Client(gobject.GObject):
         """
         return self._proxy.version()
 
-    def import_start(self, base):
+    def import_start(self, base, extensions=None):
         """
-        Start import of directory or file at *base*.
+        Start import of directory or file at *base*, matching *extensions*.
+
+        If *extensions* is ``None`` (the default), the set defined in the
+        `EXTENSIONS` constant will be used.
+
+        :param base: File-system path from which to import, e.g.
+            ``'/media/EOS_DIGITAL'``
+        :param extensions: List (or other iterable) of file extensions to match,
+            e.g. ``['mov', 'cr2', 'wav']``
         """
-        return self._proxy.import_start(base)
+        extensions = (list(EXTENSIONS) if extensions is None else extensions)
+        return self._proxy.import_start(base, extensions)
 
     def import_stop(self, base):
         """

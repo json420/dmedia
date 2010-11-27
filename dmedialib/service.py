@@ -89,10 +89,10 @@ class DMedia(dbus.service.Object):
         """
         return __version__
 
-    @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
-    def import_start(self, base):
+    @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
+    def import_start(self, base, extensions):
         """
-        Start import of directory or file at *base*.
+        Start import of directory or file at *base*, matching *extensions*.
         """
         if path.abspath(base) != base:
             return 'not_abspath'
@@ -102,7 +102,7 @@ class DMedia(dbus.service.Object):
             return 'already_running'
         p = multiprocessing.Process(
             target=(dummy_import_files if self._dummy else import_files),
-            args=(self.__queue, base, EXTENSIONS),
+            args=(self.__queue, base, frozenset(extensions)),
         )
         p.daemon = True
         self.__imports[base] = p
