@@ -156,6 +156,7 @@ class Client(gobject.GObject):
         Shutdown the dmedia daemon.
         """
         self._method('kill')()
+        self.__proxy = None
 
     def version(self):
         """

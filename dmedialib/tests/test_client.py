@@ -152,6 +152,7 @@ class test_Client(TestCase):
         inst = self.new()
         self.assertEqual(self.service.poll(), None)
         inst.kill()
+        self.assertTrue(inst._Client__proxy is None)
         time.sleep(2)  # Give dmedia-service time to shutdown
         self.assertEqual(self.service.poll(), 0)
 
