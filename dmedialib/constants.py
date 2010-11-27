@@ -57,4 +57,4 @@ EXT_MAP = {
     'all': EXTENSIONS,
 }
 
-print VIDEO
+
