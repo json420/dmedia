@@ -46,7 +46,7 @@ def dummy_import_files(q, base, extensions):
 
     put('start')
     time.sleep(1)  # Scan list of files
-    count = 10
+    count = 4
     put('progress',
         current=0,
         total=count,
@@ -81,8 +81,17 @@ class DMedia(dbus.service.Object):
         while self.__running:
             try:
                 msg = self.__queue.get(timeout=1)
+                self._handle_msg(msg)
             except Empty:
                 pass
+
+    def _handle_msg(self, msg):
+        print msg
+        if msg['kind'] == 'finish':
+            p = self.__imports.pop(msg['key'], None)
+            if p is None:
+                return
+            p.join()
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):
