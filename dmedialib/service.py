@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   Manish SInha <mail@manishsinha.net>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -93,7 +94,7 @@ class DMedia(dbus.service.Object):
             self.import_progress(msg['base'], msg['current'], msg['total'])
 
     @dbus.service.signal(INTERFACE, signature='ss')
-    def import_status(self, base, status):
+    def ImportStatus(self, base, status):
         if status == 'finished':
             p = self.__imports.pop(base, None)
             if p is None:
@@ -101,11 +102,11 @@ class DMedia(dbus.service.Object):
                 p.join()
 
     @dbus.service.signal(INTERFACE, signature='sii')
-    def import_progress(self, base, current, total):
+    def ImportProgress(self, base, current, total):
         pass
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
-    def kill(self):
+    def Kill(self):
         """
         Kill the dmedia service process.
         """
@@ -118,14 +119,14 @@ class DMedia(dbus.service.Object):
             self._killfunc()
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
-    def version(self):
+    def Version(self):
         """
         Return dmedia version.
         """
         return __version__
 
     @dbus.service.method(INTERFACE, in_signature='as', out_signature='as')
-    def get_extensions(self, types):
+    def GetExtensions(self, types):
         """
         Get a list of extensions based on broad categories in *types*.
 
@@ -142,7 +143,7 @@ class DMedia(dbus.service.Object):
         return sorted(extensions)
 
     @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
-    def import_start(self, base, extensions):
+    def ImportStart(self, base, extensions):
         """
         Start import of directory or file at *base*, matching *extensions*.
 
@@ -167,7 +168,7 @@ class DMedia(dbus.service.Object):
         return 'started'
 
     @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
-    def import_stop(self, base):
+    def ImportStop(self, base):
         """
         In running, stop the import of directory or file at *base*.
         """
@@ -179,7 +180,7 @@ class DMedia(dbus.service.Object):
         return 'not_running'
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='as')
-    def import_list(self):
+    def ImportList(self):
         """
         Return list of currently running imports.
         """

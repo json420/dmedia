@@ -97,10 +97,10 @@ class Client(gobject.GObject):
     """
 
     __gsignals__ = {
-        'import_progress': (
+        'ImportProgress': (
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
         ),
-        'import_status': (
+        'ImportStatus': (
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
         ),
     }
@@ -128,14 +128,14 @@ class Client(gobject.GObject):
 
     def _connect_signals(self):
         self._proxy.connect_to_signal(
-            'import_status', self._on_import_status, INTERFACE
+            'ImportStatus', self._on_import_status, INTERFACE
         )
         self._proxy.connect_to_signal(
-            'import_progress', self._on_import_progress, INTERFACE
+            'ImportProgress', self._on_import_progress, INTERFACE
         )
 
     def _on_import_status(self, base, status):
-        self.emit('import_status',
+        self.emit('ImportStatus',
             {
                 'base': unicode(base),
                 'status': unicode(status),
@@ -143,7 +143,7 @@ class Client(gobject.GObject):
         )
 
     def _on_import_progress(self, base, current, total):
-        self.emit('import_progress',
+        self.emit('ImportProgress',
             {
                 'base': unicode(base),
                 'current': int(current),
@@ -155,14 +155,14 @@ class Client(gobject.GObject):
         """
         Shutdown the dmedia daemon.
         """
-        self._method('kill')()
+        self._method('Kill')()
         self.__proxy = None
 
     def version(self):
         """
         Return version number of running dmedia daemon.
         """
-        return self._method('version')()
+        return self._method('Version')()
 
     def get_extensions(self, types):
         """
@@ -174,7 +174,7 @@ class Client(gobject.GObject):
 
         :param types: A list of general categories, e.g. ``['video', 'audio']``
         """
-        return self._method('get_extensions')(types)
+        return self._method('GetExtensions')(types)
 
     def import_start(self, base, extensions=None):
         """
@@ -189,7 +189,7 @@ class Client(gobject.GObject):
             e.g. ``['mov', 'cr2', 'wav']``
         """
         extensions = (list(EXTENSIONS) if extensions is None else extensions)
-        return self._method('import_start')(base, extensions)
+        return self._method('ImportStart')(base, extensions)
 
     def import_stop(self, base):
         """
@@ -198,10 +198,10 @@ class Client(gobject.GObject):
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
         """
-        return self._method('import_stop')(base)
+        return self._method('ImportStop')(base)
 
     def import_list(self):
         """
         Return list of currently running imports.
         """
-        return self._method('import_list')()
+        return self._method('ImportIist')()
