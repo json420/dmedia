@@ -39,8 +39,6 @@ class Client(gobject.GObject):
         'import_progress': (
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
         ),
-    }
-    __gsignals__ = {
         'import_status': (
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
         ),
@@ -50,6 +48,7 @@ class Client(gobject.GObject):
         super(Client, self).__init__()
         self._busname = (BUS if busname is None else busname)
         self._signals = signals
+        self._captured = []
         self._conn = dbus.SessionBus()
         self.__proxy = None
 
@@ -64,6 +63,9 @@ class Client(gobject.GObject):
                 self._connect_signals()
         return self.__proxy
 
+    def _method(self, name):
+        return self._proxy.get_dbus_method(name, dbus_interface=INTERFACE)
+
     def _connect_signals(self):
         self._proxy.connect_to_signal(
             'import_status', self._on_import_status, INTERFACE
@@ -73,9 +75,11 @@ class Client(gobject.GObject):
         )
 
     def _on_import_status(self, base, status):
+        self._captured.append((base, status))
         self.emit('import_status', {'base': base, 'status': status})
 
     def _on_import_progress(self, base, current, total):
+        self._captured.append((base, current, total))
         self.emit('import_progress',
             {
                 'base': base,
@@ -88,13 +92,13 @@ class Client(gobject.GObject):
         """
         Shutdown the dmedia daemon.
         """
-        self._proxy.kill()
+        self._method('kill')()
 
     def version(self):
         """
         Return version number of running dmedia daemon.
         """
-        return self._proxy.version()
+        return self._method('version')()
 
     def get_extensions(self, types):
         """
@@ -106,7 +110,7 @@ class Client(gobject.GObject):
 
         :param types: A list of general categories, e.g. ``['video', 'audio']``
         """
-        return self._proxy.get_extensions(types)
+        return self._method('get_extensions')(types)
 
     def import_start(self, base, extensions=None):
         """
@@ -121,7 +125,7 @@ class Client(gobject.GObject):
             e.g. ``['mov', 'cr2', 'wav']``
         """
         extensions = (list(EXTENSIONS) if extensions is None else extensions)
-        return self._proxy.import_start(base, extensions)
+        return self._method('import_start')(base, extensions)
 
     def import_stop(self, base):
         """
@@ -130,10 +134,10 @@ class Client(gobject.GObject):
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
         """
-        return self._proxy.import_stop(base)
+        return self._method('import_stop')(base)
 
     def import_list(self):
         """
         Return list of currently running imports.
         """
-        return self._proxy.import_list()
+        return self._method('import_list')()

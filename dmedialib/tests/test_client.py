@@ -44,11 +44,18 @@ assert path.isfile(script)
 
 
 class SignalCapture(object):
-    def __init__(self, emmiter):
-        self.emmiter = emmiter
+    def __init__(self):
         self.signals = []
 
     def on_status(self, obj, msg):
+        self.signals.append(
+            ('status', msg)
+        )
+
+    def on_progress(self, obj, msg):
+        self.signals.append(
+            ('progress', msg)
+        )
 
 
 class test_Client(TestCase):
@@ -114,9 +121,21 @@ class test_Client(TestCase):
         self.assertTrue(inst._proxy is p)
 
     def test_connect_signals(self):
+        tmp = TempDir()
+        inst = self.new()
+        c = SignalCapture()
+        inst.connect('import_status', c.on_status)
+        inst.connect('import_progress', c.on_progress)
 
-        inst = self.klass(self.busname)
         inst._connect_signals()
+        mainloop = gobject.MainLoop()
+        gobject.timeout_add(7000, mainloop.quit)
+
+        self.assertEqual(inst.import_start(tmp.path), 'started')
+        mainloop.run()
+
+        self.assertEqual(len(inst._captured), len(c.signals))
+        self.assertEqual(len(inst._captured), 7)
 
     def test_kill(self):
         inst = self.new()
