@@ -89,9 +89,9 @@ class DMedia(dbus.service.Object):
     def _handle_msg(self, msg):
         kind = msg.get('kind')
         if kind == 'status':
-            self.import_status(msg['base'], msg['status'])
+            self.ImportStatus(msg['base'], msg['status'])
         elif kind == 'progress':
-            self.import_progress(msg['base'], msg['current'], msg['total'])
+            self.ImportProgress(msg['base'], msg['current'], msg['total'])
 
     @dbus.service.signal(INTERFACE, signature='ss')
     def ImportStatus(self, base, status):

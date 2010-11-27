@@ -97,10 +97,10 @@ class Client(gobject.GObject):
     """
 
     __gsignals__ = {
-        'ImportProgress': (
+        'import_progress': (
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
         ),
-        'ImportStatus': (
+        'import_status': (
             gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
         ),
     }
@@ -135,7 +135,7 @@ class Client(gobject.GObject):
         )
 
     def _on_import_status(self, base, status):
-        self.emit('ImportStatus',
+        self.emit('import_status',
             {
                 'base': unicode(base),
                 'status': unicode(status),
@@ -143,7 +143,7 @@ class Client(gobject.GObject):
         )
 
     def _on_import_progress(self, base, current, total):
-        self.emit('ImportProgress',
+        self.emit('import_progress',
             {
                 'base': unicode(base),
                 'current': int(current),
@@ -204,4 +204,4 @@ class Client(gobject.GObject):
         """
         Return list of currently running imports.
         """
-        return self._method('ImportIist')()
+        return self._method('ImportList')()
