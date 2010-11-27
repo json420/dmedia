@@ -33,9 +33,6 @@ from .constants import BUS, INTERFACE, EXT_MAP
 from .importer import import_files
 
 
-EXTENSIONS = frozenset(['mov', 'cr2', 'wav', 'jpg'])
-
-
 def dummy_import_files(q, base, extensions):
     def put(kind, **kw):
         kw.update(dict(
