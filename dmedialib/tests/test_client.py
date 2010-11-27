@@ -100,7 +100,7 @@ class test_Client(TestCase):
         inst = self.new()
         self.assertEqual(self.service.poll(), None)
         inst.kill()
-        time.sleep(1)  # Give dmedia-service time to shutdown
+        time.sleep(2)  # Give dmedia-service time to shutdown
         self.assertEqual(self.service.poll(), 0)
 
     def test_version(self):

@@ -26,7 +26,9 @@ Makes dmedia functionality avaible over D-Bus.
 from dmedialib import __version__
 from os import path
 import time
+from threading import Thread
 import multiprocessing
+from Queue import Empty
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
@@ -69,13 +71,29 @@ class DMedia(dbus.service.Object):
         super(DMedia, self).__init__(self._conn, object_path='/')
         self.__busname = dbus.service.BusName(self._busname, self._conn)
         self.__imports = {}
+        self.__running = True
         self.__queue = multiprocessing.Queue()
+        self.__thread = Thread(target=self._signal_thread)
+        self.__thread.daemon = True
+        self.__thread.start()
+
+    def _signal_thread(self):
+        while self.__running:
+            try:
+                msg = self.__queue.get(timeout=1)
+            except Empty:
+                pass
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def kill(self):
         """
         Kill the dmedia service process.
         """
+        self.__running = False
+        self.__thread.join()  # Cleanly shutdown _signal_thread
+        for p in self.__imports.values():
+            p.terminate()
+            p.join()
         if callable(self._killfunc):
             self._killfunc()
 
