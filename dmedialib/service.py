@@ -93,13 +93,16 @@ class DMedia(dbus.service.Object):
         elif kind == 'progress':
             self.ImportProgress(msg['base'], msg['current'], msg['total'])
 
-    @dbus.service.signal(INTERFACE, signature='ss')
-    def ImportStatus(self, base, status):
-        if status == 'finished':
-            p = self.__imports.pop(base, None)
-            if p is None:
-                return
-                p.join()
+    @dbus.service.signal(INTERFACE, signature='s')
+    def ImportStarted(self, base):
+        pass
+
+    @dbus.service.signal(INTERFACE, signature='s')
+    def ImportFinished(self, base):
+        p = self.__imports.pop(base, None)
+        if p is None:
+            return
+            p.join()
 
     @dbus.service.signal(INTERFACE, signature='sii')
     def ImportProgress(self, base, current, total):
@@ -143,7 +146,7 @@ class DMedia(dbus.service.Object):
         return sorted(extensions)
 
     @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
-    def ImportStart(self, base, extensions):
+    def StartImport(self, base, extensions):
         """
         Start import of directory or file at *base*, matching *extensions*.
 
@@ -168,7 +171,7 @@ class DMedia(dbus.service.Object):
         return 'started'
 
     @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
-    def ImportStop(self, base):
+    def StopImport(self, base):
         """
         In running, stop the import of directory or file at *base*.
         """
@@ -180,7 +183,7 @@ class DMedia(dbus.service.Object):
         return 'not_running'
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='as')
-    def ImportList(self):
+    def ListImport(self):
         """
         Return list of currently running imports.
         """
