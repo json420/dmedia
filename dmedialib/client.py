@@ -50,8 +50,50 @@ class Client(gobject.GObject):
     Controlling import operations
     =============================
 
-    The dmedia session daemon can have multiple import operations running at
-    once.
+    The dmedia service can have multiple import operations running at once.
+    Import jobs are identified by the path of the directory being imported.
+
+    For example, use `Client.import_list()` to get the list of currently running
+    imports:
+
+    >>> from dmedialib.client import Client
+    >>> client = Client()  #doctest: +SKIP
+    >>> client.import_list()  #doctest: +SKIP
+    []
+
+    Start an import operation using `Client.import_start()`, after which you
+    will see it in the list of running imports:
+
+    >>> client.import_start('/media/EOS_DIGITAL')  #doctest: +SKIP
+    'started'
+    >>> client.import_list()  #doctest: +SKIP
+    ['/media/EOS_DIGITAL']
+
+    If you try to import a path for which an import operation is already in
+    progress, `Client.import_start()` will return the status string
+    ``'already_running'``:
+
+    >>> client.import_start('/media/EOS_DIGITAL')  #doctest: +SKIP
+    'already_running'
+
+    Stop an import operation using `Client.import_stop()`, after which there
+    will be no running imports:
+
+    >>> client.import_stop('/media/EOS_DIGITAL')  #doctest: +SKIP
+    'stopped'
+    >>> client.import_list()  #doctest: +SKIP
+    []
+
+    If you try to stop an import operation that doesn't exist,
+    `Client.import_stop()` will return the status string ``'not_running'``:
+
+    >>> client.import_stop('/media/EOS_DIGITAL')  #doctest: +SKIP
+    'not_running'
+
+    Finally, you can shutdown the dmedia service with `Client.kill()`:
+
+    >>> client.kill()  #doctest: +SKIP
+
     """
 
     __gsignals__ = {
