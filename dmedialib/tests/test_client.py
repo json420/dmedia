@@ -87,19 +87,19 @@ class test_Client(TestCase):
             self.service = None
 
     def new(self):
-        return self.klass(busname=self.busname, signals=False)
+        return self.klass(busname=self.busname, connect=False)
 
     def test_init(self):
         # Test with no busname
         inst = self.klass()
         self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._signals is True)
+        self.assertTrue(inst._connect is True)
         self.assertTrue(inst._conn, dbus.SessionBus)
 
-        # Test with signals=False
-        inst = self.klass(signals=False)
+        # Test with connect=False
+        inst = self.klass(connect=False)
         self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._signals is False)
+        self.assertTrue(inst._connect is False)
         self.assertTrue(inst._conn, dbus.SessionBus)
 
         # Test with busname=None
@@ -134,8 +134,7 @@ class test_Client(TestCase):
         self.assertEqual(inst.import_start(tmp.path), 'started')
         mainloop.run()
 
-        self.assertEqual(len(inst._captured), len(c.signals))
-        self.assertEqual(len(inst._captured), 7)
+        self.assertEqual(len(c.signals), 7)
 
     def test_kill(self):
         inst = self.new()

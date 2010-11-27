@@ -44,11 +44,10 @@ class Client(gobject.GObject):
         ),
     }
 
-    def __init__(self, busname=None, signals=True):
+    def __init__(self, busname=None, connect=True):
         super(Client, self).__init__()
         self._busname = (BUS if busname is None else busname)
-        self._signals = signals
-        self._captured = []
+        self._connect = connect
         self._conn = dbus.SessionBus()
         self.__proxy = None
 
@@ -59,8 +58,8 @@ class Client(gobject.GObject):
         """
         if self.__proxy is None:
             self.__proxy = self._conn.get_object(self._busname, '/')
-            if self._signals:
-                self._connect_signals()
+            if self._connect:
+                self._connect_connect()
         return self.__proxy
 
     def _method(self, name):
@@ -75,11 +74,9 @@ class Client(gobject.GObject):
         )
 
     def _on_import_status(self, base, status):
-        self._captured.append((base, status))
         self.emit('import_status', {'base': base, 'status': status})
 
     def _on_import_progress(self, base, current, total):
-        self._captured.append((base, current, total))
         self.emit('import_progress',
             {
                 'base': base,
