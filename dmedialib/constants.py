@@ -27,3 +27,27 @@ BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'
 
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
+
+
+VIDEO = (
+    'ogv',  # video/ogg
+    'webm',  # video/webm
+    'mov', 'qt',  # video/quicktime
+    'mp4',  # video/mp4
+    'mpeg', 'mpg', 'mpe',  # video/mpeg
+    'avi',  # video/x-msvideo
+    'mpv', 'mkv',  # video/x-matroska
+)
+
+AUDIO = ('wav', 'oga', 'flac', 'spx', 'mp3')
+
+IMAGE = ('jpg', 'png', 'cr2', 'crw', 'nef')
+
+EXTENSIONS = VIDEO + AUDIO + IMAGE
+
+EXT_MAP = {
+    'video': VIDEO,
+    'audio': AUDIO,
+    'image': IMAGE,
+    'all': EXTENSIONS,
+}
