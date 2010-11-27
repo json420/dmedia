@@ -37,6 +37,41 @@ mimetypes.init()
 DOTDIR = '.dmedia'
 
 
+def import_files(q, base, extensions):
+    def put(kind, **kw):
+        kw.update(dict(
+            domain='import',
+            kind=kind,
+            base=base,
+        ))
+        q.put(kw)
+
+    put('status', status='started')
+
+    # Get the file list:
+    files = tuple(scanfiles(base, extensions))
+    if not files:
+        put('finish')
+        return
+
+    i = 0
+    count = len(files)
+    put('progress',
+        current=i,
+        total=count,
+    )
+
+    importer = Importer()
+    for d in importer.import_files(files):
+        i += 1
+        put('progress',
+            current=i,
+            total=count,
+        )
+
+    put('status', status='finished')
+
+
 def normalize_ext(name):
     """
     Return (root, ext) from *name* where extension is normalized to lower-case.
@@ -127,6 +162,12 @@ class Importer(object):
 
     def recursive_import(self, base, extensions, common=None, extract=True):
         for d in scanfiles(base, extensions):
+            if common:
+                d['doc'].update(common)
+            yield self._import_one(d, extract)
+
+    def import_files(self, files, common=None, extract=True):
+        for d in files:
             if common:
                 d['doc'].update(common)
             yield self._import_one(d, extract)
