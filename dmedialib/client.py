@@ -98,13 +98,13 @@ class Client(gobject.GObject):
 
     __gsignals__ = {
         'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [gobject.TYPE_GSTRING]
+            [gobject.TYPE_PYOBJECT]
         ),
         'import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [gobject.TYPE_GSTRING]
+            [gobject.TYPE_PYOBJECT]
         ),
         'import_progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [gobject.TYPE_GSTRING, gobject.TYPE_INT, gobject.TYPE_INT]
+            [gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT]
         ),
     }
 

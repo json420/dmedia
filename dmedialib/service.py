@@ -89,7 +89,10 @@ class DMedia(dbus.service.Object):
     def _handle_msg(self, msg):
         kind = msg.get('kind')
         if kind == 'status':
-            self.ImportStatus(msg['base'], msg['status'])
+            if msg['status'] == 'started':
+                self.ImportStarted(msg['base'])
+            elif msg['status'] == 'finished':
+                self.ImportFinished(msg['base'])
         elif kind == 'progress':
             self.ImportProgress(msg['base'], msg['current'], msg['total'])
 
@@ -183,7 +186,7 @@ class DMedia(dbus.service.Object):
         return 'not_running'
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='as')
-    def ListImport(self):
+    def ListImports(self):
         """
         Return list of currently running imports.
         """

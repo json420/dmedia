@@ -47,14 +47,19 @@ class SignalCapture(object):
     def __init__(self):
         self.signals = []
 
-    def on_status(self, obj, msg):
+    def on_started(self, obj, *args):
         self.signals.append(
-            ('status', msg)
+            ('started',) + args
         )
 
-    def on_progress(self, obj, msg):
+    def on_finished(self, obj, *args):
         self.signals.append(
-            ('progress', msg)
+            ('finished',) + args
+        )
+
+    def on_progress(self, obj, *args):
+        self.signals.append(
+            ('progress',) + args
         )
 
 
@@ -125,26 +130,27 @@ class test_Client(TestCase):
         base = unicode(tmp.path)
         inst = self.klass(self.busname, connect=False)
         c = SignalCapture()
-        inst.connect('import_status', c.on_status)
+        inst.connect('import_started', c.on_started)
+        inst.connect('import_finished', c.on_finished)
         inst.connect('import_progress', c.on_progress)
 
         inst._connect_signals()
         mainloop = gobject.MainLoop()
         gobject.timeout_add(7000, mainloop.quit)
 
-        self.assertEqual(inst.import_start(tmp.path), 'started')
+        self.assertEqual(inst.start_import(tmp.path), 'started')
         mainloop.run()
 
         self.assertEqual(
             c.signals,
             [
-                ('status', dict(base=base, status='started')),
-                ('progress', dict(base=base, current=0, total=4)),
-                ('progress', dict(base=base, current=1, total=4)),
-                ('progress', dict(base=base, current=2, total=4)),
-                ('progress', dict(base=base, current=3, total=4)),
-                ('progress', dict(base=base, current=4, total=4)),
-                ('status', dict(base=base, status='finished')),
+                ('started', base),
+                ('progress', base, 0, 4),
+                ('progress', base, 1, 4),
+                ('progress', base, 2, 4),
+                ('progress', base, 3, 4),
+                ('progress', base, 4, 4),
+                ('finished', base),
             ]
         )
 
@@ -188,47 +194,47 @@ class test_Client(TestCase):
         )
         self.assertEqual(inst.get_extensions(['foo', 'bar']), [])
 
-    def test_import_start(self):
+    def test_start_import(self):
         tmp = TempDir()
         nope = tmp.join('memory_card')
         inst = self.new()
-        self.assertEqual(inst.import_start(nope), 'not_dir_or_file')
-        self.assertEqual(inst.import_start('some/relative/path'), 'not_abspath')
-        self.assertEqual(inst.import_start(tmp.path), 'started')
-        self.assertEqual(inst.import_start(tmp.path), 'already_running')
+        self.assertEqual(inst.start_import(nope), 'not_dir_or_file')
+        self.assertEqual(inst.start_import('some/relative/path'), 'not_abspath')
+        self.assertEqual(inst.start_import(tmp.path), 'started')
+        self.assertEqual(inst.start_import(tmp.path), 'already_running')
 
     def test_handle_msg(self):
         # Test that DMedia._handle_imports is removing process from active
         # imports after it gets the 'finished' status message.
         tmp = TempDir()
         inst = self.new()
-        self.assertEqual(inst.import_start(tmp.path), 'started')
-        self.assertEqual(inst.import_list(), [tmp.path])
+        self.assertEqual(inst.start_import(tmp.path), 'started')
+        self.assertEqual(inst.list_imports(), [tmp.path])
         time.sleep(7)  # dummy_import_files should run for ~6 seconds
-        self.assertEqual(inst.import_list(), [])
+        self.assertEqual(inst.list_imports(), [])
 
-    def test_import_stop(self):
+    def test_stop_import(self):
         tmp = TempDir()
         inst = self.new()
-        self.assertEqual(inst.import_stop(tmp.path), 'not_running')
-        self.assertEqual(inst.import_start(tmp.path), 'started')
-        self.assertEqual(inst.import_stop(tmp.path), 'stopped')
-        self.assertEqual(inst.import_stop(tmp.path), 'not_running')
+        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
+        self.assertEqual(inst.start_import(tmp.path), 'started')
+        self.assertEqual(inst.stop_import(tmp.path), 'stopped')
+        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
 
-    def test_import_list(self):
+    def test_list_imports(self):
         inst = self.new()
         tmp1 = TempDir()
         tmp2 = TempDir()
 
         # Add them in
-        self.assertEqual(inst.import_list(), [])
-        self.assertEqual(inst.import_start(tmp1.path), 'started')
-        self.assertEqual(inst.import_list(), [tmp1.path])
-        self.assertEqual(inst.import_start(tmp2.path), 'started')
-        self.assertEqual(inst.import_list(), sorted([tmp1.path, tmp2.path]))
+        self.assertEqual(inst.list_imports(), [])
+        self.assertEqual(inst.start_import(tmp1.path), 'started')
+        self.assertEqual(inst.list_imports(), [tmp1.path])
+        self.assertEqual(inst.start_import(tmp2.path), 'started')
+        self.assertEqual(inst.list_imports(), sorted([tmp1.path, tmp2.path]))
 
         # Take them out
-        self.assertEqual(inst.import_stop(tmp1.path), 'stopped')
-        self.assertEqual(inst.import_list(), [tmp2.path])
-        self.assertEqual(inst.import_stop(tmp2.path), 'stopped')
-        self.assertEqual(inst.import_list(), [])
+        self.assertEqual(inst.stop_import(tmp1.path), 'stopped')
+        self.assertEqual(inst.list_imports(), [tmp2.path])
+        self.assertEqual(inst.stop_import(tmp2.path), 'stopped')
+        self.assertEqual(inst.list_imports(), [])
