@@ -38,38 +38,24 @@ DOTDIR = '.dmedia'
 
 
 def import_files(q, base, extensions):
-    def put(kind, **kw):
-        kw.update(dict(
-            domain='import',
-            kind=kind,
-            base=base,
-        ))
-        q.put(kw)
-
-    put('status', status='started')
+    q.put(['ImportStarted', base])
 
     # Get the file list:
     files = tuple(scanfiles(base, extensions))
     if not files:
-        put('finish')
+        q.put(['ImportFinished', base])
         return
 
     i = 0
-    count = len(files)
-    put('progress',
-        current=i,
-        total=count,
-    )
+    total = len(files)
+    q.put(['ImportProgress', base, 0, total])
 
     importer = Importer()
     for d in importer.import_files(files):
         i += 1
-        put('progress',
-            current=i,
-            total=count,
-        )
+        q.put(['ImportProgress', base, i, total])
 
-    put('status', status='finished')
+    q.put(['ImportFinished', base])
 
 
 def normalize_ext(name):

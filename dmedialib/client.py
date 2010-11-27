@@ -53,41 +53,41 @@ class Client(gobject.GObject):
     The dmedia service can have multiple import operations running at once.
     Import jobs are identified by the path of the directory being imported.
 
-    For example, use `Client.import_list()` to get the list of currently running
+    For example, use `Client.list_imports()` to get the list of currently running
     imports:
 
     >>> from dmedialib.client import Client
     >>> client = Client()  #doctest: +SKIP
-    >>> client.import_list()  #doctest: +SKIP
+    >>> client.list_imports()  #doctest: +SKIP
     []
 
-    Start an import operation using `Client.import_start()`, after which you
+    Start an import operation using `Client.start_import()`, after which you
     will see it in the list of running imports:
 
-    >>> client.import_start('/media/EOS_DIGITAL')  #doctest: +SKIP
+    >>> client.start_import('/media/EOS_DIGITAL')  #doctest: +SKIP
     'started'
-    >>> client.import_list()  #doctest: +SKIP
+    >>> client.list_imports()  #doctest: +SKIP
     ['/media/EOS_DIGITAL']
 
     If you try to import a path for which an import operation is already in
-    progress, `Client.import_start()` will return the status string
+    progress, `Client.start_import()` will return the status string
     ``'already_running'``:
 
-    >>> client.import_start('/media/EOS_DIGITAL')  #doctest: +SKIP
+    >>> client.start_import('/media/EOS_DIGITAL')  #doctest: +SKIP
     'already_running'
 
-    Stop an import operation using `Client.import_stop()`, after which there
+    Stop an import operation using `Client.stop_import()`, after which there
     will be no running imports:
 
-    >>> client.import_stop('/media/EOS_DIGITAL')  #doctest: +SKIP
+    >>> client.stop_import('/media/EOS_DIGITAL')  #doctest: +SKIP
     'stopped'
-    >>> client.import_list()  #doctest: +SKIP
+    >>> client.list_imports()  #doctest: +SKIP
     []
 
     If you try to stop an import operation that doesn't exist,
-    `Client.import_stop()` will return the status string ``'not_running'``:
+    `Client.stop_import()` will return the status string ``'not_running'``:
 
-    >>> client.import_stop('/media/EOS_DIGITAL')  #doctest: +SKIP
+    >>> client.stop_import('/media/EOS_DIGITAL')  #doctest: +SKIP
     'not_running'
 
     Finally, you can shutdown the dmedia service with `Client.kill()`:
@@ -97,11 +97,14 @@ class Client(gobject.GObject):
     """
 
     __gsignals__ = {
-        'import_progress': (
-            gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
+        'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [gobject.TYPE_PYOBJECT]
         ),
-        'import_status': (
-            gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, [gobject.TYPE_PYOBJECT]
+        'import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [gobject.TYPE_PYOBJECT]
+        ),
+        'import_progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT]
         ),
     }
 
@@ -128,41 +131,36 @@ class Client(gobject.GObject):
 
     def _connect_signals(self):
         self._proxy.connect_to_signal(
-            'import_status', self._on_import_status, INTERFACE
+            'ImportStarted', self._on_ImportStarted, INTERFACE
         )
         self._proxy.connect_to_signal(
-            'import_progress', self._on_import_progress, INTERFACE
+            'ImportFinished', self._on_ImportFinished, INTERFACE
+        )
+        self._proxy.connect_to_signal(
+            'ImportProgress', self._on_ImportProgress, INTERFACE
         )
 
-    def _on_import_status(self, base, status):
-        self.emit('import_status',
-            {
-                'base': unicode(base),
-                'status': unicode(status),
-            }
-        )
+    def _on_ImportStarted(self, base):
+        self.emit('import_started', unicode(base))
 
-    def _on_import_progress(self, base, current, total):
-        self.emit('import_progress',
-            {
-                'base': unicode(base),
-                'current': int(current),
-                'total': int(total),
-            }
-        )
+    def _on_ImportFinished(self, base):
+        self.emit('import_finished', unicode(base))
+
+    def _on_ImportProgress(self, base, completed, total):
+        self.emit('import_progress', unicode(base), int(completed), int(total))
 
     def kill(self):
         """
         Shutdown the dmedia daemon.
         """
-        self._method('kill')()
+        self._method('Kill')()
         self.__proxy = None
 
     def version(self):
         """
         Return version number of running dmedia daemon.
         """
-        return self._method('version')()
+        return self._method('Version')()
 
     def get_extensions(self, types):
         """
@@ -174,9 +172,9 @@ class Client(gobject.GObject):
 
         :param types: A list of general categories, e.g. ``['video', 'audio']``
         """
-        return self._method('get_extensions')(types)
+        return self._method('GetExtensions')(types)
 
-    def import_start(self, base, extensions=None):
+    def start_import(self, base, extensions=None):
         """
         Start import of directory or file at *base*, matching *extensions*.
 
@@ -189,19 +187,19 @@ class Client(gobject.GObject):
             e.g. ``['mov', 'cr2', 'wav']``
         """
         extensions = (list(EXTENSIONS) if extensions is None else extensions)
-        return self._method('import_start')(base, extensions)
+        return self._method('StartImport')(base, extensions)
 
-    def import_stop(self, base):
+    def stop_import(self, base):
         """
         In running, stop the import of directory or file at *base*.
 
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
         """
-        return self._method('import_stop')(base)
+        return self._method('StopImport')(base)
 
-    def import_list(self):
+    def list_imports(self):
         """
         Return list of currently running imports.
         """
-        return self._method('import_list')()
+        return self._method('ListImports')()
