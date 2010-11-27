@@ -37,33 +37,25 @@ from .importer import import_files
 
 
 def dummy_import_files(q, base, extensions):
-    def put(kind, **kw):
-        kw.update(dict(
-            domain='import',
-            kind=kind,
-            base=base,
-        ))
-        q.put(kw)
-
-    put('status', status='started')
+    q.put(['ImportStarted', base])
     time.sleep(1)  # Scan list of files
     count = 4
-    put('progress',
-        current=0,
-        total=count,
-    )
+    q.put(['ImportProgress', base, 0, count])
     for i in xrange(count):
         time.sleep(1)
-        put('progress',
-            current=i + 1,
-            total=count,
-        )
+        q.put(['ImportProgress', base, i + 1, count])
     time.sleep(1)
-    put('status', status='finished')
+    q.put(['ImportFinished', base])
 
 
 
 class DMedia(dbus.service.Object):
+    __signals = frozenset([
+        'ImportStarted',
+        'ImportFinished',
+        'ImportProgress',
+    ])
+
     def __init__(self, busname=None, killfunc=None, dummy=False):
         self._busname = (BUS if busname is None else busname)
         self._killfunc = killfunc
@@ -82,19 +74,15 @@ class DMedia(dbus.service.Object):
         while self.__running:
             try:
                 msg = self.__queue.get(timeout=1)
-                self._handle_msg(msg)
+                signal = msg[0]
+                if signal not in self.__signals:
+                    continue
+                method = getattr(self, signal, None)
+                if callable(method):
+                    args = msg[1:]
+                    method(*args)
             except Empty:
                 pass
-
-    def _handle_msg(self, msg):
-        kind = msg.get('kind')
-        if kind == 'status':
-            if msg['status'] == 'started':
-                self.ImportStarted(msg['base'])
-            elif msg['status'] == 'finished':
-                self.ImportFinished(msg['base'])
-        elif kind == 'progress':
-            self.ImportProgress(msg['base'], msg['current'], msg['total'])
 
     @dbus.service.signal(INTERFACE, signature='s')
     def ImportStarted(self, base):
@@ -103,9 +91,8 @@ class DMedia(dbus.service.Object):
     @dbus.service.signal(INTERFACE, signature='s')
     def ImportFinished(self, base):
         p = self.__imports.pop(base, None)
-        if p is None:
-            return
-            p.join()
+        if p is not None:
+            p.join()  # Sanity check to make sure worker is terminating
 
     @dbus.service.signal(INTERFACE, signature='sii')
     def ImportProgress(self, base, current, total):

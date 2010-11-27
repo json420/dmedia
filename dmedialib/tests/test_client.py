@@ -203,9 +203,9 @@ class test_Client(TestCase):
         self.assertEqual(inst.start_import(tmp.path), 'started')
         self.assertEqual(inst.start_import(tmp.path), 'already_running')
 
-    def test_handle_msg(self):
-        # Test that DMedia._handle_imports is removing process from active
-        # imports after it gets the 'finished' status message.
+    def test_import_finished(self):
+        # Test that DMedia.ImportFinished is removing process from active
+        # imports after it gets the ImportFinished signal from the queue:
         tmp = TempDir()
         inst = self.new()
         self.assertEqual(inst.start_import(tmp.path), 'started')
