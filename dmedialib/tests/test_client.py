@@ -87,7 +87,7 @@ class test_Client(TestCase):
             self.service = None
 
     def new(self):
-        return self.klass(busname=self.busname, connect=False)
+        return self.klass(busname=self.busname)
 
     def test_init(self):
         # Test with no busname
@@ -123,7 +123,7 @@ class test_Client(TestCase):
     def test_connect_signals(self):
         tmp = TempDir()
         base = unicode(tmp.path)
-        inst = self.new()
+        inst = self.klass(self.busname, connect=False)
         c = SignalCapture()
         inst.connect('import_status', c.on_status)
         inst.connect('import_progress', c.on_progress)

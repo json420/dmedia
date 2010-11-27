@@ -34,6 +34,25 @@ dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 
 class Client(gobject.GObject):
+    """
+    Simple and Pythonic way to control dmedia dbus service.
+
+    For Python applications, this client provides several advantages over
+    strait dbus because it:
+
+      1. Lazily starts the dmedia service the first time you call a dbus method
+
+      2. More Pythonic API, including default argument values where they make
+         since
+
+      3. Can use convenient gobject signals
+
+    Controlling import operations
+    =============================
+
+    The dmedia session daemon can have multiple import operations running at
+    once.
+    """
 
     __gsignals__ = {
         'import_progress': (
@@ -59,7 +78,7 @@ class Client(gobject.GObject):
         if self.__proxy is None:
             self.__proxy = self._conn.get_object(self._busname, '/')
             if self._connect:
-                self._connect_connect()
+                self._connect_signals()
         return self.__proxy
 
     def _method(self, name):
