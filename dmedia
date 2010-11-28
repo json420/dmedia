@@ -80,7 +80,7 @@ will always have a 'duration'.
 You can browse through the dmedia database using a standard web-browser, like
 this:
 
-  firefox ~/.local/share/desktop-couch/couchdb.html
+  xdg-open ~/.local/share/desktop-couch/couchdb.html
 
 Note that the sha1 hash is only being used as a stop-gap.  dmedia will use the
 Skein hash after its final constant tweaks are made.  See:
