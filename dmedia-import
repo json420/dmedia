@@ -119,7 +119,7 @@ if __name__ == '__main__':
             app.go(args=sys.argv)
 
         dmedia_client = dmedialib.client.Client()
-        for base in sys.argv:
+        for base in sys.argv[1:]:
             #start only if import hasn't already started
             if not base in dmedia_client.list_imports():
                 dmedia_client.start_import(base)

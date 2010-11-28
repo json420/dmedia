@@ -42,16 +42,15 @@ class IndicatorGUI(dmedialib.client.Client):
             #base : [completed, total]
         }
         for base in self.list_imports():
-            self.imports[base] = [0, 0]
+            self.imports[base] = ['0', '0']
 
         self.update_menu_items()
         gtk.main()
 
 
     def menu_items(self):
-        yield _("Imports:")
         for base in self.imports:
-            yield(base + " " + '/'.join(self.imports[base]))
+            yield(_("Importing") + "  " + base + "  (" + '/'.join(self.imports[base]) + ")")
 
 
     def update_menu_items(self):
@@ -67,15 +66,20 @@ class IndicatorGUI(dmedialib.client.Client):
         self.emit('import_started', unicode(base))
         notification = pynotify.Notification(_("Importing new files"), base, "notification-device-usb")
         notification.show()
+        self.imports[base] = ['0', '0']
+        self.update_menu_items()
 
     def _on_ImportFinished(self, base):
         self.emit('import_finished', unicode(base))
         notification = pynotify.Notification(_("Import finished"), base, "notification-device-usb")
         notification.show()
+        del(self.imports[base])
+        self.update_menu_items()
 
     def _on_ImportProgress(self, base, completed, total):
         self.emit('import_progress', unicode(base), int(completed), int(total))
         self.imports[base] = [str(completed), str(total)]
+        self.update_menu_items()
 
 
 IndicatorGUI()
