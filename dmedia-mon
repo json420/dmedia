@@ -34,19 +34,19 @@ def op(string):
 
 client.connect(
     "import_started",
-    lambda base: op(
+    lambda signal, base: op(
         "%s import started" % base
     )
 )
 client.connect(
     "import_finished",
-    lambda base: op(
+    lambda signal, base: op(
         "%s import finished" % base
     )
 )
 client.connect(
     "import_progress",
-    lambda base, completed, total: op(
+    lambda signal, base, completed, total: op(
         "%s import progress %s/%s" % (base, str(completed), str(total))
     )
 )

@@ -66,7 +66,7 @@ class IndicatorGUI(object):
         self.indicator.set_menu(self.menu)
 
 
-    def on_import_started(self, base):
+    def on_import_started(self, signal, base):
         print("import started %s" % base)
         notification = pynotify.Notification(_("Importing new files"), base, "notification-device-usb")
         print("Notifying... %s" % str(notification))
@@ -74,7 +74,7 @@ class IndicatorGUI(object):
         self.imports[base] = ['0', '0']
         self.update_menu_items()
 
-    def on_import_finished(self, base):
+    def on_import_finished(self, signal, base):
         print("import finished %s" % base)
         notification = pynotify.Notification(_("Import finished"), base, "notification-device-usb")
         print("Notifying... %s" % str(notification))
@@ -82,7 +82,7 @@ class IndicatorGUI(object):
         del(self.imports[base])
         self.update_menu_items()
 
-    def on_import_progress(self, base, completed, total):
+    def on_import_progress(self, signal, base, completed, total):
         self.imports[base] = [str(completed), str(total)]
         print(base + ' ' + str(completed) + '/' + str(total))
         self.update_menu_items()
