@@ -28,6 +28,7 @@ import gettext
 _ = gettext.gettext
 import sys
 import dmedialib.importer
+import gconf
 
 
 class FirstRunGUI(gtk.Window):
@@ -81,6 +82,7 @@ class FirstRunGUI(gtk.Window):
     def connect_signals(self):
         self.connect("delete_event", self.delete_event)
         self.connect("destroy", self.destroy)
+        self.ok.connect("clicked", self.on_ok)
 
 
     def destroy(self, widget, data=None):
@@ -93,7 +95,12 @@ class FirstRunGUI(gtk.Window):
 
     def on_ok(self, widget):
         dont_show_again = self.dont_show_again.get_active()
-        self.destroy()
+        client = gconf.client_get_default()
+        val = 0
+        if dont_show_again:
+            val = 1
+        client.set_bool('/apps/dmedia/dont-show-import-firstrun', val)
+        self.destroy(widget)
 
 
     def go(self, args=[]):
@@ -105,7 +112,8 @@ class FirstRunGUI(gtk.Window):
 
 
 if __name__ == '__main__':
-    firstrun = True #actually check if first run later
+    client = gconf.client_get_default()
+    firstrun = not client.get_bool('/apps/dmedia/dont-show-import-firstrun')
     if firstrun:
         app = FirstRunGUI()
         app.go(args=sys.argv)
