@@ -26,6 +26,8 @@ import gtk
 
 client = Client()
 
+client.version()
+
 def op(string):
     print string
     return string
