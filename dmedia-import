@@ -126,6 +126,7 @@ if __name__ == '__main__':
 
         dmedia_client = dmedialib.client.Client()
         for base in dirs:
+            base = os.path.abspath(base)
             #start only if import hasn't already started
             if not base in dmedia_client.list_imports():
                 print("dmedia-import: starting import of %s" % base)
