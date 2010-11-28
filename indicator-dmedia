@@ -49,6 +49,7 @@ class IndicatorGUI(dmedialib.client.Client):
 
 
     def menu_items(self):
+        yield _("Imports:")
         for base in self.imports:
             yield(base + " " + '/'.join(self.imports[base]))
 
