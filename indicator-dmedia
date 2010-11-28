@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+# Authors:
+#   David Green <david4dev@gmail.com>
+#
+# dmedia: distributed media library
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under the
+# terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+
+import dmedialib.client
+import pynotify
+import appindicator
+import gconf
+from gettext import gettext as _
+
+
+class IndicatorGUI(dmedialib.client.Client):
+    def __init__(self, busname=None, connect=True):
+        super(IndicatorGUI, self).__init__()
+
+    def _on_ImportStarted(self, base):
+        self.emit('import_started', unicode(base))
+        notification = pynotify.Notification(_("Importing new files"), base, "notification-device-usb")
+        notification.show()
+
+    def _on_ImportFinished(self, base):
+        self.emit('import_finished', unicode(base))
+        notification = pynotify.Notification(_("Import finished"), base, "notification-device-usb")
+        notification.show()
+
+    def _on_ImportProgress(self, base, completed, total):
+        self.emit('import_progress', unicode(base), int(completed), int(total))

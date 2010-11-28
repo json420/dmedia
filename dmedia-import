@@ -21,14 +21,14 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-#This is a placeholder file for the dmedia importer.
 
 import gtk
 import gettext
 _ = gettext.gettext
+import os
 import sys
-import dmedialib.importer
 import gconf
+import dmedialib.client
 
 
 class FirstRunGUI(gtk.Window):
@@ -104,16 +104,32 @@ class FirstRunGUI(gtk.Window):
 
 
     def go(self, args=[]):
-        if len(args) > 1:
-            self.label.set_text(self.label.get_text() % args[1])
+        self.label.set_text(self.label.get_text() % ', '.join(args))
         self.show_all()
         gtk.main()
 
 
 
 if __name__ == '__main__':
-    client = gconf.client_get_default()
-    firstrun = not client.get_bool('/apps/dmedia/dont-show-import-firstrun')
-    if firstrun:
-        app = FirstRunGUI()
-        app.go(args=sys.argv)
+    if len(sys.argv) > 1: #This will happen if run from the nautilus handler
+        client = gconf.client_get_default()
+
+        if not client.get_bool('/apps/dmedia/dont-show-import-firstrun'):
+            app = FirstRunGUI()
+            app.go(args=sys.argv)
+
+        dmedia_client = dmedialib.client.Client()
+        for base in sys.argv
+            dmedia_client.start_import(base)
+
+        if not client.get_bool('/apps/dmedia/indicator-is-running'):
+            client.set_bool('/apps/dmedia/indicator-is-running', 1)
+            os.system("indicator-dmedia") #block until indicator exists
+            client.set_bool('/apps/dmedia/indicator-is-running', 0)
+
+
+    else:
+        pass #put a full UI here
+
+
+
