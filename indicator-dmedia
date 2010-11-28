@@ -26,6 +26,7 @@ import pynotify
 import appindicator
 import gconf
 from gettext import gettext as _
+import gtk
 
 
 class IndicatorGUI(dmedialib.client.Client):
@@ -43,8 +44,8 @@ class IndicatorGUI(dmedialib.client.Client):
         for base in self.list_imports():
             self.imports[base] = [0, 0]
 
-
         self.update_menu_items()
+        gtk.main()
 
 
     def menu_items(self):
