@@ -37,12 +37,12 @@ from .importer import import_files
 
 
 def dummy_import_files(q, base, extensions):
+    # Note the dummy import will take approximately 2 seconds to complete
     q.put(['ImportStarted', base])
     time.sleep(1)  # Scan list of files
     count = 4
     q.put(['ImportProgress', base, 0, count])
     for i in xrange(count):
-        time.sleep(1)
         q.put(['ImportProgress', base, i + 1, count])
     time.sleep(1)
     q.put(['ImportFinished', base])

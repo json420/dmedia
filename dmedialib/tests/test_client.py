@@ -136,7 +136,7 @@ class test_Client(TestCase):
 
         inst._connect_signals()
         mainloop = gobject.MainLoop()
-        gobject.timeout_add(7000, mainloop.quit)
+        gobject.timeout_add(3000, mainloop.quit)
 
         self.assertEqual(inst.start_import(tmp.path), 'started')
         mainloop.run()
@@ -210,7 +210,7 @@ class test_Client(TestCase):
         inst = self.new()
         self.assertEqual(inst.start_import(tmp.path), 'started')
         self.assertEqual(inst.list_imports(), [tmp.path])
-        time.sleep(7)  # dummy_import_files should run for ~6 seconds
+        time.sleep(3)  # dummy_import_files should run for ~2 seconds
         self.assertEqual(inst.list_imports(), [])
 
     def test_stop_import(self):
