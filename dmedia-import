@@ -128,7 +128,10 @@ if __name__ == '__main__':
         for base in dirs:
             #start only if import hasn't already started
             if not base in dmedia_client.list_imports():
-                dmedia_client.start_import(base)
+                print("dmedia-import: starting import of %s" % base)
+                print dmedia_client.start_import(base)
+            else:
+                print("dmedia-import: not starting import of %s" % base)
 
         if not client.get_bool('/apps/dmedia/indicator-is-running'):
             client.set_bool('/apps/dmedia/indicator-is-running', 1)
