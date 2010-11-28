@@ -120,7 +120,9 @@ if __name__ == '__main__':
 
         dmedia_client = dmedialib.client.Client()
         for base in sys.argv
-            dmedia_client.start_import(base)
+            #start only if import hasn't already started
+            if not base in dmedia_client.list_imports():
+                dmedia_client.start_import(base)
 
         if not client.get_bool('/apps/dmedia/indicator-is-running'):
             client.set_bool('/apps/dmedia/indicator-is-running', 1)

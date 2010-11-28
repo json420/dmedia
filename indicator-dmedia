@@ -31,6 +31,35 @@ from gettext import gettext as _
 class IndicatorGUI(dmedialib.client.Client):
     def __init__(self, busname=None, connect=True):
         super(IndicatorGUI, self).__init__()
+        self.indicator = appindicator.Indicator(
+            "indicator-dmedia",
+            "/usr/share/pixmaps/dmedia.svg",
+            appindicator.CATEGORY_APPLICATION_STATUS
+        )
+        self.indicator.set_status(appindicator.STATUS_ACTIVE)
+        self.imports = {
+            #base : [completed, total]
+        }
+        for base in self.list_imports():
+            self.imports[base] = [0, 0]
+
+
+        self.update_menu_items()
+
+
+    def menu_items(self):
+        for base in self.imports:
+            yield(base + " " + '/'.join(self.imports[base]))
+
+
+    def update_menu_items(self):
+        self.menu = gtk.Menu()
+        for text in self.menu_items():
+            item = gtk.MenuItem(text)
+            item.show()
+            self.menu.append(item)
+        self.indicator.set_menu(self.menu)
+
 
     def _on_ImportStarted(self, base):
         self.emit('import_started', unicode(base))
@@ -44,3 +73,7 @@ class IndicatorGUI(dmedialib.client.Client):
 
     def _on_ImportProgress(self, base, completed, total):
         self.emit('import_progress', unicode(base), int(completed), int(total))
+        self.imports[base] = [str(completed), str(total)]
+
+
+IndicatorGUI()
