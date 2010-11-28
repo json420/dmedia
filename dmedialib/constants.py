@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -23,25 +24,29 @@
 Various constants conveniently located in one place.
 """
 
+import mimetypes
+mimetypes.init()
+
+
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'
 
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
+def get_extensions_for_type(general_type):
+    """
+    An iterator that yields the file extensions for files of a general type.
+    eg. 'image'
+    """
+    for ext in mimetypes.types_map:
+        if mimetypes.types_map[ext].split('/')[0] == general_type:
+            yield ext.strip('.')
 
-VIDEO = (
-    'ogv',  # video/ogg
-    'webm',  # video/webm
-    'mov', 'qt',  # video/quicktime
-    'mp4',  # video/mp4
-    'mpeg', 'mpg', 'mpe',  # video/mpeg
-    'avi',  # video/x-msvideo
-    'mpv', 'mkv',  # video/x-matroska
-)
+VIDEO = tuple(get_extensions_for_type('video'))
 
-AUDIO = ('wav', 'oga', 'flac', 'spx', 'mp3')
+AUDIO = tuple(get_extensions_for_type('audio'))
 
-IMAGE = ('jpg', 'png', 'cr2', 'crw', 'nef')
+IMAGE = tuple(get_extensions_for_type('image'))
 
 EXTENSIONS = VIDEO + AUDIO + IMAGE
 
@@ -51,3 +56,5 @@ EXT_MAP = {
     'image': IMAGE,
     'all': EXTENSIONS,
 }
+
+
