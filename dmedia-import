@@ -27,14 +27,18 @@ import gtk
 import gettext
 _ = gettext.gettext
 import sys
+import dmedialib.importer
 
 
-class ImporterGUI(gtk.Window):
+class FirstRunGUI(gtk.Window):
     def __init__(self):
-        super(ImporterGUI, self).__init__()
+        super(FirstRunGUI, self).__init__()
 
         self.set_title(_('dmedia Media Importer'))
-        self.resize(500, 500)
+        try:
+            self.set_icon_from_file('/usr/share/pixmaps/dmedia.svg')
+        except:
+            pass
 
         self.add_content()
 
@@ -42,13 +46,34 @@ class ImporterGUI(gtk.Window):
 
 
     def add_content(self):
-        self.container = gtk.HBox()
+        self.container = gtk.VBox()
 
-        self.label = gtk.Label(_('This will become the dmedia importer.'))
+        self.label = gtk.Label(_("This is the dmedia media importer.\nIt will import media files from %s into your dmedia library.\nTo start the import press 'OK'.\n\n"))
         self.label.show()
+
+        self.spacing_label = gtk.Label("        ")
+
+        self.dont_show_again = gtk.CheckButton(label=_("Don't show this again"))
+        self.dont_show_again.set_active(True)
+
+        self.ok = gtk.Button()
+        self.ok_label = gtk.Label(_("OK"))
+        self.ok_label.show()
+        self.ok.add(self.ok_label)
+
+        self.hbox = gtk.HBox()
+        self.ok.show()
+        self.hbox.add(self.ok)
+        self.spacing_label.show()
+        self.hbox.add(self.spacing_label)
+        self.dont_show_again.show()
+        self.hbox.add(self.dont_show_again)
 
         self.container.add(self.label)
         self.label.show()
+        self.container.add(self.hbox)
+        self.hbox.show()
+
         self.container.show()
         self.add(self.container)
 
@@ -66,13 +91,21 @@ class ImporterGUI(gtk.Window):
         return False
 
 
+    def on_ok(self, widget):
+        dont_show_again = self.dont_show_again.get_active()
+        self.destroy()
+
+
     def go(self, args=[]):
-        self.label.set_text(self.label.get_text() + "\n\n" + ', '.join(args))
+        if len(args) > 1:
+            self.label.set_text(self.label.get_text() % args[1])
         self.show_all()
         gtk.main()
 
 
 
 if __name__ == '__main__':
-    app = ImporterGUI()
-    app.go(args=sys.argv)
+    firstrun = True #actually check if first run later
+    if firstrun:
+        app = FirstRunGUI()
+        app.go(args=sys.argv)
