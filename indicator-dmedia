@@ -44,8 +44,8 @@ class IndicatorGUI(object):
         for base in self.client.list_imports():
             self.imports[base] = ['0', '0']
         self.client.connect('import_started', self.on_import_started)
-        self.client.connect('import_started', self.on_import_finished)
-        self.client.connect('import_started', self.on_import_progress)
+        self.client.connect('import_finished', self.on_import_finished)
+        self.client.connect('import_progress', self.on_import_progress)
         self.update_menu_items()
         gtk.main()
 
