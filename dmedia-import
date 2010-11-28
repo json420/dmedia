@@ -41,6 +41,8 @@ class FirstRunGUI(gtk.Window):
         except:
             pass
 
+        self.ok_was_pressed = False
+
         self.add_content()
 
         self.connect_signals()
@@ -49,7 +51,7 @@ class FirstRunGUI(gtk.Window):
     def add_content(self):
         self.container = gtk.VBox()
 
-        self.label = gtk.Label(_("This is the dmedia media importer.\nIt will import media files from %s into your dmedia library.\nTo start the import press 'OK'.\n\n"))
+        self.label = gtk.Label(_("This is the dmedia media importer.\nIt will import media files from the following folders into your dmedia library:\n\n%s\nTo start the import press 'OK'.\n\n"))
         self.label.show()
 
         self.spacing_label = gtk.Label("        ")
@@ -100,34 +102,37 @@ class FirstRunGUI(gtk.Window):
         if dont_show_again:
             val = 1
         client.set_bool('/apps/dmedia/dont-show-import-firstrun', val)
+        self.ok_was_pressed = True
         self.destroy(widget)
 
 
     def go(self, args=[]):
-        self.label.set_text(self.label.get_text() % ', '.join(args))
+        self.label.set_text(self.label.get_text() % ("\t" + "\n\t".join(args) + "\n"))
         self.show_all()
         gtk.main()
+        return self.ok_was_pressed
 
 
 
 if __name__ == '__main__':
     if len(sys.argv) > 1: #This will happen if run from the nautilus handler
         client = gconf.client_get_default()
+        dirs = sys.argv[1:]
 
         if not client.get_bool('/apps/dmedia/dont-show-import-firstrun'):
             app = FirstRunGUI()
-            app.go(args=sys.argv)
+            if not app.go(args=dirs):
+                exit()
 
         dmedia_client = dmedialib.client.Client()
-        for base in sys.argv[1:]:
+        for base in dirs:
             #start only if import hasn't already started
             if not base in dmedia_client.list_imports():
                 dmedia_client.start_import(base)
 
         if not client.get_bool('/apps/dmedia/indicator-is-running'):
             client.set_bool('/apps/dmedia/indicator-is-running', 1)
-            os.system("indicator-dmedia") #block until indicator exists
-            client.set_bool('/apps/dmedia/indicator-is-running', 0)
+            os.system("indicator-dmedia &")
 
 
     else:

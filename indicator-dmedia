@@ -29,9 +29,9 @@ from gettext import gettext as _
 import gtk
 
 
-class IndicatorGUI(dmedialib.client.Client):
+class IndicatorGUI(object):
     def __init__(self, busname=None, connect=True):
-        super(IndicatorGUI, self).__init__()
+        self.client = dmedialib.client.Client()
         self.indicator = appindicator.Indicator(
             "indicator-dmedia",
             "/usr/share/pixmaps/dmedia.svg",
@@ -41,9 +41,11 @@ class IndicatorGUI(dmedialib.client.Client):
         self.imports = {
             #base : [completed, total]
         }
-        for base in self.list_imports():
+        for base in self.client.list_imports():
             self.imports[base] = ['0', '0']
-
+        self.client.connect('import_started', self.on_import_started)
+        self.client.connect('import_started', self.on_import_finished)
+        self.client.connect('import_started', self.on_import_progress)
         self.update_menu_items()
         gtk.main()
 
@@ -54,6 +56,7 @@ class IndicatorGUI(dmedialib.client.Client):
 
 
     def update_menu_items(self):
+        print "updating menu"
         self.menu = gtk.Menu()
         for text in self.menu_items():
             item = gtk.MenuItem(text)
@@ -62,24 +65,29 @@ class IndicatorGUI(dmedialib.client.Client):
         self.indicator.set_menu(self.menu)
 
 
-    def _on_ImportStarted(self, base):
-        self.emit('import_started', unicode(base))
+    def on_import_started(self, base):
+        print("import started %s" % base)
         notification = pynotify.Notification(_("Importing new files"), base, "notification-device-usb")
-        notification.show()
+        print("Notifying... %s" % str(notification))
+        print str(notification.show())
         self.imports[base] = ['0', '0']
         self.update_menu_items()
 
-    def _on_ImportFinished(self, base):
-        self.emit('import_finished', unicode(base))
+    def on_import_finished(self, base):
+        print("import finished %s" % base)
         notification = pynotify.Notification(_("Import finished"), base, "notification-device-usb")
-        notification.show()
+        print("Notifying... %s" % str(notification))
+        print str(notification.show())
         del(self.imports[base])
         self.update_menu_items()
 
-    def _on_ImportProgress(self, base, completed, total):
-        self.emit('import_progress', unicode(base), int(completed), int(total))
+    def on_import_progress(self, base, completed, total):
         self.imports[base] = [str(completed), str(total)]
+        print(base + ' ' + str(completed) + '/' + str(total))
         self.update_menu_items()
 
 
-IndicatorGUI()
+if __name__ == '__main__':
+    IndicatorGUI()
+    client = gconf.client_get_default()
+    client.set_bool('/apps/dmedia/indicator-is-running', 0)
