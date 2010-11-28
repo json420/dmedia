@@ -101,7 +101,7 @@ setup(
     package_data=dict(
         dmedialib=['data/*'],
     ),
-    scripts=['dmedia', 'dmedia-import'],
+    scripts=['dmedia', 'dmedia-import', 'indicator-dmedia'],
     data_files=[
         ('share/man/man1', ['dmedia.1']),
         ('share/applications', ['dmedia-import.desktop']),
