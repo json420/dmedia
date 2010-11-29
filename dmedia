@@ -93,9 +93,10 @@ import os
 from os import path
 import optparse
 import logging
-import dmedialib
 import xdg.BaseDirectory
-from dmedialib.constants import EXT_MAP
+import gobject
+import dmedialib
+from dmedialib.client import Client
 
 script = path.basename(sys.argv[0])
 
@@ -104,21 +105,26 @@ parser = optparse.OptionParser(
     usage='Usage: %s DIRECTORY ' % script,
     epilog='Example: %s /media/EOS_DIGITAL jpg cr2 mov' % script,
 )
-parser.add_option('--quick',
-    dest="extract",
-    action='store_false',
-    default=True,
-    help='Do a fast scan without extracting extra metadata',
+parser.add_option('--kill',
+    action='store_true',
+    default=False,
+    help='shutdown dmedia-service daemon and exit',
 )
-parser.add_option('--project',
-    default=None,
-    help='Add imported files to specified PROJECT',
-)
-parser.add_option('--tag',
-    action='append',
-    default=[],
-    help='Add specified TAG to imported files',
-)
+#parser.add_option('--quick',
+#    dest="extract",
+#    action='store_false',
+#    default=True,
+#    help='Do a fast scan without extracting extra metadata',
+#)
+#parser.add_option('--project',
+#    default=None,
+#    help='Add imported files to specified PROJECT',
+#)
+#parser.add_option('--tag',
+#    action='append',
+#    default=[],
+#    help='Add specified TAG to imported files',
+#)
 parser.add_option('--type',
     action='append',
     default=[],
@@ -131,6 +137,12 @@ parser.add_option('--extension',
 )
 
 (options, args) = parser.parse_args()
+
+if options.kill:
+    print 'Telling dmedia-service daemon to shutdown...'
+    Client().kill()
+    print 'Shutdown.'
+    sys.exit()
 
 
 options.tags = sorted(set(
@@ -145,6 +157,49 @@ base = path.abspath(args[0])
 if not path.isdir(base):
     parser.print_usage()
     sys.exit('ERROR: not a directory: %r' % base)
+
+
+
+class CLI(object):
+    def __init__(self, base):
+        self.base = base
+        self.mainloop = gobject.MainLoop()
+        self.client = Client()
+        self.client.connect('import_started', self.on_import_started)
+        self.client.connect('import_progress', self.on_import_progress)
+        self.client.connect('import_finished', self.on_import_finished)
+
+    def on_import_started(self, client, base):
+        if base != self.base:
+            return
+        print 'Importing %s\n' % base
+
+    def on_import_progress(self, client, base, completed, total):
+        if base != self.base:
+            return
+        print 'Imported %d of %d' % (completed, total)
+
+    def on_import_finished(self, client, base):
+        if base != self.base:
+            return
+        self.mainloop.quit()
+
+    def run(self):
+        try:
+            self.client.start_import(self.base)
+            self.mainloop.run()
+        except KeyboardInterrupt:
+            self.client.stop_import(self.base)
+            print '\nImport stopped'
+
+
+cli = CLI(base)
+cli.run()
+
+
+sys.exit()
+
+
 
 extensions = options.extension
 for t in options.type:
@@ -167,8 +222,6 @@ if path.isdir(cache):
         level=logging.DEBUG,
     )
 
-
-from dmedialib.importer import Importer
 
 common = {}
 if options.project:
