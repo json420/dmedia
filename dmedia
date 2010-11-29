@@ -2,6 +2,7 @@
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -79,7 +80,7 @@ will always have a 'duration'.
 You can browse through the dmedia database using a standard web-browser, like
 this:
 
-  firefox ~/.local/share/desktop-couch/couchdb.html
+  xdg-open ~/.local/share/desktop-couch/couchdb.html
 
 Note that the sha1 hash is only being used as a stop-gap.  dmedia will use the
 Skein hash after its final constant tweaks are made.  See:
@@ -94,12 +95,13 @@ import optparse
 import logging
 import dmedialib
 import xdg.BaseDirectory
+from dmedialib.constants import EXT_MAP
 
 script = path.basename(sys.argv[0])
 
 parser = optparse.OptionParser(
     version=dmedialib.__version__,
-    usage='Usage: %s DIRECTORY EXTENSIONS...' % script,
+    usage='Usage: %s DIRECTORY ' % script,
     epilog='Example: %s /media/EOS_DIGITAL jpg cr2 mov' % script,
 )
 parser.add_option('--quick',
@@ -117,6 +119,16 @@ parser.add_option('--tag',
     default=[],
     help='Add specified TAG to imported files',
 )
+parser.add_option('--type',
+    action='append',
+    default=[],
+    help="Add specified TYPE to the list of file types to limit the import to. TYPE can be 'image', 'audio', 'video' or 'all'. 'all' is the default and represents 'image', 'audio' and 'video' files.",
+)
+parser.add_option('--extension',
+    action='append',
+    default=[],
+    help='Add specified EXTENSION to the list of file extensions to limit the import to. By default, all file extensions that are recognised as audio, video or image file formats will be imported.',
+)
 
 (options, args) = parser.parse_args()
 
@@ -126,14 +138,22 @@ options.tags = sorted(set(
 ))
 
 
-if len(args) < 2:
+if len(args) < 1:
     parser.print_usage()
-    sys.exit('ERROR: must provide DIRECTORY and at least one EXTENSION')
+    sys.exit('ERROR: must provide DIRECTORY')
 base = path.abspath(args[0])
 if not path.isdir(base):
     parser.print_usage()
     sys.exit('ERROR: not a directory: %r' % base)
-extensions = frozenset(a.lower() for a in args[1:])
+
+extensions = options.extension
+for t in options.type:
+    if EXT_MAP.has_key(t):
+        for ext in EXT_MAP[t]:
+            if not ext in extensions:
+                extensions.append(ext)
+if len(extensions) == 0:
+    extensions += list(EXT_MAP['all'])
 
 xdg_cache_path = xdg.BaseDirectory.xdg_cache_home
 cache = path.join(xdg_cache_path, 'dmedia')
@@ -177,4 +197,4 @@ dc = path.join(
 )
 print ''
 print 'To browse dmedia database in CouchDB, run:'
-print '  firefox file://%s' % dc
+print '  xdg-open %s' % dc
