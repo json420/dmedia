@@ -114,7 +114,8 @@ class IndicatorGUI(object):
 
     def on_import_finished(self, signal, base):
         print("import finished %s" % base)
-        if len(self.imports == 0): #only notify if all imports are finished
+        print str(self.imports)
+        if len(self.imports) == 1: #only notify if all other imports are finished
             notification = pynotify.Notification(_("Added %s new files, %s GB"), _("Skipped %s duplicates, %s GB"), self.get_icon("notification-device-eject")) #not yet possible to get data for number added, number skipped and sizes
             print("Notifying... %s" % str(notification))
             print str(notification.show())
