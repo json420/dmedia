@@ -105,7 +105,7 @@ class IndicatorGUI(object):
 
     def on_import_started(self, signal, base):
         print("import started %s" % base)
-        notification = pynotify.Notification(_("Importing new files"), base, self.get_icon(self.device_type(base)))
+        notification = pynotify.Notification(_("Searching for new files"), base, self.get_icon(self.device_type(base)))
         notification.set_hint_string('append', '')
         print("Notifying... %s" % str(notification))
         print str(notification.show())
