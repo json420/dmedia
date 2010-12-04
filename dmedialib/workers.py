@@ -24,10 +24,27 @@ Multi-process workers.
 """
 
 from multiprocessing import current_process
+from .constants import TYPE_ERROR
 
 _workers = {}
 
-def register(name, callback):
+
+def register(worker):
+    if not (isinstance(worker, type) and issubclass(worker, Worker)):
+        raise TypeError(
+            'worker: must be subclass of %r; got %r' % (Worker, worker)
+        )
+    name = worker.__name__
+    if name in _workers:
+        raise ValueError(
+            'cannot register %r, worker with name %r already registered' % (
+                worker, name
+            )
+        )
+    _workers[name] = worker
+
+
+def dispatch(name, q, args):
     pass
 
 
@@ -58,7 +75,3 @@ class Worker(object):
             signal=signal,
             args=args,
         ))
-
-
-def dispatch(name, q, args):
-    pass
