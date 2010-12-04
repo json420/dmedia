@@ -134,9 +134,7 @@ if __name__ == '__main__':
             else:
                 print("dmedia-import: not starting import of %s" % base)
 
-        if not client.get_bool('/apps/dmedia/indicator-is-running'):
-            client.set_bool('/apps/dmedia/indicator-is-running', 1)
-            os.system("indicator-dmedia &")
+        os.system("indicator-dmedia &")
 
 
     else:
