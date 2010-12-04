@@ -77,6 +77,13 @@ def dispatch(name, q, args):
             worker_args=args,
             pid=current_process().pid,
         ))
+    finally:
+        q.put(dict(
+            signal='_terminate',
+            worker=name,
+            args=args,
+            pid=current_process().pid,
+        ))
 
 
 class Worker(object):

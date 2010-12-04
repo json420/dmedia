@@ -117,13 +117,21 @@ class test_functions(TestCase):
 
         self.assertEqual(
             q.messages,
-            [dict(
-                signal='Error',
-                args=('KeyError', "'import_files'"),
-                worker='import_files',
-                pid=pid,
-                worker_args=('foo', 'bar'),
-            )]
+            [
+                dict(
+                    signal='Error',
+                    args=('KeyError', "'import_files'"),
+                    worker='import_files',
+                    pid=pid,
+                    worker_args=('foo', 'bar'),
+                ),
+                dict(
+                    signal='_terminate',
+                    args=('foo', 'bar'),
+                    worker='import_files',
+                    pid=pid,
+                ),
+            ]
         )
 
         class import_files(workers.Worker):
@@ -137,12 +145,20 @@ class test_functions(TestCase):
 
         self.assertEqual(
             q.messages,
-            [dict(
-                signal='Example',
-                args=('hello', 'world'),
-                worker=('import_files'),
-                pid=pid,
-            )]
+            [
+                dict(
+                    signal='Example',
+                    args=('hello', 'world'),
+                    worker=('import_files'),
+                    pid=pid,
+                ),
+                dict(
+                    signal='_terminate',
+                    args=('hello', 'world'),
+                    worker='import_files',
+                    pid=pid,
+                ),
+            ]
         )
 
 
