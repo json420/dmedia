@@ -44,8 +44,39 @@ def register(worker):
     _workers[name] = worker
 
 
+def exception_name(exception):
+    """
+    Return name of ``Exception`` subclass or instance *exception*.
+
+    Works with ``Exception`` instances:
+
+    >>> exception_name(ValueError('bad value!'))
+    'ValueError'
+
+    And with ``Exception`` subclasses:
+
+    >>> exception_name(ValueError)
+    'ValueError'
+
+    """
+    if isinstance(exception, Exception):
+        return exception.__class__.__name__
+    return exception.__name__
+
+
 def dispatch(name, q, args):
-    pass
+    try:
+        klass = _workers[name]
+        inst = klass(q, args)
+        inst.run()
+    except Exception as e:
+        q.put(dict(
+            signal='Error',
+            args=(exception_name(e), str(e)),
+            worker=name,
+            worker_args=args,
+            pid=current_process().pid,
+        ))
 
 
 class Worker(object):
@@ -75,3 +106,8 @@ class Worker(object):
             signal=signal,
             args=args,
         ))
+
+    def run(self):
+        raise NotImplementedError(
+            '%s.run()' % self.name
+        )

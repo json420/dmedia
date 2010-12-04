@@ -95,13 +95,55 @@ class test_functions(TestCase):
             {'import_files': orig_import_files, 'render_proxy': render_proxy}
         )
 
+    def test_exception_name(self):
+        f = workers.exception_name
 
+        self.assertEqual(f(ValueError), 'ValueError')
+        self.assertEqual(f(ValueError('foo')), 'ValueError')
 
+        class Custom(Exception):
+            pass
 
+        self.assertEqual(f(Custom), 'Custom')
+        self.assertEqual(f(Custom('bar')), 'Custom')
 
+    def test_dispatch(self):
+        f = workers.dispatch
+        pid = current_process().pid
 
+        # Test with unknown worker name
+        q = DummyQueue()
+        f('import_files', q, ('foo', 'bar'))
 
+        self.assertEqual(
+            q.messages,
+            [dict(
+                signal='Error',
+                args=('KeyError', "'import_files'"),
+                worker='import_files',
+                pid=pid,
+                worker_args=('foo', 'bar'),
+            )]
+        )
 
+        class import_files(workers.Worker):
+            def run(self):
+                self.emit('Example', *self.args)
+
+        workers.register(import_files)
+
+        q = DummyQueue()
+        f('import_files', q, ('hello', 'world'))
+
+        self.assertEqual(
+            q.messages,
+            [dict(
+                signal='Example',
+                args=('hello', 'world'),
+                worker=('import_files'),
+                pid=pid,
+            )]
+        )
 
 
 class test_Worker(TestCase):
@@ -151,3 +193,17 @@ class test_Worker(TestCase):
             args=tuple()
         )
         self.assertEqual(q.messages, [one, two, three])
+
+    def test_run(self):
+        q = DummyQueue()
+        args = ('foo', 'bar')
+        inst = self.klass(q, args)
+
+        e = raises(NotImplementedError, inst.run)
+        self.assertEqual(str(e), 'Worker.run()')
+
+        class do_something(self.klass):
+            pass
+        inst = do_something(q, args)
+        e = raises(NotImplementedError, inst.run)
+        self.assertEqual(str(e), 'do_something.run()')
