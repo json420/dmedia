@@ -112,6 +112,74 @@ def scanfiles(base, extensions=None):
             yield d
 
 
+def scanfiles(base, extensions=None):
+    """
+    Recursively iterate through files in directory *base*.
+    """
+    try:
+        names = sorted(os.listdir(base))
+    except StandardError:
+        return
+    dirs = []
+    for name in names:
+        if name.startswith('.') or name.endswith('~'):
+            continue
+        fullname = path.join(base, name)
+        if path.islink(fullname):
+            continue
+        if path.isfile(fullname):
+            (root, ext) = normalize_ext(name)
+            if extensions is None or ext in extensions:
+                yield {
+                    'src': fullname,
+                    'base': base,
+                    'root': root,
+                    'doc': {
+                        'name': name,
+                        'ext': ext,
+                    },
+                }
+        elif path.isdir(fullname):
+            dirs.append(fullname)
+    for fullname in dirs:
+        for d in scanfiles(fullname, extensions):
+            yield d
+
+
+def files_iter(base):
+    """
+    Recursively iterate through files in directory *base*.
+
+    This is used for importing files from a card, after which the card will be
+    automatically formatted, so we always import all files to be on the safe
+    side.
+
+    On the other hand, `scanfiles()` is used for migrating an existing library
+    to dmedia... in which case we want to be more selective about which files to
+    consider.
+
+    Note that `file_iter()` does not catch errors like ``OSError``.  We
+    specifically want these errors to propagate up!  We don't want a permission
+    error to be interpreted as there being no files on the card!
+    """
+    if path.isfile(base):
+        yield base
+        return
+    names = sorted(os.listdir(base))
+    dirs = []
+    for name in names:
+        fullname = path.join(base, name)
+        if path.islink(fullname):
+            continue
+        if path.isfile(fullname):
+            yield fullname
+        elif path.isdir(fullname):
+            dirs.append(fullname)
+    for fullname in dirs:
+        for f in files_iter(fullname):
+            yield f
+
+
 class Importer(object):
     def __init__(self, ctx=None):
         self.home = path.abspath(os.environ['HOME'])

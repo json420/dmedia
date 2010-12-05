@@ -42,6 +42,18 @@ from desktopcouch.stop_local_couchdb import stop_couchdb
 letters = 'gihdwaqoebxtcklrnsmjufyvpz'
 extensions = ('png', 'jpg', 'mov')
 
+relpaths = (
+    ('a.jpg',),
+    ('b.png',),
+    ('c.png',),
+    ('.car', 'a.jpg'), # files_iter() is breadth-first
+    ('.car', 'b.png'), # and we make sure .dirs are being traversed
+    ('.car', 'c.cr2'),
+    ('bar', 'a.jpg'),
+    ('bar', 'b.png'),
+    ('bar', 'c.cr2'),
+)
+
 
 class test_functions(TestCase):
     def test_scanfiles(self):
@@ -73,6 +85,25 @@ class test_functions(TestCase):
             for name in sorted(names)
         )
         self.assertEqual(got, expected)
+
+    def test_files_iter(self):
+        f = importer.files_iter
+        tmp = TempDir()
+        files = []
+        for args in relpaths:
+            p = tmp.touch('subdir', *args)
+            files.append(p)
+
+        # Test when base is a file:
+        for p in files:
+            self.assertEqual(list(f(p)), [p])
+
+        # Test importing from tmp.path:
+        self.assertEqual(list(f(tmp.path)), files)
+
+        # Test from tmp.path/subdir:
+        subdir = tmp.join('subdir')
+        self.assertEqual(list(f(subdir)), files)
 
 
 class test_Importer(TestCase):
