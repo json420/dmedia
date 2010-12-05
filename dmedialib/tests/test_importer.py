@@ -114,26 +114,6 @@ class test_functions(TestCase):
             '[Errno 13] Permission denied: %r' % subdir
         )
 
-    def test_safe_open(self):
-        f = importer.safe_open
-        tmp = TempDir()
-        filename = tmp.touch('example.mov')
-
-        # Test that AmbiguousPath is raised:
-        e = raises(AmbiguousPath, f, 'foo/bar', 'rb')
-        self.assertEqual(e.filename, 'foo/bar')
-        self.assertEqual(e.abspath, path.abspath('foo/bar'))
-
-        e = raises(AmbiguousPath, f, '/foo/bar/../../root', 'rb')
-        self.assertEqual(e.filename, '/foo/bar/../../root')
-        self.assertEqual(e.abspath, '/root')
-
-        # Test with absolute normalized path:
-        fp = f(filename, 'rb')
-        self.assertTrue(isinstance(fp, file))
-        self.assertEqual(fp.name, filename)
-        self.assertEqual(fp.mode, 'rb')
-
 
 class test_Importer(TestCase):
     klass = importer.Importer

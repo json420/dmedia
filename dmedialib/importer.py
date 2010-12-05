@@ -27,8 +27,7 @@ Store media files based on content-hash.
 import os
 from os import path
 import mimetypes
-from .errors import AmbiguousPath
-from .filestore import FileStore, quick_id
+from .filestore import FileStore, quick_id, safe_open
 from .metastore import MetaStore
 from .extractor import merge_metadata
 
@@ -179,27 +178,6 @@ def files_iter(base):
     for fullname in dirs:
         for f in files_iter(fullname):
             yield f
-
-
-def safe_open(filename, mode):
-    """
-    Only open file if *filename* is an absolute normalized path.
-
-    This is to protect against path-traversal attacks and to prevent use of
-    ambiguous relative paths.
-
-    If *filename* is not an absolute normalized path, `AmbiguousPath` is raised:
-
-    >>> safe_open('/foo/../root', 'rb')
-    Traceback (most recent call last):
-      ...
-    AmbiguousPath: filename '/foo/../root' resolves to '/root'
-
-    Otherwise returns a ``file`` instance created with ``open()``.
-    """
-    if path.abspath(filename) != filename:
-        raise AmbiguousPath(filename=filename, abspath=path.abspath(filename))
-    return open(filename, mode)
 
 
 class Importer(object):
