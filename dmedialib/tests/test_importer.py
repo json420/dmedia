@@ -31,6 +31,7 @@ import tempfile
 import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov
+from dmedialib.errors import AmbiguousPath
 from dmedialib.filestore import FileStore
 from dmedialib.metastore import MetaStore
 from dmedialib import importer
@@ -113,13 +114,32 @@ class test_functions(TestCase):
             '[Errno 13] Permission denied: %r' % subdir
         )
 
+    def test_safe_open(self):
+        f = importer.safe_open
+        tmp = TempDir()
+        filename = tmp.touch('example.mov')
+
+        # Test that AmbiguousPath is raised:
+        e = raises(AmbiguousPath, f, 'foo/bar', 'rb')
+        self.assertEqual(e.filename, 'foo/bar')
+        self.assertEqual(e.abspath, path.abspath('foo/bar'))
+
+        e = raises(AmbiguousPath, f, '/foo/bar/../../root', 'rb')
+        self.assertEqual(e.filename, '/foo/bar/../../root')
+        self.assertEqual(e.abspath, '/root')
+
+        # Test with absolute normalized path:
+        fp = f(filename, 'rb')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.name, filename)
+        self.assertEqual(fp.mode, 'rb')
 
 
 class test_Importer(TestCase):
     klass = importer.Importer
 
     def new(self):
-        return self.klass(context=self.ctx)
+        return self.klass(ctx=self.ctx)
 
     def setUp(self):
         self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
@@ -142,3 +162,24 @@ class test_Importer(TestCase):
         self.assertTrue(isinstance(inst.filestore, FileStore))
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
         self.assertTrue(isinstance(inst.metastore, MetaStore))
+
+    def test_import_file(self):
+        inst = self.new()
+        tmp = TempDir()
+
+        # Test that IOError propagates up with missing file
+        nope = tmp.join('nope.mov')
+        e = raises(IOError, inst.import_file, nope)
+        self.assertEqual(
+            str(e),
+            '[Errno 2] No such file or directory: %r' % nope
+        )
+
+        # Test that IOError propagates up with unreadable file
+        nope = tmp.touch('nope.mov')
+        os.chmod(nope, 0o000)
+        e = raises(IOError, inst.import_file, nope)
+        self.assertEqual(
+            str(e),
+            '[Errno 13] Permission denied: %r' % nope
+        )

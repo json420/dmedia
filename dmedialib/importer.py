@@ -27,9 +27,10 @@ Store media files based on content-hash.
 import os
 from os import path
 import mimetypes
+from .errors import AmbiguousPath
 from .filestore import FileStore, quick_id
 from .metastore import MetaStore
-from dmedialib.extractor import merge_metadata
+from .extractor import merge_metadata
 
 mimetypes.init()
 
@@ -180,11 +181,35 @@ def files_iter(base):
             yield f
 
 
+def safe_open(filename, mode):
+    """
+    Only open file if *filename* is an absolute normalized path.
+
+    This is to protect against path-traversal attacks and to prevent use of
+    ambiguous relative paths.
+
+    If *filename* is not an absolute normalized path, `AmbiguousPath` is raised:
+
+    >>> safe_open('/foo/../root', 'rb')
+    Traceback (most recent call last):
+      ...
+    AmbiguousPath: filename '/foo/../root' resolves to '/root'
+
+    Otherwise returns a ``file`` instance created with ``open()``.
+    """
+    if path.abspath(filename) != filename:
+        raise AmbiguousPath(filename=filename, abspath=path.abspath(filename))
+    return open(filename, mode)
+
+
 class Importer(object):
     def __init__(self, ctx=None):
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(path.join(self.home, DOTDIR))
         self.metastore = MetaStore(ctx=ctx)
+
+    def import_file(self, src, extract=True):
+        fp = open(src, 'rb')
 
     def _import_one(self, d, extract=True):
         try:
