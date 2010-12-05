@@ -105,6 +105,15 @@ class test_functions(TestCase):
         subdir = tmp.join('subdir')
         self.assertEqual(list(f(subdir)), files)
 
+        # Test that OSError propigates up:
+        os.chmod(subdir, 0o000)
+        e = raises(OSError, list, f(tmp.path))
+        self.assertEqual(
+            str(e),
+            '[Errno 13] Permission denied: %r' % subdir
+        )
+
+
 
 class test_Importer(TestCase):
     klass = importer.Importer
