@@ -164,6 +164,13 @@ class Importer(object):
                 'bytes': 0,
             },
         }
+        self.__files = None
+
+    def scanfiles(self):
+        if self.__files is None:
+            self.__files = tuple(files_iter(self.base))
+        return self.__files
+
 
     # FIXME: `name` should be renamed to `basename` and we should also add
     # `dirname` which is relative to card mount point

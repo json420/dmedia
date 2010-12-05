@@ -150,6 +150,18 @@ class test_Importer(TestCase):
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
         self.assertTrue(isinstance(inst.metastore, MetaStore))
 
+    def test_scanfiles(self):
+        inst = self.new()
+        files = []
+        for args in relpaths:
+            p = self.tmp.touch('subdir', *args)
+            files.append(p)
+
+        got = inst.scanfiles()
+        self.assertEqual(got, tuple(files))
+        self.assertTrue(inst.scanfiles() is got)
+
+
     def test_import_file(self):
         inst = self.new()
         tmp = TempDir()
