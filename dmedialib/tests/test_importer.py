@@ -30,7 +30,8 @@ import hashlib
 import tempfile
 import shutil
 from unittest import TestCase
-from .helpers import TempDir, TempHome, raises, sample_mov
+from .helpers import TempDir, TempHome, raises
+from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
 from dmedialib.errors import AmbiguousPath
 from dmedialib.filestore import FileStore
 from dmedialib.metastore import MetaStore
@@ -118,8 +119,11 @@ class test_functions(TestCase):
 class test_Importer(TestCase):
     klass = importer.Importer
 
-    def new(self):
-        return self.klass(ctx=self.ctx)
+    def new(self, base=None, extract=True):
+        if base is None:
+            self.tmp = TempDir()
+            base = self.tmp.path
+        return self.klass(base, extract=extract, ctx=self.ctx)
 
     def setUp(self):
         self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
@@ -128,16 +132,19 @@ class test_Importer(TestCase):
         config = os.path.join(self.data_dir, 'config')
         self.ctx = desktopcouch.local_files.Context(cache, data, config)
         self.home = TempHome()
+        self.tmp = TempDir()
 
     def tearDown(self):
         stop_couchdb(ctx=self.ctx)
         shutil.rmtree(self.data_dir)
         self.ctx = None
-        self.home.rmtree()
         self.home = None
+        self.tmp = None
 
     def test_init(self):
-        inst = self.klass()
+        inst = self.new()
+        self.assertEqual(inst.base, self.tmp.path)
+        self.assertTrue(inst.extract is True)
         self.assertEqual(inst.home, self.home.path)
         self.assertTrue(isinstance(inst.filestore, FileStore))
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
@@ -146,6 +153,12 @@ class test_Importer(TestCase):
     def test_import_file(self):
         inst = self.new()
         tmp = TempDir()
+
+        # Test that AmbiguousPath is raised:
+        traversal = '/home/foo/.dmedia/../.ssh/id_rsa'
+        e = raises(AmbiguousPath, inst.import_file, traversal)
+        self.assertEqual(e.filename, traversal)
+        self.assertEqual(e.abspath, '/home/foo/.ssh/id_rsa')
 
         # Test that IOError propagates up with missing file
         nope = tmp.join('nope.mov')
@@ -162,4 +175,19 @@ class test_Importer(TestCase):
         self.assertEqual(
             str(e),
             '[Errno 13] Permission denied: %r' % nope
+        )
+
+        # Test with new file
+        doc = {
+            '_id': sample_mov_hash,
+            'quickid': sample_mov_qid,
+            'bytes': path.getsize(sample_mov),
+            'mtime': path.getmtime(sample_mov),
+            'name': 'MVI_5751.MOV',
+            'ext': 'mov',
+            'mime': 'video/quicktime',
+        }
+        self.assertEqual(
+            inst.import_file(sample_mov),
+            ('imported', doc)
         )

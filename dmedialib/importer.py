@@ -112,40 +112,6 @@ def scanfiles(base, extensions=None):
             yield d
 
 
-def scanfiles(base, extensions=None):
-    """
-    Recursively iterate through files in directory *base*.
-    """
-    try:
-        names = sorted(os.listdir(base))
-    except StandardError:
-        return
-    dirs = []
-    for name in names:
-        if name.startswith('.') or name.endswith('~'):
-            continue
-        fullname = path.join(base, name)
-        if path.islink(fullname):
-            continue
-        if path.isfile(fullname):
-            (root, ext) = normalize_ext(name)
-            if extensions is None or ext in extensions:
-                yield {
-                    'src': fullname,
-                    'base': base,
-                    'root': root,
-                    'doc': {
-                        'name': name,
-                        'ext': ext,
-                    },
-                }
-        elif path.isdir(fullname):
-            dirs.append(fullname)
-    for fullname in dirs:
-        for d in scanfiles(fullname, extensions):
-            yield d
-
-
 def files_iter(base):
     """
     Recursively iterate through files in directory *base*.
@@ -181,13 +147,38 @@ def files_iter(base):
 
 
 class Importer(object):
-    def __init__(self, ctx=None):
+    def __init__(self, base, extract=True, ctx=None):
+        self.base = base
+        self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(path.join(self.home, DOTDIR))
         self.metastore = MetaStore(ctx=ctx)
 
-    def import_file(self, src, extract=True):
-        fp = open(src, 'rb')
+    # FIXME: `name` should be renamed to `basename` and we should also add
+    # `dirname` which is relative to card mount point
+    def import_file(self, src):
+        fp = safe_open(src, 'rb')
+        quickid = quick_id(fp)
+        ids = list(self.metastore.by_quickid(quickid))
+        if ids:
+            doc = self.metastore.db[ids[0]]
+            return ('skipped', doc)
+        basename = path.basename(src)
+        (root, ext) = normalize_ext(basename)
+        (chash, action) = self.filestore.import_file(fp, quickid, ext)
+        stat = os.fstat(fp.fileno())
+        doc = {
+            '_id': chash,
+            'quickid': quickid,
+            'bytes': stat.st_size,
+            'mtime': stat.st_mtime,
+            'name': basename,
+            'ext': ext,
+        }
+        if ext:
+            doc['mime'] = mimetypes.types_map.get('.' + doc['ext'])
+        assert self.metastore.db.create(doc) == chash
+        return ('imported', doc)
 
     def _import_one(self, d, extract=True):
         try:
