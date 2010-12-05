@@ -1,0 +1,99 @@
+body{
+	background-color:#15171a;
+	padding:0px;
+	margin:0px;
+	font-family:sans-serif;
+	font-size:10pt;
+	cursor:default;
+}
+
+h1, h2, h3, h4, h5, h6{
+	text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+	color:#222;
+}
+
+#browser{
+	position:absolute;
+	top:0px;
+	left:0px;
+	right:0px;
+	bottom:220px;
+	margin:10px;
+	-webkit-border-radius:5px;
+	-moz-border-radius:5px;
+	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
+	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
+	overflow:auto;
+}
+
+#info{
+	position:absolute;
+	bottom:0px;
+	left:0px;
+	right:320px;
+	height:190px;
+	margin:10px;
+	padding:10px;
+	-webkit-border-radius:5px;
+	-moz-border-radius:5px;
+	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
+	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
+	overflow:auto;
+	text-shadow:0px 1px 1px rgba(255, 255, 255, 1);
+}
+
+#display{
+	position:absolute;
+	bottom:0px;
+	right:0px;
+	height:190px;
+	width:290px;
+	margin:10px;
+	padding:10px;
+	-webkit-border-radius:5px;
+	-moz-border-radius:5px;
+	background-color:rgb(182, 189, 192);
+	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
+	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
+}
+
+
+.item{
+	position:relative;
+	display:inline-block;
+	margin:2px;
+}
+
+.item img{
+	-webkit-box-shadow:2px 2px 5px rgba(0, 0, 0, 0.5);
+	-moz-box-shadow:2px 2px 5px rgba(0, 0, 0, 0.5);
+	margin:1px;
+	border-width:4px;
+	border-color:rgba(255, 255, 255, 0.2);
+	border-style:solid;
+}
+
+.item img:hover{
+	border-color:#fff;
+
+}
+
+.item img #active{
+	border-color:#fff;
+}
+
+.time{
+	position:absolute;
+	bottom:5px;
+	right:5px;
+	font-size:9pt;
+	background-color:rgba(0,0,0,0.6);
+	color:#fff;
+	padding:5px;
+	font-family:monospace;
+}
+
+::selection {
+	background-color:Transparent;
+	cursor:default;
+}
