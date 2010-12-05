@@ -154,6 +154,17 @@ class Importer(object):
         self.filestore = FileStore(path.join(self.home, DOTDIR))
         self.metastore = MetaStore(ctx=ctx)
 
+        self.__stats = {
+            'imported': {
+                'count': 0,
+                'bytes': 0,
+            },
+            'skipped': {
+                'count': 0,
+                'bytes': 0,
+            },
+        }
+
     # FIXME: `name` should be renamed to `basename` and we should also add
     # `dirname` which is relative to card mount point
     def import_file(self, src):
@@ -176,7 +187,7 @@ class Importer(object):
             'ext': ext,
         }
         if ext:
-            doc['mime'] = mimetypes.types_map.get('.' + doc['ext'])
+            doc['mime'] = mimetypes.types_map.get('.' + ext)
         assert self.metastore.db.create(doc) == chash
         return ('imported', doc)
 

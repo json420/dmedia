@@ -191,3 +191,10 @@ class test_Importer(TestCase):
             inst.import_file(sample_mov),
             ('imported', doc)
         )
+
+        # Test with duplicate
+        (action, wrapper) = inst.import_file(sample_mov)
+        self.assertEqual(action, 'skipped')
+        doc2 = dict(wrapper)
+        del doc2['_rev']
+        self.assertEqual(doc2, doc)
