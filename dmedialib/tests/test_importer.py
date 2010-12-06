@@ -150,6 +150,26 @@ class test_Importer(TestCase):
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
         self.assertTrue(isinstance(inst.metastore, MetaStore))
 
+    def test_get_stats(self):
+        inst = self.new()
+        one = inst.get_stats()
+        self.assertEqual(one,
+             {
+                'imported': {
+                    'count': 0,
+                    'bytes': 0,
+                },
+                'skipped': {
+                    'count': 0,
+                    'bytes': 0,
+                },
+            }
+        )
+        two = inst.get_stats()
+        self.assertFalse(one is two)
+        self.assertFalse(one['imported'] is two['imported'])
+        self.assertFalse(one['skipped'] is two['skipped'])
+
     def test_scanfiles(self):
         inst = self.new()
         files = []
@@ -160,7 +180,6 @@ class test_Importer(TestCase):
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
         self.assertTrue(inst.scanfiles() is got)
-
 
     def test_import_file(self):
         inst = self.new()
@@ -190,10 +209,11 @@ class test_Importer(TestCase):
         )
 
         # Test with new file
+        size = path.getsize(sample_mov)
         doc = {
             '_id': sample_mov_hash,
             'quickid': sample_mov_qid,
-            'bytes': path.getsize(sample_mov),
+            'bytes': size,
             'mtime': path.getmtime(sample_mov),
             'name': 'MVI_5751.MOV',
             'ext': 'mov',
@@ -203,6 +223,18 @@ class test_Importer(TestCase):
             inst.import_file(sample_mov),
             ('imported', doc)
         )
+        self.assertEqual(inst.get_stats(),
+             {
+                'imported': {
+                    'count': 1,
+                    'bytes': size,
+                },
+                'skipped': {
+                    'count': 0,
+                    'bytes': 0,
+                },
+            }
+        )
 
         # Test with duplicate
         (action, wrapper) = inst.import_file(sample_mov)
@@ -210,3 +242,15 @@ class test_Importer(TestCase):
         doc2 = dict(wrapper)
         del doc2['_rev']
         self.assertEqual(doc2, doc)
+        self.assertEqual(inst.get_stats(),
+             {
+                'imported': {
+                    'count': 1,
+                    'bytes': size,
+                },
+                'skipped': {
+                    'count': 1,
+                    'bytes': size,
+                },
+            }
+        )

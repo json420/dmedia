@@ -145,6 +145,8 @@ def files_iter(base):
         for f in files_iter(fullname):
             yield f
 
+# FIXME: `name` should be renamed to `basename` and we should also add
+# `dirname` which is relative to card mount point
 
 class Importer(object):
     def __init__(self, base, extract=True, ctx=None):
@@ -166,15 +168,17 @@ class Importer(object):
         }
         self.__files = None
 
+    def get_stats(self):
+        return dict(
+            (k, dict(v)) for (k, v) in self.__stats.iteritems()
+        )
+
     def scanfiles(self):
         if self.__files is None:
             self.__files = tuple(files_iter(self.base))
         return self.__files
 
-
-    # FIXME: `name` should be renamed to `basename` and we should also add
-    # `dirname` which is relative to card mount point
-    def import_file(self, src):
+    def __import_file(self, src):
         fp = safe_open(src, 'rb')
         quickid = quick_id(fp)
         ids = list(self.metastore.by_quickid(quickid))
@@ -197,6 +201,18 @@ class Importer(object):
             doc['mime'] = mimetypes.types_map.get('.' + ext)
         assert self.metastore.db.create(doc) == chash
         return ('imported', doc)
+
+    def import_file(self, src):
+        (action, doc) = self.__import_file(src)
+        self.__stats[action]['count'] += 1
+        self.__stats[action]['bytes'] += doc['bytes']
+        return (action, doc)
+
+    def import_all_iter(self):
+        for src in self.scanfiles():
+            (action, doc) = self.import_file(src)
+            yield (src, action, doc)
+
 
     def _import_one(self, d, extract=True):
         try:
