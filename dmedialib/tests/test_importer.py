@@ -362,6 +362,8 @@ class import_files(TestCase):
         dup1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
         src2 = self.tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
 
+        mov_size = path.getsize(sample_mov)
+        thm_size = path.getsize(sample_thm)
 
         inst.run()
 
@@ -420,6 +422,13 @@ class import_files(TestCase):
                 worker='import_files',
                 pid=pid,
                 signal='ImportFinished',
-                args=(base,),
+                args=(base,
+                    dict(
+                        imported=2,
+                        imported_bytes=(mov_size + thm_size),
+                        skipped=1,
+                        skipped_bytes=mov_size,
+                    ),
+                ),
             )
         )

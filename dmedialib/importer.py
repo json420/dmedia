@@ -292,4 +292,12 @@ class import_files(Worker):
             )
             c += 1
 
-        self.emit('ImportFinished', base)
+        stats = adapter.finalize()
+        self.emit('ImportFinished', base,
+            dict(
+                imported=stats['imported']['count'],
+                imported_bytes=stats['imported']['bytes'],
+                skipped=stats['skipped']['count'],
+                skipped_bytes=stats['skipped']['bytes'],
+            )
+        )
