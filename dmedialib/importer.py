@@ -283,7 +283,13 @@ class import_files(Worker):
 
         c = 1
         for (src, action, doc) in adapter.import_all_iter():
-            self.emit('ImportProgress', base, c, total)
+            self.emit('ImportProgress', base, c, total,
+                dict(
+                    action=action,
+                    src=src,
+                    _id=doc['_id'],
+                )
+            )
             c += 1
 
         self.emit('ImportFinished', base)

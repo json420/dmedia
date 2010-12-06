@@ -389,7 +389,9 @@ class import_files(TestCase):
                 worker='import_files',
                 pid=pid,
                 signal='ImportProgress',
-                args=(base, 1, 3),
+                args=(base, 1, 3,
+                    dict(action='imported', src=src1, _id=sample_mov_hash),
+                ),
             )
         )
         self.assertEqual(q.messages[3],
@@ -397,7 +399,9 @@ class import_files(TestCase):
                 worker='import_files',
                 pid=pid,
                 signal='ImportProgress',
-                args=(base, 2, 3),
+                args=(base, 2, 3,
+                    dict(action='imported', src=src2, _id=sample_thm_hash),
+                ),
             )
         )
         self.assertEqual(q.messages[4],
@@ -405,7 +409,9 @@ class import_files(TestCase):
                 worker='import_files',
                 pid=pid,
                 signal='ImportProgress',
-                args=(base, 3, 3),
+                args=(base, 3, 3,
+                    dict(action='skipped', src=dup1, _id=sample_mov_hash),
+                ),
             )
         )
         self.assertEqual(
