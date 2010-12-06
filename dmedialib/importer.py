@@ -216,6 +216,13 @@ class Importer(object):
             (action, doc) = self.import_file(src)
             yield (src, action, doc)
 
+    def finalize(self):
+        files = self.scanfiles()
+        assert len(files) == len(self.__imported)
+        assert set(files) == set(self.__imported)
+        s = self.get_stats()
+        assert s['imported']['count'] + s['skipped']['count'] == len(files)
+        return s
 
     def _import_one(self, d, extract=True):
         try:

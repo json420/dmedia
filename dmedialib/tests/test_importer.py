@@ -304,7 +304,7 @@ class test_Importer(TestCase):
             }
         )
 
-        self.assertEqual(inst.get_stats(),
+        self.assertEqual(inst.finalize(),
              {
                 'imported': {
                     'count': 2,
