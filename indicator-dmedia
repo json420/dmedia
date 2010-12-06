@@ -28,9 +28,68 @@ import gconf
 from gettext import gettext as _
 import gtk
 from subprocess import PIPE, Popen
+import os
 
 
 class IndicatorGUI(object):
+    @staticmethod
+    def create_pid_lock():
+        pid_file = os.path.join('/tmp', 'indicator-dmedia.pid')
+        #Create the pid file if it doesn't exist
+        #and write the current pid to the file
+        pid_file_handler = open(pid_file, "w")
+        pid_file_handler.write("%s" % str(os.getpid()))
+        pid_file_handler.close()
+
+
+    @staticmethod
+    def get_pid_lock():
+        pid_file = os.path.join('/tmp', 'indicator-dmedia.pid')
+        if os.path.exists(pid_file): #check if pid file exists
+
+            pid_file_handler = open(pid_file, "r")
+            pid = pid_file_handler.readline() #read PID
+            try:
+                pid = int(pid)
+            except:
+                return True #invalid pid, start indicator
+            pid_file_handler.close()
+
+            try:
+                os.kill(pid, 0) #are you running @pid?
+            except OSError: #if not
+                return True
+                #if pid isn't running, indicator-dmedia isn't running, so
+                #it is safe to start the indicator
+
+            proc_dir = os.path.join('/proc', str(pid))
+            if os.path.exists(proc_dir):
+                proc_command = os.path.join(proc_dir, 'cmdline')
+                proc_command_handler = open(proc_command, "r")
+                cmd = proc_command_handler.readline()
+                proc_command_handler.close()
+                if cmd.find('indicator-dmedia') != -1: #is the pid actually from indicator-dmedia?
+                    return False #There is already an indicator running, start the indicator
+
+            else:
+                return True #it is safe to start the indicator
+
+        else:
+            return True #if pid_file doesn't exist, start the indicator
+
+
+
+    @staticmethod
+    def release_pid_lock():
+        pid_file = os.path.join('/tmp', 'indicator-dmedia.pid')
+        #Write an empty string to the pid file
+        #This could be potentially used to show the program quit
+        #successfully
+        pid_file_handler = open(pid_file, "w")
+        pid_file_handler.write('')
+        pid_file_handler.close()
+
+
     def __init__(self, busname=None, connect=True):
         self.client = dmedialib.client.Client()
         self.indicator = appindicator.Indicator(
@@ -129,6 +188,8 @@ class IndicatorGUI(object):
 
 
 if __name__ == '__main__':
-    IndicatorGUI()
-    client = gconf.client_get_default()
-    client.set_bool('/apps/dmedia/indicator-is-running', 0)
+    if IndicatorGUI.get_pid_lock():
+        IndicatorGUI.create_pid_lock()
+        IndicatorGUI()
+        IndicatorGUI.release_pid_lock()
+
