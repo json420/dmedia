@@ -129,13 +129,13 @@ class test_Importer(TestCase):
         return self.klass(base, extract=extract, ctx=self.ctx)
 
     def setUp(self):
+        self.home = TempHome()
+        self.tmp = TempDir()
         self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
         cache = os.path.join(self.data_dir, 'cache')
         data = os.path.join(self.data_dir, 'data')
         config = os.path.join(self.data_dir, 'config')
         self.ctx = desktopcouch.local_files.Context(cache, data, config)
-        self.home = TempHome()
-        self.tmp = TempDir()
 
     def tearDown(self):
         stop_couchdb(ctx=self.ctx)
@@ -331,20 +331,41 @@ class DummyImporter(object):
         return src
 
 
-
-
-class test_import_files(TestCase):
+class import_files(TestCase):
     klass = importer.import_files
 
-    def test_run(self):
-        base = '/media/EOS_DIGITAL'
-        q = DummyQueue()
-        a = DummyImporter()
-        pid = current_process().pid
-        inst = self.klass(q, (base,))
-        inst.run(adapter=a)
+    def setUp(self):
+        self.home = TempHome()
+        self.tmp = TempDir()
+        self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
+        cache = os.path.join(self.data_dir, 'cache')
+        data = os.path.join(self.data_dir, 'data')
+        config = os.path.join(self.data_dir, 'config')
+        self.ctx = desktopcouch.local_files.Context(cache, data, config)
 
-        self.assertEqual(len(q.messages), 21)
+    def tearDown(self):
+        stop_couchdb(ctx=self.ctx)
+        shutil.rmtree(self.data_dir)
+        self.ctx = None
+        self.home = None
+        self.tmp = None
+
+    def test_run(self):
+        q = DummyQueue()
+        pid = current_process().pid
+
+        base = self.tmp.path
+        inst = self.klass(q, (base,))
+        inst.ctx = self.ctx
+
+        src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = self.tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+
+
+        inst.run()
+
+        self.assertEqual(len(q.messages), 6)
         self.assertEqual(
             q.messages[0],
             dict(
@@ -360,22 +381,35 @@ class test_import_files(TestCase):
                 worker='import_files',
                 pid=pid,
                 signal='FileCount',
-                args=(base, 17),
+                args=(base, 3),
             )
         )
-
-        progress = [
+        self.assertEqual(q.messages[2],
             dict(
                 worker='import_files',
                 pid=pid,
                 signal='ImportProgress',
-                args=(base, i, 17),
+                args=(base, 1, 3),
             )
-            for i in xrange(18)
-        ]
-        self.assertEqual(q.messages[2:20], progress)
+        )
+        self.assertEqual(q.messages[3],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportProgress',
+                args=(base, 2, 3),
+            )
+        )
+        self.assertEqual(q.messages[4],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportProgress',
+                args=(base, 3, 3),
+            )
+        )
         self.assertEqual(
-            q.messages[20],
+            q.messages[5],
             dict(
                 worker='import_files',
                 pid=pid,

@@ -267,20 +267,23 @@ class Importer(object):
 
 
 class import_files(Worker):
+    ctx = None
+
     def run(self, adapter=None):
         base = self.args[0]
 
         self.emit('ImportStarted', base)
 
-        files = adapter.scanfiles(base)
-        i = 0
+        if adapter is None:
+            adapter = Importer(base, ctx=self.ctx)
+
+        files = adapter.scanfiles()
         total = len(files)
         self.emit('FileCount', base, total)
 
-        self.emit('ImportProgress', base, 0, total)
-        for doc in files:
-            i += 1
-            doc = adapter.import_file(doc)
-            self.emit('ImportProgress', base, i, total)
+        c = 1
+        for (src, action, doc) in adapter.import_all_iter():
+            self.emit('ImportProgress', base, c, total)
+            c += 1
 
         self.emit('ImportFinished', base)
