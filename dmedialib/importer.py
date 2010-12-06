@@ -167,6 +167,7 @@ class Importer(object):
             },
         }
         self.__files = None
+        self.__imported = []
 
     def get_stats(self):
         return dict(
@@ -183,6 +184,8 @@ class Importer(object):
         quickid = quick_id(fp)
         ids = list(self.metastore.by_quickid(quickid))
         if ids:
+            # FIXME: Even if this is a duplicate, we should check if the file
+            # is stored on this machine, and if not copy into the FileStore.
             doc = self.metastore.db[ids[0]]
             return ('skipped', doc)
         basename = path.basename(src)
@@ -204,6 +207,7 @@ class Importer(object):
 
     def import_file(self, src):
         (action, doc) = self.__import_file(src)
+        self.__imported.append(src)
         self.__stats[action]['count'] += 1
         self.__stats[action]['bytes'] += doc['bytes']
         return (action, doc)

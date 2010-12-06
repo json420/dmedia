@@ -183,7 +183,6 @@ class test_Importer(TestCase):
 
     def test_import_file(self):
         inst = self.new()
-        tmp = TempDir()
 
         # Test that AmbiguousPath is raised:
         traversal = '/home/foo/.dmedia/../.ssh/id_rsa'
@@ -192,7 +191,7 @@ class test_Importer(TestCase):
         self.assertEqual(e.abspath, '/home/foo/.ssh/id_rsa')
 
         # Test that IOError propagates up with missing file
-        nope = tmp.join('nope.mov')
+        nope = self.tmp.join('nope.mov')
         e = raises(IOError, inst.import_file, nope)
         self.assertEqual(
             str(e),
@@ -200,7 +199,7 @@ class test_Importer(TestCase):
         )
 
         # Test that IOError propagates up with unreadable file
-        nope = tmp.touch('nope.mov')
+        nope = self.tmp.touch('nope.mov')
         os.chmod(nope, 0o000)
         e = raises(IOError, inst.import_file, nope)
         self.assertEqual(
@@ -208,19 +207,22 @@ class test_Importer(TestCase):
             '[Errno 13] Permission denied: %r' % nope
         )
 
+        src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        src2 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'duplicate.MOV')
+
         # Test with new file
-        size = path.getsize(sample_mov)
+        size = path.getsize(src1)
         doc = {
             '_id': sample_mov_hash,
             'quickid': sample_mov_qid,
             'bytes': size,
-            'mtime': path.getmtime(sample_mov),
+            'mtime': path.getmtime(src1),
             'name': 'MVI_5751.MOV',
             'ext': 'mov',
             'mime': 'video/quicktime',
         }
         self.assertEqual(
-            inst.import_file(sample_mov),
+            inst.import_file(src1),
             ('imported', doc)
         )
         self.assertEqual(inst.get_stats(),
@@ -237,7 +239,7 @@ class test_Importer(TestCase):
         )
 
         # Test with duplicate
-        (action, wrapper) = inst.import_file(sample_mov)
+        (action, wrapper) = inst.import_file(src2)
         self.assertEqual(action, 'skipped')
         doc2 = dict(wrapper)
         del doc2['_rev']

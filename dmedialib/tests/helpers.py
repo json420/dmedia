@@ -110,6 +110,14 @@ class TempDir(object):
         assert path.isfile(f) and not path.islink(f)
         return f
 
+    def copy(self, src, *parts):
+        self.makedirs(*parts[:-1])
+        dst = self.join(*parts)
+        assert not path.exists(dst)
+        shutil.copy2(src, dst)
+        assert path.isfile(dst) and not path.islink(dst)
+        return dst
+
     def join(self, *parts):
         return path.join(self.path, *parts)
 
