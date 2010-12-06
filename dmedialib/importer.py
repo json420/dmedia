@@ -145,8 +145,6 @@ def files_iter(base):
         for f in files_iter(fullname):
             yield f
 
-# FIXME: `name` should be renamed to `basename` and we should also add
-# `dirname` which is relative to card mount point
 
 class Importer(object):
     def __init__(self, base, extract=True, ctx=None):
@@ -197,7 +195,8 @@ class Importer(object):
             'quickid': quickid,
             'bytes': stat.st_size,
             'mtime': stat.st_mtime,
-            'name': basename,
+            'basename': basename,
+            'dirname': path.relpath(path.dirname(src), self.base),
             'ext': ext,
         }
         if ext:

@@ -220,7 +220,8 @@ class test_Importer(TestCase):
             'quickid': sample_mov_qid,
             'bytes': size,
             'mtime': path.getmtime(src1),
-            'name': 'MVI_5751.MOV',
+            'basename': 'MVI_5751.MOV',
+            'dirname': 'DCIM/100EOS5D2',
             'ext': 'mov',
             'mime': 'video/quicktime',
         }
@@ -284,7 +285,8 @@ class test_Importer(TestCase):
                 'quickid': sample_mov_qid,
                 'bytes': path.getsize(src1),
                 'mtime': path.getmtime(src1),
-                'name': 'MVI_5751.MOV',
+                'basename': 'MVI_5751.MOV',
+                'dirname': 'DCIM/100EOS5D2',
                 'ext': 'mov',
                 'mime': 'video/quicktime',
             }
@@ -295,7 +297,8 @@ class test_Importer(TestCase):
                 'quickid': sample_thm_qid,
                 'bytes': path.getsize(src2),
                 'mtime': path.getmtime(src2),
-                'name': 'MVI_5751.THM',
+                'basename': 'MVI_5751.THM',
+                'dirname': 'DCIM/100EOS5D2',
                 'ext': 'thm',
                 'mime': None,
             }
