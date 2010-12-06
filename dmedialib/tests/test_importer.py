@@ -32,6 +32,7 @@ import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises
 from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
+from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
 from dmedialib.errors import AmbiguousPath
 from dmedialib.filestore import FileStore
 from dmedialib.metastore import MetaStore
@@ -114,6 +115,7 @@ class test_functions(TestCase):
             str(e),
             '[Errno 13] Permission denied: %r' % subdir
         )
+        os.chmod(subdir, 0o700)
 
 
 class test_Importer(TestCase):
@@ -206,6 +208,7 @@ class test_Importer(TestCase):
             str(e),
             '[Errno 13] Permission denied: %r' % nope
         )
+        os.chmod(nope, 0o600)
 
         src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
         src2 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'duplicate.MOV')
@@ -253,6 +256,60 @@ class test_Importer(TestCase):
                 'skipped': {
                     'count': 1,
                     'bytes': size,
+                },
+            }
+        )
+
+
+    def test_import_all_iter(self):
+        inst = self.new()
+
+        src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = self.tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+
+        items = tuple(inst.import_all_iter())
+        self.assertEqual(len(items), 3)
+        self.assertEqual(
+            [t[:2] for t in items],
+            [
+                (src1, 'imported'),
+                (src2, 'imported'),
+                (dup1, 'skipped'),
+            ]
+        )
+        self.assertEqual(items[0][2],
+            {
+                '_id': sample_mov_hash,
+                'quickid': sample_mov_qid,
+                'bytes': path.getsize(src1),
+                'mtime': path.getmtime(src1),
+                'name': 'MVI_5751.MOV',
+                'ext': 'mov',
+                'mime': 'video/quicktime',
+            }
+        )
+        self.assertEqual(items[1][2],
+            {
+                '_id': sample_thm_hash,
+                'quickid': sample_thm_qid,
+                'bytes': path.getsize(src2),
+                'mtime': path.getmtime(src2),
+                'name': 'MVI_5751.THM',
+                'ext': 'thm',
+                'mime': None,
+            }
+        )
+
+        self.assertEqual(inst.get_stats(),
+             {
+                'imported': {
+                    'count': 2,
+                    'bytes': path.getsize(src1) + path.getsize(src2),
+                },
+                'skipped': {
+                    'count': 1,
+                    'bytes': path.getsize(dup1),
                 },
             }
         )
