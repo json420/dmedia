@@ -30,7 +30,8 @@ import hashlib
 import tempfile
 import shutil
 from unittest import TestCase
-from .helpers import TempDir, TempHome, raises
+from multiprocessing import current_process
+from .helpers import TempDir, TempHome, raises, DummyQueue
 from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
 from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
 from dmedialib.errors import AmbiguousPath
@@ -315,4 +316,70 @@ class test_Importer(TestCase):
                     'bytes': path.getsize(dup1),
                 },
             }
+        )
+
+
+class DummyImporter(object):
+
+    def scanfiles(self, base):
+        return list(
+            path.join(base, 'DCIM', '100EOS7D', 'MVI_%04d.MOV' % i)
+            for i in xrange(17)
+        )
+
+    def import_file(self, src):
+        return src
+
+
+
+
+class test_import_files(TestCase):
+    klass = importer.import_files
+
+    def test_run(self):
+        base = '/media/EOS_DIGITAL'
+        q = DummyQueue()
+        a = DummyImporter()
+        pid = current_process().pid
+        inst = self.klass(q, (base,))
+        inst.run(adapter=a)
+
+        self.assertEqual(len(q.messages), 21)
+        self.assertEqual(
+            q.messages[0],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportStarted',
+                args=(base,),
+            )
+        )
+        self.assertEqual(
+            q.messages[1],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='FileCount',
+                args=(base, 17),
+            )
+        )
+
+        progress = [
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportProgress',
+                args=(base, i, 17),
+            )
+            for i in xrange(18)
+        ]
+        self.assertEqual(q.messages[2:20], progress)
+        self.assertEqual(
+            q.messages[20],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportFinished',
+                args=(base,),
+            )
         )

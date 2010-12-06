@@ -27,16 +27,7 @@ from os import path
 from unittest import TestCase
 from multiprocessing import current_process
 from dmedialib import workers
-from .helpers import raises
-
-
-class DummyQueue(object):
-    def __init__(self):
-        self.messages = []
-
-    def put(self, msg):
-        self.messages.append(msg)
-
+from .helpers import raises, DummyQueue
 
 
 class test_functions(TestCase):
@@ -227,70 +218,3 @@ class test_Worker(TestCase):
         inst = do_something(q, args)
         e = raises(NotImplementedError, inst.run)
         self.assertEqual(str(e), 'do_something.run()')
-
-
-
-class DummyImporter(object):
-
-    def scanfiles(self, base):
-        return list(
-            path.join(base, 'DCIM', '100EOS7D', 'MVI_%04d.MOV' % i)
-            for i in xrange(17)
-        )
-
-    def import_file(self, src):
-        return src
-
-
-
-
-class test_import_files(TestCase):
-    klass = workers.import_files
-
-    def test_run(self):
-        base = '/media/EOS_DIGITAL'
-        q = DummyQueue()
-        a = DummyImporter()
-        pid = current_process().pid
-        inst = self.klass(q, (base,))
-        inst.run(adapter=a)
-
-        self.assertEqual(len(q.messages), 21)
-        self.assertEqual(
-            q.messages[0],
-            dict(
-                worker='import_files',
-                pid=pid,
-                signal='ImportStarted',
-                args=(base,),
-            )
-        )
-        self.assertEqual(
-            q.messages[1],
-            dict(
-                worker='import_files',
-                pid=pid,
-                signal='FileCount',
-                args=(base, 17),
-            )
-        )
-
-        progress = [
-            dict(
-                worker='import_files',
-                pid=pid,
-                signal='ImportProgress',
-                args=(base, i, 17),
-            )
-            for i in xrange(18)
-        ]
-        self.assertEqual(q.messages[2:20], progress)
-        self.assertEqual(
-            q.messages[20],
-            dict(
-                worker='import_files',
-                pid=pid,
-                signal='ImportFinished',
-                args=(base,),
-            )
-        )

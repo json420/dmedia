@@ -140,6 +140,15 @@ class TempHome(TempDir):
         super(TempHome, self).__del__()
 
 
+class DummyQueue(object):
+    def __init__(self):
+        self.messages = []
+
+    def put(self, msg):
+        self.messages.append(msg)
+
+
+
 DVALUE = """assert_deepequal: expected != got.
   %s
   expected:

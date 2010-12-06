@@ -118,23 +118,3 @@ class Worker(object):
         raise NotImplementedError(
             '%s.run()' % self.name
         )
-
-
-class import_files(Worker):
-    def run(self, adapter=None):
-        base = self.args[0]
-
-        self.emit('ImportStarted', base)
-
-        files = adapter.scanfiles(base)
-        i = 0
-        total = len(files)
-        self.emit('FileCount', base, total)
-
-        self.emit('ImportProgress', base, 0, total)
-        for doc in files:
-            i += 1
-            doc = adapter.import_file(doc)
-            self.emit('ImportProgress', base, i, total)
-
-        self.emit('ImportFinished', base)

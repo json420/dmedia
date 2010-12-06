@@ -27,6 +27,7 @@ Store media files based on content-hash.
 import os
 from os import path
 import mimetypes
+from .workers import Worker
 from .filestore import FileStore, quick_id, safe_open
 from .metastore import MetaStore
 from .extractor import merge_metadata
@@ -263,3 +264,23 @@ class Importer(object):
             if common:
                 d['doc'].update(common)
             yield self._import_one(d, extract)
+
+
+class import_files(Worker):
+    def run(self, adapter=None):
+        base = self.args[0]
+
+        self.emit('ImportStarted', base)
+
+        files = adapter.scanfiles(base)
+        i = 0
+        total = len(files)
+        self.emit('FileCount', base, total)
+
+        self.emit('ImportProgress', base, 0, total)
+        for doc in files:
+            i += 1
+            doc = adapter.import_file(doc)
+            self.emit('ImportProgress', base, i, total)
+
+        self.emit('ImportFinished', base)
