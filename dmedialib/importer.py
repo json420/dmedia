@@ -38,27 +38,6 @@ mimetypes.init()
 DOTDIR = '.dmedia'
 
 
-def import_files(q, base, extensions):
-    q.put(['ImportStarted', base])
-
-    # Get the file list:
-    files = tuple(scanfiles(base, extensions))
-    if not files:
-        q.put(['ImportFinished', base])
-        return
-
-    i = 0
-    total = len(files)
-    q.put(['ImportProgress', base, 0, total])
-
-    importer = Importer()
-    for d in importer.import_files(files):
-        i += 1
-        q.put(['ImportProgress', base, i, total])
-
-    q.put(['ImportFinished', base])
-
-
 def normalize_ext(name):
     """
     Return (root, ext) from *name* where extension is normalized to lower-case.
