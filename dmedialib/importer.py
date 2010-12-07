@@ -308,7 +308,7 @@ class import_files(Worker):
 
         files = adapter.scanfiles()
         total = len(files)
-        self.emit('FileCount', base, total)
+        self.emit('ImportCount', base, total)
 
         c = 1
         for (src, action, doc) in adapter.import_all_iter():

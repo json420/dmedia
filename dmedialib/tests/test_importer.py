@@ -370,7 +370,7 @@ class import_files(TestCase):
             dict(
                 worker='import_files',
                 pid=pid,
-                signal='FileCount',
+                signal='ImportCount',
                 args=(base, 3),
             )
         )
@@ -451,7 +451,7 @@ class import_files(TestCase):
             dict(
                 worker='import_files',
                 pid=pid,
-                signal='FileCount',
+                signal='ImportCount',
                 args=(base, 3),
             )
         )

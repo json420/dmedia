@@ -101,7 +101,7 @@ class Client(gobject.GObject):
         'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
-        'file_count': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'import_count': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'import_progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -138,7 +138,7 @@ class Client(gobject.GObject):
             'ImportStarted', self._on_ImportStarted, INTERFACE
         )
         self._proxy.connect_to_signal(
-            'FileCount', self._on_FileCount, INTERFACE
+            'ImportCount', self._on_ImportCount, INTERFACE
         )
         self._proxy.connect_to_signal(
             'ImportProgress', self._on_ImportProgress, INTERFACE
@@ -150,8 +150,8 @@ class Client(gobject.GObject):
     def _on_ImportStarted(self, base):
         self.emit('import_started', base)
 
-    def _on_FileCount(self, base, total):
-        self.emit('file_count', base, total)
+    def _on_ImportCount(self, base, total):
+        self.emit('import_count', base, total)
 
     def _on_ImportProgress(self, base, completed, total, info):
         self.emit('import_progress', base, completed, total, info)

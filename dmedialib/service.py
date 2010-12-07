@@ -43,7 +43,7 @@ register(import_files)
 class DMedia(dbus.service.Object):
     __signals = frozenset([
         'ImportStarted',
-        'FileCount',
+        'ImportCount',
         'ImportProgress',
         'ImportFinished',
     ])
@@ -90,7 +90,7 @@ class DMedia(dbus.service.Object):
         pass
 
     @dbus.service.signal(INTERFACE, signature='si')
-    def FileCount(self, base, total):
+    def ImportCount(self, base, total):
         pass
 
     @dbus.service.signal(INTERFACE, signature='siia{ss}')

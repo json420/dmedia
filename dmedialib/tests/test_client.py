@@ -144,7 +144,7 @@ class test_Client(TestCase):
         inst = self.klass(self.busname, connect=False)
         c = SignalCapture()
         inst.connect('import_started', c.on_started)
-        inst.connect('file_count', c.on_count)
+        inst.connect('import_count', c.on_count)
         inst.connect('import_progress', c.on_progress)
         inst.connect('import_finished', c.on_finished)
 
