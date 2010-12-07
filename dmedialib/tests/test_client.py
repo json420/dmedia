@@ -47,6 +47,16 @@ class SignalCapture(object):
     def __init__(self):
         self.signals = []
 
+    def on_batch_started(self, obj, *args):
+        self.signals.append(
+            ('batch_started',) + args
+        )
+
+    def on_batch_finished(self, obj, *args):
+        self.signals.append(
+            ('batch_finished',) + args
+        )
+
     def on_started(self, obj, *args):
         self.signals.append(
             ('started',) + args
@@ -143,6 +153,8 @@ class test_Client(TestCase):
 
         inst = self.klass(self.busname, connect=False)
         c = SignalCapture()
+        inst.connect('batch_import_started', c.on_batch_started)
+        inst.connect('batch_import_finished', c.on_batch_finished)
         inst.connect('import_started', c.on_started)
         inst.connect('import_count', c.on_count)
         inst.connect('import_progress', c.on_progress)
@@ -158,30 +170,43 @@ class test_Client(TestCase):
         mainloop.run()
 
 
-        self.assertEqual(len(c.signals), 6)
+        self.assertEqual(len(c.signals), 8)
 
         self.assertEqual(c.signals[0],
-            ('started', base)
+            ('batch_started',)
         )
         self.assertEqual(c.signals[1],
-            ('count', base, 3)
+            ('started', base)
         )
         self.assertEqual(c.signals[2],
+            ('count', base, 3)
+        )
+        self.assertEqual(c.signals[3],
             ('progress', base, 1, 3,
                 dict(src=files[0], action='imported', _id=sample_mov_hash)
             )
         )
-        self.assertEqual(c.signals[3],
+        self.assertEqual(c.signals[4],
             ('progress', base, 2, 3,
                 dict(src=files[1], action='imported', _id=sample_thm_hash)
             )
         )
-        self.assertEqual(c.signals[4],
+        self.assertEqual(c.signals[5],
             ('progress', base, 3, 3,
                 dict(src=files[2], action='skipped', _id=sample_mov_hash)
             )
         )
-        self.assertEqual(c.signals[5],
+        self.assertEqual(c.signals[6],
+            ('batch_finished',
+                dict(
+                    imported=2,
+                    imported_bytes=(20202333 + 27328),
+                    skipped=1,
+                    skipped_bytes=20202333,
+                )
+            )
+        )
+        self.assertEqual(c.signals[7],
             ('finished', base,
                 dict(
                     imported=2,

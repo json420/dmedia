@@ -98,6 +98,12 @@ class Client(gobject.GObject):
     """
 
     __gsignals__ = {
+        'batch_import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            []
+        ),
+        'batch_import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [TYPE_PYOBJECT]
+        ),
         'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
@@ -135,6 +141,12 @@ class Client(gobject.GObject):
 
     def _connect_signals(self):
         self._proxy.connect_to_signal(
+            'BatchImportStarted', self._on_BatchImportStarted, INTERFACE
+        )
+        self._proxy.connect_to_signal(
+            'BatchImportFinished', self._on_BatchImportFinished, INTERFACE
+        )
+        self._proxy.connect_to_signal(
             'ImportStarted', self._on_ImportStarted, INTERFACE
         )
         self._proxy.connect_to_signal(
@@ -146,6 +158,12 @@ class Client(gobject.GObject):
         self._proxy.connect_to_signal(
             'ImportFinished', self._on_ImportFinished, INTERFACE
         )
+
+    def _on_BatchImportStarted(self):
+        self.emit('batch_import_started')
+
+    def _on_BatchImportFinished(self, stats):
+        self.emit('batch_import_finished', stats)
 
     def _on_ImportStarted(self, base):
         self.emit('import_started', base)

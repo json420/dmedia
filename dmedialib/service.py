@@ -85,9 +85,37 @@ class DMedia(dbus.service.Object):
         p.daemon = True
         return p
 
+    @dbus.service.signal(INTERFACE, signature='')
+    def BatchImportStarted(self):
+        """
+        Fired at transition from idle to at least one active import.
+
+        For pro file import UX, the RenderMenu should be set to STATUS_ATTENTION
+        when this signal is received.
+        """
+
+    @dbus.service.signal(INTERFACE, signature='a{sx}')
+    def BatchImportFinished(self, stats):
+        """
+        Fired at transition from at least one active import to idle.
+
+        *stats* will be the combined stats of all imports in this batch.
+
+        For pro file import UX, the RenderMenu should be set back to
+        STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
+        be displayed when this signal is received.
+        """
+
     @dbus.service.signal(INTERFACE, signature='s')
     def ImportStarted(self, base):
-        pass
+        """
+        Fired when card is inserted.
+
+        For pro file import UX, the "Searching for new files" NotifyOSD should
+        be displayed when this signal is received.  If a previous notification
+        is still visible, the two should be merge and the summary conspicuously
+        changed to be very clear that both cards were detected.
+        """
 
     @dbus.service.signal(INTERFACE, signature='sx')
     def ImportCount(self, base, total):
@@ -102,6 +130,12 @@ class DMedia(dbus.service.Object):
         p = self.__imports.pop(base, None)
         if p is not None:
             p.join()  # Sanity check to make sure worker is terminating
+
+        for key in self.__stats:
+            self.__stats[key] += stats[key]
+        if len(self.__imports) == 0:
+            self.BatchImportFinished(self.__stats)
+            self.__stats = None
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def Kill(self):
@@ -160,6 +194,14 @@ class DMedia(dbus.service.Object):
         if base in self.__imports:
             return 'already_running'
         p = self._create_worker('import_files', base, extract)
+        if len(self.__imports) == 0:
+            self.__stats = dict(
+                imported=0,
+                imported_bytes=0,
+                skipped=0,
+                skipped_bytes=0,
+            )
+            self.BatchImportStarted()
         self.__imports[base] = p
         p.start()
         return 'started'
