@@ -128,7 +128,7 @@ def files_iter(base):
 
 
 class Importer(object):
-    def __init__(self, base, extract=True, ctx=None):
+    def __init__(self, base, extract=False, ctx=None):
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
@@ -182,6 +182,8 @@ class Importer(object):
         }
         if ext:
             doc['mime'] = mimetypes.types_map.get('.' + ext)
+        if self.extract:
+            merge_metadata(src, doc)
         assert self.metastore.db.create(doc) == chash
         return ('imported', doc)
 

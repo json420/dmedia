@@ -122,7 +122,7 @@ class test_functions(TestCase):
 class test_Importer(TestCase):
     klass = importer.Importer
 
-    def new(self, base=None, extract=True):
+    def new(self, base=None, extract=False):
         if base is None:
             self.tmp = TempDir()
             base = self.tmp.path
@@ -147,7 +147,7 @@ class test_Importer(TestCase):
     def test_init(self):
         inst = self.new()
         self.assertEqual(inst.base, self.tmp.path)
-        self.assertTrue(inst.extract is True)
+        self.assertTrue(inst.extract is False)
         self.assertEqual(inst.home, self.home.path)
         self.assertTrue(isinstance(inst.filestore, FileStore))
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
