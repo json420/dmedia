@@ -111,6 +111,12 @@ parser.add_option('--kill',
     default=False,
     help='shutdown dmedia-service daemon and exit',
 )
+parser.add_option('--quick',
+    dest='extract',
+    action='store_false',
+    default=True,
+    help='import without metadata extraction or thumbnail generation',
+)
 parser.add_option('--type',
     action='append',
     default=[],
@@ -174,7 +180,7 @@ class CLI(object):
 
     def run(self, options):
         try:
-            self.client.start_import(self.base)
+            self.client.start_import(self.base, options.extract)
             self.mainloop.run()
         except KeyboardInterrupt:
             self.client.stop_import(self.base)
