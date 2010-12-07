@@ -2,6 +2,7 @@
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -79,7 +80,7 @@ will always have a 'duration'.
 You can browse through the dmedia database using a standard web-browser, like
 this:
 
-  firefox ~/.local/share/desktop-couch/couchdb.html
+  xdg-open ~/.local/share/desktop-couch/couchdb.html
 
 Note that the sha1 hash is only being used as a stop-gap.  dmedia will use the
 Skein hash after its final constant tweaks are made.  See:
@@ -87,94 +88,109 @@ Skein hash after its final constant tweaks are made.  See:
   http://blog.novacut.com/2010/09/how-about-that-skein-hash.html
 """
 
+from __future__ import print_function
+
 import sys
 import os
 from os import path
 import optparse
-import logging
-import dmedialib
 import xdg.BaseDirectory
+import gobject
+import dmedialib
+from dmedialib.client import Client
 
 script = path.basename(sys.argv[0])
 
 parser = optparse.OptionParser(
     version=dmedialib.__version__,
-    usage='Usage: %s DIRECTORY EXTENSIONS...' % script,
+    usage='Usage: %s DIRECTORY [EXTENSIONS...]' % script,
     epilog='Example: %s /media/EOS_DIGITAL jpg cr2 mov' % script,
 )
+parser.add_option('--kill',
+    action='store_true',
+    default=False,
+    help='shutdown dmedia-service daemon and exit',
+)
 parser.add_option('--quick',
-    dest="extract",
+    dest='extract',
     action='store_false',
     default=True,
-    help='Do a fast scan without extracting extra metadata',
+    help='import without metadata extraction or thumbnail generation',
 )
-parser.add_option('--project',
-    default=None,
-    help='Add imported files to specified PROJECT',
-)
-parser.add_option('--tag',
+parser.add_option('--type',
     action='append',
     default=[],
-    help='Add specified TAG to imported files',
+    help='import all files of TYPE ("video", "audio", or "image")'
 )
-
 (options, args) = parser.parse_args()
 
 
-options.tags = sorted(set(
-    t.strip().lower() for t in options.tag
-))
+# Check if they just want us to kill the daemon
+if options.kill:
+    print('Telling dmedia-service daemon to shutdown...')
+    Client().kill()
+    print('Shutdown.')
+    sys.exit()
 
 
-if len(args) < 2:
+if len(args) < 1:
     parser.print_usage()
-    sys.exit('ERROR: must provide DIRECTORY and at least one EXTENSION')
+    sys.exit('ERROR: must provide DIRECTORY')
 base = path.abspath(args[0])
 if not path.isdir(base):
     parser.print_usage()
     sys.exit('ERROR: not a directory: %r' % base)
-extensions = frozenset(a.lower() for a in args[1:])
-
-xdg_cache_path = xdg.BaseDirectory.xdg_cache_home
-cache = path.join(xdg_cache_path, 'dmedia')
-if not path.exists(cache):
-    os.makedirs(cache)
-if path.isdir(cache):
-    logfile = path.join(cache, 'log.txt')
-    logging.basicConfig(
-        filename=logfile,
-        filemode='w',
-        level=logging.DEBUG,
-    )
 
 
-from dmedialib.importer import Importer
+extensions = list(a.lower().strip('.') for a in args[1:])
 
-common = {}
-if options.project:
-    common['project'] = options.project
-if options.tags:
-    common['tags'] = options.tags
 
-importer = Importer()
+class CLI(object):
+    def __init__(self, base):
+        self.base = base
+        self.mainloop = gobject.MainLoop()
+        self.client = Client()
+        self.client.connect('import_started', self.on_import_started)
+        self.client.connect('import_count', self.on_import_count)
+        self.client.connect('import_progress', self.on_import_progress)
+        self.client.connect('import_finished', self.on_import_finished)
 
-total = 0
-counts = {}
-for d in importer.recursive_import(base, extensions, common, options.extract):
-    print '  %(action)s %(src)r' % d
-    action = d['action']
-    counts[action] = counts.get(action, 0) + 1
-    total += 1
+    def on_import_started(self, client, base):
+        if base != self.base:
+            return
+        print('Importing %s' % base)
 
-print ''
-for key in sorted(counts):
-    print '%s: %d' % (key, counts[key])
-print 'total_scanned: %d' % total
+    def on_import_count(self, client, base, total):
+        if base != self.base:
+            return
+        print('Found %d files\n' % total)
 
-couchdb_data_path = xdg.BaseDirectory.save_data_path("desktop-couch")
-dc = path.join(
-    couchdb_data_path, 'couchdb.html'
-)
-print ''
-print 'To browse dmedia database in CouchDB, run:'
-print '  firefox file://%s' % dc
+    def on_import_progress(self, client, base, completed, total, info):
+        if base != self.base:
+            return
+        print('  %(action)s %(src)s' % info)
+
+    def on_import_finished(self, client, base, stats):
+        if base != self.base:
+            return
+        print('-' * 80)
+        for key in sorted(stats):
+            print('%s=%d' % (key, stats[key]))
+        self.mainloop.quit()
+
+    def run(self, options):
+        try:
+            self.client.start_import(self.base, options.extract)
+            self.mainloop.run()
+        except KeyboardInterrupt:
+            self.client.stop_import(self.base)
+            print('\nImport stopped')
+
+        couchdb_data_path = xdg.BaseDirectory.save_data_path('desktop-couch')
+        dc = path.join(couchdb_data_path, 'couchdb.html')
+        print('\nBrowse the `dmedia` database in CouchDB:')
+        print('  file://%s\n' % dc)
+
+
+cli = CLI(base)
+cli.run(options)

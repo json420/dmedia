@@ -220,23 +220,21 @@ def register(callback, *extensions):
         _extractors[ext] = callback
 
 
-def merge_metadata(d):
-    doc = d['doc']
+def merge_metadata(src, doc):
     ext = doc['ext']
     if ext in _extractors:
         callback = _extractors[ext]
-        for (key, value) in callback(d):
+        for (key, value) in callback(src):
             if key not in doc or key == 'mtime':
                 doc[key] = value
 
 
-def merge_exif(d):
-    filename = d['src']
-    exif = extract_exif(filename)
-    for (key, sources) in EXIF_REMAP.iteritems():
-        for src in sources:
-            if src in exif:
-                yield (key, exif[src])
+def merge_exif(src):
+    exif = extract_exif(src)
+    for (key, values) in EXIF_REMAP.iteritems():
+        for v in values:
+            if v in exif:
+                yield (key, exif[v])
                 break
     mtime = extract_mtime_from_exif(exif)
     if mtime is not None:
@@ -246,9 +244,8 @@ def merge_exif(d):
 register(merge_exif, 'jpg', 'png', 'cr2')
 
 
-def merge_video_info(d):
-    filename = d['src']
-    info = extract_video_info(filename)
+def merge_video_info(src):
+    info = extract_video_info(src)
     for (dst_key, src_key) in TOTEM_REMAP:
         if src_key in info:
             value = info[src_key]
@@ -261,21 +258,21 @@ def merge_video_info(d):
     # Try to generate thumbnail:
     attachments = {}
     yield ('_attachments', attachments)
-    thumbnail = generate_thumbnail(filename)
+    thumbnail = generate_thumbnail(src)
     if thumbnail is not None:
         attachments['thumbnail'] = thumbnail
 
-    if d['doc']['ext'] != 'mov':
+    if not src.endswith('.MOV'):
         return
 
     # Extract EXIF metadata from Canon .THM file if present:
-    thm = path.join(d['base'], d['root'] + '.THM')
+    thm = src[:-3] + 'THM'
     if path.isfile(thm):
         attachments['canon.thm'] = {
             'content_type': 'image/jpeg',
             'data': file_2_base64(thm),
         }
-        for (key, value) in merge_exif({'src': thm}):
+        for (key, value) in merge_exif(thm):
             if key in ('width', 'height'):
                 continue
             yield (key, value)

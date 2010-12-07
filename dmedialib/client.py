@@ -26,6 +26,7 @@ Convenience wrapper for Python applications talking to dmedia dbus service.
 import dbus
 import dbus.mainloop.glib
 import gobject
+from gobject import TYPE_PYOBJECT
 from .constants import BUS, INTERFACE, EXTENSIONS
 
 
@@ -97,14 +98,23 @@ class Client(gobject.GObject):
     """
 
     __gsignals__ = {
-        'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [gobject.TYPE_PYOBJECT]
+        'batch_import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            []
         ),
-        'import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [gobject.TYPE_PYOBJECT]
+        'batch_import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [TYPE_PYOBJECT]
+        ),
+        'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [TYPE_PYOBJECT]
+        ),
+        'import_count': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'import_progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT]
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
     }
 
@@ -131,23 +141,41 @@ class Client(gobject.GObject):
 
     def _connect_signals(self):
         self._proxy.connect_to_signal(
+            'BatchImportStarted', self._on_BatchImportStarted, INTERFACE
+        )
+        self._proxy.connect_to_signal(
+            'BatchImportFinished', self._on_BatchImportFinished, INTERFACE
+        )
+        self._proxy.connect_to_signal(
             'ImportStarted', self._on_ImportStarted, INTERFACE
         )
         self._proxy.connect_to_signal(
-            'ImportFinished', self._on_ImportFinished, INTERFACE
+            'ImportCount', self._on_ImportCount, INTERFACE
         )
         self._proxy.connect_to_signal(
             'ImportProgress', self._on_ImportProgress, INTERFACE
         )
+        self._proxy.connect_to_signal(
+            'ImportFinished', self._on_ImportFinished, INTERFACE
+        )
+
+    def _on_BatchImportStarted(self):
+        self.emit('batch_import_started')
+
+    def _on_BatchImportFinished(self, stats):
+        self.emit('batch_import_finished', stats)
 
     def _on_ImportStarted(self, base):
-        self.emit('import_started', unicode(base))
+        self.emit('import_started', base)
 
-    def _on_ImportFinished(self, base):
-        self.emit('import_finished', unicode(base))
+    def _on_ImportCount(self, base, total):
+        self.emit('import_count', base, total)
 
-    def _on_ImportProgress(self, base, completed, total):
-        self.emit('import_progress', unicode(base), int(completed), int(total))
+    def _on_ImportProgress(self, base, completed, total, info):
+        self.emit('import_progress', base, completed, total, info)
+
+    def _on_ImportFinished(self, base, stats):
+        self.emit('import_finished', base, stats)
 
     def kill(self):
         """
@@ -174,24 +202,23 @@ class Client(gobject.GObject):
         """
         return self._method('GetExtensions')(types)
 
-    def start_import(self, base, extensions=None):
+    def start_import(self, base, extract=True):
         """
-        Start import of directory or file at *base*, matching *extensions*.
+        Start import of card mounted at *base*.
 
-        If *extensions* is ``None`` (the default), the set defined in the
-        `EXTENSIONS` constant will be used.
+        If *extract* is ``True`` (the default), metadata will be extracted and
+        thumbnails generated.
 
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
-        :param extensions: List (or other iterable) of file extensions to match,
-            e.g. ``['mov', 'cr2', 'wav']``
+        :param extract: If ``True``, perform metadata extraction, thumbnail
+            generation; default is ``True``.
         """
-        extensions = (list(EXTENSIONS) if extensions is None else extensions)
-        return self._method('StartImport')(base, extensions)
+        return self._method('StartImport')(base, extract)
 
     def stop_import(self, base):
         """
-        In running, stop the import of directory or file at *base*.
+        Start import of card mounted at *base*.
 
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
