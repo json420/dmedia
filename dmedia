@@ -88,6 +88,8 @@ Skein hash after its final constant tweaks are made.  See:
   http://blog.novacut.com/2010/09/how-about-that-skein-hash.html
 """
 
+from __future__ import print_function
+
 import sys
 import os
 from os import path
@@ -119,9 +121,9 @@ parser.add_option('--type',
 
 # Check if they just want us to kill the daemon
 if options.kill:
-    print 'Telling dmedia-service daemon to shutdown...'
+    print('Telling dmedia-service daemon to shutdown...')
     Client().kill()
-    print 'Shutdown.'
+    print('Shutdown.')
     sys.exit()
 
 
@@ -150,24 +152,24 @@ class CLI(object):
     def on_import_started(self, client, base):
         if base != self.base:
             return
-        print 'Importing %s\n' % base
+        print('Importing %s' % base)
 
     def on_import_count(self, client, base, total):
         if base != self.base:
             return
-        print '  found %d files' % total
+        print('Found %d files\n' % total)
 
     def on_import_progress(self, client, base, completed, total, info):
         if base != self.base:
             return
-        print '  %(action)s %(src)s' % info
+        print('  %(action)s %(src)s' % info)
 
     def on_import_finished(self, client, base, stats):
         if base != self.base:
             return
-        print '\nFinished %s' % base
+        print('-' * 80)
         for key in sorted(stats):
-            print '  %s %d' % (key, stats[key])
+            print('%s=%d' % (key, stats[key]))
         self.mainloop.quit()
 
     def run(self, options):
@@ -176,12 +178,12 @@ class CLI(object):
             self.mainloop.run()
         except KeyboardInterrupt:
             self.client.stop_import(self.base)
-            print '\nImport stopped'
+            print('\nImport stopped')
 
         couchdb_data_path = xdg.BaseDirectory.save_data_path('desktop-couch')
         dc = path.join(couchdb_data_path, 'couchdb.html')
-        print '\nTo browse the `dmedia` database in CouchDB, run:'
-        print '  xdg-open file://%s' % dc
+        print('\nBrowse the `dmedia` database in CouchDB:')
+        print('  file://%s\n' % dc)
 
 
 cli = CLI(base)
