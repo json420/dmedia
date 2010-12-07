@@ -319,18 +319,6 @@ class test_Importer(TestCase):
         )
 
 
-class DummyImporter(object):
-
-    def scanfiles(self, base):
-        return list(
-            path.join(base, 'DCIM', '100EOS7D', 'MVI_%04d.MOV' % i)
-            for i in xrange(17)
-        )
-
-    def import_file(self, src):
-        return src
-
-
 class import_files(TestCase):
     klass = importer.import_files
 
@@ -366,6 +354,87 @@ class import_files(TestCase):
         thm_size = path.getsize(sample_thm)
 
         inst.run()
+
+        self.assertEqual(len(q.messages), 6)
+        self.assertEqual(
+            q.messages[0],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportStarted',
+                args=(base,),
+            )
+        )
+        self.assertEqual(
+            q.messages[1],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='FileCount',
+                args=(base, 3),
+            )
+        )
+        self.assertEqual(q.messages[2],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportProgress',
+                args=(base, 1, 3,
+                    dict(action='imported', src=src1, _id=sample_mov_hash),
+                ),
+            )
+        )
+        self.assertEqual(q.messages[3],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportProgress',
+                args=(base, 2, 3,
+                    dict(action='imported', src=src2, _id=sample_thm_hash),
+                ),
+            )
+        )
+        self.assertEqual(q.messages[4],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportProgress',
+                args=(base, 3, 3,
+                    dict(action='skipped', src=dup1, _id=sample_mov_hash),
+                ),
+            )
+        )
+        self.assertEqual(
+            q.messages[5],
+            dict(
+                worker='import_files',
+                pid=pid,
+                signal='ImportFinished',
+                args=(base,
+                    dict(
+                        imported=2,
+                        imported_bytes=(mov_size + thm_size),
+                        skipped=1,
+                        skipped_bytes=mov_size,
+                    ),
+                ),
+            )
+        )
+
+    def test_dummy_run(self):
+        # Same as above but with dummy=True
+        q = DummyQueue()
+        pid = current_process().pid
+        base = self.tmp.path
+        inst = self.klass(q, (base,), dummy=True)
+        mov_size = path.getsize(sample_mov)
+        thm_size = path.getsize(sample_thm)
+
+        inst.run()
+
+        src1 = self.tmp.join('DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = self.tmp.join('DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = self.tmp.join('DCIM', '100EOS5D2', 'MVI_5751.THM')
 
         self.assertEqual(len(q.messages), 6)
         self.assertEqual(

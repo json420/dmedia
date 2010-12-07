@@ -266,15 +266,60 @@ class Importer(object):
             yield self._import_one(d, extract)
 
 
+class DummyImporter(object):
+    """
+    Dummy adapter for testing dbus service.
+    """
+    def __init__(self, base):
+        self.base = base
+        self._files = tuple(
+            path.join(self.base, *parts) for parts in [
+                ('DCIM', '100EOS5D2', 'MVI_5751.MOV'),
+                ('DCIM', '100EOS5D2', 'MVI_5751.THM'),
+                ('DCIM', '100EOS5D2', 'MVI_5752.MOV'),
+            ]
+        )
+        self._mov_size = 20202333
+        self._thm_size = 27328
+
+    def scanfiles(self):
+        return self._files
+
+    def import_all_iter(self):
+        yield (self._files[0], 'imported',
+            dict(_id='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        )
+        yield (self._files[1], 'imported',
+            dict(_id='F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
+        )
+        yield (self._files[2], 'skipped',
+            dict(_id='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        )
+
+    def finalize(self):
+        return {
+            'imported': {
+                'count': 2,
+                'bytes': 20202333 + 27328,
+            },
+            'skipped': {
+                'count': 1,
+                'bytes': 20202333,
+            },
+        }
+
+
 class import_files(Worker):
     ctx = None
 
-    def run(self, adapter=None):
+    def run(self):
         base = self.args[0]
 
         self.emit('ImportStarted', base)
 
-        if adapter is None:
+        if self.dummy:
+            adapter = DummyImporter(base)
+        else:
             adapter = Importer(base, ctx=self.ctx)
 
         files = adapter.scanfiles()
