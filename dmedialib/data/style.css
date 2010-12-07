@@ -12,18 +12,23 @@ h1, h2, h3, h4, h5, h6{
 	color:#222;
 }
 
-#browser{
-	position:absolute;
-	top:0px;
-	left:0px;
-	right:0px;
-	bottom:220px;
+.box{
 	margin:10px;
+	padding:10px;
 	-webkit-border-radius:5px;
 	-moz-border-radius:5px;
 	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
 	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
 	overflow:auto;
+}
+
+#browser{
+	position:absolute;
+	top:0px;
+	left:0px;
+	right:320px;
+	bottom:220px;
+	padding:0px;
 }
 
 #info{
@@ -32,31 +37,36 @@ h1, h2, h3, h4, h5, h6{
 	left:0px;
 	right:320px;
 	height:190px;
-	margin:10px;
-	padding:10px;
-	-webkit-border-radius:5px;
-	-moz-border-radius:5px;
-	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
-	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
-	overflow:auto;
-	text-shadow:0px 1px 1px rgba(255, 255, 255, 1);
 }
 
 #display{
 	position:absolute;
 	bottom:0px;
 	right:0px;
-	height:190px;
+	top:90px;
 	width:290px;
-	margin:10px;
-	padding:10px;
-	-webkit-border-radius:5px;
-	-moz-border-radius:5px;
-	background-color:rgb(182, 189, 192);
-	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
-	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
 }
 
+#search{
+	position:absolute;
+	top:0px;
+	right:0px;
+	height:50px;
+	width:290px;
+	-webkit-border-radius:25px;
+}
+
+.search_field{
+	-webkit-border-radius:15px;
+	border:1px solid #444;
+	height:30px;
+	width:290px;
+	padding-left:50px;
+	background-color:#eee;
+	background-image:url("search.png");
+	background-repeat:no-repeat;
+	background-position:15px 3px;
+}
 
 .item{
 	position:relative;
@@ -87,10 +97,36 @@ h1, h2, h3, h4, h5, h6{
 	bottom:5px;
 	right:5px;
 	font-size:9pt;
-	background-color:rgba(0,0,0,0.6);
+	background-color:rgba(0,0,0,0.4);
 	color:#fff;
 	padding:5px;
 	font-family:monospace;
+	text-align:right;
+	width:150px;
+}
+
+.field{
+	border:none;
+	background:none;
+}
+
+.star_on{
+	position:absolute;
+	bottom:11px;
+	left:11px;
+	height:14px;
+	width:51px;
+	background-image: url("stars.png");	
+}
+
+.star_off{
+	position:absolute;
+	bottom:11px;
+	left:11px;
+	height:15px;
+	width:84px;
+	background-image: url("stars.png");
+	background-position:0px 15px;
 }
 
 ::selection {
