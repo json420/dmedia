@@ -145,8 +145,13 @@ class DMedia(dbus.service.Object):
         """
         Start import of card mounted at *base*.
 
+        If *extract* is ``True``, metadata will be extracted and thumbnails
+        generated.
+
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
+        :param extract: If ``True``, perform metadata extraction, thumbnail
+            generation
         """
         if path.abspath(base) != base:
             return 'not_abspath'

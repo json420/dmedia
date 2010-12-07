@@ -188,8 +188,13 @@ class Client(gobject.GObject):
         """
         Start import of card mounted at *base*.
 
+        If *extract* is ``True`` (the default), metadata will be extracted and
+        thumbnails generated.
+
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
+        :param extract: If ``True``, perform metadata extraction, thumbnail
+            generation; default is ``True``.
         """
         return self._method('StartImport')(base, extract)
 
