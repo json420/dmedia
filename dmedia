@@ -143,6 +143,7 @@ class CLI(object):
         self.mainloop = gobject.MainLoop()
         self.client = Client()
         self.client.connect('import_started', self.on_import_started)
+        self.client.connect('import_count', self.on_import_count)
         self.client.connect('import_progress', self.on_import_progress)
         self.client.connect('import_finished', self.on_import_finished)
 
@@ -151,23 +152,27 @@ class CLI(object):
             return
         print 'Importing %s\n' % base
 
-    def on_import_progress(self, client, base, completed, total):
+    def on_import_count(self, client, base, total):
         if base != self.base:
             return
-        print 'Imported %d of %d' % (completed, total)
+        print '  found %d files' % total
 
-    def on_import_finished(self, client, base):
+    def on_import_progress(self, client, base, completed, total, info):
         if base != self.base:
             return
+        print '  %(action)s %(src)s' % info
+
+    def on_import_finished(self, client, base, stats):
+        if base != self.base:
+            return
+        print '\nFinished %s' % base
+        for key in sorted(stats):
+            print '  %s %d' % (key, stats[key])
         self.mainloop.quit()
 
-    def run(self, options, extensions):
-        if options.type:
-            extensions.extend(self.client.get_extensions(options.type))
-        if not extensions:
-            extensions = None
+    def run(self, options):
         try:
-            self.client.start_import(self.base, extensions)
+            self.client.start_import(self.base)
             self.mainloop.run()
         except KeyboardInterrupt:
             self.client.stop_import(self.base)
@@ -180,4 +185,4 @@ class CLI(object):
 
 
 cli = CLI(base)
-cli.run(options, extensions)
+cli.run(options)

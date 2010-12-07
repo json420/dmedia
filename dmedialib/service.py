@@ -89,7 +89,7 @@ class DMedia(dbus.service.Object):
     def ImportStarted(self, base):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='si')
+    @dbus.service.signal(INTERFACE, signature='sx')
     def ImportCount(self, base, total):
         pass
 
@@ -97,7 +97,7 @@ class DMedia(dbus.service.Object):
     def ImportProgress(self, base, current, total, info):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='sa{si}')
+    @dbus.service.signal(INTERFACE, signature='sa{sx}')
     def ImportFinished(self, base, stats):
         p = self.__imports.pop(base, None)
         if p is not None:
