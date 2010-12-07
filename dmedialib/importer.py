@@ -128,7 +128,7 @@ def files_iter(base):
 
 
 class Importer(object):
-    def __init__(self, base, extract=False, ctx=None):
+    def __init__(self, base, extract, ctx=None):
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
@@ -298,14 +298,14 @@ class DummyImporter(object):
 class import_files(Worker):
     ctx = None
 
-    def execute(self, base):
+    def execute(self, base, extract):
 
         self.emit('ImportStarted', base)
 
         if self.dummy:
             adapter = DummyImporter(base)
         else:
-            adapter = Importer(base, ctx=self.ctx)
+            adapter = Importer(base, extract, ctx=self.ctx)
 
         files = adapter.scanfiles()
         total = len(files)

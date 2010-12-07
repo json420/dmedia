@@ -140,8 +140,8 @@ class DMedia(dbus.service.Object):
                 extensions.update(EXT_MAP[key])
         return sorted(extensions)
 
-    @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
-    def StartImport(self, base):
+    @dbus.service.method(INTERFACE, in_signature='sb', out_signature='s')
+    def StartImport(self, base, extract):
         """
         Start import of card mounted at *base*.
 
@@ -154,7 +154,7 @@ class DMedia(dbus.service.Object):
             return 'not_dir_or_file'
         if base in self.__imports:
             return 'already_running'
-        p = self._create_worker('import_files', base)
+        p = self._create_worker('import_files', base, extract)
         self.__imports[base] = p
         p.start()
         return 'started'

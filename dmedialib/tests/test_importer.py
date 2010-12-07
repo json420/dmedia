@@ -126,7 +126,7 @@ class test_Importer(TestCase):
         if base is None:
             self.tmp = TempDir()
             base = self.tmp.path
-        return self.klass(base, extract=extract, ctx=self.ctx)
+        return self.klass(base, extract, ctx=self.ctx)
 
     def setUp(self):
         self.home = TempHome()
@@ -343,7 +343,7 @@ class import_files(TestCase):
         pid = current_process().pid
 
         base = self.tmp.path
-        inst = self.klass(q, (base,))
+        inst = self.klass(q, (base, False))
         inst.ctx = self.ctx
 
         src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
@@ -426,7 +426,7 @@ class import_files(TestCase):
         q = DummyQueue()
         pid = current_process().pid
         base = self.tmp.path
-        inst = self.klass(q, (base,), dummy=True)
+        inst = self.klass(q, (base, False), dummy=True)
         mov_size = path.getsize(sample_mov)
         thm_size = path.getsize(sample_thm)
 

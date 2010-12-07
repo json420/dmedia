@@ -184,14 +184,14 @@ class Client(gobject.GObject):
         """
         return self._method('GetExtensions')(types)
 
-    def start_import(self, base):
+    def start_import(self, base, extract=True):
         """
         Start import of card mounted at *base*.
 
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
         """
-        return self._method('StartImport')(base)
+        return self._method('StartImport')(base, extract)
 
     def stop_import(self, base):
         """
