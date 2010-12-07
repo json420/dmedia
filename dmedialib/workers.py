@@ -64,10 +64,10 @@ def exception_name(exception):
     return exception.__name__
 
 
-def dispatch(name, q, args):
+def dispatch(name, q, args, dummy=False):
     try:
         klass = _workers[name]
-        inst = klass(q, args)
+        inst = klass(q, args, dummy)
         inst.run()
     except Exception as e:
         q.put(dict(
@@ -87,9 +87,10 @@ def dispatch(name, q, args):
 
 
 class Worker(object):
-    def __init__(self, q, args):
+    def __init__(self, q, args, dummy=False):
         self.q = q
         self.args = args
+        self.dummy = dummy
         self.pid = current_process().pid
         self.name = self.__class__.__name__
 
@@ -114,7 +115,7 @@ class Worker(object):
             args=args,
         ))
 
-    def run(self, adapter=None):
+    def run(self):
         raise NotImplementedError(
             '%s.run()' % self.name
         )

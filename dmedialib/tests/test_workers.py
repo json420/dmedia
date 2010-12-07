@@ -128,18 +128,63 @@ class test_functions(TestCase):
 
         class import_files(workers.Worker):
             def run(self):
-                self.emit('Example', *self.args)
+                if self.dummy:
+                    self.emit('Dummy', *self.args)
+                else:
+                    self.emit('Smarty', *self.args)
 
         workers.register(import_files)
 
+        # Test that default is dummy=False
         q = DummyQueue()
         f('import_files', q, ('hello', 'world'))
-
         self.assertEqual(
             q.messages,
             [
                 dict(
-                    signal='Example',
+                    signal='Smarty',
+                    args=('hello', 'world'),
+                    worker=('import_files'),
+                    pid=pid,
+                ),
+                dict(
+                    signal='_terminate',
+                    args=('hello', 'world'),
+                    worker='import_files',
+                    pid=pid,
+                ),
+            ]
+        )
+
+        # Test with dummy=False
+        q = DummyQueue()
+        f('import_files', q, ('hello', 'world'), False)
+        self.assertEqual(
+            q.messages,
+            [
+                dict(
+                    signal='Smarty',
+                    args=('hello', 'world'),
+                    worker=('import_files'),
+                    pid=pid,
+                ),
+                dict(
+                    signal='_terminate',
+                    args=('hello', 'world'),
+                    worker='import_files',
+                    pid=pid,
+                ),
+            ]
+        )
+
+        # Test with dummy=True
+        q = DummyQueue()
+        f('import_files', q, ('hello', 'world'), True)
+        self.assertEqual(
+            q.messages,
+            [
+                dict(
+                    signal='Dummy',
                     args=('hello', 'world'),
                     worker=('import_files'),
                     pid=pid,
@@ -154,9 +199,6 @@ class test_functions(TestCase):
         )
 
 
-
-
-
 class test_Worker(TestCase):
     klass = workers.Worker
 
@@ -166,8 +208,15 @@ class test_Worker(TestCase):
         inst = self.klass(q, args)
         self.assertTrue(inst.q is q)
         self.assertTrue(inst.args is args)
+        self.assertTrue(inst.dummy is False)
         self.assertEqual(inst.pid, current_process().pid)
         self.assertEqual(inst.name, 'Worker')
+
+        # Test with dummy=True, dummy=False
+        inst = self.klass(q, args, dummy=True)
+        self.assertTrue(inst.dummy is True)
+        inst = self.klass(q, args, dummy=False)
+        self.assertTrue(inst.dummy is False)
 
     def test_emit(self):
         q = DummyQueue()
@@ -185,7 +234,6 @@ class test_Worker(TestCase):
             args=tuple()
         )
         self.assertEqual(q.messages, [one])
-
 
         inst.emit('AnotherSignal', 'this', 'time', 'with', 'args')
         two = dict(
