@@ -27,6 +27,7 @@ Store media files based on content-hash.
 import os
 from os import path
 import mimetypes
+import time
 from .workers import Worker
 from .filestore import FileStore, quick_id, safe_open
 from .metastore import MetaStore
@@ -248,6 +249,9 @@ class Importer(object):
 class DummyImporter(object):
     """
     Dummy adapter for testing dbus service.
+
+    Note that DummyImporter.scanfiles() will sleep for 1 second to facilitate
+    testing.
     """
     def __init__(self, base):
         self.base = base
@@ -262,6 +266,7 @@ class DummyImporter(object):
         self._thm_size = 27328
 
     def scanfiles(self):
+        time.sleep(1)
         return self._files
 
     def import_all_iter(self):

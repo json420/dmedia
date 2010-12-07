@@ -34,7 +34,7 @@ import gobject
 import dmedialib
 from dmedialib import client, service
 from dmedialib.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
-from .helpers import TempDir
+from .helpers import TempDir, sample_mov_hash, sample_thm_hash
 
 
 tree = path.dirname(path.dirname(path.abspath(dmedialib.__file__)))
@@ -52,14 +52,19 @@ class SignalCapture(object):
             ('started',) + args
         )
 
-    def on_finished(self, obj, *args):
+    def on_count(self, obj, *args):
         self.signals.append(
-            ('finished',) + args
+            ('count',) + args
         )
 
     def on_progress(self, obj, *args):
         self.signals.append(
             ('progress',) + args
+        )
+
+    def on_finished(self, obj, *args):
+        self.signals.append(
+            ('finished',) + args
         )
 
 
@@ -127,31 +132,64 @@ class test_Client(TestCase):
 
     def test_connect_signals(self):
         tmp = TempDir()
-        base = unicode(tmp.path)
+        base = tmp.path
+        files = tuple(
+            path.join(base, *parts) for parts in [
+                ('DCIM', '100EOS5D2', 'MVI_5751.MOV'),
+                ('DCIM', '100EOS5D2', 'MVI_5751.THM'),
+                ('DCIM', '100EOS5D2', 'MVI_5752.MOV'),
+            ]
+        )
+
         inst = self.klass(self.busname, connect=False)
         c = SignalCapture()
         inst.connect('import_started', c.on_started)
-        inst.connect('import_finished', c.on_finished)
+        inst.connect('file_count', c.on_count)
         inst.connect('import_progress', c.on_progress)
+        inst.connect('import_finished', c.on_finished)
 
         inst._connect_signals()
         mainloop = gobject.MainLoop()
-        gobject.timeout_add(3000, mainloop.quit)
+
+        # DummyImporter should run for ~1 second:
+        gobject.timeout_add(2000, mainloop.quit)
 
         self.assertEqual(inst.start_import(tmp.path), 'started')
         mainloop.run()
 
-        self.assertEqual(
-            c.signals,
-            [
-                ('started', base),
-                ('progress', base, 0, 4),
-                ('progress', base, 1, 4),
-                ('progress', base, 2, 4),
-                ('progress', base, 3, 4),
-                ('progress', base, 4, 4),
-                ('finished', base),
-            ]
+
+        self.assertEqual(len(c.signals), 6)
+
+        self.assertEqual(c.signals[0],
+            ('started', base)
+        )
+        self.assertEqual(c.signals[1],
+            ('count', base, 3)
+        )
+        self.assertEqual(c.signals[2],
+            ('progress', base, 1, 3,
+                dict(src=files[0], action='imported', _id=sample_mov_hash)
+            )
+        )
+        self.assertEqual(c.signals[3],
+            ('progress', base, 2, 3,
+                dict(src=files[1], action='imported', _id=sample_thm_hash)
+            )
+        )
+        self.assertEqual(c.signals[4],
+            ('progress', base, 3, 3,
+                dict(src=files[2], action='skipped', _id=sample_mov_hash)
+            )
+        )
+        self.assertEqual(c.signals[5],
+            ('finished', base,
+                dict(
+                    imported=2,
+                    imported_bytes=(20202333 + 27328),
+                    skipped=1,
+                    skipped_bytes=20202333,
+                )
+            )
         )
 
     def test_kill(self):
@@ -210,7 +248,7 @@ class test_Client(TestCase):
         inst = self.new()
         self.assertEqual(inst.start_import(tmp.path), 'started')
         self.assertEqual(inst.list_imports(), [tmp.path])
-        time.sleep(3)  # dummy_import_files should run for ~2 seconds
+        time.sleep(2)  # DummyImporter should run for ~1 second.
         self.assertEqual(inst.list_imports(), [])
 
     def test_stop_import(self):

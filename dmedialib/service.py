@@ -34,26 +34,18 @@ import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
 from .importer import import_files
+from .workers import register, dispatch
 
 
-def dummy_import_files(q, base, extensions):
-    # Note the dummy import will take approximately 2 seconds to complete
-    q.put(['ImportStarted', base])
-    time.sleep(1)  # Scan list of files
-    count = 4
-    q.put(['ImportProgress', base, 0, count])
-    for i in xrange(count):
-        q.put(['ImportProgress', base, i + 1, count])
-    time.sleep(1)
-    q.put(['ImportFinished', base])
-
+register(import_files)
 
 
 class DMedia(dbus.service.Object):
     __signals = frozenset([
         'ImportStarted',
-        'ImportFinished',
+        'FileCount',
         'ImportProgress',
+        'ImportFinished',
     ])
 
     def __init__(self, busname=None, killfunc=None, dummy=False):
@@ -74,29 +66,42 @@ class DMedia(dbus.service.Object):
         while self.__running:
             try:
                 msg = self.__queue.get(timeout=1)
-                signal = msg[0]
+                signal = msg['signal']
                 if signal not in self.__signals:
                     continue
                 method = getattr(self, signal, None)
                 if callable(method):
-                    args = msg[1:]
+                    args = msg['args']
                     method(*args)
             except Empty:
                 pass
+
+    def _create_worker(self, name, *args):
+        pargs = (name, self.__queue, args, self._dummy)
+        p = multiprocessing.Process(
+            target=dispatch,
+            args=pargs,
+        )
+        p.daemon = True
+        return p
 
     @dbus.service.signal(INTERFACE, signature='s')
     def ImportStarted(self, base):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='s')
-    def ImportFinished(self, base):
+    @dbus.service.signal(INTERFACE, signature='si')
+    def FileCount(self, base, total):
+        pass
+
+    @dbus.service.signal(INTERFACE, signature='siia{ss}')
+    def ImportProgress(self, base, current, total, info):
+        pass
+
+    @dbus.service.signal(INTERFACE, signature='sa{si}')
+    def ImportFinished(self, base, stats):
         p = self.__imports.pop(base, None)
         if p is not None:
             p.join()  # Sanity check to make sure worker is terminating
-
-    @dbus.service.signal(INTERFACE, signature='sii')
-    def ImportProgress(self, base, current, total):
-        pass
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def Kill(self):
@@ -135,15 +140,13 @@ class DMedia(dbus.service.Object):
                 extensions.update(EXT_MAP[key])
         return sorted(extensions)
 
-    @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
-    def StartImport(self, base, extensions):
+    @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
+    def StartImport(self, base):
         """
-        Start import of directory or file at *base*, matching *extensions*.
+        Start import of card mounted at *base*.
 
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
-        :param extensions: List of file extensions to match, e.g.
-            ``['mov', 'cr2', 'wav']``
         """
         if path.abspath(base) != base:
             return 'not_abspath'
@@ -151,11 +154,7 @@ class DMedia(dbus.service.Object):
             return 'not_dir_or_file'
         if base in self.__imports:
             return 'already_running'
-        p = multiprocessing.Process(
-            target=(dummy_import_files if self._dummy else import_files),
-            args=(self.__queue, base, frozenset(extensions)),
-        )
-        p.daemon = True
+        p = self._create_worker('import_files', base)
         self.__imports[base] = p
         p.start()
         return 'started'
