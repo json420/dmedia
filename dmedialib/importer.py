@@ -298,8 +298,7 @@ class DummyImporter(object):
 class import_files(Worker):
     ctx = None
 
-    def run(self):
-        base = self.args[0]
+    def execute(self, base):
 
         self.emit('ImportStarted', base)
 

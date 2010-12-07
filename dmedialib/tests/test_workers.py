@@ -256,13 +256,33 @@ class test_Worker(TestCase):
     def test_run(self):
         q = DummyQueue()
         args = ('foo', 'bar')
+        pid = current_process().pid
+
+        class do_something(self.klass):
+            def execute(self, one, two):
+                self.emit('Hello', '%s and %s' % (one, two))
+
+        inst = do_something(q, args)
+        inst.run()
+        self.assertEqual(q.messages[0],
+            dict(
+                worker='do_something',
+                pid=pid,
+                signal='Hello',
+                args=('foo and bar',),
+            )
+        )
+
+    def test_execute(self):
+        q = DummyQueue()
+        args = ('foo', 'bar')
         inst = self.klass(q, args)
 
-        e = raises(NotImplementedError, inst.run)
-        self.assertEqual(str(e), 'Worker.run()')
+        e = raises(NotImplementedError, inst.execute)
+        self.assertEqual(str(e), 'Worker.execute()')
 
         class do_something(self.klass):
             pass
         inst = do_something(q, args)
-        e = raises(NotImplementedError, inst.run)
-        self.assertEqual(str(e), 'do_something.run()')
+        e = raises(NotImplementedError, inst.execute)
+        self.assertEqual(str(e), 'do_something.execute()')

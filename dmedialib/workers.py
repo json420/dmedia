@@ -116,6 +116,9 @@ class Worker(object):
         ))
 
     def run(self):
+        self.execute(*self.args)
+
+    def execute(self, *args):
         raise NotImplementedError(
-            '%s.run()' % self.name
+            '%s.execute()' % self.name
         )
