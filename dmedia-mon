@@ -40,14 +40,26 @@ client.connect(
 )
 client.connect(
     "import_finished",
-    lambda signal, base: op(
-        "%s import finished" % base
+    lambda signal, base, stats: op(
+        "%s import finished - stats: %s" % (base, str(stats))
     )
 )
 client.connect(
     "import_progress",
-    lambda signal, base, completed, total: op(
-        "%s import progress %s/%s" % (base, str(completed), str(total))
+    lambda signal, base, completed, total, info: op(
+        "%s import progress %s/%s - info %s" % (base, str(completed), str(total), str(info))
+    )
+)
+client.connect(
+    "batch_import_started",
+    lambda signal: op(
+        "batch import started"
+    )
+)
+client.connect(
+    "batch_import_finished",
+    lambda signal, stats: op(
+        "batch import started - stats: %s" % str(stats)
     )
 )
 

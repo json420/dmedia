@@ -43,6 +43,7 @@ if __name__ == '__main__':
             else:
                 print("dmedia-import: not starting import of %s" % base)
 
+        os.system("dmedia-notify &")
         os.system("indicator-dmedia &")
 
 
