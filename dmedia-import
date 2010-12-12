@@ -34,7 +34,7 @@ if __name__ == '__main__':
         FirstRunGUI.run_if_first_run(args, lambda app: exit())
 
         dmedia_client = dmedialib.client.Client()
-        for base in dirs:
+        for base in args:
             base = os.path.abspath(base)
             #start only if import hasn't already started
             if not base in dmedia_client.list_imports():

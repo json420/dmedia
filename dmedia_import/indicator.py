@@ -21,8 +21,8 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 import dmedialib.client
-from dmedialib.importui.pidlock import PidLock
-from dmedialib.importui.common import device_type, get_icon
+from dmedia_import.pidlock import PidLock
+from dmedia_import.common import device_type, get_icon
 import pynotify
 from gettext import gettext as _
 import gtk
