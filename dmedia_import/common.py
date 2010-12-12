@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-def device_type(self, base):
+def device_type(base):
     dev = Popen(
         [
             "df",
@@ -49,7 +49,7 @@ def device_type(self, base):
     return 'usb'
 
 
-def get_icon(self, device_type):
+def get_icon(device_type):
     if device_type == 'firewire':
         return 'notification-device-firewire'
 
