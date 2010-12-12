@@ -26,6 +26,7 @@ from dmedia_import.common import device_type, get_icon
 import pynotify
 from gettext import gettext as _
 import gtk
+import appindicator
 
 
 class Indicator(object):
@@ -63,15 +64,20 @@ class Indicator(object):
             self.menu.append(item)
         self.indicator.set_menu(self.menu)
 
-    def on_import_started(self, signal, base):
+    def on_import_started(self, *rest):
+        base = rest[1]
         self.imports[base] = ['0', '0']
         self.update_menu_items()
 
-    def on_import_finished(self, signal, base, stats):
+    def on_import_finished(self, *rest):
+        base = rest[1]
         del(self.imports[base])
         self.update_menu_items()
 
-    def on_import_progress(self, signal, base, completed, total, info):
+    def on_import_progress(self, *rest):
+        base = rest[1]
+        completed = rest[2]
+        total = rest[3]
         self.imports[base] = [str(completed), str(total)]
         self.update_menu_items()
 
