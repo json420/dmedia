@@ -33,7 +33,11 @@ if __name__ == '__main__':
 
         FirstRunGUI.run_if_first_run(args, lambda app: exit())
 
+        os.system("dmedia-notify &")
+        os.system("indicator-dmedia &")
+
         dmedia_client = dmedialib.client.Client()
+        dmedia_client.version()
         for base in args:
             base = os.path.abspath(base)
             #start only if import hasn't already started
@@ -42,9 +46,6 @@ if __name__ == '__main__':
                 print dmedia_client.start_import(base)
             else:
                 print("dmedia-import: not starting import of %s" % base)
-
-        os.system("dmedia-notify &")
-        os.system("indicator-dmedia &")
 
 
     else:

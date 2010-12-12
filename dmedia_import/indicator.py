@@ -49,9 +49,10 @@ class Indicator(object):
         self.client.connect('import_progress', self.on_import_progress)
 
     def menu_items(self):
-        yield(_("Current Imports:"))
-        for base in self.imports:
-            yield(_("Importing") + "  " + base + "  (" + '/'.join(self.imports[base]) + ")")
+        if len(self.imports) > 0:
+            yield(_("Current Imports:"))
+            for base in self.imports:
+                yield("    " + base + "  (" + '/'.join(self.imports[base]) + ")")
         yield(_("Browse Files"))
         yield(_("Preferences"))
 

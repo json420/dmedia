@@ -26,6 +26,7 @@ from dmedia_import.common import device_type, get_icon
 import pynotify
 from gettext import gettext as _
 import gtk
+from time import sleep
 
 
 class Notifier(object):
