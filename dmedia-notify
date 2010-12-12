@@ -20,35 +20,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-
-import os
-import sys
-import dmedialib.client
-from dmedia_import.firstrun import FirstRunGUI
-
-
+from dmedia_import.notifier import Notifier
 if __name__ == '__main__':
-    if len(sys.argv) > 1: #This will happen if run from the nautilus handler
-        args = sys.argv[1:]
-
-        FirstRunGUI.run_if_first_run(args, lambda app: exit())
-
-        dmedia_client = dmedialib.client.Client()
-        for base in dirs:
-            base = os.path.abspath(base)
-            #start only if import hasn't already started
-            if not base in dmedia_client.list_imports():
-                print("dmedia-import: starting import of %s" % base)
-                print dmedia_client.start_import(base)
-            else:
-                print("dmedia-import: not starting import of %s" % base)
-
-        os.system("dmedia-notify &")
-        os.system("indicator-dmedia &")
-
-
-    else:
-        pass #put a full UI here
-
-
+    Notifier().main()
 
