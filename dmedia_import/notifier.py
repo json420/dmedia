@@ -43,7 +43,7 @@ class Notifier(object):
 
     def on_import_started(self, *rest):
         base = rest[1]
-        notification = pynotify.Notification(_("Searching for new files"), base, get_icon(device_type(base)))
+        notification = pynotify.Notification(_("Searching for new files"), base, self.get_icon(device_type(base)))
         notification.set_hint_string('append', '')
         notification.show()
         self.imports[base] = ['0', '0']
@@ -51,7 +51,7 @@ class Notifier(object):
     def on_import_finished(self, *rest):
         base = rest[1]
         if len(self.imports) == 1: #only notify if all other imports are finished
-            notification = pynotify.Notification(_("Added %s new files, %s GB"), _("Skipped %s duplicates, %s GB"), get_icon("notification-device-eject")) #not yet possible to get data for number added, number skipped and sizes
+            notification = pynotify.Notification(_("Added %s new files, %s GB"), _("Skipped %s duplicates, %s GB"), self.get_icon("notification-device-eject")) #not yet possible to get data for number added, number skipped and sizes
             notification.show()
         del(self.imports[base])
 
