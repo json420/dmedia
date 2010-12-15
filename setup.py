@@ -97,11 +97,11 @@ setup(
     license='AGPLv3+',
 
     cmdclass={'test': Test},
-    packages=['dmedialib'],
+    packages=['dmedialib', 'dmedia_import'],
     package_data=dict(
         dmedialib=['data/*'],
     ),
-    scripts=['dmedia', 'dmedia-import', 'indicator-dmedia'],
+    scripts=['dmedia', 'dmedia-import', 'indicator-dmedia', 'dmedia-notify', 'dmedia-mon'],
     data_files=[
         ('share/man/man1', ['dmedia.1']),
         ('share/applications', ['dmedia-import.desktop']),

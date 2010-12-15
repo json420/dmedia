@@ -20,47 +20,39 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+from subprocess import Popen, PIPE
 
-from dmedialib.client import Client
-import gtk
+def device_type(base):
+    dev = Popen(
+        [
+            "df",
+            base
+        ],
+        stdout=PIPE
+    ).communicate()[0].split(
+        "\n"
+    )[1].split(
+        ' '
+    )[0]
 
-client = Client()
+    includes = lambda string: dev.find(string) > -1
 
-client.version()
+    if includes('sr'):
+        return 'optical'
+    if includes('raw1394') or includes('dv1394'):
+        return 'firewire'
+    if includes('mmcblk'):
+        return 'card'
+    if includes('sda') or includes('hda'):
+        return 'local'
 
-def op(string):
-    print string
-    return string
+    #default guess
+    return 'usb'
 
-client.connect(
-    "import_started",
-    lambda signal, base: op(
-        "%s import started" % base
-    )
-)
-client.connect(
-    "import_finished",
-    lambda signal, base, stats: op(
-        "%s import finished - stats: %s" % (base, str(stats))
-    )
-)
-client.connect(
-    "import_progress",
-    lambda signal, base, completed, total, info: op(
-        "%s import progress %s/%s - info %s" % (base, str(completed), str(total), str(info))
-    )
-)
-client.connect(
-    "batch_import_started",
-    lambda signal: op(
-        "batch import started"
-    )
-)
-client.connect(
-    "batch_import_finished",
-    lambda signal, stats: op(
-        "batch import started - stats: %s" % str(stats)
-    )
-)
 
-gtk.main()
+def get_icon(dev_type):
+    if dev_type == 'firewire':
+        return 'notification-device-firewire'
+
+    #default icon
+    return 'notification-device-usb'
