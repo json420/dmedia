@@ -112,5 +112,5 @@ class FirstRunGUI(gtk.Window):
 
         if not client.get_bool('/apps/dmedia/dont-show-import-firstrun'):
             app = cls()
-            if not app.go(args=dirs):
+            if not app.go(args=args):
                 func_if_not(app)
