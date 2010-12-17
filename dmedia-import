@@ -22,15 +22,30 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import sys
+import optparse
 import dmedialib.client
 from dmedia_import.firstrun import FirstRunGUI
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1: #This will happen if run from the nautilus handler
-        args = sys.argv[1:]
+parser = optparse.OptionParser(
+    version=dmedialib.__version__,
+    usage='%prog DIRECTORY',
+)
+parser.add_option('--reset',
+    action='store_true',
+    default=False,
+    help='reset gconf setting to repeat first-run behavior',
+)
+parser.add_option('--dialog',
+    action='store_true',
+    default=False,
+    help='force display of dialog regardless of gconf setting',
+)
 
+
+if __name__ == '__main__':
+    (options, args) = parser.parse_args()
+    if args: #This will happen if run from the nautilus handler
         FirstRunGUI.run_if_first_run(args, lambda app: exit())
 
         os.system("dmedia-notify &")
@@ -50,6 +65,3 @@ if __name__ == '__main__':
 
     else:
         pass #put a full UI here
-
-
-
