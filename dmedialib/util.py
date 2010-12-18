@@ -27,6 +27,11 @@ from math import log, floor
 from gettext import gettext as _
 from gettext import ngettext
 
+try:
+    from pynotify import Notification
+except ImportError:
+    Notification = None
+
 
 UNITS_BASE10 = (
     'bytes',
@@ -128,3 +133,58 @@ def import_finished(stats):
     else:
         body = None
     return (summary, body)
+
+
+class NotifyManager(object):
+    """
+    Helper class to make it easier to update notification when still visible.
+    """
+
+    _klass = Notification
+
+    def __init__(self, klass=None):
+        if klass is not None:
+            self._klass = klass
+        self._current = None
+
+    def _on_closed(self, notification):
+        assert self._current is notification
+        self._current = None
+
+    def isvisible(self):
+        """
+        Return ``True`` in a notification is currently visible.
+        """
+        return (self._current is not None)
+
+    def notify(self, summary, body=None, icon=None):
+        """
+        Display a notification with *summary*, *body*, and *icon*.
+        """
+        assert self._current is None
+        self._current = self._klass(summary, body, icon)
+        self._current.connect('closed', self._on_closed)
+        self._current.show()
+
+    def update(self, summary, body=None, icon=None):
+        """
+        Update current notification to have *summary*, *body*, and *icon*.
+
+        This method will only work if the current notification is still visible.
+
+        To a display new or replace the existing notification regardless whether
+        the current notification is visible, use
+        `NotificationManager.replace()`.
+        """
+        assert self._current is not None
+        self._current.update(summary, body, icon)
+        self._current.show()
+
+    def replace(self, summary, body=None, icon=None):
+        """
+        Update current notification if visible, otherwise display a new one.
+        """
+        if self.isvisible():
+            self.update(summary, body, icon)
+        else:
+            self.notify(summary, body, icon)
