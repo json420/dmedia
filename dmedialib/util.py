@@ -44,10 +44,12 @@ UNITS_BASE10 = (
 
 def units_base10(size):
     """
-    Return *size* bytes with 3 significant digits and SI base-10 units.
+    Return *size* bytes to 3 significant digits in SI base-10 units.
 
     For example:
 
+    >>> units_base10(1000)
+    '1 kB'
     >>> units_base10(29481537)
     '29.5 MB'
     >>> units_base10(392012353)

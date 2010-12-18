@@ -35,6 +35,7 @@ from gettext import ngettext
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
+from .util import import_finished
 from .importer import import_files
 from .workers import register, dispatch
 
@@ -114,6 +115,8 @@ class DMedia(dbus.service.Object):
         self._notification.show()
 
     def _replace(self, summary, body, icon):
+        if self._dummy:
+            return
         if self._notification is None:
             self._notify(summary, body, icon)
         else:
@@ -139,11 +142,8 @@ class DMedia(dbus.service.Object):
         STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
         be displayed when this signal is received.
         """
-        if stats['imported'] > 0:
-            summary = _('Added %(imported)d new files' % stats)
-        else:
-            summary = _('No files found')
-        self._replace(summary, None, 'notification-device-eject')
+        (summary, body) = import_finished(stats)
+        self._replace(summary, body, 'notification-device-eject')
 
     @dbus.service.signal(INTERFACE, signature='s')
     def ImportStarted(self, base):
