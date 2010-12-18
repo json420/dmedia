@@ -81,6 +81,20 @@ def units_base10(size):
     )
 
 
+def import_started(bases):
+    """
+    Return notification (summary, body) for when card is inserted.
+    """
+    msg = ngettext(
+        'Searching for new files...',
+        'Searching on %(count)d cards...',
+        len(bases)
+    )
+    summary = msg % dict(count=len(bases))
+    body = '\n'.join(bases)
+    return (summary, body)
+
+
 def import_finished(stats):
     """
     Return notification (summary, body) as per pro file import UX design.

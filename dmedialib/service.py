@@ -35,7 +35,7 @@ from gettext import ngettext
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
-from .util import import_finished
+from .util import import_finished, NotifyManager
 from .importer import import_files
 from .workers import register, dispatch
 
@@ -70,7 +70,11 @@ class DMedia(dbus.service.Object):
         self.__thread = Thread(target=self._signal_thread)
         self.__thread.daemon = True
         self.__thread.start()
-        self._notification = None
+
+        if dummy or pynotify is None:
+            self._notify = None
+        else:
+            self._notify = NotifyManager()
 
     def _signal_thread(self):
         while self.__running:
@@ -95,33 +99,6 @@ class DMedia(dbus.service.Object):
         p.daemon = True
         return p
 
-    def _on_notification_closed(self, notification):
-        assert self._notification is notification
-        self._notification = None
-
-    def _notify(self, summary, body, icon):
-        if self._dummy:
-            return
-        assert self._notification is None
-        self._notification = pynotify.Notification(summary, body, icon)
-        self._notification.connect('closed', self._on_notification_closed)
-        self._notification.show()
-
-    def _update(self, summary, body, icon):
-        if self._dummy:
-            return
-        assert self._notification is not None
-        self._notification.update(summary, body, icon)
-        self._notification.show()
-
-    def _replace(self, summary, body, icon):
-        if self._dummy:
-            return
-        if self._notification is None:
-            self._notify(summary, body, icon)
-        else:
-            self._update(summary, body, icon)
-
     @dbus.service.signal(INTERFACE, signature='')
     def BatchImportStarted(self):
         """
@@ -142,8 +119,10 @@ class DMedia(dbus.service.Object):
         STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
         be displayed when this signal is received.
         """
+        if self._notify is None:
+            return
         (summary, body) = import_finished(stats)
-        self._replace(summary, body, 'notification-device-eject')
+        self._notify.replace(summary, body, 'notification-device-eject')
 
     @dbus.service.signal(INTERFACE, signature='s')
     def ImportStarted(self, base):
@@ -155,14 +134,13 @@ class DMedia(dbus.service.Object):
         is still visible, the two should be merge and the summary conspicuously
         changed to be very clear that both cards were detected.
         """
-        if pynotify is None:
+        if self._notify is None:
             return
-        if self._notification is None:
-            self._notify(
-                _('Searching for new files'),
-                base,
-                'notification-device-usb'
-            )
+        self._notify.replace(
+            _('Searching on 2 cards...'),
+            '\n'.join([base, '/media/OTHER_CARD']),
+            'notification-device-usb'
+        )
 
     @dbus.service.signal(INTERFACE, signature='sx')
     def ImportCount(self, base, total):

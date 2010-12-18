@@ -83,6 +83,27 @@ class test_functions(TestCase):
         self.assertEqual(f(314000000000000000), '314 PB')
         self.assertEqual(f(999 * 10 ** 15), '999 PB')
 
+    def test_import_started(self):
+        f = util.import_started
+
+        base = '/media/EOS_DIGITAL'
+        self.assertEqual(
+            f([base]),
+            ('Searching for new files...', base)
+        )
+
+        bases = ['/media/EOS_DIGITAL', '/media/ANOTHER_CARD']
+        self.assertEqual(
+            f(bases),
+            ('Searching on 2 cards...', '\n'.join(bases))
+        )
+
+        bases = ['/media/EOS_DIGITAL', '/media/ANOTHER_CARD', '/media/ONE_MORE']
+        self.assertEqual(
+            f(bases),
+            ('Searching on 3 cards...', '\n'.join(bases))
+        )
+
     def test_import_finished(self):
         f = util.import_finished
 
