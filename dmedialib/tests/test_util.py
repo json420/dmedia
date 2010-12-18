@@ -44,6 +44,9 @@ class test_functions(TestCase):
             'size must be smaller than 10**18; got %r' % big
         )
 
+        # Test with None
+        self.assertTrue(f(None) is None)
+
         # Test with 0:
         self.assertEqual(f(0), '0 bytes')
 
@@ -79,3 +82,86 @@ class test_functions(TestCase):
         self.assertEqual(f(31400000000000000), '31.4 PB')
         self.assertEqual(f(314000000000000000), '314 PB')
         self.assertEqual(f(999 * 10 ** 15), '999 PB')
+
+    def test_import_finished(self):
+        f = util.import_finished
+
+        # Test that value error is raised for imported or skipped < 0
+        e = raises(ValueError, f, dict(imported=-17))
+        self.assertEqual(
+            str(e),
+            "stats['imported'] must be >= 0; got -17"
+        )
+        e = raises(ValueError, f, dict(skipped=-18))
+        self.assertEqual(
+            str(e),
+            "stats['skipped'] must be >= 0; got -18"
+        )
+
+        # Test with empty dictionary
+        self.assertEqual(
+            f({}),
+            ('No files found', None)
+        )
+
+        # Test with all 0 values:
+        self.assertEqual(
+            f(dict(imported=0, imported_bytes=0, skipped=0, skipped_bytes=0)),
+            ('No files found', None)
+        )
+
+        # Test with 1 imported
+        self.assertEqual(
+            f(dict(imported=1)),
+            ('Added 1 new file, 0 bytes', None)
+        )
+        self.assertEqual(
+            f(dict(imported=1, imported_bytes=29481537)),
+            ('Added 1 new file, 29.5 MB', None)
+        )
+
+        # Test with 2 imported
+        self.assertEqual(
+            f(dict(imported=2)),
+            ('Added 2 new files, 0 bytes', None)
+        )
+        self.assertEqual(
+            f(dict(imported=2, imported_bytes=392012353)),
+            ('Added 2 new files, 392 MB', None)
+        )
+
+        # Test with 1 skipped
+        self.assertEqual(
+            f(dict(skipped=1)),
+            ('No new files found', 'Skipped 1 duplicate, 0 bytes')
+        )
+        self.assertEqual(
+            f(dict(skipped=1, skipped_bytes=29481537)),
+            ('No new files found', 'Skipped 1 duplicate, 29.5 MB')
+        )
+
+        # Test with 2 skipped
+        self.assertEqual(
+            f(dict(skipped=2)),
+            ('No new files found', 'Skipped 2 duplicates, 0 bytes')
+        )
+        self.assertEqual(
+            f(dict(skipped=2, skipped_bytes=392012353)),
+            ('No new files found', 'Skipped 2 duplicates, 392 MB'),
+        )
+
+        # Test with imported and skipped:
+        self.assertEqual(
+            f(dict(imported=7, skipped=1)),
+            ('Added 7 new files, 0 bytes', 'Skipped 1 duplicate, 0 bytes')
+        )
+        stats = dict(
+            imported=1,
+            imported_bytes=29481537,
+            skipped=6,
+            skipped_bytes=392012353,
+        )
+        self.assertEqual(
+            f(stats),
+            ('Added 1 new file, 29.5 MB', 'Skipped 6 duplicates, 392 MB')
+        )
