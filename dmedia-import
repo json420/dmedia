@@ -21,10 +21,14 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
+from __future__ import print_function
+
+import sys
 import optparse
-import dmedialib.client
-from dmedia_import.firstrun import FirstRunGUI
+from os import path
+
+import dmedialib
+from dmedialib.client import Client
 
 
 parser = optparse.OptionParser(
@@ -41,27 +45,53 @@ parser.add_option('--dialog',
     default=False,
     help='force display of dialog regardless of gconf setting',
 )
+parser.add_option('--quick',
+    dest='extract',
+    action='store_false',
+    default=True,
+    help='import without metadata extraction or thumbnail generation',
+)
+
+
+def usage(msg, code=1):
+    parser.print_usage()
+    print('ERROR: ' + msg)
+    sys.exit(code)
 
 
 if __name__ == '__main__':
     (options, args) = parser.parse_args()
-    if args: #This will happen if run from the nautilus handler
-        FirstRunGUI.run_if_first_run(args, lambda app: exit())
-
-        os.system("dmedia-notify &")
-        os.system("indicator-dmedia &")
-
-        dmedia_client = dmedialib.client.Client()
-        dmedia_client.version()
-        for base in args:
-            base = os.path.abspath(base)
-            #start only if import hasn't already started
-            if not base in dmedia_client.list_imports():
-                print("dmedia-import: starting import of %s" % base)
-                print dmedia_client.start_import(base)
-            else:
-                print("dmedia-import: not starting import of %s" % base)
+    if len(args) != 1:
+        usage('requires single argument DIRECTORY')
+    base = path.abspath(args[0])
+    if not path.isdir(base):
+        usage('not a directory: %r' % base)
+    client = Client()
+    action = client.start_import(base, options.extract)
+    print(action)
+    if action != 'started':
+        sys.exit(2)
 
 
-    else:
-        pass #put a full UI here
+# FIXME: For now, we're always importing without showing the first-run dialog
+
+#    if args: #This will happen if run from the nautilus handler
+#        FirstRunGUI.run_if_first_run(args, lambda app: exit())
+
+#        os.system("dmedia-notify &")
+#        os.system("indicator-dmedia &")
+
+#        dmedia_client = dmedialib.client.Client()
+#        dmedia_client.version()
+#        for base in args:
+#            base = os.path.abspath(base)
+#            #start only if import hasn't already started
+#            if not base in dmedia_client.list_imports():
+#                print("dmedia-import: starting import of %s" % base)
+#                print dmedia_client.start_import(base)
+#            else:
+#                print("dmedia-import: not starting import of %s" % base)
+
+
+#    else:
+#        pass #put a full UI here
