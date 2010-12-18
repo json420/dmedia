@@ -35,7 +35,7 @@ from gettext import ngettext
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
-from .util import import_finished, NotifyManager
+from .util import batch_import_finished, NotifyManager
 from .importer import import_files
 from .workers import register, dispatch
 
@@ -121,7 +121,7 @@ class DMedia(dbus.service.Object):
         """
         if self._notify is None:
             return
-        (summary, body) = import_finished(stats)
+        (summary, body) = batch_import_finished(stats)
         self._notify.replace(summary, body, 'notification-device-eject')
 
     @dbus.service.signal(INTERFACE, signature='s')
