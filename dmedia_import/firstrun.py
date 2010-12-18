@@ -2,6 +2,7 @@
 
 # Authors:
 #   David Green <david4dev@gmail.com>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -22,11 +23,12 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 import gtk
-import gettext
-_ = gettext.gettext
 import gconf
+from gettext import gettext as _
+
 
 NO_DIALOG = '/apps/dmedia/dont-show-import-firstrun'
+conf = gconf.client_get_default()
 
 
 class FirstRunGUI(gtk.Window):
@@ -44,7 +46,6 @@ class FirstRunGUI(gtk.Window):
         self.add_content()
 
         self.connect_signals()
-
 
     def add_content(self):
         self.container = gtk.VBox()
@@ -95,11 +96,10 @@ class FirstRunGUI(gtk.Window):
 
     def on_ok(self, widget):
         dont_show_again = self.dont_show_again.get_active()
-        client = gconf.client_get_default()
         val = 0
         if dont_show_again:
             val = 1
-        client.set_bool(NO_DIALOG, val)
+        conf.set_bool(NO_DIALOG, val)
         self.ok_was_pressed = True
         self.destroy(widget)
 
@@ -110,8 +110,7 @@ class FirstRunGUI(gtk.Window):
         return self.ok_was_pressed
 
     @classmethod
-    def run_if_first_run(cls, base, dialog=False, unset=False):
-        conf = gconf.client_get_default()
+    def run_if_first_run(cls, base, unset=False):
         if unset:
             conf.unset(NO_DIALOG)
         if conf.get_bool(NO_DIALOG):

@@ -2,6 +2,7 @@
 
 # Authors:
 #   David Green <david4dev@gmail.com>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -41,11 +42,6 @@ parser.add_option('--unset',
     default=False,
     help='unset gconf value to repeat first-run behavior',
 )
-parser.add_option('--dialog',
-    action='store_true',
-    default=False,
-    help='force display of dialog regardless of gconf setting',
-)
 parser.add_option('--quick',
     dest='extract',
     action='store_false',
@@ -67,35 +63,11 @@ if __name__ == '__main__':
     base = path.abspath(args[0])
     if not path.isdir(base):
         usage('not a directory: %r' % base)
-    ret = FirstRunGUI.run_if_first_run(base, options.dialog, options.unset)
-    print(ret)
-    sys.exit()
+    if not FirstRunGUI.run_if_first_run(base, options.unset):
+        print('import_canceled')
+        sys.exit(2)
     client = Client()
     action = client.start_import(base, options.extract)
     print(action)
     if action != 'started':
-        sys.exit(2)
-
-
-# FIXME: For now, we're always importing without showing the first-run dialog
-
-#    if args: #This will happen if run from the nautilus handler
-#        FirstRunGUI.run_if_first_run(args, lambda app: exit())
-
-#        os.system("dmedia-notify &")
-#        os.system("indicator-dmedia &")
-
-#        dmedia_client = dmedialib.client.Client()
-#        dmedia_client.version()
-#        for base in args:
-#            base = os.path.abspath(base)
-#            #start only if import hasn't already started
-#            if not base in dmedia_client.list_imports():
-#                print("dmedia-import: starting import of %s" % base)
-#                print dmedia_client.start_import(base)
-#            else:
-#                print("dmedia-import: not starting import of %s" % base)
-
-
-#    else:
-#        pass #put a full UI here
+        sys.exit(3)
