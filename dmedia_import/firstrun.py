@@ -20,10 +20,14 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+
 import gtk
 import gettext
 _ = gettext.gettext
 import gconf
+
+NO_DIALOG = '/apps/dmedia/dont-show-import-firstrun'
+
 
 class FirstRunGUI(gtk.Window):
     def __init__(self):
@@ -95,22 +99,22 @@ class FirstRunGUI(gtk.Window):
         val = 0
         if dont_show_again:
             val = 1
-        client.set_bool('/apps/dmedia/dont-show-import-firstrun', val)
+        client.set_bool(NO_DIALOG, val)
         self.ok_was_pressed = True
         self.destroy(widget)
 
-
-    def go(self, args=[]):
+    def go(self, *args):
         self.label.set_text(self.label.get_text() % ("\t" + "\n\t".join(args) + "\n"))
         self.show_all()
         gtk.main()
         return self.ok_was_pressed
 
     @classmethod
-    def run_if_first_run(cls, args=[], func_if_not=lambda x: None):
-        client = gconf.client_get_default()
-
-        if not client.get_bool('/apps/dmedia/dont-show-import-firstrun'):
-            app = cls()
-            if not app.go(args=args):
-                func_if_not(app)
+    def run_if_first_run(cls, base, dialog=False, unset=False):
+        conf = gconf.client_get_default()
+        if unset:
+            conf.unset(NO_DIALOG)
+        if conf.get_bool(NO_DIALOG):
+            return True
+        app = cls()
+        return app.go(base)

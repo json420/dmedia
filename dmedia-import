@@ -29,16 +29,17 @@ from os import path
 
 import dmedialib
 from dmedialib.client import Client
+from dmedia_import.firstrun import FirstRunGUI
 
 
 parser = optparse.OptionParser(
     version=dmedialib.__version__,
     usage='%prog DIRECTORY',
 )
-parser.add_option('--reset',
+parser.add_option('--unset',
     action='store_true',
     default=False,
-    help='reset gconf setting to repeat first-run behavior',
+    help='unset gconf value to repeat first-run behavior',
 )
 parser.add_option('--dialog',
     action='store_true',
@@ -66,6 +67,9 @@ if __name__ == '__main__':
     base = path.abspath(args[0])
     if not path.isdir(base):
         usage('not a directory: %r' % base)
+    ret = FirstRunGUI.run_if_first_run(base, options.dialog, options.unset)
+    print(ret)
+    sys.exit()
     client = Client()
     action = client.start_import(base, options.extract)
     print(action)
