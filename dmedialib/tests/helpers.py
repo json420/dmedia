@@ -31,8 +31,15 @@ import shutil
 
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
+
 sample_mov = path.join(datadir, 'MVI_5751.MOV')
+sample_mov_hash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+sample_mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
+
 sample_thm = path.join(datadir, 'MVI_5751.THM')
+sample_thm_hash = 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A'
+sample_thm_qid = 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
+
 assert path.isdir(datadir)
 assert path.isfile(sample_mov)
 assert path.isfile(sample_thm)
@@ -107,6 +114,14 @@ class TempDir(object):
         assert path.isfile(f) and not path.islink(f)
         return f
 
+    def copy(self, src, *parts):
+        self.makedirs(*parts[:-1])
+        dst = self.join(*parts)
+        assert not path.exists(dst)
+        shutil.copy2(src, dst)
+        assert path.isfile(dst) and not path.islink(dst)
+        return dst
+
     def join(self, *parts):
         return path.join(self.path, *parts)
 
@@ -123,6 +138,15 @@ class TempHome(TempDir):
     def __del__(self):
         os.environ['HOME'] = self.orig
         super(TempHome, self).__del__()
+
+
+class DummyQueue(object):
+    def __init__(self):
+        self.messages = []
+
+    def put(self, msg):
+        self.messages.append(msg)
+
 
 
 DVALUE = """assert_deepequal: expected != got.

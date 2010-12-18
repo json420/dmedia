@@ -2,6 +2,7 @@
 
 # Authors:
 #   David Green <david4dev@gmail.com>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -21,58 +22,52 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-#This is a placeholder file for the dmedia importer.
+from __future__ import print_function
 
-import gtk
-import gettext
-_ = gettext.gettext
 import sys
+import optparse
+from os import path
+
+import dmedialib
+from dmedialib.client import Client
+from dmedia_import.firstrun import FirstRunGUI
 
 
-class ImporterGUI(gtk.Window):
-    def __init__(self):
-        super(ImporterGUI, self).__init__()
-
-        self.set_title(_('dmedia Media Importer'))
-        self.resize(500, 500)
-
-        self.add_content()
-
-        self.connect_signals()
-
-
-    def add_content(self):
-        self.container = gtk.HBox()
-
-        self.label = gtk.Label(_('This will become the dmedia importer.'))
-        self.label.show()
-
-        self.container.add(self.label)
-        self.label.show()
-        self.container.show()
-        self.add(self.container)
+parser = optparse.OptionParser(
+    version=dmedialib.__version__,
+    usage='%prog DIRECTORY',
+)
+parser.add_option('--unset',
+    action='store_true',
+    default=False,
+    help='unset gconf value to repeat first-run behavior',
+)
+parser.add_option('--quick',
+    dest='extract',
+    action='store_false',
+    default=True,
+    help='import without metadata extraction or thumbnail generation',
+)
 
 
-    def connect_signals(self):
-        self.connect("delete_event", self.delete_event)
-        self.connect("destroy", self.destroy)
-
-
-    def destroy(self, widget, data=None):
-        gtk.main_quit()
-
-
-    def delete_event(self, widget, event, data=None):
-        return False
-
-
-    def go(self, args=[]):
-        self.label.set_text(self.label.get_text() + "\n\n" + ', '.join(args))
-        self.show_all()
-        gtk.main()
-
+def usage(msg, code=1):
+    parser.print_usage()
+    print('ERROR: ' + msg)
+    sys.exit(code)
 
 
 if __name__ == '__main__':
-    app = ImporterGUI()
-    app.go(args=sys.argv)
+    (options, args) = parser.parse_args()
+    if len(args) != 1:
+        usage('requires single argument DIRECTORY')
+    base = path.abspath(args[0])
+    if not path.isdir(base):
+        usage('not a directory: %r' % base)
+    if not FirstRunGUI.run_if_first_run(base, options.unset):
+        print('import_canceled')
+        sys.exit(2)
+    client = Client()
+    action = client.start_import(base, options.extract)
+    print(action)
+    if action != 'started':
+        sys.exit(3)

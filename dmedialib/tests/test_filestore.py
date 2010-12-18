@@ -30,6 +30,7 @@ import hashlib
 import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
+from dmedialib.errors import AmbiguousPath
 from dmedialib import filestore
 
 
@@ -37,6 +38,26 @@ TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
 class test_functions(TestCase):
+    def test_safe_open(self):
+        f = filestore.safe_open
+        tmp = TempDir()
+        filename = tmp.touch('example.mov')
+
+        # Test that AmbiguousPath is raised:
+        e = raises(AmbiguousPath, f, 'foo/bar', 'rb')
+        self.assertEqual(e.filename, 'foo/bar')
+        self.assertEqual(e.abspath, path.abspath('foo/bar'))
+
+        e = raises(AmbiguousPath, f, '/foo/bar/../../root', 'rb')
+        self.assertEqual(e.filename, '/foo/bar/../../root')
+        self.assertEqual(e.abspath, '/root')
+
+        # Test with absolute normalized path:
+        fp = f(filename, 'rb')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.name, filename)
+        self.assertEqual(fp.mode, 'rb')
+
     def test_safe_ext(self):
         f = filestore.safe_ext
 

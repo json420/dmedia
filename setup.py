@@ -97,11 +97,11 @@ setup(
     license='AGPLv3+',
 
     cmdclass={'test': Test},
-    packages=['dmedialib'],
+    packages=['dmedialib', 'dmedia_import'],
     package_data=dict(
         dmedialib=['data/*'],
     ),
-    scripts=['dmedia', 'dmedia-import'],
+    scripts=['dmedia', 'dmedia-import', 'dmedia-mon'],
     data_files=[
         ('share/man/man1', ['dmedia.1']),
         ('share/applications', ['dmedia-import.desktop']),
@@ -109,8 +109,10 @@ setup(
         #media devices such as cameras. `sudo update-desktop-database`
         #may need to run for this to show up in the Nautilus
         #media handling preferences.
-        ('share/pixmaps', ['dmedia.svg']),  #installs the icon
-
+        ('share/pixmaps', ['dmedia.svg']),
+        ('share/pixmaps/dmedia',
+            ['indicator-rendermenu.svg', 'indicator-rendermenu-att.svg']
+        ),
         ('share/dbus-1/services', ['org.freedesktop.DMedia.service']),
         ('lib/dmedia', ['dmedia-service']),
     ],

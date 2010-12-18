@@ -88,6 +88,8 @@ Skein hash after its final constant tweaks are made.  See:
   http://blog.novacut.com/2010/09/how-about-that-skein-hash.html
 """
 
+from __future__ import print_function
+
 import sys
 import os
 from os import path
@@ -109,6 +111,12 @@ parser.add_option('--kill',
     default=False,
     help='shutdown dmedia-service daemon and exit',
 )
+parser.add_option('--quick',
+    dest='extract',
+    action='store_false',
+    default=True,
+    help='import without metadata extraction or thumbnail generation',
+)
 parser.add_option('--type',
     action='append',
     default=[],
@@ -119,9 +127,9 @@ parser.add_option('--type',
 
 # Check if they just want us to kill the daemon
 if options.kill:
-    print 'Telling dmedia-service daemon to shutdown...'
+    print('Telling dmedia-service daemon to shutdown...')
     Client().kill()
-    print 'Shutdown.'
+    print('Shutdown.')
     sys.exit()
 
 
@@ -143,41 +151,46 @@ class CLI(object):
         self.mainloop = gobject.MainLoop()
         self.client = Client()
         self.client.connect('import_started', self.on_import_started)
+        self.client.connect('import_count', self.on_import_count)
         self.client.connect('import_progress', self.on_import_progress)
         self.client.connect('import_finished', self.on_import_finished)
 
     def on_import_started(self, client, base):
         if base != self.base:
             return
-        print 'Importing %s\n' % base
+        print('Importing %s' % base)
 
-    def on_import_progress(self, client, base, completed, total):
+    def on_import_count(self, client, base, total):
         if base != self.base:
             return
-        print 'Imported %d of %d' % (completed, total)
+        print('Found %d files\n' % total)
 
-    def on_import_finished(self, client, base):
+    def on_import_progress(self, client, base, completed, total, info):
         if base != self.base:
             return
+        print('  %(action)s %(src)s' % info)
+
+    def on_import_finished(self, client, base, stats):
+        if base != self.base:
+            return
+        print('-' * 80)
+        for key in sorted(stats):
+            print('%s=%d' % (key, stats[key]))
         self.mainloop.quit()
 
-    def run(self, options, extensions):
-        if options.type:
-            extensions.extend(self.client.get_extensions(options.type))
-        if not extensions:
-            extensions = None
+    def run(self, options):
         try:
-            self.client.start_import(self.base, extensions)
+            self.client.start_import(self.base, options.extract)
             self.mainloop.run()
         except KeyboardInterrupt:
             self.client.stop_import(self.base)
-            print '\nImport stopped'
+            print('\nImport stopped')
 
         couchdb_data_path = xdg.BaseDirectory.save_data_path('desktop-couch')
         dc = path.join(couchdb_data_path, 'couchdb.html')
-        print '\nTo browse the `dmedia` database in CouchDB, run:'
-        print '  xdg-open file://%s' % dc
+        print('\nBrowse the `dmedia` database in CouchDB:')
+        print('  file://%s\n' % dc)
 
 
 cli = CLI(base)
-cli.run(options, extensions)
+cli.run(options)

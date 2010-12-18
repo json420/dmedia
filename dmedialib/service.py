@@ -33,27 +33,36 @@ from Queue import Empty
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
+from .util import NotifyManager, import_started, batch_import_finished
 from .importer import import_files
+from .workers import register, dispatch
+
+try:
+    import pynotify
+    pynotify.init('dmedia')
+except ImportError:
+    pynotify = None
+
+try:
+    import appindicator
+    import gtk
+except ImportError:
+    appindicator = None
 
 
-def dummy_import_files(q, base, extensions):
-    # Note the dummy import will take approximately 2 seconds to complete
-    q.put(['ImportStarted', base])
-    time.sleep(1)  # Scan list of files
-    count = 4
-    q.put(['ImportProgress', base, 0, count])
-    for i in xrange(count):
-        q.put(['ImportProgress', base, i + 1, count])
-    time.sleep(1)
-    q.put(['ImportFinished', base])
+ICON = '/usr/share/pixmaps/dmedia/indicator-rendermenu.svg'
+ICON_ATT = '/usr/share/pixmaps/dmedia/indicator-rendermenu-att.svg'
 
+
+register(import_files)
 
 
 class DMedia(dbus.service.Object):
     __signals = frozenset([
         'ImportStarted',
-        'ImportFinished',
+        'ImportCount',
         'ImportProgress',
+        'ImportFinished',
     ])
 
     def __init__(self, busname=None, killfunc=None, dummy=False):
@@ -70,33 +79,112 @@ class DMedia(dbus.service.Object):
         self.__thread.daemon = True
         self.__thread.start()
 
+        if dummy or pynotify is None:
+            self._notify = None
+        else:
+            self._notify = NotifyManager()
+            self._batch = []
+        if dummy or appindicator is None:
+            self._indicator = None
+        else:
+            self._indicator = appindicator.Indicator('rendermenu', ICON,
+                appindicator.CATEGORY_APPLICATION_STATUS
+            )
+            self._indicator.set_attention_icon(ICON_ATT)
+            self._menu = gtk.Menu()
+            self._indicator.set_menu(self._menu)
+            self._indicator.set_status(appindicator.STATUS_ACTIVE)
+
     def _signal_thread(self):
         while self.__running:
             try:
                 msg = self.__queue.get(timeout=1)
-                signal = msg[0]
+                signal = msg['signal']
                 if signal not in self.__signals:
                     continue
                 method = getattr(self, signal, None)
                 if callable(method):
-                    args = msg[1:]
+                    args = msg['args']
                     method(*args)
             except Empty:
                 pass
 
-    @dbus.service.signal(INTERFACE, signature='s')
-    def ImportStarted(self, base):
-        pass
+    def _create_worker(self, name, *args):
+        pargs = (name, self.__queue, args, self._dummy)
+        p = multiprocessing.Process(
+            target=dispatch,
+            args=pargs,
+        )
+        p.daemon = True
+        return p
+
+    @dbus.service.signal(INTERFACE, signature='')
+    def BatchImportStarted(self):
+        """
+        Fired at transition from idle to at least one active import.
+
+        For pro file import UX, the RenderMenu should be set to STATUS_ATTENTION
+        when this signal is received.
+        """
+        if self._indicator:
+            self._indicator.set_status(appindicator.STATUS_ATTENTION)
+
+    @dbus.service.signal(INTERFACE, signature='a{sx}')
+    def BatchImportFinished(self, stats):
+        """
+        Fired at transition from at least one active import to idle.
+
+        *stats* will be the combined stats of all imports in this batch.
+
+        For pro file import UX, the RenderMenu should be set back to
+        STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
+        be displayed when this signal is received.
+        """
+        if self._indicator:
+            self._indicator.set_status(appindicator.STATUS_ACTIVE)
+        if self._notify is None:
+            return
+        self._batch = []
+        (summary, body) = batch_import_finished(stats)
+        self._notify.replace(summary, body, 'notification-device-eject')
 
     @dbus.service.signal(INTERFACE, signature='s')
-    def ImportFinished(self, base):
+    def ImportStarted(self, base):
+        """
+        Fired when card is inserted.
+
+        For pro file import UX, the "Searching for new files" NotifyOSD should
+        be displayed when this signal is received.  If a previous notification
+        is still visible, the two should be merge and the summary conspicuously
+        changed to be very clear that both cards were detected.
+        """
+        if self._notify is None:
+            return
+        self._batch.append(base)
+        (summary, body) = import_started(self._batch)
+        # FIXME: use correct icon depending on whether card reader is corrected
+        # via FireWire or USB
+        self._notify.replace(summary, body, 'notification-device-usb')
+
+    @dbus.service.signal(INTERFACE, signature='sx')
+    def ImportCount(self, base, total):
+        pass
+
+    @dbus.service.signal(INTERFACE, signature='siia{ss}')
+    def ImportProgress(self, base, current, total, info):
+        pass
+
+    @dbus.service.signal(INTERFACE, signature='sa{sx}')
+    def ImportFinished(self, base, stats):
         p = self.__imports.pop(base, None)
         if p is not None:
             p.join()  # Sanity check to make sure worker is terminating
 
-    @dbus.service.signal(INTERFACE, signature='sii')
-    def ImportProgress(self, base, current, total):
-        pass
+        for key in self.__stats:
+            self.__stats[key] += stats[key]
+        if len(self.__imports) == 0:
+            self.BatchImportFinished(self.__stats)
+            self.__stats = None
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def Kill(self):
@@ -135,15 +223,18 @@ class DMedia(dbus.service.Object):
                 extensions.update(EXT_MAP[key])
         return sorted(extensions)
 
-    @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
-    def StartImport(self, base, extensions):
+    @dbus.service.method(INTERFACE, in_signature='sb', out_signature='s')
+    def StartImport(self, base, extract):
         """
-        Start import of directory or file at *base*, matching *extensions*.
+        Start import of card mounted at *base*.
+
+        If *extract* is ``True``, metadata will be extracted and thumbnails
+        generated.
 
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
-        :param extensions: List of file extensions to match, e.g.
-            ``['mov', 'cr2', 'wav']``
+        :param extract: If ``True``, perform metadata extraction, thumbnail
+            generation
         """
         if path.abspath(base) != base:
             return 'not_abspath'
@@ -151,11 +242,15 @@ class DMedia(dbus.service.Object):
             return 'not_dir_or_file'
         if base in self.__imports:
             return 'already_running'
-        p = multiprocessing.Process(
-            target=(dummy_import_files if self._dummy else import_files),
-            args=(self.__queue, base, frozenset(extensions)),
-        )
-        p.daemon = True
+        p = self._create_worker('import_files', base, extract)
+        if len(self.__imports) == 0:
+            self.__stats = dict(
+                imported=0,
+                imported_bytes=0,
+                skipped=0,
+                skipped_bytes=0,
+            )
+            self.BatchImportStarted()
         self.__imports[base] = p
         p.start()
         return 'started'

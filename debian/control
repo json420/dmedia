@@ -8,7 +8,7 @@ XS-Python-Version: >= 2.6
 
 Package: python-dmedia
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, python-desktopcouch-records, totem, libimage-exiftool-perl, python-genshi, python-webkit, python-paste
+Depends: ${misc:Depends}, ${python:Depends}, python-desktopcouch-records, totem, libimage-exiftool-perl, python-genshi, python-webkit, python-paste, python-notify, python-appindicator
 XB-Python-Version: ${python:Versions}
 Description: distributed media library
  A simple distributed media library.  Media files are given a globally unique ID
