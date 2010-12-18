@@ -84,6 +84,20 @@ def units_base10(size):
 def import_started(bases):
     """
     Return notification (summary, body) for when card is inserted.
+
+    For example, with a single import:
+
+    >>> import_started(['/media/EOS_DIGITAL'])
+    ('Searching for new files...', '/media/EOS_DIGITAL')
+
+    Or with multiple parallel imports in a batch:
+
+    >>> import_started(['/media/EOS_DIGITAL', '/media/OTHER_CARD'])
+    ('Searching on 2 cards...', '/media/EOS_DIGITAL\\n/media/OTHER_CARD')
+
+    For details on pro file import UX design, see:
+
+        https://wiki.ubuntu.com/AyatanaDmediaLovefest
     """
     msg = ngettext(
         'Searching for new files...',

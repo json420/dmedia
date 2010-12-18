@@ -30,12 +30,10 @@ import time
 from threading import Thread
 import multiprocessing
 from Queue import Empty
-from gettext import gettext as _
-from gettext import ngettext
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
-from .util import batch_import_finished, NotifyManager
+from .util import NotifyManager, import_started, batch_import_finished
 from .importer import import_files
 from .workers import register, dispatch
 
@@ -75,6 +73,7 @@ class DMedia(dbus.service.Object):
             self._notify = None
         else:
             self._notify = NotifyManager()
+            self._batch = []
 
     def _signal_thread(self):
         while self.__running:
@@ -121,6 +120,7 @@ class DMedia(dbus.service.Object):
         """
         if self._notify is None:
             return
+        self._batch = []
         (summary, body) = batch_import_finished(stats)
         self._notify.replace(summary, body, 'notification-device-eject')
 
@@ -136,11 +136,11 @@ class DMedia(dbus.service.Object):
         """
         if self._notify is None:
             return
-        self._notify.replace(
-            _('Searching on 2 cards...'),
-            '\n'.join([base, '/media/OTHER_CARD']),
-            'notification-device-usb'
-        )
+        self._batch.append(base)
+        (summary, body) = import_started(self._batch)
+        # FIXME: use correct icon depending on whether card reader is corrected
+        # via FireWire or USB
+        self._notify.replace(summary, body, 'notification-device-usb')
 
     @dbus.service.signal(INTERFACE, signature='sx')
     def ImportCount(self, base, total):
