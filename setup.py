@@ -109,8 +109,10 @@ setup(
         #media devices such as cameras. `sudo update-desktop-database`
         #may need to run for this to show up in the Nautilus
         #media handling preferences.
-        ('share/pixmaps', ['dmedia.svg']),  #installs the icon
-
+        ('share/pixmaps', ['dmedia.svg']),
+        ('share/pixmaps/dmedia',
+            ['indicator-rendermenu.svg', 'indicator-rendermenu-att.svg']
+        ),
         ('share/dbus-1/services', ['org.freedesktop.DMedia.service']),
         ('lib/dmedia', ['dmedia-service']),
     ],

@@ -43,6 +43,16 @@ try:
 except ImportError:
     pynotify = None
 
+try:
+    import appindicator
+    import gtk
+except ImportError:
+    appindicator = None
+
+
+ICON = '/usr/share/pixmaps/dmedia/indicator-rendermenu.svg'
+ICON_ATT = '/usr/share/pixmaps/dmedia/indicator-rendermenu-att.svg'
+
 
 register(import_files)
 
@@ -74,6 +84,16 @@ class DMedia(dbus.service.Object):
         else:
             self._notify = NotifyManager()
             self._batch = []
+        if dummy or appindicator is None:
+            self._indicator = None
+        else:
+            self._indicator = appindicator.Indicator('rendermenu', ICON,
+                appindicator.CATEGORY_APPLICATION_STATUS
+            )
+            self._indicator.set_attention_icon(ICON_ATT)
+            self._menu = gtk.Menu()
+            self._indicator.set_menu(self._menu)
+            self._indicator.set_status(appindicator.STATUS_ACTIVE)
 
     def _signal_thread(self):
         while self.__running:
@@ -106,6 +126,8 @@ class DMedia(dbus.service.Object):
         For pro file import UX, the RenderMenu should be set to STATUS_ATTENTION
         when this signal is received.
         """
+        if self._indicator:
+            self._indicator.set_status(appindicator.STATUS_ATTENTION)
 
     @dbus.service.signal(INTERFACE, signature='a{sx}')
     def BatchImportFinished(self, stats):
@@ -118,6 +140,8 @@ class DMedia(dbus.service.Object):
         STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
         be displayed when this signal is received.
         """
+        if self._indicator:
+            self._indicator.set_status(appindicator.STATUS_ACTIVE)
         if self._notify is None:
             return
         self._batch = []
