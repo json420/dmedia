@@ -120,8 +120,29 @@ class test_functions(TestCase):
         )
         os.chmod(subdir, 0o700)
 
-    def test_create_import_record(self):
-        f = importer.create_import_record
+    def test_create_batchimport(self):
+        f = importer.create_batchimport
+        doc = f()
+        self.assertTrue(isinstance(doc, dict))
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                'type',
+                'time_start',
+                'imports',
+            ])
+        )
+        _id = doc['_id']
+        self.assertEqual(b32encode(b32decode(_id)), _id)
+        self.assertEqual(len(_id), 24)
+        self.assertEqual(doc['type'], 'dmedia/batchimport')
+        self.assertTrue(isinstance(doc['time_start'], (int, float)))
+        self.assertTrue(doc['time_start'] <= time.time())
+        self.assertEqual(doc['imports'], [])
+
+    def test_create_import(self):
+        f = importer.create_import
         doc = f('/media/EOS_DIGITAL')
         self.assertTrue(isinstance(doc, dict))
         self.assertEqual(

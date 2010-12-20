@@ -34,7 +34,8 @@ import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, import_started, batch_import_finished
-from .importer import import_files
+from .metastore import MetaStore
+from .importer import import_files, create_batchimport
 from .workers import register, dispatch
 
 try:
@@ -78,6 +79,12 @@ class DMedia(dbus.service.Object):
         self.__thread = Thread(target=self._signal_thread)
         self.__thread.daemon = True
         self.__thread.start()
+
+        if dummy:
+            self._db = None
+        else:
+            self._metastore = MetaStore()
+            self._db = self._metastore.db
 
         if dummy or pynotify is None:
             self._notify = None
@@ -250,6 +257,10 @@ class DMedia(dbus.service.Object):
                 skipped=0,
                 skipped_bytes=0,
             )
+            if self._db is not None:
+                doc = create_batchimport()
+                self._batch_id = doc['_id']
+                self._db[self._batch_id] = doc
             self.BatchImportStarted()
         self.__imports[base] = p
         p.start()

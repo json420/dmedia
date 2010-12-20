@@ -129,7 +129,22 @@ def files_iter(base):
             yield f
 
 
-def create_import_record(mount):
+def create_batchimport():
+    """
+    Create initial 'dmedia/batchimport' accounting document.
+    """
+    return {
+        '_id': random_id(),
+        'type': 'dmedia/batchimport',
+        'time_start': time.time(),
+        'imports': [],
+    }
+
+
+def create_import(mount):
+    """
+    Create initial 'dmedia/import' accounting document.
+    """
     return {
         '_id': random_id(),
         'type': 'dmedia/import',
@@ -166,7 +181,7 @@ class Importer(object):
         """
         Create the initial import record, return that record's ID.
         """
-        doc = create_import_record(self.base)
+        doc = create_import(self.base)
         self._import_id = doc['_id']
         assert self.metastore.db.create(doc) == self._import_id
         self._import = self.metastore.db[self._import_id]
