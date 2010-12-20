@@ -198,7 +198,7 @@ class Importer(object):
         doc = {
             '_id': chash,
             'type': 'dmedia/file',
-            'quickid': quickid,
+            'qid': quickid,
             'import_id': self._import_id,
             'bytes': stat.st_size,
             'mtime': stat.st_mtime,

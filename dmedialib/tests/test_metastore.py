@@ -109,14 +109,14 @@ class test_MetaStore(TestCase):
             []
         )
         inst.db.create(
-            {'_id': thm_chash, 'quickid': thm_qid, 'type': 'dmedia/file'}
+            {'_id': thm_chash, 'qid': thm_qid, 'type': 'dmedia/file'}
         )
         self.assertEqual(
             list(inst.by_quickid(mov_qid)),
             []
         )
         inst.db.create(
-            {'_id': mov_chash, 'quickid': mov_qid, 'type': 'dmedia/file'}
+            {'_id': mov_chash, 'qid': mov_qid, 'type': 'dmedia/file'}
         )
         self.assertEqual(
             list(inst.by_quickid(mov_qid)),
@@ -127,7 +127,7 @@ class test_MetaStore(TestCase):
             [thm_chash]
         )
         inst.db.create(
-            {'_id': 'should-not-happen', 'quickid': mov_qid, 'type': 'dmedia/file'}
+            {'_id': 'should-not-happen', 'qid': mov_qid, 'type': 'dmedia/file'}
         )
         self.assertEqual(
             list(inst.by_quickid(mov_qid)),

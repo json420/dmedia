@@ -91,10 +91,10 @@ function(doc) {
 }
 """
 
-file_quickid = """
+file_qid = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.quickid, null);
+        emit(doc.qid, null);
     }
 }
 """
@@ -134,7 +134,7 @@ class MetaStore(object):
         )),
 
         ('file', (
-            ('quickid', file_quickid, None),
+            ('qid', file_qid, None),
             ('import_id', file_import_id, None),
             ('bytes', file_bytes, _sum),
             ('ext', file_ext, _count),
@@ -167,8 +167,8 @@ class MetaStore(object):
             except ResourceNotFound:
                 self.db[_id] = doc
 
-    def by_quickid(self, quickid):
-        for row in self.db.view('_design/file/_view/quickid', key=quickid):
+    def by_quickid(self, qid):
+        for row in self.db.view('_design/file/_view/qid', key=qid):
             yield row.id
 
     def total_bytes(self):
