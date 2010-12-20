@@ -36,6 +36,34 @@ import tempfile
 import os
 import shutil
 
+
+class test_functions(TestCase):
+    def test_build_design_doc(self):
+        f = metastore.build_design_doc
+        views = (
+            ('bytes', 'foo', '_sum'),
+            ('mtime', 'bar', None),
+        )
+        self.assertEqual(f('file', views),
+            (
+                '_design/file',
+                {
+                    '_id': '_design/file',
+                    'language': 'javascript',
+                    'views': {
+                        'bytes': {
+                            'map': 'foo',
+                            'reduce': '_sum',
+                        },
+                        'mtime': {
+                            'map': 'bar',
+                        },
+                    }
+                }
+            )
+        )
+
+
 class test_MetaStore(TestCase):
     klass = metastore.MetaStore
 
@@ -54,8 +82,6 @@ class test_MetaStore(TestCase):
         shutil.rmtree(self.data_dir)
 
     def test_init(self):
-        self.assertEqual(self.klass.type_url, 'http://example.com/dmedia')
-
         # Test with ctx=None:
         inst = self.klass()
         self.assertEqual(inst.dbname, 'dmedia')

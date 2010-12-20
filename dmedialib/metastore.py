@@ -24,15 +24,16 @@ Store meta-data in desktop-couch.
 """
 
 from textwrap import dedent
+from couchdb import ResourceNotFound
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 from desktopcouch.local_files import DEFAULT_CONTEXT
 
 
-reduce_sum = '_sum'
-reduce_count = '_count'
+_sum = '_sum'
+_count = '_count'
 
-map_total_bytes = """
+file_bytes = """
 function(doc) {
     if (doc.bytes) {
         emit(doc.bytes, doc.bytes);
@@ -40,7 +41,7 @@ function(doc) {
 }
 """
 
-map_ext = """
+file_ext = """
 function(doc) {
     if (doc.ext) {
         emit(doc.ext, null);
@@ -48,7 +49,7 @@ function(doc) {
 }
 """
 
-map_mime = """
+file_mime = """
 function(doc) {
     if (doc.mime) {
         emit(doc.mime, null);
@@ -56,7 +57,7 @@ function(doc) {
 }
 """
 
-map_mtime = """
+file_mtime = """
 function(doc) {
     if (doc.mtime) {
         emit(doc.mtime, null);
@@ -64,17 +65,7 @@ function(doc) {
 }
 """
 
-map_links = """
-function(doc) {
-    if (doc.links) {
-        doc.links.forEach(function(link) {
-            emit(link, null);
-        });
-    }
-}
-"""
-
-map_tags = """
+file_tags = """
 function(doc) {
     if (doc.tags) {
         doc.tags.forEach(function(tag) {
@@ -84,15 +75,7 @@ function(doc) {
 }
 """
 
-map_project = """
-function(doc) {
-    if (doc.project) {
-        emit(doc.project, null);
-    }
-}
-"""
-
-map_quickid = """
+file_quickid = """
 function(doc) {
     if (doc.quickid) {
         emit(doc.quickid, null);
@@ -101,19 +84,32 @@ function(doc) {
 """
 
 
-class MetaStore(object):
-    type_url = 'http://example.com/dmedia'
-
-    views = {
-        'quickid': (map_quickid, None),
-        'total_bytes': (map_total_bytes, reduce_sum),
-        'ext': (map_ext, reduce_count),
-        'mime': (map_mime, reduce_count),
-        'mtime': (map_mtime, None),
-        'links': (map_links, None),
-        'tags': (map_tags, reduce_count),
-        'project': (map_project, reduce_count),
+def build_design_doc(design, views):
+    _id = '_design/' + design
+    d = {}
+    for (view, map_, reduce_) in views:
+        d[view] = {'map': map_}
+        if reduce_ is not None:
+            d[view]['reduce'] = reduce_
+    doc = {
+        '_id': _id,
+        'language': 'javascript',
+        'views': d,
     }
+    return (_id, doc)
+
+
+class MetaStore(object):
+    designs = (
+        ('file', (
+            ('quickid', file_quickid, None),
+            ('bytes', file_bytes, _sum),
+            ('ext', file_ext, _count),
+            ('mime', file_mime, _count),
+            ('mtime', file_mtime, None),
+            ('tags', file_tags, _count),
+        )),
+    )
 
     def __init__(self, dbname='dmedia', ctx=None):
         self.dbname = dbname
@@ -128,23 +124,25 @@ class MetaStore(object):
         self.create_views()
 
     def create_views(self):
-        for (key, value) in self.views.iteritems():
-            if not self.desktop.view_exists(key):
-                (map_, reduce_) = value
-                self.desktop.add_view(key, map_, reduce_)
-
-    def new(self, kw):
-        return Record(kw, self.type_url)
+        for (name, views) in self.designs:
+            (_id, doc) = build_design_doc(name, views)
+            try:
+                old = self.db[_id]
+                doc['_rev'] = old['_rev']
+                if old != doc:
+                    self.db[_id] = doc
+            except ResourceNotFound:
+                self.db[_id] = doc
 
     def by_quickid(self, quickid):
-        for row in self.desktop.execute_view('quickid', key=quickid):
+        for row in self.db.view('_design/file/_view/quickid', key=quickid):
             yield row.id
 
     def total_bytes(self):
-        for row in self.desktop.execute_view('total_bytes'):
+        for row in self.db.view('_design/file/_view/bytes'):
             return row.value
         return 0
 
     def extensions(self):
-        for row in self.desktop.execute_view('ext', group=True):
+        for row in self.db.view('_design/file/_view/ext', group=True):
             yield (row.key, row.value)
