@@ -147,6 +147,11 @@ class DMedia(dbus.service.Object):
         STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
         be displayed when this signal is received.
         """
+        if self._db:
+            doc = self._db[self._batch_id]
+            doc['time_end'] = time.time()
+            doc.update(stats)
+            self._db[self._batch_id] = doc
         if self._indicator:
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
         if self._notify is None:
@@ -165,6 +170,10 @@ class DMedia(dbus.service.Object):
         is still visible, the two should be merge and the summary conspicuously
         changed to be very clear that both cards were detected.
         """
+        if self._db:
+            doc = self._db[self._batch_id]
+            doc['imports'].append(import_id)
+            self._db[self._batch_id] = doc
         if self._notify is None:
             return
         self._batch.append(base)
