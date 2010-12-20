@@ -28,6 +28,8 @@ import os
 from os import path
 import mimetypes
 import time
+from .util import random_id
+from .constants import IMPORT_RECORD
 from .workers import Worker
 from .filestore import FileStore, quick_id, safe_open
 from .metastore import MetaStore
@@ -125,6 +127,15 @@ def files_iter(base):
     for fullname in dirs:
         for f in files_iter(fullname):
             yield f
+
+
+def create_import_record(mount):
+    return {
+        '_id': random_id(),
+        'record_type': IMPORT_RECORD,
+        'mount': mount,
+        'time_start': time.time(),
+    }
 
 
 class Importer(object):

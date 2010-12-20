@@ -29,6 +29,8 @@ from os import path
 import hashlib
 import tempfile
 import shutil
+import time
+from base64 import b32decode, b32encode
 from unittest import TestCase
 from multiprocessing import current_process
 from .helpers import TempDir, TempHome, raises, DummyQueue
@@ -117,6 +119,29 @@ class test_functions(TestCase):
             '[Errno 13] Permission denied: %r' % subdir
         )
         os.chmod(subdir, 0o700)
+
+    def test_create_import_record(self):
+        f = importer.create_import_record
+        doc = f('/media/EOS_DIGITAL')
+        self.assertTrue(isinstance(doc, dict))
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                'record_type',
+                'time_start',
+                'mount',
+            ])
+        )
+        _id = doc['_id']
+        self.assertEqual(b32encode(b32decode(_id)), _id)
+        self.assertEqual(len(_id), 24)
+        self.assertEqual(doc['record_type'],
+            'http://www.freedesktop.org/wiki/Specifications/dmedia/import'
+        )
+        self.assertTrue(isinstance(doc['time_start'], (int, float)))
+        self.assertTrue(doc['time_start'] <= time.time())
+        self.assertEqual(doc['mount'], '/media/EOS_DIGITAL')
 
 
 class test_Importer(TestCase):

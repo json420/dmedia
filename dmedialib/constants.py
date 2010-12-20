@@ -31,6 +31,10 @@ mimetypes.init()
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'
 
+_base = 'http://www.freedesktop.org/wiki/Specifications/'
+IMPORT_RECORD = _base + 'dmedia/import'
+FILE_RECORD = _base + 'dmedia/file'
+
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 def get_extensions_for_type(general_type):
@@ -56,5 +60,3 @@ EXT_MAP = {
     'image': IMAGE,
     'all': EXTENSIONS,
 }
-
-
