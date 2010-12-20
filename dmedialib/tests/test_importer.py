@@ -314,6 +314,7 @@ class test_Importer(TestCase):
         dup1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
         src2 = self.tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
 
+        import_id = inst.start()
         items = tuple(inst.import_all_iter())
         self.assertEqual(len(items), 3)
         self.assertEqual(
@@ -327,7 +328,7 @@ class test_Importer(TestCase):
         self.assertEqual(items[0][2],
             {
                 '_id': sample_mov_hash,
-                'import_id': None,
+                'import_id': import_id,
                 'quickid': sample_mov_qid,
                 'bytes': path.getsize(src1),
                 'mtime': path.getmtime(src1),
@@ -340,7 +341,7 @@ class test_Importer(TestCase):
         self.assertEqual(items[1][2],
             {
                 '_id': sample_thm_hash,
-                'import_id': None,
+                'import_id': import_id,
                 'quickid': sample_thm_qid,
                 'bytes': path.getsize(src2),
                 'mtime': path.getmtime(src2),

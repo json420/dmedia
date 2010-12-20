@@ -145,6 +145,7 @@ class Importer(object):
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(path.join(self.home, DOTDIR))
         self.metastore = MetaStore(ctx=ctx)
+        self.db = self.metastore.db
 
         self.__stats = {
             'imported': {
@@ -228,6 +229,9 @@ class Importer(object):
         assert len(files) == len(self.__imported)
         assert set(files) == set(self.__imported)
         s = self.get_stats()
+        self._import.update(s)
+        self._import['time_end'] = time.time()
+        self.db[self._import_id] = self._import
         assert s['imported']['count'] + s['skipped']['count'] == len(files)
         return s
 
