@@ -236,46 +236,6 @@ class Importer(object):
         assert s['imported']['count'] + s['skipped']['count'] == len(files)
         return s
 
-    def _import_one(self, d, extract=True):
-        try:
-            fp = open(d['src'], 'rb')
-        except IOError:
-            d['action'] = 'ioerror'
-            return d
-        doc = d['doc']
-        stat = os.fstat(fp.fileno())
-        quickid = quick_id(fp)
-        doc.update({
-            'quickid': quickid,
-            'mtime': stat.st_mtime,
-            'bytes': stat.st_size,
-        })
-        ids = list(self.metastore.by_quickid(quickid))
-        if ids:
-            d['action'] = 'skipped_duplicate'
-            return d
-        (chash, action) = self.filestore.import_file(fp, quickid, doc['ext'])
-        doc['_id'] = chash
-        if doc['ext']:
-            doc['mime'] = mimetypes.types_map.get('.' + doc['ext'])
-        d['action'] = action
-        if extract:
-            merge_metadata(d)
-        self.metastore.db.create(d['doc'])
-        return d
-
-    def recursive_import(self, base, extensions, common=None, extract=True):
-        for d in scanfiles(base, extensions):
-            if common:
-                d['doc'].update(common)
-            yield self._import_one(d, extract)
-
-    def import_files(self, files, common=None, extract=True):
-        for d in files:
-            if common:
-                d['doc'].update(common)
-            yield self._import_one(d, extract)
-
 
 class DummyImporter(object):
     """
