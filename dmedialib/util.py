@@ -24,6 +24,8 @@ Misc. utility functions and classes.
 """
 
 from math import log, floor
+import os
+from base64 import b32encode
 from gettext import gettext as _
 from gettext import ngettext
 
@@ -31,6 +33,15 @@ try:
     from pynotify import Notification
 except ImportError:
     Notification = None
+
+
+def random_id():
+    """
+    Returns a 120-bit base32-encoded random _id.
+
+    The _id will be 24-characters long, URL and filesystem safe.
+    """
+    return b32encode(os.urandom(15))
 
 
 UNITS_BASE10 = (

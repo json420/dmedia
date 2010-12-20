@@ -24,11 +24,21 @@ Unit tests for `dmedialib.util` module.
 """
 
 from unittest import TestCase
+from base64 import b32encode, b32decode
 from .helpers import raises
 from dmedialib import util
 
 
+
 class test_functions(TestCase):
+    def test_random_id(self):
+        f = util.random_id
+        _id = f()
+        self.assertEqual(len(_id), 24)
+        binary = b32decode(_id)
+        self.assertEqual(len(binary), 15)
+        self.assertEqual(b32encode(binary), _id)
+
     def test_units_base10(self):
         f = util.units_base10
 
