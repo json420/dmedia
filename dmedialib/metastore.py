@@ -93,7 +93,7 @@ function(doc) {
 
 file_qid = """
 function(doc) {
-    if (doc.type == 'dmedia/file') {
+    if (doc.type == 'dmedia/file' && doc.qid) {
         emit(doc.qid, null);
     }
 }
@@ -101,7 +101,7 @@ function(doc) {
 
 file_import_id = """
 function(doc) {
-    if (doc.type == 'dmedia/file') {
+    if (doc.type == 'dmedia/file' && doc.import_id) {
         emit(doc.import_id, null);
     }
 }
