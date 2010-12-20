@@ -33,6 +33,14 @@ from desktopcouch.local_files import DEFAULT_CONTEXT
 _sum = '_sum'
 _count = '_count'
 
+type_type = """
+function(doc) {
+    if (doc.type) {
+        emit(doc.type, null);
+    }
+}
+"""
+
 file_bytes = """
 function(doc) {
     if (doc.bytes) {
@@ -108,6 +116,10 @@ class MetaStore(object):
             ('mime', file_mime, _count),
             ('mtime', file_mtime, None),
             ('tags', file_tags, _count),
+        )),
+
+        ('type', (
+            ('type', type_type, _count),
         )),
     )
 

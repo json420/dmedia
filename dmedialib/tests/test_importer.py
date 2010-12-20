@@ -128,7 +128,7 @@ class test_functions(TestCase):
             set(doc),
             set([
                 '_id',
-                'record_type',
+                'type',
                 'time_start',
                 'mount',
             ])
@@ -136,9 +136,7 @@ class test_functions(TestCase):
         _id = doc['_id']
         self.assertEqual(b32encode(b32decode(_id)), _id)
         self.assertEqual(len(_id), 24)
-        self.assertEqual(doc['record_type'],
-            'http://www.freedesktop.org/wiki/Specifications/dmedia/import'
-        )
+        self.assertEqual(doc['type'], 'dmedia/import')
         self.assertTrue(isinstance(doc['time_start'], (int, float)))
         self.assertTrue(doc['time_start'] <= time.time())
         self.assertEqual(doc['mount'], '/media/EOS_DIGITAL')
@@ -190,7 +188,7 @@ class test_Importer(TestCase):
             set([
                 '_id',
                 '_rev',
-                'record_type',
+                'type',
                 'time_start',
                 'mount',
             ])
@@ -261,6 +259,7 @@ class test_Importer(TestCase):
         size = path.getsize(src1)
         doc = {
             '_id': sample_mov_hash,
+            'type': 'dmedia/file',
             'import_id': None,
             'quickid': sample_mov_qid,
             'bytes': size,
@@ -328,6 +327,7 @@ class test_Importer(TestCase):
         self.assertEqual(items[0][2],
             {
                 '_id': sample_mov_hash,
+                'type': 'dmedia/file',
                 'import_id': import_id,
                 'quickid': sample_mov_qid,
                 'bytes': path.getsize(src1),
@@ -341,6 +341,7 @@ class test_Importer(TestCase):
         self.assertEqual(items[1][2],
             {
                 '_id': sample_thm_hash,
+                'type': 'dmedia/file',
                 'import_id': import_id,
                 'quickid': sample_thm_qid,
                 'bytes': path.getsize(src2),

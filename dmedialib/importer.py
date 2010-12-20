@@ -132,7 +132,7 @@ def files_iter(base):
 def create_import_record(mount):
     return {
         '_id': random_id(),
-        'record_type': IMPORT_RECORD,
+        'type': 'dmedia/import',
         'mount': mount,
         'time_start': time.time(),
     }
@@ -197,6 +197,7 @@ class Importer(object):
         stat = os.fstat(fp.fileno())
         doc = {
             '_id': chash,
+            'type': 'dmedia/file',
             'quickid': quickid,
             'import_id': self._import_id,
             'bytes': stat.st_size,
