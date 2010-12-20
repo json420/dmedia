@@ -176,7 +176,7 @@ class test_Client(TestCase):
             ('batch_started',)
         )
         self.assertEqual(c.signals[1],
-            ('started', base)
+            ('started', base, '4CXJKLJ3MXAVTNWYEPHTETHV')
         )
         self.assertEqual(c.signals[2],
             ('count', base, 3)

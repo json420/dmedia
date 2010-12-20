@@ -105,7 +105,7 @@ class Client(gobject.GObject):
             [TYPE_PYOBJECT]
         ),
         'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [TYPE_PYOBJECT]
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'import_count': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
@@ -165,8 +165,8 @@ class Client(gobject.GObject):
     def _on_BatchImportFinished(self, stats):
         self.emit('batch_import_finished', stats)
 
-    def _on_ImportStarted(self, base):
-        self.emit('import_started', base)
+    def _on_ImportStarted(self, base, import_id):
+        self.emit('import_started', base, import_id)
 
     def _on_ImportCount(self, base, total):
         self.emit('import_count', base, total)

@@ -158,6 +158,17 @@ class Importer(object):
         }
         self.__files = None
         self.__imported = []
+        self._import = None
+
+    def start(self):
+        """
+        Create the initial import record, return that record's ID.
+        """
+        doc = create_import_record(self.base)
+        _id = doc['_id']
+        assert self.metastore.db.create(doc) == _id
+        self._import = self.metastore.db[_id]
+        return _id
 
     def get_stats(self):
         return dict(
@@ -278,6 +289,9 @@ class DummyImporter(object):
         self._mov_size = 20202333
         self._thm_size = 27328
 
+    def start(self):
+        return '4CXJKLJ3MXAVTNWYEPHTETHV'
+
     def scanfiles(self):
         time.sleep(1)
         return self._files
@@ -311,12 +325,13 @@ class import_files(Worker):
 
     def execute(self, base, extract):
 
-        self.emit('ImportStarted', base)
-
         if self.dummy:
             adapter = DummyImporter(base)
         else:
             adapter = Importer(base, extract, ctx=self.ctx)
+
+        import_id = adapter.start()
+        self.emit('ImportStarted', base, import_id)
 
         files = adapter.scanfiles()
         total = len(files)

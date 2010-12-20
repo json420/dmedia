@@ -178,6 +178,24 @@ class test_Importer(TestCase):
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
         self.assertTrue(isinstance(inst.metastore, MetaStore))
 
+    def test_start(self):
+        inst = self.new()
+        self.assertTrue(inst._import is None)
+        _id = inst.start()
+        self.assertEqual(len(_id), 24)
+        store = MetaStore(ctx=self.ctx)
+        self.assertEqual(inst._import, store.db[_id])
+        self.assertEqual(
+            set(inst._import),
+            set([
+                '_id',
+                '_rev',
+                'record_type',
+                'time_start',
+                'mount',
+            ])
+        )
+
     def test_get_stats(self):
         inst = self.new()
         one = inst.get_stats()
@@ -381,13 +399,15 @@ class import_files(TestCase):
         inst.run()
 
         self.assertEqual(len(q.messages), 6)
+        _id = q.messages[0]['args'][1]
+        self.assertEqual(len(_id), 24)
         self.assertEqual(
             q.messages[0],
             dict(
                 worker='import_files',
                 pid=pid,
                 signal='ImportStarted',
-                args=(base,),
+                args=(base, _id),
             )
         )
         self.assertEqual(
@@ -468,7 +488,7 @@ class import_files(TestCase):
                 worker='import_files',
                 pid=pid,
                 signal='ImportStarted',
-                args=(base,),
+                args=(base, '4CXJKLJ3MXAVTNWYEPHTETHV'),
             )
         )
         self.assertEqual(

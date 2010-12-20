@@ -148,8 +148,8 @@ class DMedia(dbus.service.Object):
         (summary, body) = batch_import_finished(stats)
         self._notify.replace(summary, body, 'notification-device-eject')
 
-    @dbus.service.signal(INTERFACE, signature='s')
-    def ImportStarted(self, base):
+    @dbus.service.signal(INTERFACE, signature='ss')
+    def ImportStarted(self, base, import_id):
         """
         Fired when card is inserted.
 
