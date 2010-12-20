@@ -41,6 +41,14 @@ function(doc) {
 }
 """
 
+import_time_start = """
+function(doc) {
+    if (doc.type == 'dmedia/import') {
+        emit(doc.time_start, null);
+    }
+}
+"""
+
 file_bytes = """
 function(doc) {
     if (doc.type == 'dmedia/file' && typeof(doc.bytes) == 'number') {
@@ -91,6 +99,14 @@ function(doc) {
 }
 """
 
+file_import_id = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        emit(doc.import_id, null);
+    }
+}
+"""
+
 
 def build_design_doc(design, views):
     _id = '_design/' + design
@@ -109,17 +125,22 @@ def build_design_doc(design, views):
 
 class MetaStore(object):
     designs = (
+        ('type', (
+            ('type', type_type, _count),
+        )),
+
+        ('import', (
+            ('time_start', import_time_start, None),
+        )),
+
         ('file', (
             ('quickid', file_quickid, None),
+            ('import_id', file_import_id, None),
             ('bytes', file_bytes, _sum),
             ('ext', file_ext, _count),
             ('mime', file_mime, _count),
             ('mtime', file_mtime, None),
             ('tags', file_tags, _count),
-        )),
-
-        ('type', (
-            ('type', type_type, _count),
         )),
     )
 
