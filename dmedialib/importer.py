@@ -159,16 +159,17 @@ class Importer(object):
         self.__files = None
         self.__imported = []
         self._import = None
+        self._import_id = None
 
     def start(self):
         """
         Create the initial import record, return that record's ID.
         """
         doc = create_import_record(self.base)
-        _id = doc['_id']
-        assert self.metastore.db.create(doc) == _id
-        self._import = self.metastore.db[_id]
-        return _id
+        self._import_id = doc['_id']
+        assert self.metastore.db.create(doc) == self._import_id
+        self._import = self.metastore.db[self._import_id]
+        return self._import_id
 
     def get_stats(self):
         return dict(
@@ -196,6 +197,7 @@ class Importer(object):
         doc = {
             '_id': chash,
             'quickid': quickid,
+            'import_id': self._import_id,
             'bytes': stat.st_size,
             'mtime': stat.st_mtime,
             'basename': basename,

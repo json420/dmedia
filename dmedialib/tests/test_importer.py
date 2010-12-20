@@ -261,6 +261,7 @@ class test_Importer(TestCase):
         size = path.getsize(src1)
         doc = {
             '_id': sample_mov_hash,
+            'import_id': None,
             'quickid': sample_mov_qid,
             'bytes': size,
             'mtime': path.getmtime(src1),
@@ -326,6 +327,7 @@ class test_Importer(TestCase):
         self.assertEqual(items[0][2],
             {
                 '_id': sample_mov_hash,
+                'import_id': None,
                 'quickid': sample_mov_qid,
                 'bytes': path.getsize(src1),
                 'mtime': path.getmtime(src1),
@@ -338,6 +340,7 @@ class test_Importer(TestCase):
         self.assertEqual(items[1][2],
             {
                 '_id': sample_thm_hash,
+                'import_id': None,
                 'quickid': sample_thm_qid,
                 'bytes': path.getsize(src2),
                 'mtime': path.getmtime(src2),
