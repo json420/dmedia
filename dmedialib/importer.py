@@ -207,7 +207,7 @@ class Importer(object):
             'ext': ext,
         }
         if ext:
-            doc['mime'] = mimetypes.types_map.get('.' + ext)
+            doc['content_type'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
         assert self.metastore.db.create(doc) == chash

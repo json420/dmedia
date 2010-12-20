@@ -267,7 +267,7 @@ class test_Importer(TestCase):
             'basename': 'MVI_5751.MOV',
             'dirname': 'DCIM/100EOS5D2',
             'ext': 'mov',
-            'mime': 'video/quicktime',
+            'content_type': 'video/quicktime',
         }
         self.assertEqual(
             inst.import_file(src1),
@@ -335,7 +335,7 @@ class test_Importer(TestCase):
                 'basename': 'MVI_5751.MOV',
                 'dirname': 'DCIM/100EOS5D2',
                 'ext': 'mov',
-                'mime': 'video/quicktime',
+                'content_type': 'video/quicktime',
             }
         )
         self.assertEqual(items[1][2],
@@ -349,7 +349,7 @@ class test_Importer(TestCase):
                 'basename': 'MVI_5751.THM',
                 'dirname': 'DCIM/100EOS5D2',
                 'ext': 'thm',
-                'mime': None,
+                'content_type': None,
             }
         )
 
