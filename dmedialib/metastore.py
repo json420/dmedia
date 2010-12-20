@@ -43,7 +43,7 @@ function(doc) {
 
 file_bytes = """
 function(doc) {
-    if (doc.bytes) {
+    if (doc.type == 'dmedia/file' && typeof(doc.bytes) == 'number') {
         emit(doc.bytes, doc.bytes);
     }
 }
@@ -51,7 +51,7 @@ function(doc) {
 
 file_ext = """
 function(doc) {
-    if (doc.ext) {
+    if (doc.type == 'dmedia/file') {
         emit(doc.ext, null);
     }
 }
@@ -59,7 +59,7 @@ function(doc) {
 
 file_mime = """
 function(doc) {
-    if (doc.mime) {
+    if (doc.type == 'dmedia/file') {
         emit(doc.mime, null);
     }
 }
@@ -67,7 +67,7 @@ function(doc) {
 
 file_mtime = """
 function(doc) {
-    if (doc.mtime) {
+    if (doc.type == 'dmedia/file') {
         emit(doc.mtime, null);
     }
 }
@@ -75,7 +75,7 @@ function(doc) {
 
 file_tags = """
 function(doc) {
-    if (doc.tags) {
+    if (doc.type == 'dmedia/file' && doc.tags) {
         doc.tags.forEach(function(tag) {
             emit(tag, null);
         });
@@ -85,7 +85,7 @@ function(doc) {
 
 file_quickid = """
 function(doc) {
-    if (doc.quickid) {
+    if (doc.type == 'dmedia/file') {
         emit(doc.quickid, null);
     }
 }

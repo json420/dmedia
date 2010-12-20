@@ -108,12 +108,16 @@ class test_MetaStore(TestCase):
             list(inst.by_quickid(mov_qid)),
             []
         )
-        inst.db.create({'_id': thm_chash, 'quickid': thm_qid})
+        inst.db.create(
+            {'_id': thm_chash, 'quickid': thm_qid, 'type': 'dmedia/file'}
+        )
         self.assertEqual(
             list(inst.by_quickid(mov_qid)),
             []
         )
-        inst.db.create({'_id': mov_chash, 'quickid': mov_qid})
+        inst.db.create(
+            {'_id': mov_chash, 'quickid': mov_qid, 'type': 'dmedia/file'}
+        )
         self.assertEqual(
             list(inst.by_quickid(mov_qid)),
             [mov_chash]
@@ -122,7 +126,9 @@ class test_MetaStore(TestCase):
             list(inst.by_quickid(thm_qid)),
             [thm_chash]
         )
-        inst.db.create({'_id': 'should-not-happen', 'quickid': mov_qid})
+        inst.db.create(
+            {'_id': 'should-not-happen', 'quickid': mov_qid, 'type': 'dmedia/file'}
+        )
         self.assertEqual(
             list(inst.by_quickid(mov_qid)),
             [mov_chash, 'should-not-happen']
@@ -135,16 +141,16 @@ class test_MetaStore(TestCase):
         for exp in xrange(20, 31):
             size = 2 ** exp + 1
             total += size
-            inst.db.create({'bytes': size})
+            inst.db.create({'bytes': size, 'type': 'dmedia/file'})
             self.assertEqual(inst.total_bytes(), total)
 
     def test_extensions(self):
         inst = self.new()
         self.assertEqual(list(inst.extensions()), [])
         for i in xrange(17):
-            inst.db.create({'ext': 'mov'})
-            inst.db.create({'ext': 'jpg'})
-            inst.db.create({'ext': 'cr2'})
+            inst.db.create({'ext': 'mov', 'type': 'dmedia/file'})
+            inst.db.create({'ext': 'jpg', 'type': 'dmedia/file'})
+            inst.db.create({'ext': 'cr2', 'type': 'dmedia/file'})
         self.assertEqual(
             list(inst.extensions()),
             [
@@ -154,8 +160,8 @@ class test_MetaStore(TestCase):
             ]
         )
         for i in xrange(27):
-            inst.db.create({'ext': 'mov'})
-            inst.db.create({'ext': 'jpg'})
+            inst.db.create({'ext': 'mov', 'type': 'dmedia/file'})
+            inst.db.create({'ext': 'jpg', 'type': 'dmedia/file'})
         self.assertEqual(
             list(inst.extensions()),
             [
@@ -165,7 +171,7 @@ class test_MetaStore(TestCase):
             ]
         )
         for i in xrange(25):
-            inst.db.create({'ext': 'mov'})
+            inst.db.create({'ext': 'mov', 'type': 'dmedia/file'})
         self.assertEqual(
             list(inst.extensions()),
             [
