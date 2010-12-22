@@ -25,7 +25,10 @@ Unit tests for `dmedialib.workers` module.
 
 from os import path
 from unittest import TestCase
+import multiprocessing
+import multiprocessing.queues
 from multiprocessing import current_process
+import threading
 from dmedialib import workers
 from .helpers import raises, DummyQueue
 
@@ -286,3 +289,50 @@ class test_Worker(TestCase):
         inst = do_something(q, args)
         e = raises(NotImplementedError, inst.execute)
         self.assertEqual(str(e), 'do_something.execute()')
+
+
+class test_Manager(TestCase):
+    klass = workers.Manager
+
+    def test_init(self):
+        inst = self.klass()
+        self.assertTrue(inst._running is False)
+        self.assertEqual(inst._workers, {})
+        self.assertTrue(isinstance(inst._q, multiprocessing.queues.Queue))
+        self.assertTrue(inst._thread is None)
+
+    def test_start(self):
+        inst = self.klass()
+
+        # Test that start() returns False when already running:
+        inst._running = True
+        self.assertTrue(inst.start() is False)
+        self.assertTrue(inst._thread is None)
+
+        # Start the Manager:
+        inst._running = False
+        self.assertTrue(inst.start() is True)
+        self.assertTrue(inst._running is True)
+        self.assertTrue(isinstance(inst._thread, threading.Thread))
+        self.assertTrue(inst._thread.daemon is True)
+        self.assertTrue(inst._thread.is_alive() is True)
+
+        # Shutdown thread:
+        inst._running = False
+        inst._thread.join()
+
+    def test_kill(self):
+        inst = self.klass()
+
+        # Test that kill() returns False when not running:
+        self.assertTrue(inst.kill() is False)
+
+    def test_do(self):
+        inst = self.klass()
+
+        # Test that False is return when key already exists:
+        inst._workers['foo'] = 'bar'
+        self.assertTrue(inst.do('foo', 'some_stuff') is False)
+
+        inst._workers.clear()
+        self.assertTrue(inst.do('foo', 'some_stuff') is True)

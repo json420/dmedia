@@ -23,8 +23,12 @@
 Multi-process workers.
 """
 
+import multiprocessing
 from multiprocessing import current_process
+from threading import Thread, Lock
+from Queue import Empty
 from .constants import TYPE_ERROR
+
 
 _workers = {}
 
@@ -122,3 +126,55 @@ class Worker(object):
         raise NotImplementedError(
             '%s.execute()' % self.name
         )
+
+
+class Manager(object):
+    def __init__(self):
+        self._running = False
+        self._workers = {}
+        self._q = multiprocessing.Queue()
+        self._lock = Lock()
+        self._thread = None
+
+    def _signal_thread(self):
+        while self._running:
+            try:
+                msg = self._q.get(timeout=1)
+                signal = msg['signal']
+                if signal not in self.__signals:
+                    continue
+                method = getattr(self, signal, None)
+                if callable(method):
+                    args = msg['args']
+                    method(*args)
+            except Empty:
+                pass
+
+    def start(self):
+        with self._lock:
+            if self._running:
+                return False
+            self._running = True
+            self._thread = Thread(target=self._signal_thread)
+            self._thread.daemon = True
+            self._thread.start()
+            return True
+
+    def kill(self):
+        with self._lock:
+            if not self._running:
+                return False
+            self._running = False
+            self._thread.join()  # Cleanly shutdown _signal_thread
+            return True
+            for p in self._imports.values():
+                p.terminate()
+                p.join()
+            if callable(self._killfunc):
+                self._killfunc()
+
+    def do(self, key, name, *args, **kw):
+        with self._lock:
+            if key in self._workers:
+                return False
+            return True
