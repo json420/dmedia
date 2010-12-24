@@ -133,6 +133,8 @@ class test_functions(TestCase):
                 'type',
                 'time_start',
                 'imports',
+                'imported',
+                'skipped',
             ])
         )
         _id = doc['_id']
@@ -142,6 +144,8 @@ class test_functions(TestCase):
         self.assertTrue(isinstance(doc['time_start'], (int, float)))
         self.assertTrue(doc['time_start'] <= time.time())
         self.assertEqual(doc['imports'], [])
+        self.assertEqual(doc['imported'], {'count': 0, 'bytes': 0})
+        self.assertEqual(doc['skipped'], {'count': 0, 'bytes': 0})
 
     def test_create_import(self):
         f = importer.create_import
@@ -165,6 +169,45 @@ class test_functions(TestCase):
         self.assertTrue(doc['time_start'] <= time.time())
         self.assertEqual(doc['batch_id'], 'YKGHY6H5RVCDNMUBL4NLP6AU')
         self.assertEqual(doc['mount'], '/media/EOS_DIGITAL')
+
+    def test_to_dbus_stats(self):
+        f = importer.to_dbus_stats
+        stats = dict(
+            imported={'count': 17, 'bytes': 98765},
+            skipped={'count': 3, 'bytes': 12345},
+        )
+        result = dict(
+            imported=17,
+            imported_bytes=98765,
+            skipped=3,
+            skipped_bytes=12345,
+        )
+        self.assertEqual(f(stats), result)
+
+    def test_accumulate_stats(self):
+        f = importer.accumulate_stats
+        accum = dict(
+            imported={'count': 0, 'bytes': 0},
+            skipped={'count': 0, 'bytes': 0},
+        )
+        stats1 = dict(
+            imported={'count': 17, 'bytes': 98765},
+            skipped={'count': 3, 'bytes': 12345},
+        )
+        stats2 = dict(
+            imported={'count': 18, 'bytes': 9876},
+            skipped={'count': 5, 'bytes': 1234},
+        )
+        f(accum, stats1)
+        self.assertEqual(accum, stats1)
+        f(accum, dict(stats2))
+        self.assertEqual(
+            accum,
+            dict(
+                imported={'count': 17 + 18, 'bytes': 98765 + 9876},
+                skipped={'count': 3 + 5, 'bytes': 12345 + 1234},
+            )
+        )
 
 
 class test_Importer(CouchCase):
@@ -478,7 +521,8 @@ class test_ImportManager(CouchCase):
     klass = importer.ImportManager
 
     def test_start_batch(self):
-        inst = self.klass(couchdir=self.couchdir)
+        callback = DummyCallback()
+        inst = self.klass(callback, self.couchdir)
 
         # Test that batch cannot be started when there are active workers:
         inst._workers['foo'] = 'bar'
@@ -488,25 +532,77 @@ class test_ImportManager(CouchCase):
         # Test under normal conditions
         inst._start_batch()
         batch = inst._batch
+        batch_id = batch['_id']
         self.assertTrue(isinstance(batch, dict))
         self.assertEqual(
             set(batch),
-            set(['_id', '_rev', 'type', 'time_start', 'imports'])
+            set([
+                '_id', '_rev',
+                'type',
+                'time_start',
+                'imports',
+                'imported',
+                'skipped',
+            ])
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
         self.assertEqual(batch['imports'], [])
         self.assertEqual(inst.db[batch['_id']], batch)
+        self.assertEqual(
+            callback.messages,
+            [
+                ('BatchStarted', (batch_id,)),
+            ]
+        )
 
         # Test that batch cannot be re-started without first finishing
         self.assertRaises(AssertionError, inst._start_batch)
 
+    def test_finish_batch(self):
+        callback = DummyCallback()
+        inst = self.klass(callback, self.couchdir)
+        batch_id = random_id()
+        inst._batch = dict(
+            _id=batch_id,
+            imported={'count': 17, 'bytes': 98765},
+            skipped={'count': 3, 'bytes': 12345},
+        )
+
+        # Make sure it checks that workers is empty
+        inst._workers['foo'] = 'bar'
+        self.assertRaises(AssertionError, inst._finish_batch)
+        self.assertEqual(callback.messages, [])
+
+        # Check that it fires signal correctly
+        inst._workers.clear()
+        inst._finish_batch()
+        self.assertEqual(inst._batch, None)
+        stats = dict(
+            imported=17,
+            imported_bytes=98765,
+            skipped=3,
+            skipped_bytes=12345,
+        )
+        self.assertEqual(
+            callback.messages,
+            [
+                ('BatchFinished', (batch_id, stats)),
+            ]
+        )
+
     def test_on_started(self):
         callback = DummyCallback()
         inst = self.klass(callback, self.couchdir)
+        self.assertEqual(callback.messages, [])
         inst._start_batch()
         batch_id = inst._batch['_id']
         self.assertEqual(inst.db[batch_id]['imports'], [])
-        self.assertEqual(callback.messages, [])
+        self.assertEqual(
+            callback.messages,
+            [
+                ('BatchStarted', (batch_id,)),
+            ]
+        )
 
         one = TempDir()
         one_id = random_id()
@@ -515,6 +611,7 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             callback.messages,
             [
+                ('BatchStarted', (batch_id,)),
                 ('ImportStarted', (one.path, one_id)),
             ]
         )
@@ -526,6 +623,7 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             callback.messages,
             [
+                ('BatchStarted', (batch_id,)),
                 ('ImportStarted', (one.path, one_id)),
                 ('ImportStarted', (two.path, two_id)),
             ]

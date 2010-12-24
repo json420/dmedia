@@ -138,6 +138,8 @@ def create_batch():
         'type': 'dmedia/batch',
         'time_start': time.time(),
         'imports': [],
+        'imported': {'count': 0, 'bytes': 0},
+        'skipped': {'count': 0, 'bytes': 0},
     }
 
 
@@ -281,6 +283,21 @@ class ImportWorker(Worker):
         self.emit('finished', import_id, stats)
 
 
+def to_dbus_stats(stats):
+    return dict(
+        imported=stats['imported']['count'],
+        imported_bytes=stats['imported']['bytes'],
+        skipped=stats['skipped']['count'],
+        skipped_bytes=stats['skipped']['bytes'],
+    )
+
+
+def accumulate_stats(accum, stats):
+    for (key, d) in stats.items():
+        for (k, v) in d.items():
+            accum[key][k] += v
+
+
 class ImportManager(Manager):
     def __init__(self, callback=None, couchdir=None):
         super(ImportManager, self).__init__(callback)
@@ -299,6 +316,14 @@ class ImportManager(Manager):
         assert self._batch is None
         assert self._workers == {}
         self._batch = self._sync(create_batch())
+        self.emit('BatchStarted', self._batch['_id'])
+
+    def _finish_batch(self):
+        assert self._workers == {}
+        self.emit('BatchFinished', self._batch['_id'],
+            to_dbus_stats(self._batch)
+        )
+        self._batch = None
 
     def on_started(self, key, import_id):
         self._batch['imports'].append(import_id)
@@ -312,14 +337,7 @@ class ImportManager(Manager):
         self.emit('ImportProgress', key, import_id, completed, total, info)
 
     def on_finished(self, key, import_id, stats):
-        self.emit('ImportFinished', key, import_id,
-            dict(
-                imported=stats['imported']['count'],
-                imported_bytes=stats['imported']['bytes'],
-                skipped=stats['skipped']['count'],
-                skipped_bytes=stats['skipped']['bytes'],
-            )
-        )
+        self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
 
     def start_import(self, base, extract=True):
         with self._lock:
