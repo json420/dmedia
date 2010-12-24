@@ -116,7 +116,7 @@ class test_functions(TestCase):
             [
                 dict(
                     signal='error',
-                    args=('KeyError', "'ImportFiles'"),
+                    args=('the key', 'KeyError', "'ImportFiles'"),
                     worker='ImportFiles',
                     pid=pid,
                 ),
@@ -258,6 +258,41 @@ class test_Worker(TestCase):
         )
         self.assertEqual(q.messages, [one, two, three])
 
+    def test_emit2(self):
+        q = DummyQueue()
+        args = ('foo', 'bar')
+        inst = self.klass(q, 'akey', args)
+        pid = current_process().pid
+
+        self.assertEqual(q.messages, [])
+
+        inst.emit2('SomeSignal')
+        one = dict(
+            worker='Worker',
+            pid=pid,
+            signal='SomeSignal',
+            args=('akey',),
+        )
+        self.assertEqual(q.messages, [one])
+
+        inst.emit2('AnotherSignal', 'this', 'time', 'with', 'args')
+        two = dict(
+            worker='Worker',
+            pid=pid,
+            signal='AnotherSignal',
+            args=('akey', 'this', 'time', 'with', 'args')
+        )
+        self.assertEqual(q.messages, [one, two])
+
+        inst.emit2('OneMore', 'stuff')
+        three = dict(
+            worker='Worker',
+            pid=pid,
+            signal='OneMore',
+            args=('akey', 'stuff'),
+        )
+        self.assertEqual(q.messages, [one, two, three])
+
     def test_run(self):
         q = DummyQueue()
         args = ('foo', 'bar')
@@ -314,8 +349,20 @@ def infinite_process():
     return p
 
 
+class ExampleWorker(workers.Worker):
+    def execute(self, run_infinitely=True):
+        if run_infinitely:
+            infinite()
+        else:
+            time.sleep(1)
+
+
 class test_Manager(TestCase):
     klass = workers.Manager
+
+    def setUp(self):
+        workers._workers.clear()
+        workers.register(ExampleWorker)
 
     def test_init(self):
         # Test with non-callable callback:
@@ -408,18 +455,20 @@ class test_Manager(TestCase):
     def test_do(self):
         inst = self.klass()
 
-        # Test that False is return when key already exists:
+        # Test that False is returned when key already exists:
         inst._workers['foo'] = 'bar'
-        self.assertTrue(inst.do('foo', 'some_stuff') is False)
+        self.assertTrue(inst.do('ExampleWorker', 'foo') is False)
 
         # Test creating a process
         inst._workers.clear()
-        self.assertTrue(inst.do('foo', 'some_stuff') is True)
+        self.assertTrue(inst.do('ExampleWorker', 'foo', ) is True)
         self.assertEqual(list(inst._workers), ['foo'])
-        self.assertTrue(
-            isinstance(inst._workers['foo'], multiprocessing.Process)
-        )
-        self.assertTrue(inst._workers['foo'].daemon is True)
+        p = inst._workers['foo']
+        self.assertTrue(isinstance(p, multiprocessing.Process))
+        self.assertTrue(p.daemon)
+        self.assertTrue(p.is_alive())
+        p.terminate()
+        p.join()
 
     def test_emit(self):
         # Test with no callback

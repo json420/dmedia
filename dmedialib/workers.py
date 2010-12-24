@@ -76,7 +76,7 @@ def dispatch(q, worker, key, args, dummy=False):
     except Exception as e:
         q.put(dict(
             signal='error',
-            args=(exception_name(e), str(e)),
+            args=(key, exception_name(e), str(e)),
             worker=worker,
             pid=current_process().pid,
         ))
@@ -119,6 +119,27 @@ class Worker(object):
             args=args,
         ))
 
+    def emit2(self, signal, *args):
+        """
+        Put *signal* into message queue, optionally with *args*.
+
+        To aid debugging and logging, the worker class name and worker process
+        ID are included in the message.
+
+        The message is a ``dict`` with the following keys:
+
+            *worker* - the worker class name
+            *pid* - the process ID
+            *signal* - the signal name
+            *args* - signal arguments
+        """
+        self.q.put(dict(
+            worker=self.name,
+            pid=self.pid,
+            signal=signal,
+            args=(self.key,) + args,
+        ))
+
     def run(self):
         self.execute(*self.args)
 
@@ -159,6 +180,9 @@ class Manager(object):
         p = self._workers.pop(key)
         p.join()
 
+    def on_error(self, key, exception, message):
+        pass
+
     def start(self):
         with self._lock:
             if self._running:
@@ -181,20 +205,20 @@ class Manager(object):
             self._workers.clear()
             return True
 
-    def do(self, key, name, *args):
+    def do(self, worker, key, *args):
         """
         Start a process identified by *key*, using worker class *name*.
         """
-        with self._lock:
-            if key in self._workers:
-                return False
-            p = multiprocessing.Process(
-                target=dispatch,
-                args=(self._q, key, name, args),
-            )
-            p.daemon = True
-            self._workers[key] = p
-            return True
+        if key in self._workers:
+            return False
+        p = multiprocessing.Process(
+            target=dispatch,
+            args=(self._q, worker, key, args),
+        )
+        p.daemon = True
+        self._workers[key] = p
+        p.start()
+        return True
 
     def emit(self, signal, *args):
         """
