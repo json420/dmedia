@@ -122,7 +122,7 @@ class test_functions(TestCase):
                     worker_args=('foo', 'bar'),
                 ),
                 dict(
-                    signal='_terminate',
+                    signal='terminate',
                     args=('foo', 'bar'),
                     worker='import_files',
                     pid=pid,
@@ -152,7 +152,7 @@ class test_functions(TestCase):
                     pid=pid,
                 ),
                 dict(
-                    signal='_terminate',
+                    signal='terminate',
                     args=('hello', 'world'),
                     worker='import_files',
                     pid=pid,
@@ -173,7 +173,7 @@ class test_functions(TestCase):
                     pid=pid,
                 ),
                 dict(
-                    signal='_terminate',
+                    signal='terminate',
                     args=('hello', 'world'),
                     worker='import_files',
                     pid=pid,
@@ -194,7 +194,7 @@ class test_functions(TestCase):
                     pid=pid,
                 ),
                 dict(
-                    signal='_terminate',
+                    signal='terminate',
                     args=('hello', 'world'),
                     worker='import_files',
                     pid=pid,
