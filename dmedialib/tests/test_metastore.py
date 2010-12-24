@@ -29,7 +29,7 @@ from dmedialib import metastore
 import couchdb
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
-
+from desktopcouch.local_files import Context, DEFAULT_CONTEXT
 from desktopcouch.stop_local_couchdb import stop_couchdb
 import desktopcouch
 import tempfile
@@ -38,6 +38,19 @@ import shutil
 
 
 class test_functions(TestCase):
+    def test_dc_context(self):
+        f = metastore.dc_context
+        tmp = TempDir()
+        ctx = f(tmp.path)
+        self.assertTrue(isinstance(ctx, Context))
+        self.assertEqual(ctx.run_dir, tmp.join('cache'))
+        self.assertEqual(ctx.db_dir, tmp.join('data'))
+        self.assertEqual(ctx.config_dir, tmp.join('config'))
+
+        # Test that it makes sure couchdir is a directory
+        self.assertRaises(AssertionError, f, tmp.join('nope'))
+        self.assertRaises(AssertionError, f, tmp.touch('nope'))
+
     def test_build_design_doc(self):
         f = metastore.build_design_doc
         views = (

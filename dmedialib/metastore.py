@@ -23,11 +23,11 @@
 Store meta-data in desktop-couch.
 """
 
-from textwrap import dedent
+from os import path
 from couchdb import ResourceNotFound
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
-from desktopcouch.local_files import DEFAULT_CONTEXT
+from desktopcouch.local_files import DEFAULT_CONTEXT, Context
 
 
 _sum = '_sum'
@@ -116,6 +116,18 @@ function(doc) {
 """
 
 
+def dc_context(couchdir):
+    """
+    Create a desktopcouch Context for testing purposes.
+    """
+    assert path.isdir(couchdir)
+    return Context(
+        path.join(couchdir, 'cache'),
+        path.join(couchdir, 'data'),
+        path.join(couchdir, 'config'),
+    )
+
+
 def build_design_doc(design, views):
     _id = '_design/' + design
     d = {}
@@ -156,12 +168,12 @@ class MetaStore(object):
         )),
     )
 
-    def __init__(self, dbname='dmedia', ctx=None):
+    def __init__(self, dbname='dmedia', ctx=None, couchdir=None):
         self.dbname = dbname
         # FIXME: once lp:672481 is fixed, this wont be needed.  See:
         # https://bugs.launchpad.net/desktopcouch/+bug/672481
         if ctx is None:
-            ctx = DEFAULT_CONTEXT
+            ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
         # /FIXME
         self.desktop = CouchDatabase(self.dbname, create=True, ctx=ctx)
         self.server = self.desktop._server
