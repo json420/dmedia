@@ -589,6 +589,19 @@ class test_ImportManager(CouchCase):
                 ('BatchFinished', (batch_id, stats)),
             ]
         )
+        doc = inst.db[batch_id]
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                '_rev',
+                'imported',
+                'skipped',
+                'time_end',
+            ])
+        )
+        cur = time.time()
+        self.assertTrue(cur - 1 <= doc['time_end'] <= cur)
 
     def test_on_started(self):
         callback = DummyCallback()

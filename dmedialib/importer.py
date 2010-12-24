@@ -320,6 +320,8 @@ class ImportManager(Manager):
 
     def _finish_batch(self):
         assert self._workers == {}
+        self._batch['time_end'] = time.time()
+        self._batch = self._sync(self._batch)
         self.emit('BatchFinished', self._batch['_id'],
             to_dbus_stats(self._batch)
         )
