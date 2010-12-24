@@ -337,6 +337,8 @@ class ImportManager(Manager):
         self.emit('ImportProgress', key, import_id, completed, total, info)
 
     def on_finished(self, key, import_id, stats):
+        accumulate_stats(self._batch, stats)
+        self._batch = self._sync(self._batch)
         self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
 
     def start_import(self, base, extract=True):

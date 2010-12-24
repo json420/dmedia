@@ -694,8 +694,14 @@ class test_ImportManager(CouchCase):
     def test_on_finished(self):
         callback = DummyCallback()
         inst = self.klass(callback, self.couchdir)
-        self.assertEqual(callback.messages, [])
+        batch_id = random_id()
+        inst._batch = dict(
+            _id=batch_id,
+            imported={'count': 0, 'bytes': 0},
+            skipped={'count': 0, 'bytes': 0},
+        )
 
+        # Call with first import
         one = TempDir()
         one_id = random_id()
         one_stats = dict(
@@ -712,8 +718,62 @@ class test_ImportManager(CouchCase):
                         skipped=3,
                         skipped_bytes=12345,
                     ))
-                )
+                ),
             ]
+        )
+        self.assertEqual(
+            set(inst._batch),
+            set(['_id', '_rev', 'imported', 'skipped'])
+        )
+        self.assertEqual(inst._batch['_id'], batch_id)
+        self.assertEqual(
+            inst._batch['imported'],
+            {'count': 17, 'bytes': 98765}
+        )
+        self.assertEqual(
+            inst._batch['skipped'],
+            {'count': 3, 'bytes': 12345}
+        )
+
+        # Call with second import
+        two = TempDir()
+        two_id = random_id()
+        two_stats = dict(
+            imported={'count': 18, 'bytes': 9876},
+            skipped={'count': 5, 'bytes': 1234},
+        )
+        inst.on_finished(two.path, two_id, two_stats)
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportFinished', (one.path, one_id, dict(
+                        imported=17,
+                        imported_bytes=98765,
+                        skipped=3,
+                        skipped_bytes=12345,
+                    ))
+                ),
+                ('ImportFinished', (two.path, two_id, dict(
+                        imported=18,
+                        imported_bytes=9876,
+                        skipped=5,
+                        skipped_bytes=1234,
+                    ))
+                ),
+            ]
+        )
+        self.assertEqual(
+            set(inst._batch),
+            set(['_id', '_rev', 'imported', 'skipped'])
+        )
+        self.assertEqual(inst._batch['_id'], batch_id)
+        self.assertEqual(
+            inst._batch['imported'],
+            {'count': 17 + 18, 'bytes': 98765 + 9876}
+        )
+        self.assertEqual(
+            inst._batch['skipped'],
+            {'count': 3 + 5, 'bytes': 12345 + 1234}
         )
 
     def test_start_import(self):
