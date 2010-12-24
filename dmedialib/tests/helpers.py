@@ -157,6 +157,14 @@ class DummyQueue(object):
         self.messages.append(msg)
 
 
+class DummyCallback(object):
+    def __init__(self):
+        self.messages = []
+
+    def __call__(self, signal, args):
+        self.messages.append((signal, args))
+
+
 class CouchCase(TestCase):
     """
     Base class for tests that need a desktopcouch testing Context.

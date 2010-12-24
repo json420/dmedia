@@ -31,7 +31,7 @@ import multiprocessing.queues
 from multiprocessing import current_process
 import threading
 from dmedialib import workers
-from .helpers import raises, DummyQueue
+from .helpers import raises, DummyQueue, DummyCallback
 
 
 class test_functions(TestCase):
@@ -238,14 +238,6 @@ class test_Worker(TestCase):
         inst = do_something(q, 'key', args)
         e = raises(NotImplementedError, inst.execute)
         self.assertEqual(str(e), 'do_something.execute()')
-
-
-class DummyCallback(object):
-    def __init__(self):
-        self.messages = []
-
-    def __call__(self, signal, args):
-        self.messages.append((signal, args))
 
 
 def infinite():

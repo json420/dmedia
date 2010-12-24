@@ -133,7 +133,7 @@ class DMedia(dbus.service.Object):
         pass
 
     @dbus.service.signal(INTERFACE, signature='ssiia{ss}')
-    def ImportProgress(self, base, import_id, current, total, info):
+    def ImportProgress(self, base, import_id, completed, total, info):
         pass
 
     @dbus.service.signal(INTERFACE, signature='ssa{sx}')

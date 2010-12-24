@@ -33,12 +33,14 @@ import time
 from base64 import b32decode, b32encode
 from unittest import TestCase
 from multiprocessing import current_process
-from .helpers import CouchCase, TempDir, TempHome, raises, DummyQueue
+from .helpers import CouchCase, TempDir, TempHome, raises
+from .helpers import DummyQueue, DummyCallback
 from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
 from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
 from dmedialib.errors import AmbiguousPath
 from dmedialib.filestore import FileStore
 from dmedialib.metastore import MetaStore
+from dmedialib.util import random_id
 from dmedialib import importer
 
 import desktopcouch
@@ -322,7 +324,6 @@ class test_Importer(CouchCase):
             }
         )
 
-
     def test_import_all_iter(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
@@ -422,7 +423,7 @@ class test_ImportWorker(CouchCase):
             q.messages[1],
             dict(
                 signal='count',
-                args=(base, 3),
+                args=(base, _id, 3),
                 worker='ImportWorker',
                 pid=pid,
             )
@@ -430,7 +431,7 @@ class test_ImportWorker(CouchCase):
         self.assertEqual(q.messages[2],
             dict(
                 signal='progress',
-                args=(base, 1, 3,
+                args=(base, _id, 1, 3,
                     dict(action='imported', src=src1, _id=sample_mov_hash),
                 ),
                 worker='ImportWorker',
@@ -440,7 +441,7 @@ class test_ImportWorker(CouchCase):
         self.assertEqual(q.messages[3],
             dict(
                 signal='progress',
-                args=(base, 2, 3,
+                args=(base, _id, 2, 3,
                     dict(action='imported', src=src2, _id=sample_thm_hash),
                 ),
                 worker='ImportWorker',
@@ -450,7 +451,7 @@ class test_ImportWorker(CouchCase):
         self.assertEqual(q.messages[4],
             dict(
                 signal='progress',
-                args=(base, 3, 3,
+                args=(base, _id, 3, 3,
                     dict(action='skipped', src=dup1, _id=sample_mov_hash),
                 ),
                 worker='ImportWorker',
@@ -461,7 +462,7 @@ class test_ImportWorker(CouchCase):
             q.messages[5],
             dict(
                 signal='finished',
-                args=(base,
+                args=(base, _id,
                     dict(
                         imported={'count': 2, 'bytes': (mov_size + thm_size)},
                         skipped={'count': 1, 'bytes': mov_size},
@@ -498,6 +499,124 @@ class test_ImportManager(CouchCase):
 
         # Test that batch cannot be re-started without first finishing
         self.assertRaises(AssertionError, inst._start_batch)
+
+    def test_on_started(self):
+        callback = DummyCallback()
+        inst = self.klass(callback, self.couchdir)
+        inst._start_batch()
+        batch_id = inst._batch['_id']
+        self.assertEqual(inst.db[batch_id]['imports'], [])
+        self.assertEqual(callback.messages, [])
+
+        one = TempDir()
+        one_id = random_id()
+        inst.on_started(one.path, one_id)
+        self.assertEqual(inst.db[batch_id]['imports'], [one_id])
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportStarted', (one.path, one_id)),
+            ]
+        )
+
+        two = TempDir()
+        two_id = random_id()
+        inst.on_started(two.path, two_id)
+        self.assertEqual(inst.db[batch_id]['imports'], [one_id, two_id])
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportStarted', (one.path, one_id)),
+                ('ImportStarted', (two.path, two_id)),
+            ]
+        )
+
+    def test_on_count(self):
+        callback = DummyCallback()
+        inst = self.klass(callback, self.couchdir)
+        self.assertEqual(callback.messages, [])
+
+        one = TempDir()
+        one_id = random_id()
+        inst.on_count(one.path, one_id, 378)
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportCount', (one.path, one_id, 378)),
+            ]
+        )
+
+        two = TempDir()
+        two_id = random_id()
+        inst.on_count(two.path, two_id, 17)
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportCount', (one.path, one_id, 378)),
+                ('ImportCount', (two.path, two_id, 17)),
+            ]
+        )
+
+    def test_on_progress(self):
+        callback = DummyCallback()
+        inst = self.klass(callback, self.couchdir)
+        self.assertEqual(callback.messages, [])
+
+        one = TempDir()
+        one_id = random_id()
+        one_info = dict(
+            src=one.join('happy.mov'),
+            _id=sample_mov_hash,
+            action='imported',
+        )
+        inst.on_progress(one.path, one_id, 17, 18, one_info)
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportProgress', (one.path, one_id, 17, 18, one_info)),
+            ]
+        )
+
+        two = TempDir()
+        two_id = random_id()
+        two_info = dict(
+            src=two.join('happy.thm'),
+            _id=sample_thm_hash,
+            action='imported',
+        )
+        inst.on_progress(two.path, two_id, 18, 18, two_info)
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportProgress', (one.path, one_id, 17, 18, one_info)),
+                ('ImportProgress', (two.path, two_id, 18, 18, two_info)),
+            ]
+        )
+
+    def test_on_finished(self):
+        callback = DummyCallback()
+        inst = self.klass(callback, self.couchdir)
+        self.assertEqual(callback.messages, [])
+
+        one = TempDir()
+        one_id = random_id()
+        one_stats = dict(
+            imported={'count': 17, 'bytes': 98765},
+            skipped={'count': 3, 'bytes': 12345},
+        )
+        inst.on_finished(one.path, one_id, one_stats)
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportFinished', (one.path, one_id, dict(
+                        imported=17,
+                        imported_bytes=98765,
+                        skipped=3,
+                        skipped_bytes=12345,
+                    ))
+                )
+            ]
+        )
 
     def test_start_import(self):
         inst = self.klass(couchdir=self.couchdir)

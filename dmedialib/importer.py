@@ -30,8 +30,7 @@ import mimetypes
 import time
 from .util import random_id
 from .constants import IMPORT_RECORD
-from .workers import Worker, Manager
-from . import workers
+from .workers import Worker, Manager, register, isregistered
 from .filestore import FileStore, quick_id, safe_open
 from .metastore import MetaStore
 from .extractor import merge_metadata
@@ -265,11 +264,11 @@ class ImportWorker(Worker):
 
         files = adapter.scanfiles()
         total = len(files)
-        self.emit('count', total)
+        self.emit('count', import_id, total)
 
         c = 1
         for (src, action, doc) in adapter.import_all_iter():
-            self.emit('progress', c, total,
+            self.emit('progress', import_id, c, total,
                 dict(
                     action=action,
                     src=src,
@@ -279,7 +278,7 @@ class ImportWorker(Worker):
             c += 1
 
         stats = adapter.finalize()
-        self.emit('finished', stats)
+        self.emit('finished', import_id, stats)
 
 
 class ImportManager(Manager):
@@ -288,6 +287,8 @@ class ImportManager(Manager):
         self.metastore = MetaStore(couchdir=couchdir)
         self.db = self.metastore.db
         self._batch = None
+        if not isregistered(ImportWorker):
+            register(ImportWorker)
 
     def _sync(self, doc):
         _id = doc['_id']
@@ -298,6 +299,27 @@ class ImportManager(Manager):
         assert self._batch is None
         assert self._workers == {}
         self._batch = self._sync(create_batch())
+
+    def on_started(self, key, import_id):
+        self._batch['imports'].append(import_id)
+        self._batch = self._sync(self._batch)
+        self.emit('ImportStarted', key, import_id)
+
+    def on_count(self, key, import_id, total):
+        self.emit('ImportCount', key, import_id, total)
+
+    def on_progress(self, key, import_id, completed, total, info):
+        self.emit('ImportProgress', key, import_id, completed, total, info)
+
+    def on_finished(self, key, import_id, stats):
+        self.emit('ImportFinished', key, import_id,
+            dict(
+                imported=stats['imported']['count'],
+                imported_bytes=stats['imported']['bytes'],
+                skipped=stats['skipped']['count'],
+                skipped_bytes=stats['skipped']['bytes'],
+            )
+        )
 
     def start_import(self, base, extract=True):
         with self._lock:

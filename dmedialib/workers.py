@@ -33,6 +33,15 @@ from .constants import TYPE_ERROR
 _workers = {}
 
 
+def isregistered(worker):
+    if not (isinstance(worker, type) and issubclass(worker, Worker)):
+        raise TypeError(
+            'worker: must be subclass of %r; got %r' % (Worker, worker)
+        )
+    name = worker.__name__
+    return (name in _workers)
+
+
 def register(worker):
     if not (isinstance(worker, type) and issubclass(worker, Worker)):
         raise TypeError(
