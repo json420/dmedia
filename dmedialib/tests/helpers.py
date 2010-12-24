@@ -29,6 +29,7 @@ from os import path
 from subprocess import check_call
 import tempfile
 import shutil
+from base64 import b32encode
 from desktopcouch.stop_local_couchdb import stop_couchdb
 from dmedialib.metastore import dc_context
 
@@ -46,6 +47,11 @@ sample_thm_qid = 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
 assert path.isdir(datadir)
 assert path.isfile(sample_mov)
 assert path.isfile(sample_thm)
+
+
+def random_bus():
+    random = 'test' + b32encode(os.urandom(10))  # 80-bits of entropy
+    return '.'.join(['org', random, 'DMedia'])
 
 
 class ExceptionNotRaised(StandardError):

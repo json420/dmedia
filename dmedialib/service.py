@@ -26,15 +26,10 @@ Makes dmedia functionality avaible over D-Bus.
 
 from dmedialib import __version__
 from os import path
-import time
-from threading import Thread
-import multiprocessing
-from Queue import Empty
 import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, import_started, batch_import_finished
-from .metastore import MetaStore
 from .importer import import_files, create_batchimport
 from .workers import register, dispatch
 
@@ -66,32 +61,20 @@ class DMedia(dbus.service.Object):
         'ImportFinished',
     ])
 
-    def __init__(self, busname=None, killfunc=None, dummy=False):
-        self._busname = (BUS if busname is None else busname)
+    def __init__(self, killfunc=None, bus=None, couchdir=None, no_gui=False):
         self._killfunc = killfunc
-        self._dummy = dummy
+        self._bus = (BUS if bus is None else bus)
+        self._couchdir = couchdir
+        self._no_gui = no_gui
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
-        self.__busname = dbus.service.BusName(self._busname, self._conn)
-        self.__imports = {}
-        self.__running = True
-        self.__queue = multiprocessing.Queue()
-        self.__thread = Thread(target=self._signal_thread)
-        self.__thread.daemon = True
-        self.__thread.start()
+        dbus.service.BusName(self._bus, self._conn)
 
-        if dummy:
-            self._db = None
-        else:
-            self._metastore = MetaStore()
-            self._db = self._metastore.db
-
-        if dummy or pynotify is None:
+        if no_gui or pynotify is None:
             self._notify = None
         else:
             self._notify = NotifyManager()
-            self._batch = []
-        if dummy or appindicator is None:
+        if no_gui or appindicator is None:
             self._indicator = None
         else:
             self._indicator = appindicator.Indicator('rendermenu', ICON,
@@ -102,31 +85,8 @@ class DMedia(dbus.service.Object):
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
 
-    def _signal_thread(self):
-        while self.__running:
-            try:
-                msg = self.__queue.get(timeout=1)
-                signal = msg['signal']
-                if signal not in self.__signals:
-                    continue
-                method = getattr(self, signal, None)
-                if callable(method):
-                    args = msg['args']
-                    method(*args)
-            except Empty:
-                pass
-
-    def _create_worker(self, name, *args):
-        pargs = (self.__queue, name, None, args, self._dummy)
-        p = multiprocessing.Process(
-            target=dispatch,
-            args=pargs,
-        )
-        p.daemon = True
-        return p
-
-    @dbus.service.signal(INTERFACE, signature='')
-    def BatchImportStarted(self):
+    @dbus.service.signal(INTERFACE, signature='s')
+    def BatchImportStarted(self, batch_id):
         """
         Fired at transition from idle to at least one active import.
 
@@ -136,8 +96,8 @@ class DMedia(dbus.service.Object):
         if self._indicator:
             self._indicator.set_status(appindicator.STATUS_ATTENTION)
 
-    @dbus.service.signal(INTERFACE, signature='a{sx}')
-    def BatchImportFinished(self, stats):
+    @dbus.service.signal(INTERFACE, signature='sa{sx}')
+    def BatchImportFinished(self, batch_id, stats):
         """
         Fired at transition from at least one active import to idle.
 
@@ -147,11 +107,6 @@ class DMedia(dbus.service.Object):
         STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
         be displayed when this signal is received.
         """
-        if self._db:
-            doc = self._db[self._batch_id]
-            doc['time_end'] = time.time()
-            doc.update(stats)
-            self._db[self._batch_id] = doc
         if self._indicator:
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
         if self._notify is None:
@@ -170,10 +125,6 @@ class DMedia(dbus.service.Object):
         is still visible, the two should be merge and the summary conspicuously
         changed to be very clear that both cards were detected.
         """
-        if self._db:
-            doc = self._db[self._batch_id]
-            doc['imports'].append(import_id)
-            self._db[self._batch_id] = doc
         if self._notify is None:
             return
         self._batch.append(base)
@@ -182,16 +133,16 @@ class DMedia(dbus.service.Object):
         # via FireWire or USB
         self._notify.replace(summary, body, 'notification-device-usb')
 
-    @dbus.service.signal(INTERFACE, signature='sx')
-    def ImportCount(self, base, total):
+    @dbus.service.signal(INTERFACE, signature='ssx')
+    def ImportCount(self, base, import_id, total):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='siia{ss}')
-    def ImportProgress(self, base, current, total, info):
+    @dbus.service.signal(INTERFACE, signature='ssiia{ss}')
+    def ImportProgress(self, base, import_id, current, total, info):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='sa{sx}')
-    def ImportFinished(self, base, stats):
+    @dbus.service.signal(INTERFACE, signature='ssa{sx}')
+    def ImportFinished(self, base, import_id, stats):
         p = self.__imports.pop(base, None)
         if p is not None:
             p.join()  # Sanity check to make sure worker is terminating

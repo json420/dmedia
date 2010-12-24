@@ -21,8 +21,10 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-from dmedialib import service
+from dmedialib.constants import BUS
+import sys
 import optparse
+from os import path
 import dbus
 import dbus.service
 import dbus.mainloop.glib
@@ -30,21 +32,36 @@ import gobject
 
 
 parser = optparse.OptionParser()
-parser.add_option('--dummy',
+parser.add_option('--bus',
+    default=BUS,
+    help='D-Bus bus name; default is %r' % BUS,
+)
+parser.add_option('--couchdir',
+    metavar='DIR',
+    default=None,
+    help='temporary directory for desktopcouch Context',
+)
+parser.add_option('--no-gui',
     action='store_true',
     default=False,
-    help='Run in dummy mode (for testing)',
+    help='run without NotifyOSD and Application Indicators',
 )
-parser.add_option('--bus',
-    default=service.BUS,
-    help='D-Bus bus name; default is %r' % service.BUS,
-)
+
+
+def exit(msg, code=1):
+    parser.print_help()
+    print('ERROR: ' + msg)
+    sys.exit(code)
 
 
 if __name__ == '__main__':
-    gobject.threads_init()
     (options, args) = parser.parse_args()
+    if not (options.couchdir is None or path.isdir(options.couchdir)):
+        exit('couchdir not a directory: %r' % options.couchdir)
+    gobject.threads_init()
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     mainloop = gobject.MainLoop()
-    obj = service.DMedia(options.bus, mainloop.quit, options.dummy)
+    obj = service.DMedia(mainloop.quit,
+        options.bus, options.couchdir, options.no_gui
+    )
     mainloop.run()
