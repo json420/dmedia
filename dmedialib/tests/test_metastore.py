@@ -24,7 +24,7 @@ Unit tests for `dmedialib.metastore` module.
 """
 
 from unittest import TestCase
-from helpers import TempDir, TempHome
+from helpers import CouchCase, TempDir, TempHome
 from dmedialib import metastore
 import couchdb
 from desktopcouch.records.server import  CouchDatabase
@@ -77,28 +77,13 @@ class test_functions(TestCase):
         )
 
 
-class test_MetaStore(TestCase):
+class test_MetaStore(CouchCase):
     klass = metastore.MetaStore
 
     def new(self):
-        return self.klass(ctx=self.ctx)
-
-    def setUp(self):
-        self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
-        cache = os.path.join(self.data_dir, 'cache')
-        data = os.path.join(self.data_dir, 'data')
-        config = os.path.join(self.data_dir, 'config')
-        self.ctx = desktopcouch.local_files.Context(cache, data, config)
-
-    def tearDown(self):
-        stop_couchdb(ctx=self.ctx)
-        shutil.rmtree(self.data_dir)
+        return self.klass(couchdir=self.couchdir)
 
     def test_init(self):
-        # Test with ctx=None:
-        inst = self.klass()
-        self.assertEqual(inst.dbname, 'dmedia')
-
         # Test with testing ctx:
         inst = self.new()
         self.assertEqual(inst.dbname, 'dmedia')
@@ -106,7 +91,7 @@ class test_MetaStore(TestCase):
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 
         # Test when overriding dbname:
-        inst = self.klass(dbname='dmedia_test', ctx=self.ctx)
+        inst = self.klass(dbname='dmedia_test', couchdir=self.couchdir)
         self.assertEqual(inst.dbname, 'dmedia_test')
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)

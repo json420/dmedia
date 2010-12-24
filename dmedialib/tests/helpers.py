@@ -23,12 +23,14 @@
 Some test helpers.
 """
 
+from unittest import TestCase
 import os
 from os import path
 from subprocess import check_call
 import tempfile
 import shutil
 from desktopcouch.stop_local_couchdb import stop_couchdb
+from dmedialib.metastore import dc_context
 
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
@@ -147,3 +149,21 @@ class DummyQueue(object):
 
     def put(self, msg):
         self.messages.append(msg)
+
+
+class CouchCase(TestCase):
+    """
+    Base class for tests that need a desktopcouch testing Context.
+    """
+
+    def setUp(self):
+        self.home = TempHome()
+        self.couchdir = tempfile.mkdtemp(prefix='dc-test.')
+        self.ctx = dc_context(self.couchdir)
+
+    def tearDown(self):
+        stop_couchdb(ctx=self.ctx)
+        self.ctx = None
+        shutil.rmtree(self.couchdir)
+        self.couchdir = None
+        self.home = None
