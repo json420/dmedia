@@ -129,7 +129,12 @@ class Worker(object):
 
 
 class Manager(object):
-    def __init__(self):
+    def __init__(self, callback=None):
+        if not (callback is None or callable(callback)):
+            raise TypeError(
+                'callback must be callable; got %r' % callback
+            )
+        self._callback = callback
         self._running = False
         self._workers = {}
         self._q = multiprocessing.Queue()
@@ -139,16 +144,12 @@ class Manager(object):
     def _signal_thread(self):
         while self._running:
             try:
-                msg = self._q.get(timeout=1)
-                signal = msg['signal']
-                if signal not in self.__signals:
-                    continue
-                method = getattr(self, signal, None)
-                if callable(method):
-                    args = msg['args']
-                    method(*args)
+                self._process_message(self._q.get(timeout=1))
             except Empty:
                 pass
+
+    def _process_message(self, msg):
+        pass
 
     def start(self):
         with self._lock:
@@ -174,7 +175,24 @@ class Manager(object):
                 self._killfunc()
 
     def do(self, key, name, *args, **kw):
+        """
+        Start a process identified by *key*, using worker class *name*.
+        """
         with self._lock:
             if key in self._workers:
                 return False
+            p = multiprocessing.Process(
+                target=dispatch,
+                args=(self._q, name, args, kw),
+            )
+            p.daemon = True
+            self._workers[key] = p
             return True
+
+    def emit(self, signal, *args):
+        """
+        Emit a signal to higher-level code.
+        """
+        if self._callback is None:
+            return
+        self._callback(signal, args)

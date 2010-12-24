@@ -291,11 +291,32 @@ class test_Worker(TestCase):
         self.assertEqual(str(e), 'do_something.execute()')
 
 
+class DummyCallback(object):
+    def __init__(self):
+        self.messages = []
+
+    def __call__(self, signal, args):
+        self.messages.append((signal, args))
+
+
+
 class test_Manager(TestCase):
     klass = workers.Manager
 
     def test_init(self):
+        # Test with non-callable callback:
+        e = raises(TypeError, self.klass, 'foo')
+        self.assertEqual(str(e), "callback must be callable; got 'foo'")
+
+        # Test that callback default is None:
         inst = self.klass()
+        self.assertTrue(inst._callback is None)
+
+        # Test with a callable:
+        def foo():
+            pass
+        inst = self.klass(callback=foo)
+        self.assertTrue(inst._callback is foo)
         self.assertTrue(inst._running is False)
         self.assertEqual(inst._workers, {})
         self.assertTrue(isinstance(inst._q, multiprocessing.queues.Queue))
@@ -334,5 +355,29 @@ class test_Manager(TestCase):
         inst._workers['foo'] = 'bar'
         self.assertTrue(inst.do('foo', 'some_stuff') is False)
 
+        # Test creating a process
         inst._workers.clear()
         self.assertTrue(inst.do('foo', 'some_stuff') is True)
+        self.assertEqual(list(inst._workers), ['foo'])
+        self.assertTrue(
+            isinstance(inst._workers['foo'], multiprocessing.Process)
+        )
+
+    def test_emit(self):
+        # Test with no callback
+        inst = self.klass()
+        inst.emit('ImportStarted', 'foo', 'bar')
+
+        callback = DummyCallback()
+        inst = self.klass(callback)
+        inst.emit('ImportStarted', 'foo', 'bar')
+        inst.emit('NoArgs')
+        inst.emit('OneArg', 'baz')
+        self.assertEqual(
+            callback.messages,
+            [
+                ('ImportStarted', ('foo', 'bar')),
+                ('NoArgs', tuple()),
+                ('OneArg', ('baz',)),
+            ]
+        )
