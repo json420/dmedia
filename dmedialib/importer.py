@@ -130,18 +130,6 @@ def files_iter(base):
             yield f
 
 
-def create_batchimport():
-    """
-    Create initial 'dmedia/batchimport' accounting document.
-    """
-    return {
-        '_id': random_id(),
-        'type': 'dmedia/batchimport',
-        'time_start': time.time(),
-        'imports': [],
-    }
-
-
 def create_batch():
     """
     Create initial 'dmedia/batch' accounting document.
@@ -154,21 +142,22 @@ def create_batch():
     }
 
 
-def create_import(mount, batch_id=None):
+def create_import(batch_id, mount):
     """
     Create initial 'dmedia/import' accounting document.
     """
     return {
         '_id': random_id(),
         'type': 'dmedia/import',
-        'mount': mount,
         'batch_id': batch_id,
+        'mount': mount,
         'time_start': time.time(),
     }
 
 
 class Importer(object):
-    def __init__(self, base, extract, couchdir=None):
+    def __init__(self, batch_id, base, extract, couchdir=None):
+        self.batch_id = batch_id
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
@@ -195,7 +184,7 @@ class Importer(object):
         """
         Create the initial import record, return that record's ID.
         """
-        doc = create_import(self.base)
+        doc = create_import(self.batch_id, self.base)
         self._import_id = doc['_id']
         assert self.metastore.db.create(doc) == self._import_id
         self._import = self.metastore.db[self._import_id]
@@ -269,7 +258,7 @@ class Importer(object):
 class ImportWorker(Worker):
     def execute(self, batch_id, base, extract=False, couchdir=None):
 
-        adapter = Importer(base, extract, couchdir)
+        adapter = Importer(batch_id, base, extract, couchdir)
 
         import_id = adapter.start()
         self.emit('started', import_id)

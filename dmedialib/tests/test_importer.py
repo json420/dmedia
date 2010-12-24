@@ -120,27 +120,6 @@ class test_functions(TestCase):
         )
         os.chmod(subdir, 0o700)
 
-    def test_create_batchimport(self):
-        f = importer.create_batchimport
-        doc = f()
-        self.assertTrue(isinstance(doc, dict))
-        self.assertEqual(
-            set(doc),
-            set([
-                '_id',
-                'type',
-                'time_start',
-                'imports',
-            ])
-        )
-        _id = doc['_id']
-        self.assertEqual(b32encode(b32decode(_id)), _id)
-        self.assertEqual(len(_id), 24)
-        self.assertEqual(doc['type'], 'dmedia/batchimport')
-        self.assertTrue(isinstance(doc['time_start'], (int, float)))
-        self.assertTrue(doc['time_start'] <= time.time())
-        self.assertEqual(doc['imports'], [])
-
     def test_create_batch(self):
         f = importer.create_batch
         doc = f()
@@ -164,7 +143,7 @@ class test_functions(TestCase):
 
     def test_create_import(self):
         f = importer.create_import
-        doc = f('/media/EOS_DIGITAL')
+        doc = f('YKGHY6H5RVCDNMUBL4NLP6AU', '/media/EOS_DIGITAL')
         self.assertTrue(isinstance(doc, dict))
         self.assertEqual(
             set(doc),
@@ -182,19 +161,21 @@ class test_functions(TestCase):
         self.assertEqual(doc['type'], 'dmedia/import')
         self.assertTrue(isinstance(doc['time_start'], (int, float)))
         self.assertTrue(doc['time_start'] <= time.time())
+        self.assertEqual(doc['batch_id'], 'YKGHY6H5RVCDNMUBL4NLP6AU')
         self.assertEqual(doc['mount'], '/media/EOS_DIGITAL')
-        self.assertEqual(doc['batch_id'], None)
 
 
 class test_Importer(CouchCase):
     klass = importer.Importer
+    batch_id = 'YKGHY6H5RVCDNMUBL4NLP6AU'
 
     def new(self, base, extract=False):
-        return self.klass(base, extract, couchdir=self.couchdir)
+        return self.klass(self.batch_id, base, extract, couchdir=self.couchdir)
 
     def test_init(self):
         tmp = TempDir()
         inst = self.new(tmp.path, True)
+        self.assertEqual(inst.batch_id, self.batch_id)
         self.assertEqual(inst.base, tmp.path)
         self.assertTrue(inst.extract is True)
         self.assertEqual(inst.home, self.home.path)
@@ -225,6 +206,8 @@ class test_Importer(CouchCase):
                 'batch_id',
             ])
         )
+        self.assertEqual(inst._import['batch_id'], self.batch_id)
+        self.assertEqual(inst._import['mount'], tmp.path)
 
     def test_get_stats(self):
         tmp = TempDir()
