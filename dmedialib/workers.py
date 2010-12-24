@@ -68,10 +68,10 @@ def exception_name(exception):
     return exception.__name__
 
 
-def dispatch(worker, q, args, dummy=False):
+def dispatch(q, worker, key, args, dummy=False):
     try:
         klass = _workers[worker]
-        inst = klass(q, args, dummy)
+        inst = klass(q, key, args, dummy)
         inst.run()
     except Exception as e:
         q.put(dict(
@@ -90,33 +90,10 @@ def dispatch(worker, q, args, dummy=False):
         ))
 
 
-def dispatch2(q, key, worker, args, dummy=False):
-    try:
-        klass = _workers[worker]
-        inst = klass(q, args, dummy)
-        inst.run()
-    except Exception as e:
-        q.put(dict(
-            key=key,
-            worker=worker,
-            pid=current_process().pid,
-            signal='error',
-            args=(exception_name(e), str(e)),
-        ))
-    finally:
-        q.put(dict(
-            key=key,
-            worker=worker,
-            pid=current_process().pid,
-            signal='terminate',
-            args=args,
-
-        ))
-
-
 class Worker(object):
-    def __init__(self, q, args, dummy=False):
+    def __init__(self, q, key, args, dummy=False):
         self.q = q
+        self.key = key
         self.args = args
         self.dummy = dummy
         self.pid = current_process().pid

@@ -412,7 +412,7 @@ class import_files(TestCase):
         pid = current_process().pid
 
         base = self.tmp.path
-        inst = self.klass(q, (base, False))
+        inst = self.klass(q, base, (base, False))
         inst.ctx = self.ctx
 
         src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
@@ -497,7 +497,7 @@ class import_files(TestCase):
         q = DummyQueue()
         pid = current_process().pid
         base = self.tmp.path
-        inst = self.klass(q, (base, False), dummy=True)
+        inst = self.klass(q, base, (base, False), dummy=True)
         mov_size = path.getsize(sample_mov)
         thm_size = path.getsize(sample_thm)
 

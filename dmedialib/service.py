@@ -117,7 +117,7 @@ class DMedia(dbus.service.Object):
                 pass
 
     def _create_worker(self, name, *args):
-        pargs = (name, self.__queue, args, self._dummy)
+        pargs = (self.__queue, name, None, args, self._dummy)
         p = multiprocessing.Process(
             target=dispatch,
             args=pargs,

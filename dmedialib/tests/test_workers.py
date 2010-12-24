@@ -109,52 +109,52 @@ class test_functions(TestCase):
 
         # Test with unknown worker name
         q = DummyQueue()
-        f('import_files', q, ('foo', 'bar'))
+        f(q, 'ImportFiles', 'key', ('foo', 'bar'))
 
         self.assertEqual(
             q.messages,
             [
                 dict(
                     signal='Error',
-                    args=('KeyError', "'import_files'"),
-                    worker='import_files',
+                    args=('KeyError', "'ImportFiles'"),
+                    worker='ImportFiles',
                     pid=pid,
                     worker_args=('foo', 'bar'),
                 ),
                 dict(
                     signal='terminate',
                     args=('foo', 'bar'),
-                    worker='import_files',
+                    worker='ImportFiles',
                     pid=pid,
                 ),
             ]
         )
 
-        class import_files(workers.Worker):
+        class ImportFiles(workers.Worker):
             def run(self):
                 if self.dummy:
-                    self.emit('Dummy', *self.args)
+                    self.emit('dummy', *self.args)
                 else:
-                    self.emit('Smarty', *self.args)
+                    self.emit('smarty', *self.args)
 
-        workers.register(import_files)
+        workers.register(ImportFiles)
 
         # Test that default is dummy=False
         q = DummyQueue()
-        f('import_files', q, ('hello', 'world'))
+        f(q, 'ImportFiles', 'key', ('hello', 'world'))
         self.assertEqual(
             q.messages,
             [
                 dict(
-                    signal='Smarty',
+                    signal='smarty',
                     args=('hello', 'world'),
-                    worker=('import_files'),
+                    worker=('ImportFiles'),
                     pid=pid,
                 ),
                 dict(
                     signal='terminate',
                     args=('hello', 'world'),
-                    worker='import_files',
+                    worker='ImportFiles',
                     pid=pid,
                 ),
             ]
@@ -162,20 +162,20 @@ class test_functions(TestCase):
 
         # Test with dummy=False
         q = DummyQueue()
-        f('import_files', q, ('hello', 'world'), False)
+        f(q, 'ImportFiles', 'key', ('hello', 'world'), False)
         self.assertEqual(
             q.messages,
             [
                 dict(
-                    signal='Smarty',
+                    signal='smarty',
                     args=('hello', 'world'),
-                    worker=('import_files'),
+                    worker=('ImportFiles'),
                     pid=pid,
                 ),
                 dict(
                     signal='terminate',
                     args=('hello', 'world'),
-                    worker='import_files',
+                    worker='ImportFiles',
                     pid=pid,
                 ),
             ]
@@ -183,20 +183,20 @@ class test_functions(TestCase):
 
         # Test with dummy=True
         q = DummyQueue()
-        f('import_files', q, ('hello', 'world'), True)
+        f(q, 'ImportFiles', 'key', ('hello', 'world'), True)
         self.assertEqual(
             q.messages,
             [
                 dict(
-                    signal='Dummy',
+                    signal='dummy',
                     args=('hello', 'world'),
-                    worker=('import_files'),
+                    worker=('ImportFiles'),
                     pid=pid,
                 ),
                 dict(
                     signal='terminate',
                     args=('hello', 'world'),
-                    worker='import_files',
+                    worker='ImportFiles',
                     pid=pid,
                 ),
             ]
@@ -208,24 +208,26 @@ class test_Worker(TestCase):
 
     def test_init(self):
         q = DummyQueue()
+        key = 'the key'
         args = ('foo', 'bar')
-        inst = self.klass(q, args)
+        inst = self.klass(q, key, args)
         self.assertTrue(inst.q is q)
+        self.assertTrue(inst.key is key)
         self.assertTrue(inst.args is args)
         self.assertTrue(inst.dummy is False)
         self.assertEqual(inst.pid, current_process().pid)
         self.assertEqual(inst.name, 'Worker')
 
         # Test with dummy=True, dummy=False
-        inst = self.klass(q, args, dummy=True)
+        inst = self.klass(q, key, args, dummy=True)
         self.assertTrue(inst.dummy is True)
-        inst = self.klass(q, args, dummy=False)
+        inst = self.klass(q, key, args, dummy=False)
         self.assertTrue(inst.dummy is False)
 
     def test_emit(self):
         q = DummyQueue()
         args = ('foo', 'bar')
-        inst = self.klass(q, args)
+        inst = self.klass(q, 'key', args)
         pid = current_process().pid
 
         self.assertEqual(q.messages, [])
@@ -266,7 +268,7 @@ class test_Worker(TestCase):
             def execute(self, one, two):
                 self.emit('Hello', '%s and %s' % (one, two))
 
-        inst = do_something(q, args)
+        inst = do_something(q, 'key', args)
         inst.run()
         self.assertEqual(q.messages[0],
             dict(
@@ -280,14 +282,14 @@ class test_Worker(TestCase):
     def test_execute(self):
         q = DummyQueue()
         args = ('foo', 'bar')
-        inst = self.klass(q, args)
+        inst = self.klass(q, 'key', args)
 
         e = raises(NotImplementedError, inst.execute)
         self.assertEqual(str(e), 'Worker.execute()')
 
         class do_something(self.klass):
             pass
-        inst = do_something(q, args)
+        inst = do_something(q, 'key', args)
         e = raises(NotImplementedError, inst.execute)
         self.assertEqual(str(e), 'do_something.execute()')
 
