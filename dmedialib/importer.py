@@ -301,6 +301,7 @@ def accumulate_stats(accum, stats):
 class ImportManager(Manager):
     def __init__(self, callback=None, couchdir=None):
         super(ImportManager, self).__init__(callback)
+        self._couchdir = couchdir
         self.metastore = MetaStore(couchdir=couchdir)
         self.db = self.metastore.db
         self._batch = None
@@ -327,6 +328,11 @@ class ImportManager(Manager):
         )
         self._batch = None
 
+    def on_terminate(self, key):
+        super(ImportManager, self).on_terminate(key)
+        if len(self._workers) == 0:
+            self._finish_batch()
+
     def on_started(self, key, import_id):
         self._batch['imports'].append(import_id)
         self._batch = self._sync(self._batch)
@@ -349,3 +355,6 @@ class ImportManager(Manager):
                 return False
             if len(self._workers) == 0:
                 self._start_batch()
+            return self.do('ImportWorker', base,
+                self._batch['_id'], base, extract, self._couchdir
+            )

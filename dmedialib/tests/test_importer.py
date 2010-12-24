@@ -790,8 +790,86 @@ class test_ImportManager(CouchCase):
         )
 
     def test_start_import(self):
-        inst = self.klass(couchdir=self.couchdir)
+        callback = DummyCallback()
+        inst = self.klass(callback, self.couchdir)
+        self.assertTrue(inst.start())
 
-        # Test that False is returned
-        inst._workers['foo'] = 'bar'
-        self.assertTrue(inst.start_import('foo') is False)
+        tmp = TempDir()
+        base = tmp.path
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+        mov_size = path.getsize(sample_mov)
+        thm_size = path.getsize(sample_thm)
+
+        # Test that False is returned when key is present
+        inst._workers[base] = 'foo'
+        self.assertTrue(inst.start_import(base, False) is False)
+
+        # Now do the real thing
+        inst._workers.clear()
+        self.assertEqual(callback.messages, [])
+        self.assertTrue(inst.start_import(base, False) is True)
+        while inst._workers:
+            time.sleep(1)
+
+        self.assertEqual(len(callback.messages), 8)
+        batch_id = callback.messages[0][1][0]
+        import_id = callback.messages[1][1][1]
+        self.assertEqual(
+            callback.messages[0],
+            ('BatchStarted', (batch_id,))
+        )
+        self.assertEqual(
+            callback.messages[1],
+            ('ImportStarted', (base, import_id))
+        )
+        self.assertEqual(
+            callback.messages[2],
+            ('ImportCount', (base, import_id, 3))
+        )
+        self.assertEqual(
+            callback.messages[3],
+            ('ImportProgress', (base, import_id, 1, 3,
+                    dict(action='imported', src=src1, _id=sample_mov_hash)
+                )
+            )
+        )
+        self.assertEqual(
+            callback.messages[4],
+            ('ImportProgress', (base, import_id, 2, 3,
+                    dict(action='imported', src=src2, _id=sample_thm_hash)
+                )
+            )
+        )
+        self.assertEqual(
+            callback.messages[5],
+            ('ImportProgress', (base, import_id, 3, 3,
+                    dict(action='skipped', src=dup1, _id=sample_mov_hash)
+                )
+            )
+        )
+        self.assertEqual(
+            callback.messages[6],
+            ('ImportFinished', (base, import_id,
+                    dict(
+                        imported=2,
+                        imported_bytes=(mov_size + thm_size),
+                        skipped=1,
+                        skipped_bytes=mov_size,
+                    )
+                )
+            )
+        )
+        self.assertEqual(
+            callback.messages[7],
+            ('BatchFinished', (batch_id,
+                    dict(
+                        imported=2,
+                        imported_bytes=(mov_size + thm_size),
+                        skipped=1,
+                        skipped_bytes=mov_size,
+                    )
+                )
+            )
+        )
