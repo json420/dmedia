@@ -356,25 +356,20 @@ class import_files(Worker):
 
 
 class ImportWorker(Worker):
-    ctx = None
+    def execute(self, batch_id, base, extract=False, couchdir=None):
 
-    def execute(self, batch_id, base, extract):
-
-        if self.dummy:
-            adapter = DummyImporter(base)
-        else:
-            adapter = Importer(base, extract, ctx=self.ctx)
+        adapter = Importer(base, extract, couchdir)
 
         import_id = adapter.start()
-        self.emit('ImportStarted', base, import_id)
+        self.emit2('started', import_id)
 
         files = adapter.scanfiles()
         total = len(files)
-        self.emit('ImportCount', base, total)
+        self.emit2('count', total)
 
         c = 1
         for (src, action, doc) in adapter.import_all_iter():
-            self.emit('ImportProgress', base, c, total,
+            self.emit2('progress', c, total,
                 dict(
                     action=action,
                     src=src,
@@ -384,14 +379,7 @@ class ImportWorker(Worker):
             c += 1
 
         stats = adapter.finalize()
-        self.emit('ImportFinished', base,
-            dict(
-                imported=stats['imported']['count'],
-                imported_bytes=stats['imported']['bytes'],
-                skipped=stats['skipped']['count'],
-                skipped_bytes=stats['skipped']['bytes'],
-            )
-        )
+        self.emit2('finished', stats)
 
 
 class ImportManager(Manager):

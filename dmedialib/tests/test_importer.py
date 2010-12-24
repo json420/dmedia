@@ -574,6 +574,94 @@ class test_import_files(CouchCase):
         )
 
 
+class test_ImportWorker(CouchCase):
+    klass = importer.ImportWorker
+
+    def test_run(self):
+        q = DummyQueue()
+        pid = current_process().pid
+
+        tmp = TempDir()
+        batch_id = 'YKGHY6H5RVCDNMUBL4NLP6AU'
+        base = tmp.path
+        inst = self.klass(q, base, (batch_id, base, False, self.couchdir))
+
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+
+        mov_size = path.getsize(sample_mov)
+        thm_size = path.getsize(sample_thm)
+
+        inst.run()
+
+        self.assertEqual(len(q.messages), 6)
+        _id = q.messages[0]['args'][1]
+        self.assertEqual(len(_id), 24)
+        self.assertEqual(
+            q.messages[0],
+            dict(
+                signal='started',
+                args=(base, _id),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(
+            q.messages[1],
+            dict(
+                signal='count',
+                args=(base, 3),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(q.messages[2],
+            dict(
+                signal='progress',
+                args=(base, 1, 3,
+                    dict(action='imported', src=src1, _id=sample_mov_hash),
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(q.messages[3],
+            dict(
+                signal='progress',
+                args=(base, 2, 3,
+                    dict(action='imported', src=src2, _id=sample_thm_hash),
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(q.messages[4],
+            dict(
+                signal='progress',
+                args=(base, 3, 3,
+                    dict(action='skipped', src=dup1, _id=sample_mov_hash),
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(
+            q.messages[5],
+            dict(
+                signal='finished',
+                args=(base,
+                    dict(
+                        imported={'count': 2, 'bytes': (mov_size + thm_size)},
+                        skipped={'count': 1, 'bytes': mov_size},
+                    ),
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+
+
 class test_ImportManager(CouchCase):
     klass = importer.ImportManager
 
