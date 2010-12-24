@@ -115,7 +115,7 @@ class test_functions(TestCase):
             q.messages,
             [
                 dict(
-                    signal='Error',
+                    signal='error',
                     args=('KeyError', "'ImportFiles'"),
                     worker='ImportFiles',
                     pid=pid,

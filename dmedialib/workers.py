@@ -75,7 +75,7 @@ def dispatch(q, worker, key, args, dummy=False):
         inst.run()
     except Exception as e:
         q.put(dict(
-            signal='Error',
+            signal='error',
             args=(exception_name(e), str(e)),
             worker=worker,
             worker_args=args,
