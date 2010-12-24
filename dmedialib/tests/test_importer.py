@@ -141,6 +141,27 @@ class test_functions(TestCase):
         self.assertTrue(doc['time_start'] <= time.time())
         self.assertEqual(doc['imports'], [])
 
+    def test_create_batch(self):
+        f = importer.create_batch
+        doc = f()
+        self.assertTrue(isinstance(doc, dict))
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                'type',
+                'time_start',
+                'imports',
+            ])
+        )
+        _id = doc['_id']
+        self.assertEqual(b32encode(b32decode(_id)), _id)
+        self.assertEqual(len(_id), 24)
+        self.assertEqual(doc['type'], 'dmedia/batch')
+        self.assertTrue(isinstance(doc['time_start'], (int, float)))
+        self.assertTrue(doc['time_start'] <= time.time())
+        self.assertEqual(doc['imports'], [])
+
     def test_create_import(self):
         f = importer.create_import
         doc = f('/media/EOS_DIGITAL')
@@ -152,6 +173,7 @@ class test_functions(TestCase):
                 'type',
                 'time_start',
                 'mount',
+                'batch_id',
             ])
         )
         _id = doc['_id']
@@ -161,6 +183,7 @@ class test_functions(TestCase):
         self.assertTrue(isinstance(doc['time_start'], (int, float)))
         self.assertTrue(doc['time_start'] <= time.time())
         self.assertEqual(doc['mount'], '/media/EOS_DIGITAL')
+        self.assertEqual(doc['batch_id'], None)
 
 
 class test_Importer(TestCase):
@@ -212,6 +235,7 @@ class test_Importer(TestCase):
                 'type',
                 'time_start',
                 'mount',
+                'batch_id',
             ])
         )
 
@@ -388,7 +412,25 @@ class test_Importer(TestCase):
         )
 
 
-class import_files(TestCase):
+class CouchCase(TestCase):
+    def setUp(self):
+        self.home = TempHome()
+        self.tmp = TempDir()
+        self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
+        cache = os.path.join(self.data_dir, 'cache')
+        data = os.path.join(self.data_dir, 'data')
+        config = os.path.join(self.data_dir, 'config')
+        self.ctx = desktopcouch.local_files.Context(cache, data, config)
+
+    def tearDown(self):
+        stop_couchdb(ctx=self.ctx)
+        shutil.rmtree(self.data_dir)
+        self.ctx = None
+        self.home = None
+        self.tmp = None
+
+
+class test_import_files(CouchCase):
     klass = importer.import_files
 
     def setUp(self):
@@ -572,3 +614,37 @@ class import_files(TestCase):
                 ),
             )
         )
+
+
+class test_ImportManager(CouchCase):
+    klass = importer.ImportManager
+
+    def test_start_batch(self):
+        inst = self.klass(ctx=self.ctx)
+
+        # Test that batch cannot be started when there are active workers:
+        inst._workers['foo'] = 'bar'
+        self.assertRaises(AssertionError, inst._start_batch)
+        inst._workers.clear()
+
+        # Test under normal conditions
+        inst._start_batch()
+        batch = inst._batch
+        self.assertTrue(isinstance(batch, dict))
+        self.assertEqual(
+            set(batch),
+            set(['_id', '_rev', 'type', 'time_start', 'imports'])
+        )
+        self.assertEqual(batch['type'], 'dmedia/batch')
+        self.assertEqual(batch['imports'], [])
+        self.assertEqual(inst.db[batch['_id']], batch)
+
+        # Test that batch cannot be re-started without first finishing
+        self.assertRaises(AssertionError, inst._start_batch)
+
+    def test_start_import(self):
+        inst = self.klass(ctx=self.ctx)
+
+        # Test that False is returned
+        inst._workers['foo'] = 'bar'
+        self.assertTrue(inst.start_import('foo') is False)

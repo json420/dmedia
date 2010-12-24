@@ -41,6 +41,14 @@ function(doc) {
 }
 """
 
+batch_time_start = """
+function(doc) {
+    if (doc.type == 'dmedia/batch') {
+        emit(doc.time_start, null);
+    }
+}
+"""
+
 import_time_start = """
 function(doc) {
     if (doc.type == 'dmedia/import') {
@@ -127,6 +135,10 @@ class MetaStore(object):
     designs = (
         ('type', (
             ('type', type_type, _count),
+        )),
+
+        ('batch', (
+            ('time_start', batch_time_start, None),
         )),
 
         ('import', (
