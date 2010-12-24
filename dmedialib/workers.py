@@ -90,6 +90,30 @@ def dispatch(name, q, args, dummy=False):
         ))
 
 
+def dispatch2(q, key, worker, args, dummy=False):
+    try:
+        klass = _workers[worker]
+        inst = klass(q, args, dummy)
+        inst.run()
+    except Exception as e:
+        q.put(dict(
+            key=key,
+            worker=worker,
+            pid=current_process().pid,
+            signal='error',
+            args=(exception_name(e), str(e)),
+        ))
+    finally:
+        q.put(dict(
+            key=key,
+            worker=worker,
+            pid=current_process().pid,
+            signal='terminate',
+            args=args,
+
+        ))
+
+
 class Worker(object):
     def __init__(self, q, args, dummy=False):
         self.q = q
@@ -149,7 +173,15 @@ class Manager(object):
                 pass
 
     def _process_message(self, msg):
-        pass
+        with self._lock:
+            signal = msg['signal']
+            args = msg['args']
+            handler = getattr(self, 'on_' + signal)
+            handler(*args)
+
+    def on_terminate(self, key):
+        p = self._workers.pop(key)
+        p.join()
 
     def start(self):
         with self._lock:
@@ -162,19 +194,18 @@ class Manager(object):
             return True
 
     def kill(self):
+        if not self._running:
+            return False
+        self._running = False
+        self._thread.join()  # Cleanly shutdown _signal_thread
         with self._lock:
-            if not self._running:
-                return False
-            self._running = False
-            self._thread.join()  # Cleanly shutdown _signal_thread
-            return True
-            for p in self._imports.values():
+            for p in self._workers.values():
                 p.terminate()
                 p.join()
-            if callable(self._killfunc):
-                self._killfunc()
+            self._workers.clear()
+            return True
 
-    def do(self, key, name, *args, **kw):
+    def do(self, key, name, *args):
         """
         Start a process identified by *key*, using worker class *name*.
         """
@@ -183,7 +214,7 @@ class Manager(object):
                 return False
             p = multiprocessing.Process(
                 target=dispatch,
-                args=(self._q, name, args, kw),
+                args=(self._q, key, name, args),
             )
             p.daemon = True
             self._workers[key] = p

@@ -23,8 +23,9 @@
 Unit tests for `dmedialib.workers` module.
 """
 
-from os import path
 from unittest import TestCase
+from os import path
+import time
 import multiprocessing
 import multiprocessing.queues
 from multiprocessing import current_process
@@ -299,6 +300,18 @@ class DummyCallback(object):
         self.messages.append((signal, args))
 
 
+def infinite():
+    while True:
+        time.sleep(1)
+
+
+def infinite_process():
+    p = multiprocessing.Process(target=infinite)
+    p.daemon = True
+    p.start()
+    assert p.is_alive()
+    return p
+
 
 class test_Manager(TestCase):
     klass = workers.Manager
@@ -321,6 +334,34 @@ class test_Manager(TestCase):
         self.assertEqual(inst._workers, {})
         self.assertTrue(isinstance(inst._q, multiprocessing.queues.Queue))
         self.assertTrue(inst._thread is None)
+
+    def test_process_message(self):
+        class Example(self.klass):
+            _call = None
+            def on_stuff(self, arg1, arg2):
+                assert self._call is None
+                self._call = arg1 + arg2
+
+        inst = Example()
+        msg = dict(signal='stuff', args=('foo', 'bar'))
+        inst._process_message(msg)
+        self.assertEqual(inst._call, 'foobar')
+
+        msg = dict(signal='nope', args=('foo', 'bar'))
+        e = raises(AttributeError, inst._process_message, msg)
+        self.assertEqual(str(e), "'Example' object has no attribute 'on_nope'")
+
+    def test_on_terminate(self):
+        inst = self.klass()
+        e = raises(KeyError, inst.on_terminate, 'foo')
+        p = multiprocessing.Process(target=time.sleep, args=(1,))
+        p.daemon = True
+        inst._workers['foo'] = p
+        p.start()
+        self.assertTrue(p.is_alive() is True)
+        inst.on_terminate('foo')
+        self.assertTrue(p.is_alive() is False)
+        self.assertEqual(inst._workers, {})
 
     def test_start(self):
         inst = self.klass()
@@ -348,6 +389,21 @@ class test_Manager(TestCase):
         # Test that kill() returns False when not running:
         self.assertTrue(inst.kill() is False)
 
+        # Test with live processes:
+        foo = infinite_process()
+        bar = infinite_process()
+        baz = infinite_process()
+        inst._workers.update(dict(foo=foo, bar=bar, baz=baz))
+        self.assertTrue(inst.start() is True)
+        self.assertTrue(inst._thread.is_alive())
+
+        self.assertTrue(inst.kill() is True)
+        self.assertFalse(inst._thread.is_alive())
+        self.assertFalse(foo.is_alive())
+        self.assertFalse(bar.is_alive())
+        self.assertFalse(baz.is_alive())
+        self.assertEqual(inst._workers, {})
+
     def test_do(self):
         inst = self.klass()
 
@@ -362,6 +418,7 @@ class test_Manager(TestCase):
         self.assertTrue(
             isinstance(inst._workers['foo'], multiprocessing.Process)
         )
+        self.assertTrue(inst._workers['foo'].daemon is True)
 
     def test_emit(self):
         # Test with no callback
