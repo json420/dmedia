@@ -131,64 +131,18 @@ class test_functions(TestCase):
 
         class ImportFiles(workers.Worker):
             def run(self):
-                if self.dummy:
-                    self.emit('dummy', *self.args)
-                else:
-                    self.emit('smarty', *self.args)
+                self.emit('word', *self.args)
 
         workers.register(ImportFiles)
 
-        # Test that default is dummy=False
         q = DummyQueue()
         f(q, 'ImportFiles', 'the key', ('hello', 'world'))
         self.assertEqual(
             q.messages,
             [
                 dict(
-                    signal='smarty',
-                    args=('hello', 'world'),
-                    worker=('ImportFiles'),
-                    pid=pid,
-                ),
-                dict(
-                    signal='terminate',
-                    args=('the key',),
-                    worker='ImportFiles',
-                    pid=pid,
-                ),
-            ]
-        )
-
-        # Test with dummy=False
-        q = DummyQueue()
-        f(q, 'ImportFiles', 'the key', ('hello', 'world'), False)
-        self.assertEqual(
-            q.messages,
-            [
-                dict(
-                    signal='smarty',
-                    args=('hello', 'world'),
-                    worker=('ImportFiles'),
-                    pid=pid,
-                ),
-                dict(
-                    signal='terminate',
-                    args=('the key',),
-                    worker='ImportFiles',
-                    pid=pid,
-                ),
-            ]
-        )
-
-        # Test with dummy=True
-        q = DummyQueue()
-        f(q, 'ImportFiles', 'the key', ('hello', 'world'), True)
-        self.assertEqual(
-            q.messages,
-            [
-                dict(
-                    signal='dummy',
-                    args=('hello', 'world'),
+                    signal='word',
+                    args=('the key', 'hello', 'world'),
                     worker=('ImportFiles'),
                     pid=pid,
                 ),
@@ -213,20 +167,13 @@ class test_Worker(TestCase):
         self.assertTrue(inst.q is q)
         self.assertTrue(inst.key is key)
         self.assertTrue(inst.args is args)
-        self.assertTrue(inst.dummy is False)
         self.assertEqual(inst.pid, current_process().pid)
         self.assertEqual(inst.name, 'Worker')
-
-        # Test with dummy=True, dummy=False
-        inst = self.klass(q, key, args, dummy=True)
-        self.assertTrue(inst.dummy is True)
-        inst = self.klass(q, key, args, dummy=False)
-        self.assertTrue(inst.dummy is False)
 
     def test_emit(self):
         q = DummyQueue()
         args = ('foo', 'bar')
-        inst = self.klass(q, 'key', args)
+        inst = self.klass(q, 'akey', args)
         pid = current_process().pid
 
         self.assertEqual(q.messages, [])
@@ -236,7 +183,7 @@ class test_Worker(TestCase):
             worker='Worker',
             pid=pid,
             signal='SomeSignal',
-            args=tuple()
+            args=('akey',),
         )
         self.assertEqual(q.messages, [one])
 
@@ -245,46 +192,11 @@ class test_Worker(TestCase):
             worker='Worker',
             pid=pid,
             signal='AnotherSignal',
-            args=('this', 'time', 'with', 'args')
-        )
-        self.assertEqual(q.messages, [one, two])
-
-        inst.emit('OneMore')
-        three = dict(
-            worker='Worker',
-            pid=pid,
-            signal='OneMore',
-            args=tuple()
-        )
-        self.assertEqual(q.messages, [one, two, three])
-
-    def test_emit2(self):
-        q = DummyQueue()
-        args = ('foo', 'bar')
-        inst = self.klass(q, 'akey', args)
-        pid = current_process().pid
-
-        self.assertEqual(q.messages, [])
-
-        inst.emit2('SomeSignal')
-        one = dict(
-            worker='Worker',
-            pid=pid,
-            signal='SomeSignal',
-            args=('akey',),
-        )
-        self.assertEqual(q.messages, [one])
-
-        inst.emit2('AnotherSignal', 'this', 'time', 'with', 'args')
-        two = dict(
-            worker='Worker',
-            pid=pid,
-            signal='AnotherSignal',
             args=('akey', 'this', 'time', 'with', 'args')
         )
         self.assertEqual(q.messages, [one, two])
 
-        inst.emit2('OneMore', 'stuff')
+        inst.emit('OneMore', 'stuff')
         three = dict(
             worker='Worker',
             pid=pid,
@@ -309,7 +221,7 @@ class test_Worker(TestCase):
                 worker='do_something',
                 pid=pid,
                 signal='Hello',
-                args=('foo and bar',),
+                args=('key', 'foo and bar'),
             )
         )
 

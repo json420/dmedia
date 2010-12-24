@@ -30,8 +30,6 @@ import dbus
 import dbus.service
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, import_started, batch_import_finished
-from .importer import import_files, create_batchimport
-from .workers import register, dispatch
 
 try:
     import pynotify
@@ -48,9 +46,6 @@ except ImportError:
 
 ICON = '/usr/share/pixmaps/dmedia/indicator-rendermenu.svg'
 ICON_ATT = '/usr/share/pixmaps/dmedia/indicator-rendermenu-att.svg'
-
-
-register(import_files)
 
 
 class DMedia(dbus.service.Object):

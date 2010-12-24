@@ -266,110 +266,21 @@ class Importer(object):
         return s
 
 
-class DummyImporter(object):
-    """
-    Dummy adapter for testing dbus service.
-
-    Note that DummyImporter.scanfiles() will sleep for 1 second to facilitate
-    testing.
-    """
-    def __init__(self, base):
-        self.base = base
-        self._files = tuple(
-            path.join(self.base, *parts) for parts in [
-                ('DCIM', '100EOS5D2', 'MVI_5751.MOV'),
-                ('DCIM', '100EOS5D2', 'MVI_5751.THM'),
-                ('DCIM', '100EOS5D2', 'MVI_5752.MOV'),
-            ]
-        )
-        self._mov_size = 20202333
-        self._thm_size = 27328
-
-    def start(self):
-        return '4CXJKLJ3MXAVTNWYEPHTETHV'
-
-    def scanfiles(self):
-        time.sleep(1)
-        return self._files
-
-    def import_all_iter(self):
-        yield (self._files[0], 'imported',
-            dict(_id='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        )
-        yield (self._files[1], 'imported',
-            dict(_id='F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
-        )
-        yield (self._files[2], 'skipped',
-            dict(_id='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        )
-
-    def finalize(self):
-        return {
-            'imported': {
-                'count': 2,
-                'bytes': 20202333 + 27328,
-            },
-            'skipped': {
-                'count': 1,
-                'bytes': 20202333,
-            },
-        }
-
-
-class import_files(Worker):
-    couchdir = None
-
-    def execute(self, base, extract):
-
-        if self.dummy:
-            adapter = DummyImporter(base)
-        else:
-            adapter = Importer(base, extract, couchdir=self.couchdir)
-
-        import_id = adapter.start()
-        self.emit('ImportStarted', base, import_id)
-
-        files = adapter.scanfiles()
-        total = len(files)
-        self.emit('ImportCount', base, total)
-
-        c = 1
-        for (src, action, doc) in adapter.import_all_iter():
-            self.emit('ImportProgress', base, c, total,
-                dict(
-                    action=action,
-                    src=src,
-                    _id=doc['_id'],
-                )
-            )
-            c += 1
-
-        stats = adapter.finalize()
-        self.emit('ImportFinished', base,
-            dict(
-                imported=stats['imported']['count'],
-                imported_bytes=stats['imported']['bytes'],
-                skipped=stats['skipped']['count'],
-                skipped_bytes=stats['skipped']['bytes'],
-            )
-        )
-
-
 class ImportWorker(Worker):
     def execute(self, batch_id, base, extract=False, couchdir=None):
 
         adapter = Importer(base, extract, couchdir)
 
         import_id = adapter.start()
-        self.emit2('started', import_id)
+        self.emit('started', import_id)
 
         files = adapter.scanfiles()
         total = len(files)
-        self.emit2('count', total)
+        self.emit('count', total)
 
         c = 1
         for (src, action, doc) in adapter.import_all_iter():
-            self.emit2('progress', c, total,
+            self.emit('progress', c, total,
                 dict(
                     action=action,
                     src=src,
@@ -379,7 +290,7 @@ class ImportWorker(Worker):
             c += 1
 
         stats = adapter.finalize()
-        self.emit2('finished', stats)
+        self.emit('finished', stats)
 
 
 class ImportManager(Manager):

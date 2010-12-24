@@ -68,10 +68,10 @@ def exception_name(exception):
     return exception.__name__
 
 
-def dispatch(q, worker, key, args, dummy=False):
+def dispatch(q, worker, key, args):
     try:
         klass = _workers[worker]
-        inst = klass(q, key, args, dummy)
+        inst = klass(q, key, args)
         inst.run()
     except Exception as e:
         q.put(dict(
@@ -90,36 +90,14 @@ def dispatch(q, worker, key, args, dummy=False):
 
 
 class Worker(object):
-    def __init__(self, q, key, args, dummy=False):
+    def __init__(self, q, key, args):
         self.q = q
         self.key = key
         self.args = args
-        self.dummy = dummy
         self.pid = current_process().pid
         self.name = self.__class__.__name__
 
     def emit(self, signal, *args):
-        """
-        Put *signal* into message queue, optionally with *args*.
-
-        To aid debugging and logging, the worker class name and worker process
-        ID are included in the message.
-
-        The message is a ``dict`` with the following keys:
-
-            *worker* - the worker class name
-            *pid* - the process ID
-            *signal* - the signal name
-            *args* - signal arguments
-        """
-        self.q.put(dict(
-            worker=self.name,
-            pid=self.pid,
-            signal=signal,
-            args=args,
-        ))
-
-    def emit2(self, signal, *args):
         """
         Put *signal* into message queue, optionally with *args*.
 
