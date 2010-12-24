@@ -33,7 +33,7 @@ import time
 from base64 import b32decode, b32encode
 from unittest import TestCase
 from multiprocessing import current_process
-from .helpers import TempDir, TempHome, raises, DummyQueue
+from .helpers import CouchCase, TempDir, TempHome, raises, DummyQueue
 from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
 from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
 from dmedialib.errors import AmbiguousPath
@@ -186,46 +186,33 @@ class test_functions(TestCase):
         self.assertEqual(doc['batch_id'], None)
 
 
-class test_Importer(TestCase):
+class test_Importer(CouchCase):
     klass = importer.Importer
 
-    def new(self, base=None, extract=False):
-        if base is None:
-            self.tmp = TempDir()
-            base = self.tmp.path
-        return self.klass(base, extract, ctx=self.ctx)
-
-    def setUp(self):
-        self.home = TempHome()
-        self.tmp = TempDir()
-        self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
-        cache = os.path.join(self.data_dir, 'cache')
-        data = os.path.join(self.data_dir, 'data')
-        config = os.path.join(self.data_dir, 'config')
-        self.ctx = desktopcouch.local_files.Context(cache, data, config)
-
-    def tearDown(self):
-        stop_couchdb(ctx=self.ctx)
-        shutil.rmtree(self.data_dir)
-        self.ctx = None
-        self.home = None
-        self.tmp = None
+    def new(self, base, extract=False):
+        return self.klass(base, extract, couchdir=self.couchdir)
 
     def test_init(self):
-        inst = self.new()
-        self.assertEqual(inst.base, self.tmp.path)
-        self.assertTrue(inst.extract is False)
+        tmp = TempDir()
+        inst = self.new(tmp.path, True)
+        self.assertEqual(inst.base, tmp.path)
+        self.assertTrue(inst.extract is True)
         self.assertEqual(inst.home, self.home.path)
         self.assertTrue(isinstance(inst.filestore, FileStore))
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
         self.assertTrue(isinstance(inst.metastore, MetaStore))
 
+        # Test with extract = False
+        inst = self.new(tmp.path, False)
+        self.assertTrue(inst.extract is False)
+
     def test_start(self):
-        inst = self.new()
+        tmp = TempDir()
+        inst = self.new(tmp.path)
         self.assertTrue(inst._import is None)
         _id = inst.start()
         self.assertEqual(len(_id), 24)
-        store = MetaStore(ctx=self.ctx)
+        store = MetaStore(couchdir=self.couchdir)
         self.assertEqual(inst._import, store.db[_id])
         self.assertEqual(
             set(inst._import),
@@ -240,7 +227,8 @@ class test_Importer(TestCase):
         )
 
     def test_get_stats(self):
-        inst = self.new()
+        tmp = TempDir()
+        inst = self.new(tmp.path)
         one = inst.get_stats()
         self.assertEqual(one,
              {
@@ -260,18 +248,19 @@ class test_Importer(TestCase):
         self.assertFalse(one['skipped'] is two['skipped'])
 
     def test_scanfiles(self):
-        inst = self.new()
+        tmp = TempDir()
+        inst = self.new(tmp.path)
         files = []
         for args in relpaths:
-            p = self.tmp.touch('subdir', *args)
+            p = tmp.touch('subdir', *args)
             files.append(p)
-
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
         self.assertTrue(inst.scanfiles() is got)
 
     def test_import_file(self):
-        inst = self.new()
+        tmp = TempDir()
+        inst = self.new(tmp.path)
 
         # Test that AmbiguousPath is raised:
         traversal = '/home/foo/.dmedia/../.ssh/id_rsa'
@@ -280,7 +269,7 @@ class test_Importer(TestCase):
         self.assertEqual(e.abspath, '/home/foo/.ssh/id_rsa')
 
         # Test that IOError propagates up with missing file
-        nope = self.tmp.join('nope.mov')
+        nope = tmp.join('nope.mov')
         e = raises(IOError, inst.import_file, nope)
         self.assertEqual(
             str(e),
@@ -288,7 +277,7 @@ class test_Importer(TestCase):
         )
 
         # Test that IOError propagates up with unreadable file
-        nope = self.tmp.touch('nope.mov')
+        nope = tmp.touch('nope.mov')
         os.chmod(nope, 0o000)
         e = raises(IOError, inst.import_file, nope)
         self.assertEqual(
@@ -297,8 +286,8 @@ class test_Importer(TestCase):
         )
         os.chmod(nope, 0o600)
 
-        src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
-        src2 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'duplicate.MOV')
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        src2 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'duplicate.MOV')
 
         # Test with new file
         size = path.getsize(src1)
@@ -352,11 +341,12 @@ class test_Importer(TestCase):
 
 
     def test_import_all_iter(self):
-        inst = self.new()
+        tmp = TempDir()
+        inst = self.new(tmp.path)
 
-        src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
-        dup1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
-        src2 = self.tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
 
         import_id = inst.start()
         items = tuple(inst.import_all_iter())
@@ -412,54 +402,21 @@ class test_Importer(TestCase):
         )
 
 
-class CouchCase(TestCase):
-    def setUp(self):
-        self.home = TempHome()
-        self.tmp = TempDir()
-        self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
-        cache = os.path.join(self.data_dir, 'cache')
-        data = os.path.join(self.data_dir, 'data')
-        config = os.path.join(self.data_dir, 'config')
-        self.ctx = desktopcouch.local_files.Context(cache, data, config)
-
-    def tearDown(self):
-        stop_couchdb(ctx=self.ctx)
-        shutil.rmtree(self.data_dir)
-        self.ctx = None
-        self.home = None
-        self.tmp = None
-
-
 class test_import_files(CouchCase):
     klass = importer.import_files
-
-    def setUp(self):
-        self.home = TempHome()
-        self.tmp = TempDir()
-        self.data_dir = tempfile.mkdtemp(prefix='dc-test.')
-        cache = os.path.join(self.data_dir, 'cache')
-        data = os.path.join(self.data_dir, 'data')
-        config = os.path.join(self.data_dir, 'config')
-        self.ctx = desktopcouch.local_files.Context(cache, data, config)
-
-    def tearDown(self):
-        stop_couchdb(ctx=self.ctx)
-        shutil.rmtree(self.data_dir)
-        self.ctx = None
-        self.home = None
-        self.tmp = None
 
     def test_run(self):
         q = DummyQueue()
         pid = current_process().pid
 
-        base = self.tmp.path
+        tmp = TempDir()
+        base = tmp.path
         inst = self.klass(q, base, (base, False))
-        inst.ctx = self.ctx
+        inst.couchdir = self.couchdir
 
-        src1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
-        dup1 = self.tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
-        src2 = self.tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
 
         mov_size = path.getsize(sample_mov)
         thm_size = path.getsize(sample_thm)
@@ -538,16 +495,17 @@ class test_import_files(CouchCase):
         # Same as above but with dummy=True
         q = DummyQueue()
         pid = current_process().pid
-        base = self.tmp.path
+        tmp = TempDir()
+        base = tmp.path
         inst = self.klass(q, base, (base, False), dummy=True)
         mov_size = path.getsize(sample_mov)
         thm_size = path.getsize(sample_thm)
 
         inst.run()
 
-        src1 = self.tmp.join('DCIM', '100EOS5D2', 'MVI_5751.MOV')
-        dup1 = self.tmp.join('DCIM', '100EOS5D2', 'MVI_5752.MOV')
-        src2 = self.tmp.join('DCIM', '100EOS5D2', 'MVI_5751.THM')
+        src1 = tmp.join('DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = tmp.join('DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = tmp.join('DCIM', '100EOS5D2', 'MVI_5751.THM')
 
         self.assertEqual(len(q.messages), 6)
         self.assertEqual(
@@ -620,7 +578,7 @@ class test_ImportManager(CouchCase):
     klass = importer.ImportManager
 
     def test_start_batch(self):
-        inst = self.klass(ctx=self.ctx)
+        inst = self.klass(couchdir=self.couchdir)
 
         # Test that batch cannot be started when there are active workers:
         inst._workers['foo'] = 'bar'
@@ -643,7 +601,7 @@ class test_ImportManager(CouchCase):
         self.assertRaises(AssertionError, inst._start_batch)
 
     def test_start_import(self):
-        inst = self.klass(ctx=self.ctx)
+        inst = self.klass(couchdir=self.couchdir)
 
         # Test that False is returned
         inst._workers['foo'] = 'bar'

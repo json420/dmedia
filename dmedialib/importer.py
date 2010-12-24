@@ -168,12 +168,12 @@ def create_import(mount, batch_id=None):
 
 
 class Importer(object):
-    def __init__(self, base, extract, ctx=None):
+    def __init__(self, base, extract, couchdir=None):
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(path.join(self.home, DOTDIR))
-        self.metastore = MetaStore(ctx=ctx)
+        self.metastore = MetaStore(couchdir=couchdir)
         self.db = self.metastore.db
 
         self.__stats = {
@@ -317,14 +317,14 @@ class DummyImporter(object):
 
 
 class import_files(Worker):
-    ctx = None
+    couchdir = None
 
     def execute(self, base, extract):
 
         if self.dummy:
             adapter = DummyImporter(base)
         else:
-            adapter = Importer(base, extract, ctx=self.ctx)
+            adapter = Importer(base, extract, couchdir=self.couchdir)
 
         import_id = adapter.start()
         self.emit('ImportStarted', base, import_id)
@@ -395,9 +395,9 @@ class ImportWorker(Worker):
 
 
 class ImportManager(Manager):
-    def __init__(self, callback=None, ctx=None):
+    def __init__(self, callback=None, couchdir=None):
         super(ImportManager, self).__init__(callback)
-        self.metastore = MetaStore(ctx=ctx)
+        self.metastore = MetaStore(couchdir=couchdir)
         self.db = self.metastore.db
         self._batch = None
 
