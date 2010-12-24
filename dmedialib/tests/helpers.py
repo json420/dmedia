@@ -28,6 +28,7 @@ from os import path
 from subprocess import check_call
 import tempfile
 import shutil
+from desktopcouch.stop_local_couchdb import stop_couchdb
 
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
@@ -146,90 +147,3 @@ class DummyQueue(object):
 
     def put(self, msg):
         self.messages.append(msg)
-
-
-
-DVALUE = """assert_deepequal: expected != got.
-  %s
-  expected:
-%r
-  got:
-%r
-  path = %r"""
-
-DTYPE = """assert_deepequal: type(expected) is not type(got).
-  %s
-  type(expected) = %r
-  type(got) = %r
-  expected = %r
-  got = %r
-  path = %r"""
-
-DLEN = """assert_deepequal: list length mismatch.
-  %s
-  len(expected) = %r
-  len(got) = %r
-  expected = %r
-  got = %r
-  path = %r"""
-
-DKEYS = """assert_deepequal: dict keys mismatch.
-  %s
-  missing keys = %r
-  extra keys = %r
-  expected =%r
-  got = %r
-  path = %r"""
-
-
-
-def assert_deepequal(expected, got, doc='', stack=tuple()):
-    """
-    Recursively check for type and equality.
-
-    If the tests fails, it will raise an ``AssertionError`` with detailed
-    information, including the path to the offending value.  For example:
-
-    >>> expected = [u'Hello', dict(world=u'how are you?')]
-    >>> got = [u'Hello', dict(world='how are you?')]
-    >>> expected == got
-    True
-    >>> assert_deepequal(expected, got, doc='Testing my nested data')
-    Traceback (most recent call last):
-      ...
-    AssertionError: assert_deepequal: type(expected) is not type(got).
-      Testing my nested data
-      type(expected) = <type 'unicode'>
-      type(got) = <type 'str'>
-      expected = u'how are you?'
-      got = 'how are you?'
-      path = (1, 'world')
-    """
-    if type(expected) is not type(got):
-        raise AssertionError(
-            DTYPE % (doc, type(expected), type(got), expected, got, stack)
-        )
-    if isinstance(expected, (list, tuple)):
-        if len(expected) != len(got):
-            raise AssertionError(
-                DLEN % (doc, len(expected), len(got), expected, got, stack)
-            )
-        for (i, e_sub) in enumerate(expected):
-            g_sub = got[i]
-            assert_deepequal(e_sub, g_sub, doc, stack + (i,))
-    elif isinstance(expected, dict):
-        missing = set(expected).difference(got)
-        extra = set(got).difference(expected)
-        if missing or extra:
-            raise AssertionError(DKEYS % (
-                    doc, sorted(missing), sorted(extra), expected, got, stack
-                )
-            )
-        for key in sorted(expected):
-            e_sub = expected[key]
-            g_sub = got[key]
-            assert_deepequal(e_sub, g_sub, doc, stack + (key,))
-    elif expected != got:
-        raise AssertionError(
-            DVALUE % (doc, expected, got, stack)
-        )

@@ -29,7 +29,7 @@ from dmedialib import metastore
 import couchdb
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
-from desktopcouch.local_files import Context, DEFAULT_CONTEXT
+from desktopcouch.local_files import Context
 from desktopcouch.stop_local_couchdb import stop_couchdb
 import desktopcouch
 import tempfile

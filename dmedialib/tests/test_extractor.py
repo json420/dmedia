@@ -27,7 +27,7 @@ from unittest import TestCase
 import base64
 from os import path
 import Image
-from .helpers import sample_mov, sample_thm, assert_deepequal, TempDir
+from .helpers import sample_mov, sample_thm, TempDir
 from dmedialib import extractor
 
 # Known EXIF data as returned be exiftool:
@@ -254,7 +254,7 @@ class test_functions(TestCase):
     def test_extract_exif(self):
         f = extractor.extract_exif
         exif = f(sample_thm)
-        assert_deepequal(sample_thm_exif, exif)
+        self.assertEqual(sample_thm_exif, exif)
 
         # Test that error is returned for invalid file:
         tmp = TempDir()
@@ -332,7 +332,7 @@ class test_functions(TestCase):
 
         # Test with sample_mov from 5D Mark II:
         info = f(sample_mov)
-        assert_deepequal(sample_mov_info, info)
+        self.assertEqual(sample_mov_info, info)
 
         # Test invalid file:
         invalid = tmp.write('Wont work!', 'invalid.mov')
@@ -433,7 +433,7 @@ class test_functions(TestCase):
     def test_merge_exif(self):
         f = extractor.merge_exif
         self.assertTrue(sample_thm.endswith('.THM'))
-        assert_deepequal(
+        self.assertEqual(
             dict(f(sample_thm)),
             dict(
                 width=160,
