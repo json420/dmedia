@@ -54,6 +54,13 @@ def random_bus():
     return '.'.join(['org', random, 'DMedia'])
 
 
+def prep_import_source(tmp):
+    src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+    src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+    dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+    return (src1, src2, dup1)
+
+
 class ExceptionNotRaised(StandardError):
     """
     Raised when an expected exception is not raised.

@@ -25,7 +25,7 @@ Unit tests for `dmedialib.metastore` module.
 
 from unittest import TestCase
 from helpers import CouchCase, TempDir, random_bus
-from dmedialib import service
+from dmedialib import service, importer
 
 
 class test_DMedia(CouchCase):
@@ -42,3 +42,10 @@ class test_DMedia(CouchCase):
         self.assertTrue(inst._bus is bus)
         self.assertTrue(inst._couchdir is self.couchdir)
         self.assertTrue(inst._no_gui)
+        self.assertEqual(inst._manager, None)
+
+        m = inst.manager
+        self.assertTrue(inst._manager is m)
+        self.assertTrue(isinstance(m, importer.ImportManager))
+        self.assertEqual(m._callback, inst._on_signal)
+        self.assertTrue(m._couchdir is self.couchdir)

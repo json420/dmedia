@@ -28,8 +28,14 @@ from dmedialib import __version__
 from os import path
 import dbus
 import dbus.service
+import dbus.mainloop.glib
+import gobject
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, import_started, batch_import_finished
+from .importer import ImportManager
+
+gobject.threads_init()
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 try:
     import pynotify
@@ -63,7 +69,7 @@ class DMedia(dbus.service.Object):
         self._no_gui = no_gui
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
-        dbus.service.BusName(self._bus, self._conn)
+        self._busname = dbus.service.BusName(self._bus, self._conn)
 
         if no_gui or pynotify is None:
             self._notify = None
@@ -79,6 +85,19 @@ class DMedia(dbus.service.Object):
             self._menu = gtk.Menu()
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
+
+        self._manager = None
+
+    @property
+    def manager(self):
+        if self._manager is None:
+            self._manager = ImportManager(self._on_signal, self._couchdir)
+            self._manager.start()
+        return self._manager
+
+    def _on_signal(self, signal, args):
+        pass
+
 
     @dbus.service.signal(INTERFACE, signature='s')
     def BatchImportStarted(self, batch_id):

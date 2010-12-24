@@ -34,7 +34,7 @@ from base64 import b32decode, b32encode
 from unittest import TestCase
 from multiprocessing import current_process
 from .helpers import CouchCase, TempDir, TempHome, raises
-from .helpers import DummyQueue, DummyCallback
+from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
 from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
 from dmedialib.errors import AmbiguousPath
@@ -795,10 +795,8 @@ class test_ImportManager(CouchCase):
         self.assertTrue(inst.start())
 
         tmp = TempDir()
+        (src1, src2, dup1) = prep_import_source(tmp)
         base = tmp.path
-        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
-        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
-        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
         mov_size = path.getsize(sample_mov)
         thm_size = path.getsize(sample_thm)
 
