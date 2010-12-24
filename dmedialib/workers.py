@@ -78,14 +78,13 @@ def dispatch(q, worker, key, args, dummy=False):
             signal='error',
             args=(exception_name(e), str(e)),
             worker=worker,
-            worker_args=args,
             pid=current_process().pid,
         ))
     finally:
         q.put(dict(
             signal='terminate',
+            args=(key,),
             worker=worker,
-            args=args,
             pid=current_process().pid,
         ))
 

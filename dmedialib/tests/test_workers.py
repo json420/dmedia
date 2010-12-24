@@ -109,7 +109,7 @@ class test_functions(TestCase):
 
         # Test with unknown worker name
         q = DummyQueue()
-        f(q, 'ImportFiles', 'key', ('foo', 'bar'))
+        f(q, 'ImportFiles', 'the key', ('foo', 'bar'))
 
         self.assertEqual(
             q.messages,
@@ -119,11 +119,10 @@ class test_functions(TestCase):
                     args=('KeyError', "'ImportFiles'"),
                     worker='ImportFiles',
                     pid=pid,
-                    worker_args=('foo', 'bar'),
                 ),
                 dict(
                     signal='terminate',
-                    args=('foo', 'bar'),
+                    args=('the key',),
                     worker='ImportFiles',
                     pid=pid,
                 ),
@@ -141,7 +140,7 @@ class test_functions(TestCase):
 
         # Test that default is dummy=False
         q = DummyQueue()
-        f(q, 'ImportFiles', 'key', ('hello', 'world'))
+        f(q, 'ImportFiles', 'the key', ('hello', 'world'))
         self.assertEqual(
             q.messages,
             [
@@ -153,7 +152,7 @@ class test_functions(TestCase):
                 ),
                 dict(
                     signal='terminate',
-                    args=('hello', 'world'),
+                    args=('the key',),
                     worker='ImportFiles',
                     pid=pid,
                 ),
@@ -162,7 +161,7 @@ class test_functions(TestCase):
 
         # Test with dummy=False
         q = DummyQueue()
-        f(q, 'ImportFiles', 'key', ('hello', 'world'), False)
+        f(q, 'ImportFiles', 'the key', ('hello', 'world'), False)
         self.assertEqual(
             q.messages,
             [
@@ -174,7 +173,7 @@ class test_functions(TestCase):
                 ),
                 dict(
                     signal='terminate',
-                    args=('hello', 'world'),
+                    args=('the key',),
                     worker='ImportFiles',
                     pid=pid,
                 ),
@@ -183,7 +182,7 @@ class test_functions(TestCase):
 
         # Test with dummy=True
         q = DummyQueue()
-        f(q, 'ImportFiles', 'key', ('hello', 'world'), True)
+        f(q, 'ImportFiles', 'the key', ('hello', 'world'), True)
         self.assertEqual(
             q.messages,
             [
@@ -195,7 +194,7 @@ class test_functions(TestCase):
                 ),
                 dict(
                     signal='terminate',
-                    args=('hello', 'world'),
+                    args=('the key',),
                     worker='ImportFiles',
                     pid=pid,
                 ),
