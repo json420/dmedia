@@ -54,8 +54,6 @@ def pynames(pkdir, pkname=None):
             continue
         if name.startswith('.') or name.endswith('~'):
             continue
-        if name == 'test_client.py':
-            continue
         fullname = path.join(pkdir, name)
         if path.islink(fullname):
             continue

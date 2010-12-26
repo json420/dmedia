@@ -58,6 +58,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
     if not (options.couchdir is None or path.isdir(options.couchdir)):
         exit('couchdir not a directory: %r' % options.couchdir)
+    from dmedialib import service
     mainloop = gobject.MainLoop()
     obj = service.DMedia(mainloop.quit,
         options.bus, options.couchdir, options.no_gui

@@ -30,6 +30,7 @@ import dbus
 import dbus.service
 import dbus.mainloop.glib
 import gobject
+from gettext import gettext as _
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, import_started, batch_import_finished
 from .importer import ImportManager
@@ -83,6 +84,10 @@ class DMedia(dbus.service.Object):
             )
             self._indicator.set_attention_icon(ICON_ATT)
             self._menu = gtk.Menu()
+            quit = gtk.MenuItem(_('Shutdown dmedia'))
+            quit.connect('activate', self._on_quit)
+            quit.show()
+            self._menu.append(quit)
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
 
@@ -98,6 +103,8 @@ class DMedia(dbus.service.Object):
     def _on_signal(self, signal, args):
         pass
 
+    def _on_quit(self, menuitem):
+        self.Kill()
 
     @dbus.service.signal(INTERFACE, signature='s')
     def BatchImportStarted(self, batch_id):
@@ -172,11 +179,8 @@ class DMedia(dbus.service.Object):
         """
         Kill the dmedia service process.
         """
-        self.__running = False
-        self.__thread.join()  # Cleanly shutdown _signal_thread
-        for p in self.__imports.values():
-            p.terminate()
-            p.join()
+        if self._manager is not None:
+            self._manager.kill()
         if callable(self._killfunc):
             self._killfunc()
 

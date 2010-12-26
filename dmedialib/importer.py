@@ -358,3 +358,7 @@ class ImportManager(Manager):
             return self.do('ImportWorker', base,
                 self._batch['_id'], base, extract, self._couchdir
             )
+
+    def list_imports(self):
+        with self._lock:
+            return sorted(self._workers)
