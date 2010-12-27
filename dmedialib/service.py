@@ -32,7 +32,7 @@ import dbus.mainloop.glib
 import gobject
 from gettext import gettext as _
 from .constants import BUS, INTERFACE, EXT_MAP
-from .util import NotifyManager, import_started, batch_finished
+from .util import NotifyManager, Timer, import_started, batch_finished
 from .importer import ImportManager
 
 gobject.threads_init()
@@ -84,11 +84,14 @@ class DMedia(dbus.service.Object):
             self._indicator = appindicator.Indicator('rendermenu', ICON,
                 appindicator.CATEGORY_APPLICATION_STATUS
             )
+            self._timer = Timer(2, self._on_timer)
             self._indicator.set_attention_icon(ICON_ATT)
             self._menu = gtk.Menu()
 
-            self._menuitem = gtk.MenuItem('Current')
-            self._menu.append(self._menuitem)
+            menuitem = gtk.MenuItem()
+            self._label = gtk.Label(_('Current'))
+            menuitem.add(self._label)
+            self._menu.append(menuitem)
 
             sep = gtk.SeparatorMenuItem()
             self._menu.append(sep)
@@ -116,7 +119,9 @@ class DMedia(dbus.service.Object):
             method(*args)
 
     def _on_timer(self):
-        pass
+        text = _('File %d of %d') % self._manager.get_batch_progress()
+        self._label.set_text(text)
+        self._indicator.set_menu(self._menu)
 
     def _on_quit(self, menuitem):
         self.Kill()
@@ -133,6 +138,7 @@ class DMedia(dbus.service.Object):
             self._batch = []
         if self._indicator:
             self._indicator.set_status(appindicator.STATUS_ATTENTION)
+            self._timer.start()
 
     @dbus.service.signal(INTERFACE, signature='sa{sx}')
     def BatchFinished(self, batch_id, stats):
@@ -151,6 +157,7 @@ class DMedia(dbus.service.Object):
             return
         (summary, body) = batch_finished(stats)
         self._notify.replace(summary, body, 'notification-device-eject')
+        self._timer.stop()
 
     @dbus.service.signal(INTERFACE, signature='ss')
     def ImportStarted(self, base, import_id):
