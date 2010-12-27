@@ -33,6 +33,7 @@ import dmedialib
 from dmedialib import client, service
 from dmedialib.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
 from .helpers import CouchCase, TempDir, random_bus, prep_import_source
+from .helpers import sample_mov, sample_thm
 from .helpers import sample_mov_hash, sample_thm_hash
 
 
@@ -46,11 +47,14 @@ class CaptureCallback(object):
     def __init__(self, signal, messages):
         self.signal = signal
         self.messages = messages
+        self.callback = None
 
     def __call__(self, *args):
         self.messages.append(
             (self.signal,) + args
         )
+        if callable(self.callback):
+            self.callback()
 
 
 class SignalCapture(object):
@@ -73,7 +77,7 @@ class test_Client(CouchCase):
 
         This will launch dmedia-service with a random bus name like this:
 
-            dmedia-service --dummy --bus org.test3ISHAWZVSWVN5I5S.DMedia
+            dmedia-service --bus org.test3ISHAWZVSWVN5I5S.DMedia
 
         How do people usually unit test dbus services?  This works, but not sure
         if there is a better idiom in common use.  --jderose
@@ -176,10 +180,18 @@ class test_Client(CouchCase):
     def test_import(self):
         inst = self.new()
         signals = SignalCapture(inst,
+            'batch_started',
             'import_started',
+            'import_count',
+            'import_progress',
+            'import_finished',
+            'batch_finished',
         )
+        mainloop = gobject.MainLoop()
+        signals.handlers['batch_finished'].callback = mainloop.quit
 
         tmp = TempDir()
+        base = tmp.path
 
         # Test with relative path
         self.assertEqual(
@@ -199,17 +211,73 @@ class test_Client(CouchCase):
         os.unlink(nope)
 
         # Test a real import
-        prep_import_source(tmp)
+        (src1, src2, dup1) = prep_import_source(tmp)
+        mov_size = path.getsize(sample_mov)
+        thm_size = path.getsize(sample_thm)
         self.assertEqual(inst.list_imports(), [])
-        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
-        self.assertEqual(inst.start_import(tmp.path), 'started')
-        self.assertEqual(inst.start_import(tmp.path), 'already_running')
-        self.assertEqual(inst.list_imports(), [tmp.path])
+        self.assertEqual(inst.stop_import(base), 'not_running')
+        self.assertEqual(inst.start_import(base), 'started')
+        self.assertEqual(inst.start_import(base), 'already_running')
+        self.assertEqual(inst.list_imports(), [base])
 
+        # mainloop.quit() gets called at 'batch_finished' signal
+        mainloop.run()
 
+        self.assertEqual(inst.list_imports(), [])
+        self.assertEqual(inst.stop_import(base), 'not_running')
 
-        return
-        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
-        self.assertEqual(inst.start_import(tmp.path), 'started')
-        self.assertEqual(inst.stop_import(tmp.path), 'stopped')
-        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
+        self.assertEqual(len(signals.messages), 8)
+        batch_id = signals.messages[0][2]
+        self.assertEqual(
+            signals.messages[0],
+            ('batch_started', inst, batch_id)
+        )
+        import_id = signals.messages[1][3]
+        self.assertEqual(
+            signals.messages[1],
+            ('import_started', inst, base, import_id)
+        )
+        self.assertEqual(
+            signals.messages[2],
+            ('import_count', inst, base, import_id, 3)
+        )
+        self.assertEqual(
+            signals.messages[3],
+            ('import_progress', inst, base, import_id, 1, 3,
+                dict(action='imported', src=src1, _id=sample_mov_hash)
+            )
+        )
+        self.assertEqual(
+            signals.messages[4],
+            ('import_progress', inst, base, import_id, 2, 3,
+                dict(action='imported', src=src2, _id=sample_thm_hash)
+            )
+        )
+        self.assertEqual(
+            signals.messages[5],
+            ('import_progress', inst, base, import_id, 3, 3,
+                dict(action='skipped', src=dup1, _id=sample_mov_hash)
+            )
+        )
+        self.assertEqual(
+            signals.messages[6],
+            ('import_finished', inst, base, import_id,
+                dict(
+                    imported=2,
+                    imported_bytes=(mov_size + thm_size),
+                    skipped=1,
+                    skipped_bytes=mov_size,
+                )
+            )
+        )
+        self.assertEqual(
+            signals.messages[7],
+            ('batch_finished', inst, batch_id,
+                dict(
+                    imported=2,
+                    imported_bytes=(mov_size + thm_size),
+                    skipped=1,
+                    skipped_bytes=mov_size,
+                )
+            )
+        )
