@@ -21,10 +21,33 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 import optparse
 from paste import httpserver
 import dmedialib
 from dmedialib.ui import WSGIApp
+from base64 import b64encode
+import couchdb
+
+app = WSGIApp()
+s = app.render()
+couch = couchdb.Server()
+db = couch['dmedia']
+
+if 'app' in db:
+    del db['app']
+
+db['app'] = {
+    '_attachments': {
+        'app.xhtml': {
+            'data': b64encode(s),
+            'content_type': 'application/xhtml+xml; charset=utf-8',
+        }
+    }
+}
+
+
+sys.exit()
 
 
 parser = optparse.OptionParser(version=dmedialib.__version__)

@@ -61,16 +61,25 @@ def render_template(template, **kw):
 
 class WSGIApp(object):
     scripts = ('mootools.js', 'dmedia.js')
+    styles = ('dmedia.css',)
 
     def __init__(self):
         self.template = load_template('browser.xml')
         self.js = '\n\n'.join(load_datafile(n) for n in self.scripts)
+        self.css = '\n\n'.join(load_datafile(n) for n in self.styles)
+        print self.css
 
     def __call__(self, environ, start_response):
-        s = render_template(self.template, inline_js=self.js)
+        s = self.render()
         response_headers = [
             ('Content-Type', CONTENT_TYPE),
             ('Content-Length', str(len(s))),
         ]
         start_response('200 OK', response_headers)
         return [s]
+
+    def render(self):
+        return render_template(self.template,
+            inline_js=self.js,
+            inline_css=self.css,
+        )

@@ -18,6 +18,21 @@
 />
 </head>
 <body>
-Hello from dmedia! <button id="button">Click Me</button>
+Hello from dmedia! <button id="button" onclick="testClick()">Click Me</button>
+<div id="stage">
+<div id="target" />
+</div>
+
+<div id="details">
+<img src="/dmedia/ZKRF7VWFGEF6HSDCO4ENQMZ353LLL3J2/screenshot.jpg" />
+<table>
+<tr><th>Length:</th><td id="details.duration">0:17</td></tr>
+<tr><th>Camera:</th><td id="details.camera">Canon EOS 5D Mark II</td></tr>
+<tr><th>Lens:</th><td id="details.lens">Canon EF 24-105mm f/4L IS</td></tr>
+<tr><th>ISO:</th><td id="details.iso">3200</td></tr>
+<tr><th>Shutter:</th><td id="details.shutter">1/40</td></tr>
+<tr><th>Aperture:</th><td id="details.aperture">4</td></tr>
+</table>
+</div>
 </body>
 </html>
