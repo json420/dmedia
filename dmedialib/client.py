@@ -42,9 +42,10 @@ class Client(gobject.GObject):
     strait dbus because it:
 
       1. Lazily starts the dmedia service the first time you call a dbus method
+         or connect a signal handler
 
       2. More Pythonic API, including default argument values where they make
-         since
+         sense
 
       3. Can use convenient gobject signals
 
@@ -119,44 +120,42 @@ class Client(gobject.GObject):
         ),
     }
 
-    def __init__(self, busname=None, connect=True):
+    def __init__(self, bus=None):
         super(Client, self).__init__()
-        self._busname = (BUS if busname is None else busname)
-        self._connect = connect
+        self._bus = (BUS if bus is None else bus)
         self._conn = dbus.SessionBus()
-        self.__proxy = None
+        self._proxy = None
 
     @property
-    def _proxy(self):
+    def proxy(self):
         """
         Lazily create proxy object so dmedia service starts only when needed.
         """
-        if self.__proxy is None:
-            self.__proxy = self._conn.get_object(self._busname, '/')
-            if self._connect:
-                self._connect_signals()
-        return self.__proxy
+        if self._proxy is None:
+            self._proxy = self._conn.get_object(self._bus, '/')
+            self._connect_signals()
+        return self._proxy
 
     def _method(self, name):
-        return self._proxy.get_dbus_method(name, dbus_interface=INTERFACE)
+        return self.proxy.get_dbus_method(name, dbus_interface=INTERFACE)
 
     def _connect_signals(self):
-        self._proxy.connect_to_signal(
+        self.proxy.connect_to_signal(
             'BatchStarted', self._on_BatchStarted, INTERFACE
         )
-        self._proxy.connect_to_signal(
+        self.proxy.connect_to_signal(
             'BatchFinished', self._on_BatchFinished, INTERFACE
         )
-        self._proxy.connect_to_signal(
+        self.proxy.connect_to_signal(
             'ImportStarted', self._on_ImportStarted, INTERFACE
         )
-        self._proxy.connect_to_signal(
+        self.proxy.connect_to_signal(
             'ImportCount', self._on_ImportCount, INTERFACE
         )
-        self._proxy.connect_to_signal(
+        self.proxy.connect_to_signal(
             'ImportProgress', self._on_ImportProgress, INTERFACE
         )
-        self._proxy.connect_to_signal(
+        self.proxy.connect_to_signal(
             'ImportFinished', self._on_ImportFinished, INTERFACE
         )
 
@@ -178,12 +177,17 @@ class Client(gobject.GObject):
     def _on_ImportFinished(self, base, import_id, stats):
         self.emit('import_finished', base, import_id, stats)
 
+    def connect(self, *args, **kw):
+        super(Client, self).connect(*args, **kw)
+        if self._proxy is None:
+            self.proxy
+
     def kill(self):
         """
         Shutdown the dmedia daemon.
         """
         self._method('Kill')()
-        self.__proxy = None
+        self._proxy = None
 
     def version(self):
         """

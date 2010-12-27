@@ -28,6 +28,7 @@ from os import path
 from subprocess import Popen
 import time
 import dbus
+from dbus.proxies import ProxyObject
 import gobject
 import dmedialib
 from dmedialib import client, service
@@ -83,10 +84,10 @@ class test_Client(CouchCase):
         if there is a better idiom in common use.  --jderose
         """
         super(test_Client, self).setUp()
-        self.busname = random_bus()
+        self.bus = random_bus()
         cmd = [script, '--no-gui',
             '--couchdir', self.couchdir,
-            '--bus', self.busname,
+            '--bus', self.bus,
         ]
         self.service = Popen(cmd)
         time.sleep(1)  # Give dmedia-service time to start
@@ -102,55 +103,31 @@ class test_Client(CouchCase):
             self.service = None
 
     def new(self):
-        return self.klass(busname=self.busname)
+        return self.klass(bus=self.bus)
 
     def test_init(self):
-        return
-        # Test with no busname
+        # Test with no bus
         inst = self.klass()
-        self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._connect is True)
-        self.assertTrue(inst._conn, dbus.SessionBus)
+        self.assertEqual(inst._bus, 'org.freedesktop.DMedia')
+        self.assertTrue(isinstance(inst._conn, dbus.SessionBus))
+        self.assertTrue(inst._proxy is None)
 
-        # Test with connect=False
-        inst = self.klass(connect=False)
-        self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._connect is False)
-        self.assertTrue(inst._conn, dbus.SessionBus)
-
-        # Test with busname=None
-        inst = self.klass(busname=None)
-        self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._conn, dbus.SessionBus)
-
-        # Test with busname='test.busname'
-        inst = self.klass(busname='test.freedesktop.DMedia')
-        self.assertEqual(inst._busname, 'test.freedesktop.DMedia')
-        self.assertTrue(inst._conn, dbus.SessionBus)
-
-    def test_proxy(self):
-        return
+        # Test with random bus
         inst = self.new()
-        self.assertTrue(inst._Client__proxy is None)
-        p = inst._proxy
-        self.assertTrue(isinstance(p, dbus.proxies.ProxyObject))
-        self.assertTrue(inst._Client__proxy is p)
-        self.assertTrue(inst._proxy is p)
+        self.assertEqual(inst._bus, self.bus)
+        self.assertTrue(isinstance(inst._conn, dbus.SessionBus))
+        self.assertTrue(inst._proxy is None)
 
-    def test_kill(self):
-        inst = self.new()
-        self.assertEqual(self.service.poll(), None)
-        inst.kill()
-        self.assertTrue(inst._Client__proxy is None)
-        time.sleep(2)  # Give dmedia-service time to shutdown
-        self.assertEqual(self.service.poll(), 0)
+        # Test the proxy property
+        p = inst.proxy
+        self.assertTrue(isinstance(p, ProxyObject))
+        self.assertTrue(p is inst._proxy)
+        self.assertTrue(p is inst.proxy)
 
-    def test_version(self):
-        inst = self.new()
+        # Test version()
         self.assertEqual(inst.version(), dmedialib.__version__)
 
-    def test_get_extensions(self):
-        inst = self.new()
+        # Test get_extensions()
         self.assertEqual(inst.get_extensions(['video']), sorted(VIDEO))
         self.assertEqual(inst.get_extensions(['audio']), sorted(AUDIO))
         self.assertEqual(inst.get_extensions(['image']), sorted(IMAGE))
@@ -176,6 +153,24 @@ class test_Client(CouchCase):
             sorted(EXTENSIONS)
         )
         self.assertEqual(inst.get_extensions(['foo', 'bar']), [])
+
+    def test_connect(self):
+        def callback(*args):
+            pass
+
+        inst = self.new()
+        self.assertEqual(inst._proxy, None)
+        inst.connect('import_started', callback)
+        self.assertTrue(isinstance(inst._proxy, ProxyObject))
+        self.assertTrue(inst._proxy is inst.proxy)
+
+    def test_kill(self):
+        inst = self.new()
+        self.assertEqual(self.service.poll(), None)
+        inst.kill()
+        self.assertTrue(inst._proxy is None)
+        time.sleep(1)  # Give dmedia-service time to shutdown
+        self.assertEqual(self.service.poll(), 0)
 
     def test_import(self):
         inst = self.new()
