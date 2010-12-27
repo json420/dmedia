@@ -153,26 +153,39 @@ class test_functions(TestCase):
 
     def test_create_import(self):
         f = importer.create_import
-        doc = f('YKGHY6H5RVCDNMUBL4NLP6AU', '/media/EOS_DIGITAL')
+
+        base = '/media/EOS_DIGITAL'
+        batch_id = random_id()
+        machine_id = random_id()
+
+        keys = set([
+            '_id',
+            'type',
+            'time',
+            'base',
+            'batch_id',
+            'machine_id',
+        ])
+
+        doc = f(base, batch_id=batch_id, machine_id=machine_id)
         self.assertTrue(isinstance(doc, dict))
-        self.assertEqual(
-            set(doc),
-            set([
-                '_id',
-                'type',
-                'time',
-                'mount',
-                'batch_id',
-            ])
-        )
+        self.assertEqual(set(doc), keys)
+
         _id = doc['_id']
         self.assertEqual(b32encode(b32decode(_id)), _id)
         self.assertEqual(len(_id), 24)
+
         self.assertEqual(doc['type'], 'dmedia/import')
         self.assertTrue(isinstance(doc['time'], (int, float)))
         self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['batch_id'], 'YKGHY6H5RVCDNMUBL4NLP6AU')
-        self.assertEqual(doc['mount'], '/media/EOS_DIGITAL')
+        self.assertEqual(doc['base'], base)
+        self.assertEqual(doc['batch_id'], batch_id)
+        self.assertEqual(doc['machine_id'], machine_id)
+
+        doc = f(base)
+        self.assertEqual(set(doc), keys)
+        self.assertEqual(doc['batch_id'], None)
+        self.assertEqual(doc['machine_id'], None)
 
     def test_to_dbus_stats(self):
         f = importer.to_dbus_stats
@@ -251,12 +264,17 @@ class test_Importer(CouchCase):
                 '_rev',
                 'type',
                 'time',
-                'mount',
+                'base',
                 'batch_id',
+                'machine_id',
             ])
         )
         self.assertEqual(inst._import['batch_id'], self.batch_id)
-        self.assertEqual(inst._import['mount'], tmp.path)
+        self.assertEqual(
+            inst._import['machine_id'],
+            inst.metastore.machine_id
+        )
+        self.assertEqual(inst._import['base'], tmp.path)
 
     def test_get_stats(self):
         tmp = TempDir()

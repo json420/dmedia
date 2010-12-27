@@ -143,7 +143,7 @@ def create_batch(machine_id=None):
     }
 
 
-def create_import(batch_id, mount):
+def create_import(base, batch_id=None, machine_id=None):
     """
     Create initial 'dmedia/import' accounting document.
     """
@@ -151,7 +151,8 @@ def create_import(batch_id, mount):
         '_id': random_id(),
         'type': 'dmedia/import',
         'batch_id': batch_id,
-        'mount': mount,
+        'machine_id': machine_id,
+        'base': base,
         'time': time.time(),
     }
 
@@ -185,7 +186,10 @@ class Importer(object):
         """
         Create the initial import record, return that record's ID.
         """
-        doc = create_import(self.batch_id, self.base)
+        doc = create_import(self.base,
+            batch_id=self.batch_id,
+            machine_id=self.metastore.machine_id,
+        )
         self._import_id = doc['_id']
         assert self.metastore.db.create(doc) == self._import_id
         self._import = self.metastore.db[self._import_id]
