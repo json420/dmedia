@@ -305,6 +305,8 @@ class ImportManager(Manager):
         self.metastore = MetaStore(couchdir=couchdir)
         self.db = self.metastore.db
         self._batch = None
+        self._total = 0
+        self._completed = 0
         if not isregistered(ImportWorker):
             register(ImportWorker)
 
@@ -316,6 +318,8 @@ class ImportManager(Manager):
     def _start_batch(self):
         assert self._batch is None
         assert self._workers == {}
+        self._total = 0
+        self._completed = 0
         self._batch = self._sync(create_batch())
         self.emit('BatchStarted', self._batch['_id'])
 
@@ -339,15 +343,21 @@ class ImportManager(Manager):
         self.emit('ImportStarted', key, import_id)
 
     def on_count(self, key, import_id, total):
+        self._total += total
         self.emit('ImportCount', key, import_id, total)
 
     def on_progress(self, key, import_id, completed, total, info):
+        self._completed += 1
         self.emit('ImportProgress', key, import_id, completed, total, info)
 
     def on_finished(self, key, import_id, stats):
         accumulate_stats(self._batch, stats)
         self._batch = self._sync(self._batch)
         self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
+
+    def get_batch_progress(self):
+        with self._lock:
+            return (self._completed, self._total)
 
     def start_import(self, base, extract=True):
         with self._lock:

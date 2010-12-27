@@ -86,10 +86,12 @@ class DMedia(dbus.service.Object):
             )
             self._indicator.set_attention_icon(ICON_ATT)
             self._menu = gtk.Menu()
+            sep = gtk.SeparatorMenuItem()
+            self._menu.append(sep)
             quit = gtk.MenuItem(_('Shutdown dmedia'))
             quit.connect('activate', self._on_quit)
-            quit.show()
             self._menu.append(quit)
+            self._menu.show_all()
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
 

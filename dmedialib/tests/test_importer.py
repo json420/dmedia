@@ -530,7 +530,11 @@ class test_ImportManager(CouchCase):
         inst._workers.clear()
 
         # Test under normal conditions
+        inst._completed = 17
+        inst._total = 18
         inst._start_batch()
+        self.assertEqual(inst._completed, 0)
+        self.assertEqual(inst._total, 0)
         batch = inst._batch
         batch_id = batch['_id']
         self.assertTrue(isinstance(batch, dict))
@@ -649,7 +653,9 @@ class test_ImportManager(CouchCase):
 
         one = TempDir()
         one_id = random_id()
+        self.assertEqual(inst._total, 0)
         inst.on_count(one.path, one_id, 378)
+        self.assertEqual(inst._total, 378)
         self.assertEqual(
             callback.messages,
             [
@@ -659,7 +665,9 @@ class test_ImportManager(CouchCase):
 
         two = TempDir()
         two_id = random_id()
+        self.assertEqual(inst._total, 378)
         inst.on_count(two.path, two_id, 17)
+        self.assertEqual(inst._total, 395)
         self.assertEqual(
             callback.messages,
             [
@@ -680,11 +688,13 @@ class test_ImportManager(CouchCase):
             _id=sample_mov_hash,
             action='imported',
         )
-        inst.on_progress(one.path, one_id, 17, 18, one_info)
+        self.assertEqual(inst._completed, 0)
+        inst.on_progress(one.path, one_id, 1, 18, one_info)
+        self.assertEqual(inst._completed, 1)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportProgress', (one.path, one_id, 17, 18, one_info)),
+                ('ImportProgress', (one.path, one_id, 1, 18, one_info)),
             ]
         )
 
@@ -695,12 +705,14 @@ class test_ImportManager(CouchCase):
             _id=sample_thm_hash,
             action='imported',
         )
-        inst.on_progress(two.path, two_id, 18, 18, two_info)
+        self.assertEqual(inst._completed, 1)
+        inst.on_progress(two.path, two_id, 2, 18, two_info)
+        self.assertEqual(inst._completed, 2)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportProgress', (one.path, one_id, 17, 18, one_info)),
-                ('ImportProgress', (two.path, two_id, 18, 18, two_info)),
+                ('ImportProgress', (one.path, one_id, 1, 18, one_info)),
+                ('ImportProgress', (two.path, two_id, 2, 18, two_info)),
             ]
         )
 
@@ -788,6 +800,17 @@ class test_ImportManager(CouchCase):
             inst._batch['skipped'],
             {'count': 3 + 5, 'bytes': 12345 + 1234}
         )
+
+    def test_get_batch_progress(self):
+        inst = self.klass(couchdir=self.couchdir)
+        self.assertEqual(inst.get_batch_progress(), (0, 0))
+        inst._total = 18
+        self.assertEqual(inst.get_batch_progress(), (0, 18))
+        inst._completed = 17
+        self.assertEqual(inst.get_batch_progress(), (17, 18))
+        inst._completed = 0
+        inst._total = 0
+        self.assertEqual(inst.get_batch_progress(), (0, 0))
 
     def test_start_import(self):
         callback = DummyCallback()
