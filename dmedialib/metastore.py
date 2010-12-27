@@ -214,6 +214,19 @@ class MetaStore(object):
             self._machine_id = self.create_machine()
         return self._machine_id
 
+    def update(self, doc):
+        """
+        Create *doc* if it doesn't exists, update doc only if different.
+        """
+        _id = doc['_id']
+        try:
+            old = self.db[_id]
+            doc['_rev'] = old['_rev']
+            if old != doc:
+                self.db[_id] = doc
+        except ResourceNotFound:
+            self.db[_id] = doc
+
     def sync(self, doc):
         _id = doc['_id']
         self.db[_id] = doc
@@ -222,13 +235,7 @@ class MetaStore(object):
     def create_views(self):
         for (name, views) in self.designs:
             (_id, doc) = build_design_doc(name, views)
-            try:
-                old = self.db[_id]
-                doc['_rev'] = old['_rev']
-                if old != doc:
-                    self.db[_id] = doc
-            except ResourceNotFound:
-                self.db[_id] = doc
+            self.update(doc)
 
     def by_quickid(self, qid):
         for row in self.db.view('_design/file/_view/qid', key=qid):

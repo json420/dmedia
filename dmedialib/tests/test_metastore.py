@@ -118,6 +118,16 @@ class test_MetaStore(CouchCase):
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 
+    def update(self):
+        inst = self.new()
+        '_local/app'
+        inst.update(dict(_id=_id, foo='bar'))
+        old = inst.db[_id]
+        inst.update(dict(_id=_id, foo='bar'))
+        self.assertEqual(inst.db[_id]['_rev'], old['_rev'])
+        inst.update(dict(_id=_id, foo='baz'))
+        self.assertNotEqual(inst.db[_id]['_rev'], old['_rev'])
+
     def test_create_machine(self):
         inst = self.new()
         self.assertFalse('_local/machine' in inst.db)
