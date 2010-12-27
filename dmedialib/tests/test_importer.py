@@ -124,7 +124,9 @@ class test_functions(TestCase):
 
     def test_create_batch(self):
         f = importer.create_batch
-        doc = f()
+        machine_id = random_id()
+        doc = f(machine_id)
+
         self.assertTrue(isinstance(doc, dict))
         self.assertEqual(
             set(doc),
@@ -135,6 +137,7 @@ class test_functions(TestCase):
                 'imports',
                 'imported',
                 'skipped',
+                'machine_id',
             ])
         )
         _id = doc['_id']
@@ -146,6 +149,7 @@ class test_functions(TestCase):
         self.assertEqual(doc['imports'], [])
         self.assertEqual(doc['imported'], {'count': 0, 'bytes': 0})
         self.assertEqual(doc['skipped'], {'count': 0, 'bytes': 0})
+        self.assertEqual(doc['machine_id'], machine_id)
 
     def test_create_import(self):
         f = importer.create_import
@@ -547,10 +551,12 @@ class test_ImportManager(CouchCase):
                 'imports',
                 'imported',
                 'skipped',
+                'machine_id',
             ])
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
         self.assertEqual(batch['imports'], [])
+        self.assertEqual(batch['machine_id'], inst.metastore.machine_id)
         self.assertEqual(inst.db[batch['_id']], batch)
         self.assertEqual(
             callback.messages,

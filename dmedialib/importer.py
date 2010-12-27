@@ -128,7 +128,7 @@ def files_iter(base):
             yield f
 
 
-def create_batch():
+def create_batch(machine_id=None):
     """
     Create initial 'dmedia/batch' accounting document.
     """
@@ -136,6 +136,7 @@ def create_batch():
         '_id': random_id(),
         'type': 'dmedia/batch',
         'time': time.time(),
+        'machine_id': machine_id,
         'imports': [],
         'imported': {'count': 0, 'bytes': 0},
         'skipped': {'count': 0, 'bytes': 0},
@@ -319,7 +320,7 @@ class ImportManager(Manager):
         assert self._workers == {}
         self._total = 0
         self._completed = 0
-        self._batch = self._sync(create_batch())
+        self._batch = self._sync(create_batch(self.metastore.machine_id))
         self.emit('BatchStarted', self._batch['_id'])
 
     def _finish_batch(self):
