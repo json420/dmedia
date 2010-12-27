@@ -25,16 +25,36 @@ Misc. utility functions and classes.
 
 from math import log, floor
 import os
+from os import path
 from base64 import b32encode
-import gobject
 from gettext import gettext as _
 from gettext import ngettext
+import logging
+import xdg.BaseDirectory
+import gobject
 from .constants import TYPE_ERROR, CALLABLE_ERROR
 
 try:
     from pynotify import Notification
 except ImportError:
     Notification = None
+
+
+def configure_logging(namespace):
+    format = [
+        '%(levelname)s',
+        '%(message)s'
+    ]
+    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
+    if not path.exists(cache):
+        os.makedirs(cache)
+    filename = path.join(cache, namespace + '.log')
+    logging.basicConfig(
+        filename=filename,
+        filemode='w',
+        level=logging.DEBUG,
+        format='\t'.join(format),
+    )
 
 
 def random_id():
