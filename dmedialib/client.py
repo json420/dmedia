@@ -136,8 +136,9 @@ class Client(gobject.GObject):
             self._connect_signals()
         return self._proxy
 
-    def _method(self, name):
-        return self.proxy.get_dbus_method(name, dbus_interface=INTERFACE)
+    def _call(self, name, *args):
+        method = self.proxy.get_dbus_method(name, dbus_interface=INTERFACE)
+        return method(*args)
 
     def _connect_signals(self):
         self.proxy.connect_to_signal(
@@ -186,14 +187,14 @@ class Client(gobject.GObject):
         """
         Shutdown the dmedia daemon.
         """
-        self._method('Kill')()
+        self._call('Kill')
         self._proxy = None
 
     def version(self):
         """
         Return version number of running dmedia daemon.
         """
-        return self._method('Version')()
+        return self._call('Version')
 
     def get_extensions(self, types):
         """
@@ -205,7 +206,7 @@ class Client(gobject.GObject):
 
         :param types: A list of general categories, e.g. ``['video', 'audio']``
         """
-        return self._method('GetExtensions')(types)
+        return self._call('GetExtensions', types)
 
     def start_import(self, base, extract=True):
         """
@@ -219,7 +220,7 @@ class Client(gobject.GObject):
         :param extract: If ``True``, perform metadata extraction, thumbnail
             generation; default is ``True``.
         """
-        return self._method('StartImport')(base, extract)
+        return self._call('StartImport', base, extract)
 
     def stop_import(self, base):
         """
@@ -228,10 +229,10 @@ class Client(gobject.GObject):
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
         """
-        return self._method('StopImport')(base)
+        return self._call('StopImport', base)
 
     def list_imports(self):
         """
         Return list of currently running imports.
         """
-        return self._method('ListImports')()
+        return self._call('ListImports')
