@@ -27,8 +27,10 @@ import multiprocessing
 from multiprocessing import current_process
 from threading import Thread, Lock
 from Queue import Empty
+import logging
 from .constants import TYPE_ERROR
 
+log = logging.getLogger()
 
 _workers = {}
 
@@ -157,6 +159,7 @@ class Manager(object):
                 pass
 
     def _process_message(self, msg):
+        log.info('%(signal)s %(args)r', msg)
         with self._lock:
             signal = msg['signal']
             args = msg['args']

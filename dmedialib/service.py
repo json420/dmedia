@@ -26,11 +26,12 @@ Makes dmedia functionality avaible over D-Bus.
 
 from dmedialib import __version__
 from os import path
+from gettext import gettext as _
+import logging
 import dbus
 import dbus.service
 import dbus.mainloop.glib
 import gobject
-from gettext import gettext as _
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, Timer, import_started, batch_finished
 from .importer import ImportManager
@@ -49,6 +50,8 @@ try:
     import gtk
 except ImportError:
     appindicator = None
+
+log = logging.getLogger()
 
 
 ICON = '/usr/share/pixmaps/dmedia/indicator-rendermenu.svg'
@@ -73,14 +76,18 @@ class DMedia(dbus.service.Object):
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(self._bus, self._conn)
+        log.info('Starting service on %r', self._bus)
 
         if no_gui or pynotify is None:
             self._notify = None
         else:
+            log.info('Using `pynotify`')
             self._notify = NotifyManager()
+
         if no_gui or appindicator is None:
             self._indicator = None
         else:
+            log.info('Using `appindicator`')
             self._indicator = appindicator.Indicator('rendermenu', ICON,
                 appindicator.CATEGORY_APPLICATION_STATUS
             )
@@ -236,6 +243,7 @@ class DMedia(dbus.service.Object):
         :param extract: If ``True``, perform metadata extraction, thumbnail
             generation
         """
+        base = unicode(base)
         if path.abspath(base) != base:
             return 'not_abspath'
         if not path.isdir(base):
