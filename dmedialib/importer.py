@@ -29,7 +29,6 @@ from os import path
 import mimetypes
 import time
 from .util import random_id
-from .constants import IMPORT_RECORD
 from .workers import Worker, Manager, register, isregistered
 from .filestore import FileStore, quick_id, safe_open
 from .metastore import MetaStore

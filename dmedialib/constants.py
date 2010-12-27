@@ -27,15 +27,15 @@ Various constants conveniently located in one place.
 import mimetypes
 mimetypes.init()
 
-
+# D-Bus releated:
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'
 
-_base = 'http://www.freedesktop.org/wiki/Specifications/'
-IMPORT_RECORD = _base + 'dmedia/import'
-FILE_RECORD = _base + 'dmedia/file'
+# Standard format for TypeError message:
+TYPE_ERROR = '%s: need a %r; got a %r: %r'
 
-TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
+# Stardard format for TypeError message when a callable is expected:
+CALLABLE_ERROR = '%s: need a callable; got a %r: %r'
 
 def get_extensions_for_type(general_type):
     """
