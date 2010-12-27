@@ -8,8 +8,17 @@ XS-Python-Version: >= 2.6
 
 Package: python-dmedia
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, python-desktopcouch-records, totem, libimage-exiftool-perl, python-genshi, python-webkit, python-paste, python-notify, python-appindicator
 XB-Python-Version: ${python:Versions}
+Depends: ${misc:Depends}, ${python:Depends},
+ python-desktopcouch-records,
+ totem,
+ libimage-exiftool-perl,
+ python-genshi,
+ python-webkit,
+ python-paste,
+ python-notify,
+ python-appindicator,
+ python-xdg
 Description: distributed media library
  A simple distributed media library.  Media files are given a globally unique ID
  based on their content-hash.  Meta-data is stored in CouchDB.  Meta-data for a
