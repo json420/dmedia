@@ -114,8 +114,8 @@ class test_functions(TestCase):
             ('Searching on 3 cards...', '\n'.join(bases))
         )
 
-    def test_batch_import_finished(self):
-        f = util.batch_import_finished
+    def test_batch_finished(self):
+        f = util.batch_finished
 
         # Test that value error is raised for imported or skipped < 0
         e = raises(ValueError, f, dict(imported=-17))

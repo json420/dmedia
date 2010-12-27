@@ -122,7 +122,7 @@ def import_started(bases):
     return (summary, body)
 
 
-def batch_import_finished(stats):
+def batch_finished(stats):
     """
     Return notification (summary, body) as per pro file import UX design.
 
@@ -134,7 +134,7 @@ def batch_import_finished(stats):
     ...     skipped=1,
     ...     skipped_bytes=29481537,
     ... )
-    >>> batch_import_finished(stats)
+    >>> batch_finished(stats)
     ('Added 9 new files, 392 MB', 'Skipped 1 duplicate, 29.5 MB')
 
     For details on pro file import UX design, see:

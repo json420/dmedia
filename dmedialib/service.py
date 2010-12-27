@@ -32,7 +32,7 @@ import dbus.mainloop.glib
 import gobject
 from gettext import gettext as _
 from .constants import BUS, INTERFACE, EXT_MAP
-from .util import NotifyManager, import_started, batch_import_finished
+from .util import NotifyManager, import_started, batch_finished
 from .importer import ImportManager
 
 gobject.threads_init()
@@ -86,11 +86,17 @@ class DMedia(dbus.service.Object):
             )
             self._indicator.set_attention_icon(ICON_ATT)
             self._menu = gtk.Menu()
+
+            self._menuitem = gtk.MenuItem('Current')
+            self._menu.append(self._menuitem)
+
             sep = gtk.SeparatorMenuItem()
             self._menu.append(sep)
+
             quit = gtk.MenuItem(_('Shutdown dmedia'))
             quit.connect('activate', self._on_quit)
             self._menu.append(quit)
+
             self._menu.show_all()
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
@@ -108,6 +114,9 @@ class DMedia(dbus.service.Object):
         if signal in self.__signals:
             method = getattr(self, signal)
             method(*args)
+
+    def _on_timer(self):
+        pass
 
     def _on_quit(self, menuitem):
         self.Kill()
@@ -140,7 +149,7 @@ class DMedia(dbus.service.Object):
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
         if self._notify is None:
             return
-        (summary, body) = batch_import_finished(stats)
+        (summary, body) = batch_finished(stats)
         self._notify.replace(summary, body, 'notification-device-eject')
 
     @dbus.service.signal(INTERFACE, signature='ss')
