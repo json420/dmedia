@@ -1,5 +1,7 @@
+#!/usr/bin/env python
+
 # Authors:
-#   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -18,26 +20,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+from dmedia_import.indicator import Indicator
+if __name__ == '__main__':
+    Indicator().main()
 
-"""
-`dmedialib` - distributed media library
-
-WARNING: the dmedia content-hash and schema are *not* yet stable, may change
-wildly and without warning!
-
-The `dmedialib` API will go through significant changes in the next few months,
-so keep your hardhats on!  A good place to start is the `FileStore` class in the
-`filestore` module, which also probably has the most stable API of any of the
-current code.
-"""
-
-__version__ = '0.2.0'
-
-import os
-from os import path
-
-
-packagedir = path.dirname(path.abspath(__file__))
-assert path.isdir(packagedir)
-datadir = path.join(packagedir, 'data')
-assert path.isdir(datadir)

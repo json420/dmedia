@@ -1,5 +1,7 @@
+#!/usr/bin/env python
+
 # Authors:
-#   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -18,26 +20,39 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+from subprocess import Popen, PIPE
 
-"""
-`dmedialib` - distributed media library
+def device_type(base):
+    dev = Popen(
+        [
+            "df",
+            base
+        ],
+        stdout=PIPE
+    ).communicate()[0].split(
+        "\n"
+    )[1].split(
+        ' '
+    )[0]
 
-WARNING: the dmedia content-hash and schema are *not* yet stable, may change
-wildly and without warning!
+    includes = lambda string: dev.find(string) > -1
 
-The `dmedialib` API will go through significant changes in the next few months,
-so keep your hardhats on!  A good place to start is the `FileStore` class in the
-`filestore` module, which also probably has the most stable API of any of the
-current code.
-"""
+    if includes('sr'):
+        return 'optical'
+    if includes('raw1394') or includes('dv1394'):
+        return 'firewire'
+    if includes('mmcblk'):
+        return 'card'
+    if includes('sda') or includes('hda'):
+        return 'local'
 
-__version__ = '0.2.0'
-
-import os
-from os import path
+    #default guess
+    return 'usb'
 
 
-packagedir = path.dirname(path.abspath(__file__))
-assert path.isdir(packagedir)
-datadir = path.join(packagedir, 'data')
-assert path.isdir(datadir)
+def get_icon(dev_type):
+    if dev_type == 'firewire':
+        return 'notification-device-firewire'
+
+    #default icon
+    return 'notification-device-usb'

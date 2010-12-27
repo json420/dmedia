@@ -27,7 +27,7 @@ from unittest import TestCase
 import base64
 from os import path
 import Image
-from .helpers import sample_mov, sample_thm, assert_deepequal, TempDir
+from .helpers import sample_mov, sample_thm, TempDir
 from dmedialib import extractor
 
 # Known EXIF data as returned be exiftool:
@@ -254,7 +254,7 @@ class test_functions(TestCase):
     def test_extract_exif(self):
         f = extractor.extract_exif
         exif = f(sample_thm)
-        assert_deepequal(sample_thm_exif, exif)
+        self.assertEqual(sample_thm_exif, exif)
 
         # Test that error is returned for invalid file:
         tmp = TempDir()
@@ -332,7 +332,7 @@ class test_functions(TestCase):
 
         # Test with sample_mov from 5D Mark II:
         info = f(sample_mov)
-        assert_deepequal(sample_mov_info, info)
+        self.assertEqual(sample_mov_info, info)
 
         # Test invalid file:
         invalid = tmp.write('Wont work!', 'invalid.mov')
@@ -382,19 +382,12 @@ class test_functions(TestCase):
     def test_merge_metadata(self):
         f = extractor.merge_metadata
         tmp = TempDir()
-        d = dict(
-            src=sample_mov,
-            base=path.dirname(sample_mov),
-            root='MVI_5751',
-            doc=dict(
-                ext='mov',
-            ),
-        )
 
-        f(d)
+        doc = dict(ext='mov')
+        f(sample_mov, doc)
 
         # Check canon.thm attachment
-        att = d['doc'].pop('_attachments')
+        att = doc.pop('_attachments')
         self.assertEqual(set(att), set(['canon.thm', 'thumbnail']))
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
@@ -415,39 +408,33 @@ class test_functions(TestCase):
         self.assertEqual(img.format, 'JPEG')
 
         self.assertEqual(
-            d,
+            doc,
             dict(
-                src=sample_mov,
-                base=path.dirname(sample_mov),
-                root='MVI_5751',
-                doc=dict(
-                    ext='mov',
-                    width=1920,
-                    height=1080,
-                    duration=3,
-                    codec_video='H.264 / AVC',
-                    codec_audio='Raw 16-bit PCM audio',
-                    sample_rate=48000,
-                    fps=30,
-                    channels='Stereo',
-                    iso=100,
-                    shutter=u'1/100',
-                    aperture=11.0,
-                    lens=u'Canon EF 70-200mm f/4L IS',
-                    camera=u'Canon EOS 5D Mark II',
-                    focal_length=u'138.0 mm',
-                    mtime=1287520994 + 68 / 100.0,
-                ),
+                ext='mov',
+                width=1920,
+                height=1080,
+                duration=3,
+                codec_video='H.264 / AVC',
+                codec_audio='Raw 16-bit PCM audio',
+                sample_rate=48000,
+                fps=30,
+                channels='Stereo',
+                iso=100,
+                shutter=u'1/100',
+                aperture=11.0,
+                lens=u'Canon EF 70-200mm f/4L IS',
+                camera=u'Canon EOS 5D Mark II',
+                focal_length=u'138.0 mm',
+                mtime=1287520994 + 68 / 100.0,
             )
         )
 
 
     def test_merge_exif(self):
         f = extractor.merge_exif
-        d = dict(src=sample_thm, doc={})
         self.assertTrue(sample_thm.endswith('.THM'))
-        assert_deepequal(
-            dict(f(d)),
+        self.assertEqual(
+            dict(f(sample_thm)),
             dict(
                 width=160,
                 height=120,
@@ -465,16 +452,8 @@ class test_functions(TestCase):
     def test_merge_video_info(self):
         f = extractor.merge_video_info
         tmp = TempDir()
-        d = dict(
-            src=sample_mov,
-            base=path.dirname(sample_mov),
-            root='MVI_5751',
-            doc=dict(
-                ext='mov',
-            ),
-        )
 
-        merged = dict(f(d))
+        merged = dict(f(sample_mov))
 
         # Check canon.thm attachment
         att = merged.pop('_attachments')
@@ -521,14 +500,6 @@ class test_functions(TestCase):
         # Test invalid file:
         invalid_mov = tmp.write('Wont work!', 'invalid.mov')
         invalid_thm = tmp.write('Wont work either!', 'invalid.thm')
-        d = dict(
-            src=invalid_mov,
-            base=tmp.path,
-            root='invalid',
-            doc=dict(
-                ext='mov',
-            ),
-        )
-        merged = dict(f(d))
+        merged = dict(f(invalid_mov))
         self.assertTrue('thumbnail' not in merged)
         self.assertEqual(merged, {'_attachments': {}})

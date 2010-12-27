@@ -26,76 +26,174 @@ Makes dmedia functionality avaible over D-Bus.
 
 from dmedialib import __version__
 from os import path
-import time
-from threading import Thread
-import multiprocessing
-from Queue import Empty
+from gettext import gettext as _
+import logging
 import dbus
 import dbus.service
+import dbus.mainloop.glib
+import gobject
 from .constants import BUS, INTERFACE, EXT_MAP
-from .importer import import_files
+from .util import NotifyManager, Timer, import_started, batch_finished
+from .importer import ImportManager
+
+gobject.threads_init()
+dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+try:
+    import pynotify
+    pynotify.init('dmedia')
+except ImportError:
+    pynotify = None
+
+try:
+    import appindicator
+    import gtk
+except ImportError:
+    appindicator = None
+
+log = logging.getLogger()
 
 
-def dummy_import_files(q, base, extensions):
-    # Note the dummy import will take approximately 2 seconds to complete
-    q.put(['ImportStarted', base])
-    time.sleep(1)  # Scan list of files
-    count = 4
-    q.put(['ImportProgress', base, 0, count])
-    for i in xrange(count):
-        q.put(['ImportProgress', base, i + 1, count])
-    time.sleep(1)
-    q.put(['ImportFinished', base])
-
+ICON = '/usr/share/pixmaps/dmedia/indicator-rendermenu.svg'
+ICON_ATT = '/usr/share/pixmaps/dmedia/indicator-rendermenu-att.svg'
 
 
 class DMedia(dbus.service.Object):
     __signals = frozenset([
+        'BatchStarted',
+        'BatchFinished',
         'ImportStarted',
-        'ImportFinished',
+        'ImportCount',
         'ImportProgress',
+        'ImportFinished',
     ])
 
-    def __init__(self, busname=None, killfunc=None, dummy=False):
-        self._busname = (BUS if busname is None else busname)
+    def __init__(self, killfunc=None, bus=None, couchdir=None, no_gui=False):
         self._killfunc = killfunc
-        self._dummy = dummy
+        self._bus = (BUS if bus is None else bus)
+        self._couchdir = couchdir
+        self._no_gui = no_gui
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
-        self.__busname = dbus.service.BusName(self._busname, self._conn)
-        self.__imports = {}
-        self.__running = True
-        self.__queue = multiprocessing.Queue()
-        self.__thread = Thread(target=self._signal_thread)
-        self.__thread.daemon = True
-        self.__thread.start()
+        self._busname = dbus.service.BusName(self._bus, self._conn)
+        log.info('Starting service on %r', self._bus)
 
-    def _signal_thread(self):
-        while self.__running:
-            try:
-                msg = self.__queue.get(timeout=1)
-                signal = msg[0]
-                if signal not in self.__signals:
-                    continue
-                method = getattr(self, signal, None)
-                if callable(method):
-                    args = msg[1:]
-                    method(*args)
-            except Empty:
-                pass
+        if no_gui or pynotify is None:
+            self._notify = None
+        else:
+            log.info('Using `pynotify`')
+            self._notify = NotifyManager()
+
+        if no_gui or appindicator is None:
+            self._indicator = None
+        else:
+            log.info('Using `appindicator`')
+            self._indicator = appindicator.Indicator('rendermenu', ICON,
+                appindicator.CATEGORY_APPLICATION_STATUS
+            )
+            self._timer = Timer(2, self._on_timer)
+            self._indicator.set_attention_icon(ICON_ATT)
+            self._menu = gtk.Menu()
+
+            menuitem = gtk.MenuItem()
+            self._label = gtk.Label(_('Current'))
+            menuitem.add(self._label)
+            self._menu.append(menuitem)
+
+            sep = gtk.SeparatorMenuItem()
+            self._menu.append(sep)
+
+            quit = gtk.MenuItem(_('Shutdown dmedia'))
+            quit.connect('activate', self._on_quit)
+            self._menu.append(quit)
+
+            self._menu.show_all()
+            self._indicator.set_menu(self._menu)
+            self._indicator.set_status(appindicator.STATUS_ACTIVE)
+
+        self._manager = None
+
+    @property
+    def manager(self):
+        if self._manager is None:
+            self._manager = ImportManager(self._on_signal, self._couchdir)
+            self._manager.start()
+        return self._manager
+
+    def _on_signal(self, signal, args):
+        if signal in self.__signals:
+            method = getattr(self, signal)
+            method(*args)
+
+    def _on_timer(self):
+        text = _('File %d of %d') % self._manager.get_batch_progress()
+        self._label.set_text(text)
+        self._indicator.set_menu(self._menu)
+
+    def _on_quit(self, menuitem):
+        self.Kill()
 
     @dbus.service.signal(INTERFACE, signature='s')
-    def ImportStarted(self, base):
+    def BatchStarted(self, batch_id):
+        """
+        Fired at transition from idle to at least one active import.
+
+        For pro file import UX, the RenderMenu should be set to STATUS_ATTENTION
+        when this signal is received.
+        """
+        if self._notify:
+            self._batch = []
+        if self._indicator:
+            self._indicator.set_status(appindicator.STATUS_ATTENTION)
+            self._timer.start()
+
+    @dbus.service.signal(INTERFACE, signature='sa{sx}')
+    def BatchFinished(self, batch_id, stats):
+        """
+        Fired at transition from at least one active import to idle.
+
+        *stats* will be the combined stats of all imports in this batch.
+
+        For pro file import UX, the RenderMenu should be set back to
+        STATUS_ACTIVE, and the NotifyOSD with the aggregate import stats should
+        be displayed when this signal is received.
+        """
+        if self._indicator:
+            self._indicator.set_status(appindicator.STATUS_ACTIVE)
+        if self._notify is None:
+            return
+        (summary, body) = batch_finished(stats)
+        self._notify.replace(summary, body, 'notification-device-eject')
+        self._timer.stop()
+
+    @dbus.service.signal(INTERFACE, signature='ss')
+    def ImportStarted(self, base, import_id):
+        """
+        Fired when card is inserted.
+
+        For pro file import UX, the "Searching for new files" NotifyOSD should
+        be displayed when this signal is received.  If a previous notification
+        is still visible, the two should be merge and the summary conspicuously
+        changed to be very clear that both cards were detected.
+        """
+        if self._notify is None:
+            return
+        self._batch.append(base)
+        (summary, body) = import_started(self._batch)
+        # FIXME: use correct icon depending on whether card reader is corrected
+        # via FireWire or USB
+        self._notify.replace(summary, body, 'notification-device-usb')
+
+    @dbus.service.signal(INTERFACE, signature='ssx')
+    def ImportCount(self, base, import_id, total):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='s')
-    def ImportFinished(self, base):
-        p = self.__imports.pop(base, None)
-        if p is not None:
-            p.join()  # Sanity check to make sure worker is terminating
+    @dbus.service.signal(INTERFACE, signature='ssiia{ss}')
+    def ImportProgress(self, base, import_id, completed, total, info):
+        pass
 
-    @dbus.service.signal(INTERFACE, signature='sii')
-    def ImportProgress(self, base, current, total):
+    @dbus.service.signal(INTERFACE, signature='ssa{sx}')
+    def ImportFinished(self, base, import_id, stats):
         pass
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
@@ -103,11 +201,8 @@ class DMedia(dbus.service.Object):
         """
         Kill the dmedia service process.
         """
-        self.__running = False
-        self.__thread.join()  # Cleanly shutdown _signal_thread
-        for p in self.__imports.values():
-            p.terminate()
-            p.join()
+        if self._manager is not None:
+            self._manager.kill()
         if callable(self._killfunc):
             self._killfunc()
 
@@ -135,40 +230,34 @@ class DMedia(dbus.service.Object):
                 extensions.update(EXT_MAP[key])
         return sorted(extensions)
 
-    @dbus.service.method(INTERFACE, in_signature='sas', out_signature='s')
-    def StartImport(self, base, extensions):
+    @dbus.service.method(INTERFACE, in_signature='sb', out_signature='s')
+    def StartImport(self, base, extract):
         """
-        Start import of directory or file at *base*, matching *extensions*.
+        Start import of card mounted at *base*.
+
+        If *extract* is ``True``, metadata will be extracted and thumbnails
+        generated.
 
         :param base: File-system path from which to import, e.g.
             ``'/media/EOS_DIGITAL'``
-        :param extensions: List of file extensions to match, e.g.
-            ``['mov', 'cr2', 'wav']``
+        :param extract: If ``True``, perform metadata extraction, thumbnail
+            generation
         """
+        base = unicode(base)
         if path.abspath(base) != base:
             return 'not_abspath'
-        if not (path.isdir(base) or path.isfile(base)):
-            return 'not_dir_or_file'
-        if base in self.__imports:
-            return 'already_running'
-        p = multiprocessing.Process(
-            target=(dummy_import_files if self._dummy else import_files),
-            args=(self.__queue, base, frozenset(extensions)),
-        )
-        p.daemon = True
-        self.__imports[base] = p
-        p.start()
-        return 'started'
+        if not path.isdir(base):
+            return 'not_a_dir'
+        if self.manager.start_import(base, extract):
+            return 'started'
+        return 'already_running'
 
     @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
     def StopImport(self, base):
         """
         In running, stop the import of directory or file at *base*.
         """
-        if base in self.__imports:
-            p = self.__imports.pop(base)
-            p.terminate()
-            p.join()
+        if self.manager.kill_job(base):
             return 'stopped'
         return 'not_running'
 
@@ -177,4 +266,4 @@ class DMedia(dbus.service.Object):
         """
         Return list of currently running imports.
         """
-        return sorted(self.__imports)
+        return self.manager.list_imports()

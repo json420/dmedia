@@ -23,18 +23,19 @@
 Unit tests for `dmedialib.client` module.
 """
 
-from unittest import TestCase
 import os
 from os import path
 from subprocess import Popen
 import time
-from base64 import b32encode
 import dbus
+from dbus.proxies import ProxyObject
 import gobject
 import dmedialib
 from dmedialib import client, service
 from dmedialib.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
-from .helpers import TempDir
+from .helpers import CouchCase, TempDir, random_bus, prep_import_source
+from .helpers import sample_mov, sample_thm
+from .helpers import sample_mov_hash, sample_thm_hash
 
 
 tree = path.dirname(path.dirname(path.abspath(dmedialib.__file__)))
@@ -43,27 +44,32 @@ script = path.join(tree, 'dmedia-service')
 assert path.isfile(script)
 
 
+class CaptureCallback(object):
+    def __init__(self, signal, messages):
+        self.signal = signal
+        self.messages = messages
+        self.callback = None
+
+    def __call__(self, *args):
+        self.messages.append(
+            (self.signal,) + args
+        )
+        if callable(self.callback):
+            self.callback()
+
+
 class SignalCapture(object):
-    def __init__(self):
-        self.signals = []
-
-    def on_started(self, obj, *args):
-        self.signals.append(
-            ('started',) + args
-        )
-
-    def on_finished(self, obj, *args):
-        self.signals.append(
-            ('finished',) + args
-        )
-
-    def on_progress(self, obj, *args):
-        self.signals.append(
-            ('progress',) + args
-        )
+    def __init__(self, obj, *signals):
+        self.obj = obj
+        self.messages = []
+        self.handlers = {}
+        for name in signals:
+            callback = CaptureCallback(name, self.messages)
+            obj.connect(name, callback)
+            self.handlers[name] = callback
 
 
-class test_Client(TestCase):
+class test_Client(CouchCase):
     klass = client.Client
 
     def setUp(self):
@@ -72,17 +78,22 @@ class test_Client(TestCase):
 
         This will launch dmedia-service with a random bus name like this:
 
-            dmedia-service --dummy --bus org.test3ISHAWZVSWVN5I5S.DMedia
+            dmedia-service --bus org.test3ISHAWZVSWVN5I5S.DMedia
 
         How do people usually unit test dbus services?  This works, but not sure
         if there is a better idiom in common use.  --jderose
         """
-        random = 'test' + b32encode(os.urandom(10))  # 80-bits of entropy
-        self.busname = '.'.join(['org', random, 'DMedia'])
-        self.service = Popen([script, '--dummy', '--bus', self.busname])
+        super(test_Client, self).setUp()
+        self.bus = random_bus()
+        cmd = [script, '--no-gui',
+            '--couchdir', self.couchdir,
+            '--bus', self.bus,
+        ]
+        self.service = Popen(cmd)
         time.sleep(1)  # Give dmedia-service time to start
 
     def tearDown(self):
+        super(test_Client, self).tearDown()
         try:
             self.service.terminate()
             self.service.wait()
@@ -92,82 +103,31 @@ class test_Client(TestCase):
             self.service = None
 
     def new(self):
-        return self.klass(busname=self.busname)
+        return self.klass(bus=self.bus)
 
     def test_init(self):
-        # Test with no busname
+        # Test with no bus
         inst = self.klass()
-        self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._connect is True)
-        self.assertTrue(inst._conn, dbus.SessionBus)
+        self.assertEqual(inst._bus, 'org.freedesktop.DMedia')
+        self.assertTrue(isinstance(inst._conn, dbus.SessionBus))
+        self.assertTrue(inst._proxy is None)
 
-        # Test with connect=False
-        inst = self.klass(connect=False)
-        self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._connect is False)
-        self.assertTrue(inst._conn, dbus.SessionBus)
-
-        # Test with busname=None
-        inst = self.klass(busname=None)
-        self.assertEqual(inst._busname, 'org.freedesktop.DMedia')
-        self.assertTrue(inst._conn, dbus.SessionBus)
-
-        # Test with busname='test.busname'
-        inst = self.klass(busname='test.freedesktop.DMedia')
-        self.assertEqual(inst._busname, 'test.freedesktop.DMedia')
-        self.assertTrue(inst._conn, dbus.SessionBus)
-
-    def test_proxy(self):
+        # Test with random bus
         inst = self.new()
-        self.assertTrue(inst._Client__proxy is None)
-        p = inst._proxy
-        self.assertTrue(isinstance(p, dbus.proxies.ProxyObject))
-        self.assertTrue(inst._Client__proxy is p)
-        self.assertTrue(inst._proxy is p)
+        self.assertEqual(inst._bus, self.bus)
+        self.assertTrue(isinstance(inst._conn, dbus.SessionBus))
+        self.assertTrue(inst._proxy is None)
 
-    def test_connect_signals(self):
-        tmp = TempDir()
-        base = unicode(tmp.path)
-        inst = self.klass(self.busname, connect=False)
-        c = SignalCapture()
-        inst.connect('import_started', c.on_started)
-        inst.connect('import_finished', c.on_finished)
-        inst.connect('import_progress', c.on_progress)
+        # Test the proxy property
+        p = inst.proxy
+        self.assertTrue(isinstance(p, ProxyObject))
+        self.assertTrue(p is inst._proxy)
+        self.assertTrue(p is inst.proxy)
 
-        inst._connect_signals()
-        mainloop = gobject.MainLoop()
-        gobject.timeout_add(3000, mainloop.quit)
-
-        self.assertEqual(inst.start_import(tmp.path), 'started')
-        mainloop.run()
-
-        self.assertEqual(
-            c.signals,
-            [
-                ('started', base),
-                ('progress', base, 0, 4),
-                ('progress', base, 1, 4),
-                ('progress', base, 2, 4),
-                ('progress', base, 3, 4),
-                ('progress', base, 4, 4),
-                ('finished', base),
-            ]
-        )
-
-    def test_kill(self):
-        inst = self.new()
-        self.assertEqual(self.service.poll(), None)
-        inst.kill()
-        self.assertTrue(inst._Client__proxy is None)
-        time.sleep(2)  # Give dmedia-service time to shutdown
-        self.assertEqual(self.service.poll(), 0)
-
-    def test_version(self):
-        inst = self.new()
+        # Test version()
         self.assertEqual(inst.version(), dmedialib.__version__)
 
-    def test_get_extensions(self):
-        inst = self.new()
+        # Test get_extensions()
         self.assertEqual(inst.get_extensions(['video']), sorted(VIDEO))
         self.assertEqual(inst.get_extensions(['audio']), sorted(AUDIO))
         self.assertEqual(inst.get_extensions(['image']), sorted(IMAGE))
@@ -194,47 +154,125 @@ class test_Client(TestCase):
         )
         self.assertEqual(inst.get_extensions(['foo', 'bar']), [])
 
-    def test_start_import(self):
+    def test_connect(self):
+        def callback(*args):
+            pass
+
+        inst = self.new()
+        self.assertEqual(inst._proxy, None)
+        inst.connect('import_started', callback)
+        self.assertTrue(isinstance(inst._proxy, ProxyObject))
+        self.assertTrue(inst._proxy is inst.proxy)
+
+    def test_kill(self):
+        inst = self.new()
+        self.assertEqual(self.service.poll(), None)
+        inst.kill()
+        self.assertTrue(inst._proxy is None)
+        time.sleep(1)  # Give dmedia-service time to shutdown
+        self.assertEqual(self.service.poll(), 0)
+
+    def test_import(self):
+        inst = self.new()
+        signals = SignalCapture(inst,
+            'batch_started',
+            'import_started',
+            'import_count',
+            'import_progress',
+            'import_finished',
+            'batch_finished',
+        )
+        mainloop = gobject.MainLoop()
+        signals.handlers['batch_finished'].callback = mainloop.quit
+
         tmp = TempDir()
+        base = tmp.path
+
+        # Test with relative path
+        self.assertEqual(
+            inst.start_import('some/relative/path'),
+            'not_abspath'
+        )
+        self.assertEqual(
+            inst.start_import('/media/EOS_DIGITAL/../../etc/ssh'),
+            'not_abspath'
+        )
+
+        # Test with non-dir
         nope = tmp.join('memory_card')
-        inst = self.new()
-        self.assertEqual(inst.start_import(nope), 'not_dir_or_file')
-        self.assertEqual(inst.start_import('some/relative/path'), 'not_abspath')
-        self.assertEqual(inst.start_import(tmp.path), 'started')
-        self.assertEqual(inst.start_import(tmp.path), 'already_running')
+        self.assertEqual(inst.start_import(nope), 'not_a_dir')
+        nope = tmp.touch('memory_card')
+        self.assertEqual(inst.start_import(nope), 'not_a_dir')
+        os.unlink(nope)
 
-    def test_import_finished(self):
-        # Test that DMedia.ImportFinished is removing process from active
-        # imports after it gets the ImportFinished signal from the queue:
-        tmp = TempDir()
-        inst = self.new()
-        self.assertEqual(inst.start_import(tmp.path), 'started')
-        self.assertEqual(inst.list_imports(), [tmp.path])
-        time.sleep(3)  # dummy_import_files should run for ~2 seconds
+        # Test a real import
+        (src1, src2, dup1) = prep_import_source(tmp)
+        mov_size = path.getsize(sample_mov)
+        thm_size = path.getsize(sample_thm)
         self.assertEqual(inst.list_imports(), [])
+        self.assertEqual(inst.stop_import(base), 'not_running')
+        self.assertEqual(inst.start_import(base), 'started')
+        self.assertEqual(inst.start_import(base), 'already_running')
+        self.assertEqual(inst.list_imports(), [base])
 
-    def test_stop_import(self):
-        tmp = TempDir()
-        inst = self.new()
-        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
-        self.assertEqual(inst.start_import(tmp.path), 'started')
-        self.assertEqual(inst.stop_import(tmp.path), 'stopped')
-        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
+        # mainloop.quit() gets called at 'batch_finished' signal
+        mainloop.run()
 
-    def test_list_imports(self):
-        inst = self.new()
-        tmp1 = TempDir()
-        tmp2 = TempDir()
-
-        # Add them in
         self.assertEqual(inst.list_imports(), [])
-        self.assertEqual(inst.start_import(tmp1.path), 'started')
-        self.assertEqual(inst.list_imports(), [tmp1.path])
-        self.assertEqual(inst.start_import(tmp2.path), 'started')
-        self.assertEqual(inst.list_imports(), sorted([tmp1.path, tmp2.path]))
+        self.assertEqual(inst.stop_import(base), 'not_running')
 
-        # Take them out
-        self.assertEqual(inst.stop_import(tmp1.path), 'stopped')
-        self.assertEqual(inst.list_imports(), [tmp2.path])
-        self.assertEqual(inst.stop_import(tmp2.path), 'stopped')
-        self.assertEqual(inst.list_imports(), [])
+        self.assertEqual(len(signals.messages), 8)
+        batch_id = signals.messages[0][2]
+        self.assertEqual(
+            signals.messages[0],
+            ('batch_started', inst, batch_id)
+        )
+        import_id = signals.messages[1][3]
+        self.assertEqual(
+            signals.messages[1],
+            ('import_started', inst, base, import_id)
+        )
+        self.assertEqual(
+            signals.messages[2],
+            ('import_count', inst, base, import_id, 3)
+        )
+        self.assertEqual(
+            signals.messages[3],
+            ('import_progress', inst, base, import_id, 1, 3,
+                dict(action='imported', src=src1, _id=sample_mov_hash)
+            )
+        )
+        self.assertEqual(
+            signals.messages[4],
+            ('import_progress', inst, base, import_id, 2, 3,
+                dict(action='imported', src=src2, _id=sample_thm_hash)
+            )
+        )
+        self.assertEqual(
+            signals.messages[5],
+            ('import_progress', inst, base, import_id, 3, 3,
+                dict(action='skipped', src=dup1, _id=sample_mov_hash)
+            )
+        )
+        self.assertEqual(
+            signals.messages[6],
+            ('import_finished', inst, base, import_id,
+                dict(
+                    imported=2,
+                    imported_bytes=(mov_size + thm_size),
+                    skipped=1,
+                    skipped_bytes=mov_size,
+                )
+            )
+        )
+        self.assertEqual(
+            signals.messages[7],
+            ('batch_finished', inst, batch_id,
+                dict(
+                    imported=2,
+                    imported_bytes=(mov_size + thm_size),
+                    skipped=1,
+                    skipped_bytes=mov_size,
+                )
+            )
+        )

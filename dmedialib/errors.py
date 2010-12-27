@@ -20,24 +20,25 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-`dmedialib` - distributed media library
-
-WARNING: the dmedia content-hash and schema are *not* yet stable, may change
-wildly and without warning!
-
-The `dmedialib` API will go through significant changes in the next few months,
-so keep your hardhats on!  A good place to start is the `FileStore` class in the
-`filestore` module, which also probably has the most stable API of any of the
-current code.
+Custom exceptions
 """
 
-__version__ = '0.2.0'
+class DmediaError(StandardError):
+    """
+    Base class for all custom dmedia exceptions.
+    """
 
-import os
-from os import path
+    _format = ''
+
+    def __init__(self, **kw):
+        self._kw = kw
+        for (key, value) in kw.iteritems():
+            assert not hasattr(self, key), 'conflicting kwarg %s.%s = %r' % (
+                self.__class__.__name__, key, value,
+            )
+            setattr(self, key, value)
+        super(DmediaError, self).__init__(self._format % kw)
 
 
-packagedir = path.dirname(path.abspath(__file__))
-assert path.isdir(packagedir)
-datadir = path.join(packagedir, 'data')
-assert path.isdir(datadir)
+class AmbiguousPath(DmediaError):
+    _format = 'filename %(filename)r resolves to %(abspath)r'

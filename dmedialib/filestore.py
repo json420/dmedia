@@ -44,6 +44,7 @@ from base64 import b32encode, b32decode
 from string import ascii_lowercase, digits
 import logging
 from subprocess import check_call, CalledProcessError
+from .errors import AmbiguousPath
 
 
 chars = frozenset(ascii_lowercase + digits)
@@ -52,6 +53,27 @@ CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
 FALLOCATE = '/usr/bin/fallocate'
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
+
+
+def safe_open(filename, mode):
+    """
+    Only open file if *filename* is an absolute normalized path.
+
+    This is to help protect against path-traversal attacks and to prevent use of
+    ambiguous relative paths.
+
+    If *filename* is not an absolute normalized path, `AmbiguousPath` is raised:
+
+    >>> safe_open('/foo/../root', 'rb')
+    Traceback (most recent call last):
+      ...
+    AmbiguousPath: filename '/foo/../root' resolves to '/root'
+
+    Otherwise returns a ``file`` instance created with ``open()``.
+    """
+    if path.abspath(filename) != filename:
+        raise AmbiguousPath(filename=filename, abspath=path.abspath(filename))
+    return open(filename, mode)
 
 
 def safe_ext(ext):
