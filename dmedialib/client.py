@@ -98,20 +98,21 @@ class Client(gobject.GObject):
     """
 
     __gsignals__ = {
-        'batch_import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            []
-        ),
-        'batch_import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'batch_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
             [TYPE_PYOBJECT]
+        ),
+        'batch_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'import_count': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'import_progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT,
+            TYPE_PYOBJECT]
         ),
         'import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
@@ -141,10 +142,10 @@ class Client(gobject.GObject):
 
     def _connect_signals(self):
         self._proxy.connect_to_signal(
-            'BatchImportStarted', self._on_BatchImportStarted, INTERFACE
+            'BatchStarted', self._on_BatchStarted, INTERFACE
         )
         self._proxy.connect_to_signal(
-            'BatchImportFinished', self._on_BatchImportFinished, INTERFACE
+            'BatchFinished', self._on_BatchFinished, INTERFACE
         )
         self._proxy.connect_to_signal(
             'ImportStarted', self._on_ImportStarted, INTERFACE
@@ -159,23 +160,23 @@ class Client(gobject.GObject):
             'ImportFinished', self._on_ImportFinished, INTERFACE
         )
 
-    def _on_BatchImportStarted(self):
-        self.emit('batch_import_started')
+    def _on_BatchStarted(self, batch_id):
+        self.emit('batch_started', batch_id)
 
-    def _on_BatchImportFinished(self, stats):
-        self.emit('batch_import_finished', stats)
+    def _on_BatchFinished(self, batch_id, stats):
+        self.emit('batch_finished', batch_id, stats)
 
     def _on_ImportStarted(self, base, import_id):
         self.emit('import_started', base, import_id)
 
-    def _on_ImportCount(self, base, total):
-        self.emit('import_count', base, total)
+    def _on_ImportCount(self, base, import_id, total):
+        self.emit('import_count', base, import_id, total)
 
-    def _on_ImportProgress(self, base, completed, total, info):
-        self.emit('import_progress', base, completed, total, info)
+    def _on_ImportProgress(self, base, import_id, completed, total, info):
+        self.emit('import_progress', base, import_id, completed, total, info)
 
-    def _on_ImportFinished(self, base, stats):
-        self.emit('import_finished', base, stats)
+    def _on_ImportFinished(self, base, import_id, stats):
+        self.emit('import_finished', base, import_id, stats)
 
     def kill(self):
         """

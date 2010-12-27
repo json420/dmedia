@@ -57,6 +57,8 @@ ICON_ATT = '/usr/share/pixmaps/dmedia/indicator-rendermenu-att.svg'
 
 class DMedia(dbus.service.Object):
     __signals = frozenset([
+        'BatchStarted',
+        'BatchFinished',
         'ImportStarted',
         'ImportCount',
         'ImportProgress',
@@ -101,24 +103,27 @@ class DMedia(dbus.service.Object):
         return self._manager
 
     def _on_signal(self, signal, args):
-        pass
+        if signal in self.__signals:
+            method = getattr(self, signal)
+            method(*args)
 
     def _on_quit(self, menuitem):
         self.Kill()
 
     @dbus.service.signal(INTERFACE, signature='s')
-    def BatchImportStarted(self, batch_id):
+    def BatchStarted(self, batch_id):
         """
         Fired at transition from idle to at least one active import.
 
         For pro file import UX, the RenderMenu should be set to STATUS_ATTENTION
         when this signal is received.
         """
+        self._batch = []
         if self._indicator:
             self._indicator.set_status(appindicator.STATUS_ATTENTION)
 
     @dbus.service.signal(INTERFACE, signature='sa{sx}')
-    def BatchImportFinished(self, batch_id, stats):
+    def BatchFinished(self, batch_id, stats):
         """
         Fired at transition from at least one active import to idle.
 
@@ -132,7 +137,6 @@ class DMedia(dbus.service.Object):
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
         if self._notify is None:
             return
-        self._batch = []
         (summary, body) = batch_import_finished(stats)
         self._notify.replace(summary, body, 'notification-device-eject')
 
@@ -223,26 +227,11 @@ class DMedia(dbus.service.Object):
         """
         if path.abspath(base) != base:
             return 'not_abspath'
-        if not (path.isdir(base) or path.isfile(base)):
-            return 'not_dir_or_file'
-        if base in self.__imports:
-            return 'already_running'
-        p = self._create_worker('import_files', base, extract)
-        if len(self.__imports) == 0:
-            self.__stats = dict(
-                imported=0,
-                imported_bytes=0,
-                skipped=0,
-                skipped_bytes=0,
-            )
-            if self._db is not None:
-                doc = create_batchimport()
-                self._batch_id = doc['_id']
-                self._db[self._batch_id] = doc
-            self.BatchImportStarted()
-        self.__imports[base] = p
-        p.start()
-        return 'started'
+        if not path.isdir(base):
+            return 'not_a_dir'
+        if self.manager.start_import(base, extract):
+            return 'started'
+        return 'already_running'
 
     @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
     def StopImport(self, base):
@@ -261,4 +250,4 @@ class DMedia(dbus.service.Object):
         """
         Return list of currently running imports.
         """
-        return sorted(self.__imports)
+        return self.manager.list_imports()
