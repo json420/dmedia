@@ -24,10 +24,14 @@ Store meta-data in desktop-couch.
 """
 
 from os import path
-from couchdb import ResourceNotFound
+import time
+import socket
+import platform
+from couchdb import ResourceNotFound, ResourceConflict
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 from desktopcouch.local_files import DEFAULT_CONTEXT, Context
+from .util import random_id
 
 
 _sum = '_sum'
@@ -143,6 +147,17 @@ def build_design_doc(design, views):
     return (_id, doc)
 
 
+def create_machine():
+    return {
+        '_id': '_local/machine',
+        'machine_id': random_id(),
+        'type': 'dmedia/machine',
+        'time': time.time(),
+        'hostname': socket.gethostname(),
+        'distribution': platform.linux_distribution(),
+    }
+
+
 class MetaStore(object):
     designs = (
         ('type', (
@@ -178,6 +193,31 @@ class MetaStore(object):
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
         self.create_views()
+        self._machine_id = None
+
+    def create_machine(self):
+        try:
+            loc = self.db['_local/machine']
+        except ResourceNotFound:
+            loc = self.sync(create_machine())
+        doc = dict(loc)
+        doc['_id'] = doc['machine_id']
+        try:
+            self.db[doc['_id']] = doc
+        except ResourceConflict:
+            pass
+        return loc['machine_id']
+
+    @property
+    def machine_id(self):
+        if self._machine_id is None:
+            self._machine_id = self.create_machine()
+        return self._machine_id
+
+    def sync(self, doc):
+        _id = doc['_id']
+        self.db[_id] = doc
+        return self.db[_id]
 
     def create_views(self):
         for (name, views) in self.designs:

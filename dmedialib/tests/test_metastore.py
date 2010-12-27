@@ -24,6 +24,8 @@ Unit tests for `dmedialib.metastore` module.
 """
 
 from unittest import TestCase
+import socket
+import platform
 from helpers import CouchCase, TempDir, TempHome
 from dmedialib import metastore
 import couchdb
@@ -76,6 +78,26 @@ class test_functions(TestCase):
             )
         )
 
+    def test_create_machine(self):
+        f = metastore.create_machine
+        doc = f()
+        self.assertTrue(isinstance(doc, dict))
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                'machine_id',
+                'type',
+                'time',
+                'hostname',
+                'distribution',
+            ])
+        )
+        self.assertEqual(doc['type'], 'dmedia/machine')
+        self.assertEqual(doc['_id'], '_local/machine')
+        self.assertEqual(doc['hostname'], socket.gethostname())
+        self.assertEqual(doc['distribution'], platform.linux_distribution())
+
 
 class test_MetaStore(CouchCase):
     klass = metastore.MetaStore
@@ -95,6 +117,22 @@ class test_MetaStore(CouchCase):
         self.assertEqual(inst.dbname, 'dmedia_test')
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
+
+    def test_create_machine(self):
+        inst = self.new()
+        self.assertFalse('_local/machine' in inst.db)
+        _id = inst.create_machine()
+        self.assertTrue('_local/machine' in inst.db)
+        self.assertTrue(_id in inst.db)
+        loc = inst.db['_local/machine']
+        doc = inst.db[_id]
+        self.assertEqual(set(loc), set(doc))
+        self.assertEqual(loc['machine_id'], doc['machine_id'])
+        self.assertEqual(loc['time'], doc['time'])
+
+        self.assertEqual(inst._machine_id, None)
+        self.assertEqual(inst.machine_id, _id)
+        self.assertEqual(inst._machine_id, _id)
 
     def test_by_quickid(self):
         mov_chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
