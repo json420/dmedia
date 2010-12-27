@@ -171,7 +171,7 @@ class CLI(object):
             return
         print('  %(action)s %(src)s' % info)
 
-    def on_import_finished(self, client, base, stats):
+    def on_import_finished(self, c, base, import_id, stats):
         if base != self.base:
             return
         print('-' * 80)

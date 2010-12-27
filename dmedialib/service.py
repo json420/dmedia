@@ -118,7 +118,8 @@ class DMedia(dbus.service.Object):
         For pro file import UX, the RenderMenu should be set to STATUS_ATTENTION
         when this signal is received.
         """
-        self._batch = []
+        if self._notify:
+            self._batch = []
         if self._indicator:
             self._indicator.set_status(appindicator.STATUS_ATTENTION)
 
@@ -168,15 +169,7 @@ class DMedia(dbus.service.Object):
 
     @dbus.service.signal(INTERFACE, signature='ssa{sx}')
     def ImportFinished(self, base, import_id, stats):
-        p = self.__imports.pop(base, None)
-        if p is not None:
-            p.join()  # Sanity check to make sure worker is terminating
-
-        for key in self.__stats:
-            self.__stats[key] += stats[key]
-        if len(self.__imports) == 0:
-            self.BatchImportFinished(self.__stats)
-            self.__stats = None
+        pass
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='')
     def Kill(self):
@@ -238,10 +231,7 @@ class DMedia(dbus.service.Object):
         """
         In running, stop the import of directory or file at *base*.
         """
-        if base in self.__imports:
-            p = self.__imports.pop(base)
-            p.terminate()
-            p.join()
+        if self.manager.kill_job(base):
             return 'stopped'
         return 'not_running'
 

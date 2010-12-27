@@ -356,6 +356,22 @@ class test_Manager(TestCase):
         self.assertFalse(baz.is_alive())
         self.assertEqual(inst._workers, {})
 
+    def test_kill_job(self):
+        inst = self.klass()
+
+        # Test that kill_job() returns False when no such job exists:
+        self.assertTrue(inst.kill_job('foo') is False)
+
+        # Test with live processes:
+        foo = infinite_process()
+        inst._workers['foo'] = foo
+        self.assertTrue(inst.kill_job('foo') is True)
+        self.assertFalse(foo.is_alive())
+        self.assertEqual(inst._workers, {})
+
+        # Again test that kill_job() returns False when no such job exists:
+        self.assertTrue(inst.kill_job('foo') is False)
+
     def test_do(self):
         inst = self.klass()
 

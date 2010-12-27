@@ -207,6 +207,15 @@ class Manager(object):
         p.start()
         return True
 
+    def kill_job(self, key):
+        with self._lock:
+            if key not in self._workers:
+                return False
+            p = self._workers.pop(key)
+            p.terminate()
+            p.join()
+            return True
+
     def emit(self, signal, *args):
         """
         Emit a signal to higher-level code.

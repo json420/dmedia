@@ -115,7 +115,7 @@ class Client(gobject.GObject):
             TYPE_PYOBJECT]
         ),
         'import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
     }
 

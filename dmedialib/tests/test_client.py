@@ -201,6 +201,7 @@ class test_Client(CouchCase):
         # Test a real import
         prep_import_source(tmp)
         self.assertEqual(inst.list_imports(), [])
+        self.assertEqual(inst.stop_import(tmp.path), 'not_running')
         self.assertEqual(inst.start_import(tmp.path), 'started')
         self.assertEqual(inst.start_import(tmp.path), 'already_running')
         self.assertEqual(inst.list_imports(), [tmp.path])
