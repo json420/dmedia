@@ -41,18 +41,18 @@ function(doc) {
 }
 """
 
-batch_time_start = """
+batch_time = """
 function(doc) {
     if (doc.type == 'dmedia/batch') {
-        emit(doc.time_start, null);
+        emit(doc.time, null);
     }
 }
 """
 
-import_time_start = """
+import_time = """
 function(doc) {
     if (doc.type == 'dmedia/import') {
-        emit(doc.time_start, null);
+        emit(doc.time, null);
     }
 }
 """
@@ -150,11 +150,11 @@ class MetaStore(object):
         )),
 
         ('batch', (
-            ('time_start', batch_time_start, None),
+            ('time', batch_time, None),
         )),
 
         ('import', (
-            ('time_start', import_time_start, None),
+            ('time', import_time, None),
         )),
 
         ('file', (

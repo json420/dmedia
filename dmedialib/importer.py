@@ -135,7 +135,7 @@ def create_batch():
     return {
         '_id': random_id(),
         'type': 'dmedia/batch',
-        'time_start': time.time(),
+        'time': time.time(),
         'imports': [],
         'imported': {'count': 0, 'bytes': 0},
         'skipped': {'count': 0, 'bytes': 0},
@@ -151,7 +151,7 @@ def create_import(batch_id, mount):
         'type': 'dmedia/import',
         'batch_id': batch_id,
         'mount': mount,
-        'time_start': time.time(),
+        'time': time.time(),
     }
 
 

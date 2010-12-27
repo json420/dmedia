@@ -131,7 +131,7 @@ class test_functions(TestCase):
             set([
                 '_id',
                 'type',
-                'time_start',
+                'time',
                 'imports',
                 'imported',
                 'skipped',
@@ -141,8 +141,8 @@ class test_functions(TestCase):
         self.assertEqual(b32encode(b32decode(_id)), _id)
         self.assertEqual(len(_id), 24)
         self.assertEqual(doc['type'], 'dmedia/batch')
-        self.assertTrue(isinstance(doc['time_start'], (int, float)))
-        self.assertTrue(doc['time_start'] <= time.time())
+        self.assertTrue(isinstance(doc['time'], (int, float)))
+        self.assertTrue(doc['time'] <= time.time())
         self.assertEqual(doc['imports'], [])
         self.assertEqual(doc['imported'], {'count': 0, 'bytes': 0})
         self.assertEqual(doc['skipped'], {'count': 0, 'bytes': 0})
@@ -156,7 +156,7 @@ class test_functions(TestCase):
             set([
                 '_id',
                 'type',
-                'time_start',
+                'time',
                 'mount',
                 'batch_id',
             ])
@@ -165,8 +165,8 @@ class test_functions(TestCase):
         self.assertEqual(b32encode(b32decode(_id)), _id)
         self.assertEqual(len(_id), 24)
         self.assertEqual(doc['type'], 'dmedia/import')
-        self.assertTrue(isinstance(doc['time_start'], (int, float)))
-        self.assertTrue(doc['time_start'] <= time.time())
+        self.assertTrue(isinstance(doc['time'], (int, float)))
+        self.assertTrue(doc['time'] <= time.time())
         self.assertEqual(doc['batch_id'], 'YKGHY6H5RVCDNMUBL4NLP6AU')
         self.assertEqual(doc['mount'], '/media/EOS_DIGITAL')
 
@@ -246,7 +246,7 @@ class test_Importer(CouchCase):
                 '_id',
                 '_rev',
                 'type',
-                'time_start',
+                'time',
                 'mount',
                 'batch_id',
             ])
@@ -543,7 +543,7 @@ class test_ImportManager(CouchCase):
             set([
                 '_id', '_rev',
                 'type',
-                'time_start',
+                'time',
                 'imports',
                 'imported',
                 'skipped',
