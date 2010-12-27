@@ -187,9 +187,9 @@ class MetaStore(object):
         self.dbname = dbname
         # FIXME: once lp:672481 is fixed, this wont be needed.  See:
         # https://bugs.launchpad.net/desktopcouch/+bug/672481
-        ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
+        self.ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
         # /FIXME
-        self.desktop = CouchDatabase(self.dbname, create=True, ctx=ctx)
+        self.desktop = CouchDatabase(self.dbname, create=True, ctx=self.ctx)
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
         self.create_views()

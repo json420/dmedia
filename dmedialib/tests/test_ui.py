@@ -50,15 +50,22 @@ class test_functions(TestCase):
 
     def test_load_template(self):
         f = ui.load_template
-        xml = path.join(datadir, 'browser.xml')
-        t = f('browser.xml')
+        xml = path.join(datadir, 'toplevel.xml')
+        t = f('toplevel.xml')
         self.assertTrue(isinstance(t, MarkupTemplate))
         self.assertEqual(t.filename, xml)
 
 
     def test_render_template(self):
         f = ui.render_template
-        t = ui.load_template('browser.xml')
+        t = ui.load_template('toplevel.xml')
         s = f(t)
         self.assertTrue(isinstance(s, str))
         self.assertTrue(s.startswith('<!DOCTYPE html PUBLIC'))
+
+
+class test_Page(TestCase):
+    klass = ui.Page
+
+    def test_init(self):
+        inst = self.klass()

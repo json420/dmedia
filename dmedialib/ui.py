@@ -24,6 +24,7 @@ Web UI for dmedia browser.
 """
 
 from os import path
+import json
 from genshi.template import MarkupTemplate
 from . import datadir
 
@@ -33,9 +34,24 @@ DEFAULT_KW = (
     ('lang', 'en'),
     ('title', None),
     ('content_type', CONTENT_TYPE),
+    ('links_css', tuple()),
     ('inline_css', None),
+    ('links_js', tuple()),
     ('inline_js', None),
+    ('body', None),
 )
+
+
+def render_var(name, obj):
+    """
+    Render *obj* to JavaScript variable *name*.
+
+    For example:
+
+    >>> render_var('dmedia', dict(hello='world', foo='bar'))
+    'var dmedia = {"foo": "bar", "hello": "world"};'
+    """
+    return 'var %s = %s;' % (name, json.dumps(obj, sort_keys=True))
 
 
 def datafile(name):
@@ -46,7 +62,7 @@ def datafile(name):
 
 
 def load_datafile(name):
-    return open(datafile(name), 'r').read()
+    return open(datafile(name), 'rb').read()
 
 
 def load_template(name):
@@ -57,6 +73,14 @@ def render_template(template, **kw):
     kw2 = dict(DEFAULT_KW)
     kw2.update(kw)
     return template.generate(**kw2).render('xhtml', doctype='xhtml11')
+
+
+class Page(object):
+    toplevel = 'toplevel.xml'
+    body = None
+
+    def __init__(self):
+        self.toplevel_t = load_template(self.toplevel)
 
 
 class WSGIApp(object):
