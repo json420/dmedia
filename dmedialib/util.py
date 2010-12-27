@@ -24,13 +24,26 @@ Misc. utility functions and classes.
 """
 
 from math import log, floor
+import os
+from base64 import b32encode
+import gobject
 from gettext import gettext as _
 from gettext import ngettext
+from .constants import TYPE_ERROR, CALLABLE_ERROR
 
 try:
     from pynotify import Notification
 except ImportError:
     Notification = None
+
+
+def random_id():
+    """
+    Returns a 120-bit base32-encoded random _id.
+
+    The _id will be 24-characters long, URL and filesystem safe.
+    """
+    return b32encode(os.urandom(15))
 
 
 UNITS_BASE10 = (
@@ -109,7 +122,7 @@ def import_started(bases):
     return (summary, body)
 
 
-def batch_import_finished(stats):
+def batch_finished(stats):
     """
     Return notification (summary, body) as per pro file import UX design.
 
@@ -121,7 +134,7 @@ def batch_import_finished(stats):
     ...     skipped=1,
     ...     skipped_bytes=29481537,
     ... )
-    >>> batch_import_finished(stats)
+    >>> batch_finished(stats)
     ('Added 9 new files, 392 MB', 'Skipped 1 duplicate, 29.5 MB')
 
     For details on pro file import UX design, see:
@@ -216,3 +229,47 @@ class NotifyManager(object):
             self.update(summary, body, icon)
         else:
             self.notify(summary, body, icon)
+
+
+class Timer(object):
+    def __init__(self, seconds, callback):
+        if not isinstance(seconds, (float, int)):
+            raise TypeError(
+                TYPE_ERROR % ('seconds', (float, int), type(seconds), seconds)
+            )
+        if seconds <= 0:
+            raise ValueError(
+                'seconds: must be > 0; got %r' % seconds
+            )
+        if not callable(callback):
+            raise TypeError(
+                CALLABLE_ERROR % ('callback', type(callback), callback)
+            )
+        self.seconds = seconds
+        self.callback = callback
+        self.__timeout_id = None
+
+    def __on_timeout(self):
+        self.callback()
+        return True  # Repeat timeout call
+
+    def start(self):
+        if self.__timeout_id is not None:
+            return False
+        self.__timeout_id = gobject.timeout_add(
+            int(self.seconds * 1000),
+            self.__on_timeout
+        )
+        return True
+
+    def stop(self):
+        if self.__timeout_id is None:
+            return False
+        gobject.source_remove(self.__timeout_id)
+        self.__timeout_id = None
+        return True
+
+    def restart(self):
+        if self.stop():
+            return self.start()
+        return False

@@ -28,7 +28,8 @@ import os
 from os import path
 import mimetypes
 import time
-from .workers import Worker
+from .util import random_id
+from .workers import Worker, Manager, register, isregistered
 from .filestore import FileStore, quick_id, safe_open
 from .metastore import MetaStore
 from .extractor import merge_metadata
@@ -127,13 +128,44 @@ def files_iter(base):
             yield f
 
 
+def create_batch(machine_id=None):
+    """
+    Create initial 'dmedia/batch' accounting document.
+    """
+    return {
+        '_id': random_id(),
+        'type': 'dmedia/batch',
+        'time': time.time(),
+        'machine_id': machine_id,
+        'imports': [],
+        'imported': {'count': 0, 'bytes': 0},
+        'skipped': {'count': 0, 'bytes': 0},
+    }
+
+
+def create_import(base, batch_id=None, machine_id=None):
+    """
+    Create initial 'dmedia/import' accounting document.
+    """
+    return {
+        '_id': random_id(),
+        'type': 'dmedia/import',
+        'batch_id': batch_id,
+        'machine_id': machine_id,
+        'base': base,
+        'time': time.time(),
+    }
+
+
 class Importer(object):
-    def __init__(self, base, extract, ctx=None):
+    def __init__(self, batch_id, base, extract, couchdir=None):
+        self.batch_id = batch_id
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(path.join(self.home, DOTDIR))
-        self.metastore = MetaStore(ctx=ctx)
+        self.metastore = MetaStore(couchdir=couchdir)
+        self.db = self.metastore.db
 
         self.__stats = {
             'imported': {
@@ -147,6 +179,21 @@ class Importer(object):
         }
         self.__files = None
         self.__imported = []
+        self._import = None
+        self._import_id = None
+
+    def start(self):
+        """
+        Create the initial import record, return that record's ID.
+        """
+        doc = create_import(self.base,
+            batch_id=self.batch_id,
+            machine_id=self.metastore.machine_id,
+        )
+        self._import_id = doc['_id']
+        assert self.metastore.db.create(doc) == self._import_id
+        self._import = self.metastore.db[self._import_id]
+        return self._import_id
 
     def get_stats(self):
         return dict(
@@ -173,7 +220,9 @@ class Importer(object):
         stat = os.fstat(fp.fileno())
         doc = {
             '_id': chash,
-            'quickid': quickid,
+            'type': 'dmedia/file',
+            'qid': quickid,
+            'import_id': self._import_id,
             'bytes': stat.st_size,
             'mtime': stat.st_mtime,
             'basename': basename,
@@ -181,7 +230,7 @@ class Importer(object):
             'ext': ext,
         }
         if ext:
-            doc['mime'] = mimetypes.types_map.get('.' + ext)
+            doc['content_type'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
         assert self.metastore.db.create(doc) == chash
@@ -204,116 +253,28 @@ class Importer(object):
         assert len(files) == len(self.__imported)
         assert set(files) == set(self.__imported)
         s = self.get_stats()
+        self._import.update(s)
+        self._import['time_end'] = time.time()
+        self.db[self._import_id] = self._import
         assert s['imported']['count'] + s['skipped']['count'] == len(files)
         return s
 
-    def _import_one(self, d, extract=True):
-        try:
-            fp = open(d['src'], 'rb')
-        except IOError:
-            d['action'] = 'ioerror'
-            return d
-        doc = d['doc']
-        stat = os.fstat(fp.fileno())
-        quickid = quick_id(fp)
-        doc.update({
-            'quickid': quickid,
-            'mtime': stat.st_mtime,
-            'bytes': stat.st_size,
-        })
-        ids = list(self.metastore.by_quickid(quickid))
-        if ids:
-            d['action'] = 'skipped_duplicate'
-            return d
-        (chash, action) = self.filestore.import_file(fp, quickid, doc['ext'])
-        doc['_id'] = chash
-        if doc['ext']:
-            doc['mime'] = mimetypes.types_map.get('.' + doc['ext'])
-        d['action'] = action
-        if extract:
-            merge_metadata(d)
-        self.metastore.db.create(d['doc'])
-        return d
 
-    def recursive_import(self, base, extensions, common=None, extract=True):
-        for d in scanfiles(base, extensions):
-            if common:
-                d['doc'].update(common)
-            yield self._import_one(d, extract)
+class ImportWorker(Worker):
+    def execute(self, batch_id, base, extract=False, couchdir=None):
 
-    def import_files(self, files, common=None, extract=True):
-        for d in files:
-            if common:
-                d['doc'].update(common)
-            yield self._import_one(d, extract)
+        adapter = Importer(batch_id, base, extract, couchdir)
 
-
-class DummyImporter(object):
-    """
-    Dummy adapter for testing dbus service.
-
-    Note that DummyImporter.scanfiles() will sleep for 1 second to facilitate
-    testing.
-    """
-    def __init__(self, base):
-        self.base = base
-        self._files = tuple(
-            path.join(self.base, *parts) for parts in [
-                ('DCIM', '100EOS5D2', 'MVI_5751.MOV'),
-                ('DCIM', '100EOS5D2', 'MVI_5751.THM'),
-                ('DCIM', '100EOS5D2', 'MVI_5752.MOV'),
-            ]
-        )
-        self._mov_size = 20202333
-        self._thm_size = 27328
-
-    def scanfiles(self):
-        time.sleep(1)
-        return self._files
-
-    def import_all_iter(self):
-        yield (self._files[0], 'imported',
-            dict(_id='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        )
-        yield (self._files[1], 'imported',
-            dict(_id='F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
-        )
-        yield (self._files[2], 'skipped',
-            dict(_id='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        )
-
-    def finalize(self):
-        return {
-            'imported': {
-                'count': 2,
-                'bytes': 20202333 + 27328,
-            },
-            'skipped': {
-                'count': 1,
-                'bytes': 20202333,
-            },
-        }
-
-
-class import_files(Worker):
-    ctx = None
-
-    def execute(self, base, extract):
-
-        self.emit('ImportStarted', base)
-
-        if self.dummy:
-            adapter = DummyImporter(base)
-        else:
-            adapter = Importer(base, extract, ctx=self.ctx)
+        import_id = adapter.start()
+        self.emit('started', import_id)
 
         files = adapter.scanfiles()
         total = len(files)
-        self.emit('ImportCount', base, total)
+        self.emit('count', import_id, total)
 
         c = 1
         for (src, action, doc) in adapter.import_all_iter():
-            self.emit('ImportProgress', base, c, total,
+            self.emit('progress', import_id, c, total,
                 dict(
                     action=action,
                     src=src,
@@ -323,11 +284,95 @@ class import_files(Worker):
             c += 1
 
         stats = adapter.finalize()
-        self.emit('ImportFinished', base,
-            dict(
-                imported=stats['imported']['count'],
-                imported_bytes=stats['imported']['bytes'],
-                skipped=stats['skipped']['count'],
-                skipped_bytes=stats['skipped']['bytes'],
-            )
+        self.emit('finished', import_id, stats)
+
+
+def to_dbus_stats(stats):
+    return dict(
+        imported=stats['imported']['count'],
+        imported_bytes=stats['imported']['bytes'],
+        skipped=stats['skipped']['count'],
+        skipped_bytes=stats['skipped']['bytes'],
+    )
+
+
+def accumulate_stats(accum, stats):
+    for (key, d) in stats.items():
+        for (k, v) in d.items():
+            accum[key][k] += v
+
+
+class ImportManager(Manager):
+    def __init__(self, callback=None, couchdir=None):
+        super(ImportManager, self).__init__(callback)
+        self._couchdir = couchdir
+        self.metastore = MetaStore(couchdir=couchdir)
+        self.db = self.metastore.db
+        self._batch = None
+        self._total = 0
+        self._completed = 0
+        if not isregistered(ImportWorker):
+            register(ImportWorker)
+
+    def _sync(self, doc):
+        _id = doc['_id']
+        self.db[_id] = doc
+        return self.db[_id]
+
+    def _start_batch(self):
+        assert self._batch is None
+        assert self._workers == {}
+        self._total = 0
+        self._completed = 0
+        self._batch = self._sync(create_batch(self.metastore.machine_id))
+        self.emit('BatchStarted', self._batch['_id'])
+
+    def _finish_batch(self):
+        assert self._workers == {}
+        self._batch['time_end'] = time.time()
+        self._batch = self._sync(self._batch)
+        self.emit('BatchFinished', self._batch['_id'],
+            to_dbus_stats(self._batch)
         )
+        self._batch = None
+
+    def on_terminate(self, key):
+        super(ImportManager, self).on_terminate(key)
+        if len(self._workers) == 0:
+            self._finish_batch()
+
+    def on_started(self, key, import_id):
+        self._batch['imports'].append(import_id)
+        self._batch = self._sync(self._batch)
+        self.emit('ImportStarted', key, import_id)
+
+    def on_count(self, key, import_id, total):
+        self._total += total
+        self.emit('ImportCount', key, import_id, total)
+
+    def on_progress(self, key, import_id, completed, total, info):
+        self._completed += 1
+        self.emit('ImportProgress', key, import_id, completed, total, info)
+
+    def on_finished(self, key, import_id, stats):
+        accumulate_stats(self._batch, stats)
+        self._batch = self._sync(self._batch)
+        self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
+
+    def get_batch_progress(self):
+        with self._lock:
+            return (self._completed, self._total)
+
+    def start_import(self, base, extract=True):
+        with self._lock:
+            if base in self._workers:
+                return False
+            if len(self._workers) == 0:
+                self._start_batch()
+            return self.do('ImportWorker', base,
+                self._batch['_id'], base, extract, self._couchdir
+            )
+
+    def list_imports(self):
+        with self._lock:
+            return sorted(self._workers)

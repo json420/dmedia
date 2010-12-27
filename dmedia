@@ -155,22 +155,23 @@ class CLI(object):
         self.client.connect('import_progress', self.on_import_progress)
         self.client.connect('import_finished', self.on_import_finished)
 
-    def on_import_started(self, client, base):
+    def on_import_started(self, client, base, import_id):
         if base != self.base:
             return
-        print('Importing %s' % base)
+        print('Started import of %s' % base)
+        print ('  import_id = %s' % import_id)
 
-    def on_import_count(self, client, base, total):
+    def on_import_count(self, client, base, import_id, total):
         if base != self.base:
             return
-        print('Found %d files\n' % total)
+        print('Found %d files' % total)
 
-    def on_import_progress(self, client, base, completed, total, info):
+    def on_import_progress(self, c, base, import_id, completed, total, info):
         if base != self.base:
             return
         print('  %(action)s %(src)s' % info)
 
-    def on_import_finished(self, client, base, stats):
+    def on_import_finished(self, c, base, import_id, stats):
         if base != self.base:
             return
         print('-' * 80)

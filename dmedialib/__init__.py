@@ -33,9 +33,29 @@ current code.
 
 __version__ = '0.2.0'
 
+import os
 from os import path
+import logging
+import xdg.BaseDirectory
 
 packagedir = path.dirname(path.abspath(__file__))
 assert path.isdir(packagedir)
 datadir = path.join(packagedir, 'data')
 assert path.isdir(datadir)
+
+
+def configure_logging(namespace):
+    format = [
+        '%(levelname)s',
+        '%(message)s'
+    ]
+    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
+    if not path.exists(cache):
+        os.makedirs(cache)
+    filename = path.join(cache, namespace + '.log')
+    logging.basicConfig(
+        filename=filename,
+        filemode='w',
+        level=logging.DEBUG,
+        format='\t'.join(format),
+    )

@@ -23,60 +23,79 @@
 Store meta-data in desktop-couch.
 """
 
-from textwrap import dedent
+from os import path
+import time
+import socket
+import platform
+from couchdb import ResourceNotFound, ResourceConflict
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
-from desktopcouch.local_files import DEFAULT_CONTEXT
+from desktopcouch.local_files import DEFAULT_CONTEXT, Context
+from .util import random_id
 
 
-reduce_sum = '_sum'
-reduce_count = '_count'
+_sum = '_sum'
+_count = '_count'
 
-map_total_bytes = """
+type_type = """
 function(doc) {
-    if (doc.bytes) {
+    if (doc.type) {
+        emit(doc.type, null);
+    }
+}
+"""
+
+batch_time = """
+function(doc) {
+    if (doc.type == 'dmedia/batch') {
+        emit(doc.time, null);
+    }
+}
+"""
+
+import_time = """
+function(doc) {
+    if (doc.type == 'dmedia/import') {
+        emit(doc.time, null);
+    }
+}
+"""
+
+file_bytes = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && typeof(doc.bytes) == 'number') {
         emit(doc.bytes, doc.bytes);
     }
 }
 """
 
-map_ext = """
+file_ext = """
 function(doc) {
-    if (doc.ext) {
+    if (doc.type == 'dmedia/file') {
         emit(doc.ext, null);
     }
 }
 """
 
-map_mime = """
+file_content_type = """
 function(doc) {
-    if (doc.mime) {
-        emit(doc.mime, null);
+    if (doc.type == 'dmedia/file') {
+        emit(doc.content_type, null);
     }
 }
 """
 
-map_mtime = """
+file_mtime = """
 function(doc) {
-    if (doc.mtime) {
+    if (doc.type == 'dmedia/file') {
         emit(doc.mtime, null);
     }
 }
 """
 
-map_links = """
+file_tags = """
 function(doc) {
-    if (doc.links) {
-        doc.links.forEach(function(link) {
-            emit(link, null);
-        });
-    }
-}
-"""
-
-map_tags = """
-function(doc) {
-    if (doc.tags) {
+    if (doc.type == 'dmedia/file' && doc.tags) {
         doc.tags.forEach(function(tag) {
             emit(tag, null);
         });
@@ -84,67 +103,142 @@ function(doc) {
 }
 """
 
-map_project = """
+file_qid = """
 function(doc) {
-    if (doc.project) {
-        emit(doc.project, null);
+    if (doc.type == 'dmedia/file' && doc.qid) {
+        emit(doc.qid, null);
     }
 }
 """
 
-map_quickid = """
+file_import_id = """
 function(doc) {
-    if (doc.quickid) {
-        emit(doc.quickid, null);
+    if (doc.type == 'dmedia/file' && doc.import_id) {
+        emit(doc.import_id, null);
     }
 }
 """
+
+
+def dc_context(couchdir):
+    """
+    Create a desktopcouch Context for testing purposes.
+    """
+    assert path.isdir(couchdir)
+    return Context(
+        path.join(couchdir, 'cache'),
+        path.join(couchdir, 'data'),
+        path.join(couchdir, 'config'),
+    )
+
+
+def build_design_doc(design, views):
+    _id = '_design/' + design
+    d = {}
+    for (view, map_, reduce_) in views:
+        d[view] = {'map': map_}
+        if reduce_ is not None:
+            d[view]['reduce'] = reduce_
+    doc = {
+        '_id': _id,
+        'language': 'javascript',
+        'views': d,
+    }
+    return (_id, doc)
+
+
+def create_machine():
+    return {
+        '_id': '_local/machine',
+        'machine_id': random_id(),
+        'type': 'dmedia/machine',
+        'time': time.time(),
+        'hostname': socket.gethostname(),
+        'distribution': platform.linux_distribution(),
+    }
 
 
 class MetaStore(object):
-    type_url = 'http://example.com/dmedia'
+    designs = (
+        ('type', (
+            ('type', type_type, _count),
+        )),
 
-    views = {
-        'quickid': (map_quickid, None),
-        'total_bytes': (map_total_bytes, reduce_sum),
-        'ext': (map_ext, reduce_count),
-        'mime': (map_mime, reduce_count),
-        'mtime': (map_mtime, None),
-        'links': (map_links, None),
-        'tags': (map_tags, reduce_count),
-        'project': (map_project, reduce_count),
-    }
+        ('batch', (
+            ('time', batch_time, None),
+        )),
 
-    def __init__(self, dbname='dmedia', ctx=None):
+        ('import', (
+            ('time', import_time, None),
+        )),
+
+        ('file', (
+            ('qid', file_qid, None),
+            ('import_id', file_import_id, None),
+            ('bytes', file_bytes, _sum),
+            ('ext', file_ext, _count),
+            ('content_type', file_content_type, _count),
+            ('mtime', file_mtime, None),
+            ('tags', file_tags, _count),
+        )),
+    )
+
+    def __init__(self, dbname='dmedia', couchdir=None):
         self.dbname = dbname
         # FIXME: once lp:672481 is fixed, this wont be needed.  See:
         # https://bugs.launchpad.net/desktopcouch/+bug/672481
-        if ctx is None:
-            ctx = DEFAULT_CONTEXT
+        ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
         # /FIXME
         self.desktop = CouchDatabase(self.dbname, create=True, ctx=ctx)
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
         self.create_views()
+        self._machine_id = None
+
+    def create_machine(self):
+        try:
+            loc = self.db['_local/machine']
+        except ResourceNotFound:
+            loc = self.sync(create_machine())
+        doc = dict(loc)
+        doc['_id'] = doc['machine_id']
+        try:
+            self.db[doc['_id']] = doc
+        except ResourceConflict:
+            pass
+        return loc['machine_id']
+
+    @property
+    def machine_id(self):
+        if self._machine_id is None:
+            self._machine_id = self.create_machine()
+        return self._machine_id
+
+    def sync(self, doc):
+        _id = doc['_id']
+        self.db[_id] = doc
+        return self.db[_id]
 
     def create_views(self):
-        for (key, value) in self.views.iteritems():
-            if not self.desktop.view_exists(key):
-                (map_, reduce_) = value
-                self.desktop.add_view(key, map_, reduce_)
+        for (name, views) in self.designs:
+            (_id, doc) = build_design_doc(name, views)
+            try:
+                old = self.db[_id]
+                doc['_rev'] = old['_rev']
+                if old != doc:
+                    self.db[_id] = doc
+            except ResourceNotFound:
+                self.db[_id] = doc
 
-    def new(self, kw):
-        return Record(kw, self.type_url)
-
-    def by_quickid(self, quickid):
-        for row in self.desktop.execute_view('quickid', key=quickid):
+    def by_quickid(self, qid):
+        for row in self.db.view('_design/file/_view/qid', key=qid):
             yield row.id
 
     def total_bytes(self):
-        for row in self.desktop.execute_view('total_bytes'):
+        for row in self.db.view('_design/file/_view/bytes'):
             return row.value
         return 0
 
     def extensions(self):
-        for row in self.desktop.execute_view('ext', group=True):
+        for row in self.db.view('_design/file/_view/ext', group=True):
             yield (row.key, row.value)

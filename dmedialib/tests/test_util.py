@@ -24,11 +24,21 @@ Unit tests for `dmedialib.util` module.
 """
 
 from unittest import TestCase
+from base64 import b32encode, b32decode
 from .helpers import raises
+from dmedialib.constants import TYPE_ERROR, CALLABLE_ERROR
 from dmedialib import util
 
 
 class test_functions(TestCase):
+    def test_random_id(self):
+        f = util.random_id
+        _id = f()
+        self.assertEqual(len(_id), 24)
+        binary = b32decode(_id)
+        self.assertEqual(len(binary), 15)
+        self.assertEqual(b32encode(binary), _id)
+
     def test_units_base10(self):
         f = util.units_base10
 
@@ -104,8 +114,8 @@ class test_functions(TestCase):
             ('Searching on 3 cards...', '\n'.join(bases))
         )
 
-    def test_batch_import_finished(self):
-        f = util.batch_import_finished
+    def test_batch_finished(self):
+        f = util.batch_finished
 
         # Test that value error is raised for imported or skipped < 0
         e = raises(ValueError, f, dict(imported=-17))
@@ -318,3 +328,47 @@ class test_NotifyManger(TestCase):
                 ('show', tuple(), {}),
             ]
         )
+
+
+class test_Timer(TestCase):
+    klass = util.Timer
+
+    def test_init(self):
+        callback = lambda *args, **kw: 'hello'
+
+        # Test with wrong seconds type
+        for s in ['1.0', u'2']:
+            e = raises(TypeError, self.klass, s, callback)
+            assert str(e) == TYPE_ERROR % ('seconds', (float, int), type(s), s)
+
+        # Test with seconds <= 0:
+        for s in [0, 0.0, -1, -0.5]:
+            e = raises(ValueError, self.klass, s, callback)
+            assert str(e) == 'seconds: must be > 0; got %r' % s
+
+        # Test non-callable callback
+        for c in ['call me', 18, object()]:
+            e = raises(TypeError, self.klass, 1, c)
+            assert str(e) == CALLABLE_ERROR % ('callback', type(c), c)
+
+        # Test with correct values:
+        inst = self.klass(1, callback)
+        assert inst.seconds == 1
+        assert inst.callback is callback
+
+        inst = self.klass(0.75, callback)
+        assert inst.seconds == 0.75
+        assert inst.callback is callback
+
+    def test_start(self):
+        inst = self.klass(1, lambda: 'hello')
+        self.assertTrue(inst.start())
+        self.assertFalse(inst.start())
+        self.assertFalse(inst.start())
+
+    def test_stop(self):
+        inst = self.klass(1, lambda: 'hello')
+        assert inst.stop() is False
+        self.assertTrue(inst.start())
+        self.assertTrue(inst.stop())
+        self.assertFalse(inst.stop())

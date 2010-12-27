@@ -23,10 +23,25 @@
 Multi-process workers.
 """
 
+import multiprocessing
 from multiprocessing import current_process
+from threading import Thread, Lock
+from Queue import Empty
+import logging
 from .constants import TYPE_ERROR
 
+log = logging.getLogger()
+
 _workers = {}
+
+
+def isregistered(worker):
+    if not (isinstance(worker, type) and issubclass(worker, Worker)):
+        raise TypeError(
+            'worker: must be subclass of %r; got %r' % (Worker, worker)
+        )
+    name = worker.__name__
+    return (name in _workers)
 
 
 def register(worker):
@@ -64,33 +79,32 @@ def exception_name(exception):
     return exception.__name__
 
 
-def dispatch(name, q, args, dummy=False):
+def dispatch(q, worker, key, args):
     try:
-        klass = _workers[name]
-        inst = klass(q, args, dummy)
+        klass = _workers[worker]
+        inst = klass(q, key, args)
         inst.run()
     except Exception as e:
         q.put(dict(
-            signal='Error',
-            args=(exception_name(e), str(e)),
-            worker=name,
-            worker_args=args,
+            signal='error',
+            args=(key, exception_name(e), str(e)),
+            worker=worker,
             pid=current_process().pid,
         ))
     finally:
         q.put(dict(
-            signal='_terminate',
-            worker=name,
-            args=args,
+            signal='terminate',
+            args=(key,),
+            worker=worker,
             pid=current_process().pid,
         ))
 
 
 class Worker(object):
-    def __init__(self, q, args, dummy=False):
+    def __init__(self, q, key, args):
         self.q = q
+        self.key = key
         self.args = args
-        self.dummy = dummy
         self.pid = current_process().pid
         self.name = self.__class__.__name__
 
@@ -112,7 +126,7 @@ class Worker(object):
             worker=self.name,
             pid=self.pid,
             signal=signal,
-            args=args,
+            args=(self.key,) + args,
         ))
 
     def run(self):
@@ -122,3 +136,93 @@ class Worker(object):
         raise NotImplementedError(
             '%s.execute()' % self.name
         )
+
+
+class Manager(object):
+    def __init__(self, callback=None):
+        if not (callback is None or callable(callback)):
+            raise TypeError(
+                'callback must be callable; got %r' % callback
+            )
+        self._callback = callback
+        self._running = False
+        self._workers = {}
+        self._q = multiprocessing.Queue()
+        self._lock = Lock()
+        self._thread = None
+
+    def _signal_thread(self):
+        while self._running:
+            try:
+                self._process_message(self._q.get(timeout=1))
+            except Empty:
+                pass
+
+    def _process_message(self, msg):
+        log.info('%(signal)s %(args)r', msg)
+        with self._lock:
+            signal = msg['signal']
+            args = msg['args']
+            handler = getattr(self, 'on_' + signal)
+            handler(*args)
+
+    def on_terminate(self, key):
+        p = self._workers.pop(key)
+        p.join()
+
+    def on_error(self, key, exception, message):
+        pass
+
+    def start(self):
+        with self._lock:
+            if self._running:
+                return False
+            self._running = True
+            self._thread = Thread(target=self._signal_thread)
+            self._thread.daemon = True
+            self._thread.start()
+            return True
+
+    def kill(self):
+        if not self._running:
+            return False
+        self._running = False
+        self._thread.join()  # Cleanly shutdown _signal_thread
+        with self._lock:
+            for p in self._workers.values():
+                p.terminate()
+                p.join()
+            self._workers.clear()
+            return True
+
+    def do(self, worker, key, *args):
+        """
+        Start a process identified by *key*, using worker class *name*.
+        """
+        if key in self._workers:
+            return False
+        p = multiprocessing.Process(
+            target=dispatch,
+            args=(self._q, worker, key, args),
+        )
+        p.daemon = True
+        self._workers[key] = p
+        p.start()
+        return True
+
+    def kill_job(self, key):
+        with self._lock:
+            if key not in self._workers:
+                return False
+            p = self._workers.pop(key)
+            p.terminate()
+            p.join()
+            return True
+
+    def emit(self, signal, *args):
+        """
+        Emit a signal to higher-level code.
+        """
+        if self._callback is None:
+            return
+        self._callback(signal, args)

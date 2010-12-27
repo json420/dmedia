@@ -27,11 +27,15 @@ Various constants conveniently located in one place.
 import mimetypes
 mimetypes.init()
 
-
+# D-Bus releated:
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'
 
-TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
+# Standard format for TypeError message:
+TYPE_ERROR = '%s: need a %r; got a %r: %r'
+
+# Stardard format for TypeError message when a callable is expected:
+CALLABLE_ERROR = '%s: need a callable; got a %r: %r'
 
 def get_extensions_for_type(general_type):
     """
@@ -56,5 +60,3 @@ EXT_MAP = {
     'image': IMAGE,
     'all': EXTENSIONS,
 }
-
-
