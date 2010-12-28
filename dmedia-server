@@ -21,49 +21,10 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-import optparse
-from paste import httpserver
-import dmedialib
-from dmedialib.ui import WSGIApp
-from base64 import b64encode
-import couchdb
+from dmedialib.metastore import MetaStore
+from dmedialib import ui
 
-app = WSGIApp()
-s = app.render()
-couch = couchdb.Server()
-db = couch['dmedia']
-
-if 'app' in db:
-    del db['app']
-
-db['app'] = {
-    '_attachments': {
-        'app.xhtml': {
-            'data': b64encode(s),
-            'content_type': 'application/xhtml+xml; charset=utf-8',
-        }
-    }
-}
-
-
-sys.exit()
-
-
-parser = optparse.OptionParser(version=dmedialib.__version__)
-parser.add_option('--host',
-    help='Listen on address HOST (default=127.0.0.1)',
-    default='127.0.0.1',
-)
-parser.add_option('--port',
-    help='Listen on PORT (default=8080)',
-    default=8080,
-    type='int',
-)
-(options, args) = parser.parse_args()
-
-app = WSGIApp()
-httpserver.serve(app,
-    host=options.host,
-    port=options.port,
-)
+store = MetaStore()
+app = ui.create_app()
+store.update(app)
+print store.db['app']['_rev']

@@ -25,6 +25,7 @@ Unit tests for `dmedialib.ui` module.
 
 from unittest import TestCase
 from os import path
+from base64 import b64encode
 from genshi.template import MarkupTemplate
 from dmedialib import ui, datadir
 
@@ -38,7 +39,6 @@ class test_functions(TestCase):
             path.join(datadir, 'foo.xml')
         )
 
-
     def test_load_datafile(self):
         f = ui.load_datafile
         mootools = path.join(datadir, 'mootools.js')
@@ -47,6 +47,31 @@ class test_functions(TestCase):
             open(mootools, 'r').read()
         )
 
+    def test_encode_datafile(self):
+        f = ui.encode_datafile
+        mootools = path.join(datadir, 'mootools.js')
+        self.assertEqual(
+            f('mootools.js'),
+            b64encode(open(mootools, 'rb').read())
+        )
+
+    def test_iter_datafiles(self):
+        f = ui.iter_datafiles
+        self.assertEqual(
+            list(f()),
+            [
+                ('alt.css', 'text/css'),
+                ('browser.html', 'text/html'),
+                ('browser.js', 'application/javascript'),
+                ('dmedia.css', 'text/css'),
+                ('dmedia.js', 'application/javascript'),
+                ('mootools.js', 'application/javascript'),
+                ('search.png', 'image/png'),
+                ('stars.png', 'image/png'),
+                ('style.css', 'text/css'),
+                ('toplevel.xml', 'application/xml'),
+            ]
+        )
 
     def test_load_template(self):
         f = ui.load_template
@@ -54,7 +79,6 @@ class test_functions(TestCase):
         t = f('toplevel.xml')
         self.assertTrue(isinstance(t, MarkupTemplate))
         self.assertEqual(t.filename, xml)
-
 
     def test_render_template(self):
         f = ui.render_template

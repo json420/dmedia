@@ -23,8 +23,11 @@
 Web UI for dmedia browser.
 """
 
+import os
 from os import path
 import json
+from base64 import b64encode
+import mimetypes
 from genshi.template import MarkupTemplate
 from . import datadir
 
@@ -63,6 +66,33 @@ def datafile(name):
 
 def load_datafile(name):
     return open(datafile(name), 'rb').read()
+
+
+def encode_datafile(name):
+    """
+    Read datafile *name* and return base64-encoded.
+    """
+    return b64encode(load_datafile(name))
+
+
+def iter_datafiles():
+    for name in sorted(os.listdir(datadir)):
+        if name.startswith('.') or name.endswith('~'):
+            continue
+        if not path.isfile(path.join(datadir, name)):
+            continue
+        ext = path.splitext(name)[1]
+        yield (name, mimetypes.types_map.get(ext))
+
+
+def create_app():
+    return {
+        '_id': 'app',
+        '_attachments': dict(
+            (name, {'content_type': mime, 'data': encode_datafile(name)})
+            for (name, mime) in iter_datafiles()
+        )
+    }
 
 
 def load_template(name):
