@@ -31,6 +31,8 @@ import mimetypes
 from genshi.template import MarkupTemplate
 from . import datadir
 
+mimetypes.init()
+
 CONTENT_TYPE = 'application/xhtml+xml; charset=utf-8'
 
 DEFAULT_KW = (
