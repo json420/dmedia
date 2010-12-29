@@ -111,7 +111,7 @@ def create_app():
         (name, {'content_type': mime, 'data': encode_datafile(name)})
         for (name, mime) in iter_datafiles()
     )
-    att['browser.xhtml'] = {
+    att['browser'] = {
         'content_type': CONTENT_TYPE,
         'data': encode_template(load_template('browser.xml')),
     }

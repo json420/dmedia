@@ -22,6 +22,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
+from subprocess import check_call
 from dmedialib.metastore import MetaStore
 from dmedialib import ui
 
@@ -29,6 +30,13 @@ store = MetaStore()
 app = ui.create_app()
 store.update(app)
 print store.db['app']['_rev']
+
+print store.get_basic_auth()
+
+uri = store.get_app_uri()
+print uri
+check_call(['xdg-open', uri])
+
 
 sys.exit()
 

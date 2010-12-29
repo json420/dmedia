@@ -27,7 +27,9 @@ from os import path
 import time
 import socket
 import platform
+import gnomekeyring
 from couchdb import ResourceNotFound, ResourceConflict
+import desktopcouch
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 from desktopcouch.local_files import DEFAULT_CONTEXT, Context
@@ -194,6 +196,21 @@ class MetaStore(object):
         self.db = self.server[self.dbname]
         self.create_views()
         self._machine_id = None
+
+    def get_basic_auth(self):
+        data = gnomekeyring.find_items_sync(
+            gnomekeyring.ITEM_GENERIC_SECRET,
+            {'desktopcouch': 'basic'}
+        )
+        return data[0].secret
+
+    def get_port(self):
+        return desktopcouch.find_port()
+
+    def get_app_uri(self):
+        return 'http://%s@localhost:%s/dmedia/app/browser' % (
+            self.get_basic_auth(), self.get_port()
+        )
 
     def create_machine(self):
         try:
