@@ -150,6 +150,7 @@ class Manager(object):
         self._q = multiprocessing.Queue()
         self._lock = Lock()
         self._thread = None
+        self.name = self.__class__.__name__
 
     def _signal_thread(self):
         while self._running:
@@ -171,9 +172,10 @@ class Manager(object):
         p.join()
 
     def on_error(self, key, exception, message):
-        pass
+        log.error('%s %s: %s: %s', self.name, key, exception, message)
 
     def start(self):
+        log.info('Killing %s', self.name)
         with self._lock:
             if self._running:
                 return False
@@ -184,6 +186,7 @@ class Manager(object):
             return True
 
     def kill(self):
+        log.info('Killing %s', self.name)
         if not self._running:
             return False
         self._running = False
