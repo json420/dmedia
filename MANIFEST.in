@@ -1,5 +1,5 @@
 include AUTHORS COPYING HACKING.txt README.txt
-include dmedia.1 dmedia-import.desktop dmedia.svg
+include dmedia-cli.1 dmedia-import.desktop dmedia.svg
 include org.freedesktop.DMedia.service dmedia-service
 include indicator-rendermenu.svg indicator-rendermenu-att.svg
 include dmedialib/data/*.js
