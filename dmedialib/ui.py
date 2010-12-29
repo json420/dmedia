@@ -66,8 +66,25 @@ def datafile(name):
     return path.join(datadir, name)
 
 
+def datafile_comment(name):
+    """
+    Returns JavaScript/CSS comment with source of inlined datafile.
+    """
+    return '/* %s */\n' % datafile(name)
+
+
 def load_datafile(name):
     return open(datafile(name), 'rb').read()
+
+
+def inline_datafile(name):
+    return datafile_comment(name) + load_datafile(name)
+
+
+def inline_data(names):
+    return '\n\n'.join(
+        inline_datafile(name) for name in names
+    )
 
 
 def encode_datafile(name):
@@ -80,6 +97,8 @@ def encode_datafile(name):
 def iter_datafiles():
     for name in sorted(os.listdir(datadir)):
         if name.startswith('.') or name.endswith('~'):
+            continue
+        if name.endswith('.xml'):
             continue
         if not path.isfile(path.join(datadir, name)):
             continue
@@ -111,8 +130,17 @@ class Page(object):
     toplevel = 'toplevel.xml'
     body = None
 
+    inline_css = tuple()
+    inline_js = tuple()
+
     def __init__(self):
         self.toplevel_t = load_template(self.toplevel)
+        self.body_t = (load_template(self.body) if self.body else None)
+
+    def render(self):
+        pass
+
+
 
 
 class WSGIApp(object):

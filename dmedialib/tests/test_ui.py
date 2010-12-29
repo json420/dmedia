@@ -39,12 +39,43 @@ class test_functions(TestCase):
             path.join(datadir, 'foo.xml')
         )
 
+    def test_datafile_comment(self):
+        f = ui.datafile_comment
+        self.assertEqual(
+            f('foo.xml'),
+            '/* ' + path.join(datadir, 'foo.xml') + ' */\n'
+        )
+
     def test_load_datafile(self):
         f = ui.load_datafile
         mootools = path.join(datadir, 'mootools.js')
         self.assertEqual(
             f('mootools.js'),
             open(mootools, 'r').read()
+        )
+
+    def test_inline_datafile(self):
+        f = ui.inline_datafile
+        filename = path.join(datadir, 'dmedia.js')
+        comment = '/* ' + filename + ' */\n'
+        self.assertEqual(
+            f('dmedia.js'),
+            comment + open(filename, 'rb').read()
+        )
+
+    def test_inline_data(self):
+        f = ui.inline_data
+        self.assertEqual(f([]), '')
+        self.assertEqual(
+            f(['dmedia.js']),
+            ui.inline_datafile('dmedia.js')
+        )
+        self.assertEqual(
+            f(['mootools.js', 'dmedia.js']),
+            '\n\n'.join([
+                ui.inline_datafile('mootools.js'),
+                ui.inline_datafile('dmedia.js')
+            ])
         )
 
     def test_encode_datafile(self):
@@ -69,7 +100,6 @@ class test_functions(TestCase):
                 ('search.png', 'image/png'),
                 ('stars.png', 'image/png'),
                 ('style.css', 'text/css'),
-                ('toplevel.xml', 'application/xml'),
             ]
         )
 
@@ -93,3 +123,12 @@ class test_Page(TestCase):
 
     def test_init(self):
         inst = self.klass()
+        self.assertTrue(isinstance(inst.toplevel_t, MarkupTemplate))
+        self.assertEqual(inst.body_t, None)
+
+        class Example(self.klass):
+            body = 'body.xml'
+
+        inst = Example()
+        self.assertTrue(isinstance(inst.toplevel_t, MarkupTemplate))
+        self.assertTrue(isinstance(inst.body_t, MarkupTemplate))
