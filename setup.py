@@ -31,12 +31,12 @@ import os
 from os import path
 from distutils.core import setup
 from distutils.cmd import Command
-from unittest import TestLoader, TextTestRunner
+from unittest import TestLoader, TextTestRunner, TestSuite
 from doctest import DocTestSuite
 import dmedialib
 
 
-def pynames(pkdir, pkname=None):
+def pynames_iter(pkdir, pkname=None):
     """
     Recursively yield dotted names for *.py files in directory *pydir*.
     """
@@ -62,29 +62,57 @@ def pynames(pkdir, pkname=None):
             if len(parts) == 2:
                 yield '.'.join([pkname, parts[0]])
         elif path.isdir(fullname):
-            for n in pynames(fullname, '.'.join([pkname, name])):
+            for n in pynames_iter(fullname, '.'.join([pkname, name])):
                 yield n
 
 
 class Test(Command):
-    user_options = []
+    description = 'run unit tests and doc tests'
+
+    user_options = [
+        ('no-doctest', None, 'do not run doc-tests'),
+        ('no-unittest', None, 'do not run unit-tests'),
+        ('names=', None, 'comma-sperated list of modules to test'),
+    ]
+
+    def _pynames_iter(self):
+        for pyname in pynames_iter(dmedialib.packagedir):
+            if not self.names:
+                yield pyname
+            else:
+                for name in self.names:
+                    if name in pyname:
+                        yield pyname
+                        break
 
     def run(self):
-        names = tuple(pynames(dmedialib.packagedir))
-        loader = TestLoader()
-        suite = loader.loadTestsFromNames(names)
-        for mod in names:
-            suite.addTest(DocTestSuite(mod))
+        pynames = tuple(self._pynames_iter())
+
+        # Add unit-tests:
+        if self.no_unittest:
+            suite = TestSuite()
+        else:
+            loader = TestLoader()
+            suite = loader.loadTestsFromNames(pynames)
+
+        # Add doc-tests:
+        if not self.no_doctest:
+            for mod in pynames:
+                suite.addTest(DocTestSuite(mod))
+
+        # Run the tests:
         runner = TextTestRunner(verbosity=2)
         result = runner.run(suite)
         if not result.wasSuccessful():
             sys.exit(1)
 
     def initialize_options(self):
-        pass
+        self.no_doctest = 0
+        self.no_unittest = 0
+        self.names = ''
 
     def finalize_options(self):
-        pass
+        self.names = self.names.split(',')
 
 
 setup(

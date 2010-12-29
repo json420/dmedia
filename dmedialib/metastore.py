@@ -27,7 +27,9 @@ from os import path
 import time
 import socket
 import platform
+import gnomekeyring
 from couchdb import ResourceNotFound, ResourceConflict
+import desktopcouch
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 from desktopcouch.local_files import DEFAULT_CONTEXT, Context
@@ -187,13 +189,33 @@ class MetaStore(object):
         self.dbname = dbname
         # FIXME: once lp:672481 is fixed, this wont be needed.  See:
         # https://bugs.launchpad.net/desktopcouch/+bug/672481
-        ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
+        self.ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
         # /FIXME
-        self.desktop = CouchDatabase(self.dbname, create=True, ctx=ctx)
+        self.desktop = CouchDatabase(self.dbname, create=True, ctx=self.ctx)
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
         self.create_views()
         self._machine_id = None
+
+    def get_basic_auth(self):
+        data = gnomekeyring.find_items_sync(
+            gnomekeyring.ITEM_GENERIC_SECRET,
+            {'desktopcouch': 'basic'}
+        )
+        (user, password) = data[0].secret.split(':')
+        return (user, password)
+
+    def get_port(self):
+        return desktopcouch.find_port()
+
+    def get_uri(self):
+        return 'http://localhost:%s/dmedia' % self.get_port()
+
+    def get_auth_uri(self):
+        (user, password) = self.get_basic_auth()
+        return 'http://%s:%s@localhost:%s/dmedia' % (
+            user, password, self.get_port()
+        )
 
     def create_machine(self):
         try:
@@ -214,6 +236,19 @@ class MetaStore(object):
             self._machine_id = self.create_machine()
         return self._machine_id
 
+    def update(self, doc):
+        """
+        Create *doc* if it doesn't exists, update doc only if different.
+        """
+        _id = doc['_id']
+        try:
+            old = self.db[_id]
+            doc['_rev'] = old['_rev']
+            if old != doc:
+                self.db[_id] = doc
+        except ResourceNotFound:
+            self.db[_id] = doc
+
     def sync(self, doc):
         _id = doc['_id']
         self.db[_id] = doc
@@ -222,13 +257,7 @@ class MetaStore(object):
     def create_views(self):
         for (name, views) in self.designs:
             (_id, doc) = build_design_doc(name, views)
-            try:
-                old = self.db[_id]
-                doc['_rev'] = old['_rev']
-                if old != doc:
-                    self.db[_id] = doc
-            except ResourceNotFound:
-                self.db[_id] = doc
+            self.update(doc)
 
     def by_quickid(self, qid):
         for row in self.db.view('_design/file/_view/qid', key=qid):
