@@ -35,10 +35,10 @@ import calendar
 
 # exiftool adds some metadata that doesn't make sense to include:
 EXIFTOOL_IGNORE = (
-    'SourceFile',  # 'dmedialib/tests/data/MVI_5751.THM'
+    'SourceFile',  # 'dmedia/tests/data/MVI_5751.THM'
     'ExifToolVersion',  # 8.15
     'FileName',  # 'MVI_5751.THM'
-    'Directory',  # 'dmedialib/tests/data',
+    'Directory',  # 'dmedia/tests/data',
     'FileSize',  # '27 kB'
     'FileModifyDate',  # '2010:10:19 20:43:18-06:00'
     'FilePermissions',  # 'rw-r--r--'

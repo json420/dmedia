@@ -20,14 +20,14 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.metastore` module.
+Unit tests for `dmedia.metastore` module.
 """
 
 from unittest import TestCase
 import socket
 import platform
 from helpers import CouchCase, TempDir, TempHome
-from dmedialib import metastore
+from dmedia import metastore
 import couchdb
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record

@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-import dmedialib.client
+import dmedia.client
 from dmedia_import.pidlock import PidLock
 from dmedia_import.common import device_type, get_icon
 import pynotify
@@ -31,7 +31,7 @@ from time import sleep
 
 class Notifier(object):
     def __init__(self):
-        self.client = dmedialib.client.Client()
+        self.client = dmedia.client.Client()
         self.client.version()
         self.imports = {
             #base : [completed, total]

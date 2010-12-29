@@ -21,7 +21,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.filestore` module.
+Unit tests for `dmedia.filestore` module.
 """
 
 import os
@@ -30,8 +30,8 @@ import hashlib
 import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
-from dmedialib.errors import AmbiguousPath
-from dmedialib import filestore
+from dmedia.errors import AmbiguousPath
+from dmedia import filestore
 
 
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message

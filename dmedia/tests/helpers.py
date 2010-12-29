@@ -31,7 +31,7 @@ import tempfile
 import shutil
 from base64 import b32encode
 from desktopcouch.stop_local_couchdb import stop_couchdb
-from dmedialib.metastore import dc_context
+from dmedia.metastore import dc_context
 
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')

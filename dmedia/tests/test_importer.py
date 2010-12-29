@@ -21,7 +21,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.importer` module.
+Unit tests for `dmedia.importer` module.
 """
 
 import os
@@ -37,11 +37,11 @@ from .helpers import CouchCase, TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
 from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
-from dmedialib.errors import AmbiguousPath
-from dmedialib.filestore import FileStore
-from dmedialib.metastore import MetaStore
-from dmedialib.util import random_id
-from dmedialib import importer
+from dmedia.errors import AmbiguousPath
+from dmedia.filestore import FileStore
+from dmedia.metastore import MetaStore
+from dmedia.util import random_id
+from dmedia import importer
 
 import desktopcouch
 from desktopcouch.stop_local_couchdb import stop_couchdb

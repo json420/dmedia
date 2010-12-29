@@ -97,7 +97,7 @@ class FirstRunGUI(gtk.Window):
 
     For example:
 
-    >>> from dmedialib.firstrun import FirstRunGUI
+    >>> from dmedia.firstrun import FirstRunGUI
     >>> run = FirstRunGUI.run_if_first_run('/media/EOS_DIGITAL')  #doctest: +SKIP
     """
 

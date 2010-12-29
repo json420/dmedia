@@ -24,7 +24,7 @@
 Makes dmedia functionality avaible over D-Bus.
 """
 
-from dmedialib import __version__
+from dmedia import __version__
 from os import path
 from gettext import gettext as _
 import logging

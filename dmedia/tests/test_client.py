@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.client` module.
+Unit tests for `dmedia.client` module.
 """
 
 import os
@@ -30,15 +30,15 @@ import time
 import dbus
 from dbus.proxies import ProxyObject
 import gobject
-import dmedialib
-from dmedialib import client, service
-from dmedialib.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
+import dmedia
+from dmedia import client, service
+from dmedia.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
 from .helpers import CouchCase, TempDir, random_bus, prep_import_source
 from .helpers import sample_mov, sample_thm
 from .helpers import sample_mov_hash, sample_thm_hash
 
 
-tree = path.dirname(path.dirname(path.abspath(dmedialib.__file__)))
+tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
 script = path.join(tree, 'dmedia-service')
 assert path.isfile(script)
@@ -125,7 +125,7 @@ class test_Client(CouchCase):
         self.assertTrue(p is inst.proxy)
 
         # Test version()
-        self.assertEqual(inst.version(), dmedialib.__version__)
+        self.assertEqual(inst.version(), dmedia.__version__)
 
         # Test get_extensions()
         self.assertEqual(inst.get_extensions(['video']), sorted(VIDEO))

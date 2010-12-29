@@ -58,7 +58,7 @@ class Client(gobject.GObject):
     For example, use `Client.list_imports()` to get the list of currently running
     imports:
 
-    >>> from dmedialib.client import Client
+    >>> from dmedia.client import Client
     >>> client = Client()  #doctest: +SKIP
     >>> client.list_imports()  #doctest: +SKIP
     []

@@ -24,12 +24,12 @@
 import sys
 from subprocess import check_call
 import optparse
-import dmedialib
-from dmedialib.metastore import MetaStore
-from dmedialib import ui
+import dmedia
+from dmedia.metastore import MetaStore
+from dmedia import ui
 
 parser = optparse.OptionParser(
-    version=dmedialib.__version__,
+    version=dmedia.__version__,
 )
 parser.add_option('--browser',
     action='store_true',

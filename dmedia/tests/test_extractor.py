@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.extractor` module.
+Unit tests for `dmedia.extractor` module.
 """
 
 from unittest import TestCase
@@ -28,7 +28,7 @@ import base64
 from os import path
 import Image
 from .helpers import sample_mov, sample_thm, TempDir
-from dmedialib import extractor
+from dmedia import extractor
 
 # Known EXIF data as returned be exiftool:
 sample_thm_exif = {
@@ -82,7 +82,7 @@ sample_thm_exif = {
     u'DialDirectionTvAv': u'Normal',
     u'DigitalGain': 0,
     u'DigitalZoom': u'None',
-    #u'Directory': u'dmedialib/tests/data',
+    #u'Directory': u'dmedia/tests/data',
     u'DriveMode': u'Continuous shooting',
     u'EasyMode': u'Manual',
     u'EncodingProcess': u'Baseline DCT, Huffman coding',
@@ -192,7 +192,7 @@ sample_thm_exif = {
     u'ShutterSpeed': u'1/100',
     u'ShutterSpeedValue': u'1/99',
     u'SlowShutter': u'None',
-    #u'SourceFile': u'dmedialib/tests/data/MVI_5751.THM',
+    #u'SourceFile': u'dmedia/tests/data/MVI_5751.THM',
     u'SubSecCreateDate': u'2010:10:19 20:43:14.68',
     u'SubSecDateTimeOriginal': u'2010:10:19 20:43:14.68',
     u'SubSecModifyDate': u'2010:10:19 20:43:14.68',
