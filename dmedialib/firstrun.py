@@ -32,6 +32,15 @@ conf = gconf.client_get_default()
 
 
 class FirstRunGUI(gtk.Window):
+    """
+    Promt use first time dmedia importer is run.
+
+    For example:
+
+    >>> from dmedialib.firstrun import FirstRunGUI
+    >>> run = FirstRunGUI.run_if_first_run('/media/EOS_DIGITAL')  #doctest: +SKIP
+    """
+
     def __init__(self):
         super(FirstRunGUI, self).__init__()
 
