@@ -23,33 +23,38 @@
 
 import sys
 from subprocess import check_call
+import optparse
+import dmedialib
 from dmedialib.metastore import MetaStore
 from dmedialib import ui
+
+parser = optparse.OptionParser(
+    version=dmedialib.__version__,
+)
+parser.add_option('--browser',
+    action='store_true',
+    default=False,
+    help='open dmedia HTML5 UI in default browser',
+)
+(options, args) = parser.parse_args()
+
 
 store = MetaStore()
 app = ui.create_app()
 store.update(app)
-print store.db['app']['_rev']
-
-print store.get_basic_auth()
-
 uri = store.get_app_uri()
-print uri
-check_call(['xdg-open', uri])
 
 
-sys.exit()
+if options.browser:
+    check_call(['xdg-open', uri])
+    sys.exit()
 
-from os import path
+
 import gtk
 import gobject
 import webkit
-from dmedialib.ui import WSGIApp
 
 gobject.threads_init()
-
-app = WSGIApp()
-xhtml = app.render()
 
 
 window = gtk.Window()
@@ -61,18 +66,13 @@ box = gtk.VBox()
 window.add(box)
 
 view = webkit.WebView()
-settings = view.get_settings()
-settings.set_property('enable-developer-extras', True)
-
-view.load_string(xhtml, 'application/xhtml+xml', '', 'http://localhost:5984')
 box.pack_start(view, True, True, 2)
 
+# Enable inspector
+settings = view.get_settings()
+settings.set_property('enable-developer-extras', True)
 inspector = view.get_web_inspector()
 inspector.set_property('javascript-profiling-enabled', True)
-
-# Enabling this causes a seg-fault, see lp:664896:
-#   https://bugs.launchpad.net/ubuntu/+source/pywebkitgtk/+bug/664896
-#inspector.set_property('timeline-profiling-enabled', True)
 
 def on_inspect(*args):
     view2 = webkit.WebView()
@@ -81,8 +81,12 @@ def on_inspect(*args):
 
 inspector.connect('inspect-web-view', on_inspect)
 
+def on_script_prompt(view, *args):
+    print args
 
+view.connect('script-prompt', on_script_prompt)
 
 window.show_all()
+view.load_uri(uri)
 
 gtk.main()
