@@ -30,7 +30,7 @@ from os import path
 
 import dmedia
 from dmedia.client import Client
-from dmedia.firstrun import FirstRunGUI
+from dmedia.firstrun import FirstRunGUI, ImportDialog
 
 
 parser = optparse.OptionParser(
@@ -49,25 +49,26 @@ parser.add_option('--quick',
     help='import without metadata extraction or thumbnail generation',
 )
 
+(options, args) = parser.parse_args()
 
-def usage(msg, code=1):
-    parser.print_usage()
-    print('ERROR: ' + msg)
-    sys.exit(code)
-
-
-if __name__ == '__main__':
-    (options, args) = parser.parse_args()
-    if len(args) != 1:
-        usage('requires single argument DIRECTORY')
+if len(args) == 0:
+    d = ImportDialog()
+    base = d.run()
+    if base is None:
+        print('import_canceled')
+        sys.exit()
+else:
     base = path.abspath(args[0])
     if not path.isdir(base):
-        usage('not a directory: %r' % base)
+        parser.print_usage()
+        print('ERROR: not a directory: %r' % base)
+        sys.exit(1)
     if not FirstRunGUI.run_if_first_run(base, options.unset):
         print('import_canceled')
-        sys.exit(2)
-    client = Client()
-    action = client.start_import(base, options.extract)
-    print(action)
-    if action != 'started':
-        sys.exit(3)
+        sys.exit()
+
+client = Client()
+action = client.start_import(base, options.extract)
+print(action)
+if action != 'started':
+    sys.exit(2)

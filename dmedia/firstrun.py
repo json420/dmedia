@@ -22,6 +22,8 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+from os import path
 import gtk
 import pango
 import gconf
@@ -32,6 +34,10 @@ from xml.sax import saxutils
 NO_DIALOG = '/apps/dmedia/dont-show-import-firstrun'
 conf = gconf.client_get_default()
 
+
+TITLE = _('DMedia Importer')
+
+ICON_SIZE = gtk.ICON_SIZE_LARGE_TOOLBAR
 PADDING = 5
 
 
@@ -91,6 +97,97 @@ class Label(gtk.Label):
             self.set_text(text)
 
 
+class Button(gtk.Button):
+    def __init__(self, stock=None, text=None):
+        super(Button, self).__init__()
+        hbox = HBox()
+        self.add(hbox)
+        self._image = gtk.Image()
+        self._label = Label(None)
+        hbox._pack(self._image)
+        hbox._pack(self._label, expand=True)
+        if stock is not None:
+            self._set_stock(stock)
+        if text is not None:
+            self._set_text(text)
+
+    def _set_stock(self, stock, size=ICON_SIZE):
+        self._image.set_from_stock(stock, size)
+
+    def _set_text(self, text):
+        self._label.set_text(text)
+
+
+class FolderChooser(Button):
+    def __init__(self):
+        super(FolderChooser, self).__init__(stock=gtk.STOCK_OPEN)
+        self._label.set_ellipsize(pango.ELLIPSIZE_START)
+        self._title = _('Choose folder to import...')
+        self.connect('clicked', self._on_clicked)
+        self._set_value(os.environ['HOME'])
+
+    def _set_value(self, value):
+        self._value = path.abspath(value)
+        self._label._set_text(self._value)
+
+    def _on_clicked(self, button):
+        dialog = gtk.FileChooserDialog(
+            title=self._title,
+            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+            buttons=(
+                gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                gtk.STOCK_OPEN, gtk.RESPONSE_OK,
+            ),
+        )
+        dialog.set_current_folder(self._value)
+        response = dialog.run()
+        if response == gtk.RESPONSE_OK:
+            self._set_value(dialog.get_filename())
+        dialog.destroy()
+
+
+def okay_button():
+    return Button(gtk.STOCK_OK, _('OK, Import Files'))
+
+
+class ImportDialog(gtk.Window):
+    def __init__(self):
+        super(ImportDialog, self).__init__()
+        self.set_default_size(425, 200)
+        self.set_title(TITLE)
+        try:
+            self.set_icon_from_file('/usr/share/pixmaps/dmedia.svg')
+        except:
+            pass
+        self.connect('destroy', gtk.main_quit)
+
+        self._value = None
+
+        hbox = HBox()
+        self.add(hbox)
+
+        vbox = VBox()
+        hbox._pack(vbox, expand=True)
+
+        vbox._pack(Label(_('Choose Folder:'), 'b'))
+        self._folder = FolderChooser()
+        vbox._pack(self._folder)
+
+        self._button = okay_button()
+        vbox._pack(self._button, end=True)
+        self._button.connect('clicked', self._on_clicked)
+
+        self.show_all()
+
+    def run(self):
+        gtk.main()
+        return self._value
+
+    def _on_clicked(self, button):
+        self._value = self._folder._value
+        gtk.main_quit()
+
+
 class FirstRunGUI(gtk.Window):
     """
     Promt use first time dmedia importer is run.
@@ -103,9 +200,9 @@ class FirstRunGUI(gtk.Window):
 
     def __init__(self):
         super(FirstRunGUI, self).__init__()
-        self.set_default_size(400, 200)
+        self.set_default_size(425, 200)
 
-        self.set_title(_('dmedia Media Importer'))
+        self.set_title(TITLE)
         try:
             self.set_icon_from_file('/usr/share/pixmaps/dmedia.svg')
         except:
@@ -135,9 +232,7 @@ class FirstRunGUI(gtk.Window):
         self.dont_show_again = gtk.CheckButton(label=_("Don't show this again"))
         self.dont_show_again.set_active(True)
 
-        self.ok = gtk.Button()
-        self.ok_label = gtk.Label(_('OK, start the import'))
-        self.ok.add(self.ok_label)
+        self.ok = okay_button()
 
         hbox = HBox()
         hbox._pack(self.ok, expand=True)
