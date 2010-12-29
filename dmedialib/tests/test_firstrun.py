@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-
 # Authors:
-#   David Green <david4dev@gmail.com>
+#   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -20,7 +18,17 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-from dmedia_import.notifier import Notifier
-if __name__ == '__main__':
-    Notifier().main()
 
+"""
+Unit tests for `dmedialib.firstrun` module.
+"""
+
+from unittest import TestCase
+from dmedialib import firstrun
+
+
+class test_FirstRunGUI(TestCase):
+    klass = firstrun.FirstRunGUI
+
+    def test_init(self):
+        inst = self.klass()

@@ -28,6 +28,7 @@ from dmedialib import __version__
 from os import path
 from gettext import gettext as _
 import logging
+from subprocess import check_call
 import dbus
 import dbus.service
 import dbus.mainloop.glib
@@ -35,6 +36,7 @@ import gobject
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, Timer, import_started, batch_finished
 from .importer import ImportManager
+from .metastore import MetaStore
 
 gobject.threads_init()
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
@@ -73,10 +75,10 @@ class DMedia(dbus.service.Object):
         self._bus = (BUS if bus is None else bus)
         self._couchdir = couchdir
         self._no_gui = no_gui
+        log.info('Starting service on %r', self._bus)
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(self._bus, self._conn)
-        log.info('Starting service on %r', self._bus)
 
         if no_gui or pynotify is None:
             self._notify = None
@@ -95,19 +97,24 @@ class DMedia(dbus.service.Object):
             self._indicator.set_attention_icon(ICON_ATT)
             self._menu = gtk.Menu()
 
-            menuitem = gtk.MenuItem()
-            self._label = gtk.Label(_('Current'))
-            menuitem.add(self._label)
-            self._menu.append(menuitem)
+            self._current = gtk.MenuItem()
+            self._current_label = gtk.Label()
+            self._current.add(self._current_label)
+            self._menu.append(self._current)
 
             sep = gtk.SeparatorMenuItem()
             self._menu.append(sep)
+
+            futon = gtk.MenuItem(_('Browse DB in Futon'))
+            futon.connect('activate', self._on_futon)
+            self._menu.append(futon)
 
             quit = gtk.MenuItem(_('Shutdown dmedia'))
             quit.connect('activate', self._on_quit)
             self._menu.append(quit)
 
             self._menu.show_all()
+            self._current.hide()
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
 
@@ -127,11 +134,21 @@ class DMedia(dbus.service.Object):
 
     def _on_timer(self):
         text = _('File %d of %d') % self._manager.get_batch_progress()
-        self._label.set_text(text)
+        self._current_label.set_text(text)
         self._indicator.set_menu(self._menu)
 
     def _on_quit(self, menuitem):
         self.Kill()
+
+    def _on_futon(self, menuitem):
+        log.info('Opening dmedia database in Futon..')
+        try:
+            store = MetaStore()
+            uri = store.get_auth_uri() + '/_utils'
+            check_call(['/usr/bin/xdg-open', uri])
+            log.info('Opened Futon')
+        except Exception:
+            log.exception('Could not open dmedia database in Futon')
 
     @dbus.service.signal(INTERFACE, signature='s')
     def BatchStarted(self, batch_id):
@@ -145,6 +162,9 @@ class DMedia(dbus.service.Object):
             self._batch = []
         if self._indicator:
             self._indicator.set_status(appindicator.STATUS_ATTENTION)
+            self._current.show()
+            self._current_label.set_text(_('Searching for files...'))
+            self._indicator.set_menu(self._menu)
             self._timer.start()
 
     @dbus.service.signal(INTERFACE, signature='sa{sx}')
@@ -165,6 +185,7 @@ class DMedia(dbus.service.Object):
         (summary, body) = batch_finished(stats)
         self._notify.replace(summary, body, 'notification-device-eject')
         self._timer.stop()
+        self._current.hide()
 
     @dbus.service.signal(INTERFACE, signature='ss')
     def ImportStarted(self, base, import_id):
@@ -201,6 +222,7 @@ class DMedia(dbus.service.Object):
         """
         Kill the dmedia service process.
         """
+        log.info('Killing service')
         if self._manager is not None:
             self._manager.kill()
         if callable(self._killfunc):

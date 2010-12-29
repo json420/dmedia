@@ -43,7 +43,7 @@ store = MetaStore()
 app = ui.create_app()
 store.update(app)
 
-uri = store.get_auth_uri() + '/app/browser'
+uri = store.get_auth_uri() + '/dmedia/app/browser'
 
 if options.browser:
     check_call(['xdg-open', uri])

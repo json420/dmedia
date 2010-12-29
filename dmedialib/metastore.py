@@ -209,11 +209,11 @@ class MetaStore(object):
         return desktopcouch.find_port()
 
     def get_uri(self):
-        return 'http://localhost:%s/dmedia' % self.get_port()
+        return 'http://localhost:%s' % self.get_port()
 
     def get_auth_uri(self):
         (user, password) = self.get_basic_auth()
-        return 'http://%s:%s@localhost:%s/dmedia' % (
+        return 'http://%s:%s@localhost:%s' % (
             user, password, self.get_port()
         )
 

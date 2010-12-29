@@ -23,17 +23,87 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 import gtk
+import pango
 import gconf
 from gettext import gettext as _
+from xml.sax import saxutils
 
 
 NO_DIALOG = '/apps/dmedia/dont-show-import-firstrun'
 conf = gconf.client_get_default()
 
+PADDING = 5
+
+
+class EasyBox(object):
+    """
+    A more convenient box borrowed from TymeLapse.
+    """
+    def _pack(self, widget, expand=False, padding=PADDING, end=False):
+        method = (self.pack_start if not end else self.pack_end)
+        method(widget, expand, expand, padding)
+        return widget
+
+
+class VBox(gtk.VBox, EasyBox):
+    pass
+
+
+class HBox(gtk.HBox, EasyBox):
+    pass
+
+
+class Label(gtk.Label):
+    """
+    A more convenient label borrowed from TymeLapse.
+    """
+    def __init__(self, text, *tags):
+        super(Label, self).__init__()
+        self.set_alignment(0, 0.5)
+        self.set_padding(5, 5)
+        self._text = text
+        self._tags = set(tags)
+        self._update()
+        #self.set_selectable(True)
+
+    def _add_tags(self, *tags):
+        self._tags.update(tags)
+        self._update()
+
+    def _remove_tags(self, *tags):
+        for tag in tags:
+            if tag in self._tags:
+                self._tags.remove(tag)
+        self._update()
+
+    def _set_text(self, text):
+        self._text = text
+        self._update()
+
+    def _update(self):
+        text = ('' if self._text is None else self._text)
+        if text and self._tags:
+            m = saxutils.escape(text)
+            for tag in self._tags:
+                m = '<%(tag)s>%(m)s</%(tag)s>' % dict(tag=tag, m=m)
+            self.set_markup(m)
+        else:
+            self.set_text(text)
+
 
 class FirstRunGUI(gtk.Window):
+    """
+    Promt use first time dmedia importer is run.
+
+    For example:
+
+    >>> from dmedialib.firstrun import FirstRunGUI
+    >>> run = FirstRunGUI.run_if_first_run('/media/EOS_DIGITAL')  #doctest: +SKIP
+    """
+
     def __init__(self):
         super(FirstRunGUI, self).__init__()
+        self.set_default_size(400, 200)
 
         self.set_title(_('dmedia Media Importer'))
         try:
@@ -48,36 +118,32 @@ class FirstRunGUI(gtk.Window):
         self.connect_signals()
 
     def add_content(self):
-        self.container = gtk.VBox()
+        vbox = VBox()
+        self.add(vbox)
 
-        self.label = gtk.Label(_("This is the dmedia media importer.\nIt will import media files from the following folders into your dmedia library:\n\n%s\nTo start the import press 'OK'.\n\n"))
-        self.label.show()
+        label1 = Label(_('Welcome to the dmedia importer!'), 'big')
+        label1.set_alignment(0.5, 0.5)
+        vbox._pack(label1)
 
-        self.spacing_label = gtk.Label("        ")
+        label2 = Label(_('It will import all files in the following folder:'))
+        vbox._pack(label2)
+
+        self.folder = Label(None, 'b')
+        self.folder.set_ellipsize(pango.ELLIPSIZE_START)
+        vbox._pack(self.folder)
 
         self.dont_show_again = gtk.CheckButton(label=_("Don't show this again"))
         self.dont_show_again.set_active(True)
 
         self.ok = gtk.Button()
-        self.ok_label = gtk.Label(_("OK"))
-        self.ok_label.show()
+        self.ok_label = gtk.Label(_('OK, start the import'))
         self.ok.add(self.ok_label)
 
-        self.hbox = gtk.HBox()
-        self.ok.show()
-        self.hbox.add(self.ok)
-        self.spacing_label.show()
-        self.hbox.add(self.spacing_label)
-        self.dont_show_again.show()
-        self.hbox.add(self.dont_show_again)
+        hbox = HBox()
+        hbox._pack(self.ok, expand=True)
+        hbox._pack(self.dont_show_again)
 
-        self.container.add(self.label)
-        self.label.show()
-        self.container.add(self.hbox)
-        self.hbox.show()
-
-        self.container.show()
-        self.add(self.container)
+        vbox._pack(hbox, end=True)
 
 
     def connect_signals(self):
@@ -103,8 +169,8 @@ class FirstRunGUI(gtk.Window):
         self.ok_was_pressed = True
         self.destroy(widget)
 
-    def go(self, *args):
-        self.label.set_text(self.label.get_text() % ("\t" + "\n\t".join(args) + "\n"))
+    def go(self, folder):
+        self.folder._set_text(folder)
         self.show_all()
         gtk.main()
         return self.ok_was_pressed

@@ -30,7 +30,7 @@ from os import path
 
 import dmedialib
 from dmedialib.client import Client
-from dmedia_import.firstrun import FirstRunGUI
+from dmedialib.firstrun import FirstRunGUI
 
 
 parser = optparse.OptionParser(
