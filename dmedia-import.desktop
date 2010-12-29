@@ -6,4 +6,5 @@ Exec=dmedia-import %U
 Icon=dmedia
 Terminal=false
 Type=Application
+Categories=Graphics;AudioVideo
 MimeType=x-content/image-dcf;x-content/audio-player;x-content/video-dvd;x-content/image-picturecd
