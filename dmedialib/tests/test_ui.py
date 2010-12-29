@@ -92,7 +92,6 @@ class test_functions(TestCase):
             list(f()),
             [
                 ('alt.css', 'text/css'),
-                ('browser.html', 'text/html'),
                 ('browser.js', 'application/javascript'),
                 ('dmedia.css', 'text/css'),
                 ('dmedia.js', 'application/javascript'),
