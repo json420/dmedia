@@ -107,12 +107,17 @@ def iter_datafiles():
 
 
 def create_app():
+    att = dict(
+        (name, {'content_type': mime, 'data': encode_datafile(name)})
+        for (name, mime) in iter_datafiles()
+    )
+    att['browser.xhtml'] = {
+        'content_type': CONTENT_TYPE,
+        'data': encode_template(load_template('browser.xml')),
+    }
     return {
         '_id': 'app',
-        '_attachments': dict(
-            (name, {'content_type': mime, 'data': encode_datafile(name)})
-            for (name, mime) in iter_datafiles()
-        )
+        '_attachments': att,
     }
 
 
@@ -126,16 +131,26 @@ def render_template(template, **kw):
     return template.generate(**kw2).render('xhtml', doctype='xhtml11')
 
 
+def encode_template(template, **kw):
+    return b64encode(render_template(template, **kw))
+
+
 class Page(object):
     toplevel = 'toplevel.xml'
     body = None
 
-    inline_css = tuple()
-    inline_js = tuple()
+    inline_css_files = tuple()
+    inline_js_files = tuple()
+    inline_css = ''
+    inline_js = ''
 
     def __init__(self):
         self.toplevel_t = load_template(self.toplevel)
         self.body_t = (load_template(self.body) if self.body else None)
+        if self.inline_css_files:
+            self.inline_css = inline_data(self.inline_css_files)
+        if self.inline_js_files:
+            self.inline_js = inline_data(self.inline_js_files)
 
     def render(self):
         pass
