@@ -21,6 +21,7 @@ Depends: ${misc:Depends}, ${python:Depends},
  python-xdg
 Replaces: python-dmedia
 Conflicts: python-dmedia
+Provides: python-dmedia
 Description: distributed media library
  A simple distributed media library.  Media files are given a globally unique ID
  based on their content-hash.  Meta-data is stored in CouchDB.  Meta-data for a
