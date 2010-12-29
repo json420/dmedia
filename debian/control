@@ -19,8 +19,9 @@ Depends: ${misc:Depends}, ${python:Depends},
  python-notify,
  python-appindicator,
  python-xdg
-Replaces: python-dmedia
-Conflicts: python-dmedia
+Provides: python-dmedia
+Replaces: python-dmedia (<< ${source:Version})
+Conflicts: python-dmedia (<< ${source:Version})
 Description: distributed media library
  A simple distributed media library.  Media files are given a globally unique ID
  based on their content-hash.  Meta-data is stored in CouchDB.  Meta-data for a
@@ -28,3 +29,11 @@ Description: distributed media library
  Actual media files can be loaded on-demand from peers or cloud when not
  available locally (media files are big). Goals are to make synchronization
  super easy, and to lay groundwork for a distributed content creation workflow.
+
+Package: python-dmedia
+Architecture: all
+Depends: dmedia (= ${source:Version})
+Description: distributed media library (transitional)
+ Transitional dummy package to facilitate renamed from python-dmedia to dmedia.
+ .
+ Can be safely removed.
