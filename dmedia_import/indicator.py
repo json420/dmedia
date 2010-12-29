@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
-import dmedialib.client
+import dmedia.client
 from dmedia_import.pidlock import PidLock
 from dmedia_import.common import device_type, get_icon
 import pynotify
@@ -37,7 +37,7 @@ class Indicator(object):
             appindicator.CATEGORY_APPLICATION_STATUS
         )
         self.indicator.set_status(appindicator.STATUS_ACTIVE)
-        self.client = dmedialib.client.Client()
+        self.client = dmedia.client.Client()
         self.client.version()
         self.imports = {
             #base : [completed, total]

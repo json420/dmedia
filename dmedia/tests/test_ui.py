@@ -20,14 +20,14 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.ui` module.
+Unit tests for `dmedia.ui` module.
 """
 
 from unittest import TestCase
 from os import path
 from base64 import b64encode
 from genshi.template import MarkupTemplate
-from dmedialib import ui, datadir
+from dmedia import ui, datadir
 
 
 class test_functions(TestCase):

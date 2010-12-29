@@ -20,14 +20,14 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.util` module.
+Unit tests for `dmedia.util` module.
 """
 
 from unittest import TestCase
 from base64 import b32encode, b32decode
 from .helpers import raises
-from dmedialib.constants import TYPE_ERROR, CALLABLE_ERROR
-from dmedialib import util
+from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
+from dmedia import util
 
 
 class test_functions(TestCase):

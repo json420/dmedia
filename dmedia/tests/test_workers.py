@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.workers` module.
+Unit tests for `dmedia.workers` module.
 """
 
 from unittest import TestCase
@@ -30,7 +30,7 @@ import multiprocessing
 import multiprocessing.queues
 from multiprocessing import current_process
 import threading
-from dmedialib import workers
+from dmedia import workers
 from .helpers import raises, DummyQueue, DummyCallback
 
 

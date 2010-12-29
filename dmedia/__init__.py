@@ -20,15 +20,24 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.firstrun` module.
+`dmedia` - distributed media library
+
+WARNING: the dmedia content-hash and schema are *not* yet stable, may change
+wildly and without warning!
+
+The `dmedia` API will go through significant changes in the next few months,
+so keep your hardhats on!  A good place to start is the `FileStore` class in the
+`filestore` module, which also probably has the most stable API of any of the
+current code.
 """
 
-from unittest import TestCase
-from dmedialib import firstrun
+__version__ = '0.2.0'
+
+import os
+from os import path
 
 
-class test_FirstRunGUI(TestCase):
-    klass = firstrun.FirstRunGUI
-
-    def test_init(self):
-        inst = self.klass()
+packagedir = path.dirname(path.abspath(__file__))
+assert path.isdir(packagedir)
+datadir = path.join(packagedir, 'data')
+assert path.isdir(datadir)

@@ -20,12 +20,12 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedialib.metastore` module.
+Unit tests for `dmedia.metastore` module.
 """
 
 from unittest import TestCase
 from helpers import CouchCase, TempDir, random_bus
-from dmedialib import service, importer
+from dmedia import service, importer
 
 
 class test_DMedia(CouchCase):

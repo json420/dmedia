@@ -21,8 +21,8 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-from dmedialib.util import configure_logging
-from dmedialib.constants import BUS
+from dmedia.util import configure_logging
+from dmedia.constants import BUS
 import sys
 import optparse
 from os import path
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     if not (options.couchdir is None or path.isdir(options.couchdir)):
         exit('couchdir not a directory: %r' % options.couchdir)
     configure_logging('service')
-    from dmedialib import service
+    from dmedia import service
     mainloop = gobject.MainLoop()
     obj = service.DMedia(mainloop.quit,
         options.bus, options.couchdir, options.no_gui

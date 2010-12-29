@@ -21,5 +21,5 @@
 
 
 """
-Unit tests for `dmedialib` package.
+Unit tests for `dmedia` package.
 """

@@ -33,7 +33,7 @@ from distutils.core import setup
 from distutils.cmd import Command
 from unittest import TestLoader, TextTestRunner, TestSuite
 from doctest import DocTestSuite
-import dmedialib
+import dmedia
 
 
 def pynames_iter(pkdir, pkname=None):
@@ -76,7 +76,7 @@ class Test(Command):
     ]
 
     def _pynames_iter(self):
-        for pyname in pynames_iter(dmedialib.packagedir):
+        for pyname in pynames_iter(dmedia.packagedir):
             if not self.names:
                 yield pyname
             else:
@@ -119,19 +119,19 @@ setup(
     name='dmedia',
     description='distributed media library',
     url='https://launchpad.net/dmedia',
-    version=dmedialib.__version__,
+    version=dmedia.__version__,
     author='Jason Gerard DeRose',
     author_email='jderose@novacut.com',
     license='AGPLv3+',
 
     cmdclass={'test': Test},
-    packages=['dmedialib'],
+    packages=['dmedia'],
     package_data=dict(
-        dmedialib=['data/*'],
+        dmedia=['data/*'],
     ),
-    scripts=['dmedia', 'dmedia-import'],
+    scripts=['dmedia-cli', 'dmedia-import'],
     data_files=[
-        ('share/man/man1', ['dmedia.1']),
+        ('share/man/man1', ['dmedia-cli.1']),
         ('share/applications', ['dmedia-import.desktop']),
         #^ this enables Nautilus to use dmedia-import as a handler for
         #media devices such as cameras. `sudo update-desktop-database`
