@@ -105,7 +105,7 @@ class DMedia(dbus.service.Object):
             sep = gtk.SeparatorMenuItem()
             self._menu.append(sep)
 
-            futon = gtk.MenuItem(_('Browse database in Futon'))
+            futon = gtk.MenuItem(_('Browse DB in Futon'))
             futon.connect('activate', self._on_futon)
             self._menu.append(futon)
 
@@ -144,7 +144,7 @@ class DMedia(dbus.service.Object):
         log.info('Opening dmedia database in Futon..')
         try:
             store = MetaStore()
-            uri = store.get_auth_uri() + '/_utils/'
+            uri = store.get_auth_uri() + '/_utils'
             check_call(['/usr/bin/xdg-open', uri])
             log.info('Opened Futon')
         except Exception:
