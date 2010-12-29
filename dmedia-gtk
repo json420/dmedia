@@ -81,10 +81,6 @@ def on_inspect(*args):
 
 inspector.connect('inspect-web-view', on_inspect)
 
-def on_script_prompt(view, *args):
-    print args
-
-view.connect('script-prompt', on_script_prompt)
 
 window.show_all()
 view.load_uri(uri)

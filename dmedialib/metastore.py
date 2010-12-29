@@ -202,14 +202,16 @@ class MetaStore(object):
             gnomekeyring.ITEM_GENERIC_SECRET,
             {'desktopcouch': 'basic'}
         )
-        return data[0].secret
+        (user, password) = data[0].secret.split(':')
+        return (user, password)
 
     def get_port(self):
         return desktopcouch.find_port()
 
     def get_app_uri(self):
-        return 'http://%s@localhost:%s/dmedia/app/browser' % (
-            self.get_basic_auth(), self.get_port()
+        (user, password) = self.get_basic_auth()
+        return 'http://%s:%s@localhost:%s/dmedia/app/browser' % (
+            user, password, self.get_port()
         )
 
     def create_machine(self):
