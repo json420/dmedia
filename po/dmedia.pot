@@ -1,0 +1,93 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2011-01-05 00:46-0700\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: dmedia/firstrun.py:38
+msgid "DMedia Importer"
+msgstr ""
+
+#: dmedia/firstrun.py:125
+msgid "Choose folder to import..."
+msgstr ""
+
+#: dmedia/firstrun.py:150
+msgid "OK, Import Files"
+msgstr ""
+
+#: dmedia/firstrun.py:172
+msgid "Choose Folder:"
+msgstr ""
+
+#: dmedia/firstrun.py:221
+msgid "Welcome to the dmedia importer!"
+msgstr ""
+
+#: dmedia/firstrun.py:225
+msgid "It will import all files in the following folder:"
+msgstr ""
+
+#: dmedia/firstrun.py:232
+msgid "Don't show this again"
+msgstr ""
+
+#: dmedia/service.py:108
+msgid "Browse DB in Futon"
+msgstr ""
+
+#: dmedia/service.py:112
+msgid "Shutdown dmedia"
+msgstr ""
+
+#: dmedia/service.py:136
+#, python-format
+msgid "File %d of %d"
+msgstr ""
+
+#: dmedia/service.py:166
+msgid "Searching for files..."
+msgstr ""
+
+#: dmedia/util.py:136
+#, python-format
+msgid "Searching for new files..."
+msgid_plural "Searching on %(count)d cards..."
+msgstr[0] ""
+msgstr[1] ""
+
+#: dmedia/util.py:171
+msgid "No files found"
+msgstr ""
+
+#: dmedia/util.py:174
+#, python-format
+msgid "Added %(count)d new file, %(size)s"
+msgid_plural "Added %(count)d new files, %(size)s"
+msgstr[0] ""
+msgstr[1] ""
+
+#: dmedia/util.py:183
+msgid "No new files found"
+msgstr ""
+
+#: dmedia/util.py:186
+#, python-format
+msgid "Skipped %(count)d duplicate, %(size)s"
+msgid_plural "Skipped %(count)d duplicates, %(size)s"
+msgstr[0] ""
+msgstr[1] ""
