@@ -64,6 +64,12 @@ relpaths = (
 
 
 class test_functions(TestCase):
+    def test_normalize_ext(self):
+        f = importer.normalize_ext
+        weird = ['._501', 'movie.mov.', '.movie.mov.', 'movie._501']
+        for name in weird:
+            self.assertEqual(f(name), (name, None))
+
     def test_scanfiles(self):
         f = importer.scanfiles
         tmp = TempDir()
