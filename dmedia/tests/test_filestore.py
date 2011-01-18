@@ -269,6 +269,46 @@ class test_functions(TestCase):
         self.assertFalse(fp.closed)  # Should not close file
 
 
+class test_TreeHash(TestCase):
+    klass = filestore.TreeHash
+
+    def test_init(self):
+        f = filestore.hash_and_copy
+        tmp = TempDir()
+
+        src_fp = open(sample_mov, 'rb')
+        dst_fp = open(tmp.join('test.mov'), 'wb')
+
+        # Test with src_fp of wrong type
+        e = raises(TypeError, f, 'hello', dst_fp)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('src_fp', file, str, 'hello')
+        )
+
+        # Test with src_fp opened in wrong mode
+        e = raises(ValueError, f, open(sample_mov, 'r'), dst_fp)
+        self.assertEqual(
+            str(e),
+            "src_fp: must be opened in mode 'rb'; got 'r'"
+        )
+
+        # Test with dst_fp of wrong type
+        e = raises(TypeError, f, src_fp, 17)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('dst_fp', file, int, 17)
+        )
+
+        # Test with dst_fp opened in wrong mode
+        e = raises(ValueError, f, src_fp, open(tmp.join('wrong.mov'), 'w'))
+        self.assertEqual(
+            str(e),
+            "dst_fp: must be opened in mode 'wb' or 'r+b'; got 'w'"
+        )
+
+
+
 class test_FileStore(TestCase):
     klass = filestore.FileStore
 

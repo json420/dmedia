@@ -44,6 +44,8 @@ from base64 import b32encode, b32decode
 from string import ascii_lowercase, digits
 import logging
 from subprocess import check_call, CalledProcessError
+from threading import Thread
+from Queue import Queue
 from .errors import AmbiguousPath
 
 
@@ -140,6 +142,58 @@ def safe_b32(b32):
             (B32LENGTH, len(b32), b32)
         )
     return b32
+
+
+CHUNK_SIZE = 32 * 2**20  # 32 MiB
+
+
+class TreeHash(object):
+    def __init__(self, src_fp, dst_fp=None, chunk_size=CHUNK_SIZE):
+        if not isinstance(src_fp, file):
+            raise TypeError(
+                TYPE_ERROR % ('src_fp', file, type(src_fp), src_fp)
+            )
+        if src_fp.mode != 'rb':
+            raise ValueError(
+                "src_fp: mode must be 'rb'; got %r" % src_fp.mode
+            )
+        if dst_fp is not None:
+            if not isinstance(dst_fp, file):
+                raise TypeError(
+                    TYPE_ERROR % ('dst_fp', file, type(dst_fp), dst_fp)
+                )
+            if dst_fp.mode not in ('wb', 'r+b'):
+                raise ValueError(
+                    "dst_fp: mode must be 'wb' or 'r+b'; got %r" % dst_fp.mode
+                )
+        self.src_fp = src_fp
+        self.dst_fp = dst_fp
+        self.chunk_size = chunk_size
+        self.h = HASH()
+        self.hashes = []
+        self.q = Queue(4)
+        self.thread = Thread(target=self.hashing_thread)
+        self.thread.daemon = True
+
+    def hashing_thread(self):
+        while True:
+            chunk = self.q.get()
+            if not chunk:
+                break
+            digest = HASH(chunk).digest()
+            self.h.update(digest)
+            self.hashes.append(b32encode(digest))
+
+    def run(self):
+        self.src_fp.seek(0)  # Make sure we are at beginning of file
+        self.thread.start()
+        while True:
+            chunk = self.src_fp.read(self.chunk_size)
+            self.q.put(chunk)
+            if not chunk:
+                break
+        self.thread.join()
+        return b32encode(self.h.digest())
 
 
 def hash_file(fp):
