@@ -175,7 +175,24 @@ class TreeHash(object):
         self.thread = Thread(target=self.hashing_thread)
         self.thread.daemon = True
 
+    def update(self, chunk):
+        if self.tree:
+            digest = HASH(chunk).digest()
+            self.h.update(digest)
+            self.hashes.append(b32encode(digest))
+        else:
+            self.h.update(chunk)
+
     def hashing_thread(self):
+        while True:
+            chunk = self.q.get()
+            if not chunk:
+                break
+            digest = HASH(chunk).digest()
+            self.h.update(digest)
+            self.hashes.append(b32encode(digest))
+
+    def tree_hashing_thread(self):
         while True:
             chunk = self.q.get()
             if not chunk:

@@ -26,7 +26,8 @@ Unit tests for `dmedia.filestore` module.
 
 import os
 from os import path
-import hashlib
+from hashlib import sha1
+from base64 import b32encode, b32decode
 import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
@@ -273,40 +274,105 @@ class test_TreeHash(TestCase):
     klass = filestore.TreeHash
 
     def test_init(self):
-        f = filestore.hash_and_copy
         tmp = TempDir()
-
         src_fp = open(sample_mov, 'rb')
         dst_fp = open(tmp.join('test.mov'), 'wb')
 
         # Test with src_fp of wrong type
-        e = raises(TypeError, f, 'hello', dst_fp)
+        e = raises(TypeError, self.klass, 'hello', dst_fp)
         self.assertEqual(
             str(e),
             TYPE_ERROR % ('src_fp', file, str, 'hello')
         )
 
         # Test with src_fp opened in wrong mode
-        e = raises(ValueError, f, open(sample_mov, 'r'), dst_fp)
+        e = raises(ValueError, self.klass, open(sample_mov, 'r'), dst_fp)
         self.assertEqual(
             str(e),
-            "src_fp: must be opened in mode 'rb'; got 'r'"
+            "src_fp: mode must be 'rb'; got 'r'"
         )
 
         # Test with dst_fp of wrong type
-        e = raises(TypeError, f, src_fp, 17)
+        e = raises(TypeError, self.klass, src_fp, 17)
         self.assertEqual(
             str(e),
             TYPE_ERROR % ('dst_fp', file, int, 17)
         )
 
         # Test with dst_fp opened in wrong mode
-        e = raises(ValueError, f, src_fp, open(tmp.join('wrong.mov'), 'w'))
+        e = raises(ValueError, self.klass, src_fp, open(tmp.join('wrong.mov'), 'w'))
         self.assertEqual(
             str(e),
-            "dst_fp: must be opened in mode 'wb' or 'r+b'; got 'w'"
+            "dst_fp: mode must be 'wb' or 'r+b'; got 'w'"
         )
 
+        # Test with correct values
+        inst = self.klass(src_fp)
+        self.assertTrue(inst.src_fp is src_fp)
+        self.assertTrue(inst.dst_fp is None)
+        self.assertEqual(inst.chunk_size, 32 * 2**20)
+
+        inst = self.klass(src_fp, dst_fp)
+        self.assertTrue(inst.src_fp is src_fp)
+        self.assertTrue(inst.dst_fp is dst_fp)
+        self.assertEqual(inst.chunk_size, 32 * 2**20)
+
+        inst = self.klass(src_fp, dst_fp, 8 * 2**20)
+        self.assertTrue(inst.src_fp is src_fp)
+        self.assertTrue(inst.dst_fp is dst_fp)
+        self.assertEqual(inst.chunk_size, 8 * 2**20)
+
+
+    def test_update(self):
+        class Example(self.klass):
+            def __init__(self):
+                pass
+
+        a = 'a' * (2 ** 20)  # 1 MiB of 'a'
+        digest_a = sha1(a).digest()
+        b = 'b' * (2 ** 20)  # 1 MiB of 'b'
+        digest_b = sha1(b).digest()
+
+        # Test in tree mode:
+        inst = Example()
+        inst.tree = True
+        inst.hashes = []
+        inst.h = sha1()
+
+        inst.update(a)
+        self.assertEqual(
+            inst.hashes,
+            [b32encode(digest_a)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a).digest()
+        )
+        inst.update(b)
+        self.assertEqual(
+            inst.hashes,
+            [b32encode(digest_a), b32encode(digest_b)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a + digest_b).digest()
+        )
+
+        # Test in non-tree mode:
+        inst = Example()
+        inst.tree = False
+        inst.h = sha1()
+
+        inst.update(a)
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(a).digest()
+        )
+        inst.update(b)
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(a + b).digest()
+        )
 
 
 class test_FileStore(TestCase):
