@@ -33,6 +33,7 @@ from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
 from dmedia.errors import AmbiguousPath
 from dmedia import filestore
+from dmedia.filestore import hash_file
 
 
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
@@ -164,7 +165,6 @@ class test_functions(TestCase):
 
     def test_hash_and_copy(self):
         f = filestore.hash_and_copy
-        hash_file = filestore.hash_file
         tmp = TempDir()
 
         src_fp = open(sample_mov, 'rb')
@@ -322,11 +322,12 @@ class test_TreeHash(TestCase):
         self.assertTrue(inst.dst_fp is dst_fp)
         self.assertEqual(inst.chunk_size, 8 * 2**20)
 
-
     def test_update(self):
+        tmp = TempDir()
+
         class Example(self.klass):
-            def __init__(self):
-                pass
+            def __init__(self, dst_fp=None):
+                self.dst_fp = dst_fp
 
         a = 'a' * (2 ** 20)  # 1 MiB of 'a'
         digest_a = sha1(a).digest()
@@ -358,6 +359,38 @@ class test_TreeHash(TestCase):
             sha1(digest_a + digest_b).digest()
         )
 
+        # Test in tree mode with dst_fp:
+        dst = tmp.join('out1')
+        dst_fp = open(dst, 'wb')
+        inst = Example(dst_fp)
+        inst.tree = True
+        inst.hashes = []
+        inst.h = sha1()
+
+        inst.update(a)
+        self.assertEqual(
+            inst.hashes,
+            [b32encode(digest_a)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a).digest()
+        )
+        inst.update(b)
+        self.assertEqual(
+            inst.hashes,
+            [b32encode(digest_a), b32encode(digest_b)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a + digest_b).digest()
+        )
+        dst_fp.close()
+        self.assertEqual(
+            open(dst, 'rb').read(),
+            (a + b)
+        )
+
         # Test in non-tree mode:
         inst = Example()
         inst.tree = False
@@ -373,6 +406,71 @@ class test_TreeHash(TestCase):
             inst.h.digest(),
             sha1(a + b).digest()
         )
+
+        # Test in non-tree mode with dst_fp
+        dst = tmp.join('out1')
+        dst_fp = open(dst, 'wb')
+        inst = Example(dst_fp)
+        inst.tree = False
+        inst.h = sha1()
+
+        inst.update(a)
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(a).digest()
+        )
+        inst.update(b)
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(a + b).digest()
+        )
+        dst_fp.close()
+        self.assertEqual(
+            open(dst, 'rb').read(),
+            (a + b)
+        )
+
+    def test_run(self):
+        tmp = TempDir()
+
+        # Test when src_fp <= chunk_size:
+        src_fp = open(sample_mov, 'rb')
+        src_fp.read(1024)  # Make sure seek(0) is called
+        dst_fp = open(tmp.join('dst1.mov'), 'wb')
+        inst = self.klass(src_fp, dst_fp, 32 * 2**20)
+        self.assertEqual(inst.tree, False)
+        self.assertEqual(inst.run(), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        self.assertFalse(src_fp.closed)  # Should not close file
+        self.assertFalse(dst_fp.closed)  # Should not close file
+        dst_fp.close()
+        self.assertEqual(
+            hash_file(open(dst_fp.name, 'rb')),
+            'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+        )
+        self.assertEqual(inst.hashes, None)
+
+        # Test when src_fp > chunk_size:
+        src_fp = open(sample_mov, 'rb')
+        src_fp.read(1024)  # Make sure seek(0) is called
+        dst_fp = open(tmp.join('dst2.mov'), 'wb')
+        inst = self.klass(src_fp, dst_fp, 16 * 2**20)
+        self.assertEqual(inst.tree, True)
+        self.assertEqual(inst.run(), 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC')
+        self.assertFalse(src_fp.closed)  # Should not close file
+        self.assertFalse(dst_fp.closed)  # Should not close file
+        dst_fp.close()
+        self.assertEqual(
+            hash_file(open(dst_fp.name, 'rb')),
+            'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+        )
+        self.assertEqual(
+            inst.hashes,
+            [
+                '7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75',
+                'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI',
+            ]
+        )
+
 
 
 class test_FileStore(TestCase):
