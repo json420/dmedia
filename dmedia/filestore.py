@@ -47,6 +47,7 @@ from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 from .errors import AmbiguousPath
+from .constants import CHUNK_SIZE, LEAF_SIZE
 
 
 chars = frozenset(ascii_lowercase + digits)
@@ -144,18 +145,15 @@ def safe_b32(b32):
     return b32
 
 
-CHUNK_SIZE = 32 * 2**20  # 32 MiB
-
-
 class TreeHash(object):
     """
     Turn a standard hash into a simple 1-deep tree-hash.
 
     For swarm upload/download, we need to keep the content hashes of the
-    individual chunks, a list of which is available via the `TreeHash.hashes`
+    individual leaves, a list of which is available via the `TreeHash.leaves`
     attribute after `TreeHash.run()` has been called.
 
-    The effective content-hash for the entire file is a hash of the chunk hashes
+    The effective content-hash for the entire file is a hash of the leaf hashes
     concatenated together.  This is handy because it gives us a
     cryptographically strong way to associate individual chunks with the file
     "_id".  This is important because otherwise malicious peers could pollute
@@ -164,9 +162,9 @@ class TreeHash(object):
     verify, and worse, the victim would have no way of knowing which chunks were
     invalid.
 
-    When the size of *src_fp* is less than *chunk_size*, a standard hash is
+    When the size of *src_fp* is less than *leaf_size*, a standard hash is
     computed.  `TreeHash.run()` will return a vanilla content-hash and
-    `TreeHash.hashes` will be ``None``.
+    `TreeHash.leaves` will be ``None``.
 
     In order to maximize IO utilization, the hash is computed in two threads.
     The main thread reads chunks from *src_fp* and puts them in a queue.  The
@@ -179,7 +177,7 @@ class TreeHash(object):
         https://bugs.launchpad.net/dmedia/+bug/704272
     """
 
-    def __init__(self, src_fp, dst_fp=None, chunk_size=CHUNK_SIZE):
+    def __init__(self, src_fp, dst_fp=None, leaf_size=LEAF_SIZE):
         if not isinstance(src_fp, file):
             raise TypeError(
                 TYPE_ERROR % ('src_fp', file, type(src_fp), src_fp)
@@ -199,8 +197,8 @@ class TreeHash(object):
                 )
         self.src_fp = src_fp
         self.dst_fp = dst_fp
-        self.chunk_size = chunk_size
-        self.tree = (os.fstat(src_fp.fileno()).st_size > chunk_size)
+        self.leaf_size = leaf_size
+        self.tree = (os.fstat(src_fp.fileno()).st_size > leaf_size)
         self.q = Queue(4)
         self.thread = Thread(target=self.hashing_thread)
         self.thread.daemon = True
@@ -222,7 +220,7 @@ class TreeHash(object):
         if self.tree:
             digest = HASH(chunk).digest()
             self.h.update(digest)
-            self.hashes.append(b32encode(digest))
+            self.leaves.append(b32encode(digest))
         else:
             self.h.update(chunk)
         if self.dst_fp is not None:
@@ -238,10 +236,14 @@ class TreeHash(object):
     def run(self):
         self.src_fp.seek(0)  # Make sure we are at beginning of file
         self.h = HASH()
-        self.hashes = ([] if self.tree else None)
+        self.leaves = ([] if self.tree else None)
         self.thread.start()
+
+        # When in non-tree mode, we use smaller chunk_size so we still get high
+        # IO utilization when importing many small files:
+        chunk_size = (self.leaf_size if self.tree else CHUNK_SIZE)
         while True:
-            chunk = self.src_fp.read(self.chunk_size)
+            chunk = self.src_fp.read(self.leaf_size)
             self.q.put(chunk)
             if not chunk:
                 break

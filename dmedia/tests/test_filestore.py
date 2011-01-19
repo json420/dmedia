@@ -310,17 +310,17 @@ class test_TreeHash(TestCase):
         inst = self.klass(src_fp)
         self.assertTrue(inst.src_fp is src_fp)
         self.assertTrue(inst.dst_fp is None)
-        self.assertEqual(inst.chunk_size, 32 * 2**20)
+        self.assertEqual(inst.leaf_size, 16 * 2**20)
 
         inst = self.klass(src_fp, dst_fp)
         self.assertTrue(inst.src_fp is src_fp)
         self.assertTrue(inst.dst_fp is dst_fp)
-        self.assertEqual(inst.chunk_size, 32 * 2**20)
+        self.assertEqual(inst.leaf_size, 16 * 2**20)
 
         inst = self.klass(src_fp, dst_fp, 8 * 2**20)
         self.assertTrue(inst.src_fp is src_fp)
         self.assertTrue(inst.dst_fp is dst_fp)
-        self.assertEqual(inst.chunk_size, 8 * 2**20)
+        self.assertEqual(inst.leaf_size, 8 * 2**20)
 
     def test_update(self):
         tmp = TempDir()
@@ -337,12 +337,12 @@ class test_TreeHash(TestCase):
         # Test in tree mode:
         inst = Example()
         inst.tree = True
-        inst.hashes = []
+        inst.leaves = []
         inst.h = sha1()
 
         inst.update(a)
         self.assertEqual(
-            inst.hashes,
+            inst.leaves,
             [b32encode(digest_a)]
         )
         self.assertEqual(
@@ -351,7 +351,7 @@ class test_TreeHash(TestCase):
         )
         inst.update(b)
         self.assertEqual(
-            inst.hashes,
+            inst.leaves,
             [b32encode(digest_a), b32encode(digest_b)]
         )
         self.assertEqual(
@@ -364,12 +364,12 @@ class test_TreeHash(TestCase):
         dst_fp = open(dst, 'wb')
         inst = Example(dst_fp)
         inst.tree = True
-        inst.hashes = []
+        inst.leaves = []
         inst.h = sha1()
 
         inst.update(a)
         self.assertEqual(
-            inst.hashes,
+            inst.leaves,
             [b32encode(digest_a)]
         )
         self.assertEqual(
@@ -378,7 +378,7 @@ class test_TreeHash(TestCase):
         )
         inst.update(b)
         self.assertEqual(
-            inst.hashes,
+            inst.leaves,
             [b32encode(digest_a), b32encode(digest_b)]
         )
         self.assertEqual(
@@ -433,7 +433,7 @@ class test_TreeHash(TestCase):
     def test_run(self):
         tmp = TempDir()
 
-        # Test when src_fp <= chunk_size:
+        # Test when src_fp <= leaf_size:
         src_fp = open(sample_mov, 'rb')
         src_fp.read(1024)  # Make sure seek(0) is called
         dst_fp = open(tmp.join('dst1.mov'), 'wb')
@@ -447,9 +447,9 @@ class test_TreeHash(TestCase):
             hash_file(open(dst_fp.name, 'rb')),
             'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
         )
-        self.assertEqual(inst.hashes, None)
+        self.assertEqual(inst.leaves, None)
 
-        # Test when src_fp > chunk_size:
+        # Test when src_fp > leaf_size:
         src_fp = open(sample_mov, 'rb')
         src_fp.read(1024)  # Make sure seek(0) is called
         dst_fp = open(tmp.join('dst2.mov'), 'wb')
@@ -464,7 +464,7 @@ class test_TreeHash(TestCase):
             'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
         )
         self.assertEqual(
-            inst.hashes,
+            inst.leaves,
             [
                 '7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75',
                 'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI',
