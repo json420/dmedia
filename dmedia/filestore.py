@@ -155,11 +155,11 @@ class TreeHash(object):
 
     The effective content-hash for the entire file is a hash of the leaf hashes
     concatenated together.  This is handy because it gives us a
-    cryptographically strong way to associate individual chunks with the file
+    cryptographically strong way to associate individual leaves with the file
     "_id".  This is important because otherwise malicious peers could pollute
-    the network with invalid chunks, but victims wouldn't know anything was
+    the network with invalid leaves, but victims wouldn't know anything was
     wrong till the entire file was downloaded.  The whole file would fail to
-    verify, and worse, the victim would have no way of knowing which chunks were
+    verify, and worse, the victim would have no way of knowing which leaves were
     invalid.
 
     When the size of *src_fp* is less than *leaf_size*, a standard hash is
@@ -167,8 +167,8 @@ class TreeHash(object):
     `TreeHash.leaves` will be ``None``.
 
     In order to maximize IO utilization, the hash is computed in two threads.
-    The main thread reads chunks from *src_fp* and puts them in a queue.  The
-    2nd thread gets chunks from the queue, updates the hash, and optionally
+    The main thread reads chunks from *src_fp* and puts them into a queue.  The
+    2nd thread gets chunks from the queue, updates the hash, and then optionally
     writes the chunk to *dst_fp* if one was provided when the `TreeHash` was
     created.
 
