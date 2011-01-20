@@ -65,7 +65,7 @@ def bytes_range(start, stop=None):
 
 def range_request(i, leaf_size, file_size):
     """
-    Request the *i*-th leaf in a tree with *leaf_size* from a file *file_size*.
+    Request leaf *i* in a tree with *leaf_size* from a file *file_size*.
 
     The function returns the value for a Range request header.  For example,
     say we have a *leaf_size* of 1024 bytes and a *file_size* of 2311 bytes:
