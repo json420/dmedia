@@ -198,7 +198,8 @@ class TreeHash(object):
         self.src_fp = src_fp
         self.dst_fp = dst_fp
         self.leaf_size = leaf_size
-        self.tree = (os.fstat(src_fp.fileno()).st_size > leaf_size)
+        self.file_size = os.fstat(src_fp.fileno()).st_size
+        self.tree = (self.file_size > leaf_size)
         self.q = Queue(4)
         self.thread = Thread(target=self.hashing_thread)
         self.thread.daemon = True

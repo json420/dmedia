@@ -23,6 +23,15 @@
 Download files in chunks using HTTP Range requests.
 """
 
+from base64 import b32decode
+from urlparse import urlparse
+from httplib import HTTPConnection, HTTPSConnection
+from . import __version__
+from .constants import CHUNK_SIZE
+from .filestore import TreeHash, HASH
+
+USER_AGENT = 'dmedia %s' % __version__
+
 
 def bytes_range(start, stop=None):
     """
@@ -98,3 +107,42 @@ def range_request(i, leaf_size, file_size):
         )
     stop = min(file_size, (i + 1) * leaf_size)
     return bytes_range(start, stop)
+
+
+class Downloader(object):
+    def __init__(self, dst_fp, url, leaves, leaf_size, file_size):
+        self.dst_fp = dst_fp
+        self.url = url
+        self.c = urlparse(url)
+        if self.c.scheme not in ('http', 'https'):
+            raise ValueError('url scheme must be http or https; got %r' % url)
+        self.leaves = leaves
+        self.leaf_size = leaf_size
+        self.file_size = file_size
+
+    def conn(self):
+        """
+        Return new connection instance.
+        """
+        klass = (HTTPConnection if self.c.scheme == 'http' else HTTPSConnection)
+        conn = klass(self.c.netloc, strict=True)
+        conn.set_debuglevel(50)
+        return conn
+
+    def download_leaf(self, i, chash):
+        print chash, range_request(i, self.leaf_size, self.file_size)
+        conn = self.conn()
+        headers = {
+            'User-Agent': USER_AGENT,
+            'Range': range_request(i, self.leaf_size, self.file_size),
+        }
+        conn.request('GET', self.url, headers=headers)
+        response = conn.getresponse()
+        chunk = response.read()
+        assert HASH(chunk).digest() == b32decode(chash)
+        self.dst_fp.write(chunk)
+        conn.close()
+
+    def run(self):
+        for (i, chash) in enumerate(self.leaves):
+            self.download_leaf(i, chash)

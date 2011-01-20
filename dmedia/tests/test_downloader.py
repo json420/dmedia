@@ -55,3 +55,29 @@ class test_functions(TestCase):
             str(e),
             'past end of file: i=3, leaf_size=1024, file_size=3001'
         )
+
+
+class test_Downloader(TestCase):
+    klass = downloader.Downloader
+
+    def test_init(self):
+        url = 'http://cdn.novacut.com/novacut_test_video.tgz'
+        inst = self.klass(url)
+        self.assertEqual(inst.url, url)
+        self.assertEqual(inst.c.scheme, 'http')
+        self.assertEqual(inst.c.netloc, 'cdn.novacut.com')
+        self.assertEqual(inst.c.path, '/novacut_test_video.tgz')
+
+        url = 'https://cdn.novacut.com/novacut_test_video.tgz'
+        inst = self.klass(url)
+        self.assertEqual(inst.url, url)
+        self.assertEqual(inst.c.scheme, 'https')
+        self.assertEqual(inst.c.netloc, 'cdn.novacut.com')
+        self.assertEqual(inst.c.path, '/novacut_test_video.tgz')
+
+        url = 'ftp://cdn.novacut.com/novacut_test_video.tgz'
+        e = raises(ValueError, self.klass, url)
+        self.assertEqual(
+            str(e),
+            'url scheme must be http or https; got %r' % url
+        )
