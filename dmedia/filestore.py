@@ -243,7 +243,7 @@ class TreeHash(object):
         # IO utilization when importing many small files:
         chunk_size = (self.leaf_size if self.tree else CHUNK_SIZE)
         while True:
-            chunk = self.src_fp.read(self.leaf_size)
+            chunk = self.src_fp.read(chunk_size)
             self.q.put(chunk)
             if not chunk:
                 break
