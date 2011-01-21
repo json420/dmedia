@@ -28,7 +28,7 @@ from urlparse import urlparse
 from httplib import HTTPConnection, HTTPSConnection
 from . import __version__
 from .constants import CHUNK_SIZE
-from .filestore import TreeHash, HASH
+from .filestore import HashList, HASH
 
 USER_AGENT = 'dmedia %s' % __version__
 

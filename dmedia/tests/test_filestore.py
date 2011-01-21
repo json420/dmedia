@@ -270,8 +270,8 @@ class test_functions(TestCase):
         self.assertFalse(fp.closed)  # Should not close file
 
 
-class test_TreeHash(TestCase):
-    klass = filestore.TreeHash
+class test_HashList(TestCase):
+    klass = filestore.HashList
 
     def test_init(self):
         tmp = TempDir()

@@ -145,13 +145,13 @@ def safe_b32(b32):
     return b32
 
 
-class TreeHash(object):
+class HashList(object):
     """
-    Turn a standard hash into a simple 1-deep tree-hash.
+    Simple hash-list (a 1-deep tree-hash).
 
     For swarm upload/download, we need to keep the content hashes of the
-    individual leaves, a list of which is available via the `TreeHash.leaves`
-    attribute after `TreeHash.run()` has been called.
+    individual leaves, a list of which is available via the `HashList.leaves`
+    attribute after `HashList.run()` has been called.
 
     The effective content-hash for the entire file is a hash of the leaf hashes
     concatenated together.  This is handy because it gives us a
@@ -163,18 +163,24 @@ class TreeHash(object):
     invalid.
 
     When the size of *src_fp* is less than *leaf_size*, a standard hash is
-    computed.  `TreeHash.run()` will return a vanilla content-hash and
-    `TreeHash.leaves` will be ``None``.
+    computed.  `HashList.run()` will return a vanilla content-hash and
+    `HashList.leaves` will be ``None``.
 
     In order to maximize IO utilization, the hash is computed in two threads.
     The main thread reads chunks from *src_fp* and puts them into a queue.  The
     2nd thread gets chunks from the queue, updates the hash, and then optionally
-    writes the chunk to *dst_fp* if one was provided when the `TreeHash` was
+    writes the chunk to *dst_fp* if one was provided when the `HashList` was
     created.
 
     For some background, see:
 
         https://bugs.launchpad.net/dmedia/+bug/704272
+
+    For more information about hash-lists and tree-hashes, see:
+
+      http://en.wikipedia.org/wiki/Hash_list
+
+      http://en.wikipedia.org/wiki/Tree_hash
     """
 
     def __init__(self, src_fp, dst_fp=None, leaf_size=LEAF_SIZE):
@@ -211,10 +217,10 @@ class TreeHash(object):
         This will appropriately update the hash based on whether we're in tree
         mode.
 
-        If the `TreeHash` was created with a *dst_fp*, *chunk* will be will be
+        If the `HashList` was created with a *dst_fp*, *chunk* will be will be
         written to *dst_fp*.
 
-        `TreeHash.hashing_thread()` calls this method once for each chunk in the
+        `HashList.hashing_thread()` calls this method once for each chunk in the
         queue.  This functionality is in its own method simply to make testing
         easier.
         """
