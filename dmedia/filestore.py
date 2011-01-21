@@ -579,11 +579,12 @@ class FileStore(object):
 
     def import_file(self, src_fp, quickid, ext=None):
         """
-        Atomically copy or hard-link open file *src_fp* into this file store.
+        Atomically copy open file *src_fp* into this file store.
 
-        The method will compute the content-hash of *src_fp* and then copy or
-        hard-link it into its canonical location in this store, or do nothing
-        if a file with that canonical name already exists.
+        The method will compute the content-hash of *src_fp* as it copies it to
+        a temporary file within this store.  Once the copying is complete, the
+        file will be renamed to its canonical location in the store, unless that
+        file already exists.
 
         This method returns a ``(chash, action)`` tuple with the content hash
         and a string indicating the action, for example:
@@ -592,10 +593,7 @@ class FileStore(object):
         >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
         ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
 
-        The action will be either ``'copied'``, ``'linked'``, or ``'exists'``.
-        When copying, the file is copied to a temporary location, then renamed
-        to the canonical location once completed, guaranteeing an atomic
-        operation.
+        The action will be either ``'copied'``, ``'exists'``.
 
         Note that *src_fp* must have been opened in ``'rb'`` mode.
 
@@ -603,11 +601,8 @@ class FileStore(object):
         :param quickid: The quickid computed by ``quick_id()``
         :param ext: The file's extension, e.g., ``'ogv'``
         """
-        if not path.exists(self.base):
-            os.makedirs(self.base)
-        assert path.isdir(self.base)
-        stat = os.fstat(src_fp.fileno())
-        tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=stat.st_size)
+        size = os.fstat(src_fp.fileno()).st_size
+        tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=size)
         chash = hash_and_copy(src_fp, tmp_fp)
         dst = self.path(chash, ext, create=True)
         if path.exists(dst):
