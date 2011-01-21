@@ -201,9 +201,12 @@ class HashList(object):
         self.dst_fp = dst_fp
         self.leaf_size = leaf_size
         self.file_size = os.fstat(src_fp.fileno()).st_size
+        self.h = HASH()
+        self.leaves = []
         self.q = Queue(4)
         self.thread = Thread(target=self.hashing_thread)
         self.thread.daemon = True
+        self.__ran = False
 
     def update(self, chunk):
         """
@@ -233,9 +236,9 @@ class HashList(object):
             self.update(chunk)
 
     def run(self):
+        assert self.__ran is False
+        self.__ran = True
         self.src_fp.seek(0)  # Make sure we are at beginning of file
-        self.h = HASH()
-        self.leaves = []
         self.thread.start()
         while True:
             chunk = self.src_fp.read(self.leaf_size)
@@ -243,6 +246,8 @@ class HashList(object):
             if not chunk:
                 break
         self.thread.join()
+        if self.dst_fp is not None:
+            os.fchmod(self.dst_fp.fileno(), 0o444)
         return b32encode(self.h.digest())
 
 

@@ -32,7 +32,7 @@ import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
 from dmedia.errors import AmbiguousPath
-from dmedia import filestore
+from dmedia import filestore, constants
 from dmedia.filestore import hash_file
 
 
@@ -300,7 +300,9 @@ class test_HashList(TestCase):
         )
 
         # Test with dst_fp opened in wrong mode
-        e = raises(ValueError, self.klass, src_fp, open(tmp.join('wrong.mov'), 'w'))
+        e = raises(ValueError, self.klass, src_fp,
+            open(tmp.join('wrong.mov'), 'w')
+        )
         self.assertEqual(
             str(e),
             "dst_fp: mode must be 'wb' or 'r+b'; got 'w'"
@@ -309,18 +311,20 @@ class test_HashList(TestCase):
         # Test with correct values
         inst = self.klass(src_fp)
         self.assertTrue(inst.src_fp is src_fp)
+        self.assertEqual(inst.file_size, os.fstat(src_fp.fileno()).st_size)
+        self.assertEqual(inst.leaves, [])
         self.assertTrue(inst.dst_fp is None)
-        self.assertEqual(inst.leaf_size, 16 * 2**20)
+        self.assertEqual(inst.leaf_size, constants.LEAF_SIZE)
 
         inst = self.klass(src_fp, dst_fp)
         self.assertTrue(inst.src_fp is src_fp)
         self.assertTrue(inst.dst_fp is dst_fp)
-        self.assertEqual(inst.leaf_size, 16 * 2**20)
+        self.assertEqual(inst.leaf_size, constants.LEAF_SIZE)
 
-        inst = self.klass(src_fp, dst_fp, 8 * 2**20)
+        inst = self.klass(src_fp, dst_fp, 2 * constants.LEAF_SIZE)
         self.assertTrue(inst.src_fp is src_fp)
         self.assertTrue(inst.dst_fp is dst_fp)
-        self.assertEqual(inst.leaf_size, 8 * 2**20)
+        self.assertEqual(inst.leaf_size, 2 * constants.LEAF_SIZE)
 
     def test_update(self):
         tmp = TempDir()
@@ -427,7 +431,6 @@ class test_HashList(TestCase):
                 'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI',
             ]
         )
-
 
 
 class test_FileStore(TestCase):
