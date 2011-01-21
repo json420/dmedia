@@ -607,17 +607,6 @@ class FileStore(object):
             os.makedirs(self.base)
         assert path.isdir(self.base)
         stat = os.fstat(src_fp.fileno())
-        if stat.st_dev == os.stat(self.base).st_dev:
-            # Same filesystem, we hardlink:
-            chash = hash_file(src_fp)
-            dst = self.path(chash, ext, create=True)
-            if path.exists(dst):
-                return (chash, 'exists')
-            os.fchmod(src_fp.fileno(), 0o444)
-            os.link(src_fp.name, dst)
-            return (chash, 'linked')
-
-        # Different filesystem, we copy:
         tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=stat.st_size)
         chash = hash_and_copy(src_fp, tmp_fp)
         dst = self.path(chash, ext, create=True)

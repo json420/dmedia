@@ -831,15 +831,11 @@ class test_FileStore(TestCase):
         src_fp = open(src, 'rb')
         self.assertEqual(
             inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'linked')
+            (chash, 'copied')
         )
         self.assertTrue(path.isfile(src))
         self.assertTrue(path.isdir(base))
         self.assertTrue(path.isfile(dst))
-        src_stat = os.stat(src)
-        dst_stat = os.stat(dst)
-        self.assertEqual(src_stat.st_ino, dst_stat.st_ino)
-        self.assertEqual(dst_stat.st_nlink, 2)
 
         src_fp = open(src, 'rb')
         self.assertEqual(  # dst already exists
