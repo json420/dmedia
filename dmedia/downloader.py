@@ -23,14 +23,17 @@
 Download files in chunks using HTTP Range requests.
 """
 
-from base64 import b32decode
+from base64 import b32encode
 from urlparse import urlparse
 from httplib import HTTPConnection, HTTPSConnection
+import logging
 from . import __version__
 from .constants import CHUNK_SIZE
+from .errors import DownloadFailure
 from .filestore import HashList, HASH
 
 USER_AGENT = 'dmedia %s' % __version__
+log = logging.getLogger()
 
 
 def bytes_range(start, stop=None):
@@ -129,8 +132,7 @@ class Downloader(object):
         conn.set_debuglevel(50)
         return conn
 
-    def download_leaf(self, i, chash):
-        print chash, range_request(i, self.leaf_size, self.file_size)
+    def download_leaf(self, i):
         conn = self.conn()
         headers = {
             'User-Agent': USER_AGENT,
@@ -138,11 +140,18 @@ class Downloader(object):
         }
         conn.request('GET', self.url, headers=headers)
         response = conn.getresponse()
-        chunk = response.read()
-        assert HASH(chunk).digest() == b32decode(chash)
-        self.dst_fp.write(chunk)
-        conn.close()
+        return response.read()
+
+    def process_leaf(self, i, expected):
+        for r in xrange(3):
+            chunk = self.download_leaf(i)
+            got = b32encode(HASH(chunk).digest())
+            if got == expected:
+                self.dst_fp.write(chunk)
+                return chunk
+            log.warning('leaf %d expected %r; got %r', i, expected, got)
+        raise DownloadFailure(leaf=i, expected=expected, got=got)
 
     def run(self):
         for (i, chash) in enumerate(self.leaves):
-            self.download_leaf(i, chash)
+            self.process_leaf(i, chash)

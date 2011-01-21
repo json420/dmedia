@@ -42,3 +42,7 @@ class DmediaError(StandardError):
 
 class AmbiguousPath(DmediaError):
     _format = 'filename %(filename)r resolves to %(abspath)r'
+
+
+class DownloadFailure(DmediaError):
+    _format = 'leaf %(leaf)d expected %(expected)r; got %(got)r'

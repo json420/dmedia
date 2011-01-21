@@ -24,8 +24,15 @@ Unit tests for `dmedia.downloader` module.
 """
 
 from unittest import TestCase
+from hashlib import sha1
+from base64 import b32encode
 from .helpers import raises, TempDir
+from dmedia.errors import DownloadFailure
 from dmedia import downloader
+
+
+def b32hash(chunk):
+    return b32encode(sha1(chunk).digest())
 
 
 class test_functions(TestCase):
@@ -55,6 +62,14 @@ class test_functions(TestCase):
             str(e),
             'past end of file: i=3, leaf_size=1024, file_size=3001'
         )
+
+class DummyFP(object):
+    _chunk = None
+
+    def write(self, chunk):
+        assert chunk is not None
+        assert self._chunk is None
+        self._chunk = chunk
 
 
 class test_Downloader(TestCase):
@@ -87,3 +102,38 @@ class test_Downloader(TestCase):
             str(e),
             'url scheme must be http or https; got %r' % url
         )
+
+    def test_process_leaf(self):
+        a = 'a' * 1024
+        b = 'b' * 1024
+        a_hash = b32hash(a)
+        b_hash = b32hash(b)
+
+        class Example(self.klass):
+            def __init__(self, *chunks):
+                self._chunks = chunks
+                self._i = 0
+                self.dst_fp = DummyFP()
+
+            def download_leaf(self, i):
+                assert i == 7
+                chunk = self._chunks[self._i]
+                self._i += 1
+                return chunk
+
+        # Test that DownloadFailure is raised after 3 attempts
+        inst = Example(b, b, b, a)
+        e = raises(DownloadFailure, inst.process_leaf, 7, a_hash)
+        self.assertEqual(e.leaf, 7)
+        self.assertEqual(e.expected, a_hash)
+        self.assertEqual(e.got, b_hash)
+
+        # Test that it will try 3 times:
+        inst = Example(b, b, a)
+        self.assertEqual(inst.process_leaf(7, a_hash), a)
+        self.assertEqual(inst.dst_fp._chunk, a)
+
+        # Test that it will return first correct response:
+        inst = Example(a, b, b)
+        self.assertEqual(inst.process_leaf(7, a_hash), a)
+        self.assertEqual(inst.dst_fp._chunk, a)
