@@ -348,7 +348,7 @@ class test_Importer(CouchCase):
         # Test with new file
         size = path.getsize(src1)
         doc = {
-            '_id': sample_mov_hash,
+            '_id': 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC',
             'type': 'dmedia/file',
             'import_id': None,
             'qid': sample_mov_qid,
@@ -416,7 +416,7 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[0][2],
             {
-                '_id': sample_mov_hash,
+                '_id': 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC',
                 'type': 'dmedia/file',
                 'import_id': import_id,
                 'qid': sample_mov_qid,
@@ -430,7 +430,7 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[1][2],
             {
-                '_id': sample_thm_hash,
+                '_id': 'TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U',
                 'type': 'dmedia/file',
                 'import_id': import_id,
                 'qid': sample_thm_qid,
@@ -503,7 +503,9 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 1, 3,
-                    dict(action='imported', src=src1, _id=sample_mov_hash),
+                    dict(action='imported', src=src1,
+                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
+                    ),
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -513,7 +515,9 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 2, 3,
-                    dict(action='imported', src=src2, _id=sample_thm_hash),
+                    dict(action='imported', src=src2,
+                        _id='TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'
+                    ),
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -523,7 +527,9 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 3, 3,
-                    dict(action='skipped', src=dup1, _id=sample_mov_hash),
+                    dict(action='skipped', src=dup1,
+                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
+                    ),
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -715,7 +721,7 @@ class test_ImportManager(CouchCase):
         one_id = random_id()
         one_info = dict(
             src=one.join('happy.mov'),
-            _id=sample_mov_hash,
+            _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC',
             action='imported',
         )
         self.assertEqual(inst._completed, 0)
@@ -732,7 +738,7 @@ class test_ImportManager(CouchCase):
         two_id = random_id()
         two_info = dict(
             src=two.join('happy.thm'),
-            _id=sample_thm_hash,
+            _id='BKSTXEA5MI5DZTUDIHLI3KM3',
             action='imported',
         )
         self.assertEqual(inst._completed, 1)
@@ -882,21 +888,27 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             callback.messages[3],
             ('ImportProgress', (base, import_id, 1, 3,
-                    dict(action='imported', src=src1, _id=sample_mov_hash)
+                    dict(action='imported', src=src1,
+                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
+                    )
                 )
             )
         )
         self.assertEqual(
             callback.messages[4],
             ('ImportProgress', (base, import_id, 2, 3,
-                    dict(action='imported', src=src2, _id=sample_thm_hash)
+                    dict(action='imported', src=src2,
+                        _id='TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'
+                    )
                 )
             )
         )
         self.assertEqual(
             callback.messages[5],
             ('ImportProgress', (base, import_id, 3, 3,
-                    dict(action='skipped', src=dup1, _id=sample_mov_hash)
+                    dict(action='skipped', src=dup1,
+                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
+                    )
                 )
             )
         )

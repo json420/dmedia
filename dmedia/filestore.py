@@ -608,7 +608,8 @@ class FileStore(object):
         """
         size = os.fstat(src_fp.fileno()).st_size
         tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=size)
-        chash = hash_and_copy(src_fp, tmp_fp)
+        hashlist = HashList(src_fp, tmp_fp)
+        chash = hashlist.run()
         dst = self.path(chash, ext, create=True)
         if path.exists(dst):
             return (chash, 'exists')

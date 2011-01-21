@@ -816,15 +816,13 @@ class test_FileStore(TestCase):
 
     def test_import_file(self):
         # Known quickid and chash for sample_mov:
-        hash_file = filestore.hash_file
         quickid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
-        chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
+        chash = 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
 
-        # Test when src and base are on same filesystem:
         tmp = TempDir()
         src = tmp.join('movie.mov')
         base = tmp.join('.dmedia')
-        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+        dst = tmp.join('.dmedia', 'B4', 'IBNJ674EPXZZKNJYXFBDQQTFXIBSSC.mov')
         shutil.copy(sample_mov, src)
 
         inst = self.klass(base)
@@ -840,34 +838,8 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(base))
         self.assertTrue(path.isfile(dst))
 
-        src_fp = open(src, 'rb')
-        self.assertEqual(  # dst already exists
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'exists')
-        )
-
-        # Test when src and base are on *different* filesystem:
-        tmp = TempDir()
-        tmp2 = TempDir(dir='/dev/shm')
-        src = tmp2.join('movie.mov')
-        base = tmp.join('.dmedia')
-        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
-        shutil.copy(sample_mov, src)
-
-        inst = self.klass(base)
-        self.assertTrue(path.isfile(src))
-        self.assertFalse(path.exists(base))
-        self.assertFalse(path.exists(dst))
-        src_fp = open(src, 'rb')
         self.assertEqual(
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'copied')
-        )
-        self.assertTrue(path.isfile(src))
-        self.assertTrue(path.isdir(base))
-        self.assertTrue(path.isfile(dst))
-        self.assertEqual(
-            hash_file(open(dst, 'rb')),
+            filestore.HashList(open(dst, 'rb')).run(),
             chash
         )
 
