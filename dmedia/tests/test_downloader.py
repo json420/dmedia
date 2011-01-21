@@ -24,7 +24,7 @@ Unit tests for `dmedia.downloader` module.
 """
 
 from unittest import TestCase
-from .helpers import raises
+from .helpers import raises, TempDir
 from dmedia import downloader
 
 
@@ -61,22 +61,28 @@ class test_Downloader(TestCase):
     klass = downloader.Downloader
 
     def test_init(self):
+        tmp = TempDir()
+        dst_fp = open(tmp.join('dst'), 'wb')
+        leaves = ['OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE']
+        lsize = 1024
+        fsize = 2311
+
         url = 'http://cdn.novacut.com/novacut_test_video.tgz'
-        inst = self.klass(url)
+        inst = self.klass(dst_fp, url, leaves, lsize, fsize)
         self.assertEqual(inst.url, url)
         self.assertEqual(inst.c.scheme, 'http')
         self.assertEqual(inst.c.netloc, 'cdn.novacut.com')
         self.assertEqual(inst.c.path, '/novacut_test_video.tgz')
 
         url = 'https://cdn.novacut.com/novacut_test_video.tgz'
-        inst = self.klass(url)
+        inst = self.klass(dst_fp, url, leaves, lsize, fsize)
         self.assertEqual(inst.url, url)
         self.assertEqual(inst.c.scheme, 'https')
         self.assertEqual(inst.c.netloc, 'cdn.novacut.com')
         self.assertEqual(inst.c.path, '/novacut_test_video.tgz')
 
         url = 'ftp://cdn.novacut.com/novacut_test_video.tgz'
-        e = raises(ValueError, self.klass, url)
+        e = raises(ValueError, self.klass, dst_fp, url, leaves, lsize, fsize)
         self.assertEqual(
             str(e),
             'url scheme must be http or https; got %r' % url
