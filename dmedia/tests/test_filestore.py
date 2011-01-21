@@ -334,9 +334,8 @@ class test_HashList(TestCase):
         b = 'b' * (2 ** 20)  # 1 MiB of 'b'
         digest_b = sha1(b).digest()
 
-        # Test in tree mode:
+        # Test without dst_fp
         inst = Example()
-        inst.tree = True
         inst.leaves = []
         inst.h = sha1()
 
@@ -359,11 +358,10 @@ class test_HashList(TestCase):
             sha1(digest_a + digest_b).digest()
         )
 
-        # Test in tree mode with dst_fp:
+        # Test with dst_fp:
         dst = tmp.join('out1')
         dst_fp = open(dst, 'wb')
         inst = Example(dst_fp)
-        inst.tree = True
         inst.leaves = []
         inst.h = sha1()
 
@@ -384,45 +382,6 @@ class test_HashList(TestCase):
         self.assertEqual(
             inst.h.digest(),
             sha1(digest_a + digest_b).digest()
-        )
-        dst_fp.close()
-        self.assertEqual(
-            open(dst, 'rb').read(),
-            (a + b)
-        )
-
-        # Test in non-tree mode:
-        inst = Example()
-        inst.tree = False
-        inst.h = sha1()
-
-        inst.update(a)
-        self.assertEqual(
-            inst.h.digest(),
-            sha1(a).digest()
-        )
-        inst.update(b)
-        self.assertEqual(
-            inst.h.digest(),
-            sha1(a + b).digest()
-        )
-
-        # Test in non-tree mode with dst_fp
-        dst = tmp.join('out1')
-        dst_fp = open(dst, 'wb')
-        inst = Example(dst_fp)
-        inst.tree = False
-        inst.h = sha1()
-
-        inst.update(a)
-        self.assertEqual(
-            inst.h.digest(),
-            sha1(a).digest()
-        )
-        inst.update(b)
-        self.assertEqual(
-            inst.h.digest(),
-            sha1(a + b).digest()
         )
         dst_fp.close()
         self.assertEqual(
@@ -438,8 +397,7 @@ class test_HashList(TestCase):
         src_fp.read(1024)  # Make sure seek(0) is called
         dst_fp = open(tmp.join('dst1.mov'), 'wb')
         inst = self.klass(src_fp, dst_fp, 32 * 2**20)
-        self.assertEqual(inst.tree, False)
-        self.assertEqual(inst.run(), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
+        self.assertEqual(inst.run(), 'R3QI4WFID6VDVK2NBB6WXE5ALMNLZAHQ')
         self.assertFalse(src_fp.closed)  # Should not close file
         self.assertFalse(dst_fp.closed)  # Should not close file
         dst_fp.close()
@@ -447,14 +405,13 @@ class test_HashList(TestCase):
             hash_file(open(dst_fp.name, 'rb')),
             'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
         )
-        self.assertEqual(inst.leaves, None)
+        self.assertEqual(inst.leaves, ['OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'])
 
         # Test when src_fp > leaf_size:
         src_fp = open(sample_mov, 'rb')
         src_fp.read(1024)  # Make sure seek(0) is called
         dst_fp = open(tmp.join('dst2.mov'), 'wb')
         inst = self.klass(src_fp, dst_fp, 16 * 2**20)
-        self.assertEqual(inst.tree, True)
         self.assertEqual(inst.run(), 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC')
         self.assertFalse(src_fp.closed)  # Should not close file
         self.assertFalse(dst_fp.closed)  # Should not close file

@@ -162,10 +162,6 @@ class HashList(object):
     verify, and worse, the victim would have no way of knowing which leaves were
     invalid.
 
-    When the size of *src_fp* is less than *leaf_size*, a standard hash is
-    computed.  `HashList.run()` will return a vanilla content-hash and
-    `HashList.leaves` will be ``None``.
-
     In order to maximize IO utilization, the hash is computed in two threads.
     The main thread reads chunks from *src_fp* and puts them into a queue.  The
     2nd thread gets chunks from the queue, updates the hash, and then optionally
@@ -205,7 +201,6 @@ class HashList(object):
         self.dst_fp = dst_fp
         self.leaf_size = leaf_size
         self.file_size = os.fstat(src_fp.fileno()).st_size
-        self.tree = (self.file_size > leaf_size)
         self.q = Queue(4)
         self.thread = Thread(target=self.hashing_thread)
         self.thread.daemon = True
@@ -214,8 +209,8 @@ class HashList(object):
         """
         Update hash with *chunk*, optionally write to dst_fp.
 
-        This will appropriately update the hash based on whether we're in tree
-        mode.
+        This will append the content-hash of *chunk* to ``HashList.leaves`` and
+        update the top-hash.
 
         If the `HashList` was created with a *dst_fp*, *chunk* will be will be
         written to *dst_fp*.
@@ -224,12 +219,9 @@ class HashList(object):
         queue.  This functionality is in its own method simply to make testing
         easier.
         """
-        if self.tree:
-            digest = HASH(chunk).digest()
-            self.h.update(digest)
-            self.leaves.append(b32encode(digest))
-        else:
-            self.h.update(chunk)
+        digest = HASH(chunk).digest()
+        self.h.update(digest)
+        self.leaves.append(b32encode(digest))
         if self.dst_fp is not None:
             self.dst_fp.write(chunk)
 
@@ -243,14 +235,10 @@ class HashList(object):
     def run(self):
         self.src_fp.seek(0)  # Make sure we are at beginning of file
         self.h = HASH()
-        self.leaves = ([] if self.tree else None)
+        self.leaves = []
         self.thread.start()
-
-        # When in non-tree mode, we use smaller chunk_size so we still get high
-        # IO utilization when importing many small files:
-        chunk_size = (self.leaf_size if self.tree else CHUNK_SIZE)
         while True:
-            chunk = self.src_fp.read(chunk_size)
+            chunk = self.src_fp.read(self.leaf_size)
             self.q.put(chunk)
             if not chunk:
                 break
