@@ -129,7 +129,7 @@ class Downloader(object):
         """
         klass = (HTTPConnection if self.c.scheme == 'http' else HTTPSConnection)
         conn = klass(self.c.netloc, strict=True)
-        conn.set_debuglevel(50)
+        conn.set_debuglevel(1)
         return conn
 
     def download_leaf(self, i):
