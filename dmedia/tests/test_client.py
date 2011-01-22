@@ -37,6 +37,9 @@ from .helpers import CouchCase, TempDir, random_bus, prep_import_source
 from .helpers import sample_mov, sample_thm
 from .helpers import sample_mov_hash, sample_thm_hash
 
+sample_mov_hash = 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
+sample_thm_hash = 'TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'
+
 
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
