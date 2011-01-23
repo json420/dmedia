@@ -221,7 +221,9 @@ class Importer(object):
             return ('skipped', doc)
         basename = path.basename(src)
         (root, ext) = normalize_ext(basename)
-        chash = self.filestore.import_file(fp, quickid, ext)
+        # FIXME: We need to handle the (rare) case when a DuplicateFile
+        # exception is raised by FileStore.import_file()
+        (chash, leaves) = self.filestore.import_file(fp, quickid, ext)
         stat = os.fstat(fp.fileno())
         doc = {
             '_id': chash,

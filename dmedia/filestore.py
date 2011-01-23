@@ -588,17 +588,15 @@ class FileStore(object):
 
         The method will compute the content-hash of *src_fp* as it copies it to
         a temporary file within this store.  Once the copying is complete, the
-        file will be renamed to its canonical location in the store, unless that
-        file already exists.
+        file will be renamed to its canonical location in the store, thus
+        ensuring an atomic operation.
 
-        This method returns a ``(chash, action)`` tuple with the content hash
-        and a string indicating the action, for example:
+        A `DuplicatedFile` exception will be raised if the file already exists
+        in this store.
 
-        >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
-        >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
-        ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
-
-        The action will be either ``'copied'``, ``'exists'``.
+        This method returns a ``(chash, leaves)`` tuple with the content hash
+        (top-hash) and a list of the content hashes of the leaves.  See
+        `HashList` for details.
 
         Note that *src_fp* must have been opened in ``'rb'`` mode.
 
@@ -608,10 +606,10 @@ class FileStore(object):
         """
         size = os.fstat(src_fp.fileno()).st_size
         tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=size)
-        hashlist = HashList(src_fp, tmp_fp)
-        chash = hashlist.run()
+        h = HashList(src_fp, tmp_fp)
+        chash = h.run()
         dst = self.path(chash, ext, create=True)
         if path.exists(dst):
             raise DuplicateFile(chash=chash, src=src_fp.name, dst=dst)
         os.rename(tmp_fp.name, dst)
-        return chash
+        return (chash, h.leaves)

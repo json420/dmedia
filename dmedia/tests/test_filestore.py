@@ -818,6 +818,10 @@ class test_FileStore(TestCase):
         # Known quickid and chash for sample_mov:
         quickid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
         chash = 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
+        leaves = [
+            '7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75',
+            'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'
+        ]
 
         tmp = TempDir()
         src = tmp.join('movie.mov')
@@ -832,7 +836,7 @@ class test_FileStore(TestCase):
         src_fp = open(src, 'rb')
         self.assertEqual(
             inst.import_file(src_fp, quickid, ext='mov'),
-            chash
+            (chash, leaves)
         )
         self.assertTrue(path.isfile(src))
         self.assertTrue(path.isdir(base))
