@@ -251,63 +251,6 @@ class HashList(object):
         return b32encode(self.h.digest())
 
 
-def hash_file(fp):
-    """
-    Compute the content-hash of the open file *fp*.
-    """
-    if not isinstance(fp, file):
-        raise TypeError(
-            TYPE_ERROR % ('fp', file, type(fp), fp)
-        )
-    if fp.mode != 'rb':
-        raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
-    fp.seek(0)  # Make sure we are at beginning of file
-    h = HASH()
-    while True:
-        chunk = fp.read(CHUNK)
-        if not chunk:
-            break
-        h.update(chunk)
-    return b32encode(h.digest())
-
-
-def hash_and_copy(src_fp, dst_fp):
-    """
-    Efficiently copy file *src_fp* to *dst_fp* while computing content-hash.
-    """
-    if not isinstance(src_fp, file):
-        raise TypeError(
-            TYPE_ERROR % ('src_fp', file, type(src_fp), src_fp)
-        )
-    if src_fp.mode != 'rb':
-        raise ValueError(
-            "src_fp: must be opened in mode 'rb'; got %r" % src_fp.mode
-        )
-    if not isinstance(dst_fp, file):
-        raise TypeError(
-            TYPE_ERROR % ('dst_fp', file, type(dst_fp), dst_fp)
-        )
-    if dst_fp.mode not in ('wb', 'r+b'):
-        raise ValueError(
-            "dst_fp: must be opened in mode 'wb' or 'r+b'; got %r" % dst_fp.mode
-        )
-    dst_size = os.fstat(dst_fp.fileno()).st_size
-    if dst_fp.mode == 'r+b':
-        assert dst_size == os.fstat(src_fp.fileno()).st_size
-    else:
-        assert dst_size == 0
-    src_fp.seek(0)  # Make sure we are at beginning of file
-    h = HASH()
-    while True:
-        chunk = src_fp.read(CHUNK)
-        if not chunk:
-            break
-        dst_fp.write(chunk)
-        h.update(chunk)
-    os.fchmod(dst_fp.fileno(), 0o444)
-    return b32encode(h.digest())
-
-
 def quick_id(fp):
     """
     Compute a quick reasonably unique ID for the open file *fp*.
