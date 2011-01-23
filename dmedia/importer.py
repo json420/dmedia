@@ -229,6 +229,7 @@ class Importer(object):
             '_id': chash,
             'type': 'dmedia/file',
             'qid': quickid,
+            'leaves': leaves,
             'import_id': self._import_id,
             'bytes': stat.st_size,
             'mtime': stat.st_mtime,

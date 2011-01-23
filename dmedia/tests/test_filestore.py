@@ -31,6 +31,7 @@ from base64 import b32encode, b32decode
 import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
+from .helpers import mov_chash, mov_leaves, mov_qid
 from dmedia.errors import AmbiguousPath, DuplicateFile
 from dmedia import filestore, constants
 from dmedia.filestore import hash_file
@@ -815,18 +816,10 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(d))
 
     def test_import_file(self):
-        # Known quickid and chash for sample_mov:
-        quickid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
-        chash = 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
-        leaves = [
-            '7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75',
-            'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'
-        ]
-
         tmp = TempDir()
         src = tmp.join('movie.mov')
         base = tmp.join('.dmedia')
-        dst = tmp.join('.dmedia', 'B4', 'IBNJ674EPXZZKNJYXFBDQQTFXIBSSC.mov')
+        dst = tmp.join('.dmedia', mov_chash[:2], mov_chash[2:] + '.mov')
         shutil.copy(sample_mov, src)
 
         inst = self.klass(base)
@@ -835,8 +828,8 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(dst))
         src_fp = open(src, 'rb')
         self.assertEqual(
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, leaves)
+            inst.import_file(src_fp, mov_qid, ext='mov'),
+            (mov_chash, mov_leaves)
         )
         self.assertTrue(path.isfile(src))
         self.assertTrue(path.isdir(base))
@@ -844,10 +837,10 @@ class test_FileStore(TestCase):
 
         self.assertEqual(
             filestore.HashList(open(dst, 'rb')).run(),
-            chash
+            mov_chash
         )
 
-        e = raises(DuplicateFile, inst.import_file, src_fp, quickid, ext='mov')
-        self.assertEqual(e.chash, chash)
+        e = raises(DuplicateFile, inst.import_file, src_fp, mov_qid, ext='mov')
+        self.assertEqual(e.chash, mov_chash)
         self.assertEqual(e.src, src)
         self.assertEqual(e.dst, dst)

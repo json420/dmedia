@@ -37,6 +37,8 @@ from .helpers import CouchCase, TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
 from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
+from .helpers import mov_chash, mov_leaves, mov_qid
+from .helpers import thm_chash, thm_leaves, thm_qid
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.metastore import MetaStore
@@ -348,10 +350,11 @@ class test_Importer(CouchCase):
         # Test with new file
         size = path.getsize(src1)
         doc = {
-            '_id': 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC',
+            '_id': mov_chash,
             'type': 'dmedia/file',
             'import_id': None,
-            'qid': sample_mov_qid,
+            'qid': mov_qid,
+            'leaves': mov_leaves,
             'bytes': size,
             'mtime': path.getmtime(src1),
             'basename': 'MVI_5751.MOV',
@@ -416,10 +419,11 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[0][2],
             {
-                '_id': 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC',
+                '_id': mov_chash,
                 'type': 'dmedia/file',
                 'import_id': import_id,
-                'qid': sample_mov_qid,
+                'qid': mov_qid,
+                'leaves': mov_leaves,
                 'bytes': path.getsize(src1),
                 'mtime': path.getmtime(src1),
                 'basename': 'MVI_5751.MOV',
@@ -430,10 +434,11 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[1][2],
             {
-                '_id': 'TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U',
+                '_id': thm_chash,
                 'type': 'dmedia/file',
                 'import_id': import_id,
-                'qid': sample_thm_qid,
+                'qid': thm_qid,
+                'leaves': thm_leaves,
                 'bytes': path.getsize(src2),
                 'mtime': path.getmtime(src2),
                 'basename': 'MVI_5751.THM',
