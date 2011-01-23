@@ -507,9 +507,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 1, 3,
-                    dict(action='imported', src=src1,
-                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
-                    ),
+                    dict(action='imported', src=src1, _id=mov_hash)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -519,9 +517,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 2, 3,
-                    dict(action='imported', src=src2,
-                        _id='TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'
-                    ),
+                    dict(action='imported', src=src2, _id=thm_hash)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -531,9 +527,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 3, 3,
-                    dict(action='skipped', src=dup1,
-                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
-                    ),
+                    dict(action='skipped', src=dup1, _id=mov_hash)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -725,7 +719,7 @@ class test_ImportManager(CouchCase):
         one_id = random_id()
         one_info = dict(
             src=one.join('happy.mov'),
-            _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC',
+            _id=mov_hash,
             action='imported',
         )
         self.assertEqual(inst._completed, 0)
@@ -892,27 +886,21 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             callback.messages[3],
             ('ImportProgress', (base, import_id, 1, 3,
-                    dict(action='imported', src=src1,
-                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
-                    )
+                    dict(action='imported', src=src1, _id=mov_hash)
                 )
             )
         )
         self.assertEqual(
             callback.messages[4],
             ('ImportProgress', (base, import_id, 2, 3,
-                    dict(action='imported', src=src2,
-                        _id='TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'
-                    )
+                    dict(action='imported', src=src2, _id=thm_hash)
                 )
             )
         )
         self.assertEqual(
             callback.messages[5],
             ('ImportProgress', (base, import_id, 3, 3,
-                    dict(action='skipped', src=dup1,
-                        _id='B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC'
-                    )
+                    dict(action='skipped', src=dup1, _id=mov_hash)
                 )
             )
         )
