@@ -26,13 +26,16 @@ Unit tests for `dmedia.filestore` module.
 
 import os
 from os import path
-import hashlib
+from hashlib import sha1
+from base64 import b32encode, b32decode
 import shutil
 from unittest import TestCase
-from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
-from dmedia.errors import AmbiguousPath
-from dmedia import filestore
-
+from .helpers import TempDir, TempHome, raises
+from .helpers import sample_mov, sample_thm
+from .helpers import mov_hash, mov_leaves, mov_qid
+from dmedia.errors import AmbiguousPath, DuplicateFile
+from dmedia.filestore import HashList
+from dmedia import filestore, constants
 
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
@@ -128,113 +131,6 @@ class test_functions(TestCase):
         good = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         assert f(good) is good
 
-    def test_hash_file(self):
-        f = filestore.hash_file
-
-        # Test with fp of wrong type
-        e = raises(TypeError, f, 'hello')
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('fp', file, str, 'hello')
-        )
-
-        # Test with fp opened in wrong mode
-        fp = open(sample_mov, 'r')
-        e = raises(ValueError, f, fp)
-        self.assertEqual(
-            str(e),
-            "fp: must be opened in mode 'rb'; got 'r'"
-        )
-
-        # Test with some known files/values:
-        fp = open(sample_mov, 'rb')
-        self.assertEqual(f(fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        self.assertFalse(fp.closed)  # Should not close file
-
-        fp = open(sample_thm, 'rb')
-        self.assertEqual(f(fp), 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
-        self.assertFalse(fp.closed)  # Should not close file
-
-        # Make user seek(0) is being called:
-        fp = open(sample_mov, 'rb')
-        fp.seek(1024)
-        self.assertEqual(f(fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        self.assertFalse(fp.closed)  # Should not close file
-
-    def test_hash_and_copy(self):
-        f = filestore.hash_and_copy
-        hash_file = filestore.hash_file
-        tmp = TempDir()
-
-        src_fp = open(sample_mov, 'rb')
-        dst_fp = open(tmp.join('test.mov'), 'wb')
-
-        # Test with src_fp of wrong type
-        e = raises(TypeError, f, 'hello', dst_fp)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('src_fp', file, str, 'hello')
-        )
-
-        # Test with src_fp opened in wrong mode
-        e = raises(ValueError, f, open(sample_mov, 'r'), dst_fp)
-        self.assertEqual(
-            str(e),
-            "src_fp: must be opened in mode 'rb'; got 'r'"
-        )
-
-        # Test with dst_fp of wrong type
-        e = raises(TypeError, f, src_fp, 17)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('dst_fp', file, int, 17)
-        )
-
-        # Test with dst_fp opened in wrong mode
-        e = raises(ValueError, f, src_fp, open(tmp.join('wrong.mov'), 'w'))
-        self.assertEqual(
-            str(e),
-            "dst_fp: must be opened in mode 'wb' or 'r+b'; got 'w'"
-        )
-
-        # Test with some known files/values:
-        src_fp = open(sample_mov, 'rb')
-        dst_fp = open(tmp.join('sample.mov'), 'wb')
-        self.assertEqual(f(src_fp, dst_fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        self.assertFalse(src_fp.closed)  # Should not close file
-        self.assertFalse(dst_fp.closed)  # Should not close file
-        dst_fp.close()
-        self.assertEqual(
-            hash_file(open(dst_fp.name, 'rb')),
-            'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
-        )
-
-        # Simulate a fallocate pre-allocation:
-        src_fp = open(sample_thm, 'rb')
-        open(tmp.join('sample.thm'), 'wb').write('a' * path.getsize(sample_thm))
-        dst_fp = open(tmp.join('sample.thm'), 'r+b')
-        self.assertEqual(f(src_fp, dst_fp), 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')
-        self.assertFalse(src_fp.closed)  # Should not close file
-        self.assertFalse(dst_fp.closed)  # Should not close file
-        dst_fp.close()
-        self.assertEqual(
-            hash_file(open(dst_fp.name, 'rb')),
-            'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A'
-        )
-
-        # Make user seek(0) is being called:
-        src_fp = open(sample_mov, 'rb')
-        src_fp.seek(1024)
-        dst_fp = open(tmp.join('seek.mov'), 'wb')
-        self.assertEqual(f(src_fp, dst_fp), 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')
-        self.assertFalse(src_fp.closed)  # Should not close file
-        self.assertFalse(dst_fp.closed)  # Should not close file
-        dst_fp.close()
-        self.assertEqual(
-            hash_file(open(dst_fp.name, 'rb')),
-            'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
-        )
-
     def test_quick_id(self):
         f = filestore.quick_id
 
@@ -267,6 +163,169 @@ class test_functions(TestCase):
         fp.seek(1024)
         self.assertEqual(f(fp), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
         self.assertFalse(fp.closed)  # Should not close file
+
+
+class test_HashList(TestCase):
+    klass = filestore.HashList
+
+    def test_init(self):
+        tmp = TempDir()
+        src_fp = open(sample_mov, 'rb')
+        dst_fp = open(tmp.join('test.mov'), 'wb')
+
+        # Test with src_fp of wrong type
+        e = raises(TypeError, self.klass, 'hello', dst_fp)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('src_fp', file, str, 'hello')
+        )
+
+        # Test with src_fp opened in wrong mode
+        e = raises(ValueError, self.klass, open(sample_mov, 'r'), dst_fp)
+        self.assertEqual(
+            str(e),
+            "src_fp: mode must be 'rb'; got 'r'"
+        )
+
+        # Test with dst_fp of wrong type
+        e = raises(TypeError, self.klass, src_fp, 17)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('dst_fp', file, int, 17)
+        )
+
+        # Test with dst_fp opened in wrong mode
+        e = raises(ValueError, self.klass, src_fp,
+            open(tmp.join('wrong.mov'), 'w')
+        )
+        self.assertEqual(
+            str(e),
+            "dst_fp: mode must be 'wb' or 'r+b'; got 'w'"
+        )
+
+        # Test with correct values
+        inst = self.klass(src_fp)
+        self.assertTrue(inst.src_fp is src_fp)
+        self.assertEqual(inst.file_size, os.fstat(src_fp.fileno()).st_size)
+        self.assertEqual(inst.leaves, [])
+        self.assertTrue(inst.dst_fp is None)
+        self.assertEqual(inst.leaf_size, constants.LEAF_SIZE)
+
+        inst = self.klass(src_fp, dst_fp)
+        self.assertTrue(inst.src_fp is src_fp)
+        self.assertTrue(inst.dst_fp is dst_fp)
+        self.assertEqual(inst.leaf_size, constants.LEAF_SIZE)
+
+        inst = self.klass(src_fp, dst_fp, 2 * constants.LEAF_SIZE)
+        self.assertTrue(inst.src_fp is src_fp)
+        self.assertTrue(inst.dst_fp is dst_fp)
+        self.assertEqual(inst.leaf_size, 2 * constants.LEAF_SIZE)
+
+    def test_update(self):
+        tmp = TempDir()
+
+        class Example(self.klass):
+            def __init__(self, dst_fp=None):
+                self.dst_fp = dst_fp
+
+        a = 'a' * (2 ** 20)  # 1 MiB of 'a'
+        digest_a = sha1(a).digest()
+        b = 'b' * (2 ** 20)  # 1 MiB of 'b'
+        digest_b = sha1(b).digest()
+
+        # Test without dst_fp
+        inst = Example()
+        inst.leaves = []
+        inst.h = sha1()
+
+        inst.update(a)
+        self.assertEqual(
+            inst.leaves,
+            [b32encode(digest_a)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a).digest()
+        )
+        inst.update(b)
+        self.assertEqual(
+            inst.leaves,
+            [b32encode(digest_a), b32encode(digest_b)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a + digest_b).digest()
+        )
+
+        # Test with dst_fp:
+        dst = tmp.join('out1')
+        dst_fp = open(dst, 'wb')
+        inst = Example(dst_fp)
+        inst.leaves = []
+        inst.h = sha1()
+
+        inst.update(a)
+        self.assertEqual(
+            inst.leaves,
+            [b32encode(digest_a)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a).digest()
+        )
+        inst.update(b)
+        self.assertEqual(
+            inst.leaves,
+            [b32encode(digest_a), b32encode(digest_b)]
+        )
+        self.assertEqual(
+            inst.h.digest(),
+            sha1(digest_a + digest_b).digest()
+        )
+        dst_fp.close()
+        self.assertEqual(
+            open(dst, 'rb').read(),
+            (a + b)
+        )
+
+    def test_run(self):
+        tmp = TempDir()
+
+        # Test when src_fp <= leaf_size:
+        src_fp = open(sample_mov, 'rb')
+        src_fp.read(1024)  # Make sure seek(0) is called
+        dst_fp = open(tmp.join('dst1.mov'), 'wb')
+        inst = self.klass(src_fp, dst_fp, 32 * 2**20)
+        self.assertEqual(inst.run(), 'R3QI4WFID6VDVK2NBB6WXE5ALMNLZAHQ')
+        self.assertFalse(src_fp.closed)  # Should not close file
+        self.assertFalse(dst_fp.closed)  # Should not close file
+        dst_fp.close()
+        self.assertEqual(
+            HashList(open(dst_fp.name, 'rb')).run(),
+            mov_hash
+        )
+        self.assertEqual(inst.leaves, ['OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'])
+
+        # Test when src_fp > leaf_size:
+        src_fp = open(sample_mov, 'rb')
+        src_fp.read(1024)  # Make sure seek(0) is called
+        dst_fp = open(tmp.join('dst2.mov'), 'wb')
+        inst = self.klass(src_fp, dst_fp, 16 * 2**20)
+        self.assertEqual(inst.run(), 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC')
+        self.assertFalse(src_fp.closed)  # Should not close file
+        self.assertFalse(dst_fp.closed)  # Should not close file
+        dst_fp.close()
+        self.assertEqual(
+            HashList(open(dst_fp.name, 'rb')).run(),
+            mov_hash
+        )
+        self.assertEqual(
+            inst.leaves,
+            [
+                '7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75',
+                'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI',
+            ]
+        )
 
 
 class test_FileStore(TestCase):
@@ -651,16 +710,10 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(d))
 
     def test_import_file(self):
-        # Known quickid and chash for sample_mov:
-        hash_file = filestore.hash_file
-        quickid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
-        chash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
-
-        # Test when src and base are on same filesystem:
         tmp = TempDir()
         src = tmp.join('movie.mov')
         base = tmp.join('.dmedia')
-        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+        dst = tmp.join('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
         shutil.copy(sample_mov, src)
 
         inst = self.klass(base)
@@ -669,50 +722,19 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(dst))
         src_fp = open(src, 'rb')
         self.assertEqual(
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'linked')
+            inst.import_file(src_fp, mov_qid, ext='mov'),
+            (mov_hash, mov_leaves)
         )
         self.assertTrue(path.isfile(src))
         self.assertTrue(path.isdir(base))
         self.assertTrue(path.isfile(dst))
-        src_stat = os.stat(src)
-        dst_stat = os.stat(dst)
-        self.assertEqual(src_stat.st_ino, dst_stat.st_ino)
-        self.assertEqual(dst_stat.st_nlink, 2)
 
-        src_fp = open(src, 'rb')
-        self.assertEqual(  # dst already exists
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'exists')
-        )
-
-        # Test when src and base are on *different* filesystem:
-        tmp = TempDir()
-        tmp2 = TempDir(dir='/dev/shm')
-        src = tmp2.join('movie.mov')
-        base = tmp.join('.dmedia')
-        dst = tmp.join('.dmedia', 'OM', 'LUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
-        shutil.copy(sample_mov, src)
-
-        inst = self.klass(base)
-        self.assertTrue(path.isfile(src))
-        self.assertFalse(path.exists(base))
-        self.assertFalse(path.exists(dst))
-        src_fp = open(src, 'rb')
         self.assertEqual(
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'copied')
-        )
-        self.assertTrue(path.isfile(src))
-        self.assertTrue(path.isdir(base))
-        self.assertTrue(path.isfile(dst))
-        self.assertEqual(
-            hash_file(open(dst, 'rb')),
-            chash
+            filestore.HashList(open(dst, 'rb')).run(),
+            mov_hash
         )
 
-        src_fp = open(src, 'rb')
-        self.assertEqual(  # dst already exists
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'exists')
-        )
+        e = raises(DuplicateFile, inst.import_file, src_fp, mov_qid, ext='mov')
+        self.assertEqual(e.chash, mov_hash)
+        self.assertEqual(e.src, src)
+        self.assertEqual(e.dst, dst)

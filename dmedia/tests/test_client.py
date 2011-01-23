@@ -35,7 +35,7 @@ from dmedia import client, service
 from dmedia.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
 from .helpers import CouchCase, TempDir, random_bus, prep_import_source
 from .helpers import sample_mov, sample_thm
-from .helpers import sample_mov_hash, sample_thm_hash
+from .helpers import mov_hash, thm_hash
 
 
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
@@ -239,19 +239,19 @@ class test_Client(CouchCase):
         self.assertEqual(
             signals.messages[3],
             ('import_progress', inst, base, import_id, 1, 3,
-                dict(action='imported', src=src1, _id=sample_mov_hash)
+                dict(action='imported', src=src1, _id=mov_hash)
             )
         )
         self.assertEqual(
             signals.messages[4],
             ('import_progress', inst, base, import_id, 2, 3,
-                dict(action='imported', src=src2, _id=sample_thm_hash)
+                dict(action='imported', src=src2, _id=thm_hash)
             )
         )
         self.assertEqual(
             signals.messages[5],
             ('import_progress', inst, base, import_id, 3, 3,
-                dict(action='skipped', src=dup1, _id=sample_mov_hash)
+                dict(action='skipped', src=dup1, _id=mov_hash)
             )
         )
         self.assertEqual(

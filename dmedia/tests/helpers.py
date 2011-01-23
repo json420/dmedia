@@ -35,18 +35,24 @@ from dmedia.metastore import dc_context
 
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
-
 sample_mov = path.join(datadir, 'MVI_5751.MOV')
-sample_mov_hash = 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'
-sample_mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
-
 sample_thm = path.join(datadir, 'MVI_5751.THM')
-sample_thm_hash = 'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A'
-sample_thm_qid = 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
 
 assert path.isdir(datadir)
 assert path.isfile(sample_mov)
 assert path.isfile(sample_thm)
+
+mov_hash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+mov_leaves = [
+    'IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3',
+    'MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4',
+    'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'
+]
+mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
+
+thm_hash = 'TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'
+thm_leaves = ['F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A']
+thm_qid = 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
 
 
 def random_bus():

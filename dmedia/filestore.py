@@ -44,7 +44,10 @@ from base64 import b32encode, b32decode
 from string import ascii_lowercase, digits
 import logging
 from subprocess import check_call, CalledProcessError
-from .errors import AmbiguousPath
+from threading import Thread
+from Queue import Queue
+from .errors import AmbiguousPath, DuplicateFile
+from .constants import CHUNK_SIZE, LEAF_SIZE
 
 
 chars = frozenset(ascii_lowercase + digits)
@@ -142,61 +145,110 @@ def safe_b32(b32):
     return b32
 
 
-def hash_file(fp):
+class HashList(object):
     """
-    Compute the content-hash of the open file *fp*.
-    """
-    if not isinstance(fp, file):
-        raise TypeError(
-            TYPE_ERROR % ('fp', file, type(fp), fp)
-        )
-    if fp.mode != 'rb':
-        raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
-    fp.seek(0)  # Make sure we are at beginning of file
-    h = HASH()
-    while True:
-        chunk = fp.read(CHUNK)
-        if not chunk:
-            break
-        h.update(chunk)
-    return b32encode(h.digest())
+    Simple hash-list (a 1-deep tree-hash).
 
+    For swarm upload/download, we need to keep the content hashes of the
+    individual leaves, a list of which is available via the `HashList.leaves`
+    attribute after `HashList.run()` has been called.
 
-def hash_and_copy(src_fp, dst_fp):
+    The effective content-hash for the entire file is a hash of the leaf hashes
+    concatenated together.  This is handy because it gives us a
+    cryptographically strong way to associate individual leaves with the file
+    "_id".  This is important because otherwise malicious peers could pollute
+    the network with invalid leaves, but victims wouldn't know anything was
+    wrong till the entire file was downloaded.  The whole file would fail to
+    verify, and worse, the victim would have no way of knowing which leaves were
+    invalid.
+
+    In order to maximize IO utilization, the hash is computed in two threads.
+    The main thread reads chunks from *src_fp* and puts them into a queue.  The
+    2nd thread gets chunks from the queue, updates the hash, and then optionally
+    writes the chunk to *dst_fp* if one was provided when the `HashList` was
+    created.
+
+    For some background, see:
+
+        https://bugs.launchpad.net/dmedia/+bug/704272
+
+    For more information about hash-lists and tree-hashes, see:
+
+      http://en.wikipedia.org/wiki/Hash_list
+
+      http://en.wikipedia.org/wiki/Tree_hash
     """
-    Efficiently copy file *src_fp* to *dst_fp* while computing content-hash.
-    """
-    if not isinstance(src_fp, file):
-        raise TypeError(
-            TYPE_ERROR % ('src_fp', file, type(src_fp), src_fp)
-        )
-    if src_fp.mode != 'rb':
-        raise ValueError(
-            "src_fp: must be opened in mode 'rb'; got %r" % src_fp.mode
-        )
-    if not isinstance(dst_fp, file):
-        raise TypeError(
-            TYPE_ERROR % ('dst_fp', file, type(dst_fp), dst_fp)
-        )
-    if dst_fp.mode not in ('wb', 'r+b'):
-        raise ValueError(
-            "dst_fp: must be opened in mode 'wb' or 'r+b'; got %r" % dst_fp.mode
-        )
-    dst_size = os.fstat(dst_fp.fileno()).st_size
-    if dst_fp.mode == 'r+b':
-        assert dst_size == os.fstat(src_fp.fileno()).st_size
-    else:
-        assert dst_size == 0
-    src_fp.seek(0)  # Make sure we are at beginning of file
-    h = HASH()
-    while True:
-        chunk = src_fp.read(CHUNK)
-        if not chunk:
-            break
-        dst_fp.write(chunk)
-        h.update(chunk)
-    os.fchmod(dst_fp.fileno(), 0o444)
-    return b32encode(h.digest())
+
+    def __init__(self, src_fp, dst_fp=None, leaf_size=LEAF_SIZE):
+        if not isinstance(src_fp, file):
+            raise TypeError(
+                TYPE_ERROR % ('src_fp', file, type(src_fp), src_fp)
+            )
+        if src_fp.mode != 'rb':
+            raise ValueError(
+                "src_fp: mode must be 'rb'; got %r" % src_fp.mode
+            )
+        if dst_fp is not None:
+            if not isinstance(dst_fp, file):
+                raise TypeError(
+                    TYPE_ERROR % ('dst_fp', file, type(dst_fp), dst_fp)
+                )
+            if dst_fp.mode not in ('wb', 'r+b'):
+                raise ValueError(
+                    "dst_fp: mode must be 'wb' or 'r+b'; got %r" % dst_fp.mode
+                )
+        self.src_fp = src_fp
+        self.dst_fp = dst_fp
+        self.leaf_size = leaf_size
+        self.file_size = os.fstat(src_fp.fileno()).st_size
+        self.h = HASH()
+        self.leaves = []
+        self.q = Queue(4)
+        self.thread = Thread(target=self.hashing_thread)
+        self.thread.daemon = True
+        self.__ran = False
+
+    def update(self, chunk):
+        """
+        Update hash with *chunk*, optionally write to dst_fp.
+
+        This will append the content-hash of *chunk* to ``HashList.leaves`` and
+        update the top-hash.
+
+        If the `HashList` was created with a *dst_fp*, *chunk* will be will be
+        written to *dst_fp*.
+
+        `HashList.hashing_thread()` calls this method once for each chunk in the
+        queue.  This functionality is in its own method simply to make testing
+        easier.
+        """
+        digest = HASH(chunk).digest()
+        self.h.update(digest)
+        self.leaves.append(b32encode(digest))
+        if self.dst_fp is not None:
+            self.dst_fp.write(chunk)
+
+    def hashing_thread(self):
+        while True:
+            chunk = self.q.get()
+            if not chunk:
+                break
+            self.update(chunk)
+
+    def run(self):
+        assert self.__ran is False
+        self.__ran = True
+        self.src_fp.seek(0)  # Make sure we are at beginning of file
+        self.thread.start()
+        while True:
+            chunk = self.src_fp.read(self.leaf_size)
+            self.q.put(chunk)
+            if not chunk:
+                break
+        self.thread.join()
+        if self.dst_fp is not None:
+            os.fchmod(self.dst_fp.fileno(), 0o444)
+        return b32encode(self.h.digest())
 
 
 def quick_id(fp):
@@ -475,23 +527,19 @@ class FileStore(object):
 
     def import_file(self, src_fp, quickid, ext=None):
         """
-        Atomically copy or hard-link open file *src_fp* into this file store.
+        Atomically copy open file *src_fp* into this file store.
 
-        The method will compute the content-hash of *src_fp* and then copy or
-        hard-link it into its canonical location in this store, or do nothing
-        if a file with that canonical name already exists.
+        The method will compute the content-hash of *src_fp* as it copies it to
+        a temporary file within this store.  Once the copying is complete, the
+        file will be renamed to its canonical location in the store, thus
+        ensuring an atomic operation.
 
-        This method returns a ``(chash, action)`` tuple with the content hash
-        and a string indicating the action, for example:
+        A `DuplicatedFile` exception will be raised if the file already exists
+        in this store.
 
-        >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
-        >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
-        ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
-
-        The action will be either ``'copied'``, ``'linked'``, or ``'exists'``.
-        When copying, the file is copied to a temporary location, then renamed
-        to the canonical location once completed, guaranteeing an atomic
-        operation.
+        This method returns a ``(chash, leaves)`` tuple with the content hash
+        (top-hash) and a list of the content hashes of the leaves.  See
+        `HashList` for details.
 
         Note that *src_fp* must have been opened in ``'rb'`` mode.
 
@@ -499,25 +547,12 @@ class FileStore(object):
         :param quickid: The quickid computed by ``quick_id()``
         :param ext: The file's extension, e.g., ``'ogv'``
         """
-        if not path.exists(self.base):
-            os.makedirs(self.base)
-        assert path.isdir(self.base)
-        stat = os.fstat(src_fp.fileno())
-        if stat.st_dev == os.stat(self.base).st_dev:
-            # Same filesystem, we hardlink:
-            chash = hash_file(src_fp)
-            dst = self.path(chash, ext, create=True)
-            if path.exists(dst):
-                return (chash, 'exists')
-            os.fchmod(src_fp.fileno(), 0o444)
-            os.link(src_fp.name, dst)
-            return (chash, 'linked')
-
-        # Different filesystem, we copy:
-        tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=stat.st_size)
-        chash = hash_and_copy(src_fp, tmp_fp)
+        size = os.fstat(src_fp.fileno()).st_size
+        tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=size)
+        h = HashList(src_fp, tmp_fp)
+        chash = h.run()
         dst = self.path(chash, ext, create=True)
         if path.exists(dst):
-            return (chash, 'exists')
+            raise DuplicateFile(chash=chash, src=src_fp.name, dst=dst)
         os.rename(tmp_fp.name, dst)
-        return (chash, 'copied')
+        return (chash, h.leaves)
