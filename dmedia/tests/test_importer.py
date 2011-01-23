@@ -35,10 +35,9 @@ from unittest import TestCase
 from multiprocessing import current_process
 from .helpers import CouchCase, TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
-from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
-from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
-from .helpers import mov_chash, mov_leaves, mov_qid
-from .helpers import thm_chash, thm_leaves, thm_qid
+from .helpers import sample_mov, sample_thm
+from .helpers import mov_hash, mov_leaves, mov_qid
+from .helpers import thm_hash, thm_leaves, thm_qid
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.metastore import MetaStore
@@ -350,7 +349,7 @@ class test_Importer(CouchCase):
         # Test with new file
         size = path.getsize(src1)
         doc = {
-            '_id': mov_chash,
+            '_id': mov_hash,
             'type': 'dmedia/file',
             'import_id': None,
             'qid': mov_qid,
@@ -419,7 +418,7 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[0][2],
             {
-                '_id': mov_chash,
+                '_id': mov_hash,
                 'type': 'dmedia/file',
                 'import_id': import_id,
                 'qid': mov_qid,
@@ -434,7 +433,7 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[1][2],
             {
-                '_id': thm_chash,
+                '_id': thm_hash,
                 'type': 'dmedia/file',
                 'import_id': import_id,
                 'qid': thm_qid,
