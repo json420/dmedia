@@ -46,7 +46,7 @@ import logging
 from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
-from .errors import AmbiguousPath
+from .errors import AmbiguousPath, DuplicateFile
 from .constants import CHUNK_SIZE, LEAF_SIZE
 
 
@@ -612,6 +612,6 @@ class FileStore(object):
         chash = hashlist.run()
         dst = self.path(chash, ext, create=True)
         if path.exists(dst):
-            return (chash, 'exists')
+            raise DuplicateFile(chash=chash, src=src_fp.name, dst=dst)
         os.rename(tmp_fp.name, dst)
-        return (chash, 'copied')
+        return chash

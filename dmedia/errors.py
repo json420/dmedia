@@ -44,5 +44,9 @@ class AmbiguousPath(DmediaError):
     _format = 'filename %(filename)r resolves to %(abspath)r'
 
 
+class DuplicateFile(DmediaError):
+    _format = 'chash=%(chash)r, src=%(src)r, dst=%(dst)r'
+
+
 class DownloadFailure(DmediaError):
     _format = 'leaf %(leaf)d expected %(expected)r; got %(got)r'

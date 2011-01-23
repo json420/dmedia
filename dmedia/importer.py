@@ -221,7 +221,7 @@ class Importer(object):
             return ('skipped', doc)
         basename = path.basename(src)
         (root, ext) = normalize_ext(basename)
-        (chash, action) = self.filestore.import_file(fp, quickid, ext)
+        chash = self.filestore.import_file(fp, quickid, ext)
         stat = os.fstat(fp.fileno())
         doc = {
             '_id': chash,

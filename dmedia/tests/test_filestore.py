@@ -31,7 +31,7 @@ from base64 import b32encode, b32decode
 import shutil
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises, sample_mov, sample_thm
-from dmedia.errors import AmbiguousPath
+from dmedia.errors import AmbiguousPath, DuplicateFile
 from dmedia import filestore, constants
 from dmedia.filestore import hash_file
 
@@ -832,7 +832,7 @@ class test_FileStore(TestCase):
         src_fp = open(src, 'rb')
         self.assertEqual(
             inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'copied')
+            chash
         )
         self.assertTrue(path.isfile(src))
         self.assertTrue(path.isdir(base))
@@ -843,8 +843,7 @@ class test_FileStore(TestCase):
             chash
         )
 
-        src_fp = open(src, 'rb')
-        self.assertEqual(  # dst already exists
-            inst.import_file(src_fp, quickid, ext='mov'),
-            (chash, 'exists')
-        )
+        e = raises(DuplicateFile, inst.import_file, src_fp, quickid, ext='mov')
+        self.assertEqual(e.chash, chash)
+        self.assertEqual(e.src, src)
+        self.assertEqual(e.dst, dst)
