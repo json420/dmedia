@@ -35,8 +35,9 @@ from unittest import TestCase
 from multiprocessing import current_process
 from .helpers import CouchCase, TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
-from .helpers import sample_mov, sample_mov_hash, sample_mov_qid
-from .helpers import sample_thm, sample_thm_hash, sample_thm_qid
+from .helpers import sample_mov, sample_thm
+from .helpers import mov_hash, mov_leaves, mov_qid
+from .helpers import thm_hash, thm_leaves, thm_qid
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.metastore import MetaStore
@@ -64,6 +65,12 @@ relpaths = (
 
 
 class test_functions(TestCase):
+    def test_normalize_ext(self):
+        f = importer.normalize_ext
+        weird = ['._501', 'movie.mov.', '.movie.mov.', 'movie._501']
+        for name in weird:
+            self.assertEqual(f(name), (name, None))
+
     def test_scanfiles(self):
         f = importer.scanfiles
         tmp = TempDir()
@@ -342,10 +349,11 @@ class test_Importer(CouchCase):
         # Test with new file
         size = path.getsize(src1)
         doc = {
-            '_id': sample_mov_hash,
+            '_id': mov_hash,
             'type': 'dmedia/file',
             'import_id': None,
-            'qid': sample_mov_qid,
+            'qid': mov_qid,
+            'leaves': mov_leaves,
             'bytes': size,
             'mtime': path.getmtime(src1),
             'basename': 'MVI_5751.MOV',
@@ -410,10 +418,11 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[0][2],
             {
-                '_id': sample_mov_hash,
+                '_id': mov_hash,
                 'type': 'dmedia/file',
                 'import_id': import_id,
-                'qid': sample_mov_qid,
+                'qid': mov_qid,
+                'leaves': mov_leaves,
                 'bytes': path.getsize(src1),
                 'mtime': path.getmtime(src1),
                 'basename': 'MVI_5751.MOV',
@@ -424,10 +433,11 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(items[1][2],
             {
-                '_id': sample_thm_hash,
+                '_id': thm_hash,
                 'type': 'dmedia/file',
                 'import_id': import_id,
-                'qid': sample_thm_qid,
+                'qid': thm_qid,
+                'leaves': thm_leaves,
                 'bytes': path.getsize(src2),
                 'mtime': path.getmtime(src2),
                 'basename': 'MVI_5751.THM',
@@ -497,7 +507,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 1, 3,
-                    dict(action='imported', src=src1, _id=sample_mov_hash),
+                    dict(action='imported', src=src1, _id=mov_hash)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -507,7 +517,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 2, 3,
-                    dict(action='imported', src=src2, _id=sample_thm_hash),
+                    dict(action='imported', src=src2, _id=thm_hash)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -517,7 +527,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 3, 3,
-                    dict(action='skipped', src=dup1, _id=sample_mov_hash),
+                    dict(action='skipped', src=dup1, _id=mov_hash)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -709,7 +719,7 @@ class test_ImportManager(CouchCase):
         one_id = random_id()
         one_info = dict(
             src=one.join('happy.mov'),
-            _id=sample_mov_hash,
+            _id=mov_hash,
             action='imported',
         )
         self.assertEqual(inst._completed, 0)
@@ -726,7 +736,7 @@ class test_ImportManager(CouchCase):
         two_id = random_id()
         two_info = dict(
             src=two.join('happy.thm'),
-            _id=sample_thm_hash,
+            _id='BKSTXEA5MI5DZTUDIHLI3KM3',
             action='imported',
         )
         self.assertEqual(inst._completed, 1)
@@ -876,21 +886,21 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             callback.messages[3],
             ('ImportProgress', (base, import_id, 1, 3,
-                    dict(action='imported', src=src1, _id=sample_mov_hash)
+                    dict(action='imported', src=src1, _id=mov_hash)
                 )
             )
         )
         self.assertEqual(
             callback.messages[4],
             ('ImportProgress', (base, import_id, 2, 3,
-                    dict(action='imported', src=src2, _id=sample_thm_hash)
+                    dict(action='imported', src=src2, _id=thm_hash)
                 )
             )
         )
         self.assertEqual(
             callback.messages[5],
             ('ImportProgress', (base, import_id, 3, 3,
-                    dict(action='skipped', src=dup1, _id=sample_mov_hash)
+                    dict(action='skipped', src=dup1, _id=mov_hash)
                 )
             )
         )

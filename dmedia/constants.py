@@ -27,6 +27,13 @@ Various constants conveniently located in one place.
 import mimetypes
 mimetypes.init()
 
+# Standard read/write buffer size:
+CHUNK_SIZE = 2**20  # 1 MiB
+
+# Size of leaves in tree-hash:
+LEAF_SIZE = 8 * 2**20  # 8 MiB
+
+
 # D-Bus releated:
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'
