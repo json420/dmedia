@@ -48,10 +48,10 @@ class test_functions(TestCase):
 
     def test_load_datafile(self):
         f = ui.load_datafile
-        mootools = path.join(datadir, 'mootools.js')
+        filename = path.join(datadir, 'dmedia.js')
         self.assertEqual(
-            f('mootools.js'),
-            open(mootools, 'r').read()
+            f('dmedia.js'),
+            open(filename, 'r').read()
         )
 
     def test_inline_datafile(self):
@@ -71,19 +71,19 @@ class test_functions(TestCase):
             ui.inline_datafile('dmedia.js')
         )
         self.assertEqual(
-            f(['mootools.js', 'dmedia.js']),
+            f(['style.css', 'dmedia.js']),
             '\n\n'.join([
-                ui.inline_datafile('mootools.js'),
+                ui.inline_datafile('style.css'),
                 ui.inline_datafile('dmedia.js')
             ])
         )
 
     def test_encode_datafile(self):
         f = ui.encode_datafile
-        mootools = path.join(datadir, 'mootools.js')
+        filename = path.join(datadir, 'style.css')
         self.assertEqual(
-            f('mootools.js'),
-            b64encode(open(mootools, 'rb').read())
+            f('style.css'),
+            b64encode(open(filename, 'rb').read())
         )
 
     def test_iter_datafiles(self):
@@ -95,7 +95,6 @@ class test_functions(TestCase):
                 ('browser.js', 'application/javascript'),
                 ('dmedia.css', 'text/css'),
                 ('dmedia.js', 'application/javascript'),
-                ('mootools.js', 'application/javascript'),
                 ('search.png', 'image/png'),
                 ('stars.png', 'image/png'),
                 ('style.css', 'text/css'),
