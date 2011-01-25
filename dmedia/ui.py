@@ -27,6 +27,10 @@ import os
 from os import path
 import json
 from base64 import b64encode
+from urlparse import urlparse, parse_qs
+import webkit
+from oauth import oauth
+from desktopcouch.local_files import get_oauth_tokens
 from . import datadir
 
 
@@ -97,3 +101,39 @@ def create_app():
             },
         }
     }
+
+
+class CouchView(webkit.WebView):
+    def __init__(self):
+        super(CouchView, self).__init__()
+        self.connect('resource-request-starting', self._on_nav)
+        oauth_data = get_oauth_tokens()
+        self._consumer = oauth.OAuthConsumer(
+            oauth_data['consumer_key'],
+            oauth_data['consumer_secret']
+        )
+        self._token = oauth.OAuthToken(
+            oauth_data['token'],
+            oauth_data['token_secret']
+        )
+
+    def _on_nav(self, view, frame, resource, request, response):
+        uri = request.get_uri()
+        c = urlparse(uri)
+        req = oauth.OAuthRequest.from_consumer_and_token(
+            self._consumer,
+            self._token,
+            http_method='GET',
+            http_url=uri,
+            parameters=parse_qs(c.query)
+        )
+        req.sign_request(
+            oauth.OAuthSignatureMethod_HMAC_SHA1(),
+            self._consumer,
+            self._token
+        )
+        request.set_uri(req.to_url())
+        return
+        request.props.message.props.request_headers.append(
+            'Authorization', req.to_header()['Authorization']
+        )
