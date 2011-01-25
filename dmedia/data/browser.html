@@ -1,27 +1,26 @@
-<html
-    xmlns:py="http://genshi.edgewall.org/"
-    xmlns="http://www.w3.org/1999/xhtml"
-    xml:lang="${lang}"
->
+<html>
 	<head>
-		<title>DMedia Browser</title>
-		<link rel="stylesheet" type="text/css" href="style.css"  />
-		<script type="text/javascript" src="browser.js" />
+		<title> DMedia Browser </title>
+		<link rel="stylesheet" type="text/css" href="style.css"/>
+		<script type="text/javascript" src="browser.js"></script>		
 	</head>
 
 	<body onLoad="load()">
+		<!-- Layer One -->
 		<div id="browser" class="box">
 		</div>
 		<div id="display" class="box">
 		</div>
 		<div id="search" class="box">
 			<form name="search" action="javascript:search_for(document.forms[1].elements['search'].value)" method="get">
-				<input type="text" onSubmit="alert('yo')" name="search" class="search_field" placeholder="tag search" />
+				<input type="text" onSubmit="alert('yo')" name="search" class="search_field" placeholder="tag search">
 			</form>
 		</div>
-
+		<!-- End Layer One -->
+		<!-- Layer Two-->
 		<div id="dim out"></div>
-
+		<!-- End Layer Two-->
+		<!-- Layer Three -->
 		<div id="info" class="box out">
 			<h2>Info Box</h2>
 			<p>Dialogs can go up here. High Eastern Low-noise Loony Otter</p>
@@ -30,6 +29,6 @@
 			</div>
 
 		</div>
-
+		<!-- End Layer Three -->
 	</body>
 </html>
