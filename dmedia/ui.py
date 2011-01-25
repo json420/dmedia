@@ -122,7 +122,6 @@ class CouchView(webkit.WebView):
         if request.props.message is None:
             return
         uri = request.get_uri()
-        print uri
         c = urlparse(uri)
         req = oauth.OAuthRequest.from_consumer_and_token(
             self._consumer,
