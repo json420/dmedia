@@ -29,8 +29,16 @@ placeholder{
 	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
 	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
 	overflow:auto;
-	-webkit-box-shadow:inset 3px 3px 5px rgba(0,0,0,0.5);
-	-moz-box-shadow:inset 3px 3px 5px rgba(0,0,0,0.5);
+/*
+FIXME: WebKit-GTK currently has a severe performance problem when using
+large box-shadows, so this has been disabled for now.  See:
+
+  https://bugs.launchpad.net/ubuntu/+source/webkit/+bug/655012
+
+  https://bugs.webkit.org/show_bug.cgi?id=41031
+*/
+/*	-webkit-box-shadow:inset 3px 3px 5px rgba(0,0,0,0.5); */
+/*	-moz-box-shadow:inset 3px 3px 5px rgba(0,0,0,0.5); */
 	border:1px solid #ddd;
 }
 
@@ -58,7 +66,7 @@ placeholder{
 	border:1px solid #ccc;
 	opacity: 1;
 	-moz-transform: translate(0px, 0px);
-	-webkit-transform: translate(0px, 0px);	
+	-webkit-transform: translate(0px, 0px);
 }
 
 #info.out{
@@ -168,7 +176,7 @@ placeholder{
 	left:11px;
 	height:14px;
 	width:51px;
-	background-image: url("stars.png");	
+	background-image: url("stars.png");
 }
 
 .star_off{
@@ -243,7 +251,7 @@ div .button:active{
 
 ::-webkit-scrollbar {
     width: 10px;
-    height: 10px;    
+    height: 10px;
 }
 
 ::-webkit-scrollbar-button:start:decrement,
