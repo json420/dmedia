@@ -118,13 +118,16 @@ class CouchView(webkit.WebView):
         )
 
     def _on_nav(self, view, frame, resource, request, response):
+        # This seems to be a good way to filter out data: URIs
+        if request.props.message is None:
+            return
         uri = request.get_uri()
+        print uri
         c = urlparse(uri)
-        #print request.props.message.props.method
         req = oauth.OAuthRequest.from_consumer_and_token(
             self._consumer,
             self._token,
-            http_method='GET',
+            http_method=request.props.message.props.method,
             http_url=uri,
             parameters=parse_qs(c.query)
         )
