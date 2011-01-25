@@ -60,7 +60,7 @@ gobject.threads_init()
 
 window = gtk.Window()
 window.set_title('test')
-window.set_default_size(640, 480)
+window.set_default_size(800, 450)
 window.connect('destroy', gtk.main_quit)
 
 box = gtk.VBox()

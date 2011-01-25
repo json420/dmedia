@@ -120,6 +120,7 @@ class CouchView(webkit.WebView):
     def _on_nav(self, view, frame, resource, request, response):
         uri = request.get_uri()
         c = urlparse(uri)
+        #print request.props.message.props.method
         req = oauth.OAuthRequest.from_consumer_and_token(
             self._consumer,
             self._token,
@@ -134,6 +135,7 @@ class CouchView(webkit.WebView):
         )
         request.set_uri(req.to_url())
         return
+        # FIXME: Apparrently we can't actually modify the headers from Python
         request.props.message.props.request_headers.append(
             'Authorization', req.to_header()['Authorization']
         )
