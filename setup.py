@@ -129,7 +129,7 @@ setup(
     package_data=dict(
         dmedia=['data/*'],
     ),
-    scripts=['dmedia-cli', 'dmedia-import'],
+    scripts=['dmedia-cli', 'dmedia-import', 'dmedia-gtk'],
     data_files=[
         ('share/man/man1', ['dmedia-cli.1']),
         ('share/applications', ['dmedia-import.desktop']),

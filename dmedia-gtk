@@ -43,46 +43,49 @@ store = MetaStore()
 app = ui.create_app()
 store.update(app)
 
-uri = store.get_auth_uri() + '/dmedia/app/browser'
 
 if options.browser:
+    uri = store.get_auth_uri() + '/dmedia/app/browser'
     check_call(['xdg-open', uri])
     sys.exit()
+
+uri = store.get_uri() + '/dmedia/app/browser'
 
 
 import gtk
 import gobject
-import webkit
 
 gobject.threads_init()
 
 
 window = gtk.Window()
 window.set_title('test')
-window.set_default_size(640, 480)
+window.set_default_size(800, 450)
 window.connect('destroy', gtk.main_quit)
 
 box = gtk.VBox()
 window.add(box)
 
-view = webkit.WebView()
+view = ui.CouchView()
 box.pack_start(view, True, True, 2)
 
 # Enable inspector
-settings = view.get_settings()
-settings.set_property('enable-developer-extras', True)
-inspector = view.get_web_inspector()
-inspector.set_property('javascript-profiling-enabled', True)
+#settings = view.get_settings()
+#settings.set_property('enable-developer-extras', True)
+#inspector = view.get_web_inspector()
+#inspector.set_property('javascript-profiling-enabled', True)
 
-def on_inspect(*args):
-    view2 = webkit.WebView()
-    box.pack_start(view2, True, True, 2)
-    return view2
+#def on_inspect(*args):
+#    view2 = webkit.WebView()
+#    box.pack_start(view2, True, True, 2)
+#    return view2
 
-inspector.connect('inspect-web-view', on_inspect)
+#inspector.connect('inspect-web-view', on_inspect)
 
 
 window.show_all()
-view.load_uri(uri)
+html = ui.load_datafile('browser.html')
+view.load_string(html, 'text/html', 'UTF-8', uri)
+
 
 gtk.main()

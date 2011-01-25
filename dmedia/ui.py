@@ -27,24 +27,11 @@ import os
 from os import path
 import json
 from base64 import b64encode
-import mimetypes
-from genshi.template import MarkupTemplate
+from urlparse import urlparse, parse_qs
+import webkit
+from oauth import oauth
+from desktopcouch.local_files import get_oauth_tokens
 from . import datadir
-
-mimetypes.init()
-
-CONTENT_TYPE = 'application/xhtml+xml; charset=utf-8'
-
-DEFAULT_KW = (
-    ('lang', 'en'),
-    ('title', None),
-    ('content_type', CONTENT_TYPE),
-    ('links_css', tuple()),
-    ('inline_css', None),
-    ('links_js', tuple()),
-    ('inline_js', None),
-    ('body', None),
-)
 
 
 def render_var(name, obj):
@@ -81,12 +68,6 @@ def inline_datafile(name):
     return datafile_comment(name) + load_datafile(name)
 
 
-def inline_data(names):
-    return '\n\n'.join(
-        inline_datafile(name) for name in names
-    )
-
-
 def encode_datafile(name):
     """
     Read datafile *name* and return base64-encoded.
@@ -94,91 +75,69 @@ def encode_datafile(name):
     return b64encode(load_datafile(name))
 
 
-def iter_datafiles():
-    for name in sorted(os.listdir(datadir)):
-        if name.startswith('.') or name.endswith('~'):
-            continue
-        if name.endswith('.xml'):
-            continue
-        if not path.isfile(path.join(datadir, name)):
-            continue
-        ext = path.splitext(name)[1]
-        yield (name, mimetypes.types_map.get(ext))
-
-
 def create_app():
-    att = dict(
-        (name, {'content_type': mime, 'data': encode_datafile(name)})
-        for (name, mime) in iter_datafiles()
-    )
-    att['browser'] = {
-        'content_type': CONTENT_TYPE,
-        'data': encode_template(load_template('browser.xml')),
-    }
     return {
         '_id': 'app',
-        '_attachments': att,
+        '_attachments': {
+            'browser': {
+                'data': encode_datafile('browser.html'),
+                'content_type': 'text/html',
+            },
+            'style.css': {
+                'data': encode_datafile('style.css'),
+                'content_type': 'text/css',
+            },
+            'browser.js': {
+                'data': encode_datafile('browser.js'),
+                'content_type': 'application/javascript',
+            },
+            'search.png': {
+                'data': encode_datafile('search.png'),
+                'content_type': 'image/png',
+            },
+            'stars.png': {
+                'data': encode_datafile('stars.png'),
+                'content_type': 'image/png',
+            },
+        }
     }
 
 
-def load_template(name):
-    return MarkupTemplate(load_datafile(name), filename=datafile(name))
-
-
-def render_template(template, **kw):
-    kw2 = dict(DEFAULT_KW)
-    kw2.update(kw)
-    return template.generate(**kw2).render('xhtml', doctype='xhtml11')
-
-
-def encode_template(template, **kw):
-    return b64encode(render_template(template, **kw))
-
-
-class Page(object):
-    toplevel = 'toplevel.xml'
-    body = None
-
-    inline_css_files = tuple()
-    inline_js_files = tuple()
-    inline_css = ''
-    inline_js = ''
-
+class CouchView(webkit.WebView):
     def __init__(self):
-        self.toplevel_t = load_template(self.toplevel)
-        self.body_t = (load_template(self.body) if self.body else None)
-        if self.inline_css_files:
-            self.inline_css = inline_data(self.inline_css_files)
-        if self.inline_js_files:
-            self.inline_js = inline_data(self.inline_js_files)
+        super(CouchView, self).__init__()
+        self.connect('resource-request-starting', self._on_nav)
+        oauth_data = get_oauth_tokens()
+        self._consumer = oauth.OAuthConsumer(
+            oauth_data['consumer_key'],
+            oauth_data['consumer_secret']
+        )
+        self._token = oauth.OAuthToken(
+            oauth_data['token'],
+            oauth_data['token_secret']
+        )
 
-    def render(self):
-        pass
-
-
-
-
-class WSGIApp(object):
-    scripts = ('mootools.js', 'dmedia.js')
-    styles = ('dmedia.css',)
-
-    def __init__(self):
-        self.template = load_template('browser.xml')
-        self.js = '\n\n'.join(load_datafile(n) for n in self.scripts)
-        self.css = '\n\n'.join(load_datafile(n) for n in self.styles)
-        print self.css
-
-    def __call__(self, environ, start_response):
-        s = self.render()
-        response_headers = [
-            ('Content-Type', CONTENT_TYPE),
-            ('Content-Length', str(len(s))),
-        ]
-        start_response('200 OK', response_headers)
-        return [s]
-
-    def render(self):
-        return render_template(self.template,
-            inline_js=self.js,
-            inline_css=self.css,
+    def _on_nav(self, view, frame, resource, request, response):
+        # This seems to be a good way to filter out data: URIs
+        if request.props.message is None:
+            return
+        uri = request.get_uri()
+        c = urlparse(uri)
+        req = oauth.OAuthRequest.from_consumer_and_token(
+            self._consumer,
+            self._token,
+            http_method=request.props.message.props.method,
+            http_url=uri,
+            parameters=parse_qs(c.query)
+        )
+        req.sign_request(
+            oauth.OAuthSignatureMethod_HMAC_SHA1(),
+            self._consumer,
+            self._token
+        )
+        request.set_uri(req.to_url())
+        return
+        # FIXME: Apparrently we can't actually modify the headers from Python
+        request.props.message.props.request_headers.append(
+            'Authorization', req.to_header()['Authorization']
         )
