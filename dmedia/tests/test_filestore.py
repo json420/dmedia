@@ -291,7 +291,7 @@ class test_HashList(TestCase):
         inst.update(a)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a)]
+            [digest_a]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -300,7 +300,7 @@ class test_HashList(TestCase):
         inst.update(b)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a), b32encode(digest_b)]
+            [digest_a, digest_b]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -317,7 +317,7 @@ class test_HashList(TestCase):
         inst.update(a)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a)]
+            [digest_a]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -326,7 +326,7 @@ class test_HashList(TestCase):
         inst.update(b)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a), b32encode(digest_b)]
+            [digest_a, digest_b]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -354,7 +354,10 @@ class test_HashList(TestCase):
             HashList(open(dst_fp.name, 'rb')).run(),
             mov_hash
         )
-        self.assertEqual(inst.leaves, ['OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'])
+        self.assertEqual(
+            inst.leaves,
+            [b32decode('OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')]
+        )
 
         # Test when src_fp > leaf_size:
         src_fp = open(sample_mov, 'rb')
@@ -372,8 +375,8 @@ class test_HashList(TestCase):
         self.assertEqual(
             inst.leaves,
             [
-                '7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75',
-                'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI',
+                b32decode('7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75'),
+                b32decode('FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'),
             ]
         )
 

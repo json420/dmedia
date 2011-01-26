@@ -224,7 +224,7 @@ class HashList(object):
         """
         digest = HASH(chunk).digest()
         self.h.update(digest)
-        self.leaves.append(b32encode(digest))
+        self.leaves.append(digest)
         if self.dst_fp is not None:
             self.dst_fp.write(chunk)
 
