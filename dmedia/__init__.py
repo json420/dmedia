@@ -31,7 +31,7 @@ so keep your hardhats on!  A good place to start is the `FileStore` class in the
 current code.
 """
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 import os
 from os import path
