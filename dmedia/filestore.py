@@ -251,6 +251,29 @@ class HashList(object):
         return b32encode(self.h.digest())
 
 
+def pack_leaves(leaves, digest_bytes=20):
+    for (i, leaf) in enumerate(leaves):
+        if len(leaf) != digest_bytes:
+            raise ValueError('digest_bytes=%d, but len(leaves[%d]) is %d' % (
+                    digest_bytes, i, len(leaf)
+                )
+            )
+    return ''.join(leaves)
+
+
+def unpack_leaves(data, digest_bytes=20):
+    if len(data) % digest_bytes != 0:
+        raise ValueError(
+            'len(data)=%d, not multiple of digest_bytes=%d' % (
+                len(data), digest_bytes
+            )
+        )
+    return [
+        data[i*digest_bytes : (i+1)*digest_bytes]
+        for i in xrange(len(data) / digest_bytes)
+    ]
+
+
 def quick_id(fp):
     """
     Compute a quick reasonably unique ID for the open file *fp*.
