@@ -30,7 +30,7 @@ import hashlib
 import tempfile
 import shutil
 import time
-from base64 import b32decode, b32encode
+from base64 import b32decode, b32encode, b64encode
 from unittest import TestCase
 from multiprocessing import current_process
 from .helpers import CouchCase, TempDir, TempHome, raises
@@ -350,10 +350,15 @@ class test_Importer(CouchCase):
         size = path.getsize(src1)
         doc = {
             '_id': mov_hash,
+            '_attachments': {
+                'leaves': {
+                    'data': b64encode(''.join(mov_leaves)),
+                    'content_type': 'application/octet-stream',
+                }
+            },
             'type': 'dmedia/file',
             'import_id': None,
             'qid': mov_qid,
-            'leaves': mov_leaves,
             'bytes': size,
             'mtime': path.getmtime(src1),
             'basename': 'MVI_5751.MOV',
@@ -383,6 +388,8 @@ class test_Importer(CouchCase):
         self.assertEqual(action, 'skipped')
         doc2 = dict(wrapper)
         del doc2['_rev']
+        del doc2['_attachments']
+        del doc['_attachments']
         self.assertEqual(doc2, doc)
         self.assertEqual(inst.get_stats(),
              {
@@ -419,10 +426,15 @@ class test_Importer(CouchCase):
         self.assertEqual(items[0][2],
             {
                 '_id': mov_hash,
+                '_attachments': {
+                    'leaves': {
+                        'data': b64encode(''.join(mov_leaves)),
+                        'content_type': 'application/octet-stream',
+                    }
+                },
                 'type': 'dmedia/file',
                 'import_id': import_id,
                 'qid': mov_qid,
-                'leaves': mov_leaves,
                 'bytes': path.getsize(src1),
                 'mtime': path.getmtime(src1),
                 'basename': 'MVI_5751.MOV',
@@ -434,10 +446,15 @@ class test_Importer(CouchCase):
         self.assertEqual(items[1][2],
             {
                 '_id': thm_hash,
+                '_attachments': {
+                    'leaves': {
+                        'data': b64encode(''.join(thm_leaves)),
+                        'content_type': 'application/octet-stream',
+                    }
+                },
                 'type': 'dmedia/file',
                 'import_id': import_id,
                 'qid': thm_qid,
-                'leaves': thm_leaves,
                 'bytes': path.getsize(src2),
                 'mtime': path.getmtime(src2),
                 'basename': 'MVI_5751.THM',

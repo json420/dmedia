@@ -429,12 +429,12 @@ class test_functions(TestCase):
             )
         )
 
-
     def test_merge_exif(self):
         f = extractor.merge_exif
         self.assertTrue(sample_thm.endswith('.THM'))
+        attachments = {}
         self.assertEqual(
-            dict(f(sample_thm)),
+            dict(f(sample_thm, attachments)),
             dict(
                 width=160,
                 height=120,
@@ -447,16 +447,17 @@ class test_functions(TestCase):
                 mtime=1287520994 + 68 / 100.0,
             ),
         )
+        self.assertEqual(attachments, {})
 
 
     def test_merge_video_info(self):
         f = extractor.merge_video_info
         tmp = TempDir()
 
-        merged = dict(f(sample_mov))
+        att = {}
+        merged = dict(f(sample_mov, att))
 
         # Check canon.thm attachment
-        att = merged.pop('_attachments')
         self.assertEqual(set(att), set(['thumbnail', 'canon.thm']))
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
@@ -500,6 +501,7 @@ class test_functions(TestCase):
         # Test invalid file:
         invalid_mov = tmp.write('Wont work!', 'invalid.mov')
         invalid_thm = tmp.write('Wont work either!', 'invalid.thm')
-        merged = dict(f(invalid_mov))
-        self.assertTrue('thumbnail' not in merged)
-        self.assertEqual(merged, {'_attachments': {}})
+        att = {}
+        merged = dict(f(invalid_mov, att))
+        self.assertEqual(merged, {})
+        self.assertEqual(att, {})

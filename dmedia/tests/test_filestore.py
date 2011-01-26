@@ -131,6 +131,56 @@ class test_functions(TestCase):
         good = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         assert f(good) is good
 
+    def test_pack_leaves(self):
+        f = filestore.pack_leaves
+
+        a = 'a' * 20
+        b = 'b' * 20
+        c = 'c' * 20
+        d = 'd' * 20
+        self.assertEqual(f([a, b, c]), a + b + c)
+        self.assertEqual(f([a, b, c, d]), a + b + c + d)
+
+        e = raises(ValueError, f, [a, b, c], digest_bytes=25)
+        self.assertEqual(
+            str(e),
+            'digest_bytes=25, but len(leaves[0]) is 20'
+        )
+        e = raises(ValueError, f, [a, 'b' * 15, c])
+        self.assertEqual(
+            str(e),
+            'digest_bytes=20, but len(leaves[1]) is 15'
+        )
+
+    def test_unpack_leaves(self):
+        f = filestore.unpack_leaves
+
+        a = 'a' * 20
+        b = 'b' * 20
+        c = 'c' * 20
+        d = 'd' * 20
+        data = a + b + c + d
+        self.assertEqual(f(data), [a, b, c, d])
+
+        a = 'a' * 32
+        b = 'b' * 32
+        c = 'c' * 32
+        d = 'd' * 32
+        e = 'e' * 32
+        data = a + b + c + d + e
+        self.assertEqual(f(data, digest_bytes=32), [a, b, c, d, e])
+
+        e = raises(ValueError, f, 'a' * 201)
+        self.assertEqual(
+            str(e),
+            'len(data)=201, not multiple of digest_bytes=20'
+        )
+        e = raises(ValueError, f, 'a' * 200, digest_bytes=16)
+        self.assertEqual(
+            str(e),
+            'len(data)=200, not multiple of digest_bytes=16'
+        )
+
     def test_quick_id(self):
         f = filestore.quick_id
 
@@ -241,7 +291,7 @@ class test_HashList(TestCase):
         inst.update(a)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a)]
+            [digest_a]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -250,7 +300,7 @@ class test_HashList(TestCase):
         inst.update(b)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a), b32encode(digest_b)]
+            [digest_a, digest_b]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -267,7 +317,7 @@ class test_HashList(TestCase):
         inst.update(a)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a)]
+            [digest_a]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -276,7 +326,7 @@ class test_HashList(TestCase):
         inst.update(b)
         self.assertEqual(
             inst.leaves,
-            [b32encode(digest_a), b32encode(digest_b)]
+            [digest_a, digest_b]
         )
         self.assertEqual(
             inst.h.digest(),
@@ -304,7 +354,10 @@ class test_HashList(TestCase):
             HashList(open(dst_fp.name, 'rb')).run(),
             mov_hash
         )
-        self.assertEqual(inst.leaves, ['OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE'])
+        self.assertEqual(
+            inst.leaves,
+            [b32decode('OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE')]
+        )
 
         # Test when src_fp > leaf_size:
         src_fp = open(sample_mov, 'rb')
@@ -322,8 +375,8 @@ class test_HashList(TestCase):
         self.assertEqual(
             inst.leaves,
             [
-                '7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75',
-                'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI',
+                b32decode('7IYAMI5IEHVDWDPWCVPRUMJJNI4TZE75'),
+                b32decode('FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'),
             ]
         )
 

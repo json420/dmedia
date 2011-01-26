@@ -222,14 +222,17 @@ def register(callback, *extensions):
 
 def merge_metadata(src, doc):
     ext = doc['ext']
+    attachments = doc.get('_attachments', {})
     if ext in _extractors:
         callback = _extractors[ext]
-        for (key, value) in callback(src):
+        for (key, value) in callback(src, attachments):
             if key not in doc or key == 'mtime':
                 doc[key] = value
+    if attachments and '_attachments' not in doc:
+        doc['_attachments'] = attachments
 
 
-def merge_exif(src):
+def merge_exif(src, attachments):
     exif = extract_exif(src)
     for (key, values) in EXIF_REMAP.iteritems():
         for v in values:
@@ -244,7 +247,7 @@ def merge_exif(src):
 register(merge_exif, 'jpg', 'png', 'cr2')
 
 
-def merge_video_info(src):
+def merge_video_info(src, attachments):
     info = extract_video_info(src)
     for (dst_key, src_key) in TOTEM_REMAP:
         if src_key in info:
@@ -256,8 +259,6 @@ def merge_video_info(src):
             yield (dst_key, value)
 
     # Try to generate thumbnail:
-    attachments = {}
-    yield ('_attachments', attachments)
     thumbnail = generate_thumbnail(src)
     if thumbnail is not None:
         attachments['thumbnail'] = thumbnail
@@ -272,7 +273,7 @@ def merge_video_info(src):
             'content_type': 'image/jpeg',
             'data': file_2_base64(thm),
         }
-        for (key, value) in merge_exif(thm):
+        for (key, value) in merge_exif(thm, attachments):
             if key in ('width', 'height'):
                 continue
             yield (key, value)

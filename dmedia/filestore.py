@@ -224,7 +224,7 @@ class HashList(object):
         """
         digest = HASH(chunk).digest()
         self.h.update(digest)
-        self.leaves.append(b32encode(digest))
+        self.leaves.append(digest)
         if self.dst_fp is not None:
             self.dst_fp.write(chunk)
 
@@ -249,6 +249,29 @@ class HashList(object):
         if self.dst_fp is not None:
             os.fchmod(self.dst_fp.fileno(), 0o444)
         return b32encode(self.h.digest())
+
+
+def pack_leaves(leaves, digest_bytes=20):
+    for (i, leaf) in enumerate(leaves):
+        if len(leaf) != digest_bytes:
+            raise ValueError('digest_bytes=%d, but len(leaves[%d]) is %d' % (
+                    digest_bytes, i, len(leaf)
+                )
+            )
+    return ''.join(leaves)
+
+
+def unpack_leaves(data, digest_bytes=20):
+    if len(data) % digest_bytes != 0:
+        raise ValueError(
+            'len(data)=%d, not multiple of digest_bytes=%d' % (
+                len(data), digest_bytes
+            )
+        )
+    return [
+        data[i*digest_bytes : (i+1)*digest_bytes]
+        for i in xrange(len(data) / digest_bytes)
+    ]
 
 
 def quick_id(fp):
