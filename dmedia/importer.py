@@ -28,9 +28,10 @@ import os
 from os import path
 import mimetypes
 import time
+from base64 import b64encode
 from .util import random_id
 from .workers import Worker, Manager, register, isregistered
-from .filestore import FileStore, quick_id, safe_open, safe_ext
+from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
 from .metastore import MetaStore
 from .extractor import merge_metadata
 
@@ -227,9 +228,14 @@ class Importer(object):
         stat = os.fstat(fp.fileno())
         doc = {
             '_id': chash,
+            '_attachments': {
+                'leaves': {
+                    'data': b64encode(pack_leaves(leaves)),
+                    'content_type': 'application/octet-stream',
+                }
+            },
             'type': 'dmedia/file',
             'qid': quickid,
-            'leaves': leaves,
             'import_id': self._import_id,
             'bytes': stat.st_size,
             'mtime': stat.st_mtime,
