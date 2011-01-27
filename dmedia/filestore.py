@@ -351,9 +351,7 @@ class FileStore(object):
         """
         Relative path of file with *chash*, ending with *ext*.
 
-        This staticmethod returns the relative path components for the canonical
-        name of a file with a content-hash *chash*, optionally ending with an
-        extension *ext*.  For example:
+        For example:
 
         >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
@@ -377,9 +375,7 @@ class FileStore(object):
         """
         Relative path of temporary file with *chash*, ending with *ext*.
 
-        This staticmethod returns the relative path components for the canonical
-        name of a temporary file with a content-hash *chash*, optionally ending
-        with an extension *ext*.  For example:
+        For example:
 
         >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
