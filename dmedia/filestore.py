@@ -323,7 +323,7 @@ def quick_id(fp):
 
 def fallocate(size, filename):
     """
-    Attempt to efficiently pre-allocate file *filename* to *size* bytes.
+    Attempt to efficiently preallocate file *filename* to *size* bytes.
 
     If the fallocate command is available, it will always at least create an
     empty file (the equivalent of ``touch filename``), even the file-system
@@ -362,8 +362,8 @@ class FileStore(object):
     You can add files to the store using `FileStore.import_file()`:
 
     >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
-    >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
-    ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
+    >>> fs.import_file(src_fp, 'mov')  #doctest: +SKIP
+    ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', <leaves>)
 
     And when you have the content-hash and extension, you can retrieve the full
     path of the file using `FileStore.path()`:
@@ -372,28 +372,22 @@ class FileStore(object):
     '/home/user/.dmedia/HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
 
     As the files are assumed to be read-only and unchanging, moving a file into
-    its canonical location must be atomic.  There are 3 scenarios that must be
+    its canonical location must be atomic.  There are 2 scenarios that must be
     considered:
 
-        1. Initial import of file on same disk device as `FileStore` - this is
-           the simplest case.  Imported file is hashed and then hard-linked into
-           its canonical location.
+        1. Imports - we compute the content-hash as we copy the file into the
+           `FileStore`, so this requires a randomly-named temporary file.  When
+           the copy completes, file is renamed to its canonical name.
 
-        2. Initial import - as file will be copied from another disk device,
-           requires the use of a temporary file.  When copy completes, file is
-           is renamed to its canonical name.  During an initial import, the
-           temporary file is named based on the quick_id(), which will be known
-           prior to the import.
+        2. Transfers - as uploads/downloads might stop or fail and then be
+           resumed, this requires a canonically-named temporary file.  As the
+           file content-hash is already known (we have its meta-data in
+           CouchDB), the temporary file is named by the content-hash.  Once
+           download completes, file is renamed to its canonical name.
 
-        3. Download - as download might fail and be resumed, requires a
-           canonically named temporary file.  As content-hash is already known
-           (file is already in library), the temporary file should be named by
-           content-hash.  Once download completes and content is verified, file
-           is renamed to its canonical name.
-
-    In scenario (2) and (3), the filesize will be known when the temporary file
-    is created, so an attempt is made to preallocate the entire file using the
-    ``fallocate`` command.
+    In both scenarios, the file size will be known when the temporary file is
+    created, so an attempt is made to preallocate the entire file using the
+    `fallocate()` function, which calls the Linux ``fallocate`` command.
     """
 
     def __init__(self, base):
@@ -444,40 +438,6 @@ class FileStore(object):
         if ext:
             return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
         return (TRANSFERS_DIR, chash)
-
-    @staticmethod
-    def reltmp(quickid=None, chash=None, ext=None):
-        """
-        Relative path components of temporary file.
-
-        Temporary files are created in either an ``'imports'`` or
-        ``'downloads'`` sub-directory based on whether you're doing an initial
-        import or downloading a file already present in the library.
-
-        For initial imports, provide the *quickid* like this:
-
-        >>> FileStore.reltmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
-        ('imports', 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov')
-
-        For downloads, the content-hash will already be known, so provide the
-        *chash* like this:
-
-        >>> FileStore.reltmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
-        ('downloads', 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
-
-        Also see `FileStore.relpath()`.
-        """
-        if quickid:
-            dname = 'imports'
-            fname = safe_b32(quickid)
-        elif chash:
-            dname = 'downloads'
-            fname = safe_b32(chash)
-        else:
-            raise TypeError('must provide either `chash` or `quickid`')
-        if ext:
-            return (dname, '.'.join((fname, safe_ext(ext))))
-        return (dname, fname)
 
     def join(self, *parts):
         """
@@ -598,33 +558,6 @@ class FileStore(object):
         `FileStore.create_parent()`.
         """
         filename = self.join(*self.reltemp(chash, ext))
-        if create:
-            self.create_parent(filename)
-        return filename
-
-    def tmp(self, quickid=None, chash=None, ext=None, create=False):
-        """
-        Returns path of temporary file.
-
-        Temporary files are created in either an ``'imports'`` or a
-        ``'downloads'`` sub-directory based on whether you're doing an initial
-        import or downloading a file already present in the library.
-
-        For initial imports, provide the *quickid* like this:
-
-        >>> fs = FileStore('/foo')
-        >>> fs.tmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
-        '/foo/imports/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov'
-
-        For downloads, the content-hash will already be known, so provide the
-        *chash* like this:
-
-        >>> fs.tmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
-        '/foo/downloads/OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov'
-
-        Also see `FileStore.path()`, `FileStore.allocate_tmp()`.
-        """
-        filename = self.join(*self.reltmp(quickid, chash, ext))
         if create:
             self.create_parent(filename)
         return filename
