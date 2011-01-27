@@ -33,7 +33,7 @@ from unittest import TestCase
 from .helpers import TempDir, TempHome, raises
 from .helpers import sample_mov, sample_thm
 from .helpers import mov_hash, mov_leaves, mov_qid
-from dmedia.errors import AmbiguousPath, DuplicateFile
+from dmedia.errors import AmbiguousPath, FileStoreTraversal, DuplicateFile
 from dmedia.filestore import HashList
 from dmedia import filestore, constants
 from dmedia.constants import TYPE_ERROR
@@ -521,6 +521,21 @@ class test_FileStore(TestCase):
             str(e),
             'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
+
+    def test_check_path(self):
+        inst = self.klass('/foo/bar')
+
+        e = raises(FileStoreTraversal, inst.check_path, '/foo/barNone/stuff')
+        self.assertEqual(e.pathname, '/foo/barNone/stuff')
+        self.assertEqual(e.abspath, '/foo/barNone/stuff')
+        self.assertEqual(e.base, '/foo/bar')
+
+        e = raises(FileStoreTraversal, inst.check_path, '/foo/bar/../barNone')
+        self.assertEqual(e.pathname, '/foo/bar/../barNone')
+        self.assertEqual(e.abspath, '/foo/barNone')
+        self.assertEqual(e.base, '/foo/bar')
+
+        self.assertEqual(inst.check_path('/foo/bar/stuff/'), '/foo/bar/stuff')
 
     def test_join(self):
         inst = self.klass('/foo/bar')

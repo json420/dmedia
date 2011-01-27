@@ -47,7 +47,7 @@ import logging
 from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
-from .errors import AmbiguousPath, DuplicateFile
+from .errors import AmbiguousPath, DuplicateFile, FileStoreTraversal
 from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR
 
 
@@ -437,6 +437,14 @@ class FileStore(object):
         if ext:
             return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
         return (TRANSFERS_DIR, chash)
+
+    def check_path(self, pathname):
+        abspath = path.abspath(pathname)
+        if abspath.startswith(self.base + os.sep):
+            return abspath
+        raise FileStoreTraversal(
+            pathname=pathname, base=self.base, abspath=abspath
+        )
 
     def join(self, *parts):
         """
