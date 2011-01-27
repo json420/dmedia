@@ -53,9 +53,9 @@ class FileStoreTraversal(DmediaError):
     >>> raise FileStoreTraversal(pathname='/foo/barNone/baz', base='/foo/bar')
     Traceback (most recent call last):
       ...
-    FileStoreTraversal: '/foo/barNone/baz' is outside of base '/foo/bar'
+    FileStoreTraversal: '/foo/barNone/baz' outside base '/foo/bar'
     """
-    _format = '%(pathname)r is outside of base %(base)r'
+    _format = '%(pathname)r outside base %(base)r'
 
 
 class DuplicateFile(DmediaError):

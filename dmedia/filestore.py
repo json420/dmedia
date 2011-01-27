@@ -451,38 +451,36 @@ class FileStore(object):
         Safely join *parts* with base directory to prevent path traversal.
 
         For security reasons, it's very important that you use this method
-        rather than ``path.join()`` directly.  This method will prevent
-        directory/path traversal, ``path.join()`` will not.
+        rather than ``path.join()`` directly.  This method will prevent path
+        traversal attacks, ``path.join()`` will not.
 
         For example:
 
-        >>> fs = FileStore('/home/name/.dmedia')
+        >>> fs = FileStore('/home/.dmedia')
         >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        '/home/name/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        '/home/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-        However, a ``ValueError`` is raised if *parts* cause a path traversal
-        outside of the `FileStore` base directory:
 
-        >>> fs.join('../.ssh/id_rsa')
+        However, a `FileStoreTraversal` is raised if *parts* cause a path
+        traversal outside of the `FileStore` base directory:
+
+        >>> fs.join('../ssh')
         Traceback (most recent call last):
           ...
-        ValueError: parts ('../.ssh/id_rsa',) cause path traversal to '/home/name/.ssh/id_rsa'
+        FileStoreTraversal: '/home/.dmedia/../ssh' outside base '/home/.dmedia'
+
 
         Or Likewise if an absolute path is included in *parts*:
 
         >>> fs.join('NW', '/etc', 'ssh')
         Traceback (most recent call last):
           ...
-        ValueError: parts ('NW', '/etc', 'ssh') cause path traversal to '/etc/ssh'
+        FileStoreTraversal: '/etc/ssh' outside base '/home/.dmedia'
 
         Also see `FileStore.create_parent()`.
         """
-        fullpath = path.normpath(path.join(self.base, *parts))
-        if fullpath.startswith(self.base + os.sep):
-            return fullpath
-        raise ValueError('parts %r cause path traversal to %r' %
-            (parts, fullpath)
-        )
+        fullpath = path.join(self.base, *parts)
+        return self.check_path(fullpath)
 
     def create_parent(self, filename):
         """

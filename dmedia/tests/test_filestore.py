@@ -539,29 +539,25 @@ class test_FileStore(TestCase):
 
     def test_join(self):
         inst = self.klass('/foo/bar')
-        TRAVERSAL = 'parts %r cause path traversal to %r'
 
         # Test with an absolute path in parts:
-        e = raises(ValueError, inst.join, 'dmedia', '/root')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('dmedia', '/root'), '/root')
-        )
+        e = raises(FileStoreTraversal, inst.join, 'dmedia', '/root')
+        self.assertEqual(e.pathname, '/root')
+        self.assertEqual(e.abspath, '/root')
+        self.assertEqual(e.base, '/foo/bar')
 
         # Test with some .. climbers:
-        e = raises(ValueError, inst.join, 'NW/../../.ssh')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('NW/../../.ssh',), '/foo/.ssh')
-        )
+        e = raises(FileStoreTraversal, inst.join, 'NW/../../.ssh')
+        self.assertEqual(e.pathname, '/foo/bar/NW/../../.ssh')
+        self.assertEqual(e.abspath, '/foo/.ssh')
+        self.assertEqual(e.base, '/foo/bar')
 
         # Test for former security issue!  See:
         # https://bugs.launchpad.net/dmedia/+bug/708663
-        e = raises(ValueError, inst.join, '..', 'barNone', 'stuff')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('..', 'barNone', 'stuff'), '/foo/barNone/stuff')
-        )
+        e = raises(FileStoreTraversal, inst.join, '..', 'barNone', 'stuff')
+        self.assertEqual(e.pathname, '/foo/bar/../barNone/stuff')
+        self.assertEqual(e.abspath, '/foo/barNone/stuff')
+        self.assertEqual(e.base, '/foo/bar')
 
         # Test with some correct parts:
         self.assertEqual(
