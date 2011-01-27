@@ -676,6 +676,61 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
 
+    def test_temp(self):
+        inst = self.klass('/foo')
+
+        self.assertEqual(
+            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        )
+        self.assertEqual(
+            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv'
+        )
+
+        # Test to make sure hashes are getting checked with safe_b32():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.temp, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.temp, bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, inst.temp, chash, bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
+        )
+
+        # Test with create=True
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        f = tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('transfers')
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertFalse(path.exists(d))
+        self.assertEqual(
+            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', create=True),
+            f
+        )
+        self.assertFalse(path.exists(f))
+        self.assertTrue(path.isdir(d))
+
     def test_tmp(self):
         inst = self.klass('/foo')
 
@@ -767,6 +822,25 @@ class test_FileStore(TestCase):
         )
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
+
+    def test_allocate_for_transfer(self):
+        tmp = TempDir()
+        imports = tmp.join('imports')
+
+        inst = self.klass(tmp.path)
+        self.assertFalse(path.isdir(imports))
+        f = inst.allocate_for_import()
+        self.assertTrue(path.isdir(imports))
+        self.assertTrue(f.startswith(imports + '/'))
+        self.assertTrue(path.isfile(f))
+        self.assertEqual(path.getsize(f), 0)
+        self.assertTrue(
+            '.' not in path.basename(f)
+        )
+
+        f = inst.allocate_for_import(ext='mov')
+        self.assertTrue(path.isfile(f))
+        self.assertTrue(f.endswith('.mov'))
 
     def test_allocate_for_import(self):
         tmp = TempDir()

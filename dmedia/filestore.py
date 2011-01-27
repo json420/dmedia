@@ -538,12 +538,43 @@ class FileStore(object):
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
+
         Or with a file extension:
 
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+
+
+        If called with ``create=True``, the parent directory is created with
+        `FileStore.create_parent()`.
         """
         filename = self.join(*self.relpath(chash, ext))
+        if create:
+            self.create_parent(filename)
+        return filename
+
+    def temp(self, chash, ext=None, create=False):
+        """
+        Returns path of temporary file with *chash*, ending with *ext*.
+
+        These temporary files are used for file transfers between dmedia peers,
+        in which case the content-hash is already known.  For example:
+
+        >>> fs = FileStore('/foo')
+        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+
+        Or with a file extension:
+
+        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
+        '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+
+
+        If called with ``create=True``, the parent directory is created with
+        `FileStore.create_parent()`.
+        """
+        filename = self.join(*self.reltemp(chash, ext))
         if create:
             self.create_parent(filename)
         return filename
@@ -574,6 +605,25 @@ class FileStore(object):
         if create:
             self.create_parent(filename)
         return filename
+
+    def fallocate(self, filename, size):
+        """
+        Attempt to efficiently pre-allocate a file of *size* bytes.
+        """
+        self.create_parent(filename)
+        try:
+            check_call([FALLOCATE, '-l', str(size), filename])
+            return True
+        except CalledProcessError:
+            return False
+
+    def allocate_for_transfer(self, size, chash, ext=None):
+        imports = self.join(IMPORTS_DIR)
+        if not path.exists(imports):
+            os.makedirs(imports)
+        suffix = ('' if ext is None else '.' + ext)
+        (fileno, tmp) = tempfile.mkstemp(suffix=suffix, dir=imports)
+        return tmp
 
     def allocate_for_import(self, ext=None, size=None):
         imports = self.join(IMPORTS_DIR)
