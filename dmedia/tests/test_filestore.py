@@ -33,7 +33,7 @@ from unittest import TestCase
 from .helpers import TempDir, TempHome, raises
 from .helpers import sample_mov, sample_thm
 from .helpers import mov_hash, mov_leaves, mov_qid
-from dmedia.errors import AmbiguousPath, DuplicateFile
+from dmedia.errors import AmbiguousPath, FileStoreTraversal, DuplicateFile
 from dmedia.filestore import HashList
 from dmedia import filestore, constants
 from dmedia.constants import TYPE_ERROR
@@ -522,23 +522,42 @@ class test_FileStore(TestCase):
             'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
+    def test_check_path(self):
+        inst = self.klass('/foo/bar')
+
+        e = raises(FileStoreTraversal, inst.check_path, '/foo/barNone/stuff')
+        self.assertEqual(e.pathname, '/foo/barNone/stuff')
+        self.assertEqual(e.abspath, '/foo/barNone/stuff')
+        self.assertEqual(e.base, '/foo/bar')
+
+        e = raises(FileStoreTraversal, inst.check_path, '/foo/bar/../barNone')
+        self.assertEqual(e.pathname, '/foo/bar/../barNone')
+        self.assertEqual(e.abspath, '/foo/barNone')
+        self.assertEqual(e.base, '/foo/bar')
+
+        self.assertEqual(inst.check_path('/foo/bar/stuff/'), '/foo/bar/stuff')
+
     def test_join(self):
         inst = self.klass('/foo/bar')
-        TRAVERSAL = 'parts %r cause path traversal to %r'
 
         # Test with an absolute path in parts:
-        e = raises(ValueError, inst.join, 'dmedia', '/root')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('dmedia', '/root'), '/root')
-        )
+        e = raises(FileStoreTraversal, inst.join, 'dmedia', '/root')
+        self.assertEqual(e.pathname, '/root')
+        self.assertEqual(e.abspath, '/root')
+        self.assertEqual(e.base, '/foo/bar')
 
         # Test with some .. climbers:
-        e = raises(ValueError, inst.join, 'NW/../../.ssh')
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (('NW/../../.ssh',), '/foo/.ssh')
-        )
+        e = raises(FileStoreTraversal, inst.join, 'NW/../../.ssh')
+        self.assertEqual(e.pathname, '/foo/bar/NW/../../.ssh')
+        self.assertEqual(e.abspath, '/foo/.ssh')
+        self.assertEqual(e.base, '/foo/bar')
+
+        # Test for former security issue!  See:
+        # https://bugs.launchpad.net/dmedia/+bug/708663
+        e = raises(FileStoreTraversal, inst.join, '..', 'barNone', 'stuff')
+        self.assertEqual(e.pathname, '/foo/bar/../barNone/stuff')
+        self.assertEqual(e.abspath, '/foo/barNone/stuff')
+        self.assertEqual(e.base, '/foo/bar')
 
         # Test with some correct parts:
         self.assertEqual(
@@ -554,18 +573,16 @@ class test_FileStore(TestCase):
         tmp = TempDir()
         tmp2 = TempDir()
         inst = self.klass(tmp.path)
-        TRAVERSAL = 'Wont create %r outside of base %r for file %r'
 
         # Test with a normpath but outside of base:
         f = tmp2.join('foo', 'bar')
         d = tmp2.join('foo')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        e = raises(ValueError, inst.create_parent, f)
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (d, inst.base, f)
-        )
+        e = raises(FileStoreTraversal, inst.create_parent, f)
+        self.assertEqual(e.pathname, f)
+        self.assertEqual(e.abspath, f)
+        self.assertEqual(e.base, tmp.path)
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
 
@@ -575,11 +592,10 @@ class test_FileStore(TestCase):
         d = tmp2.join('baz')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        e = raises(ValueError, inst.create_parent, f)
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (d, inst.base, f)
-        )
+        e = raises(FileStoreTraversal, inst.create_parent, f)
+        self.assertEqual(e.pathname, f)
+        self.assertEqual(e.abspath, tmp2.join('baz', 'f'))
+        self.assertEqual(e.base, tmp.path)
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
 
@@ -612,6 +628,20 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(f))
         self.assertEqual(inst.create_parent(f), tmp.path)
         self.assertFalse(path.exists(f))
+
+        # Test for former security issue!  See:
+        # https://bugs.launchpad.net/dmedia/+bug/708663
+        tmp = TempDir()
+        base = tmp.join('foo', 'bar')
+        bad = tmp.join('foo', 'barNone', 'stuff')
+        baddir = tmp.join('foo', 'barNone')
+        inst = self.klass(base)
+        e = raises(FileStoreTraversal, inst.create_parent, bad)
+        self.assertEqual(e.pathname, bad)
+        self.assertEqual(e.abspath, bad)
+        self.assertEqual(e.base, base)
+        self.assertFalse(path.exists(bad))
+        self.assertFalse(path.exists(baddir))
 
     def test_path(self):
         inst = self.klass('/foo')

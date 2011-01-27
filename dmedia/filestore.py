@@ -47,7 +47,7 @@ import logging
 from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
-from .errors import AmbiguousPath, DuplicateFile
+from .errors import AmbiguousPath, DuplicateFile, FileStoreTraversal
 from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR
 
 
@@ -438,43 +438,50 @@ class FileStore(object):
             return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
         return (TRANSFERS_DIR, chash)
 
+    def check_path(self, pathname):
+        abspath = path.abspath(pathname)
+        if abspath.startswith(self.base + os.sep):
+            return abspath
+        raise FileStoreTraversal(
+            pathname=pathname, base=self.base, abspath=abspath
+        )
+
     def join(self, *parts):
         """
         Safely join *parts* with base directory to prevent path traversal.
 
         For security reasons, it's very important that you use this method
-        rather than ``path.join()`` directly.  This method will prevent
-        directory/path traversal, ``path.join()`` will not.
+        rather than ``path.join()`` directly.  This method will prevent path
+        traversal attacks, ``path.join()`` will not.
 
         For example:
 
-        >>> fs = FileStore('/home/name/.dmedia')
+        >>> fs = FileStore('/home/.dmedia')
         >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        '/home/name/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        '/home/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-        However, a ``ValueError`` is raised if *parts* cause a path traversal
-        outside of the `FileStore` base directory:
 
-        >>> fs.join('../.ssh/id_rsa')
+        However, a `FileStoreTraversal` is raised if *parts* cause a path
+        traversal outside of the `FileStore` base directory:
+
+        >>> fs.join('../ssh')
         Traceback (most recent call last):
           ...
-        ValueError: parts ('../.ssh/id_rsa',) cause path traversal to '/home/name/.ssh/id_rsa'
+        FileStoreTraversal: '/home/ssh' outside base '/home/.dmedia'
+
 
         Or Likewise if an absolute path is included in *parts*:
 
         >>> fs.join('NW', '/etc', 'ssh')
         Traceback (most recent call last):
           ...
-        ValueError: parts ('NW', '/etc', 'ssh') cause path traversal to '/etc/ssh'
+        FileStoreTraversal: '/etc/ssh' outside base '/home/.dmedia'
+
 
         Also see `FileStore.create_parent()`.
         """
-        fullpath = path.normpath(path.join(self.base, *parts))
-        if fullpath.startswith(self.base):
-            return fullpath
-        raise ValueError('parts %r cause path traversal to %r' %
-            (parts, fullpath)
-        )
+        fullpath = path.join(self.base, *parts)
+        return self.check_path(fullpath)
 
     def create_parent(self, filename):
         """
@@ -487,25 +494,24 @@ class FileStore(object):
         >>> fs.create_parent('/bar/my/movie.ogv')
         Traceback (most recent call last):
           ...
-        ValueError: Wont create '/bar/my' outside of base '/foo' for file '/bar/my/movie.ogv'
+        FileStoreTraversal: '/bar/my/movie.ogv' outside base '/foo'
+
 
         It also protects against malicious filenames like this:
 
         >>> fs.create_parent('/foo/my/../../bar/movie.ogv')
         Traceback (most recent call last):
           ...
-        ValueError: Wont create '/bar' outside of base '/foo' for file '/foo/my/../../bar/movie.ogv'
+        FileStoreTraversal: '/bar/movie.ogv' outside base '/foo'
+
 
         If doesn't already exists, the directory containing *filename* is
         created.  Returns the directory containing *filename*.
 
         Also see `FileStore.join()`.
         """
-        containing = path.dirname(path.abspath(filename))
-        if not containing.startswith(self.base):
-            raise ValueError('Wont create %r outside of base %r for file %r' %
-                (containing, self.base, filename)
-            )
+        filename = self.check_path(filename)
+        containing = path.dirname(filename)
         if not path.exists(containing):
             os.makedirs(containing)
         return containing

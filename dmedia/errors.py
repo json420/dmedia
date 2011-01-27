@@ -44,6 +44,20 @@ class AmbiguousPath(DmediaError):
     _format = '%(pathname)r resolves to %(abspath)r'
 
 
+class FileStoreTraversal(DmediaError):
+    """
+    Raised when what should be internal path traverses out of FileStore base.
+
+    For example:
+
+    >>> raise FileStoreTraversal(abspath='/foo/barNone/baz', base='/foo/bar')
+    Traceback (most recent call last):
+      ...
+    FileStoreTraversal: '/foo/barNone/baz' outside base '/foo/bar'
+    """
+    _format = '%(abspath)r outside base %(base)r'
+
+
 class DuplicateFile(DmediaError):
     _format = 'chash=%(chash)r, src=%(src)r, dst=%(dst)r'
 
