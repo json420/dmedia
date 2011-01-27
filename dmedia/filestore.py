@@ -39,6 +39,7 @@ safety.
 
 import os
 from os import path
+import tempfile
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
 from string import ascii_lowercase, digits
@@ -47,36 +48,63 @@ from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 from .errors import AmbiguousPath, DuplicateFile
-from .constants import CHUNK_SIZE, LEAF_SIZE
+from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR
 
 
 chars = frozenset(ascii_lowercase + digits)
 B32LENGTH = 32  # Length of base32-encoded hash
-CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
 FALLOCATE = '/usr/bin/fallocate'
-TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
-def safe_open(filename, mode):
+def safe_path(pathname):
     """
-    Only open file if *filename* is an absolute normalized path.
+    Ensure that *pathname* is a normalized absolute path.
 
     This is to help protect against path-traversal attacks and to prevent use of
     ambiguous relative paths.
 
-    If *filename* is not an absolute normalized path, `AmbiguousPath` is raised:
+    For example, if *pathname* is not a normalized absolute path,
+    `AmbiguousPath` is raised:
+
+    >>> safe_path('/foo/../root')
+    Traceback (most recent call last):
+      ...
+    AmbiguousPath: '/foo/../root' resolves to '/root'
+
+
+    Otherwise *pathname* is returned unchanged:
+
+    >>> safe_path('/foo/bar')
+    '/foo/bar'
+
+
+    Also see `safe_open()`.
+    """
+    if path.abspath(pathname) != pathname:
+        raise AmbiguousPath(pathname=pathname, abspath=path.abspath(pathname))
+    return pathname
+
+
+def safe_open(filename, mode):
+    """
+    Only open file if *filename* is a normalized absolute path.
+
+    This is to help protect against path-traversal attacks and to prevent use of
+    ambiguous relative paths.
+
+    Prior to opening the file, *filename* is checked with `safe_path()`.  If
+    it's not an absolute normalized path, `AmbiguousPath` is raised:
 
     >>> safe_open('/foo/../root', 'rb')
     Traceback (most recent call last):
       ...
-    AmbiguousPath: filename '/foo/../root' resolves to '/root'
+    AmbiguousPath: '/foo/../root' resolves to '/root'
+
 
     Otherwise returns a ``file`` instance created with ``open()``.
     """
-    if path.abspath(filename) != filename:
-        raise AmbiguousPath(filename=filename, abspath=path.abspath(filename))
-    return open(filename, mode)
+    return open(safe_path(filename), mode)
 
 
 def safe_ext(ext):
@@ -292,6 +320,30 @@ def quick_id(fp):
     return b32encode(h.digest())
 
 
+def fallocate(size, filename):
+    """
+    Attempt to efficiently preallocate file *filename* to *size* bytes.
+
+    If the fallocate command is available, it will always at least create an
+    empty file (the equivalent of ``touch filename``), even the file-system
+    doesn't support pre-allocation.
+    """
+    if not isinstance(size, (int, long)):
+        raise TypeError(
+            TYPE_ERROR % ('size', (int, long), type(size), size)
+        )
+    if size <= 0:
+        raise ValueError('size must be >0; got %r' % size)
+    filename = safe_path(filename)
+    if not path.isfile(FALLOCATE):
+        return None
+    try:
+        check_call([FALLOCATE, '-l', str(size), filename])
+        return True
+    except CalledProcessError:
+        return False
+
+
 class FileStore(object):
     """
     Arranges files in a special layout according to their content-hash.
@@ -309,8 +361,8 @@ class FileStore(object):
     You can add files to the store using `FileStore.import_file()`:
 
     >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
-    >>> fs.import_file(src_fp, quick_id(src_fp), 'mov')  #doctest: +SKIP
-    ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'copied')
+    >>> fs.import_file(src_fp, 'mov')  #doctest: +SKIP
+    ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', <leaves>)
 
     And when you have the content-hash and extension, you can retrieve the full
     path of the file using `FileStore.path()`:
@@ -319,28 +371,22 @@ class FileStore(object):
     '/home/user/.dmedia/HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
 
     As the files are assumed to be read-only and unchanging, moving a file into
-    its canonical location must be atomic.  There are 3 scenarios that must be
+    its canonical location must be atomic.  There are 2 scenarios that must be
     considered:
 
-        1. Initial import of file on same disk device as `FileStore` - this is
-           the simplest case.  Imported file is hashed and then hard-linked into
-           its canonical location.
+        1. Imports - we compute the content-hash as we copy the file into the
+           `FileStore`, so this requires a randomly-named temporary file.  When
+           the copy completes, file is renamed to its canonical name.
 
-        2. Initial import - as file will be copied from another disk device,
-           requires the use of a temporary file.  When copy completes, file is
-           is renamed to its canonical name.  During an initial import, the
-           temporary file is named based on the quick_id(), which will be known
-           prior to the import.
+        2. Transfers - as uploads/downloads might stop or fail and then be
+           resumed, this requires a canonically-named temporary file.  As the
+           file content-hash is already known (we have its meta-data in
+           CouchDB), the temporary file is named by the content-hash.  Once
+           download completes, file is renamed to its canonical name.
 
-        3. Download - as download might fail and be resumed, requires a
-           canonically named temporary file.  As content-hash is already known
-           (file is already in library), the temporary file should be named by
-           content-hash.  Once download completes and content is verified, file
-           is renamed to its canonical name.
-
-    In scenario (2) and (3), the filesize will be known when the temporary file
-    is created, so an attempt is made to preallocate the entire file using the
-    ``fallocate`` command.
+    In both scenarios, the file size will be known when the temporary file is
+    created, so an attempt is made to preallocate the entire file using the
+    `fallocate()` function, which calls the Linux ``fallocate`` command.
     """
 
     def __init__(self, base):
@@ -349,7 +395,7 @@ class FileStore(object):
     @staticmethod
     def relpath(chash, ext=None):
         """
-        Relative path components for file with *chash*, ending with *ext*.
+        Relative path of file with *chash*, ending with *ext*.
 
         For example:
 
@@ -358,8 +404,8 @@ class FileStore(object):
 
         Or with the file extension *ext*:
 
-        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
-        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
 
         Also see `FileStore.reltmp()`.
         """
@@ -371,38 +417,26 @@ class FileStore(object):
         return (dname, fname)
 
     @staticmethod
-    def reltmp(quickid=None, chash=None, ext=None):
+    def reltemp(chash, ext=None):
         """
-        Relative path components of temporary file.
+        Relative path of temporary file with *chash*, ending with *ext*.
 
-        Temporary files are created in either an ``'imports'`` or
-        ``'downloads'`` sub-directory based on whether you're doing an initial
-        import or downloading a file already present in the library.
+        For example:
 
-        For initial imports, provide the *quickid* like this:
+        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
 
-        >>> FileStore.reltmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
-        ('imports', 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov')
+        Or with the file extension *ext*:
 
-        For downloads, the content-hash will already be known, so provide the
-        *chash* like this:
-
-        >>> FileStore.reltmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
-        ('downloads', 'OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov')
+        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
 
         Also see `FileStore.relpath()`.
         """
-        if quickid:
-            dname = 'imports'
-            fname = safe_b32(quickid)
-        elif chash:
-            dname = 'downloads'
-            fname = safe_b32(chash)
-        else:
-            raise TypeError('must provide either `chash` or `quickid`')
+        chash = safe_b32(chash)
         if ext:
-            return (dname, '.'.join((fname, safe_ext(ext))))
-        return (dname, fname)
+            return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
+        return (TRANSFERS_DIR, chash)
 
     def join(self, *parts):
         """
@@ -486,69 +520,68 @@ class FileStore(object):
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
+
         Or with a file extension:
 
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
         '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+
+
+        If called with ``create=True``, the parent directory is created with
+        `FileStore.create_parent()`.
         """
         filename = self.join(*self.relpath(chash, ext))
         if create:
             self.create_parent(filename)
         return filename
 
-    def tmp(self, quickid=None, chash=None, ext=None, create=False):
+    def temp(self, chash, ext=None, create=False):
         """
-        Returns path of temporary file.
+        Returns path of temporary file with *chash*, ending with *ext*.
 
-        Temporary files are created in either an ``'imports'`` or a
-        ``'downloads'`` sub-directory based on whether you're doing an initial
-        import or downloading a file already present in the library.
-
-        For initial imports, provide the *quickid* like this:
+        These temporary files are used for file transfers between dmedia peers,
+        in which case the content-hash is already known.  For example:
 
         >>> fs = FileStore('/foo')
-        >>> fs.tmp(quickid='GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', ext='mov')
-        '/foo/imports/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN.mov'
+        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-        For downloads, the content-hash will already be known, so provide the
-        *chash* like this:
 
-        >>> fs.tmp(chash='OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE', ext='mov')
-        '/foo/downloads/OMLUWEIPEUNRGYMKAEHG3AEZPVZ5TUQE.mov'
+        Or with a file extension:
 
-        Also see `FileStore.path()`, `FileStore.allocate_tmp()`.
+        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
+        '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+
+
+        If called with ``create=True``, the parent directory is created with
+        `FileStore.create_parent()`.
         """
-        filename = self.join(*self.reltmp(quickid, chash, ext))
+        filename = self.join(*self.reltemp(chash, ext))
         if create:
             self.create_parent(filename)
         return filename
 
-    def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
-        """
-        Create parent directory and attempt to preallocate temporary file.
+    def allocate_for_transfer(self, size, chash, ext=None):
+        filename = self.temp(chash, ext, create=True)
+        fallocate(size, filename)
+        try:
+            fp = open(filename, 'r+b')
+            if os.fstat(fp.fileno()).st_size > size:
+                fp.truncate(size)
+            return fp
+        except IOError:
+            return open(filename, 'wb')
 
-        The temporary filename is constructed by calling `FileStore.tmp()` with
-        ``create=True``, which will create the temporary file's containing
-        directory if it doesn't already exist.
+    def allocate_for_import(self, size, ext=None):
+        imports = self.join(IMPORTS_DIR)
+        if not path.exists(imports):
+            os.makedirs(imports)
+        suffix = ('' if ext is None else '.' + ext)
+        (fileno, filename) = tempfile.mkstemp(suffix=suffix, dir=imports)
+        fallocate(size, filename)
+        return open(filename, 'r+b')
 
-        If *size* is a nonzero ``int``, an attempt is made to make a persistent
-        pre-allocation with the ``fallocate`` command, something like this:
-
-            fallocate -l 4284061229 HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov
-
-        Returns a ``file`` instance opened with ``open()``.
-        """
-        tmp = self.tmp(quickid, chash, ext, create=True)
-        if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
-            try:
-                check_call([FALLOCATE, '-l', str(size), tmp])
-                assert path.getsize(tmp) == size
-                return open(tmp, 'r+b')
-            except CalledProcessError as e:
-                pass
-        return open(tmp, 'wb')
-
-    def import_file(self, src_fp, quickid, ext=None):
+    def import_file(self, src_fp, ext=None):
         """
         Atomically copy open file *src_fp* into this file store.
 
@@ -567,11 +600,10 @@ class FileStore(object):
         Note that *src_fp* must have been opened in ``'rb'`` mode.
 
         :param src_fp: A ``file`` instance created with ``open()``
-        :param quickid: The quickid computed by ``quick_id()``
         :param ext: The file's extension, e.g., ``'ogv'``
         """
         size = os.fstat(src_fp.fileno()).st_size
-        tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=size)
+        tmp_fp = self.allocate_for_import(size, ext=ext)
         h = HashList(src_fp, tmp_fp)
         chash = h.run()
         dst = self.path(chash, ext, create=True)

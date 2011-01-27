@@ -34,6 +34,11 @@ CHUNK_SIZE = 2**20  # 1 MiB
 LEAF_SIZE = 8 * 2**20  # 8 MiB
 
 
+# FileStore path compotents
+TRANSFERS_DIR = 'transfers'  # downloads/uploads
+IMPORTS_DIR = 'imports'  # eg importing from CF card
+
+
 # D-Bus releated:
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'

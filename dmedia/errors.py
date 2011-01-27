@@ -41,7 +41,7 @@ class DmediaError(StandardError):
 
 
 class AmbiguousPath(DmediaError):
-    _format = 'filename %(filename)r resolves to %(abspath)r'
+    _format = '%(pathname)r resolves to %(abspath)r'
 
 
 class DuplicateFile(DmediaError):
