@@ -883,25 +883,33 @@ class test_FileStore(TestCase):
         self.assertEqual(fp.mode, 'r+b')
         self.assertEqual(stat.st_size, 2311)  # fp.trucate() was called
 
-
     def test_allocate_for_import(self):
         tmp = TempDir()
         imports = tmp.join('imports')
 
         inst = self.klass(tmp.path)
         self.assertFalse(path.isdir(imports))
-        f = inst.allocate_for_import()
+
+        # Test with ext=None:
+        fp = inst.allocate_for_import(2311)
         self.assertTrue(path.isdir(imports))
-        self.assertTrue(f.startswith(imports + '/'))
-        self.assertTrue(path.isfile(f))
-        self.assertEqual(path.getsize(f), 0)
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.mode, 'r+b')
+        stat = os.fstat(fp.fileno())
+        self.assertTrue(stat.st_size in [0, 2311])
+        self.assertEqual(path.dirname(fp.name), imports)
         self.assertTrue(
-            '.' not in path.basename(f)
+            '.' not in path.basename(fp.name)
         )
 
-        f = inst.allocate_for_import(ext='mov')
-        self.assertTrue(path.isfile(f))
-        self.assertTrue(f.endswith('.mov'))
+        # Test with ext='mov':
+        fp = inst.allocate_for_import(3141, ext='mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.mode, 'r+b')
+        stat = os.fstat(fp.fileno())
+        self.assertTrue(stat.st_size in [0, 3141])
+        self.assertEqual(path.dirname(fp.name), imports)
+        self.assertTrue(fp.name.endswith('.mov'))
 
     def test_allocate_tmp(self):
         tmp = TempDir()

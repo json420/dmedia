@@ -632,13 +632,14 @@ class FileStore(object):
         except IOError:
             return open(filename, 'wb')
 
-    def allocate_for_import(self, ext=None, size=None):
+    def allocate_for_import(self, size, ext=None):
         imports = self.join(IMPORTS_DIR)
         if not path.exists(imports):
             os.makedirs(imports)
         suffix = ('' if ext is None else '.' + ext)
-        (fileno, tmp) = tempfile.mkstemp(suffix=suffix, dir=imports)
-        return tmp
+        (fileno, filename) = tempfile.mkstemp(suffix=suffix, dir=imports)
+        fallocate(size, filename)
+        return open(filename, 'r+b')
 
     def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
         """
