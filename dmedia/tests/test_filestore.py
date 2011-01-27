@@ -751,6 +751,25 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
 
+    def test_allocate_for_import(self):
+        tmp = TempDir()
+        imports = tmp.join('imports')
+
+        inst = self.klass(tmp.path)
+        self.assertFalse(path.isdir(imports))
+        f = inst.allocate_for_import()
+        self.assertTrue(path.isdir(imports))
+        self.assertTrue(f.startswith(imports + '/'))
+        self.assertTrue(path.isfile(f))
+        self.assertEqual(path.getsize(f), 0)
+        self.assertTrue(
+            '.' not in path.basename(f)
+        )
+
+        f = inst.allocate_for_import(ext='mov')
+        self.assertTrue(path.isfile(f))
+        self.assertTrue(f.endswith('.mov'))
+
     def test_allocate_tmp(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)

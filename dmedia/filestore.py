@@ -39,6 +39,7 @@ safety.
 
 import os
 from os import path
+import tempfile
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
 from string import ascii_lowercase, digits
@@ -47,7 +48,7 @@ from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 from .errors import AmbiguousPath, DuplicateFile
-from .constants import LEAF_SIZE, TRANSFERS_DIR
+from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR
 
 
 chars = frozenset(ascii_lowercase + digits)
@@ -544,6 +545,14 @@ class FileStore(object):
         if create:
             self.create_parent(filename)
         return filename
+
+    def allocate_for_import(self, ext=None, size=None):
+        imports = self.join(IMPORTS_DIR)
+        if not path.exists(imports):
+            os.makedirs(imports)
+        suffix = ('' if ext is None else '.' + ext)
+        (fileno, tmp) = tempfile.mkstemp(suffix=suffix, dir=imports)
+        return tmp
 
     def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
         """
