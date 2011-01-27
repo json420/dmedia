@@ -428,6 +428,40 @@ class test_FileStore(TestCase):
             'ext: can only contain ascii lowercase, digits; got %r' % bad
         )
 
+    def test_reltemp(self):
+        inst = self.klass('/foo')
+
+        self.assertEqual(
+            inst.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            inst.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+
+        # Test to make sure hashes are getting checked with safe_b32():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, inst.reltemp, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, inst.reltemp, bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, inst.reltemp, chash, bad)
+        self.assertEqual(
+            str(e),
+            'ext: can only contain ascii lowercase, digits; got %r' % bad
+        )
+
     def test_reltmp(self):
         inst = self.klass('/foo')
 

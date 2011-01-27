@@ -47,7 +47,7 @@ from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 from .errors import AmbiguousPath, DuplicateFile
-from .constants import CHUNK_SIZE, LEAF_SIZE
+from .constants import LEAF_SIZE, TRANSFERS_DIR
 
 
 chars = frozenset(ascii_lowercase + digits)
@@ -349,17 +349,19 @@ class FileStore(object):
     @staticmethod
     def relpath(chash, ext=None):
         """
-        Relative path components for file with *chash*, ending with *ext*.
+        Relative path of file with *chash*, ending with *ext*.
 
-        For example:
+        This staticmethod returns the relative path components for the canonical
+        name of a file with a content-hash *chash*, optionally ending with an
+        extension *ext*.  For example:
 
         >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
 
         Or with the file extension *ext*:
 
-        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
-        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt')
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
 
         Also see `FileStore.reltmp()`.
         """
@@ -369,6 +371,30 @@ class FileStore(object):
         if ext:
             return (dname, '.'.join((fname, safe_ext(ext))))
         return (dname, fname)
+
+    @staticmethod
+    def reltemp(chash, ext=None):
+        """
+        Relative path of temporary file with *chash*, ending with *ext*.
+
+        This staticmethod returns the relative path components for the canonical
+        name of a temporary file with a content-hash *chash*, optionally ending
+        with an extension *ext*.  For example:
+
+        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+
+        Or with the file extension *ext*:
+
+        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+
+        Also see `FileStore.relpath()`.
+        """
+        chash = safe_b32(chash)
+        if ext:
+            return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
+        return (TRANSFERS_DIR, chash)
 
     @staticmethod
     def reltmp(quickid=None, chash=None, ext=None):
