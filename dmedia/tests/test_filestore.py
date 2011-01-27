@@ -573,18 +573,16 @@ class test_FileStore(TestCase):
         tmp = TempDir()
         tmp2 = TempDir()
         inst = self.klass(tmp.path)
-        TRAVERSAL = 'Wont create %r outside of base %r for file %r'
 
         # Test with a normpath but outside of base:
         f = tmp2.join('foo', 'bar')
         d = tmp2.join('foo')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        e = raises(ValueError, inst.create_parent, f)
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (d, inst.base, f)
-        )
+        e = raises(FileStoreTraversal, inst.create_parent, f)
+        self.assertEqual(e.pathname, f)
+        self.assertEqual(e.abspath, f)
+        self.assertEqual(e.base, tmp.path)
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
 
@@ -594,11 +592,10 @@ class test_FileStore(TestCase):
         d = tmp2.join('baz')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
-        e = raises(ValueError, inst.create_parent, f)
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (d, inst.base, f)
-        )
+        e = raises(FileStoreTraversal, inst.create_parent, f)
+        self.assertEqual(e.pathname, f)
+        self.assertEqual(e.abspath, tmp2.join('baz', 'f'))
+        self.assertEqual(e.base, tmp.path)
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
 
@@ -639,11 +636,10 @@ class test_FileStore(TestCase):
         bad = tmp.join('foo', 'barNone', 'stuff')
         baddir = tmp.join('foo', 'barNone')
         inst = self.klass(base)
-        e = raises(ValueError, inst.create_parent, bad)
-        self.assertEqual(
-            str(e),
-            TRAVERSAL % (baddir, base, bad)
-        )
+        e = raises(FileStoreTraversal, inst.create_parent, bad)
+        self.assertEqual(e.pathname, bad)
+        self.assertEqual(e.abspath, bad)
+        self.assertEqual(e.base, base)
         self.assertFalse(path.exists(bad))
         self.assertFalse(path.exists(baddir))
 

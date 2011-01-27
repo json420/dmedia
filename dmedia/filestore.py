@@ -477,6 +477,7 @@ class FileStore(object):
           ...
         FileStoreTraversal: '/etc/ssh' outside base '/home/.dmedia'
 
+
         Also see `FileStore.create_parent()`.
         """
         fullpath = path.join(self.base, *parts)
@@ -493,25 +494,24 @@ class FileStore(object):
         >>> fs.create_parent('/bar/my/movie.ogv')
         Traceback (most recent call last):
           ...
-        ValueError: Wont create '/bar/my' outside of base '/foo' for file '/bar/my/movie.ogv'
+        FileStoreTraversal: '/bar/my/movie.ogv' outside base '/foo'
+
 
         It also protects against malicious filenames like this:
 
         >>> fs.create_parent('/foo/my/../../bar/movie.ogv')
         Traceback (most recent call last):
           ...
-        ValueError: Wont create '/bar' outside of base '/foo' for file '/foo/my/../../bar/movie.ogv'
+        FileStoreTraversal: '/foo/my/../../bar/movie.ogv' outside base '/foo'
+
 
         If doesn't already exists, the directory containing *filename* is
         created.  Returns the directory containing *filename*.
 
         Also see `FileStore.join()`.
         """
-        containing = path.dirname(path.abspath(filename))
-        if not containing.startswith(self.base):
-            raise ValueError('Wont create %r outside of base %r for file %r' %
-                (containing, self.base, filename)
-            )
+        filename = self.check_path(filename)
+        containing = path.dirname(filename)
         if not path.exists(containing):
             os.makedirs(containing)
         return containing
