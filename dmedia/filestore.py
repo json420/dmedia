@@ -329,7 +329,15 @@ def fallocate(size, filename):
     empty file (the equivalent of ``touch filename``), even the file-system
     doesn't support pre-allocation.
     """
+    if not isinstance(size, (int, long)):
+        raise TypeError(
+            TYPE_ERROR % ('size', (int, long), type(size), size)
+        )
+    if size <= 0:
+        raise ValueError('size must be >0; got %r' % size)
     filename = safe_path(filename)
+    if not path.isfile(FALLOCATE):
+        return None
     try:
         check_call([FALLOCATE, '-l', str(size), filename])
         return True

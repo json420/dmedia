@@ -36,8 +36,7 @@ from .helpers import mov_hash, mov_leaves, mov_qid
 from dmedia.errors import AmbiguousPath, DuplicateFile
 from dmedia.filestore import HashList
 from dmedia import filestore, constants
-
-TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
+from dmedia.constants import TYPE_ERROR
 
 
 class test_functions(TestCase):
@@ -230,6 +229,50 @@ class test_functions(TestCase):
         fp.seek(1024)
         self.assertEqual(f(fp), 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN')
         self.assertFalse(fp.closed)  # Should not close file
+
+    def test_fallocate(self):
+        f = filestore.fallocate
+        tmp = TempDir()
+        filename = tmp.join('example.mov')
+
+        # Test when size is wrong type:
+        e = raises(TypeError, f, '2311', filename)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('size', (int, long), str, '2311')
+        )
+
+        # Test when size <= 0
+        e = raises(ValueError, f, 0, filename)
+        self.assertEqual(str(e), 'size must be >0; got 0')
+        e = raises(ValueError, f, -2311, filename)
+        self.assertEqual(str(e), 'size must be >0; got -2311')
+
+        # Test with relative path:
+        e = raises(AmbiguousPath, f, 2311, 'foo/bar')
+        self.assertEqual(e.pathname, 'foo/bar')
+        self.assertEqual(e.abspath, path.abspath('foo/bar'))
+
+        # Test with path traversal:
+        e = raises(AmbiguousPath, f, 2311, '/foo/bar/../../root')
+        self.assertEqual(e.pathname, '/foo/bar/../../root')
+        self.assertEqual(e.abspath, '/root')
+
+        # Test with correct args:
+        self.assertFalse(path.exists(filename))
+        ret = f(2311, filename)
+        self.assertTrue(ret in [None, True, False])
+
+        if ret is None:
+            self.assertFalse(path.exists(filename))
+
+        if ret is True:
+            self.assertTrue(path.exists(filename))
+            self.assertEqual(path.getsize(filename), 2311)
+
+        if ret is False:
+            self.assertTrue(path.exists(filename))
+            self.assertEqual(path.getsize(filename), 0)
 
 
 class test_HashList(TestCase):
