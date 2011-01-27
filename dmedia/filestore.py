@@ -467,7 +467,7 @@ class FileStore(object):
         >>> fs.join('../ssh')
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/home/.dmedia/../ssh' outside base '/home/.dmedia'
+        FileStoreTraversal: '/home/ssh' outside base '/home/.dmedia'
 
 
         Or Likewise if an absolute path is included in *parts*:
@@ -502,7 +502,7 @@ class FileStore(object):
         >>> fs.create_parent('/foo/my/../../bar/movie.ogv')
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/foo/my/../../bar/movie.ogv' outside base '/foo'
+        FileStoreTraversal: '/bar/movie.ogv' outside base '/foo'
 
 
         If doesn't already exists, the directory containing *filename* is

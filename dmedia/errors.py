@@ -50,12 +50,12 @@ class FileStoreTraversal(DmediaError):
 
     For example:
 
-    >>> raise FileStoreTraversal(pathname='/foo/barNone/baz', base='/foo/bar')
+    >>> raise FileStoreTraversal(abspath='/foo/barNone/baz', base='/foo/bar')
     Traceback (most recent call last):
       ...
     FileStoreTraversal: '/foo/barNone/baz' outside base '/foo/bar'
     """
-    _format = '%(pathname)r outside base %(base)r'
+    _format = '%(abspath)r outside base %(base)r'
 
 
 class DuplicateFile(DmediaError):
