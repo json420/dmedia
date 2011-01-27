@@ -560,7 +560,7 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.join, '..', 'barNone', 'stuff')
         self.assertEqual(
             str(e),
-            TRAVERSAL % (('..', 'barNone', 'stuff'), '/foo/.ssh')
+            TRAVERSAL % (('..', 'barNone', 'stuff'), '/foo/barNone/stuff')
         )
 
         # Test with some correct parts:

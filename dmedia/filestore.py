@@ -478,7 +478,7 @@ class FileStore(object):
         Also see `FileStore.create_parent()`.
         """
         fullpath = path.normpath(path.join(self.base, *parts))
-        if fullpath.startswith(self.base):
+        if fullpath.startswith(self.base + os.sep):
             return fullpath
         raise ValueError('parts %r cause path traversal to %r' %
             (parts, fullpath)
