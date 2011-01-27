@@ -53,7 +53,6 @@ from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR
 
 chars = frozenset(ascii_lowercase + digits)
 B32LENGTH = 32  # Length of base32-encoded hash
-CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
 FALLOCATE = '/usr/bin/fallocate'
 
