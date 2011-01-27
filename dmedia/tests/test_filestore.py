@@ -824,23 +824,65 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(d))
 
     def test_allocate_for_transfer(self):
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
         tmp = TempDir()
-        imports = tmp.join('imports')
-
         inst = self.klass(tmp.path)
-        self.assertFalse(path.isdir(imports))
-        f = inst.allocate_for_import()
-        self.assertTrue(path.isdir(imports))
-        self.assertTrue(f.startswith(imports + '/'))
-        self.assertTrue(path.isfile(f))
-        self.assertEqual(path.getsize(f), 0)
-        self.assertTrue(
-            '.' not in path.basename(f)
-        )
+        filename = tmp.join('transfers', chash)
 
-        f = inst.allocate_for_import(ext='mov')
-        self.assertTrue(path.isfile(f))
-        self.assertTrue(f.endswith('.mov'))
+        # Test when file dosen't yet exist
+        fp = inst.allocate_for_transfer(2311, chash)
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.name, filename)
+        stat = os.fstat(fp.fileno())
+
+        self.assertTrue(fp.mode in ['r+b', 'wb'])
+        if fp.mode == 'r+b':
+            self.assertTrue(stat.st_size in (0, 2311))
+        if fp.mode == 'wb':
+            self.assertEqual(stat.st_size, 0)
+        fp.write('a' * 3141)  # Write something to file
+        fp.close()
+
+        # Test with pre-existing file longer than size:
+        fp = inst.allocate_for_transfer(2311, chash)
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.name, filename)
+        stat = os.fstat(fp.fileno())
+
+        self.assertEqual(fp.mode, 'r+b')
+        self.assertEqual(stat.st_size, 2311)  # fp.trucate() was called
+
+        #####################################
+        # Again, but this time with ext='mov'
+
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+        filename = tmp.join('transfers', chash + '.mov')
+
+        # Test when file dosen't yet exist
+        fp = inst.allocate_for_transfer(2311, chash, ext='mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.name, filename)
+        stat = os.fstat(fp.fileno())
+
+        self.assertTrue(fp.mode in ['r+b', 'wb'])
+        if fp.mode == 'r+b':
+            self.assertTrue(stat.st_size in (0, 2311))
+        if fp.mode == 'wb':
+            self.assertEqual(stat.st_size, 0)
+        fp.write('a' * 3141)  # write something to file > size
+        fp.close()
+
+        # Test with pre-existing file longer than size:
+        fp = inst.allocate_for_transfer(2311, chash, ext='mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.name, filename)
+        stat = os.fstat(fp.fileno())
+
+        self.assertEqual(fp.mode, 'r+b')
+        self.assertEqual(stat.st_size, 2311)  # fp.trucate() was called
+
 
     def test_allocate_for_import(self):
         tmp = TempDir()

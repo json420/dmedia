@@ -48,7 +48,7 @@ from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 from .errors import AmbiguousPath, DuplicateFile
-from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR
+from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR
 
 
 chars = frozenset(ascii_lowercase + digits)
@@ -56,7 +56,6 @@ B32LENGTH = 32  # Length of base32-encoded hash
 CHUNK = 2 ** 20  # Read in chunks of 1 MiB
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
 FALLOCATE = '/usr/bin/fallocate'
-TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
 def safe_path(pathname):
@@ -320,6 +319,22 @@ def quick_id(fp):
     h.update(str(size).encode('utf-8'))
     h.update(fp.read(QUICK_ID_CHUNK))
     return b32encode(h.digest())
+
+
+def fallocate(size, filename):
+    """
+    Attempt to efficiently pre-allocate file *filename* to *size* bytes.
+
+    If the fallocate command is available, it will always at least create an
+    empty file (the equivalent of ``touch filename``), even the file-system
+    doesn't support pre-allocation.
+    """
+    filename = safe_path(filename)
+    try:
+        check_call([FALLOCATE, '-l', str(size), filename])
+        return True
+    except CalledProcessError:
+        return False
 
 
 class FileStore(object):
@@ -606,24 +621,16 @@ class FileStore(object):
             self.create_parent(filename)
         return filename
 
-    def fallocate(self, filename, size):
-        """
-        Attempt to efficiently pre-allocate a file of *size* bytes.
-        """
-        self.create_parent(filename)
-        try:
-            check_call([FALLOCATE, '-l', str(size), filename])
-            return True
-        except CalledProcessError:
-            return False
-
     def allocate_for_transfer(self, size, chash, ext=None):
-        imports = self.join(IMPORTS_DIR)
-        if not path.exists(imports):
-            os.makedirs(imports)
-        suffix = ('' if ext is None else '.' + ext)
-        (fileno, tmp) = tempfile.mkstemp(suffix=suffix, dir=imports)
-        return tmp
+        filename = self.temp(chash, ext, create=True)
+        fallocate(size, filename)
+        try:
+            fp = open(filename, 'r+b')
+            if os.fstat(fp.fileno()).st_size > size:
+                fp.truncate(size)
+            return fp
+        except IOError:
+            return open(filename, 'wb')
 
     def allocate_for_import(self, ext=None, size=None):
         imports = self.join(IMPORTS_DIR)
