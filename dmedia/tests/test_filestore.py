@@ -954,51 +954,6 @@ class test_FileStore(TestCase):
         self.assertEqual(path.dirname(fp.name), imports)
         self.assertTrue(fp.name.endswith('.mov'))
 
-    def test_allocate_tmp(self):
-        tmp = TempDir()
-        inst = self.klass(tmp.path)
-
-        # Test to make sure hashes are getting checked with safe_b32():
-        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
-        e = raises(ValueError, inst.allocate_tmp, quickid=bad)
-        self.assertEqual(
-            str(e),
-            'b32: cannot b32decode %r: Non-base32 digit found' % bad
-        )
-        e = raises(ValueError, inst.allocate_tmp, chash=bad)
-        self.assertEqual(
-            str(e),
-            'b32: cannot b32decode %r: Non-base32 digit found' % bad
-        )
-
-        # Test when neither quickid nor chash is provided:
-        e = raises(TypeError, inst.allocate_tmp)
-        self.assertEqual(str(e), 'must provide either `chash` or `quickid`')
-
-        # Test with good quickid
-        f = tmp.join('imports', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
-        d = tmp.join('imports')
-        self.assertFalse(path.exists(f))
-        self.assertFalse(path.exists(d))
-        fp = inst.allocate_tmp(quickid='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
-        self.assertTrue(isinstance(fp, file))
-        self.assertTrue(fp.mode in ['wb', 'r+b'])
-        self.assertEqual(fp.name, f)
-        self.assertTrue(path.isfile(f))
-        self.assertTrue(path.isdir(d))
-
-        # Test with good chash
-        f = tmp.join('downloads', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
-        d = tmp.join('downloads')
-        self.assertFalse(path.exists(f))
-        self.assertFalse(path.exists(d))
-        fp = inst.allocate_tmp(chash='NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
-        self.assertTrue(isinstance(fp, file))
-        self.assertTrue(fp.mode in ['wb', 'r+b'])
-        self.assertEqual(fp.name, f)
-        self.assertTrue(path.isfile(f))
-        self.assertTrue(path.isdir(d))
-
     def test_import_file(self):
         tmp = TempDir()
         src = tmp.join('movie.mov')

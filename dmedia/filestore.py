@@ -649,31 +649,6 @@ class FileStore(object):
         fallocate(size, filename)
         return open(filename, 'r+b')
 
-    def allocate_tmp(self, quickid=None, chash=None, ext=None, size=None):
-        """
-        Create parent directory and attempt to preallocate temporary file.
-
-        The temporary filename is constructed by calling `FileStore.tmp()` with
-        ``create=True``, which will create the temporary file's containing
-        directory if it doesn't already exist.
-
-        If *size* is a nonzero ``int``, an attempt is made to make a persistent
-        pre-allocation with the ``fallocate`` command, something like this:
-
-            fallocate -l 4284061229 HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov
-
-        Returns a ``file`` instance opened with ``open()``.
-        """
-        tmp = self.tmp(quickid, chash, ext, create=True)
-        if isinstance(size, int) and size > 0 and path.isfile(FALLOCATE):
-            try:
-                check_call([FALLOCATE, '-l', str(size), tmp])
-                assert path.getsize(tmp) == size
-                return open(tmp, 'r+b')
-            except CalledProcessError as e:
-                pass
-        return open(tmp, 'wb')
-
     def import_file(self, src_fp, quickid, ext=None):
         """
         Atomically copy open file *src_fp* into this file store.
@@ -697,7 +672,7 @@ class FileStore(object):
         :param ext: The file's extension, e.g., ``'ogv'``
         """
         size = os.fstat(src_fp.fileno()).st_size
-        tmp_fp = self.allocate_tmp(quickid=quickid, ext=ext, size=size)
+        tmp_fp = self.allocate_for_import(size, ext=ext)
         h = HashList(src_fp, tmp_fp)
         chash = h.run()
         dst = self.path(chash, ext, create=True)
