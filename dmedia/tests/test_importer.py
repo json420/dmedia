@@ -322,7 +322,7 @@ class test_Importer(CouchCase):
         # Test that AmbiguousPath is raised:
         traversal = '/home/foo/.dmedia/../.ssh/id_rsa'
         e = raises(AmbiguousPath, inst.import_file, traversal)
-        self.assertEqual(e.filename, traversal)
+        self.assertEqual(e.pathname, traversal)
         self.assertEqual(e.abspath, '/home/foo/.ssh/id_rsa')
 
         # Test that IOError propagates up with missing file
