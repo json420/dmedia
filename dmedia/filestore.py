@@ -649,7 +649,7 @@ class FileStore(object):
         fallocate(size, filename)
         return open(filename, 'r+b')
 
-    def import_file(self, src_fp, quickid, ext=None):
+    def import_file(self, src_fp, ext=None):
         """
         Atomically copy open file *src_fp* into this file store.
 
@@ -668,7 +668,6 @@ class FileStore(object):
         Note that *src_fp* must have been opened in ``'rb'`` mode.
 
         :param src_fp: A ``file`` instance created with ``open()``
-        :param quickid: The quickid computed by ``quick_id()``
         :param ext: The file's extension, e.g., ``'ogv'``
         """
         size = os.fstat(src_fp.fileno()).st_size

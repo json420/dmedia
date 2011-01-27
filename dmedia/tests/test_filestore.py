@@ -967,7 +967,7 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(dst))
         src_fp = open(src, 'rb')
         self.assertEqual(
-            inst.import_file(src_fp, mov_qid, ext='mov'),
+            inst.import_file(src_fp, ext='mov'),
             (mov_hash, mov_leaves)
         )
         self.assertTrue(path.isfile(src))
@@ -979,7 +979,7 @@ class test_FileStore(TestCase):
             mov_hash
         )
 
-        e = raises(DuplicateFile, inst.import_file, src_fp, mov_qid, ext='mov')
+        e = raises(DuplicateFile, inst.import_file, src_fp, ext='mov')
         self.assertEqual(e.chash, mov_hash)
         self.assertEqual(e.src, src)
         self.assertEqual(e.dst, dst)
