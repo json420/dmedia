@@ -59,25 +59,54 @@ FALLOCATE = '/usr/bin/fallocate'
 TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
-def safe_open(filename, mode):
+def safe_path(pathname):
     """
-    Only open file if *filename* is an absolute normalized path.
+    Ensure that *pathname* is a normalized absolute path.
 
     This is to help protect against path-traversal attacks and to prevent use of
     ambiguous relative paths.
 
-    If *filename* is not an absolute normalized path, `AmbiguousPath` is raised:
+    For example, if *pathname* is not a normalized absolute path,
+    `AmbiguousPath` is raised:
+
+    >>> safe_path('/foo/../root')
+    Traceback (most recent call last):
+      ...
+    AmbiguousPath: '/foo/../root' resolves to '/root'
+
+
+    Otherwise *pathname* is returned unchanged:
+
+    >>> safe_path('/foo/bar')
+    '/foo/bar'
+
+
+    Also see `safe_open()`.
+    """
+    if path.abspath(pathname) != pathname:
+        raise AmbiguousPath(pathname=pathname, abspath=path.abspath(pathname))
+    return pathname
+
+
+def safe_open(filename, mode):
+    """
+    Only open file if *filename* is a normalized absolute path.
+
+    This is to help protect against path-traversal attacks and to prevent use of
+    ambiguous relative paths.
+
+    Prior to opening the file, *filename* is checked with `safe_path()`.  If
+    it's not an absolute normalized path, `AmbiguousPath` is raised:
 
     >>> safe_open('/foo/../root', 'rb')
     Traceback (most recent call last):
       ...
-    AmbiguousPath: filename '/foo/../root' resolves to '/root'
+    AmbiguousPath: '/foo/../root' resolves to '/root'
+
 
     Otherwise returns a ``file`` instance created with ``open()``.
     """
-    if path.abspath(filename) != filename:
-        raise AmbiguousPath(filename=filename, abspath=path.abspath(filename))
-    return open(filename, mode)
+    return open(safe_path(filename), mode)
 
 
 def safe_ext(ext):

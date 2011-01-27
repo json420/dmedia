@@ -41,6 +41,23 @@ TYPE_ERROR = '%s: need a %r; got a %r: %r'  # Standard TypeError message
 
 
 class test_functions(TestCase):
+    def test_safe_path(self):
+        f = filestore.safe_path
+
+        # Test with relative path:
+        e = raises(AmbiguousPath, f, 'foo/bar')
+        self.assertEqual(e.pathname, 'foo/bar')
+        self.assertEqual(e.abspath, path.abspath('foo/bar'))
+
+        # Test with path traversal:
+        e = raises(AmbiguousPath, f, '/foo/bar/../../root')
+        self.assertEqual(e.pathname, '/foo/bar/../../root')
+        self.assertEqual(e.abspath, '/root')
+
+        # Test with normalized absolute path:
+        self.assertEqual(f('/home/jderose/.dmedia'), '/home/jderose/.dmedia')
+
+
     def test_safe_open(self):
         f = filestore.safe_open
         tmp = TempDir()
@@ -48,11 +65,11 @@ class test_functions(TestCase):
 
         # Test that AmbiguousPath is raised:
         e = raises(AmbiguousPath, f, 'foo/bar', 'rb')
-        self.assertEqual(e.filename, 'foo/bar')
+        self.assertEqual(e.pathname, 'foo/bar')
         self.assertEqual(e.abspath, path.abspath('foo/bar'))
 
         e = raises(AmbiguousPath, f, '/foo/bar/../../root', 'rb')
-        self.assertEqual(e.filename, '/foo/bar/../../root')
+        self.assertEqual(e.pathname, '/foo/bar/../../root')
         self.assertEqual(e.abspath, '/root')
 
         # Test with absolute normalized path:
