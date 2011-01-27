@@ -555,6 +555,14 @@ class test_FileStore(TestCase):
             TRAVERSAL % (('NW/../../.ssh',), '/foo/.ssh')
         )
 
+        # Test for former security issue!  See:
+        # https://bugs.launchpad.net/dmedia/+bug/708663
+        e = raises(ValueError, inst.join, '..', 'barNone', 'stuff')
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (('..', 'barNone', 'stuff'), '/foo/.ssh')
+        )
+
         # Test with some correct parts:
         self.assertEqual(
             inst.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
@@ -627,6 +635,21 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(f))
         self.assertEqual(inst.create_parent(f), tmp.path)
         self.assertFalse(path.exists(f))
+
+        # Test for former security issue!  See:
+        # https://bugs.launchpad.net/dmedia/+bug/708663
+        tmp = TempDir()
+        base = tmp.join('foo', 'bar')
+        bad = tmp.join('foo', 'barNone', 'stuff')
+        baddir = tmp.join('foo', 'barNone')
+        inst = self.klass(base)
+        e = raises(ValueError, inst.create_parent, bad)
+        self.assertEqual(
+            str(e),
+            TRAVERSAL % (baddir, base, bad)
+        )
+        self.assertFalse(path.exists(bad))
+        self.assertFalse(path.exists(baddir))
 
     def test_path(self):
         inst = self.klass('/foo')
