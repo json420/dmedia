@@ -111,7 +111,7 @@ def parse_subsec_datetime(string):
     For example:
 
     >>> parse_subsec_datetime('2010:10:21 01:44:37.40')
-    1287625477.4000001
+    1287625477.4
 
     This function also works on timestamps without sub-seconds:
 
@@ -149,7 +149,7 @@ def extract_mtime_from_exif(exif):
 
     >>> exif = {'SubSecCreateDate': '2010:10:19 20:43:14.68'}
     >>> extract_mtime_from_exif(exif)
-    1287520994.6800001
+    1287520994.68
     """
     for key in EXIF_MTIME_KEYS:
         if key in exif:
