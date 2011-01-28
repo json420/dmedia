@@ -191,7 +191,7 @@ class MetaStore(object):
         # https://bugs.launchpad.net/desktopcouch/+bug/672481
         self.ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
         # /FIXME
-        self.desktop = CouchDatabase(self.dbname, create=True, ctx=self.ctx)
+        self.desktop = CouchDatabase(self.dbname, create=True)
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
         self.create_views()
