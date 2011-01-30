@@ -121,19 +121,6 @@ function(doc) {
 }
 """
 
-
-def dc_context(couchdir):
-    """
-    Create a desktopcouch Context for testing purposes.
-    """
-    assert path.isdir(couchdir)
-    return Context(
-        path.join(couchdir, 'cache'),
-        path.join(couchdir, 'data'),
-        path.join(couchdir, 'config'),
-    )
-
-
 def build_design_doc(design, views):
     _id = '_design/' + design
     d = {}
@@ -185,12 +172,8 @@ class MetaStore(object):
         )),
     )
 
-    def __init__(self, dbname='dmedia', couchdir=None):
+    def __init__(self, dbname='dmedia'):
         self.dbname = dbname
-        # FIXME: once lp:672481 is fixed, this wont be needed.  See:
-        # https://bugs.launchpad.net/desktopcouch/+bug/672481
-        self.ctx = (DEFAULT_CONTEXT if couchdir is None else dc_context(couchdir))
-        # /FIXME
         self.desktop = CouchDatabase(self.dbname, create=True)
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
