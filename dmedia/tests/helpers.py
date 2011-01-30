@@ -185,10 +185,12 @@ class CouchCase(TestCase):
     def setUp(self):
         self.home = TempHome()
         self.dbname = 'dmedia_test'
-
-    def tearDown(self):
         try:
             dc = CouchDatabase(self.dbname)
             del dc._server[self.dbname]
         except NoSuchDatabase:
             pass
+
+    def tearDown(self):
+        self.home = None
+        self.dbname = None
