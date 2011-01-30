@@ -37,10 +37,10 @@ parser.add_option('--bus',
     default=BUS,
     help='D-Bus bus name; default is %r' % BUS,
 )
-parser.add_option('--couchdir',
+parser.add_option('--dbname',
     metavar='DIR',
     default=None,
-    help='temporary directory for desktopcouch Context',
+    help='dmedia CouchDB database',
 )
 parser.add_option('--no-gui',
     action='store_true',
@@ -57,12 +57,10 @@ def exit(msg, code=1):
 
 if __name__ == '__main__':
     (options, args) = parser.parse_args()
-    if not (options.couchdir is None or path.isdir(options.couchdir)):
-        exit('couchdir not a directory: %r' % options.couchdir)
     configure_logging('service')
     from dmedia import service
     mainloop = gobject.MainLoop()
     obj = service.DMedia(mainloop.quit,
-        options.bus, options.couchdir, options.no_gui
+        options.bus, options.dbname, options.no_gui
     )
     mainloop.run()

@@ -36,11 +36,11 @@ class test_DMedia(CouchCase):
         def kill():
             pass
         inst = self.klass(
-            killfunc=kill, bus=bus, couchdir=self.couchdir, no_gui=True
+            killfunc=kill, bus=bus, dbname=self.dbname, no_gui=True
         )
         self.assertTrue(inst._killfunc is kill)
         self.assertTrue(inst._bus is bus)
-        self.assertTrue(inst._couchdir is self.couchdir)
+        self.assertTrue(inst._dbname is self.dbname)
         self.assertTrue(inst._no_gui)
         self.assertEqual(inst._manager, None)
 
@@ -48,4 +48,4 @@ class test_DMedia(CouchCase):
         self.assertTrue(inst._manager is m)
         self.assertTrue(isinstance(m, importer.ImportManager))
         self.assertEqual(m._callback, inst._on_signal)
-        self.assertTrue(m._couchdir is self.couchdir)
+        self.assertTrue(m._dbname is self.dbname)
