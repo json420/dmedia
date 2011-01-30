@@ -93,7 +93,6 @@ class test_MetaStore(CouchCase):
         return self.klass(self.dbname)
 
     def test_init(self):
-        # Test with testing ctx:
         inst = self.new()
         self.assertEqual(inst.dbname, self.dbname)
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
