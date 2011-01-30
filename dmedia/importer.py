@@ -164,13 +164,13 @@ def create_import(base, batch_id=None, machine_id=None):
 
 
 class Importer(object):
-    def __init__(self, batch_id, base, extract, couchdir=None):
+    def __init__(self, batch_id, base, extract, dbname=None):
         self.batch_id = batch_id
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(path.join(self.home, DOTDIR))
-        self.metastore = MetaStore(couchdir=couchdir)
+        self.metastore = MetaStore(dbname=dbname)
         self.db = self.metastore.db
 
         self.__stats = {
@@ -275,9 +275,9 @@ class Importer(object):
 
 
 class ImportWorker(Worker):
-    def execute(self, batch_id, base, extract=False, couchdir=None):
+    def execute(self, batch_id, base, extract=False, dbname=None):
 
-        adapter = Importer(batch_id, base, extract, couchdir)
+        adapter = Importer(batch_id, base, extract, dbname)
 
         import_id = adapter.start()
         self.emit('started', import_id)
@@ -317,10 +317,10 @@ def accumulate_stats(accum, stats):
 
 
 class ImportManager(Manager):
-    def __init__(self, callback=None, couchdir=None):
+    def __init__(self, callback=None, dbname=None):
         super(ImportManager, self).__init__(callback)
-        self._couchdir = couchdir
-        self.metastore = MetaStore(couchdir=couchdir)
+        self._dbname = dbname
+        self.metastore = MetaStore(dbname=dbname)
         self.db = self.metastore.db
         self._batch = None
         self._total = 0
@@ -384,7 +384,7 @@ class ImportManager(Manager):
             if len(self._workers) == 0:
                 self._start_batch()
             return self.do('ImportWorker', base,
-                self._batch['_id'], base, extract, self._couchdir
+                self._batch['_id'], base, extract, self._dbname
             )
 
     def list_imports(self):

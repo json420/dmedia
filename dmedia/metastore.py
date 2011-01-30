@@ -172,8 +172,8 @@ class MetaStore(object):
         )),
     )
 
-    def __init__(self, dbname='dmedia'):
-        self.dbname = dbname
+    def __init__(self, dbname=None):
+        self.dbname = ('dmedia' if dbname is None else dbname)
         self.desktop = CouchDatabase(self.dbname, create=True)
         self.server = self.desktop._server
         self.db = self.server[self.dbname]
