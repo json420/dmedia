@@ -40,19 +40,6 @@ import shutil
 
 
 class test_functions(TestCase):
-    def test_dc_context(self):
-        f = metastore.dc_context
-        tmp = TempDir()
-        ctx = f(tmp.path)
-        self.assertTrue(isinstance(ctx, Context))
-        self.assertEqual(ctx.run_dir, tmp.join('cache'))
-        self.assertEqual(ctx.db_dir, tmp.join('data'))
-        self.assertEqual(ctx.config_dir, tmp.join('config'))
-
-        # Test that it makes sure couchdir is a directory
-        self.assertRaises(AssertionError, f, tmp.join('nope'))
-        self.assertRaises(AssertionError, f, tmp.touch('nope'))
-
     def test_build_design_doc(self):
         f = metastore.build_design_doc
         views = (
@@ -103,18 +90,11 @@ class test_MetaStore(CouchCase):
     klass = metastore.MetaStore
 
     def new(self):
-        return self.klass(couchdir=self.couchdir)
+        return self.klass(self.dbname)
 
     def test_init(self):
-        # Test with testing ctx:
         inst = self.new()
-        self.assertEqual(inst.dbname, 'dmedia')
-        self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
-        self.assertEqual(isinstance(inst.server, couchdb.Server), True)
-
-        # Test when overriding dbname:
-        inst = self.klass(dbname='dmedia_test', couchdir=self.couchdir)
-        self.assertEqual(inst.dbname, 'dmedia_test')
+        self.assertEqual(inst.dbname, self.dbname)
         self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
         self.assertEqual(isinstance(inst.server, couchdb.Server), True)
 

@@ -70,10 +70,10 @@ class DMedia(dbus.service.Object):
         'ImportFinished',
     ])
 
-    def __init__(self, killfunc=None, bus=None, couchdir=None, no_gui=False):
+    def __init__(self, killfunc=None, bus=None, dbname=None, no_gui=False):
         self._killfunc = killfunc
         self._bus = (BUS if bus is None else bus)
-        self._couchdir = couchdir
+        self._dbname = dbname
         self._no_gui = no_gui
         log.info('Starting service on %r', self._bus)
         self._conn = dbus.SessionBus()
@@ -123,7 +123,7 @@ class DMedia(dbus.service.Object):
     @property
     def manager(self):
         if self._manager is None:
-            self._manager = ImportManager(self._on_signal, self._couchdir)
+            self._manager = ImportManager(self._on_signal, self._dbname)
             self._manager.start()
         return self._manager
 

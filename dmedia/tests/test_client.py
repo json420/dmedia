@@ -86,7 +86,7 @@ class test_Client(CouchCase):
         super(test_Client, self).setUp()
         self.bus = random_bus()
         cmd = [script, '--no-gui',
-            '--couchdir', self.couchdir,
+            '--dbname', self.dbname,
             '--bus', self.bus,
         ]
         self.service = Popen(cmd)

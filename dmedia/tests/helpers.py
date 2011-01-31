@@ -30,9 +30,8 @@ from subprocess import check_call
 import tempfile
 import shutil
 from base64 import b32encode, b32decode
-from desktopcouch.stop_local_couchdb import stop_couchdb
-from dmedia.metastore import dc_context
-
+from desktopcouch.records.server import  CouchDatabase
+from desktopcouch.records.server_base import NoSuchDatabase
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
 sample_mov = path.join(datadir, 'MVI_5751.MOV')
@@ -185,12 +184,13 @@ class CouchCase(TestCase):
 
     def setUp(self):
         self.home = TempHome()
-        self.couchdir = tempfile.mkdtemp(prefix='dc-test.')
-        self.ctx = dc_context(self.couchdir)
+        self.dbname = 'dmedia_test'
+        try:
+            dc = CouchDatabase(self.dbname)
+            del dc._server[self.dbname]
+        except NoSuchDatabase:
+            pass
 
     def tearDown(self):
-        stop_couchdb(ctx=self.ctx)
-        self.ctx = None
-        shutil.rmtree(self.couchdir)
-        self.couchdir = None
         self.home = None
+        self.dbname = None

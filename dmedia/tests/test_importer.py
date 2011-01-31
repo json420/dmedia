@@ -239,7 +239,7 @@ class test_Importer(CouchCase):
     batch_id = 'YKGHY6H5RVCDNMUBL4NLP6AU'
 
     def new(self, base, extract=False):
-        return self.klass(self.batch_id, base, extract, couchdir=self.couchdir)
+        return self.klass(self.batch_id, base, extract, dbname=self.dbname)
 
     def test_init(self):
         tmp = TempDir()
@@ -262,7 +262,7 @@ class test_Importer(CouchCase):
         self.assertTrue(inst._import is None)
         _id = inst.start()
         self.assertEqual(len(_id), 24)
-        store = MetaStore(couchdir=self.couchdir)
+        store = MetaStore(dbname=self.dbname)
         self.assertEqual(inst._import, store.db[_id])
         self.assertEqual(
             set(inst._import),
@@ -488,7 +488,7 @@ class test_ImportWorker(CouchCase):
         tmp = TempDir()
         batch_id = 'YKGHY6H5RVCDNMUBL4NLP6AU'
         base = tmp.path
-        inst = self.klass(q, base, (batch_id, base, False, self.couchdir))
+        inst = self.klass(q, base, (batch_id, base, False, self.dbname))
 
         src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
         dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
@@ -571,7 +571,7 @@ class test_ImportManager(CouchCase):
 
     def test_start_batch(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.couchdir)
+        inst = self.klass(callback, self.dbname)
 
         # Test that batch cannot be started when there are active workers:
         inst._workers['foo'] = 'bar'
@@ -615,7 +615,7 @@ class test_ImportManager(CouchCase):
 
     def test_finish_batch(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.couchdir)
+        inst = self.klass(callback, self.dbname)
         batch_id = random_id()
         inst._batch = dict(
             _id=batch_id,
@@ -660,7 +660,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_started(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.couchdir)
+        inst = self.klass(callback, self.dbname)
         self.assertEqual(callback.messages, [])
         inst._start_batch()
         batch_id = inst._batch['_id']
@@ -699,7 +699,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_count(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.couchdir)
+        inst = self.klass(callback, self.dbname)
         self.assertEqual(callback.messages, [])
 
         one = TempDir()
@@ -729,7 +729,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_progress(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.couchdir)
+        inst = self.klass(callback, self.dbname)
         self.assertEqual(callback.messages, [])
 
         one = TempDir()
@@ -769,7 +769,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_finished(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.couchdir)
+        inst = self.klass(callback, self.dbname)
         batch_id = random_id()
         inst._batch = dict(
             _id=batch_id,
@@ -853,7 +853,7 @@ class test_ImportManager(CouchCase):
         )
 
     def test_get_batch_progress(self):
-        inst = self.klass(couchdir=self.couchdir)
+        inst = self.klass(dbname=self.dbname)
         self.assertEqual(inst.get_batch_progress(), (0, 0))
         inst._total = 18
         self.assertEqual(inst.get_batch_progress(), (0, 18))
@@ -865,7 +865,7 @@ class test_ImportManager(CouchCase):
 
     def test_start_import(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.couchdir)
+        inst = self.klass(callback, self.dbname)
         self.assertTrue(inst.start())
 
         tmp = TempDir()
@@ -947,7 +947,7 @@ class test_ImportManager(CouchCase):
         )
 
     def test_list_imports(self):
-        inst = self.klass(couchdir=self.couchdir)
+        inst = self.klass(dbname=self.dbname)
         self.assertEqual(inst.list_imports(), [])
         inst._workers.update(
             dict(foo=None, bar=None, baz=None)
