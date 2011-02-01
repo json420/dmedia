@@ -5,37 +5,34 @@ function load(rows) {
     var browser = document.getElementById('browser');
     for (i in rows) {
         var doc = rows[i].doc;
-        var src = '/dmedia/' + doc._id + '/thumbnail';
 
         var div = document.createElement('div');
         div.setAttribute('class', 'item');
 
         var img = document.createElement('img');
-        img.setAttribute('src', src);
+        if (doc._attachments.thumbnail) {
+            img.setAttribute('src', '/dmedia/' + doc._id + '/thumbnail');
+        }
         img.setAttribute('width', 160);
         img.setAttribute('height', 90);
         img.onclick = function(){get_data(doc)};
 
+        var time = document.createElement('div');
+        time.setAttribute('class', 'time');
+        time.textContent = doc.duration + 's';
+
+        var star_off = document.createElement('div');
+        star_off.setAttribute('class', 'star_off');
+
+        var star_on = document.createElement('div');
+        star_on.setAttribute('class', 'star_on');
 
         div.appendChild(img);
+        div.appendChild(time);
+        div.appendChild(star_off);
+        div.appendChild(star_on);
         browser.appendChild(div);
     };
-
-//	var images = "";
-//	for (item in dmedia.data){
-//		images += '<div class="item"> <img src="data:';
-//		images += dmedia.data[item]._attachments.thumbnail.content_type;
-//		images += ';base64,';
-//		images += data[item]._attachments.thumbnail.data;
-//		images += '" width="160" height="90" onClick="get_data(\'';
-//		images += data[item]._id;
-//		images += '\')" >';
-//		images += '<div class="time">' + data[item].duration + 's</div>';
-//		images += '<div class="star_off"></div><div class="star_on"></div></div>';
-//	};
-
-//	var browser = document.getElementById('browser');
-//	browser.innerHTML = images;
 };
 
 function get_data(doc){
