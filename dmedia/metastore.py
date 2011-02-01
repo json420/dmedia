@@ -33,6 +33,10 @@ import desktopcouch
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 from desktopcouch.local_files import DEFAULT_CONTEXT, Context
+try:
+    from desktopcouch import find_port
+except ImportError:
+    from desktopcouch.application.platform import find_port
 from .util import random_id
 
 
@@ -189,7 +193,7 @@ class MetaStore(object):
         return (user, password)
 
     def get_port(self):
-        return desktopcouch.find_port()
+        return find_port()
 
     def get_uri(self):
         return 'http://localhost:%s' % self.get_port()
