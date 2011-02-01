@@ -60,7 +60,8 @@ also give dmedia all the power needed to store an important class of files...
 namely, media files, which are perfectly appropriate to treat as read-only.
 Remember, non destructive editing "is a good thing".
 
-At any given time, the majority of a user's storage will be consumed by media files (videos, pictures, music).  By replacing the error-prone management of
+At any given time, the majority of a user's storage will be consumed by media
+files (videos, pictures, music).  By replacing the error-prone management of
 these files with smart and opinionated automation, we can hugely improve the
 user experience.
 
