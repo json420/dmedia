@@ -27,8 +27,8 @@ import os
 from os import path
 import json
 from base64 import b64encode
-from urlparse import urlparse, parse_qs
-import webkit
+from urlparse import urlparse, parse_qsl
+from gi.repository import WebKit
 from oauth import oauth
 from desktopcouch.local_files import get_oauth_tokens
 from . import datadir
@@ -103,7 +103,7 @@ def create_app():
     }
 
 
-class CouchView(webkit.WebView):
+class CouchView(WebKit.WebView):
     def __init__(self):
         super(CouchView, self).__init__()
         self.connect('resource-request-starting', self._on_nav)
@@ -123,21 +123,22 @@ class CouchView(webkit.WebView):
             return
         uri = request.get_uri()
         c = urlparse(uri)
+        query = dict(parse_qsl(c.query))
+        if c.query and not query:
+            query = {c.query: ''}
         req = oauth.OAuthRequest.from_consumer_and_token(
             self._consumer,
             self._token,
             http_method=request.props.message.props.method,
             http_url=uri,
-            parameters=parse_qs(c.query)
+            parameters=query,
         )
         req.sign_request(
             oauth.OAuthSignatureMethod_HMAC_SHA1(),
             self._consumer,
             self._token
         )
-        request.set_uri(req.to_url())
-        return
-        # FIXME: Apparrently we can't actually modify the headers from Python
         request.props.message.props.request_headers.append(
             'Authorization', req.to_header()['Authorization']
         )
+        #request.set_uri(req.to_url())

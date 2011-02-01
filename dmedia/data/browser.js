@@ -115,11 +115,12 @@ var dmedia = {
     data: [],
 
     callback: function(stuff) {
-        console.log(stuff);
+        //console.log(stuff);
         load(stuff.rows);
     },
 
     load: function() {
+
         dmedia.db.view('file/ext', {
             success: dmedia.callback,
             include_docs: true,
