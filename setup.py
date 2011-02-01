@@ -131,17 +131,20 @@ setup(
     ),
     scripts=['dmedia-cli', 'dmedia-import', 'dmedia-gtk'],
     data_files=[
-        ('share/man/man1', ['dmedia-cli.1']),
-        ('share/applications', ['dmedia-import.desktop']),
+        ('share/man/man1', ['data/dmedia-cli.1']),
+        ('share/applications', ['data/dmedia-import.desktop']),
         #^ this enables Nautilus to use dmedia-import as a handler for
         #media devices such as cameras. `sudo update-desktop-database`
         #may need to run for this to show up in the Nautilus
         #media handling preferences.
-        ('share/pixmaps', ['dmedia.svg']),
+        ('share/pixmaps', ['data/dmedia.svg']),
         ('share/pixmaps/dmedia',
-            ['indicator-rendermenu.svg', 'indicator-rendermenu-att.svg']
+            [
+                'data/indicator-rendermenu.svg',
+                'data/indicator-rendermenu-att.svg',
+            ]
         ),
-        ('share/dbus-1/services', ['org.freedesktop.DMedia.service']),
+        ('share/dbus-1/services', ['data/org.freedesktop.DMedia.service']),
         ('lib/dmedia', ['dmedia-service']),
     ],
 )
