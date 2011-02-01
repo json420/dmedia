@@ -6,10 +6,19 @@ function load(rows) {
     for (i in rows) {
         var doc = rows[i].doc;
         var src = '/dmedia/' + doc._id + '/thumbnail';
+
+        var div = document.createElement('div');
+        div.setAttribute('class', 'item');
+
         var img = document.createElement('img');
-        img.setAttribute('class', 'item');
         img.setAttribute('src', src);
-        browser.appendChild(img);
+        img.setAttribute('width', 160);
+        img.setAttribute('height', 90);
+        img.onclick = function(){get_data(doc)};
+
+
+        div.appendChild(img);
+        browser.appendChild(div);
     };
 
 //	var images = "";
@@ -29,7 +38,9 @@ function load(rows) {
 //	browser.innerHTML = images;
 };
 
-function get_data(id){
+function get_data(doc){
+    console.log('get_data', doc);
+    return;
 	//var info = document.getElementById('info');
 	var preview = document.getElementById('display');
 	if (selected != "none"){
