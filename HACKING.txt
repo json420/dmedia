@@ -1,3 +1,4 @@
+                           **************************
                            Contribute code to dmedia!
                            **************************
 
@@ -8,9 +9,30 @@ The dmedia tests are run through `setup.py` like this:
 
     ./setup.py test
 
-This will run the unit tests and doc tests.  dmedia is very focused on rapid,
+This will run the unit-tests and doc-tests.  dmedia is very focused on rapid,
 test-drive development.  If you contribute a feature to dmedia, it must include
 comprehensive unit/doc tests for the feature.  This is a good thing.  :)
+
+As you work on a feature, you will likely want to run only tests for modules
+related to your change.  You can filter tests with the --names option, like
+this:
+
+    ./setup.py test --names=filestore,util
+
+That would run all unit-tests and doc-tests in:
+
+    dmedia/filestore.py
+    dmedia/util.py
+    dmedia/tests/test_filestore.py
+    dmedia/tests/test_util.py
+
+You can skip the doc-tests (and run only the unit-tests) like this:
+
+    ./setup.py test --no-doctest
+
+Or skip the unit-tests (and run only the doc-tests) like this:
+
+    ./setup.py test --no-unittest
 
 
 Coding Style
@@ -21,6 +43,33 @@ Contributions must follow good PEP-8, PEP-257 style:
     http://www.python.org/dev/peps/pep-0008/
 
     http://www.python.org/dev/peps/pep-0257/
+
+
+Getting Started
+===============
+
+If you want to familiarize yourself with the dmedia codebase, start with the
+`FileStore` class in dmedia/filestore.py.  The `FileStore` class arranges media
+file in a special layout according to their content hash, which is the
+cornerstone of the dmedia design.
+
+dmedia can be thought of as distributed file-system with very limited features
+in that it *only* stores read-only, intrinsically-named files.  These
+constraints keep dmedia simple enough to be implemented by a small team, yet
+also give dmedia all the power needed to store an important class of files...
+namely, media files, which are perfectly appropriate to treat as read-only.
+Remember, non destructive editing "is a good thing".
+
+At any given time, the majority of a user's storage will be consumed by media files (videos, pictures, music).  By replacing the error-prone management of
+these files with smart and opinionated automation, we can hugely improve the
+user experience.
+
+Although dmedia keeps things very simple in how it handles the media *files*,
+there are some complicated problems on the *metadata* side of things.
+Fortunately, dmedia can be completely lazy here and make CouchDB do all the hard
+metadata work.
+
+"Be as lazy as possible, but not lazier."  --someone said that once.
 
 
 Workflow
