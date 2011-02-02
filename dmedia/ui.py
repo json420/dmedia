@@ -104,6 +104,34 @@ def create_app():
 
 
 class CouchView(WebKit.WebView):
+    """
+    Transparently sign desktopcouch requests with OAuth.
+
+    desktopcouch uses OAuth to authenticate HTTP requests to CouchDB.  Well,
+    technically it can also use basic auth, but if you do this, Stuart Langridge
+    will be very cross with you!
+
+    This class wraps a ``gi.repository.WebKit.WebView`` so that you can have a
+    single web app that:
+
+        1. Can run in a browser and talk to a remote CouchDB over HTTPS with
+           basic auth
+
+        2. Can also run in embedded WebKit and talk to the local desktopcouch
+           over HTTP with OAuth
+
+    Being able to do this sort of thing transparently is a big reason why dmedia
+    and Novacut are designed the way they are.
+
+    For some background, see:
+
+        https://bugs.launchpad.net/dmedia/+bug/677697
+
+        http://oauth.net/
+
+    Special thanks to Stuart Langridge for the example code that helped get this
+    working.
+    """
     def __init__(self):
         super(CouchView, self).__init__()
         self.connect('resource-request-starting', self._on_nav)
@@ -121,9 +149,13 @@ class CouchView(WebKit.WebView):
         # This seems to be a good way to filter out data: URIs
         if request.props.message is None:
             return
+        # FIXME: For the Novacut player, we need a way for external links (say
+        # to artist's homepage) to open in a regular browser using `xdg-open`.
         uri = request.get_uri()
         c = urlparse(uri)
         query = dict(parse_qsl(c.query))
+        # Handle bloody CouchDB having foo.html?dbname URLs, that is
+        # a querystring which isn't of the form foo=bar
         if c.query and not query:
             query = {c.query: ''}
         req = oauth.OAuthRequest.from_consumer_and_token(
@@ -141,4 +173,3 @@ class CouchView(WebKit.WebView):
         request.props.message.props.request_headers.append(
             'Authorization', req.to_header()['Authorization']
         )
-        #request.set_uri(req.to_url())
