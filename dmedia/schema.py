@@ -84,7 +84,7 @@ The base32-encoded sha1 hash is 32-characters long.  For example:
 
 
 After calling `HashList.run()`, the binary digests of the leaf content-hashes
-is available via the ``leaves`` attribute (which is a ``list``):
+are available via the ``leaves`` attribute (which is a ``list``):
 
 >>> from base64 import b32encode
 >>> for d in hashlist.leaves:
