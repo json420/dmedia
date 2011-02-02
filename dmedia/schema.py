@@ -38,7 +38,7 @@ and will be base32-encoded.  Base32-encoding was chosen because:
     2. It can be used in URLs with no escaping
 
     3. Importantly, it can be used to name files on case *insensitive*
-       filesystems
+       filesystems (whereas base64-encoding cannot)
 
 At its core, dmedia is a simple layered filesystem, so being able to create a
 filename directly from a document ID is an important design consideration.
