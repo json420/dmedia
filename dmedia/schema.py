@@ -118,8 +118,8 @@ expressing the time in seconds since the epoch, UTC.  This was chosen because:
 
     1. It avoids the eternal mess of storing times in local-time
 
-    2. All useful comparisons (including deltas) can be quickly done with first
-       converting from a calendar representation to Unix time
+    2. All useful comparisons (including deltas) can be quickly done without
+       first converting from a calendar representation to Unix time
 
 
 """
