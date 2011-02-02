@@ -76,7 +76,7 @@ upload and download.
 The base32-encoded sha1 hash is 32-characters long.  For example:
 
 >>> from dmedia.filestore import HashList
->>> from dmedia.tests.helpers import sample_mov
+>>> from dmedia.tests.helpers import sample_mov  # Sample .MOV file
 >>> src_fp = open(sample_mov, 'rb')
 >>> hashlist = HashList(src_fp)
 >>> hashlist.run()
@@ -84,7 +84,7 @@ The base32-encoded sha1 hash is 32-characters long.  For example:
 
 
 After calling `HashList.run()`, the binary digests of the leaf content-hashes
-is available via the ``leaves`` attribute:
+is available via the ``leaves`` attribute (which is a ``list``):
 
 >>> from base64 import b32encode
 >>> for d in hashlist.leaves:
@@ -93,6 +93,33 @@ is available via the ``leaves`` attribute:
 'IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3'
 'MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4'
 'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'
+
+
+The overall file content-hash is a hash of the leave hashes (aka a top-hash).
+Note that this matches what was returned by `HashList.run()`:
+
+>>> from hashlib import sha1
+>>> b32encode(sha1(''.join(hashlist.leaves)).digest())
+'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+
+
+In the near future dmedia will very likely migrate to using a 200-bit Skein-512
+hash.  See:
+
+    http://packages.python.org/pyskein/
+
+
+
+Design Decision: Unix timestamps
+================================
+
+All timestamps in the core dmedia schema are ``int`` or ``float`` values
+expressing the time in seconds since the epoch, UTC.  This was chosen because:
+
+    1. It avoids the eternal mess of storing times in local-time
+
+    2. All useful comparisons (including deltas) can be quickly done with first
+       converting from a calendar representation to Unix time
 
 
 """
