@@ -95,7 +95,7 @@ is available via the ``leaves`` attribute (which is a ``list``):
 'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'
 
 
-The overall file content-hash is a hash of the leave hashes (aka a top-hash).
+The overall file content-hash (aka the top-hash) is a hash of the leaf hashes.
 Note that this matches what was returned by `HashList.run()`:
 
 >>> from hashlib import sha1
