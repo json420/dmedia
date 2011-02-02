@@ -33,6 +33,10 @@ import desktopcouch
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.record import  Record
 from desktopcouch.local_files import DEFAULT_CONTEXT, Context
+try:
+    from desktopcouch import find_port
+except ImportError:
+    from desktopcouch.application.platform import find_port
 from .util import random_id
 
 
@@ -147,6 +151,19 @@ def create_machine():
     }
 
 
+def docs_equal(doc, old):
+    if old is None:
+        return False
+    doc['_rev'] = old['_rev']
+    doc_att = doc.get('_attachments', {})
+    old_att = old.get('_attachments', {})
+    for key in old_att:
+        if key in doc_att:
+            doc_att[key]['revpos'] = old_att[key]['revpos']
+    return doc == old
+
+
+
 class MetaStore(object):
     designs = (
         ('type', (
@@ -189,7 +206,7 @@ class MetaStore(object):
         return (user, password)
 
     def get_port(self):
-        return desktopcouch.find_port()
+        return find_port()
 
     def get_uri(self):
         return 'http://localhost:%s' % self.get_port()
@@ -224,12 +241,8 @@ class MetaStore(object):
         Create *doc* if it doesn't exists, update doc only if different.
         """
         _id = doc['_id']
-        try:
-            old = self.db[_id]
-            doc['_rev'] = old['_rev']
-            if old != doc:
-                self.db[_id] = doc
-        except ResourceNotFound:
+        old = self.db.get(_id, attachments=True)
+        if not docs_equal(doc, old):
             self.db[_id] = doc
 
     def sync(self, doc):
