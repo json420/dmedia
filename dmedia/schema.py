@@ -24,7 +24,7 @@ CouchDB schema precisely defined with tests and documentation.
 
 This module contains a number of test functions that precisely define the
 conventions of the dmedia CouchDB schema.  These functions are used in the
-dmedia test suite, and are available for 3rd-party applications to do the same.
+dmedia test suite, and are available for 3rd-party apps to do the same.
 
 
 Design Decision: base32-encoded document IDs
