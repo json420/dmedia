@@ -311,6 +311,7 @@ def istype(value, key="doc['type']"):
     Traceback (most recent call last):
       ...
     ValueError: doc['type'] must contain only one '/'; got 'dmedia/foo/bar'
+
     """
     if not isinstance(value, basestring):
         raise TypeError(TYPE_ERROR % (key, basestring, type(value), value))
@@ -358,6 +359,32 @@ def istime(value, key='time'):
 
 
 def isdmedia(doc):
+    """
+    Verify that *doc* is a valid dmedia document.
+
+    This verifies that *doc* has the common schema requirements that all dmedia
+    documents should have.  The *doc* must:
+
+        1. have '_id' that passes `isbase32()`
+
+        2. have 'type' that passes `istype()`
+
+        3. have 'time' that passes `istime()`
+
+    For example:
+
+    >>> doc = {
+    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'kind': 'dmedia/file',
+    ...     'timestamp': 1234567890,
+    ... }
+    ...
+    >>> isdmedia(doc)
+    Traceback (most recent call last):
+      ...
+    ValueError: doc missing required keys: ['time', 'type']
+
+    """
     if not isinstance(doc, dict):
         raise TypeError(TYPE_ERROR % ('doc', dict, type(doc), doc))
     required = set(['_id', 'type', 'time'])
