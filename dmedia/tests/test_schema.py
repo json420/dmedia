@@ -67,6 +67,43 @@ class test_functions(TestCase):
             f('MZZG2ZDSOQVSW2TEMVZG643F'), 'MZZG2ZDSOQVSW2TEMVZG643F'
         )
 
+    def test_istype(self):
+        f = schema.istype
+
+        # Test with wrong type
+        e = raises(TypeError, f, 17)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['type']", basestring, int, 17)
+        )
+
+        # Test with wrong case
+        e = raises(ValueError, f, 'Dmedia/Foo')
+        self.assertEqual(
+            str(e),
+             "doc['type'] must be lowercase; got 'Dmedia/Foo'"
+        )
+
+        # Test with wrong prefix
+        e = raises(ValueError, f, 'foo/bar')
+        self.assertEqual(
+            str(e),
+             "doc['type'] must start with 'dmedia/'; got 'foo/bar'"
+        )
+
+        # Test with multiple slashes
+        e = raises(ValueError, f, 'dmedia/foo/bar')
+        self.assertEqual(
+            str(e),
+             "doc['type'] must contain only one '/'; got 'dmedia/foo/bar'"
+        )
+
+        # Test with good values
+        good = 'dmedia/foo'
+        self.assertTrue(f(good) is good)
+        good = 'dmedia/machine'
+        self.assertTrue(f(good) is good)
+
     def test_istime(self):
         f = schema.istime
 

@@ -263,7 +263,7 @@ def random_id(random=None):
 
 def isbase32(value, key='_id'):
     """
-    Test that *value* is a valid dmedia document ID.
+    Verify that *value* is a valid dmedia document ID.
 
     Document IDs must:
 
@@ -271,7 +271,7 @@ def isbase32(value, key='_id'):
 
         2. be valid base32 encoding
 
-        3. decode to data that is a multiple of 5-bytes in length
+        3. decode to data that is a multiple of 5-bytes (40-bits ) in length
 
     For example:
 
@@ -291,9 +291,48 @@ def isbase32(value, key='_id'):
     return value
 
 
+def istype(value, key="doc['type']"):
+    """
+    Verify that *doc* has a valid dmedia record type.
+
+    Record types must:
+
+        1. be ``str`` or ``unicode`` instances
+
+        2. be lowercase
+
+        3. start with 'dmedia/'
+
+        4. be of the form 'dmedia/foo', where *foo* is a valid Python identifier
+
+    For example:
+
+    >>> istype('dmedia/foo/bar')
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['type'] must contain only one '/'; got 'dmedia/foo/bar'
+    """
+    if not isinstance(value, basestring):
+        raise TypeError(TYPE_ERROR % (key, basestring, type(value), value))
+    if not value.islower():
+        raise ValueError(
+            "%s must be lowercase; got %r" % (key, value)
+        )
+    if not value.startswith('dmedia/'):
+        raise ValueError(
+            "%s must start with 'dmedia/'; got %r" % (key, value)
+        )
+    parts = value.split('/')
+    if len(parts) != 2:
+        raise ValueError(
+            "%s must contain only one '/'; got %r" % (key, value)
+        )
+    return value
+
+
 def istime(value, key='time'):
     """
-    Test that *value* is a Unix timestamp.
+    Verify that *value* is a Unix timestamp.
 
     Timestamps must:
 
@@ -327,5 +366,6 @@ def isdmedia(doc):
             'doc missing required keys: %r' % sorted(required - set(doc))
         )
     isbase32(doc['_id'])
+    istype(doc['type'])
     istime(doc['time'])
     return doc
