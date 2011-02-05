@@ -110,6 +110,72 @@ hash.  See:
 
 
 
+Design Decision: mime-like record types
+=======================================
+
+FIXME: This needs to be discussed with the desktopcouch people, but for now I'm
+documenting it here to clarify the idea.  --jderose 2011-02-04
+
+The desktopcouch convention is for each document to have a "record_type"
+attribute containing the URL of a webpage describing the schema.  For example:
+
+>>> doc = {
+...     'record_type': 'http://www.freedesktop.org/wiki/Specifications/desktopcouch/contact',
+... }
+
+
+Although the "record_type" convention addresses an important need (standardizing
+CouchDB schema for cross-application use), it has some practical problems that
+have been encountered in dmedia:
+
+    1. URLs are too long and awkward if you need to frequently compare the
+       record_type with constant values (eg, in view code, in client-side
+       JavaScript, etc)
+
+    2. URLs aren't the greatest long-term stable identifier, and there is a
+       tendency for the wiki documentation to lag behind the code
+
+    3. The "record_type" convention is fairly convenient when used from the
+       desktopcouch Python API, but gets a bit awkward when used from
+       JavaScript or otherwise making direct HTTP requests
+
+So currently dmedia is using something similar in spirit, but a lot simpler in
+practice.  For example:
+
+>>> doc = {
+...     'type': 'dmedia/file',
+... }
+
+
+The "type" is a namespace ("dmedia"), then a forward slash, then a sub-type
+("file"), similar to mime types.  The current dmedia record types include:
+
+    dmedia/file
+        Each file has a corresponding CouchDB document, and this is its type
+
+    dmedia/machine
+        One for each unique machine (computer) that is a peer in a dmedia
+        library
+
+    dmedia/store
+        One for each "place" files can be stored - used for both FileStore on
+        dmedia peers and for services (like UbuntuOne or Amazon S3)
+
+    dmedia/import
+        One is created each time a SD/CF card is imported, for example
+
+    dmedia/batch
+        One is created for each batch of imports (imports done in parallel with
+        multiple card readers)
+
+For additional information on desktopcouch and record types, see:
+
+    http://www.freedesktop.org/wiki/Specifications/desktopcouch
+
+    https://launchpad.net/desktopcouch
+
+
+
 Design Decision: Unix timestamps
 ================================
 
@@ -121,7 +187,46 @@ expressing the time in seconds since the epoch, UTC.  This was chosen because:
     2. All useful comparisons (including deltas) can be quickly done without
        first converting from a calendar representation to Unix time
 
+All dmedia records have a "time" attribute, which is the timestamp of when the
+document was first added to CouchDB.  This allows a unified Zeitgeist-style
+chronological view across all dmedia records regardless of record type.  For
+example:
 
+>>> doc = {
+...     '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
+...     'type': 'dmedia/batch',
+...     'time': 1234567890,
+... }
+
+
+
+Design Decision: schema extensibility
+=====================================
+
+As the goal is to make dmedia suitable for use by a wide range of applications,
+there is a special attribute namespace reserved for application-specific schema.
+
+Attributes starting with "x_" are reserved for extensibility.  The dmedia schema
+will never include attributes starting with "x_".  Additionally, the special "x"
+attribute is a dictionary that allows groups of related attributes to be placed under a single extension namespace.  For example:
+
+>>> doc = {
+...     '_id': 'GS5HPKZRK7DRXOECOYYXRUTUP26H3ECY',
+...     'type': 'dmedia/file',
+...     'time': 1234567890,
+...     'x': {
+...         'pitivi': {
+...             'foo': 'PiTiVi-specific foo',
+...             'bar': 'PiTiVi-specific bar',
+...         },
+...     },
+...     'x_baz': 'other misc attribute not in dmedia schema',
+... }
+
+
+An important consequence of this extensibility is that when modifying documents,
+applications must always losslessly round-trip any attributes they don't know
+about.
 """
 
 from __future__ import print_function
