@@ -129,7 +129,7 @@ CouchDB schema for cross-application use), it has some practical problems that
 have been encountered in dmedia:
 
     1. URLs are too long and awkward if you need to frequently compare the
-       record_type with constant values (eg, in view code, in client-side
+       record_type with constant values (eg, in map functions, in client-side
        JavaScript, etc)
 
     2. URLs aren't the greatest long-term stable identifier, and there is a
