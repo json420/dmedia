@@ -24,12 +24,49 @@ Unit tests for `dmedia.schema` module.
 """
 
 from unittest import TestCase
+from base64 import b32encode
 from .helpers import raises
 from dmedia.constants import TYPE_ERROR
 from dmedia import schema
 
 
 class test_functions(TestCase):
+    def test_isbase32(self):
+        f = schema.isbase32
+
+        e = raises(TypeError, f, 17)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('_id', basestring, int, 17)
+        )
+        e = raises(TypeError, f, True, key='import_id')
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('import_id', basestring, bool, True)
+        )
+
+        bad = 'MZzG2ZDSOQVSW2TEMVZG643F'
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            'Non-base32 digit found'
+        )
+
+        for n in xrange(5, 26):
+            b32 = b32encode('a' * n)
+            if n % 5 == 0:
+                self.assertTrue(f(b32), b32)
+            else:
+                e = raises(ValueError, f, b32, key='foo')
+                self.assertEqual(
+                    str(e),
+                    'len(b32decode(foo)) not multiple of 5: %r' % b32
+                )
+
+        self.assertEqual(
+            f('MZZG2ZDSOQVSW2TEMVZG643F'), 'MZZG2ZDSOQVSW2TEMVZG643F'
+        )
+
     def test_isdmedia(self):
         f = schema.isdmedia
 

@@ -233,7 +233,7 @@ about.
 from __future__ import print_function
 
 import os
-from base64 import b32encode
+from base64 import b32encode, b32decode
 from .constants import TYPE_ERROR
 
 
@@ -261,13 +261,20 @@ def random_id(random=None):
     return b32encode(random)
 
 
-
 def isbase32(value, key='_id'):
-    pass
+    if not isinstance(value, basestring):
+        raise TypeError(TYPE_ERROR % (key, basestring, type(value), value))
+    decoded = b32decode(value)
+    if len(decoded) % 5 != 0:
+        raise ValueError(
+            'len(b32decode(%s)) not multiple of 5: %r' % (key, value)
+        )
+    return value
 
 
 def istime(value, key='time'):
-    pass
+    if not isinstance(doc, dict):
+        raise TypeError(TYPE_ERROR % ('doc', dict, type(doc), doc))
 
 
 def isdmedia(doc):
@@ -278,4 +285,5 @@ def isdmedia(doc):
         raise ValueError(
             'doc missing required keys: %r' % sorted(required - set(doc))
         )
+    isbase32(doc['_id'])
     return doc
