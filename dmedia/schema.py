@@ -273,8 +273,30 @@ def isbase32(value, key='_id'):
 
 
 def istime(value, key='time'):
-    if not isinstance(doc, dict):
-        raise TypeError(TYPE_ERROR % ('doc', dict, type(doc), doc))
+    """
+    Test that *value* is a Unix timestamp.
+
+    Timestamps must:
+
+        1. be ``int`` or ``float`` instances
+
+        2. be non-negative (must be >= 0)
+
+    For example:
+
+    >>> istime(-3, key='time_end')
+    Traceback (most recent call last):
+      ...
+    ValueError: time_end must be >= 0; got -3
+
+    """
+    if not isinstance(value, (int, float)):
+        raise TypeError(TYPE_ERROR % (key, (int, float), type(value), value))
+    if value < 0:
+        raise ValueError(
+            '%s must be >= 0; got %r' % (key, value)
+        )
+    return value
 
 
 def isdmedia(doc):
@@ -286,4 +308,5 @@ def isdmedia(doc):
             'doc missing required keys: %r' % sorted(required - set(doc))
         )
     isbase32(doc['_id'])
+    istime(doc['time'])
     return doc

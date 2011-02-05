@@ -67,6 +67,43 @@ class test_functions(TestCase):
             f('MZZG2ZDSOQVSW2TEMVZG643F'), 'MZZG2ZDSOQVSW2TEMVZG643F'
         )
 
+    def test_istime(self):
+        f = schema.istime
+
+        # Test with wrong type
+        bad = '123456789'
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('time', (int, float), str, bad)
+        )
+        bad = u'123456789.18'
+        e = raises(TypeError, f, bad, key='time_end')
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('time_end', (int, float), unicode, bad)
+        )
+
+        # Test with negative value
+        bad = -1234567890
+        e = raises(ValueError, f, bad, key='mtime')
+        self.assertEqual(
+            str(e),
+            'mtime must be >= 0; got %r' % bad
+        )
+        bad = -1234567890.18
+        e = raises(ValueError, f, bad, key='foo')
+        self.assertEqual(
+            str(e),
+            'foo must be >= 0; got %r' % bad
+        )
+
+        # Test with good values
+        self.assertEqual(f(1234567890), 1234567890)
+        self.assertEqual(f(1234567890.18), 1234567890.18)
+        self.assertEqual(f(0), 0)
+        self.assertEqual(f(0.0), 0.0)
+
     def test_isdmedia(self):
         f = schema.isdmedia
 
@@ -84,7 +121,7 @@ class test_functions(TestCase):
         good = {
             '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
             'type': 'dmedia/foo',
-            'time': '1234567890',
+            'time': 1234567890,
             'foo': 'bar',
         }
         self.assertEqual(f(dict(good)), good)
