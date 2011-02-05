@@ -154,15 +154,15 @@ The "type" is a namespace ("dmedia"), then a forward slash, then a sub-type
         Each file has a corresponding CouchDB document, and this is its type
 
     dmedia/machine
-        One for each unique machine (computer) that is a peer in a dmedia
-        library
+        One for each unique machine (computer/phone/etc) that is a peer in a
+        dmedia library
 
     dmedia/store
         One for each "place" files can be stored - used for both FileStore on
         dmedia peers and for services (like UbuntuOne or Amazon S3)
 
     dmedia/import
-        One is created each time a SD/CF card is imported, for example
+        One is created each time an SD/CF card is imported
 
     dmedia/batch
         One is created for each batch of imports (imports done in parallel with
