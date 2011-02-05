@@ -20,10 +20,11 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-CouchDB schema all defined in one place.
+CouchDB schema precisely defined with tests and documentation.
 
-This might move, but for now it's handy to have this all in one file simply to
-help the design process.
+This module contains a number of test functions that precisely define the
+conventions of the dmedia CouchDB schema.  These functions are used in the
+dmedia test suite, and are available for 3rd-party applications to do the same.
 
 
 Design Decision: base32-encoded document IDs
