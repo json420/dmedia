@@ -208,7 +208,8 @@ there is a special attribute namespace reserved for application-specific schema.
 
 Attributes starting with "x_" are reserved for extensibility.  The dmedia schema
 will never include attributes starting with "x_".  Additionally, the special "x"
-attribute is a dictionary that allows groups of related attributes to be placed under a single extension namespace.  For example:
+attribute is a dictionary that allows groups of related attributes to be placed
+under a single extension namespace.  For example:
 
 >>> doc = {
 ...     '_id': 'GS5HPKZRK7DRXOECOYYXRUTUP26H3ECY',
