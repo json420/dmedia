@@ -234,6 +234,7 @@ from __future__ import print_function
 
 import os
 from base64 import b32encode
+from .constants import TYPE_ERROR
 
 
 def random_id(random=None):
@@ -258,3 +259,23 @@ def random_id(random=None):
     random = (os.urandom(15) if random is None else random)
     assert len(random) % 5 == 0
     return b32encode(random)
+
+
+
+def isbase32(value, key='_id'):
+    pass
+
+
+def istime(value, key='time'):
+    pass
+
+
+def isdmedia(doc):
+    if not isinstance(doc, dict):
+        raise TypeError(TYPE_ERROR % ('doc', dict, type(doc), doc))
+    required = set(['_id', 'type', 'time'])
+    if not required.issubset(doc):
+        raise ValueError(
+            'doc missing required keys: %r' % sorted(required - set(doc))
+        )
+    return doc
