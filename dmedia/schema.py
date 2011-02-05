@@ -262,6 +262,25 @@ def random_id(random=None):
 
 
 def isbase32(value, key='_id'):
+    """
+    Test that *value* is a valid dmedia document ID.
+
+    Document IDs must:
+
+        1. be ``str`` or ``unicode`` instances
+
+        2. be valid base32 encoding
+
+        3. decode to data that is a multiple of 5-bytes in length
+
+    For example:
+
+    >>> isbase32('MFQWCYLBMFQWCYI=')
+    Traceback (most recent call last):
+      ...
+    ValueError: len(b32decode(_id)) not multiple of 5: 'MFQWCYLBMFQWCYI='
+
+    """
     if not isinstance(value, basestring):
         raise TypeError(TYPE_ERROR % (key, basestring, type(value), value))
     decoded = b32decode(value)
