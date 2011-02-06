@@ -235,19 +235,28 @@ class Importer(object):
                 }
             },
             'type': 'dmedia/file',
+            'time': time.time(),
+            'bytes': stat.st_size,
+            'ext': ext,
+            'stored': {
+                'MZZG2ZDSOQVSW2TEMVZG643F': {
+                    'copies': 2,
+                    'time': 1234567890,
+                },
+            },
+
             'qid': quickid,
             'import_id': self._import_id,
-            'bytes': stat.st_size,
             'mtime': stat.st_mtime,
             'basename': basename,
             'dirname': path.relpath(path.dirname(src), self.base),
-            'ext': ext,
         }
         if ext:
             doc['content_type'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
-        assert self.metastore.db.create(doc) == chash
+        (_id, _rev) = self.metastore.db.save(doc)
+        assert _id == chash
         return ('imported', doc)
 
     def import_file(self, src):

@@ -36,13 +36,13 @@ from multiprocessing import current_process
 from .helpers import CouchCase, TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_thm
-from .helpers import mov_hash, mov_leaves, mov_qid
+from .helpers import mov_hash, mov_leaves, mov_att, mov_qid
 from .helpers import thm_hash, thm_leaves, thm_qid
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.metastore import MetaStore
 from dmedia.util import random_id
-from dmedia import importer
+from dmedia import importer, schema
 
 import desktopcouch
 from desktopcouch.stop_local_couchdb import stop_couchdb
@@ -348,28 +348,44 @@ class test_Importer(CouchCase):
 
         # Test with new file
         size = path.getsize(src1)
-        doc = {
-            '_id': mov_hash,
-            '_attachments': {
-                'leaves': {
-                    'data': b64encode(''.join(mov_leaves)),
-                    'content_type': 'application/octet-stream',
-                }
-            },
-            'type': 'dmedia/file',
-            'import_id': None,
-            'qid': mov_qid,
-            'bytes': size,
-            'mtime': path.getmtime(src1),
-            'basename': 'MVI_5751.MOV',
-            'dirname': 'DCIM/100EOS5D2',
-            'ext': 'mov',
-            'content_type': 'video/quicktime',
-        }
+        (action, doc) = inst.import_file(src1)
+
+        self.assertEqual(action, 'imported')
         self.assertEqual(
-            inst.import_file(src1),
-            ('imported', doc)
+            set(doc),
+            set([
+                '_id',
+                '_rev',
+                '_attachments',
+                'type',
+                'time',
+                'bytes',
+                'ext',
+                'stored',
+                'import_id',
+                'qid',
+                'mtime',
+                'basename',
+                'dirname',
+                'content_type',
+            ])
         )
+        self.assertEqual(schema.check_dmedia_file(doc), None)
+
+        self.assertEqual(doc['_id'], mov_hash)
+        self.assertEqual(doc['_attachments'], {'leaves': mov_att})
+        self.assertEqual(doc['type'], 'dmedia/file')
+        self.assertTrue(doc['time'] <= time.time())
+        self.assertEqual(doc['bytes'], size)
+        self.assertEqual(doc['ext'], 'mov')
+
+        self.assertEqual(doc['import_id'], None)
+        self.assertEqual(doc['qid'], mov_qid)
+        self.assertEqual(doc['mtime'], path.getmtime(src1))
+        self.assertEqual(doc['basename'], 'MVI_5751.MOV')
+        self.assertEqual(doc['dirname'], 'DCIM/100EOS5D2')
+        self.assertEqual(doc['content_type'], 'video/quicktime')
+
         self.assertEqual(inst.get_stats(),
              {
                 'imported': {
@@ -387,9 +403,7 @@ class test_Importer(CouchCase):
         (action, wrapper) = inst.import_file(src2)
         self.assertEqual(action, 'skipped')
         doc2 = dict(wrapper)
-        del doc2['_rev']
-        del doc2['_attachments']
-        del doc['_attachments']
+        doc2['_attachments'] = doc['_attachments']
         self.assertEqual(doc2, doc)
         self.assertEqual(inst.get_stats(),
              {
@@ -423,9 +437,13 @@ class test_Importer(CouchCase):
                 (dup1, 'skipped'),
             ]
         )
-        self.assertEqual(items[0][2],
+
+        doc = items[0][2]
+        self.assertEqual(schema.check_dmedia_file(doc), None)
+        self.assertEqual(doc,
             {
                 '_id': mov_hash,
+                '_rev': doc['_rev'],
                 '_attachments': {
                     'leaves': {
                         'data': b64encode(''.join(mov_leaves)),
@@ -433,19 +451,31 @@ class test_Importer(CouchCase):
                     }
                 },
                 'type': 'dmedia/file',
+                'time': doc['time'],
+                'bytes': path.getsize(src1),
+                'ext': 'mov',
+                'stored': {
+                    'MZZG2ZDSOQVSW2TEMVZG643F': {
+                        'copies': 2,
+                        'time': 1234567890,
+                    },
+                },
+
                 'import_id': import_id,
                 'qid': mov_qid,
-                'bytes': path.getsize(src1),
                 'mtime': path.getmtime(src1),
                 'basename': 'MVI_5751.MOV',
                 'dirname': 'DCIM/100EOS5D2',
-                'ext': 'mov',
                 'content_type': 'video/quicktime',
             }
         )
-        self.assertEqual(items[1][2],
+
+        doc = items[1][2]
+        self.assertEqual(schema.check_dmedia_file(doc), None)
+        self.assertEqual(doc,
             {
                 '_id': thm_hash,
+                '_rev': doc['_rev'],
                 '_attachments': {
                     'leaves': {
                         'data': b64encode(''.join(thm_leaves)),
@@ -453,13 +483,21 @@ class test_Importer(CouchCase):
                     }
                 },
                 'type': 'dmedia/file',
+                'time': doc['time'],
+                'bytes': path.getsize(src2),
+                'ext': 'thm',
+                'stored': {
+                    'MZZG2ZDSOQVSW2TEMVZG643F': {
+                        'copies': 2,
+                        'time': 1234567890,
+                    },
+                },
+
                 'import_id': import_id,
                 'qid': thm_qid,
-                'bytes': path.getsize(src2),
                 'mtime': path.getmtime(src2),
                 'basename': 'MVI_5751.THM',
                 'dirname': 'DCIM/100EOS5D2',
-                'ext': 'thm',
                 'content_type': None,
             }
         )
