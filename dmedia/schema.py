@@ -55,6 +55,7 @@ be well served by doing the same.  Please read on for the rationale for some of
 the key dmedia schema design decisions...
 
 
+
 Design Decision: base32-encoded document IDs
 ============================================
 
