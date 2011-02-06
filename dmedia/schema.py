@@ -279,7 +279,7 @@ def check_base32(value, label='_id'):
         )
 
 
-def check_type(value, label="doc['type']"):
+def check_type(value, label='type'):
     """
     Verify that *doc* has a valid dmedia record type.
 
@@ -303,7 +303,7 @@ def check_type(value, label="doc['type']"):
     >>> check_type('dmedia/foo/bar')
     Traceback (most recent call last):
       ...
-    ValueError: doc['type'] must contain only one '/'; got 'dmedia/foo/bar'
+    ValueError: type must contain only one '/'; got 'dmedia/foo/bar'
 
     """
     if not isinstance(value, basestring):

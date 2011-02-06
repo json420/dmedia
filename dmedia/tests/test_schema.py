@@ -73,28 +73,28 @@ class test_functions(TestCase):
         e = raises(TypeError, f, 17)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['type']", basestring, int, 17)
+            TYPE_ERROR % ('type', basestring, int, 17)
         )
 
         # Test with wrong case
         e = raises(ValueError, f, 'Dmedia/Foo')
         self.assertEqual(
             str(e),
-             "doc['type'] must be lowercase; got 'Dmedia/Foo'"
+             "type must be lowercase; got 'Dmedia/Foo'"
         )
 
         # Test with wrong prefix
         e = raises(ValueError, f, 'foo/bar')
         self.assertEqual(
             str(e),
-             "doc['type'] must start with 'dmedia/'; got 'foo/bar'"
+             "type must start with 'dmedia/'; got 'foo/bar'"
         )
 
         # Test with multiple slashes
         e = raises(ValueError, f, 'dmedia/foo/bar')
         self.assertEqual(
             str(e),
-             "doc['type'] must contain only one '/'; got 'dmedia/foo/bar'"
+             "type must contain only one '/'; got 'dmedia/foo/bar'"
         )
 
         # Test with good values
