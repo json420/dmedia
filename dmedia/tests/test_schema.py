@@ -415,3 +415,17 @@ class test_functions(TestCase):
         g = deepcopy(good)
         g['bytes'] = 1
         self.assertEqual(f(g), None)
+
+    def test_check_dmedia_store(self):
+        f = schema.check_dmedia_store
+
+        # Test with good doc:
+        good = {
+            '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            'type': 'dmedia/file',
+            'time': 1234567890,
+            'plugin': 'filestore',
+            'default_copies': 2,
+        }
+        g = deepcopy(good)
+        self.assertEqual(f(g), None)

@@ -247,6 +247,11 @@ import re
 from .constants import TYPE_ERROR
 
 
+def check_int(value, label):
+    if not isinstance(value, int):
+        raise TypeError(TYPE_ERROR % (label, int, type(value), value))
+
+
 def check_lowercase(value, label):
     if not value.islower():
         raise ValueError(
@@ -392,9 +397,6 @@ def check_required(d, required, label='doc'):
         raise ValueError(
             '%s missing keys: %r' % (label, missing)
         )
-
-
-
 
 
 def check_dmedia(doc):
@@ -641,3 +643,44 @@ def check_dmedia_file(doc):
 
     # Check 'stored'
     check_stored(doc['stored'])
+
+
+def check_dmedia_store(doc):
+    """
+    Verify that *doc* is a valid 'dmedia/store' type document.
+
+    To be a valid 'dmedia/store' record, *doc* must:
+
+        1. conform with `check_dmedia()`
+
+    For example, a conforming value:
+
+    >>> doc = {
+    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'type': 'dmedia/file',
+    ...     'time': 1234567890,
+    ...     'plugin': 'filestore',
+    ...     'default_copies': 2,
+    ... }
+    ...
+    >>> check_dmedia_store(doc)
+
+
+    And an invalid value:
+
+    >>> doc = {
+    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'type': 'dmedia/file',
+    ...     'time': 1234567890,
+    ...     'dispatch': 'filestore',
+    ...     'default_copies': 2,
+    ... }
+    ...
+    >>> check_dmedia_store(doc)
+    Traceback (most recent call last):
+      ...
+    ValueError: doc missing keys: ['plugin']
+
+    """
+    check_dmedia(doc)
+    check_required(doc, ['plugin', 'default_copies'])
