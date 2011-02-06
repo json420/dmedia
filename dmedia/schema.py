@@ -237,7 +237,7 @@ from base64 import b32decode
 from .constants import TYPE_ERROR
 
 
-def isbase32(value, key='_id'):
+def check_base32(value, key='_id'):
     """
     Verify that *value* is a valid dmedia document ID.
 
@@ -251,7 +251,7 @@ def isbase32(value, key='_id'):
 
     For example:
 
-    >>> isbase32('MFQWCYLBMFQWCYI=')
+    >>> check_base32('MFQWCYLBMFQWCYI=')
     Traceback (most recent call last):
       ...
     ValueError: len(b32decode(_id)) not multiple of 5: 'MFQWCYLBMFQWCYI='
@@ -267,7 +267,7 @@ def isbase32(value, key='_id'):
     return value
 
 
-def istype(value, key="doc['type']"):
+def check_type(value, key="doc['type']"):
     """
     Verify that *doc* has a valid dmedia record type.
 
@@ -283,7 +283,7 @@ def istype(value, key="doc['type']"):
 
     For example:
 
-    >>> istype('dmedia/foo/bar')
+    >>> check_type('dmedia/foo/bar')
     Traceback (most recent call last):
       ...
     ValueError: doc['type'] must contain only one '/'; got 'dmedia/foo/bar'
@@ -307,7 +307,7 @@ def istype(value, key="doc['type']"):
     return value
 
 
-def istime(value, key='time'):
+def check_time(value, key='time'):
     """
     Verify that *value* is a Unix timestamp.
 
@@ -319,7 +319,7 @@ def istime(value, key='time'):
 
     For example:
 
-    >>> istime(-3, key='time_end')
+    >>> check_time(-3, key='time_end')
     Traceback (most recent call last):
       ...
     ValueError: time_end must be >= 0; got -3
@@ -334,18 +334,26 @@ def istime(value, key='time'):
     return value
 
 
-def isdmedia(doc):
+def check_required(doc, *required):
+    required = set(required)
+    if not required.issubset(doc):
+        raise ValueError(
+            'doc missing required keys: %r' % sorted(required - set(doc))
+        )
+
+
+def check_dmedia(doc):
     """
     Verify that *doc* is a valid dmedia document.
 
     This verifies that *doc* has the common schema requirements that all dmedia
     documents should have.  The *doc* must:
 
-        1. have '_id' that passes `isbase32()`
+        1. have '_id' that passes `check_base32()`
 
-        2. have 'type' that passes `istype()`
+        2. have 'type' that passes `check_type()`
 
-        3. have 'time' that passes `istime()`
+        3. have 'time' that passes `check_time()`
 
     For example:
 
@@ -355,7 +363,7 @@ def isdmedia(doc):
     ...     'timestamp': 1234567890,
     ... }
     ...
-    >>> isdmedia(doc)
+    >>> check_dmedia(doc)
     Traceback (most recent call last):
       ...
     ValueError: doc missing required keys: ['time', 'type']
@@ -363,12 +371,17 @@ def isdmedia(doc):
     """
     if not isinstance(doc, dict):
         raise TypeError(TYPE_ERROR % ('doc', dict, type(doc), doc))
-    required = set(['_id', 'type', 'time'])
-    if not required.issubset(doc):
-        raise ValueError(
-            'doc missing required keys: %r' % sorted(required - set(doc))
-        )
-    isbase32(doc['_id'])
-    istype(doc['type'])
-    istime(doc['time'])
+    check_required(doc, '_id', 'type', 'time')
+    check_base32(doc['_id'])
+    check_type(doc['type'])
+    check_time(doc['time'])
+    return doc
+
+
+def check_dmedia_file(doc):
+    """
+    Verify that *doc* is a valid type='dmedia/file' record.
+    """
+    check_dmedia(doc)
+    check_required(doc, 'bytes')
     return doc

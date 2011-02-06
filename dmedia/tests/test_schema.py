@@ -31,8 +31,8 @@ from dmedia import schema
 
 
 class test_functions(TestCase):
-    def test_isbase32(self):
-        f = schema.isbase32
+    def test_check_base32(self):
+        f = schema.check_base32
 
         e = raises(TypeError, f, 17)
         self.assertEqual(
@@ -67,8 +67,8 @@ class test_functions(TestCase):
             f('MZZG2ZDSOQVSW2TEMVZG643F'), 'MZZG2ZDSOQVSW2TEMVZG643F'
         )
 
-    def test_istype(self):
-        f = schema.istype
+    def test_check_type(self):
+        f = schema.check_type
 
         # Test with wrong type
         e = raises(TypeError, f, 17)
@@ -104,8 +104,8 @@ class test_functions(TestCase):
         good = 'dmedia/machine'
         self.assertTrue(f(good) is good)
 
-    def test_istime(self):
-        f = schema.istime
+    def test_check_time(self):
+        f = schema.check_time
 
         # Test with wrong type
         bad = '123456789'
@@ -141,8 +141,8 @@ class test_functions(TestCase):
         self.assertEqual(f(0), 0)
         self.assertEqual(f(0.0), 0.0)
 
-    def test_isdmedia(self):
-        f = schema.isdmedia
+    def test_check_dmedia(self):
+        f = schema.check_dmedia
 
         bad = [
             ('_id', 'MZZG2ZDSOQVSW2TEMVZG643F'),
@@ -185,3 +185,28 @@ class test_functions(TestCase):
             str(e),
             'doc missing required keys: %r' % ['_id', 'time', 'type']
         )
+
+    def test_check_dmedia_file(self):
+        f = schema.check_dmedia_file
+
+        # Test with good doc:
+        good = {
+            '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            'type': 'dmedia/foo',
+            'time': 1234567890,
+            'foo': 'bar',
+            'bytes': 20202333,
+        }
+        g = dict(good)
+        self.assertTrue(f(g) is g)
+
+        # Test with missing attributes:
+        self.assertEqual(f(dict(good)), good)
+        for key in ['bytes']:
+            bad = dict(good)
+            del bad[key]
+            e = raises(ValueError, f, bad)
+            self.assertEqual(
+                str(e),
+                'doc missing required keys: %r' % [key]
+            )
