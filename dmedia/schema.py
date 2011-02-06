@@ -684,7 +684,7 @@ def check_dmedia_file(doc):
 
         2. have 'type' equal to 'dmedia/file'
 
-        3. have 'bytes' that is an ``int`` greater than zero
+        3. have 'bytes' that is an ``int`` >= 1
 
         4. have 'ext' that conforms with `check_ext()`
 
