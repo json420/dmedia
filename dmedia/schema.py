@@ -378,12 +378,44 @@ def check_dmedia(doc):
     return doc
 
 
+def check_stored(stored, name='stored'):
+    """
+    Verify that *stored* is a valid 'stored' attribute for a dmedia/file record.
+
+    To be valid, *stored* must:
+
+        1. be a non-empty ``dict``
+
+        2. have keys that are document IDs according to `check_base32()`
+
+        3. have values that are themselves ``dict`` instances
+    """
+    if not isinstance(stored, dict):
+        raise TypeError(TYPE_ERROR % (name, dict, type(stored), stored))
+    if len(stored) == 0:
+        raise ValueError('%s cannot be empty' % name)
+    for (key, value) in stored.iteritems():
+        check_base32(key, '<key in %s>' % name)
+        if not isinstance(value, dict):
+            n = '%s[%r]' % (name, key)
+            raise TypeError(TYPE_ERROR % (n, dict, type(value), value))
+    return stored
+
+
 def check_dmedia_file(doc):
     """
-    Verify that *doc* is a valid type='dmedia/file' record.
+    Verify that *doc* is a valid 'dmedia/file' record type.
+
+    To be a valid 'dmedia/file' record, *doc* must:
+
+        1. have 'type' equal to 'dmedia/file'
+
+        2. have 'bytes' that is an ``int`` greater than zero
+
+        3. have 'stored'
     """
     check_dmedia(doc)
-    check_required(doc, 'bytes')
+    check_required(doc, 'bytes', 'stored')
 
     # Check type:
     if doc['type'] != 'dmedia/file':
@@ -399,5 +431,8 @@ def check_dmedia_file(doc):
         raise ValueError(
             "doc['bytes'] must be > 0; got %(bytes)r" % doc
         )
+
+    # Check 'stored'
+    check_stored(doc['stored'])
 
     return doc

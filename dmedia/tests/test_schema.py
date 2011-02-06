@@ -25,6 +25,7 @@ Unit tests for `dmedia.schema` module.
 
 from unittest import TestCase
 from base64 import b32encode
+from copy import deepcopy
 from .helpers import raises
 from dmedia.constants import TYPE_ERROR
 from dmedia import schema
@@ -163,7 +164,7 @@ class test_functions(TestCase):
         }
         self.assertEqual(f(dict(good)), good)
         for key in ['_id', 'type', 'time']:
-            bad = dict(good)
+            bad = deepcopy(good)
             del bad[key]
             e = raises(ValueError, f, bad)
             self.assertEqual(
@@ -171,7 +172,7 @@ class test_functions(TestCase):
                 'doc missing required keys: %r' % [key]
             )
         for keys in (['_id', 'type'], ['_id', 'time'], ['time', 'type']):
-            bad = dict(good)
+            bad = deepcopy(good)
             for key in keys:
                 del bad[key]
             e = raises(ValueError, f, bad)
@@ -186,6 +187,64 @@ class test_functions(TestCase):
             'doc missing required keys: %r' % ['_id', 'time', 'type']
         )
 
+    def test_check_stored(self):
+        f = schema.check_stored
+
+        good = {
+            'MZZG2ZDSOQVSW2TEMVZG643F': {
+                'copies': 2,
+                'time': 1234567890,
+            },
+            'NZXXMYLDOV2F6ZTUO5PWM5DX': {
+                'copies': 1,
+                'time': 1234666890,
+            },
+        }
+
+        g = deepcopy(good)
+        self.assertTrue(f(g) is g)
+        self.assertEqual(f(g), good)
+
+        # Test with wrong type:
+        bad = [
+            (
+                'MZZG2ZDSOQVSW2TEMVZG643F',
+                {
+                    'copies': 2,
+                    'time': 1234567890,
+                }
+            )
+        ]
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('stored', dict, list, bad)
+        )
+
+        # Test with empty value:
+        e = raises(ValueError, f, {})
+        self.assertEqual(str(e), "stored cannot be empty")
+
+        # Test with bad key
+        bad = deepcopy(good)
+        bad['MFQWCYLBMFQWCYI='] =  {'copies': 2, 'time': 1234567890}
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "len(b32decode(<key in stored>)) not multiple of 5: 'MFQWCYLBMFQWCYI='"
+        )
+
+        # Test with bad value
+        bad = deepcopy(good)
+        v = (2, 1234567890)
+        bad['OVRHK3TUOUQCWIDMNFXGC4TP'] = v
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("stored['OVRHK3TUOUQCWIDMNFXGC4TP']", dict, tuple, v)
+        )
+
+
     def test_check_dmedia_file(self):
         f = schema.check_dmedia_file
 
@@ -195,12 +254,19 @@ class test_functions(TestCase):
             'type': 'dmedia/file',
             'time': 1234567890,
             'bytes': 20202333,
+            'stored': {
+                'MZZG2ZDSOQVSW2TEMVZG643F': {
+                    'copies': 2,
+                    'time': 1234567890,
+                },
+            },
         }
-        g = dict(good)
+        g = deepcopy(good)
         self.assertTrue(f(g) is g)
+        self.assertEqual(f(g), good)
 
         # Test with wrong record type:
-        bad = dict(good)
+        bad = deepcopy(good)
         bad['type'] = 'dmedia/files'
         e = raises(ValueError, f, bad)
         self.assertEqual(
@@ -210,8 +276,8 @@ class test_functions(TestCase):
 
         # Test with missing attributes:
         self.assertEqual(f(dict(good)), good)
-        for key in ['bytes']:
-            bad = dict(good)
+        for key in ['bytes', 'stored']:
+            bad = deepcopy(good)
             del bad[key]
             e = raises(ValueError, f, bad)
             self.assertEqual(
@@ -220,7 +286,7 @@ class test_functions(TestCase):
             )
 
         # Test with bytes wrong type:
-        bad = dict(good)
+        bad = deepcopy(good)
         bad['bytes'] *= 1.0
         e = raises(TypeError, f, bad)
         self.assertEqual(
@@ -229,14 +295,14 @@ class test_functions(TestCase):
         )
 
         # Test with bytes < 1:
-        bad = dict(good)
+        bad = deepcopy(good)
         bad['bytes'] = 0
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
             "doc['bytes'] must be > 0; got 0"
         )
-        bad = dict(good)
+        bad = deepcopy(good)
         bad['bytes'] = -1
         e = raises(ValueError, f, bad)
         self.assertEqual(
@@ -245,6 +311,6 @@ class test_functions(TestCase):
         )
 
         # Test with bytes=1
-        g = dict(good)
+        g = deepcopy(good)
         g['bytes'] = 1
         self.assertTrue(f(g) is g)
