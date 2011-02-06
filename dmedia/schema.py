@@ -573,7 +573,9 @@ def check_dmedia_file(doc):
 
         3. have 'bytes' that is an ``int`` greater than zero
 
-        4. have 'stored' that is a ``dict`` conforming with `check_stored()`
+        4. have 'ext' that conforms with `check_ext()`
+
+        5. have 'stored' that is a ``dict`` conforming with `check_stored()`
 
     For example, a conforming value:
 
