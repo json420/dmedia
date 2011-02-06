@@ -247,6 +247,11 @@ import re
 from .constants import TYPE_ERROR
 
 
+def check_str(value, label):
+    if not isinstance(value, basestring):
+        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
+
+
 def check_int(value, label):
     if not isinstance(value, int):
         raise TypeError(TYPE_ERROR % (label, int, type(value), value))
@@ -656,6 +661,11 @@ def check_dmedia_store(doc):
 
         1. conform with `check_dmedia()`
 
+        2. have 'plugin' that equal to 'filestore', 'removable_filestore',
+           'ubuntuone', or 's3'
+
+        3. have 'default_copies' that is an ``int`` >= 1
+
     For example, a conforming value:
 
     >>> doc = {
@@ -687,3 +697,19 @@ def check_dmedia_store(doc):
     """
     check_dmedia(doc)
     check_required(doc, ['plugin', 'default_copies'])
+
+    # Test plugin
+    key = 'plugin'
+    p = doc[key]
+    check_str(p, key)
+    plugins = ['filestore', 'removable_filestore', 'ubuntuone', 's3']
+    if p not in plugins:
+        raise ValueError(
+            '%s %r not in %r' % (key, p, plugins)
+        )
+
+    # Test default_copies
+    key = 'default_copies'
+    dc = doc[key]
+    check_int(dc, key)
+    check_atleast(dc, 1, key)

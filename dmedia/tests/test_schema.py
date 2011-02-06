@@ -439,3 +439,43 @@ class test_functions(TestCase):
                 str(e),
                 'doc missing keys: %r' % [key]
             )
+
+        # Test with wrong plugin type/value:
+        bad = deepcopy(good)
+        bad['plugin'] = 18
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('plugin', basestring, int, 18)
+        )
+        bad = deepcopy(good)
+        bad['plugin'] = 'foo'
+        e = raises(ValueError, f, bad)
+        plugins = ['filestore', 'removable_filestore', 'ubuntuone', 's3']
+        self.assertEqual(
+            str(e),
+            'plugin %r not in %r' % ('foo', plugins)
+        )
+
+        # Test with wrong default_copies type/value:
+        bad = deepcopy(good)
+        bad['default_copies'] = 2.0
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('default_copies', int, float, 2.0)
+        )
+        bad = deepcopy(good)
+        bad['default_copies'] = 0
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'default_copies must be >= 1; got 0'
+        )
+        bad = deepcopy(good)
+        bad['default_copies'] = -2
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            'default_copies must be >= 1; got -2'
+        )
