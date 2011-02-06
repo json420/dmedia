@@ -478,11 +478,22 @@ def check_stored(stored, label='stored'):
     for (key, value) in stored.iteritems():
         check_base32(key, '<key in %s>' % label)
 
-        label2 = '%s[%r]' % (label, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
+        l2 = '%s[%r]' % (label, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
 
-        check_required(value, ['copies', 'time'], label2)
+        check_required(value, ['copies', 'time'], l2)
 
+        # Check 'copies':
         copies = value['copies']
+        l3 = l2 + "['copies']"
+        if not isinstance(copies, int):
+            raise TypeError(
+                TYPE_ERROR % (l3, int, type(copies), copies)
+            )
+        if copies < 1:
+            raise ValueError('%s must be >= 1; got %r' % (l3, copies))
+
+        # Check 'time':
+        check_time(value['time'], l2 + "['time']")
 
 
 def check_dmedia_file(doc):
@@ -495,7 +506,7 @@ def check_dmedia_file(doc):
 
         2. have 'bytes' that is an ``int`` greater than zero
 
-        3. have 'stored' that is a ``dict`` conforms with `check_stored()`
+        3. have 'stored' that is a ``dict`` conforming with `check_stored()`
 
     For example, a conforming value:
 

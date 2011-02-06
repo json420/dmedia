@@ -256,6 +256,40 @@ class test_functions(TestCase):
             "stored['OVRHK3TUOUQCWIDMNFXGC4TP'] missing keys: ['copies', 'time']"
         )
 
+        # Test with bad 'copies' type/value:
+        label = "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies']"
+        bad = deepcopy(good)
+        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = 2.0
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % (label, int, float, 2.0)
+        )
+        bad = deepcopy(good)
+        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = 0
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            '%s must be >= 1; got 0' % label
+        )
+
+        # Test with bad 'time' type/value:
+        label = "stored['MZZG2ZDSOQVSW2TEMVZG643F']['time']"
+        bad = deepcopy(good)
+        bad['MZZG2ZDSOQVSW2TEMVZG643F']['time'] = '1234567890'
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % (label, (int, float), str, '1234567890')
+        )
+        bad = deepcopy(good)
+        bad['MZZG2ZDSOQVSW2TEMVZG643F']['time'] = -1
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            '%s must be >= 0; got -1' % label
+        )
+
 
     def test_check_dmedia_file(self):
         f = schema.check_dmedia_file
