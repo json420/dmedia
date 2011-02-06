@@ -354,11 +354,20 @@ def check_time(value, key='time'):
         )
 
 
-def check_required(doc, *required):
+def check_required(label, d, *required):
+    """
+    Check that dictionary *d* contains all the keys in *required*.
+
+    The *label* is a descriptive label used in exception error messages, for
+    example ``'doc'`` or ``"doc['stored']"``.
+    """
+    if not isinstance(d, dict):
+        raise TypeError(TYPE_ERROR % (label, dict, type(d), d))
     required = set(required)
-    if not required.issubset(doc):
+    if not required.issubset(d):
+        missing = sorted(required - set(d))
         raise ValueError(
-            'doc missing required keys: %r' % sorted(required - set(doc))
+            '%s missing keys: %r' % (label, missing)
         )
 
 
@@ -397,12 +406,10 @@ def check_dmedia(doc):
     >>> check_dmedia(doc)
     Traceback (most recent call last):
       ...
-    ValueError: doc missing required keys: ['time', 'type']
+    ValueError: doc missing keys: ['time', 'type']
 
     """
-    if not isinstance(doc, dict):
-        raise TypeError(TYPE_ERROR % ('doc', dict, type(doc), doc))
-    check_required(doc, '_id', 'type', 'time')
+    check_required('doc', doc, '_id', 'type', 'time')
     check_base32(doc['_id'])
     check_type(doc['type'])
     check_time(doc['time'])
@@ -459,20 +466,12 @@ def check_stored(stored, name='stored'):
     if len(stored) == 0:
         raise ValueError('%s cannot be empty' % name)
 
-    required = frozenset(['copies', 'time'])
     for (key, value) in stored.iteritems():
         check_base32(key, '<key in %s>' % name)
 
-        n = '%s[%r]' % (name, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
+        label = '%s[%r]' % (name, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
 
-        if not isinstance(value, dict):
-            raise TypeError(TYPE_ERROR % (n, dict, type(value), value))
-
-        if not required.issubset(value):
-            missing = sorted(required - set(value))
-            raise ValueError(
-                '%s missing keys: %r' % (n, missing)
-            )
+        check_required(label, value, 'copies', 'time')
 
         copies = value['copies']
 
@@ -490,7 +489,7 @@ def check_dmedia_file(doc):
         3. have 'stored' that is a ``dict`` conforms with `check_stored()`
     """
     check_dmedia(doc)
-    check_required(doc, 'bytes', 'stored')
+    check_required('doc', doc, 'bytes', 'stored')
 
     # Check type:
     if doc['type'] != 'dmedia/file':

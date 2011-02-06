@@ -166,7 +166,7 @@ class test_functions(TestCase):
             e = raises(ValueError, f, bad)
             self.assertEqual(
                 str(e),
-                'doc missing required keys: %r' % [key]
+                'doc missing keys: %r' % [key]
             )
         for keys in (['_id', 'type'], ['_id', 'time'], ['time', 'type']):
             bad = deepcopy(good)
@@ -175,13 +175,13 @@ class test_functions(TestCase):
             e = raises(ValueError, f, bad)
             self.assertEqual(
                 str(e),
-                'doc missing required keys: %r' % keys
+                'doc missing keys: %r' % keys
             )
         bad = {'foo': 'bar'}
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'doc missing required keys: %r' % ['_id', 'time', 'type']
+            'doc missing keys: %r' % ['_id', 'time', 'type']
         )
 
     def test_check_stored(self):
@@ -292,7 +292,7 @@ class test_functions(TestCase):
             e = raises(ValueError, f, bad)
             self.assertEqual(
                 str(e),
-                'doc missing required keys: %r' % [key]
+                'doc missing keys: %r' % [key]
             )
 
         # Test with bytes wrong type:
