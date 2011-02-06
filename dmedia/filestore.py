@@ -107,7 +107,7 @@ def safe_open(filename, mode):
 
 
 def safe_ext(ext):
-    """
+    r"""
     Verify that extension *ext* contains only lowercase ascii letters, digits.
 
     A malicious *ext* could cause path traversal or other security gotchas,
@@ -115,6 +115,8 @@ def safe_ext(ext):
 
     >>> safe_ext('ogv')
     'ogv'
+    >>> safe_ext('tar.gz')
+    'tar.gz'
 
     However, when *ext* does not conform, a ``TypeError`` or ``ValueError`` is
     raised:
@@ -122,7 +124,7 @@ def safe_ext(ext):
     >>> safe_ext('/../.ssh')
     Traceback (most recent call last):
       ...
-    ValueError: ext: can only contain ascii lowercase, digits; got '/../.ssh'
+    ValueError: ext '/../.ssh' does not match pattern '^[a-z0-9]+(\\.[a-z0-9]+)?$'
 
     Also see `safe_b32()`.
     """
@@ -132,7 +134,7 @@ def safe_ext(ext):
         )
     if not EXT_RE.match(ext):
         raise ValueError(
-            'ext: can only contain ascii lowercase, digits; got %r' % ext
+            'ext %r does not match pattern %r' % (ext, EXT_PAT)
         )
     return ext
 

@@ -36,7 +36,7 @@ from .helpers import mov_hash, mov_leaves, mov_qid
 from dmedia.errors import AmbiguousPath, FileStoreTraversal, DuplicateFile
 from dmedia.filestore import HashList
 from dmedia import filestore, constants
-from dmedia.constants import TYPE_ERROR
+from dmedia.constants import TYPE_ERROR, EXT_PAT
 
 
 class test_functions(TestCase):
@@ -92,7 +92,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase, digits; got %r' % bad
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
         # Test with invalid charaters:
@@ -100,7 +100,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase, digits; got %r' % bad
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
         # Test with path traversal:
@@ -108,7 +108,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase, digits; got %r' % bad
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
         # Test with a good ext:
@@ -487,7 +487,7 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.relpath, chash, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase, digits; got %r' % bad
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
     def test_reltemp(self):
@@ -521,7 +521,7 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.reltemp, chash, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase, digits; got %r' % bad
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
     def test_check_path(self):
@@ -676,7 +676,7 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.path, chash, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase, digits; got %r' % bad
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
         # Test with create=True
@@ -731,7 +731,7 @@ class test_FileStore(TestCase):
         e = raises(ValueError, inst.temp, chash, bad)
         self.assertEqual(
             str(e),
-            'ext: can only contain ascii lowercase, digits; got %r' % bad
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
         # Test with create=True
