@@ -670,7 +670,7 @@ def check_ext(value, label='ext'):
         )
     if not re.match(EXT_PAT, value):
         raise ValueError(
-            '%s: only letters, numbers, period allowed; got %r' % (label, value)
+            '%s: %r does not match %r' % (label, value, EXT_PAT)
         )
 
 

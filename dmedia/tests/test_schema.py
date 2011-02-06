@@ -329,17 +329,17 @@ class test_functions(TestCase):
         e = raises(ValueError, f, 'tar/gz')
         self.assertEqual(
             str(e),
-            "ext: only letters, numbers, period allowed; got 'tar/gz'"
+            r"ext: 'tar/gz' does not match '^[a-z0-9]+(\\.[a-z0-9]+)?$'"
         )
         e = raises(ValueError, f, 'tar..gz')
         self.assertEqual(
             str(e),
-            "ext: only letters, numbers, period allowed; got 'tar..gz'"
+            r"ext: 'tar..gz' does not match '^[a-z0-9]+(\\.[a-z0-9]+)?$'"
         )
         e = raises(ValueError, f, 'og*')
         self.assertEqual(
             str(e),
-            "ext: only letters, numbers, period allowed; got 'og*'"
+            r"ext: 'og*' does not match '^[a-z0-9]+(\\.[a-z0-9]+)?$'"
         )
 
         # Test with good values:
