@@ -46,11 +46,18 @@ class test_functions(TestCase):
             TYPE_ERROR % ('import_id', basestring, bool, True)
         )
 
+        # Test with invalid base32 encoding:
         bad = 'MZzG2ZDSOQVSW2TEMVZG643F'
-        e = raises(TypeError, f, bad)
+        e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'Non-base32 digit found'
+            '_id: invalid base32: Non-base32 digit found; got %r' % bad
+        )
+        bad = 'MZZG2ZDSOQVSW2TEMVZG643F='
+        e = raises(ValueError, f, bad, label='import_id')
+        self.assertEqual(
+            str(e),
+            'import_id: invalid base32: Incorrect padding; got %r' % bad
         )
 
         for n in xrange(5, 26):

@@ -272,7 +272,10 @@ def check_base32(value, label='_id'):
     """
     if not isinstance(value, basestring):
         raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
-    decoded = b32decode(value)
+    try:
+        decoded = b32decode(value)
+    except TypeError as e:
+        raise ValueError('%s: invalid base32: %s; got %r' % (label, e, value))
     if len(decoded) % 5 != 0:
         raise ValueError(
             'len(b32decode(%s)) not multiple of 5: %r' % (label, value)
