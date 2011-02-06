@@ -392,7 +392,7 @@ class test_functions(TestCase):
         e = raises(TypeError, f, bad)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
+            TYPE_ERROR % ('bytes', int, float, bad['bytes'])
         )
 
         # Test with bytes < 1:
@@ -401,14 +401,14 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "doc['bytes'] must be > 0; got 0"
+            'bytes must be >= 1; got 0'
         )
         bad = deepcopy(good)
         bad['bytes'] = -1
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "doc['bytes'] must be > 0; got -1"
+            'bytes must be >= 1; got -1'
         )
 
         # Test with bytes=1
@@ -429,3 +429,13 @@ class test_functions(TestCase):
         }
         g = deepcopy(good)
         self.assertEqual(f(g), None)
+
+        # Test with missing attributes:
+        for key in ['plugin', 'default_copies']:
+            bad = deepcopy(good)
+            del bad[key]
+            e = raises(ValueError, f, bad)
+            self.assertEqual(
+                str(e),
+                'doc missing keys: %r' % [key]
+            )

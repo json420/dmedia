@@ -252,6 +252,13 @@ def check_int(value, label):
         raise TypeError(TYPE_ERROR % (label, int, type(value), value))
 
 
+def check_atleast(value, minvalue, label):
+    if value < minvalue:
+        raise ValueError(
+            '%s must be >= %r; got %r' % (label, minvalue, value)
+        )
+
+
 def check_lowercase(value, label):
     if not value.islower():
         raise ValueError(
@@ -631,12 +638,8 @@ def check_dmedia_file(doc):
 
     # Check 'bytes':
     b = doc['bytes']
-    if not isinstance(b, int):
-        raise TypeError(TYPE_ERROR % ("doc['bytes']", int, type(b), b))
-    if b < 1:
-        raise ValueError(
-            "doc['bytes'] must be > 0; got %(bytes)r" % doc
-        )
+    check_int(b, 'bytes')
+    check_atleast(b, 1, 'bytes')
 
     # Check 'ext':
     check_ext(doc['ext'])
