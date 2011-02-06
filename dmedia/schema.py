@@ -245,7 +245,7 @@ from base64 import b32decode
 from .constants import TYPE_ERROR
 
 
-def check_base32(value, key='_id'):
+def check_base32(value, label='_id'):
     """
     Verify that *value* is a valid dmedia document ID.
 
@@ -271,15 +271,15 @@ def check_base32(value, key='_id'):
 
     """
     if not isinstance(value, basestring):
-        raise TypeError(TYPE_ERROR % (key, basestring, type(value), value))
+        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
     decoded = b32decode(value)
     if len(decoded) % 5 != 0:
         raise ValueError(
-            'len(b32decode(%s)) not multiple of 5: %r' % (key, value)
+            'len(b32decode(%s)) not multiple of 5: %r' % (label, value)
         )
 
 
-def check_type(value, key="doc['type']"):
+def check_type(value, label="doc['type']"):
     """
     Verify that *doc* has a valid dmedia record type.
 
@@ -307,23 +307,23 @@ def check_type(value, key="doc['type']"):
 
     """
     if not isinstance(value, basestring):
-        raise TypeError(TYPE_ERROR % (key, basestring, type(value), value))
+        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
     if not value.islower():
         raise ValueError(
-            "%s must be lowercase; got %r" % (key, value)
+            "%s must be lowercase; got %r" % (label, value)
         )
     if not value.startswith('dmedia/'):
         raise ValueError(
-            "%s must start with 'dmedia/'; got %r" % (key, value)
+            "%s must start with 'dmedia/'; got %r" % (label, value)
         )
     parts = value.split('/')
     if len(parts) != 2:
         raise ValueError(
-            "%s must contain only one '/'; got %r" % (key, value)
+            "%s must contain only one '/'; got %r" % (label, value)
         )
 
 
-def check_time(value, key='time'):
+def check_time(value, label='time'):
     """
     Verify that *value* is a Unix timestamp.
 
@@ -340,17 +340,17 @@ def check_time(value, key='time'):
 
     And an invalid value:
 
-    >>> check_time(-3, key='time_end')
+    >>> check_time(-3, label='time_end')
     Traceback (most recent call last):
       ...
     ValueError: time_end must be >= 0; got -3
 
     """
     if not isinstance(value, (int, float)):
-        raise TypeError(TYPE_ERROR % (key, (int, float), type(value), value))
+        raise TypeError(TYPE_ERROR % (label, (int, float), type(value), value))
     if value < 0:
         raise ValueError(
-            '%s must be >= 0; got %r' % (key, value)
+            '%s must be >= 0; got %r' % (label, value)
         )
 
 
@@ -415,7 +415,7 @@ def check_dmedia(doc):
     check_time(doc['time'])
 
 
-def check_stored(stored, name='stored'):
+def check_stored(stored, label='stored'):
     """
     Verify that *stored* is valid for a 'dmedia/file' record.
 
@@ -462,16 +462,16 @@ def check_stored(stored, name='stored'):
     """
 
     if not isinstance(stored, dict):
-        raise TypeError(TYPE_ERROR % (name, dict, type(stored), stored))
+        raise TypeError(TYPE_ERROR % (label, dict, type(stored), stored))
     if len(stored) == 0:
-        raise ValueError('%s cannot be empty' % name)
+        raise ValueError('%s cannot be empty' % label)
 
     for (key, value) in stored.iteritems():
-        check_base32(key, '<key in %s>' % name)
+        check_base32(key, '<key in %s>' % label)
 
-        label = '%s[%r]' % (name, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
+        label2 = '%s[%r]' % (label, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
 
-        check_required(value, ['copies', 'time'], label)
+        check_required(value, ['copies', 'time'], label2)
 
         copies = value['copies']
 

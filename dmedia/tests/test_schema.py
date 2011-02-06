@@ -40,7 +40,7 @@ class test_functions(TestCase):
             str(e),
             TYPE_ERROR % ('_id', basestring, int, 17)
         )
-        e = raises(TypeError, f, True, key='import_id')
+        e = raises(TypeError, f, True, label='import_id')
         self.assertEqual(
             str(e),
             TYPE_ERROR % ('import_id', basestring, bool, True)
@@ -58,7 +58,7 @@ class test_functions(TestCase):
             if n % 5 == 0:
                 self.assertEqual(f(b32), None)
             else:
-                e = raises(ValueError, f, b32, key='foo')
+                e = raises(ValueError, f, b32, label='foo')
                 self.assertEqual(
                     str(e),
                     'len(b32decode(foo)) not multiple of 5: %r' % b32
@@ -112,7 +112,7 @@ class test_functions(TestCase):
             TYPE_ERROR % ('time', (int, float), str, bad)
         )
         bad = u'123456789.18'
-        e = raises(TypeError, f, bad, key='time_end')
+        e = raises(TypeError, f, bad, label='time_end')
         self.assertEqual(
             str(e),
             TYPE_ERROR % ('time_end', (int, float), unicode, bad)
@@ -120,13 +120,13 @@ class test_functions(TestCase):
 
         # Test with negative value
         bad = -1234567890
-        e = raises(ValueError, f, bad, key='mtime')
+        e = raises(ValueError, f, bad, label='mtime')
         self.assertEqual(
             str(e),
             'mtime must be >= 0; got %r' % bad
         )
         bad = -1234567890.18
-        e = raises(ValueError, f, bad, key='foo')
+        e = raises(ValueError, f, bad, label='foo')
         self.assertEqual(
             str(e),
             'foo must be >= 0; got %r' % bad
