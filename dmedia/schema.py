@@ -380,6 +380,7 @@ def _check_required(d, required, label='doc'):
     Traceback (most recent call last):
       ...
     ValueError: var_name missing keys: ['bar']
+
     """
     _check_dict(d, label)
     required = frozenset(required)
