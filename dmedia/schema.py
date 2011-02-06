@@ -243,7 +243,20 @@ about.
 from __future__ import print_function
 
 from base64 import b32decode
+import re
 from .constants import TYPE_ERROR
+
+
+def check_lowercase(value, label):
+    if not value.islower():
+        raise ValueError(
+            "%s must be lowercase; got %r" % (label, value)
+        )
+
+
+def check_nonempty(value, label):
+    if len(value) == 0:
+        raise ValueError('%s cannot be empty' % label)
 
 
 def check_base32(value, label='_id'):
@@ -312,10 +325,7 @@ def check_type(value, label='type'):
     """
     if not isinstance(value, basestring):
         raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
-    if not value.islower():
-        raise ValueError(
-            "%s must be lowercase; got %r" % (label, value)
-        )
+    check_lowercase(value, label)
     if not value.startswith('dmedia/'):
         raise ValueError(
             "%s must start with 'dmedia/'; got %r" % (label, value)
@@ -382,6 +392,9 @@ def check_required(d, required, label='doc'):
         raise ValueError(
             '%s missing keys: %r' % (label, missing)
         )
+
+
+
 
 
 def check_dmedia(doc):
@@ -476,8 +489,7 @@ def check_stored(stored, label='stored'):
 
     if not isinstance(stored, dict):
         raise TypeError(TYPE_ERROR % (label, dict, type(stored), stored))
-    if len(stored) == 0:
-        raise ValueError('%s cannot be empty' % label)
+    check_nonempty(stored, label)
 
     for (key, value) in stored.iteritems():
         check_base32(key, '<key in %s>' % label)
@@ -501,7 +513,52 @@ def check_stored(stored, label='stored'):
 
 
 def check_ext(value, label='ext'):
-    pass
+    """
+    Verify that *value* is a file extension suitable for 'dmedia/file' records.
+
+    The extension *value* can be ``None``, or otherwise *value* must:
+
+        1. be a non-empty ``str`` or ``unicode`` instance
+
+        2. be lowercase
+
+        3. neither start nor end with a period
+
+        4. contain only letters, numbers, and at most on internal period
+
+    For example, some conforming values:
+
+    >>> check_ext(None)
+    >>> check_ext('mov')
+    >>> check_ext('tar.gz')
+
+
+    And an invalid value:
+
+    >>> check_ext('.mov')
+    Traceback (most recent call last):
+      ...
+    ValueError: ext cannot start with a period; got '.mov'
+
+    """
+    if value is None:
+        return
+    if not isinstance(value, basestring):
+        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
+    check_nonempty(value, label)
+    check_lowercase(value, label)
+    if value.startswith('.'):
+        raise ValueError(
+            '%s cannot start with a period; got %r' % (label, value)
+        )
+    if value.endswith('.'):
+        raise ValueError(
+            '%s cannot end with a period; got %r' % (label, value)
+        )
+    if not re.match('^[a-z0-9]+(\.[a-z0-9]+)?$', value):
+        raise ValueError(
+            '%s: only letters, numbers, period allowed; got %r' % (label, value)
+        )
 
 
 def check_dmedia_file(doc):
@@ -576,6 +633,9 @@ def check_dmedia_file(doc):
         raise ValueError(
             "doc['bytes'] must be > 0; got %(bytes)r" % doc
         )
+
+    # Check 'ext':
+    check_ext(doc['ext'])
 
     # Check 'stored'
     check_stored(doc['stored'])

@@ -297,6 +297,55 @@ class test_functions(TestCase):
             '%s must be >= 0; got -1' % label
         )
 
+    def test_check_ext(self):
+        f = schema.check_ext
+
+        # Test wrong type:
+        e = raises(TypeError, f, 17)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('ext', basestring, int, 17)
+        )
+
+        # Test empty strings:
+        e = raises(ValueError, f, '')
+        self.assertEqual(str(e), 'ext cannot be empty')
+        e = raises(ValueError, f, u'', 'foo')
+        self.assertEqual(str(e), 'foo cannot be empty')
+
+        # Test with upper/mixed case:
+        e = raises(ValueError, f, u'Mov')
+        self.assertEqual(str(e), "ext must be lowercase; got u'Mov'")
+        e = raises(ValueError, f, 'TAR.GZ', 'bar')
+        self.assertEqual(str(e), "bar must be lowercase; got 'TAR.GZ'")
+
+        # Test with leading/ending period:
+        e = raises(ValueError, f, '.tar.gz')
+        self.assertEqual(str(e), "ext cannot start with a period; got '.tar.gz'")
+        e = raises(ValueError, f, 'tar.gz.')
+        self.assertEqual(str(e), "ext cannot end with a period; got 'tar.gz.'")
+
+        # Test with values that don't batch regex:
+        e = raises(ValueError, f, 'tar/gz')
+        self.assertEqual(
+            str(e),
+            "ext: only letters, numbers, period allowed; got 'tar/gz'"
+        )
+        e = raises(ValueError, f, 'tar..gz')
+        self.assertEqual(
+            str(e),
+            "ext: only letters, numbers, period allowed; got 'tar..gz'"
+        )
+        e = raises(ValueError, f, 'og*')
+        self.assertEqual(
+            str(e),
+            "ext: only letters, numbers, period allowed; got 'og*'"
+        )
+
+        # Test with good values:
+        self.assertEqual(f(None), None)
+        self.assertEqual(f('mov'), None)
+        self.assertEqual(f('tar.gz'), None)
 
     def test_check_dmedia_file(self):
         f = schema.check_dmedia_file
