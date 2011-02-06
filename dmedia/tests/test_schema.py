@@ -210,3 +210,33 @@ class test_functions(TestCase):
                 str(e),
                 'doc missing required keys: %r' % [key]
             )
+
+        # Test with bytes wrong type:
+        bad = dict(good)
+        bad['bytes'] *= 1.0
+        e = raises(TypeError, f, bad)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
+        )
+
+        # Test with bytes < 1:
+        bad = dict(good)
+        bad['bytes'] = 0
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "doc['bytes'] must be > 0; got 0"
+        )
+        bad = dict(good)
+        bad['bytes'] = -1
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "doc['bytes'] must be > 0; got -1"
+        )
+
+        # Test with bytes=1
+        g = dict(good)
+        g['bytes'] = 1
+        self.assertTrue(f(g) is g)

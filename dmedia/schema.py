@@ -384,4 +384,13 @@ def check_dmedia_file(doc):
     """
     check_dmedia(doc)
     check_required(doc, 'bytes')
+
+    # Check 'bytes':
+    b = doc['bytes']
+    if not isinstance(b, int):
+        raise TypeError(TYPE_ERROR % ("doc['bytes']", int, type(b), b))
+    if b < 1:
+        raise ValueError(
+            "doc['bytes'] must be > 0; got %(bytes)r" % doc
+        )
     return doc
