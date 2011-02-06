@@ -335,15 +335,15 @@ def check_time(value, label='time'):
 
     For example, a conforming value:
 
-    >>> check_time(1234567890)
+    >>> check_time(1234567890, label='time_end')
 
 
     And an invalid value:
 
-    >>> check_time(-3, label='time_end')
+    >>> check_time(-1234567890, label='time_end')
     Traceback (most recent call last):
       ...
-    ValueError: time_end must be >= 0; got -3
+    ValueError: time_end must be >= 0; got -1234567890
 
     """
     if not isinstance(value, (int, float)):
@@ -358,8 +358,17 @@ def check_required(d, required, label='doc'):
     """
     Check that dictionary *d* contains all the keys in *required*.
 
-    The *label* is a descriptive label used in exception error messages, for
-    example ``'doc'`` or ``"doc['stored']"``.
+    For example, a conforming value:
+
+    >>> check_required(dict(foo=1, bar=2, baz=3), ['foo', 'bar'], 'var_name')
+
+
+    And an invalid value:
+
+    >>> check_required(dict(foo=1, car=2, baz=3), ['foo', 'bar'], 'var_name')
+    Traceback (most recent call last):
+      ...
+    ValueError: var_name missing keys: ['bar']
     """
     if not isinstance(d, dict):
         raise TypeError(TYPE_ERROR % (label, dict, type(d), d))
@@ -487,6 +496,45 @@ def check_dmedia_file(doc):
         2. have 'bytes' that is an ``int`` greater than zero
 
         3. have 'stored' that is a ``dict`` conforms with `check_stored()`
+
+    For example, a conforming value:
+
+    >>> doc = {
+    ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+    ...     'type': 'dmedia/file',
+    ...     'time': 1234567890,
+    ...     'bytes': 20202333,
+    ...     'stored': {
+    ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
+    ...             'copies': 2,
+    ...             'time': 1234567890,
+    ...         },
+    ...     },
+    ... }
+    ...
+    >>> check_dmedia_file(doc)
+
+
+    And an invalid value:
+
+    >>> doc = {
+    ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+    ...     'type': 'dmedia/file',
+    ...     'time': 1234567890,
+    ...     'bytes': 20202333,
+    ...     'stored': {
+    ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
+    ...             'number': 2,  # Changed!
+    ...             'time': 1234567890,
+    ...         },
+    ...     },
+    ... }
+    ...
+    >>> check_dmedia_file(doc)
+    Traceback (most recent call last):
+      ...
+    ValueError: stored['MZZG2ZDSOQVSW2TEMVZG643F'] missing keys: ['copies']
+
     """
     check_dmedia(doc)
     check_required(doc, ['bytes', 'stored'])
