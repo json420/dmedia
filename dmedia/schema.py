@@ -246,37 +246,126 @@ from base64 import b32decode
 import re
 from .constants import TYPE_ERROR, EXT_PAT
 
-# Some private helper functions that don't directly define any schema:
+# Some private helper functions that don't directly define any schema.
+#
+# If this seems unnecessary or even a bit un-Pythonic (where's my duck typing?),
+# keep in mind that the goal of this module is to:
+#
+#   1. Unambiguously define the schema
+#
+#   2. Provide exceedingly helpful error messages when values do not conform
+#      with the schema
+#
+# That is all.
 
 def _check_dict(value, label):
+    """
+    Verify that *value* is a ``dict`` instance.
+
+    For example:
+
+    >>> _check_dict(['foo', 'bar'], 'doc')
+    Traceback (most recent call last):
+      ...
+    TypeError: doc: need a <type 'dict'>; got a <type 'list'>: ['foo', 'bar']
+
+    """
     if not isinstance(value, dict):
         raise TypeError(TYPE_ERROR % (label, dict, type(value), value))
 
 def _check_str(value, label):
+    """
+    Verify that *value* is a ``basestring`` instance.
+
+    Or a ``str`` instance one dmedia is running under Python3.
+
+    For example:
+
+    >>> _check_str(17, 'import_id')
+    Traceback (most recent call last):
+      ...
+    TypeError: import_id: need a <type 'basestring'>; got a <type 'int'>: 17
+
+    """
     if not isinstance(value, basestring):
         raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
 
 def _check_int(value, label):
+    """
+    Verify that *value* is an ``int`` instance.
+
+    For example:
+
+    >>> _check_int(18.0, 'bytes')
+    Traceback (most recent call last):
+      ...
+    TypeError: bytes: need a <type 'int'>; got a <type 'float'>: 18.0
+
+    """
     if not isinstance(value, int):
         raise TypeError(TYPE_ERROR % (label, int, type(value), value))
 
 def _check_int_float(value, label):
+    """
+    Verify that *value* is an ``int`` or ``float`` instance.
+
+    For example:
+
+    >>> _check_int_float('18', 'time')
+    Traceback (most recent call last):
+      ...
+    TypeError: time: need a (<type 'int'>, <type 'float'>); got a <type 'str'>: '18'
+
+    """
     if not isinstance(value, (int, float)):
         raise TypeError(TYPE_ERROR % (label, (int, float), type(value), value))
 
-def _check_atleast(value, minvalue, label):
+def _check_at_least(value, minvalue, label):
+    """
+    Verify that *value* is greater than or equal to *minvalue*.
+
+    For example:
+
+    >>> _check_at_least(0, 1, 'bytes')
+    Traceback (most recent call last):
+      ...
+    ValueError: bytes must be >= 1; got 0
+
+    """
     if value < minvalue:
         raise ValueError(
             '%s must be >= %r; got %r' % (label, minvalue, value)
         )
 
 def _check_lowercase(value, label):
+    """
+    Verify that *value* is lowercase.
+
+    For example:
+
+    >>> _check_lowercase('MOV', 'ext')
+    Traceback (most recent call last):
+      ...
+    ValueError: ext must be lowercase; got 'MOV'
+
+    """
     if not value.islower():
         raise ValueError(
             "%s must be lowercase; got %r" % (label, value)
         )
 
 def _check_nonempty(value, label):
+    """
+    Verify that *value* is not empty (ie len() > 0).
+
+    For example:
+
+    >>> _check_nonempty({}, 'stored')
+    Traceback (most recent call last):
+      ...
+    ValueError: stored cannot be empty
+
+    """
     if len(value) == 0:
         raise ValueError('%s cannot be empty' % label)
 
@@ -284,13 +373,9 @@ def _check_required(d, required, label='doc'):
     """
     Check that dictionary *d* contains all the keys in *required*.
 
-    For example, a conforming value:
+    For example:
 
     >>> _check_required(dict(foo=1, bar=2, baz=3), ['foo', 'bar'], 'var_name')
-
-
-    And an invalid value:
-
     >>> _check_required(dict(foo=1, car=2, baz=3), ['foo', 'bar'], 'var_name')
     Traceback (most recent call last):
       ...
@@ -407,7 +492,7 @@ def check_time(value, label='time'):
 
     """
     _check_int_float(value, label)
-    _check_atleast(value, 0, label)
+    _check_at_least(value, 0, label)
 
 
 def check_dmedia(doc):
@@ -514,7 +599,7 @@ def check_stored(stored, label='stored'):
         copies = value['copies']
         l3 = l2 + "['copies']"
         _check_int(copies, l3)
-        _check_atleast(copies, 1, l3)
+        _check_at_least(copies, 1, l3)
 
         # Check 'time':
         check_time(value['time'], l2 + "['time']")
@@ -637,7 +722,7 @@ def check_dmedia_file(doc):
     # Check 'bytes':
     b = doc['bytes']
     _check_int(b, 'bytes')
-    _check_atleast(b, 1, 'bytes')
+    _check_at_least(b, 1, 'bytes')
 
     # Check 'ext':
     check_ext(doc['ext'])
@@ -705,4 +790,4 @@ def check_dmedia_store(doc):
     key = 'default_copies'
     dc = doc[key]
     _check_int(dc, key)
-    _check_atleast(dc, 1, key)
+    _check_at_least(dc, 1, key)
