@@ -226,7 +226,7 @@ class test_functions(TestCase):
 
         # Test with empty value:
         e = raises(ValueError, f, {})
-        self.assertEqual(str(e), "stored cannot be empty")
+        self.assertEqual(str(e), 'stored cannot be empty; got {}')
 
         # Test with bad key
         bad = deepcopy(good)
@@ -309,9 +309,9 @@ class test_functions(TestCase):
 
         # Test empty strings:
         e = raises(ValueError, f, '')
-        self.assertEqual(str(e), 'ext cannot be empty')
+        self.assertEqual(str(e), "ext cannot be empty; got ''")
         e = raises(ValueError, f, u'', 'foo')
-        self.assertEqual(str(e), 'foo cannot be empty')
+        self.assertEqual(str(e), "foo cannot be empty; got u''")
 
         # Test with upper/mixed case:
         e = raises(ValueError, f, u'Mov')

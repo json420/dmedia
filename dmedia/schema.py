@@ -363,11 +363,11 @@ def _check_nonempty(value, label):
     >>> _check_nonempty({}, 'stored')
     Traceback (most recent call last):
       ...
-    ValueError: stored cannot be empty
+    ValueError: stored cannot be empty; got {}
 
     """
     if len(value) == 0:
-        raise ValueError('%s cannot be empty' % label)
+        raise ValueError('%s cannot be empty; got %r' % (label, value))
 
 def _check_required(d, required, label='doc'):
     """
