@@ -246,35 +246,66 @@ from base64 import b32decode
 import re
 from .constants import TYPE_ERROR, EXT_PAT
 
+# Some private helper functions that don't directly define any schema:
 
-def check_str(value, label):
+def _check_dict(value, label):
+    if not isinstance(value, dict):
+        raise TypeError(TYPE_ERROR % (label, dict, type(value), value))
+
+def _check_str(value, label):
     if not isinstance(value, basestring):
         raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
 
-
-def check_int(value, label):
+def _check_int(value, label):
     if not isinstance(value, int):
         raise TypeError(TYPE_ERROR % (label, int, type(value), value))
 
+def _check_int_float(value, label):
+    if not isinstance(value, (int, float)):
+        raise TypeError(TYPE_ERROR % (label, (int, float), type(value), value))
 
-def check_atleast(value, minvalue, label):
+def _check_atleast(value, minvalue, label):
     if value < minvalue:
         raise ValueError(
             '%s must be >= %r; got %r' % (label, minvalue, value)
         )
 
-
-def check_lowercase(value, label):
+def _check_lowercase(value, label):
     if not value.islower():
         raise ValueError(
             "%s must be lowercase; got %r" % (label, value)
         )
 
-
-def check_nonempty(value, label):
+def _check_nonempty(value, label):
     if len(value) == 0:
         raise ValueError('%s cannot be empty' % label)
 
+def _check_required(d, required, label='doc'):
+    """
+    Check that dictionary *d* contains all the keys in *required*.
+
+    For example, a conforming value:
+
+    >>> _check_required(dict(foo=1, bar=2, baz=3), ['foo', 'bar'], 'var_name')
+
+
+    And an invalid value:
+
+    >>> _check_required(dict(foo=1, car=2, baz=3), ['foo', 'bar'], 'var_name')
+    Traceback (most recent call last):
+      ...
+    ValueError: var_name missing keys: ['bar']
+    """
+    _check_dict(d, label)
+    required = frozenset(required)
+    if not required.issubset(d):
+        missing = sorted(required - set(d))
+        raise ValueError(
+            '%s missing keys: %r' % (label, missing)
+        )
+
+
+# The schema defining functions:
 
 def check_base32(value, label='_id'):
     """
@@ -301,8 +332,7 @@ def check_base32(value, label='_id'):
     ValueError: len(b32decode(_id)) not multiple of 5: 'MFQWCYLBMFQWCYI='
 
     """
-    if not isinstance(value, basestring):
-        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
+    _check_str(value, label)
     try:
         decoded = b32decode(value)
     except TypeError as e:
@@ -340,9 +370,8 @@ def check_type(value, label='type'):
     ValueError: type must contain only one '/'; got 'dmedia/foo/bar'
 
     """
-    if not isinstance(value, basestring):
-        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
-    check_lowercase(value, label)
+    _check_str(value, label)
+    _check_lowercase(value, label)
     if not value.startswith('dmedia/'):
         raise ValueError(
             "%s must start with 'dmedia/'; got %r" % (label, value)
@@ -377,38 +406,8 @@ def check_time(value, label='time'):
     ValueError: time_end must be >= 0; got -1234567890
 
     """
-    if not isinstance(value, (int, float)):
-        raise TypeError(TYPE_ERROR % (label, (int, float), type(value), value))
-    if value < 0:
-        raise ValueError(
-            '%s must be >= 0; got %r' % (label, value)
-        )
-
-
-def check_required(d, required, label='doc'):
-    """
-    Check that dictionary *d* contains all the keys in *required*.
-
-    For example, a conforming value:
-
-    >>> check_required(dict(foo=1, bar=2, baz=3), ['foo', 'bar'], 'var_name')
-
-
-    And an invalid value:
-
-    >>> check_required(dict(foo=1, car=2, baz=3), ['foo', 'bar'], 'var_name')
-    Traceback (most recent call last):
-      ...
-    ValueError: var_name missing keys: ['bar']
-    """
-    if not isinstance(d, dict):
-        raise TypeError(TYPE_ERROR % (label, dict, type(d), d))
-    required = frozenset(required)
-    if not required.issubset(d):
-        missing = sorted(required - set(d))
-        raise ValueError(
-            '%s missing keys: %r' % (label, missing)
-        )
+    _check_int_float(value, label)
+    _check_atleast(value, 0, label)
 
 
 def check_dmedia(doc):
@@ -449,7 +448,7 @@ def check_dmedia(doc):
     ValueError: doc missing keys: ['time', 'type']
 
     """
-    check_required(doc, ['_id', 'type', 'time'])
+    _check_required(doc, ['_id', 'type', 'time'])
     check_base32(doc['_id'])
     check_type(doc['type'])
     check_time(doc['time'])
@@ -501,26 +500,21 @@ def check_stored(stored, label='stored'):
     Also see `check_dmedia_file()`.
     """
 
-    if not isinstance(stored, dict):
-        raise TypeError(TYPE_ERROR % (label, dict, type(stored), stored))
-    check_nonempty(stored, label)
+    _check_dict(stored, label)
+    _check_nonempty(stored, label)
 
     for (key, value) in stored.iteritems():
         check_base32(key, '<key in %s>' % label)
 
         l2 = '%s[%r]' % (label, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
 
-        check_required(value, ['copies', 'time'], l2)
+        _check_required(value, ['copies', 'time'], l2)
 
         # Check 'copies':
         copies = value['copies']
         l3 = l2 + "['copies']"
-        if not isinstance(copies, int):
-            raise TypeError(
-                TYPE_ERROR % (l3, int, type(copies), copies)
-            )
-        if copies < 1:
-            raise ValueError('%s must be >= 1; got %r' % (l3, copies))
+        _check_int(copies, l3)
+        _check_atleast(copies, 1, l3)
 
         # Check 'time':
         check_time(value['time'], l2 + "['time']")
@@ -557,10 +551,9 @@ def check_ext(value, label='ext'):
     """
     if value is None:
         return
-    if not isinstance(value, basestring):
-        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
-    check_nonempty(value, label)
-    check_lowercase(value, label)
+    _check_str(value, label)
+    _check_nonempty(value, label)
+    _check_lowercase(value, label)
     if value.startswith('.'):
         raise ValueError(
             '%s cannot start with a period; got %r' % (label, value)
@@ -633,7 +626,7 @@ def check_dmedia_file(doc):
 
     """
     check_dmedia(doc)
-    check_required(doc, ['bytes', 'ext', 'stored'])
+    _check_required(doc, ['bytes', 'ext', 'stored'])
 
     # Check type:
     if doc['type'] != 'dmedia/file':
@@ -643,8 +636,8 @@ def check_dmedia_file(doc):
 
     # Check 'bytes':
     b = doc['bytes']
-    check_int(b, 'bytes')
-    check_atleast(b, 1, 'bytes')
+    _check_int(b, 'bytes')
+    _check_atleast(b, 1, 'bytes')
 
     # Check 'ext':
     check_ext(doc['ext'])
@@ -696,12 +689,12 @@ def check_dmedia_store(doc):
 
     """
     check_dmedia(doc)
-    check_required(doc, ['plugin', 'default_copies'])
+    _check_required(doc, ['plugin', 'default_copies'])
 
     # Test plugin
     key = 'plugin'
     p = doc[key]
-    check_str(p, key)
+    _check_str(p, key)
     plugins = ['filestore', 'removable_filestore', 'ubuntuone', 's3']
     if p not in plugins:
         raise ValueError(
@@ -711,5 +704,5 @@ def check_dmedia_store(doc):
     # Test default_copies
     key = 'default_copies'
     dc = doc[key]
-    check_int(dc, key)
-    check_atleast(dc, 1, key)
+    _check_int(dc, key)
+    _check_atleast(dc, 1, key)
