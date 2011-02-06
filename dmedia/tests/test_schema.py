@@ -192,13 +192,21 @@ class test_functions(TestCase):
         # Test with good doc:
         good = {
             '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
-            'type': 'dmedia/foo',
+            'type': 'dmedia/file',
             'time': 1234567890,
-            'foo': 'bar',
             'bytes': 20202333,
         }
         g = dict(good)
         self.assertTrue(f(g) is g)
+
+        # Test with wrong record type:
+        bad = dict(good)
+        bad['type'] = 'dmedia/files'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "doc['type'] must be 'dmedia/file'; got 'dmedia/files'"
+        )
 
         # Test with missing attributes:
         self.assertEqual(f(dict(good)), good)
