@@ -20,20 +20,39 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-CouchDB schema precisely defined with tests and documentation.
+Test-driven definition of dmedia CouchDB schema.
 
-This module contains a number of test functions that precisely define the
-conventions of the dmedia CouchDB schema.  These functions are used in the
-dmedia test suite, and are available for 3rd-party apps to do the same.
+The goal of this module is to:
 
-The ``check_foo()`` functions verify that a document (or specific document
-attribute) conforms with the schema conventions.  If the value conforms,
-``None`` is returned.  If the value does *not* conform, an exception is raised
-(typically a ``TypeError`` or ``ValueError``) with a detailed error message
-that should allow you to pinpoint the exact problem.
+   1. Unambiguously define the CouchDB schema via a series of test functions
 
-Either way, the ``check_foo()`` functions will never alter the values being
-tested.
+   2. Provide exceedingly helpful error messages when values do not conform
+      with the schema
+
+For example:
+
+>>> good = {
+...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     'type': 'dmedia/foo',
+...     'time': 1234567890,
+... }
+...
+>>> check_dmedia(good)  # Returns None
+>>> bad = {
+...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     'kind': 'dmedia/foo',
+...     'timestamp': 1234567890,
+... }
+...
+>>> check_dmedia(bad)
+Traceback (most recent call last):
+  ...
+ValueError: doc missing keys: ['time', 'type']
+
+
+These test functions are used in the dmedia test suite, and 3rd-party apps would
+be well served by doing the same.  Please read on for the rationale for some of
+the key dmedia schema design decisions...
 
 
 Design Decision: base32-encoded document IDs
