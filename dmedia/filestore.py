@@ -42,19 +42,18 @@ from os import path
 import tempfile
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
-from string import ascii_lowercase, digits
+import re
 import logging
 from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 from .errors import AmbiguousPath, DuplicateFile, FileStoreTraversal
-from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR
+from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR, EXT_PAT
 
-
-chars = frozenset(ascii_lowercase + digits)
 B32LENGTH = 32  # Length of base32-encoded hash
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
 FALLOCATE = '/usr/bin/fallocate'
+EXT_RE = re.compile(EXT_PAT)
 
 
 def safe_path(pathname):
@@ -131,7 +130,7 @@ def safe_ext(ext):
         raise TypeError(
             TYPE_ERROR % ('ext', basestring, type(ext), ext)
         )
-    if not chars.issuperset(ext):
+    if not EXT_RE.match(ext):
         raise ValueError(
             'ext: can only contain ascii lowercase, digits; got %r' % ext
         )

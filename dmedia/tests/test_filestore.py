@@ -116,6 +116,8 @@ class test_functions(TestCase):
         assert f(good) is good
         good = 'cr2'
         assert f(good) is good
+        good = 'tar.gz'
+        assert f(good) is good
 
     def test_safe_b32(self):
         f = filestore.safe_b32

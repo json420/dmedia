@@ -244,7 +244,7 @@ from __future__ import print_function
 
 from base64 import b32decode
 import re
-from .constants import TYPE_ERROR
+from .constants import TYPE_ERROR, EXT_PAT
 
 
 def check_str(value, label):
@@ -569,7 +569,7 @@ def check_ext(value, label='ext'):
         raise ValueError(
             '%s cannot end with a period; got %r' % (label, value)
         )
-    if not re.match('^[a-z0-9]+(\.[a-z0-9]+)?$', value):
+    if not re.match(EXT_PAT, value):
         raise ValueError(
             '%s: only letters, numbers, period allowed; got %r' % (label, value)
         )

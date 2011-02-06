@@ -39,6 +39,10 @@ TRANSFERS_DIR = 'transfers'  # downloads/uploads
 IMPORTS_DIR = 'imports'  # eg importing from CF card
 
 
+# Normalized file extension
+EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
+
+
 # D-Bus releated:
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = 'org.freedesktop.DMedia'
