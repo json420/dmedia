@@ -28,7 +28,8 @@ dmedia test suite, and are available for 3rd-party apps to do the same.
 
 The ``check_foo()`` functions verify that a document (or specific document
 attribute) conforms with the schema conventions.  If the value conforms,
-``None`` is returned.  If the value does *not* conform, an exception is raised (typically a ``TypeError`` or ``ValueError``) with a detailed error message
+``None`` is returned.  If the value does *not* conform, an exception is raised
+(typically a ``TypeError`` or ``ValueError``) with a detailed error message
 that should allow you to pinpoint the exact problem.
 
 Either way, the ``check_foo()`` functions will never alter the values being
@@ -499,17 +500,23 @@ def check_stored(stored, label='stored'):
         check_time(value['time'], l2 + "['time']")
 
 
+def check_ext(value, label='ext'):
+    pass
+
+
 def check_dmedia_file(doc):
     """
     Verify that *doc* is a valid 'dmedia/file' record type.
 
     To be a valid 'dmedia/file' record, *doc* must:
 
-        1. have 'type' equal to 'dmedia/file'
+        1. conform with `check_dmedia()`
 
-        2. have 'bytes' that is an ``int`` greater than zero
+        2. have 'type' equal to 'dmedia/file'
 
-        3. have 'stored' that is a ``dict`` conforming with `check_stored()`
+        3. have 'bytes' that is an ``int`` greater than zero
+
+        4. have 'stored' that is a ``dict`` conforming with `check_stored()`
 
     For example, a conforming value:
 
@@ -518,6 +525,7 @@ def check_dmedia_file(doc):
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
+    ...     'ext': 'mov',
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'copies': 2,
@@ -536,6 +544,7 @@ def check_dmedia_file(doc):
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
+    ...     'ext': 'mov',
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'number': 2,  # Changed!
@@ -551,7 +560,7 @@ def check_dmedia_file(doc):
 
     """
     check_dmedia(doc)
-    check_required(doc, ['bytes', 'stored'])
+    check_required(doc, ['bytes', 'ext', 'stored'])
 
     # Check type:
     if doc['type'] != 'dmedia/file':

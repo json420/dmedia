@@ -307,6 +307,7 @@ class test_functions(TestCase):
             'type': 'dmedia/file',
             'time': 1234567890,
             'bytes': 20202333,
+            'ext': 'mov',
             'stored': {
                 'MZZG2ZDSOQVSW2TEMVZG643F': {
                     'copies': 2,
