@@ -389,16 +389,49 @@ def check_stored(stored, name='stored'):
         2. have keys that are document IDs according to `check_base32()`
 
         3. have values that are themselves ``dict`` instances
+
+        4. values must have 'copies' that is an ``int`` > 0
+
+        5. values must have 'time' that conforms with `check_time()`
+
+    For example, this is a valid *stored* value:
+
+    >>> stored = {
+    ...     'MZZG2ZDSOQVSW2TEMVZG643F': {
+    ...         'copies': 2,
+    ...         'time': 1234567890,
+    ...     },
+    ... }
+    ...
+    >>> check_stored(stored)
+    {'MZZG2ZDSOQVSW2TEMVZG643F': {'copies': 2, 'time': 1234567890}}
+
+
+    Also see `check_dmedia_file()`.
     """
+
     if not isinstance(stored, dict):
         raise TypeError(TYPE_ERROR % (name, dict, type(stored), stored))
     if len(stored) == 0:
         raise ValueError('%s cannot be empty' % name)
+
+    required = frozenset(['copies', 'time'])
     for (key, value) in stored.iteritems():
         check_base32(key, '<key in %s>' % name)
+
+        n = '%s[%r]' % (name, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
+
         if not isinstance(value, dict):
-            n = '%s[%r]' % (name, key)
             raise TypeError(TYPE_ERROR % (n, dict, type(value), value))
+
+        if not required.issubset(value):
+            missing = sorted(required - set(value))
+            raise ValueError(
+                '%s missing keys: %r' % (n, missing)
+            )
+
+        copies = value['copies']
+
     return stored
 
 
@@ -412,7 +445,7 @@ def check_dmedia_file(doc):
 
         2. have 'bytes' that is an ``int`` greater than zero
 
-        3. have 'stored'
+        3. have 'stored' that is a ``dict`` conforms with `check_stored()`
     """
     check_dmedia(doc)
     check_required(doc, 'bytes', 'stored')

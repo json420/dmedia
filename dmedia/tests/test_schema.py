@@ -234,7 +234,7 @@ class test_functions(TestCase):
             "len(b32decode(<key in stored>)) not multiple of 5: 'MFQWCYLBMFQWCYI='"
         )
 
-        # Test with bad value
+        # Test with wrong value Type
         bad = deepcopy(good)
         v = (2, 1234567890)
         bad['OVRHK3TUOUQCWIDMNFXGC4TP'] = v
@@ -242,6 +242,22 @@ class test_functions(TestCase):
         self.assertEqual(
             str(e),
             TYPE_ERROR % ("stored['OVRHK3TUOUQCWIDMNFXGC4TP']", dict, tuple, v)
+        )
+
+        # Test with misisng value keys
+        bad = deepcopy(good)
+        bad['OVRHK3TUOUQCWIDMNFXGC4TP'] = {'number': 2, 'time': 1234567890}
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "stored['OVRHK3TUOUQCWIDMNFXGC4TP'] missing keys: ['copies']"
+        )
+        bad = deepcopy(good)
+        bad['OVRHK3TUOUQCWIDMNFXGC4TP'] = {'number': 2, 'added': 1234567890}
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "stored['OVRHK3TUOUQCWIDMNFXGC4TP'] missing keys: ['copies', 'time']"
         )
 
 
