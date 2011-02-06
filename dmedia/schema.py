@@ -354,7 +354,7 @@ def check_time(value, key='time'):
         )
 
 
-def check_required(label, d, *required):
+def check_required(d, required, label='doc'):
     """
     Check that dictionary *d* contains all the keys in *required*.
 
@@ -363,7 +363,7 @@ def check_required(label, d, *required):
     """
     if not isinstance(d, dict):
         raise TypeError(TYPE_ERROR % (label, dict, type(d), d))
-    required = set(required)
+    required = frozenset(required)
     if not required.issubset(d):
         missing = sorted(required - set(d))
         raise ValueError(
@@ -409,7 +409,7 @@ def check_dmedia(doc):
     ValueError: doc missing keys: ['time', 'type']
 
     """
-    check_required('doc', doc, '_id', 'type', 'time')
+    check_required(doc, ['_id', 'type', 'time'])
     check_base32(doc['_id'])
     check_type(doc['type'])
     check_time(doc['time'])
@@ -471,7 +471,7 @@ def check_stored(stored, name='stored'):
 
         label = '%s[%r]' % (name, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
 
-        check_required(label, value, 'copies', 'time')
+        check_required(value, ['copies', 'time'], label)
 
         copies = value['copies']
 
@@ -489,7 +489,7 @@ def check_dmedia_file(doc):
         3. have 'stored' that is a ``dict`` conforms with `check_stored()`
     """
     check_dmedia(doc)
-    check_required('doc', doc, 'bytes', 'stored')
+    check_required(doc, ['bytes', 'stored'])
 
     # Check type:
     if doc['type'] != 'dmedia/file':
