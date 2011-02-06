@@ -26,6 +26,14 @@ This module contains a number of test functions that precisely define the
 conventions of the dmedia CouchDB schema.  These functions are used in the
 dmedia test suite, and are available for 3rd-party apps to do the same.
 
+The ``check_foo()`` functions verify that a document (or specific document
+attribute) conforms with the schema conventions.  If the value conforms,
+``None`` is returned.  If the value does *not* conform, an exception is raised (typically a ``TypeError`` or ``ValueError``) with a detailed error message
+that should allow you to pinpoint the exact problem.
+
+Either way, the ``check_foo()`` functions will never alter the values being
+tested.
+
 
 Design Decision: base32-encoded document IDs
 ============================================
@@ -249,7 +257,12 @@ def check_base32(value, key='_id'):
 
         3. decode to data that is a multiple of 5-bytes (40-bits ) in length
 
-    For example:
+    For example, a conforming value:
+
+    >>> check_base32('MZZG2ZDSOQVSW2TEMVZG643F')
+
+
+    And an invalid value:
 
     >>> check_base32('MFQWCYLBMFQWCYI=')
     Traceback (most recent call last):
@@ -264,7 +277,6 @@ def check_base32(value, key='_id'):
         raise ValueError(
             'len(b32decode(%s)) not multiple of 5: %r' % (key, value)
         )
-    return value
 
 
 def check_type(value, key="doc['type']"):
@@ -281,7 +293,12 @@ def check_type(value, key="doc['type']"):
 
         4. be of the form 'dmedia/foo', where *foo* is a valid Python identifier
 
-    For example:
+    For example, a conforming value:
+
+    >>> check_type('dmedia/file')
+
+
+    And an invalid value:
 
     >>> check_type('dmedia/foo/bar')
     Traceback (most recent call last):
@@ -304,7 +321,6 @@ def check_type(value, key="doc['type']"):
         raise ValueError(
             "%s must contain only one '/'; got %r" % (key, value)
         )
-    return value
 
 
 def check_time(value, key='time'):
@@ -317,7 +333,12 @@ def check_time(value, key='time'):
 
         2. be non-negative (must be >= 0)
 
-    For example:
+    For example, a conforming value:
+
+    >>> check_time(1234567890)
+
+
+    And an invalid value:
 
     >>> check_time(-3, key='time_end')
     Traceback (most recent call last):
@@ -331,7 +352,6 @@ def check_time(value, key='time'):
         raise ValueError(
             '%s must be >= 0; got %r' % (key, value)
         )
-    return value
 
 
 def check_required(doc, *required):
@@ -355,7 +375,18 @@ def check_dmedia(doc):
 
         3. have 'time' that passes `check_time()`
 
-    For example:
+    For example, a conforming value:
+
+    >>> doc = {
+    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'type': 'dmedia/file',
+    ...     'time': 1234567890,
+    ... }
+    ...
+    >>> check_dmedia(doc)
+
+
+    And an invalid value:
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
@@ -375,12 +406,11 @@ def check_dmedia(doc):
     check_base32(doc['_id'])
     check_type(doc['type'])
     check_time(doc['time'])
-    return doc
 
 
 def check_stored(stored, name='stored'):
     """
-    Verify that *stored* is a valid 'stored' attribute for a dmedia/file record.
+    Verify that *stored* is valid for a 'dmedia/file' record.
 
     To be valid, *stored* must:
 
@@ -394,7 +424,7 @@ def check_stored(stored, name='stored'):
 
         5. values must have 'time' that conforms with `check_time()`
 
-    For example, this is a valid *stored* value:
+    For example, a conforming value:
 
     >>> stored = {
     ...     'MZZG2ZDSOQVSW2TEMVZG643F': {
@@ -404,7 +434,21 @@ def check_stored(stored, name='stored'):
     ... }
     ...
     >>> check_stored(stored)
-    {'MZZG2ZDSOQVSW2TEMVZG643F': {'copies': 2, 'time': 1234567890}}
+
+
+    And an invalid value:
+
+    >>> stored = {
+    ...     'MZZG2ZDSOQVSW2TEMVZG643F': {
+    ...         'number': 2,
+    ...         'time': 1234567890,
+    ...     },
+    ... }
+    ...
+    >>> check_stored(stored)
+    Traceback (most recent call last):
+      ...
+    ValueError: stored['MZZG2ZDSOQVSW2TEMVZG643F'] missing keys: ['copies']
 
 
     Also see `check_dmedia_file()`.
@@ -431,8 +475,6 @@ def check_stored(stored, name='stored'):
             )
 
         copies = value['copies']
-
-    return stored
 
 
 def check_dmedia_file(doc):
@@ -467,5 +509,3 @@ def check_dmedia_file(doc):
 
     # Check 'stored'
     check_stored(doc['stored'])
-
-    return doc

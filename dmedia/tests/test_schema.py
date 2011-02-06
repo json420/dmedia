@@ -56,7 +56,7 @@ class test_functions(TestCase):
         for n in xrange(5, 26):
             b32 = b32encode('a' * n)
             if n % 5 == 0:
-                self.assertTrue(f(b32), b32)
+                self.assertEqual(f(b32), None)
             else:
                 e = raises(ValueError, f, b32, key='foo')
                 self.assertEqual(
@@ -64,9 +64,7 @@ class test_functions(TestCase):
                     'len(b32decode(foo)) not multiple of 5: %r' % b32
                 )
 
-        self.assertEqual(
-            f('MZZG2ZDSOQVSW2TEMVZG643F'), 'MZZG2ZDSOQVSW2TEMVZG643F'
-        )
+        self.assertEqual(f('MZZG2ZDSOQVSW2TEMVZG643F'), None)
 
     def test_check_type(self):
         f = schema.check_type
@@ -100,10 +98,8 @@ class test_functions(TestCase):
         )
 
         # Test with good values
-        good = 'dmedia/foo'
-        self.assertTrue(f(good) is good)
-        good = 'dmedia/machine'
-        self.assertTrue(f(good) is good)
+        self.assertEqual(f('dmedia/foo'), None)
+        self.assertEqual(f('dmedia/machine'), None)
 
     def test_check_time(self):
         f = schema.check_time
@@ -137,10 +133,10 @@ class test_functions(TestCase):
         )
 
         # Test with good values
-        self.assertEqual(f(1234567890), 1234567890)
-        self.assertEqual(f(1234567890.18), 1234567890.18)
-        self.assertEqual(f(0), 0)
-        self.assertEqual(f(0.0), 0.0)
+        self.assertEqual(f(1234567890), None)
+        self.assertEqual(f(1234567890.18), None)
+        self.assertEqual(f(0), None)
+        self.assertEqual(f(0.0), None)
 
     def test_check_dmedia(self):
         f = schema.check_dmedia
@@ -162,7 +158,8 @@ class test_functions(TestCase):
             'time': 1234567890,
             'foo': 'bar',
         }
-        self.assertEqual(f(dict(good)), good)
+        g = deepcopy(good)
+        self.assertEqual(f(g), None)
         for key in ['_id', 'type', 'time']:
             bad = deepcopy(good)
             del bad[key]
@@ -202,8 +199,7 @@ class test_functions(TestCase):
         }
 
         g = deepcopy(good)
-        self.assertTrue(f(g) is g)
-        self.assertEqual(f(g), good)
+        self.assertEqual(f(g), None)
 
         # Test with wrong type:
         bad = [
@@ -278,8 +274,7 @@ class test_functions(TestCase):
             },
         }
         g = deepcopy(good)
-        self.assertTrue(f(g) is g)
-        self.assertEqual(f(g), good)
+        self.assertEqual(f(g), None)
 
         # Test with wrong record type:
         bad = deepcopy(good)
@@ -291,7 +286,6 @@ class test_functions(TestCase):
         )
 
         # Test with missing attributes:
-        self.assertEqual(f(dict(good)), good)
         for key in ['bytes', 'stored']:
             bad = deepcopy(good)
             del bad[key]
@@ -329,4 +323,4 @@ class test_functions(TestCase):
         # Test with bytes=1
         g = deepcopy(good)
         g['bytes'] = 1
-        self.assertTrue(f(g) is g)
+        self.assertEqual(f(g), None)
