@@ -572,7 +572,7 @@ def check_stored(stored, label='stored'):
 
         3. have values that are themselves ``dict`` instances
 
-        4. values must have 'copies' that is an ``int`` > 0
+        4. values must have 'copies' that is an ``int`` >= 1
 
         5. values must have 'time' that conforms with `check_time()`
 
