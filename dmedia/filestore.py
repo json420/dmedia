@@ -390,10 +390,18 @@ class FileStore(object):
     `fallocate()` function, which calls the Linux ``fallocate`` command.
     """
 
-    def __init__(self, base):
+    def __init__(self, base=None):
+        if base is None:
+            base = tempfile.mkdtemp(prefix='filestore.')
         self.base = safe_path(base)
-        if not path.exists(self.base):
+        try:
             os.makedirs(self.base)
+        except OSError:
+            pass
+        if not path.isdir(self.base):
+            raise ValueError('%s.base not a directory: %r' %
+                (self.__class__.__name__, self.base)
+            )
 
     @staticmethod
     def relpath(chash, ext=None):

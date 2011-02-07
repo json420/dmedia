@@ -457,10 +457,32 @@ class test_FileStore(TestCase):
         self.assertEqual(e.pathname, '/foo/bar/../../root')
         self.assertEqual(e.abspath, '/root')
 
+        # Test when base is a file
+        tmp = TempDir()
+        base = tmp.touch('.dmedia')
+        e = raises(ValueError, self.klass, base)
+        self.assertEqual(
+            str(e),
+            'FileStore.base not a directory: %r' % base
+        )
+
+        # Test when base does not exist
         tmp = TempDir()
         base = tmp.join('.dmedia')
         inst = self.klass(base)
         self.assertEqual(inst.base, base)
+        self.assertTrue(path.isdir(inst.base))
+
+        # Test when base exists and is a directory
+        inst = self.klass(base)
+        self.assertEqual(inst.base, base)
+        self.assertTrue(path.isdir(inst.base))
+
+        # Test when base=None
+        inst = self.klass()
+        self.assertTrue(path.isdir(inst.base))
+        self.assertTrue(inst.base.startswith('/tmp/filestore.'))
+
 
     def test_relpath(self):
         self.assertEqual(
