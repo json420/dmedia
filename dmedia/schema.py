@@ -106,7 +106,7 @@ upload and download.
 The base32-encoded sha1 hash is 32-characters long.  For example:
 
 >>> from dmedia.filestore import HashList
->>> from dmedia.tests.helpers import sample_mov  # Sample .MOV file
+>>> from dmedia.tests import sample_mov  # Sample .MOV file
 >>> src_fp = open(sample_mov, 'rb')
 >>> hashlist = HashList(src_fp)
 >>> hashlist.run()

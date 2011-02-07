@@ -367,7 +367,7 @@ class FileStore(object):
 
     You can add files to the store using `FileStore.import_file()`:
 
-    >>> from dmedia.tests.helpers import sample_mov
+    >>> from dmedia.tests import sample_mov  # Sample .MOV file
     >>> src_fp = open(sample_mov, 'rb')
     >>> fs.import_file(src_fp, 'mov')  #doctest: +ELLIPSIS
     ('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', [...])

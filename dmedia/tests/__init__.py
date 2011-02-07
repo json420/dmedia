@@ -23,3 +23,13 @@
 """
 Unit tests for `dmedia` package.
 """
+
+from os import path
+
+datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
+sample_mov = path.join(datadir, 'MVI_5751.MOV')
+sample_thm = path.join(datadir, 'MVI_5751.THM')
+
+assert path.isdir(datadir)
+assert path.isfile(sample_mov)
+assert path.isfile(sample_thm)
