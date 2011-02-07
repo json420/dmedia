@@ -29,6 +29,7 @@ from os import path
 import mimetypes
 import time
 from base64 import b64encode
+import couchdb
 from .util import random_id
 from .workers import Worker, Manager, register, isregistered
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
@@ -169,9 +170,16 @@ class Importer(object):
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
-        self.filestore = FileStore(path.join(self.home, DOTDIR))
         self.metastore = MetaStore(dbname=dbname)
         self.db = self.metastore.db
+        self.filestore = FileStore(
+            path.join(self.home, DOTDIR),
+            self.metastore.machine_id
+        )
+        try:
+            self.db.save(self.filestore._doc)
+        except couchdb.ResourceConflict:
+            pass
 
         self.__stats = {
             'imported': {
@@ -226,6 +234,8 @@ class Importer(object):
         # exception is raised by FileStore.import_file()
         (chash, leaves) = self.filestore.import_file(fp, ext)
         stat = os.fstat(fp.fileno())
+
+        ts = time.time()
         doc = {
             '_id': chash,
             '_attachments': {
@@ -235,19 +245,29 @@ class Importer(object):
                 }
             },
             'type': 'dmedia/file',
+            'time': ts,
+            'bytes': stat.st_size,
+            'ext': ext,
+            'origin': 'user',
+            'stored': {
+                self.filestore._id: {
+                    'copies': 1,
+                    'time': ts,
+                },
+            },
+
             'qid': quickid,
             'import_id': self._import_id,
-            'bytes': stat.st_size,
             'mtime': stat.st_mtime,
             'basename': basename,
             'dirname': path.relpath(path.dirname(src), self.base),
-            'ext': ext,
         }
         if ext:
             doc['content_type'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
-        assert self.metastore.db.create(doc) == chash
+        (_id, _rev) = self.metastore.db.save(doc)
+        assert _id == chash
         return ('imported', doc)
 
     def import_file(self, src):

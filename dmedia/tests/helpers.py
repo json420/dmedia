@@ -29,17 +29,10 @@ from os import path
 from subprocess import check_call
 import tempfile
 import shutil
-from base64 import b32encode, b32decode
+from base64 import b32encode, b32decode, b64encode
 from desktopcouch.records.server import  CouchDatabase
 from desktopcouch.records.server_base import NoSuchDatabase
-
-datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
-sample_mov = path.join(datadir, 'MVI_5751.MOV')
-sample_thm = path.join(datadir, 'MVI_5751.THM')
-
-assert path.isdir(datadir)
-assert path.isfile(sample_mov)
-assert path.isfile(sample_thm)
+from . import sample_mov, sample_thm
 
 mov_hash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
 mov_leaves = [
@@ -47,6 +40,11 @@ mov_leaves = [
     b32decode('MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4'),
     b32decode('FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'),
 ]
+mov_att = {
+    'data': b64encode(''.join(mov_leaves)),
+    'content_type': 'application/octet-stream',
+}
+
 mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
 
 thm_hash = 'TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'

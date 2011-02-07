@@ -42,19 +42,20 @@ from os import path
 import tempfile
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
-from string import ascii_lowercase, digits
+import json
+import re
 import logging
 from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
+from .schema import create_store
 from .errors import AmbiguousPath, DuplicateFile, FileStoreTraversal
-from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR
+from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR, EXT_PAT
 
-
-chars = frozenset(ascii_lowercase + digits)
 B32LENGTH = 32  # Length of base32-encoded hash
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
 FALLOCATE = '/usr/bin/fallocate'
+EXT_RE = re.compile(EXT_PAT)
 
 
 def safe_path(pathname):
@@ -108,7 +109,7 @@ def safe_open(filename, mode):
 
 
 def safe_ext(ext):
-    """
+    r"""
     Verify that extension *ext* contains only lowercase ascii letters, digits.
 
     A malicious *ext* could cause path traversal or other security gotchas,
@@ -116,6 +117,8 @@ def safe_ext(ext):
 
     >>> safe_ext('ogv')
     'ogv'
+    >>> safe_ext('tar.gz')
+    'tar.gz'
 
     However, when *ext* does not conform, a ``TypeError`` or ``ValueError`` is
     raised:
@@ -123,7 +126,7 @@ def safe_ext(ext):
     >>> safe_ext('/../.ssh')
     Traceback (most recent call last):
       ...
-    ValueError: ext: can only contain ascii lowercase, digits; got '/../.ssh'
+    ValueError: ext '/../.ssh' does not match pattern '^[a-z0-9]+(\\.[a-z0-9]+)?$'
 
     Also see `safe_b32()`.
     """
@@ -131,9 +134,9 @@ def safe_ext(ext):
         raise TypeError(
             TYPE_ERROR % ('ext', basestring, type(ext), ext)
         )
-    if not chars.issuperset(ext):
+    if not EXT_RE.match(ext):
         raise ValueError(
-            'ext: can only contain ascii lowercase, digits; got %r' % ext
+            'ext %r does not match pattern %r' % (ext, EXT_PAT)
         )
     return ext
 
@@ -344,6 +347,7 @@ def fallocate(size, filename):
         return False
 
 
+
 class FileStore(object):
     """
     Arranges files in a special layout according to their content-hash.
@@ -354,21 +358,28 @@ class FileStore(object):
     To create a `FileStore`, you give it the directory that will be its base on
     the filesystem:
 
-    >>> fs = FileStore('/home/user/.dmedia')
-    >>> fs.base
-    '/home/user/.dmedia'
+    >>> fs = FileStore('/home/jderose/.dmedia')  #doctest: +SKIP
+    >>> fs.base  #doctest: +SKIP
+    '/home/jderose/.dmedia'
+
+    If you don't supply *base*, a temporary directory will be created for you:
+
+    >>> fs = FileStore()
+    >>> fs.base  #doctest: +ELLIPSIS
+    '/tmp/store...'
 
     You can add files to the store using `FileStore.import_file()`:
 
-    >>> src_fp = open('/my/movie/MVI_5751.MOV', 'rb')  #doctest: +SKIP
-    >>> fs.import_file(src_fp, 'mov')  #doctest: +SKIP
-    ('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', <leaves>)
+    >>> from dmedia.tests import sample_mov  # Sample .MOV file
+    >>> src_fp = open(sample_mov, 'rb')
+    >>> fs.import_file(src_fp, 'mov')  #doctest: +ELLIPSIS
+    ('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', [...])
 
     And when you have the content-hash and extension, you can retrieve the full
     path of the file using `FileStore.path()`:
 
-    >>> fs.path('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'mov')
-    '/home/user/.dmedia/HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
+    >>> fs.path('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'mov')  #doctest: +ELLIPSIS
+    '/tmp/store.../HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
 
     As the files are assumed to be read-only and unchanging, moving a file into
     its canonical location must be atomic.  There are 2 scenarios that must be
@@ -389,8 +400,29 @@ class FileStore(object):
     `fallocate()` function, which calls the Linux ``fallocate`` command.
     """
 
-    def __init__(self, base):
-        self.base = path.abspath(base)
+    def __init__(self, base=None, machine_id=None):
+        if base is None:
+            base = tempfile.mkdtemp(prefix='store.')
+        self.base = safe_path(base)
+        try:
+            os.makedirs(self.base)
+        except OSError:
+            pass
+        if not path.isdir(self.base):
+            raise ValueError('%s.base not a directory: %r' %
+                (self.__class__.__name__, self.base)
+            )
+        self.record = path.join(self.base, 'store.json')
+        try:
+            fp = open(self.record, 'rb')
+            doc = json.load(fp)
+        except IOError:
+            fp = open(self.record, 'wb')
+            doc = create_store(self.base, machine_id)
+            json.dump(doc, fp, sort_keys=True, indent=4)
+        fp.close()
+        self._doc = doc
+        self._id = doc['_id']
 
     @staticmethod
     def relpath(chash, ext=None):
@@ -456,26 +488,26 @@ class FileStore(object):
 
         For example:
 
-        >>> fs = FileStore('/home/.dmedia')
-        >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        '/home/.dmedia/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        >>> fs = FileStore()
+        >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
+        '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         However, a `FileStoreTraversal` is raised if *parts* cause a path
         traversal outside of the `FileStore` base directory:
 
-        >>> fs.join('../ssh')
+        >>> fs.join('../ssh')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/home/ssh' outside base '/home/.dmedia'
+        FileStoreTraversal: '/tmp/ssh' outside base '/tmp/store...'
 
 
         Or Likewise if an absolute path is included in *parts*:
 
-        >>> fs.join('NW', '/etc', 'ssh')
+        >>> fs.join('NW', '/etc', 'ssh')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/etc/ssh' outside base '/home/.dmedia'
+        FileStoreTraversal: '/etc/ssh' outside base '/tmp/store...'
 
 
         Also see `FileStore.create_parent()`.
@@ -490,19 +522,19 @@ class FileStore(object):
         To prevent path traversal attacks, this method will only create
         directories within the `FileStore` base directory.  For example:
 
-        >>> fs = FileStore('/foo')
-        >>> fs.create_parent('/bar/my/movie.ogv')
+        >>> fs = FileStore()
+        >>> fs.create_parent('/foo/my.ogv')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/bar/my/movie.ogv' outside base '/foo'
+        FileStoreTraversal: '/foo/my.ogv' outside base '/tmp/store...'
 
 
         It also protects against malicious filenames like this:
 
-        >>> fs.create_parent('/foo/my/../../bar/movie.ogv')
+        >>> fs.create_parent('/foo/../bar/my.ogv')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/bar/movie.ogv' outside base '/foo'
+        FileStoreTraversal: '/bar/my.ogv' outside base '/tmp/store...'
 
 
         If doesn't already exists, the directory containing *filename* is
@@ -522,15 +554,15 @@ class FileStore(object):
 
         For example:
 
-        >>> fs = FileStore('/foo')
-        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        >>> fs = FileStore()
+        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
+        '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         Or with a file extension:
 
-        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
-        '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
+        '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
 
         If called with ``create=True``, the parent directory is created with
@@ -548,15 +580,15 @@ class FileStore(object):
         These temporary files are used for file transfers between dmedia peers,
         in which case the content-hash is already known.  For example:
 
-        >>> fs = FileStore('/foo')
-        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        >>> fs = FileStore()
+        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
+        '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         Or with a file extension:
 
-        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='txt')
-        '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
+        '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
 
         If called with ``create=True``, the parent directory is created with
