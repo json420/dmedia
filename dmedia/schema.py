@@ -376,6 +376,25 @@ def _check_lowercase(value, label):
             "%s must be lowercase; got %r" % (label, value)
         )
 
+def _check_identifier(value, label):
+    """
+    Verify that *value* is a lowercase Python identifier not starting with "_"
+
+    For example:
+
+    >>> _check_identifier('hello_world', 'msg')
+    >>> _check_identifier('hello-world', 'msg')
+    Traceback (most recent call last):
+      ...
+    ValueError: msg: 'hello-world' does not match '^[a-z][_a-z0-9]*$'
+
+    """
+    pat = '^[a-z][_a-z0-9]*$'
+    if not re.match(pat, value):
+        raise ValueError(
+            '%s: %r does not match %r' % (label, value, pat)
+        )
+
 def _check_nonempty(value, label):
     """
     Verify that *value* is not empty (ie len() > 0).
@@ -676,6 +695,49 @@ def check_ext(value, label='ext'):
         )
 
 
+def check_origin(value, label='origin', strict=False):
+    """
+    Verify that *value* is an 'origin' suitable for 'dmedia/file' records.
+
+    To be a valid origin, *value* must:
+
+        1. be a non-empty ``str`` or ``unicode`` instance
+
+        2. be lowercase
+
+        3. be a valid Python identifier not starting with "_"
+
+        4. if called with strict=True, must be either 'user', 'download',
+           'paid', 'proxy', 'cache', or 'render'
+
+    (4) may be relax or eliminated in the near future, but for now
+
+    For example, some conforming values:
+
+    >>> check_origin('hello_world2')
+    >>> check_origin('user')
+
+
+    And an invalid value:
+
+    >>> check_origin('User')
+    Traceback (most recent call last):
+      ...
+    ValueError: origin must be lowercase; got 'User'
+
+    """
+    _check_str(value, label)
+    _check_nonempty(value, label)
+    _check_lowercase(value, label)
+    _check_identifier(value, label)
+    if not strict:
+        return
+    allowed = ['user', 'download', 'paid', 'proxy', 'cache', 'render']
+    if value not in allowed:
+        raise ValueError('%s: %r not in %r' % (label, value, allowed))
+
+
+
 def check_dmedia_file(doc):
     """
     Verify that *doc* is a valid 'dmedia/file' record type.
@@ -690,7 +752,9 @@ def check_dmedia_file(doc):
 
         4. have 'ext' that conforms with `check_ext()`
 
-        5. have 'stored' that is a ``dict`` conforming with `check_stored()`
+        5. have 'origin' that conforms with `check_origin()` with strict=True
+
+        6. have 'stored' that is a ``dict`` conforming with `check_stored()`
 
     For example, a conforming value:
 
@@ -751,6 +815,9 @@ def check_dmedia_file(doc):
 
     # Check 'ext':
     check_ext(doc['ext'])
+
+    # Check 'origin':
+    check_origin(doc['origin'], strict=True)
 
     # Check 'stored'
     check_stored(doc['stored'])

@@ -349,6 +349,71 @@ class test_functions(TestCase):
         self.assertEqual(f('mov'), None)
         self.assertEqual(f('tar.gz'), None)
 
+    def test_check_origin(self):
+        f = schema.check_origin
+
+        # Test with wrong type
+        e = raises(TypeError, f, 17)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('origin', basestring, int, 17)
+        )
+
+        # Test when empty
+        e = raises(ValueError, f, '')
+        self.assertEqual(
+            str(e),
+            "origin cannot be empty; got ''"
+        )
+
+        # Test when not lowercase
+        e = raises(ValueError, f, 'useR')
+        self.assertEqual(
+            str(e),
+            "origin must be lowercase; got 'useR'"
+        )
+
+        # Test when not valid identifier:
+        e = raises(ValueError, f, '9lives')
+        self.assertEqual(
+            str(e),
+            "origin: '9lives' does not match '^[a-z][_a-z0-9]*$'"
+        )
+        e = raises(ValueError, f, '_foo')
+        self.assertEqual(
+            str(e),
+            "origin: '_foo' does not match '^[a-z][_a-z0-9]*$'"
+        )
+        e = raises(ValueError, f, 'hello-world')
+        self.assertEqual(
+            str(e),
+            "origin: 'hello-world' does not match '^[a-z][_a-z0-9]*$'"
+        )
+
+        # Test some good values:
+        self.assertEqual(f('foo'), None)
+        self.assertEqual(f('foo_'), None)
+        self.assertEqual(f('lives9'), None)
+        self.assertEqual(f('foo_lives9'), None)
+        self.assertEqual(f('lives9foo_'), None)
+        self.assertEqual(f('hello_world'), None)
+
+        # Test with strict=True
+        e = raises(ValueError, f, 'foo', strict=True)
+        self.assertEqual(
+            str(e),
+            "origin: 'foo' not in ['user', 'download', 'paid', 'proxy', 'cache', 'render']"
+        )
+
+        # Test all good strict=True values
+        self.assertEqual(f('user', strict=True), None)
+        self.assertEqual(f('download', strict=True), None)
+        self.assertEqual(f('paid', strict=True), None)
+        self.assertEqual(f('proxy', strict=True), None)
+        self.assertEqual(f('cache', strict=True), None)
+        self.assertEqual(f('render', strict=True), None)
+
+
     def test_check_dmedia_file(self):
         f = schema.check_dmedia_file
 
@@ -418,6 +483,43 @@ class test_functions(TestCase):
         g = deepcopy(good)
         g['bytes'] = 1
         self.assertEqual(f(g), None)
+
+        # Test with invalid ext
+        bad = deepcopy(good)
+        bad['ext'] = '.mov'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "ext cannot start with a period; got '.mov'"
+        )
+
+        # Test with invalid origin
+        bad = deepcopy(good)
+        bad['origin'] = 'USER'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "origin must be lowercase; got 'USER'"
+        )
+
+        # Make sure origin is checked with strict=True
+        bad = deepcopy(good)
+        bad['origin'] = 'foo'
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "origin: 'foo' not in ['user', 'download', 'paid', 'proxy', 'cache', 'render']"
+        )
+
+        # Test with invalid stored
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -1
+        e = raises(ValueError, f, bad)
+        self.assertEqual(
+            str(e),
+            "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 1; got -1"
+        )
+
 
     def test_check_dmedia_store(self):
         f = schema.check_dmedia_store
