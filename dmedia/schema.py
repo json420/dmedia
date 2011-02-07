@@ -834,7 +834,7 @@ def check_dmedia_store(doc):
         2. have 'plugin' that equal to 'filestore', 'removable_filestore',
            'ubuntuone', or 's3'
 
-        3. have 'default_copies' that is an ``int`` >= 1
+        3. have 'copies' that is an ``int`` >= 1
 
     For example, a conforming value:
 
@@ -843,7 +843,7 @@ def check_dmedia_store(doc):
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'plugin': 'filestore',
-    ...     'default_copies': 2,
+    ...     'copies': 2,
     ... }
     ...
     >>> check_dmedia_store(doc)
@@ -856,7 +856,7 @@ def check_dmedia_store(doc):
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'dispatch': 'filestore',
-    ...     'default_copies': 2,
+    ...     'copies': 2,
     ... }
     ...
     >>> check_dmedia_store(doc)
@@ -866,7 +866,7 @@ def check_dmedia_store(doc):
 
     """
     check_dmedia(doc)
-    _check_required(doc, ['plugin', 'default_copies'])
+    _check_required(doc, ['plugin', 'copies'])
 
     # Test plugin
     key = 'plugin'
@@ -878,21 +878,21 @@ def check_dmedia_store(doc):
             '%s %r not in %r' % (key, p, plugins)
         )
 
-    # Test default_copies
-    key = 'default_copies'
+    # Test copies
+    key = 'copies'
     dc = doc[key]
     _check_int(dc, key)
     _check_at_least(dc, 1, key)
 
 
 # This should probably be moved
-def create_store(base, machine_id, default_copies=1):
+def create_store(base, machine_id, copies=1):
     return {
         '_id': random_id(),
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 'filestore',
-        'default_copies': default_copies,
+        'copies': copies,
         'path': base,
         'machine_id': machine_id,
     }

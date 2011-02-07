@@ -530,13 +530,13 @@ class test_functions(TestCase):
             'type': 'dmedia/file',
             'time': 1234567890,
             'plugin': 'filestore',
-            'default_copies': 2,
+            'copies': 2,
         }
         g = deepcopy(good)
         self.assertEqual(f(g), None)
 
         # Test with missing attributes:
-        for key in ['plugin', 'default_copies']:
+        for key in ['plugin', 'copies']:
             bad = deepcopy(good)
             del bad[key]
             e = raises(ValueError, f, bad)
@@ -562,27 +562,27 @@ class test_functions(TestCase):
             'plugin %r not in %r' % ('foo', plugins)
         )
 
-        # Test with wrong default_copies type/value:
+        # Test with wrong copies type/value:
         bad = deepcopy(good)
-        bad['default_copies'] = 2.0
+        bad['copies'] = 2.0
         e = raises(TypeError, f, bad)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('default_copies', int, float, 2.0)
+            TYPE_ERROR % ('copies', int, float, 2.0)
         )
         bad = deepcopy(good)
-        bad['default_copies'] = 0
+        bad['copies'] = 0
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'default_copies must be >= 1; got 0'
+            'copies must be >= 1; got 0'
         )
         bad = deepcopy(good)
-        bad['default_copies'] = -2
+        bad['copies'] = -2
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'default_copies must be >= 1; got -2'
+            'copies must be >= 1; got -2'
         )
 
     def test_create_store(self):
@@ -600,7 +600,7 @@ class test_functions(TestCase):
                 'type',
                 'time',
                 'plugin',
-                'default_copies',
+                'copies',
                 'path',
                 'machine_id',
             ])
@@ -608,10 +608,10 @@ class test_functions(TestCase):
         self.assertEqual(doc['type'], 'dmedia/store')
         self.assertTrue(doc['time'] <= time.time())
         self.assertEqual(doc['plugin'], 'filestore')
-        self.assertEqual(doc['default_copies'], 1)
+        self.assertEqual(doc['copies'], 1)
         self.assertEqual(doc['path'], base)
 
-        doc = f(base, machine_id, default_copies=3)
+        doc = f(base, machine_id, copies=3)
         self.assertEqual(schema.check_dmedia_store(doc), None)
         self.assertEqual(
             set(doc),
@@ -620,7 +620,7 @@ class test_functions(TestCase):
                 'type',
                 'time',
                 'plugin',
-                'default_copies',
+                'copies',
                 'path',
                 'machine_id',
             ])
@@ -628,6 +628,6 @@ class test_functions(TestCase):
         self.assertEqual(doc['type'], 'dmedia/store')
         self.assertTrue(doc['time'] <= time.time())
         self.assertEqual(doc['plugin'], 'filestore')
-        self.assertEqual(doc['default_copies'], 3)
+        self.assertEqual(doc['copies'], 3)
         self.assertEqual(doc['path'], base)
         self.assertEqual(doc['machine_id'], machine_id)
