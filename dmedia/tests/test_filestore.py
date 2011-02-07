@@ -29,13 +29,14 @@ from os import path
 from hashlib import sha1
 from base64 import b32encode, b32decode
 import shutil
+import json
 from unittest import TestCase
 from .helpers import TempDir, TempHome, raises
 from .helpers import sample_mov, sample_thm
 from .helpers import mov_hash, mov_leaves, mov_qid
 from dmedia.errors import AmbiguousPath, FileStoreTraversal, DuplicateFile
 from dmedia.filestore import HashList
-from dmedia import filestore, constants
+from dmedia import filestore, constants, schema
 from dmedia.constants import TYPE_ERROR, EXT_PAT
 
 
@@ -469,20 +470,29 @@ class test_FileStore(TestCase):
         # Test when base does not exist
         tmp = TempDir()
         base = tmp.join('.dmedia')
+        record = tmp.join('.dmedia', 'store.json')
         inst = self.klass(base)
         self.assertEqual(inst.base, base)
         self.assertTrue(path.isdir(inst.base))
+        self.assertEqual(inst.record, record)
+        self.assertTrue(path.isfile(record))
+        store_s = open(record, 'rb').read()
+        doc = json.loads(store_s)
+        self.assertEqual(schema.check_dmedia_store(doc), None)
 
         # Test when base exists and is a directory
         inst = self.klass(base)
         self.assertEqual(inst.base, base)
         self.assertTrue(path.isdir(inst.base))
+        self.assertEqual(inst.record, record)
+        self.assertTrue(path.isfile(record))
+        self.assertEqual(open(record, 'rb').read(), store_s)
 
         # Test when base=None
         inst = self.klass()
         self.assertTrue(path.isdir(inst.base))
         self.assertTrue(inst.base.startswith('/tmp/store.'))
-
+        self.assertEqual(inst.record, path.join(inst.base, 'store.json'))
 
     def test_relpath(self):
         self.assertEqual(

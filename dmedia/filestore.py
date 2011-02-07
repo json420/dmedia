@@ -42,11 +42,13 @@ from os import path
 import tempfile
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
+import json
 import re
 import logging
 from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
+from .schema import create_store
 from .errors import AmbiguousPath, DuplicateFile, FileStoreTraversal
 from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR, EXT_PAT
 
@@ -345,6 +347,7 @@ def fallocate(size, filename):
         return False
 
 
+
 class FileStore(object):
     """
     Arranges files in a special layout according to their content-hash.
@@ -397,7 +400,7 @@ class FileStore(object):
     `fallocate()` function, which calls the Linux ``fallocate`` command.
     """
 
-    def __init__(self, base=None):
+    def __init__(self, base=None, machine_id=None):
         if base is None:
             base = tempfile.mkdtemp(prefix='store.')
         self.base = safe_path(base)
@@ -409,6 +412,12 @@ class FileStore(object):
             raise ValueError('%s.base not a directory: %r' %
                 (self.__class__.__name__, self.base)
             )
+        self.record = path.join(self.base, 'store.json')
+        if not path.isfile(self.record):
+            fp = open(self.record, 'wb')
+            doc = create_store(self.base, machine_id)
+            json.dump(doc, fp, sort_keys=True, indent=4)
+            fp.close()
 
     @staticmethod
     def relpath(chash, ext=None):
