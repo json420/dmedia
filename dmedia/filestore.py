@@ -355,15 +355,15 @@ class FileStore(object):
     To create a `FileStore`, you give it the directory that will be its base on
     the filesystem:
 
-    >>> fs = FileStore('/home/user/.dmedia')  #doctest: +SKIP
+    >>> fs = FileStore('/home/jderose/.dmedia')  #doctest: +SKIP
     >>> fs.base  #doctest: +SKIP
-    '/home/user/.dmedia'
+    '/home/jderose/.dmedia'
 
     If you don't supply *base*, a temporary directory will be created for you:
 
     >>> fs = FileStore()
     >>> fs.base  #doctest: +ELLIPSIS
-    '/tmp/filestore...'
+    '/tmp/store...'
 
     You can add files to the store using `FileStore.import_file()`:
 
@@ -376,7 +376,7 @@ class FileStore(object):
     path of the file using `FileStore.path()`:
 
     >>> fs.path('HIGJPQWY4PI7G7IFOB2G4TKY6PMTJSI7', 'mov')  #doctest: +ELLIPSIS
-    '/tmp/filestore.../HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
+    '/tmp/store.../HI/GJPQWY4PI7G7IFOB2G4TKY6PMTJSI7.mov'
 
     As the files are assumed to be read-only and unchanging, moving a file into
     its canonical location must be atomic.  There are 2 scenarios that must be
@@ -399,7 +399,7 @@ class FileStore(object):
 
     def __init__(self, base=None):
         if base is None:
-            base = tempfile.mkdtemp(prefix='filestore.')
+            base = tempfile.mkdtemp(prefix='store.')
         self.base = safe_path(base)
         try:
             os.makedirs(self.base)
@@ -476,7 +476,7 @@ class FileStore(object):
 
         >>> fs = FileStore()
         >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
-        '/tmp/filestore.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         However, a `FileStoreTraversal` is raised if *parts* cause a path
@@ -485,7 +485,7 @@ class FileStore(object):
         >>> fs.join('../ssh')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/tmp/ssh' outside base '/tmp/filestore...'
+        FileStoreTraversal: '/tmp/ssh' outside base '/tmp/store...'
 
 
         Or Likewise if an absolute path is included in *parts*:
@@ -493,7 +493,7 @@ class FileStore(object):
         >>> fs.join('NW', '/etc', 'ssh')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/etc/ssh' outside base '/tmp/filestore...'
+        FileStoreTraversal: '/etc/ssh' outside base '/tmp/store...'
 
 
         Also see `FileStore.create_parent()`.
@@ -512,7 +512,7 @@ class FileStore(object):
         >>> fs.create_parent('/foo/my.ogv')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/foo/my.ogv' outside base '/tmp/filestore...'
+        FileStoreTraversal: '/foo/my.ogv' outside base '/tmp/store...'
 
 
         It also protects against malicious filenames like this:
@@ -520,7 +520,7 @@ class FileStore(object):
         >>> fs.create_parent('/foo/../bar/my.ogv')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/bar/my.ogv' outside base '/tmp/filestore...'
+        FileStoreTraversal: '/bar/my.ogv' outside base '/tmp/store...'
 
 
         If doesn't already exists, the directory containing *filename* is
@@ -542,13 +542,13 @@ class FileStore(object):
 
         >>> fs = FileStore()
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
-        '/tmp/filestore.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         Or with a file extension:
 
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
-        '/tmp/filestore.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
 
         If called with ``create=True``, the parent directory is created with
@@ -568,13 +568,13 @@ class FileStore(object):
 
         >>> fs = FileStore()
         >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
-        '/tmp/filestore.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         Or with a file extension:
 
         >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
-        '/tmp/filestore.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
+        '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
 
         If called with ``create=True``, the parent directory is created with

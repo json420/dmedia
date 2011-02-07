@@ -481,7 +481,7 @@ class test_FileStore(TestCase):
         # Test when base=None
         inst = self.klass()
         self.assertTrue(path.isdir(inst.base))
-        self.assertTrue(inst.base.startswith('/tmp/filestore.'))
+        self.assertTrue(inst.base.startswith('/tmp/store.'))
 
 
     def test_relpath(self):
