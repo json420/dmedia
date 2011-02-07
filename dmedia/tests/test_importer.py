@@ -455,9 +455,9 @@ class test_Importer(CouchCase):
                 'bytes': path.getsize(src1),
                 'ext': 'mov',
                 'stored': {
-                    'MZZG2ZDSOQVSW2TEMVZG643F': {
-                        'copies': 2,
-                        'time': 1234567890,
+                    inst.filestore._id: {
+                        'copies': 1,
+                        'time': doc['time'],
                     },
                 },
 
@@ -487,9 +487,9 @@ class test_Importer(CouchCase):
                 'bytes': path.getsize(src2),
                 'ext': 'thm',
                 'stored': {
-                    'MZZG2ZDSOQVSW2TEMVZG643F': {
-                        'copies': 2,
-                        'time': 1234567890,
+                    inst.filestore._id: {
+                        'copies': 1,
+                        'time': doc['time'],
                     },
                 },
 

@@ -229,6 +229,8 @@ class Importer(object):
         # exception is raised by FileStore.import_file()
         (chash, leaves) = self.filestore.import_file(fp, ext)
         stat = os.fstat(fp.fileno())
+
+        ts = time.time()
         doc = {
             '_id': chash,
             '_attachments': {
@@ -238,13 +240,13 @@ class Importer(object):
                 }
             },
             'type': 'dmedia/file',
-            'time': time.time(),
+            'time': ts,
             'bytes': stat.st_size,
             'ext': ext,
             'stored': {
-                'MZZG2ZDSOQVSW2TEMVZG643F': {
-                    'copies': 2,
-                    'time': 1234567890,
+                self.filestore._id: {
+                    'copies': 1,
+                    'time': ts,
                 },
             },
 
