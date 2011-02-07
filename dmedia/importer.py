@@ -248,6 +248,7 @@ class Importer(object):
             'time': ts,
             'bytes': stat.st_size,
             'ext': ext,
+            'origin': 'user',
             'stored': {
                 self.filestore._id: {
                     'copies': 1,

@@ -700,6 +700,7 @@ def check_dmedia_file(doc):
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
     ...     'ext': 'mov',
+    ...     'origin': 'user',
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'copies': 2,
@@ -719,6 +720,7 @@ def check_dmedia_file(doc):
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
     ...     'ext': 'mov',
+    ...     'origin': 'user',
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'number': 2,  # Changed!
@@ -734,7 +736,7 @@ def check_dmedia_file(doc):
 
     """
     check_dmedia(doc)
-    _check_required(doc, ['bytes', 'ext', 'stored'])
+    _check_required(doc, ['bytes', 'ext', 'origin', 'stored'])
 
     # Check type:
     if doc['type'] != 'dmedia/file':

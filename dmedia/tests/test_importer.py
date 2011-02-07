@@ -361,7 +361,9 @@ class test_Importer(CouchCase):
                 'time',
                 'bytes',
                 'ext',
+                'origin',
                 'stored',
+
                 'import_id',
                 'qid',
                 'mtime',
@@ -454,6 +456,7 @@ class test_Importer(CouchCase):
                 'time': doc['time'],
                 'bytes': path.getsize(src1),
                 'ext': 'mov',
+                'origin': 'user',
                 'stored': {
                     inst.filestore._id: {
                         'copies': 1,
@@ -486,6 +489,7 @@ class test_Importer(CouchCase):
                 'time': doc['time'],
                 'bytes': path.getsize(src2),
                 'ext': 'thm',
+                'origin': 'user',
                 'stored': {
                     inst.filestore._id: {
                         'copies': 1,

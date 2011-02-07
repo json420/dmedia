@@ -359,6 +359,7 @@ class test_functions(TestCase):
             'time': 1234567890,
             'bytes': 20202333,
             'ext': 'mov',
+            'origin': 'user',
             'stored': {
                 'MZZG2ZDSOQVSW2TEMVZG643F': {
                     'copies': 2,
@@ -379,7 +380,7 @@ class test_functions(TestCase):
         )
 
         # Test with missing attributes:
-        for key in ['bytes', 'stored']:
+        for key in ['bytes', 'ext', 'origin', 'stored']:
             bad = deepcopy(good)
             del bad[key]
             e = raises(ValueError, f, bad)
