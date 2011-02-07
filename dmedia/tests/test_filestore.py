@@ -463,25 +463,23 @@ class test_FileStore(TestCase):
         self.assertEqual(inst.base, base)
 
     def test_relpath(self):
-        inst = self.klass('/foo')
-
         self.assertEqual(
-            inst.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            self.klass.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
             ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
-            inst.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            self.klass.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
             ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
-        e = raises(ValueError, inst.relpath, bad)
+        e = raises(ValueError, self.klass.relpath, bad)
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
         )
-        e = raises(ValueError, inst.relpath, bad, ext='ogv')
+        e = raises(ValueError, self.klass.relpath, bad, ext='ogv')
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
@@ -490,32 +488,30 @@ class test_FileStore(TestCase):
         # Test to make sure ext is getting checked with safe_ext():
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         bad = '/../../../.ssh/id_pub'
-        e = raises(ValueError, inst.relpath, chash, bad)
+        e = raises(ValueError, self.klass.relpath, chash, bad)
         self.assertEqual(
             str(e),
             'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
     def test_reltemp(self):
-        inst = self.klass('/foo')
-
         self.assertEqual(
-            inst.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            self.klass.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
             ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
-            inst.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            self.klass.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
             ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
-        e = raises(ValueError, inst.reltemp, bad)
+        e = raises(ValueError, self.klass.reltemp, bad)
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
         )
-        e = raises(ValueError, inst.reltemp, bad, ext='ogv')
+        e = raises(ValueError, self.klass.reltemp, bad, ext='ogv')
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
@@ -524,57 +520,67 @@ class test_FileStore(TestCase):
         # Test to make sure ext is getting checked with safe_ext():
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         bad = '/../../../.ssh/id_pub'
-        e = raises(ValueError, inst.reltemp, chash, bad)
+        e = raises(ValueError, self.klass.reltemp, chash, bad)
         self.assertEqual(
             str(e),
             'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
     def test_check_path(self):
-        inst = self.klass('/foo/bar')
+        tmp = TempDir()
+        base = tmp.join('foo', 'bar')
+        inst = self.klass(base)
 
-        e = raises(FileStoreTraversal, inst.check_path, '/foo/barNone/stuff')
-        self.assertEqual(e.pathname, '/foo/barNone/stuff')
-        self.assertEqual(e.abspath, '/foo/barNone/stuff')
-        self.assertEqual(e.base, '/foo/bar')
+        bad = tmp.join('foo', 'barNone', 'stuff')
+        e = raises(FileStoreTraversal, inst.check_path, bad)
+        self.assertEqual(e.pathname, bad)
+        self.assertEqual(e.abspath, bad)
+        self.assertEqual(e.base, base)
 
-        e = raises(FileStoreTraversal, inst.check_path, '/foo/bar/../barNone')
-        self.assertEqual(e.pathname, '/foo/bar/../barNone')
-        self.assertEqual(e.abspath, '/foo/barNone')
-        self.assertEqual(e.base, '/foo/bar')
+        bad = tmp.join('foo', 'bar', '..', 'barNone')
+        assert '..' in bad
+        e = raises(FileStoreTraversal, inst.check_path, bad)
+        self.assertEqual(e.pathname, bad)
+        self.assertEqual(e.abspath, tmp.join('foo', 'barNone'))
+        self.assertEqual(e.base, base)
 
-        self.assertEqual(inst.check_path('/foo/bar/stuff/'), '/foo/bar/stuff')
+        good = tmp.join('foo', 'bar', 'stuff')
+        self.assertEqual(inst.check_path(good), good)
 
     def test_join(self):
-        inst = self.klass('/foo/bar')
+        tmp = TempDir()
+        base = tmp.join('foo', 'bar')
+        inst = self.klass(base)
 
         # Test with an absolute path in parts:
         e = raises(FileStoreTraversal, inst.join, 'dmedia', '/root')
         self.assertEqual(e.pathname, '/root')
         self.assertEqual(e.abspath, '/root')
-        self.assertEqual(e.base, '/foo/bar')
+        self.assertEqual(e.base, base)
 
         # Test with some .. climbers:
-        e = raises(FileStoreTraversal, inst.join, 'NW/../../.ssh')
-        self.assertEqual(e.pathname, '/foo/bar/NW/../../.ssh')
-        self.assertEqual(e.abspath, '/foo/.ssh')
-        self.assertEqual(e.base, '/foo/bar')
+        e = raises(FileStoreTraversal, inst.join, 'NW', '..', '..', '.ssh')
+        self.assertEqual(
+            e.pathname,
+            tmp.join('foo', 'bar', 'NW', '..', '..', '.ssh')
+        )
+        self.assertEqual(e.abspath, tmp.join('foo', '.ssh'))
+        self.assertEqual(e.base, base)
 
         # Test for former security issue!  See:
         # https://bugs.launchpad.net/dmedia/+bug/708663
         e = raises(FileStoreTraversal, inst.join, '..', 'barNone', 'stuff')
-        self.assertEqual(e.pathname, '/foo/bar/../barNone/stuff')
-        self.assertEqual(e.abspath, '/foo/barNone/stuff')
-        self.assertEqual(e.base, '/foo/bar')
+        self.assertEqual(
+            e.pathname,
+            tmp.join('foo', 'bar', '..', 'barNone', 'stuff')
+        )
+        self.assertEqual(e.abspath, tmp.join('foo', 'barNone', 'stuff'))
+        self.assertEqual(e.base, base)
 
         # Test with some correct parts:
         self.assertEqual(
             inst.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        )
-        self.assertEqual(
-            inst.join('NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            '/foo/bar/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+            tmp.join('foo', 'bar', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
 
     def test_create_parent(self):
@@ -652,15 +658,17 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(baddir))
 
     def test_path(self):
-        inst = self.klass('/foo')
+        tmp = TempDir()
+        base = tmp.join('foo', 'bar')
+        inst = self.klass(base)
 
         self.assertEqual(
             inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+            tmp.join('foo', 'bar', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
             inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
-            '/foo/NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv'
+            tmp.join('foo', 'bar', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
@@ -707,15 +715,16 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(d))
 
     def test_temp(self):
-        inst = self.klass('/foo')
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
 
         self.assertEqual(
             inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+            tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
             inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
-            '/foo/transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv'
+            tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
@@ -858,7 +867,7 @@ class test_FileStore(TestCase):
 
         inst = self.klass(base)
         self.assertTrue(path.isfile(src))
-        self.assertFalse(path.exists(base))
+        self.assertTrue(path.isdir(base))
         self.assertFalse(path.exists(dst))
         src_fp = open(src, 'rb')
         self.assertEqual(

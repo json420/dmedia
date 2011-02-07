@@ -392,6 +392,8 @@ class FileStore(object):
 
     def __init__(self, base):
         self.base = safe_path(base)
+        if not path.exists(self.base):
+            os.makedirs(self.base)
 
     @staticmethod
     def relpath(chash, ext=None):
