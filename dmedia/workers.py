@@ -80,26 +80,28 @@ def exception_name(exception):
 
 
 def dispatch(q, worker, key, args):
+    pid = current_process().pid
+    log.debug('dispatch in process %d: worker=%r, key=%r, args=%r',
+        pid, worker, key, args
+    )
     try:
         klass = _workers[worker]
         inst = klass(q, key, args)
         inst.run()
     except Exception as e:
-        log.exception('exception in procces %d, worker=%r',
-            current_process().pid, worker
-        )
+        log.exception('exception in procces %d, worker=%r', pid)
         q.put(dict(
             signal='error',
             args=(key, exception_name(e), str(e)),
             worker=worker,
-            pid=current_process().pid,
+            pid=pid,
         ))
     finally:
         q.put(dict(
             signal='terminate',
             args=(key,),
             worker=worker,
-            pid=current_process().pid,
+            pid=pid,
         ))
 
 
