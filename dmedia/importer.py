@@ -29,6 +29,7 @@ from os import path
 import mimetypes
 import time
 from base64 import b64encode
+import couchdb
 from .util import random_id
 from .workers import Worker, Manager, register, isregistered
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
@@ -175,6 +176,10 @@ class Importer(object):
             path.join(self.home, DOTDIR),
             self.metastore.machine_id
         )
+        try:
+            self.db.save(self.filestore._doc)
+        except couchdb.ResourceConflict:
+            pass
 
         self.__stats = {
             'imported': {
