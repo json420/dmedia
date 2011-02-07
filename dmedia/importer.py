@@ -169,9 +169,12 @@ class Importer(object):
         self.base = base
         self.extract = extract
         self.home = path.abspath(os.environ['HOME'])
-        self.filestore = FileStore(path.join(self.home, DOTDIR))
         self.metastore = MetaStore(dbname=dbname)
         self.db = self.metastore.db
+        self.filestore = FileStore(
+            path.join(self.home, DOTDIR),
+            self.metastore.machine_id
+        )
 
         self.__stats = {
             'imported': {

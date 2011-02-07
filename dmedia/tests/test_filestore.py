@@ -479,6 +479,8 @@ class test_FileStore(TestCase):
         store_s = open(record, 'rb').read()
         doc = json.loads(store_s)
         self.assertEqual(schema.check_dmedia_store(doc), None)
+        self.assertEqual(inst._doc, doc)
+        self.assertEqual(inst._id, doc['_id'])
 
         # Test when base exists and is a directory
         inst = self.klass(base)

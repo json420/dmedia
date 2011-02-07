@@ -413,11 +413,16 @@ class FileStore(object):
                 (self.__class__.__name__, self.base)
             )
         self.record = path.join(self.base, 'store.json')
-        if not path.isfile(self.record):
+        try:
+            fp = open(self.record, 'rb')
+            doc = json.load(fp)
+        except IOError:
             fp = open(self.record, 'wb')
             doc = create_store(self.base, machine_id)
             json.dump(doc, fp, sort_keys=True, indent=4)
-            fp.close()
+        fp.close()
+        self._doc = doc
+        self._id = doc['_id']
 
     @staticmethod
     def relpath(chash, ext=None):
