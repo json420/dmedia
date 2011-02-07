@@ -141,6 +141,8 @@ def build_design_doc(design, views):
 
 
 def create_machine():
+    # FIXME: this '_local/machine' business probably isn't a very good approach.
+    # Plus this doesn't directly conform with schema.check_dmedia()
     return {
         '_id': '_local/machine',
         'machine_id': random_id(),
