@@ -134,6 +134,7 @@ class test_functions(TestCase):
         machine_id = random_id()
         doc = f(machine_id)
 
+        self.assertEqual(schema.check_dmedia(doc), None)
         self.assertTrue(isinstance(doc, dict))
         self.assertEqual(
             set(doc),
@@ -175,6 +176,7 @@ class test_functions(TestCase):
         ])
 
         doc = f(base, batch_id=batch_id, machine_id=machine_id)
+        self.assertEqual(schema.check_dmedia(doc), None)
         self.assertTrue(isinstance(doc, dict))
         self.assertEqual(set(doc), keys)
 
@@ -190,6 +192,7 @@ class test_functions(TestCase):
         self.assertEqual(doc['machine_id'], machine_id)
 
         doc = f(base)
+        self.assertEqual(schema.check_dmedia(doc), None)
         self.assertEqual(set(doc), keys)
         self.assertEqual(doc['batch_id'], None)
         self.assertEqual(doc['machine_id'], None)
