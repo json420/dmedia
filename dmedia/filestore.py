@@ -391,7 +391,7 @@ class FileStore(object):
     """
 
     def __init__(self, base):
-        self.base = path.abspath(base)
+        self.base = safe_path(base)
 
     @staticmethod
     def relpath(chash, ext=None):

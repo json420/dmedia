@@ -447,14 +447,20 @@ class test_FileStore(TestCase):
     klass = filestore.FileStore
 
     def test_init(self):
+        # Test with relative path:
+        e = raises(AmbiguousPath, self.klass, 'foo/bar')
+        self.assertEqual(e.pathname, 'foo/bar')
+        self.assertEqual(e.abspath, path.abspath('foo/bar'))
+
+        # Test with path traversal:
+        e = raises(AmbiguousPath, self.klass, '/foo/bar/../../root')
+        self.assertEqual(e.pathname, '/foo/bar/../../root')
+        self.assertEqual(e.abspath, '/root')
+
         tmp = TempDir()
-        orig = os.getcwd()
-        try:
-            os.chdir(tmp.path)
-            inst = self.klass('foo/bar')
-            self.assertEqual(inst.base, tmp.join('foo/bar'))
-        finally:
-            os.chdir(orig)
+        base = tmp.join('.dmedia')
+        inst = self.klass(base)
+        self.assertEqual(inst.base, base)
 
     def test_relpath(self):
         inst = self.klass('/foo')
