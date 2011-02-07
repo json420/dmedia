@@ -26,7 +26,9 @@ Unit tests for `dmedia.schema` module.
 from unittest import TestCase
 from base64 import b32encode
 from copy import deepcopy
-from .helpers import raises
+import time
+from .helpers import raises, TempDir
+from dmedia.util import random_id
 from dmedia.constants import TYPE_ERROR
 from dmedia import schema
 
@@ -479,3 +481,50 @@ class test_functions(TestCase):
             str(e),
             'default_copies must be >= 1; got -2'
         )
+
+    def test_create_store(self):
+        f = schema.create_store
+        tmp = TempDir()
+        base = tmp.join('.dmedia')
+        machine_id = random_id()
+
+        doc = f(base, machine_id)
+        self.assertEqual(schema.check_dmedia_store(doc), None)
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                'type',
+                'time',
+                'plugin',
+                'default_copies',
+                'path',
+                'machine_id',
+            ])
+        )
+        self.assertEqual(doc['type'], 'dmedia/store')
+        self.assertTrue(doc['time'] <= time.time())
+        self.assertEqual(doc['plugin'], 'filestore')
+        self.assertEqual(doc['default_copies'], 1)
+        self.assertEqual(doc['path'], base)
+
+        doc = f(base, machine_id, default_copies=3)
+        self.assertEqual(schema.check_dmedia_store(doc), None)
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                'type',
+                'time',
+                'plugin',
+                'default_copies',
+                'path',
+                'machine_id',
+            ])
+        )
+        self.assertEqual(doc['type'], 'dmedia/store')
+        self.assertTrue(doc['time'] <= time.time())
+        self.assertEqual(doc['plugin'], 'filestore')
+        self.assertEqual(doc['default_copies'], 3)
+        self.assertEqual(doc['path'], base)
+        self.assertEqual(doc['machine_id'], machine_id)

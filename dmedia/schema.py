@@ -264,6 +264,8 @@ from __future__ import print_function
 
 from base64 import b32decode
 import re
+import time
+from .util import random_id
 from .constants import TYPE_ERROR, EXT_PAT
 
 # Some private helper functions that don't directly define any schema.
@@ -812,3 +814,16 @@ def check_dmedia_store(doc):
     dc = doc[key]
     _check_int(dc, key)
     _check_at_least(dc, 1, key)
+
+
+# This should probably be moved
+def create_store(base, machine_id, default_copies=1):
+    return {
+        '_id': random_id(),
+        'type': 'dmedia/store',
+        'time': time.time(),
+        'plugin': 'filestore',
+        'default_copies': default_copies,
+        'path': base,
+        'machine_id': machine_id,
+    }
