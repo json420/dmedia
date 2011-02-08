@@ -177,8 +177,7 @@ practice.  For example:
 ... }
 
 
-The "type" is a namespace ("dmedia"), then a forward slash, then a sub-type
-("file"), similar to mime types.  The current dmedia record types include:
+The current dmedia record types include:
 
     dmedia/file
         Each file has a corresponding CouchDB document, and this is its type
@@ -254,6 +253,11 @@ under a single extension namespace.  For example:
 ...     'x_baz': 'other misc attribute not in dmedia schema',
 ... }
 
+
+desktopcouch has an "application_annotations" attribute that is used exactly
+the same way as the dmedia "x" attribute.  Likewise, dmedia will honor the
+"application_annotations" convention and never store any of its own schema under
+this key.
 
 An important consequence of this extensibility is that when modifying documents,
 applications must always losslessly round-trip any attributes they don't know
