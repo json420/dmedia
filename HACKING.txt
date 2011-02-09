@@ -2,90 +2,37 @@
                            Contribute code to dmedia!
                            **************************
 
-Testing
-=======
-
-The dmedia tests are run through `setup.py` like this:
-
-    ./setup.py test
-
-This will run the unit-tests and doc-tests.  dmedia is very focused on rapid,
-test-drive development.  If you contribute a feature to dmedia, it must include
-comprehensive unit/doc tests for the feature.  This is a good thing.  :)
-
-As you work on a feature, you will likely want to run only tests for modules
-related to your change.  You can filter tests with the --names option, like
-this:
-
-    ./setup.py test --names=filestore,util
-
-That would run all unit-tests and doc-tests in:
-
-    dmedia/filestore.py
-    dmedia/util.py
-    dmedia/tests/test_filestore.py
-    dmedia/tests/test_util.py
-
-You can skip the doc-tests (and run only the unit-tests) like this:
-
-    ./setup.py test --no-doctest
-
-Or skip the unit-tests (and run only the doc-tests) like this:
-
-    ./setup.py test --no-unittest
-
-
-Coding Style
-============
-
-Contributions must follow good PEP-8, PEP-257 style:
-
-    http://www.python.org/dev/peps/pep-0008/
-
-    http://www.python.org/dev/peps/pep-0257/
-
-
 Getting Started
 ===============
-
-If you want to familiarize yourself with the dmedia codebase, start with the
-`FileStore` class in dmedia/filestore.py.  The `FileStore` class arranges media
-file in a special layout according to their content hash, which is the
-cornerstone of the dmedia design.
-
-dmedia can be thought of as distributed file-system with very limited features
-in that it *only* stores read-only, intrinsically-named files.  These
-constraints keep dmedia simple enough to be implemented by a small team, yet
-also give dmedia all the power needed to store an important class of files...
-namely, media files, which are perfectly appropriate to treat as read-only.
-Remember, non destructive editing "is a good thing".
-
-At any given time, the majority of a user's storage will be consumed by media
-files (videos, pictures, music).  By replacing the error-prone management of
-these files with smart and opinionated automation, we can hugely improve the
-user experience.
-
-Although dmedia keeps things very simple in how it handles the media *files*,
-there are some complicated problems on the *metadata* side of things.
-Fortunately, dmedia can be completely lazy here and make CouchDB do all the hard
-metadata work.
-
-"Be as lazy as possible, but not lazier."  --someone said that once.
-
-
-Workflow
-========
 
 Work on dmedia is coordinated through its Launchpad project:
 
     https://launchpad.net/dmedia
 
-To get a feel for the codebase, consider starting with a small feature bug
+To get a feel for the code base, consider doing code reviews.  You can see the
+list of active reviews here:
+
+    https://code.launchpad.net/dmedia/+activereviews
+
+Think of code reviews as a conversational way to get familiar with part of the
+dmedia code base.  You of course might find some bugs or design issues.  But
+perhaps more importantly, as a reviewer you have an opportunity to learn in the
+trenches.  Plus reviews encourage the programmer to write code that is clear
+and easy to explain.
+
+Also, if you're on IRC, stop by the #novacut channel on irc.freenode.net and
+talk to jderose or any of the other friendly folks there.
+
+
+Launchpad Workflow
+==================
+
+For your first code contribution, consider starting with a small feature bug
 tagged with "bitesize", which you can search for here:
 
     https://bugs.launchpad.net/dmedia/+bugs?field.tag=bitesize
 
-Once you begin work on a bug, change the "Assigned To" field to youself so that
+Once you begin work on a bug, change the "Assigned To" field to yourself so that
 others know it's being worked on.  The bzr workflow will go something this:
 
     bzr branch lp:dmedia cool-feature
@@ -106,4 +53,87 @@ they pass, your merge will be reviewed (by Jason most likely).  Your merge might
 be accepted as is, or you might be asked to make some further improvements
 first.
 
-If you need help, ping jderose on the #novacut IRC channel.
+If you need help, ping jderose in the #novacut IRC channel.
+
+
+Testing
+=======
+
+The dmedia tests are run through `setup.py` like this:
+
+    $ ./setup.py test
+
+This will run the unit-tests and doc-tests.  dmedia is very focused on rapid,
+test-drive development.  If you contribute a feature to dmedia, it must include
+comprehensive unit/doc tests for the feature.  This is a good thing.  :)
+
+As you work on a feature, you will likely want to run only tests for modules
+related to your change.  You can filter tests with the --names option, like
+this:
+
+    $ ./setup.py test --names=filestore,util
+
+That would run all unit-tests and doc-tests in:
+
+    dmedia/filestore.py
+    dmedia/util.py
+    dmedia/tests/test_filestore.py
+    dmedia/tests/test_util.py
+
+You can skip the doc-tests (and run only the unit-tests) like this:
+
+    $ ./setup.py test --no-doctest
+
+Or skip the unit-tests (and run only the doc-tests) like this:
+
+    $ ./setup.py test --no-unittest
+
+Lastly, the dmedia-service log file generally contains useful debugging
+information.  The log file is:
+
+    ~/.cache/dmedia/service.log
+
+
+Coding Style
+============
+
+Contributions must follow good PEP-8, PEP-257 style:
+
+    http://www.python.org/dev/peps/pep-0008/
+
+    http://www.python.org/dev/peps/pep-0257/
+
+
+Exploring the Source Tree
+=========================
+
+Right off the bat, there are two files you should familiarize yourself with:
+
+    dmedia/schema.py
+
+    dmedia/filestore.py
+
+They're both chock-full of docstrings and will give you a good handle on the
+dmedia architecture.
+
+
+Running in-tree
+===============
+
+As dmedia currently only runs as a D-Bus service, it's a bit difficult to test
+in-tree.  Here are the steps:
+
+1) Shutdown the installed dmedia-service if running (click on the dmedia
+application indicator and then "Shutdown dmedia").
+
+2) Open a terminal, cd into the dmedia source tree, and then start the in-tree
+dmedia-service like this:
+
+    $ ./dmedia-service
+
+3) Open another terminal, cd into the dmedia source tree, and start an import
+or two like this:
+
+    $ ./dmedia-import /media/EOS_DIGITAL
+
+    $ ./dmedia-import ~/Video/HDSLR
