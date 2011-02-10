@@ -23,9 +23,9 @@ placeholder{
 .box{
 	margin:10px;
 	padding:10px;
-	border-radius:5px;
 	-webkit-border-radius:5px;
 	-moz-border-radius:5px;
+	border-radius:5px;
 	background-color:rgb(182, 189, 192);
 	background:-webkit-gradient(linear, left bottom, left top, color-stop(1, rgb(238,240,240)), color-stop(0.5, rgb(182,189,192)));
 	background:-moz-linear-gradient(center bottom, rgb(182,189,192) 50%, rgb(238,240,240) 100%);
@@ -63,9 +63,9 @@ large box-shadows, so this has been disabled for now.  See:
 	margin:0px;
 	border-top-left-radius:0px;
 	border-top-right-radius:0px;
-	box-shadow:3px 3px 5px rgba(0,0,0,0.5);
 	-webkit-box-shadow:3px 3px 5px rgba(0,0,0,0.5);
 	-moz-box-shadow:3px 3px 5px rgba(0,0,0,0.5);
+	box-shadow:3px 3px 5px rgba(0,0,0,0.5);
 	border:1px solid #ccc;
 	opacity: 1;
 	-webkit-transform: translate(0px, 0px);
@@ -97,17 +97,17 @@ large box-shadows, so this has been disabled for now.  See:
 	right:0px;
 	height:50px;
 	width:290px;
-	border-radius:25px;
 	-webkit-border-radius:25px;
 	-moz-border-radius:25px;
+	border-radius:25px;
 	border-bottom-left-radius:5px;
 	border-bottom-right-radius:5px;
 }
 
 .search_field{
-	border-radius:15px;
 	-webkit-border-radius:15px;
 	-moz-border-radius:15px;
+	border-radius:15px;
 	border:1px solid #444;
 	height:30px;
 	width:290px;
@@ -138,9 +138,9 @@ large box-shadows, so this has been disabled for now.  See:
 .item img{
 	-webkit-transition: border-color 1s ease;
 	-moz-transition: border-color 1s ease;
-	box-shadow:2px 2px 5px rgba(0, 0, 0, 0.5);
 	-webkit-box-shadow:2px 2px 5px rgba(0, 0, 0, 0.5);
 	-moz-box-shadow:2px 2px 5px rgba(0, 0, 0, 0.5);
+	box-shadow:2px 2px 5px rgba(0, 0, 0, 0.5);
 	margin:1px;
 	border-width:4px;
 	border-color:#222;
@@ -173,9 +173,9 @@ large box-shadows, so this has been disabled for now.  See:
 	background-color:rgba(0,0,0,0.1);
 	outline:none;
 	font-family:sans-serif;
-	box-shadow:inset 1px 1px 2px rgba(0,0,0,0.5);
 	-webkit-box-shadow:inset 1px 1px 2px rgba(0,0,0,0.5);
 	-moz-box-shadow:inset 1px 1px 2px rgba(0,0,0,0.5);
+	box-shadow:inset 1px 1px 2px rgba(0,0,0,0.5);
 	padding:5px;
 }
 
@@ -211,17 +211,17 @@ div .button{
 	border:1px solid #ddd;
 	width:auto;
 	text-shadow:0px 1px 0px white;
-	border-radius:5px;
 	-webkit-border-radius:5px;
 	-moz-border-radius:5px;
+	border-radius:5px;
 	float:left;
 	min-width:50px;
 	text-align:center;
 	display:inline-block;
 	margin:5px;
-	box-shadow:0px 2px 5px rgba(0,0,0,0.5);
 	-webkit-box-shadow:0px 2px 5px rgba(0,0,0,0.5);
 	-moz-box-shadow:0px 2px 5px rgba(0,0,0,0.5);
+	box-shadow:0px 2px 5px rgba(0,0,0,0.5);
 }
 
 div .button:hover{
@@ -229,9 +229,9 @@ div .button:hover{
 	background: -webkit-gradient(linear, left top, left bottom, from(rgb(230, 230, 230)), to(rgb(210,210,210)));
 	background: -moz-linear-gradient(center bottom, rgb(210,210,210) 0%, rgb(230,230,230) 100%);
 	cursor:pointer;
-	box-shadow:0px 3px 5px rgba(0,0,0,0.6);
 	-webkit-box-shadow:0px 3px 5px rgba(0,0,0,0.6);
 	-moz-box-shadow:0px 3px 5px rgba(0,0,0,0.6);
+	box-shadow:0px 3px 5px rgba(0,0,0,0.6);
 }
 
 div .button:active{
@@ -239,9 +239,9 @@ div .button:active{
 	background: -webkit-gradient(linear, left top, left bottom, from(rgb(210, 210, 210)), to(rgb(230,230,230)));
 	background: -moz-linear-gradient(center bottom, rgb(230,230,230) 0%, rgb(210,210,210) 100%);
 	text-shadow:0px -1px 0px white;
-	box-shadow:0px 1px 3px rgba(0,0,0,0.7);
 	-webkit-box-shadow:0px 1px 3px rgba(0,0,0,0.7);
 	-moz-box-shadow:0px 1px 3px rgba(0,0,0,0.7);
+	box-shadow:0px 1px 3px rgba(0,0,0,0.7);
 }
 
 #dim{
