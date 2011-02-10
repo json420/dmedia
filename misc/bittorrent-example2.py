@@ -3,13 +3,10 @@ from __future__ import print_function
 import sys
 import os
 from os import path
-import threading
+import time
 from base64 import b32decode
 from dmedia.filestore import FileStore, HashList
-from BitTorrent.download import download
-
-# URL of test torrent:
-url = 'http://novacut.s3.amazonaws.com/novacut_test_video.tgz?torrent'
+import libtorrent
 
 # Size of novacut_test_video.tgz (in bytes):
 size = 448881430
@@ -84,44 +81,33 @@ store = FileStore(base)
 
 # Get tmp path we will write file to as we download:
 tmp = store.temp(chash, 'tgz', create=True)
-print('Will write file to:\n  %r' % tmp)
+print('Will write file to:\n  %r\n' % tmp)
 
-
-# All the callbacks we need:
-def choose_file(default, size, saveas, dirpath):
-    print('choose_file(%r, %r, %r, %r)' % (default, size, saveas, dirpath))
-
-def progress(d):
-    print('progress:')
-    for key in sorted(d):
-        print('  %s = %r' % (key, d[key]))
-
-
-def finished():
-    print('finished!')
-
-
-def error(msg):
-    print('error: %r' % msg)
-
-
-def newpath(self, pathname):
-    print('newpath: %r' % pathname)
-
-
-params = [
-    '--url', url,
-    '--saveas', tmp,
-]
-
-print('Downloading:\n  %r' % url)
-download(
-    params,
-    choose_file,
-    progress,
-    finished,
-    error,
-    threading.Event(),
-    80,
-    newpath
+# Path of torret file in misc/
+torrent = path.join(
+    path.dirname(path.abspath(__file__)),
+    'novacut_test_video.tgz.torrent'
 )
+assert path.isfile(torrent), torrent
+print('Using torrent:\n  %r\n' % torrent)
+
+
+session = libtorrent.session()
+session.listen_on(6881, 6891)
+
+e = libtorrent.bdecode(open(torrent, 'rb').read())
+info = libtorrent.torrent_info(e)
+
+h = session.add_torrent({
+    'ti': info,
+    'save_path': path.dirname(tmp),
+})
+
+
+while not h.is_seed():
+    s = h.status()
+    print(s.progress)
+    time.sleep(2)
+
+
+print(h.name())
