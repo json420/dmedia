@@ -116,16 +116,17 @@ large box-shadows, so this has been disabled for now.  See:
 	background-image:url("search.png");
 	background-repeat:no-repeat;
 	background-position:15px 3px;
-	box-shadow:inset 0px 3px 10px rgba(0,0,0,0.5);
 /*	-webkit-box-shadow:inset 0px 3px 10px rgba(0,0,0,0.5);*/
 	-moz-box-shadow:inset 0px 3px 10px rgba(0,0,0,0.5);
+	box-shadow:inset 0px 3px 10px rgba(0,0,0,0.5);
 }
 
 #display img{
 	border:5px solid #ddd;
 	border-bottom:20px solid #ddd;
-	box-shadow:3px 3px 10px rgba(0,0,0,0.5);
 	-webkit-box-shadow:3px 3px 10px rgba(0,0,0,0.5);
+	-moz-box-shadow:3px 3px 10px rgba(0,0,0,0.5);
+	box-shadow:3px 3px 10px rgba(0,0,0,0.5);
 	margin-left:auto;
 }
 
