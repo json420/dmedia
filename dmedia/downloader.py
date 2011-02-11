@@ -28,9 +28,10 @@ from urlparse import urlparse
 from httplib import HTTPConnection, HTTPSConnection
 import logging
 from . import __version__
-from .constants import CHUNK_SIZE
+from .constants import CHUNK_SIZE, TYPE_ERROR
 from .errors import DownloadFailure
-from .filestore import HashList, HASH
+from .filestore import FileStore, HashList, HASH
+import libtorrent
 
 USER_AGENT = 'dmedia %s' % __version__
 log = logging.getLogger()
@@ -155,3 +156,24 @@ class Downloader(object):
     def run(self):
         for (i, chash) in enumerate(self.leaves):
             self.process_leaf(i, chash)
+
+
+class TorrentDownloader(object):
+    def __init__(self, torrent, fs, chash, ext=None):
+        if not isinstance(fs, FileStore):
+            raise TypeError(
+                TYPE_ERROR % ('fs', FileStore, type(fs), fs)
+            )
+        self.torrent = torrent
+        self.fs = fs
+        self.chash = chash
+        self.ext = ext
+
+    def get_tmp(self):
+        return self.fs.temp(self.chash, self.ext, create=True)
+
+    def finalize(self):
+        return self.fs.finalize_transfer(self.chash, self.ext)
+
+    def run(self):
+        pass
