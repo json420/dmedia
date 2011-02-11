@@ -49,7 +49,8 @@ from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 from .schema import create_store
-from .errors import AmbiguousPath, DuplicateFile, FileStoreTraversal
+from .errors import AmbiguousPath, FileStoreTraversal
+from .errors import DuplicateFile, IntegrityError
 from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR, EXT_PAT
 
 B32LENGTH = 32  # Length of base32-encoded hash
@@ -618,6 +619,76 @@ class FileStore(object):
         (fileno, filename) = tempfile.mkstemp(suffix=suffix, dir=imports)
         fallocate(size, filename)
         return open(filename, 'r+b')
+
+    def finalize_transfer(self, chash, ext=None):
+        """
+        Move canonically named temporary file to its final canonical location.
+
+        This method will check the content hash of the canonically-named
+        temporary file with content hash *chash* and extension *ext*.  If the
+        content hash is correct, it will do an ``os.fchmod()`` to set read-only
+        permissions, and then rename the file into its canonical location.
+
+        If the content hash is incorrect, `IntegrityError` is raised.  If the
+        canonical file already exists, `DuplicateFile` is raised.  Lastly, if
+        temporary does not exist, ``IOError`` is raised.
+
+        This method will typically be used with the BitTorrent downloader or
+        similar, in which case the content hash will be known prior to
+        downloading.  The downloader will first determine the canonical
+        temporary file name, like this:
+
+        >>> fs = FileStore()
+        >>> tmp = fs.temp('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov', create=True)
+        >>> tmp  #doctest: +ELLIPSIS
+        '/tmp/store.../transfers/ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+
+
+        Then the downloader will write to the temporary file as it's being
+        downloaded:
+
+        >>> from dmedia.tests import sample_mov  # Sample .MOV file
+        >>> src_fp = open(sample_mov, 'rb')
+        >>> tmp_fp = open(tmp, 'wb')
+        >>> while True:
+        ...     chunk = src_fp.read(2**20)  # Read in 1MiB chunks
+        ...     if not chunk:
+        ...         break
+        ...     tmp_fp.write(chunk)
+        ...
+        >>> tmp_fp.close()
+
+
+        Finally, the downloader will move the temporary file into its canonical
+        location:
+
+
+        >>> fs.finalize_transfer('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')  #doctest: +ELLIPSIS
+        '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+
+
+        Note above that this method returns the full path of the canonically
+        named file.
+        """
+        # Open temporary file and check content hash:
+        tmp = self.temp(chash, ext)
+        tmp_fp = open(tmp, 'rb')
+        h = HashList(tmp_fp)
+        got = h.run()
+        if got != chash:
+            raise IntegrityError(got=got, expected=chash, filename=tmp_fp.name)
+
+        # Get canonical name, check for duplicate:
+        dst = self.path(chash, ext, create=True)
+        if path.exists(dst):
+            raise DuplicateFile(chash=chash, src=tmp_fp.name, dst=dst)
+
+        # Set file to read-only and rename into canonical location
+        os.fchmod(tmp_fp.fileno(), 0o444)
+        os.rename(tmp_fp.name, dst)
+
+        # Return (chash, leaves):
+        return dst
 
     def import_file(self, src_fp, ext=None):
         """
