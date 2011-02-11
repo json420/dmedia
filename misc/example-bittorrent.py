@@ -1,7 +1,9 @@
+#!/usr/bin/env python
+
 """
 Tests downloading torrent from:
 
-http://37GDNHANX7RCBMBGTYLSIK7TMTUQSKDS
+http://novacut.s3.amazonaws.com/37GDNHANX7RCBMBGTYLSIK7TMTUQSKDS.mov?torrent
 """
 
 from __future__ import print_function
@@ -16,7 +18,7 @@ import libtorrent
 
 
 # Known size, top hash, and leaf hashes for test video:
-size = 448881430
+size = 44188757
 
 chash = '37GDNHANX7RCBMBGTYLSIK7TMTUQSKDS'
 
@@ -35,10 +37,10 @@ leaves = [b32decode(l) for l in leaves_b32]
 # Create a FileStore in ~/.dmedia_test/
 home = path.abspath(os.environ['HOME'])
 base = path.join(home, '.dmedia_test')
-store = FileStore(base)
+fs = FileStore(base)
 
 # Get tmp path we will write file to as we download:
-tmp = store.temp(chash, 'mov', create=True)
+tmp = fs.temp(chash, 'mov', create=True)
 print('Will write file to:\n  %r\n' % tmp)
 
 # Path of torret file in misc/
@@ -71,10 +73,6 @@ while not torrent.is_seed():
 session.remove_torrent(torrent)
 time.sleep(1)
 
-tmp_fp = open(tmp, 'rb')
-os.fchmod(tmp_fp.fileno(), 0o444)
-h = HashList(tmp_fp)
-got = h.run()
-if got != chash:
-    print('download failed: got %r; expected %r' % (got, chash))
-os.rename(tmp, store.path(chash, 'mov', create=True))
+
+fs.finalize_transfer(chash, 'mov')
+assert path.getsize(fs.path(chash, 'mov')) == size
