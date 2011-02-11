@@ -13,8 +13,8 @@ import os
 from os import path
 import time
 from base64 import b32decode, b64decode
-from dmedia.filestore import FileStore, HashList
-import libtorrent
+from dmedia.downloader import TorrentDownloader
+from dmedia.filestore import FileStore
 
 
 # Known size, top hash, and leaf hashes for test video:
@@ -109,33 +109,7 @@ home = path.abspath(os.environ['HOME'])
 base = path.join(home, '.dmedia_test')
 fs = FileStore(base)
 
-# Get tmp path we will write file to as we download:
-tmp = fs.temp(chash, 'mov', create=True)
-print('Will write file to:\n  %r\n' % tmp)
+t = TorrentDownloader(b64decode(tdata), fs, chash, 'mov')
+t.run()
 
-
-session = libtorrent.session()
-session.listen_on(6881, 6891)
-
-info = libtorrent.torrent_info(
-    libtorrent.bdecode(b64decode(tdata))
-)
-
-torrent = session.add_torrent({
-    'ti': info,
-    'save_path': path.dirname(tmp),
-})
-
-
-while not torrent.is_seed():
-    s = torrent.status()
-    print(s.progress)
-    time.sleep(2)
-
-
-session.remove_torrent(torrent)
-time.sleep(1)
-
-
-fs.finalize_transfer(chash, 'mov')
 assert path.getsize(fs.path(chash, 'mov')) == size
