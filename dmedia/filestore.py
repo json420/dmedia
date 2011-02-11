@@ -631,7 +631,7 @@ class FileStore(object):
 
         If the content hash is incorrect, `IntegrityError` is raised.  If the
         canonical file already exists, `DuplicateFile` is raised.  Lastly, if
-        temporary does not exist, ``IOError`` is raised.
+        the temporary does not exist, ``IOError`` is raised.
 
         This method will typically be used with the BitTorrent downloader or
         similar, in which case the content hash will be known prior to
