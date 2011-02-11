@@ -177,7 +177,9 @@ class TorrentDownloader(object):
         return tmp
 
     def finalize(self):
-        return self.fs.finalize_transfer(self.chash, self.ext)
+        dst = self.fs.finalize_transfer(self.chash, self.ext)
+        log.debug('Canonical name is %r', dst)
+        return dst
 
     def run(self):
         log.info('Downloading torrent %r %r', self.chash, self.ext)
@@ -196,7 +198,7 @@ class TorrentDownloader(object):
 
         while not torrent.is_seed():
             s = torrent.status()
-            print(s.progress)
+            log.debug('Downloaded %d%%', s.progress * 100)
             time.sleep(2)
 
         session.remove_torrent(torrent)

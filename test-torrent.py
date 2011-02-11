@@ -12,10 +12,15 @@ import sys
 import os
 from os import path
 import time
+import logging
 from base64 import b32decode, b64decode
 from dmedia.downloader import TorrentDownloader
 from dmedia.filestore import FileStore
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='\t'.join(['%(levelname)s', '%(message)s'])
+)
 
 # Known size, top hash, and leaf hashes for test video:
 size = 44188757
