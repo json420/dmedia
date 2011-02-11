@@ -662,7 +662,8 @@ class FileStore(object):
         Finally, the downloader will move the temporary file into its canonical
         location:
 
-        >>> fs.finalize_transfer('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')  #doctest: +ELLIPSIS
+        >>> dst = fs.finalize_transfer('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
+        >>> dst  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
 
