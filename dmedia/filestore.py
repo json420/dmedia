@@ -687,7 +687,7 @@ class FileStore(object):
         os.fchmod(tmp_fp.fileno(), 0o444)
         os.rename(tmp_fp.name, dst)
 
-        # Return (chash, leaves):
+        # Return canonical filename:
         return dst
 
     def import_file(self, src_fp, ext=None):
