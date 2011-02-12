@@ -994,6 +994,7 @@ class test_FileStore(TestCase):
             )
             self.assertFalse(path.exists(dst_d))
             self.assertFalse(path.exists(dst))
+            self.assertFalse(fp.closed)
 
         # Test when filename isn't contained in base (to ensure that
         # FileStore.check_path() is used to validate tmp_fp.name)
@@ -1005,6 +1006,7 @@ class test_FileStore(TestCase):
         self.assertEqual(e.base, base)
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
+        self.assertFalse(fp.closed)
 
         # Test that chash is validated with safe_b32()
         good = tmp.write('yup', '.dmedia', 'imports', 'good.mov')
@@ -1018,6 +1020,7 @@ class test_FileStore(TestCase):
         )
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
+        self.assertFalse(fp.closed)
 
         # Test that ext is validate with safe_ext()
         bad_ext = '/etc/ssh'
@@ -1028,8 +1031,21 @@ class test_FileStore(TestCase):
         )
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
+        self.assertFalse(fp.closed)
+
+        # Test when tmp_fp is closed
+        fp.close()
+        e = raises(ValueError, inst.tmp_move, fp, mov_hash, 'mov')
+        self.assertEqual(
+            str(e),
+            'tmp_fp is closed, must be open: %r' % good
+        )
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+        self.assertTrue(fp.closed)
 
         # Test when it's all good
+        fp = open(good, 'rb')
         self.assertEqual(stat.S_IMODE(os.stat(good).st_mode), 0o660)
         self.assertEqual(inst.tmp_move(fp, mov_hash, 'mov'), dst)
         self.assertFalse(path.exists(good))
@@ -1037,6 +1053,7 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isfile(dst))
         self.assertEqual(stat.S_IMODE(os.stat(dst).st_mode), 0o444)
         self.assertEqual(open(dst, 'rb').read(), 'yup')
+        self.assertTrue(fp.closed)
 
         # Test when it's a duplicate
         dup = tmp.write('wowza', '.dmedia', 'imports', 'dup')
@@ -1046,6 +1063,7 @@ class test_FileStore(TestCase):
         self.assertEqual(e.chash, mov_hash)
         self.assertEqual(e.src, dup)
         self.assertEqual(e.dst, dst)
+        self.assertFalse(fp.closed)
 
         # Make sure dup wasn't altered
         self.assertTrue(path.isfile(dup))

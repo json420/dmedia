@@ -626,7 +626,7 @@ class FileStore(object):
 
     def tmp_verify_move(self, chash, ext=None):
         """
-        Move canonically named temporary file to its final canonical location.
+        Verify temporary file, then move into its canonical location.
 
         This method will check the content hash of the canonically-named
         temporary file with content hash *chash* and extension *ext*.  If the
@@ -683,6 +683,45 @@ class FileStore(object):
         return self.tmp_move(tmp_fp, chash, ext)
 
     def tmp_move(self, tmp_fp, chash, ext=None):
+        """
+        Move temporary file into its canonical location.
+
+        This method will securely and atomically move a temporary file into its
+        canonical location.  Note, however, that this method does *not* verify
+        the content hash of the temporary file!  To verify and move, see
+        `FileStore.tmp_verify_move()`.
+
+        For example:
+
+        >>> fs = FileStore()
+        >>> tmp_fp = open(fs.join('foo.mov'), 'wb')
+        >>> chash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        >>> fs.tmp_move(tmp_fp, chash, 'mov')  #doctest: +ELLIPSIS
+        '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+
+
+        As a simple locking mechanism, this method takes an open ``file`` rather
+        than a filename, thereby preventing the file from being modified during
+        the move.  A ``ValueError`` is raised if *tmp_fp* is already closed.
+
+        For portability reasons, this method requires that *tmp_fp* be opened in
+        a binary mode: ``'rb'``, ``'wb'``, or ``'r+b'``.  A ``ValueError`` is
+        raised if opened in any other mode.
+
+        For security reasons, this method will only move a temporary file
+        located within the ``FileStore.base`` directory or a subdirectory
+        thereof.  If an attempt is made to move a file from outside the store,
+        `FileStoreTraversal` is raised.  See `FileStore.check_path()`.
+
+        Just prior to moving the file, a call to ``os.fchmod()`` is made to set
+        read-only permissions (0444).  After the move, *tmp_fp* is closed.
+
+        The return value is the absolute path of the canonical file.
+
+        :param tmp_fp: a ``file`` instance created with ``open()``
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
         # Validate tmp_fp:
         if not isinstance(tmp_fp, file):
             raise TypeError(
@@ -692,6 +731,8 @@ class FileStore(object):
             raise ValueError(
                 "tmp_fp: mode must be 'rb', 'wb', or 'r+b'; got %r" % tmp_fp.mode
             )
+        if tmp_fp.closed:
+            raise ValueError('tmp_fp is closed, must be open: %r' % tmp_fp.name)
         self.check_path(tmp_fp.name)
 
         # Get canonical name, check for duplicate:
@@ -702,6 +743,7 @@ class FileStore(object):
         # Set file to read-only (0444) and rename into canonical location
         os.fchmod(tmp_fp.fileno(), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         os.rename(tmp_fp.name, dst)
+        tmp_fp.close()
 
         # Return canonical filename:
         return dst
