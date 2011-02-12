@@ -656,8 +656,8 @@ class FileStore(object):
                written to *tmp_fp* (open in mode ``'r+b'`` to resume a transfer,
                but hash of previously transfered leaves must still be verify)
 
-            3. With *tmp_fp* still open, move temporary file into its canonical
-               location using this method.
+            3. With *tmp_fp* still open, move the temporary file into its
+               canonical location using this method.
 
         As a simple locking mechanism, this method takes an open ``file`` rather
         than a filename, thereby preventing the file from being modified during
