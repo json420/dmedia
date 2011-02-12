@@ -645,6 +645,20 @@ class FileStore(object):
         the content hash as they write to the temporary file.  Other operations
         should use `FileStore.tmp_verify_move()` to verify and move in one step.
 
+        Regardless, the full content hash should have been verified prior to
+        calling this method.  To ensure the content is not modified, operations
+        must take these steps:
+
+            1. Open *tmp_fp* and keep it open, thereby retaining a lock on the
+               file
+
+            2. Compute the full content hash, which can be done as content is
+               written to *tmp_fp* (open in mode ``'r+b'`` to resume a transfer,
+               but hash of previously transfered leaves must still be verify)
+
+            3. With *tmp_fp* still open, move temporary file into its canonical
+               location using this method.
+
         As a simple locking mechanism, this method takes an open ``file`` rather
         than a filename, thereby preventing the file from being modified during
         the move.  A ``ValueError`` is raised if *tmp_fp* is already closed.
