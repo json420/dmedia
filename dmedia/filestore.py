@@ -629,9 +629,7 @@ class FileStore(object):
         Move temporary file into its canonical location.
 
         This method will securely and atomically move a temporary file into its
-        canonical location.  Note, however, that this method does *not* verify
-        the content hash of the temporary file!  To verify and move, see
-        `FileStore.tmp_verify_move()`.
+        canonical location.
 
         For example:
 
@@ -641,6 +639,11 @@ class FileStore(object):
         >>> fs.tmp_move(tmp_fp, chash, 'mov')  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
+
+        Note, however, that this method does *not* verify the content hash of
+        the temporary file!  This is by design as many operations will compute
+        the content hash as they write to the temporary file.  Other operations
+        should use `FileStore.tmp_verify_move()` to verify and move in one step.
 
         As a simple locking mechanism, this method takes an open ``file`` rather
         than a filename, thereby preventing the file from being modified during
