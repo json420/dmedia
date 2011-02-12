@@ -652,7 +652,7 @@ class FileStore(object):
 
             2. Compute the full content hash, which can be done as content is
                written to *tmp_fp* (open in mode ``'r+b'`` to resume a transfer,
-               but hash of previously transfered leaves must still be verify)
+               but hash of previously transfered leaves must still be verified)
 
             3. With *tmp_fp* still open, move the temporary file into its
                canonical location using this method.
