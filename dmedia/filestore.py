@@ -775,8 +775,8 @@ class FileStore(object):
 
         The method will compute the content-hash of *src_fp* as it copies it to
         a temporary file within this store.  Once the copying is complete, the
-        file will be renamed to its canonical location in the store, thus
-        ensuring an atomic operation.
+        temporary file will be moved to its canonical location using
+        `FileStore.tmp_move()`.
 
         A `DuplicatedFile` exception will be raised if the file already exists
         in this store.
@@ -787,15 +787,15 @@ class FileStore(object):
 
         Note that *src_fp* must have been opened in ``'rb'`` mode.
 
-        :param src_fp: A ``file`` instance created with ``open()``
-        :param ext: The file's extension, e.g., ``'ogv'``
+        :param src_fp: a ``file`` instance created with ``open()``
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         size = os.fstat(src_fp.fileno()).st_size
-        tmp_fp = self.allocate_for_import(size, ext=ext)
+        tmp_fp = self.allocate_for_import(size, ext)
         h = HashList(src_fp, tmp_fp)
         chash = h.run()
-        dst = self.path(chash, ext, create=True)
-        if path.exists(dst):
-            raise DuplicateFile(chash=chash, src=src_fp.name, dst=dst)
-        os.rename(tmp_fp.name, dst)
+        try:
+            self.tmp_move(tmp_fp, chash, ext)
+        except DuplicateFile as e:
+            raise DuplicateFile(src=src_fp.name, dst=e.dst, chash=e.chash)
         return (chash, h.leaves)
