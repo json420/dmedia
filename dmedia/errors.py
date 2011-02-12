@@ -64,3 +64,7 @@ class DuplicateFile(DmediaError):
 
 class DownloadFailure(DmediaError):
     _format = 'leaf %(leaf)d expected %(expected)r; got %(got)r'
+
+
+class IntegrityError(DmediaError):
+    _format = 'got chash %(got)r; expected %(expected)r for %(filename)r'

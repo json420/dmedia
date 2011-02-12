@@ -23,14 +23,17 @@
 Download files in chunks using HTTP Range requests.
 """
 
+from os import path
 from base64 import b32encode
 from urlparse import urlparse
 from httplib import HTTPConnection, HTTPSConnection
 import logging
+import time
 from . import __version__
-from .constants import CHUNK_SIZE
+from .constants import CHUNK_SIZE, TYPE_ERROR
 from .errors import DownloadFailure
-from .filestore import HashList, HASH
+from .filestore import FileStore, HashList, HASH
+import libtorrent
 
 USER_AGENT = 'dmedia %s' % __version__
 log = logging.getLogger()
@@ -155,3 +158,50 @@ class Downloader(object):
     def run(self):
         for (i, chash) in enumerate(self.leaves):
             self.process_leaf(i, chash)
+
+
+class TorrentDownloader(object):
+    def __init__(self, torrent, fs, chash, ext=None):
+        if not isinstance(fs, FileStore):
+            raise TypeError(
+                TYPE_ERROR % ('fs', FileStore, type(fs), fs)
+            )
+        self.torrent = torrent
+        self.fs = fs
+        self.chash = chash
+        self.ext = ext
+
+    def get_tmp(self):
+        tmp = self.fs.temp(self.chash, self.ext, create=True)
+        log.debug('Writting file to %r', tmp)
+        return tmp
+
+    def finalize(self):
+        dst = self.fs.finalize_transfer(self.chash, self.ext)
+        log.debug('Canonical name is %r', dst)
+        return dst
+
+    def run(self):
+        log.info('Downloading torrent %r %r', self.chash, self.ext)
+        tmp = self.get_tmp()
+        session = libtorrent.session()
+        session.listen_on(6881, 6891)
+
+        info = libtorrent.torrent_info(
+            libtorrent.bdecode(self.torrent)
+        )
+
+        torrent = session.add_torrent({
+            'ti': info,
+            'save_path': path.dirname(tmp),
+        })
+
+        while not torrent.is_seed():
+            s = torrent.status()
+            log.debug('Downloaded %d%%', s.progress * 100)
+            time.sleep(2)
+
+        session.remove_torrent(torrent)
+        time.sleep(1)
+
+        return self.finalize()
