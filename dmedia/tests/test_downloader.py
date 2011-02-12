@@ -23,11 +23,17 @@
 Unit tests for `dmedia.downloader` module.
 """
 
+import os
+from os import path
 from unittest import TestCase
 from hashlib import sha1
 from base64 import b32encode
 from .helpers import raises, TempDir
-from dmedia.errors import DownloadFailure
+from .helpers import sample_mov, sample_thm
+from .helpers import mov_hash, thm_hash
+from dmedia.constants import TYPE_ERROR, LEAF_SIZE
+from dmedia.errors import DownloadFailure, DuplicateFile, IntegrityError
+from dmedia.filestore import FileStore, HashList
 from dmedia import downloader
 
 
@@ -137,3 +143,130 @@ class test_Downloader(TestCase):
         inst = Example(a, b, b)
         self.assertEqual(inst.process_leaf(7, a_hash), a)
         self.assertEqual(inst.dst_fp._chunk, a)
+
+
+class test_TorrentDownloader(TestCase):
+    klass = downloader.TorrentDownloader
+
+    def test_init(self):
+        tmp = TempDir()
+        fs = FileStore(tmp.path)
+
+        e = raises(TypeError, self.klass, '', 17, mov_hash)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('fs', FileStore, int, 17)
+        )
+
+        inst = self.klass('', fs, mov_hash)
+        self.assertEqual(inst.torrent, '')
+        self.assertTrue(inst.fs is fs)
+        self.assertEqual(inst.chash, mov_hash)
+        self.assertEqual(inst.ext, None)
+
+        inst = self.klass('', fs, mov_hash, ext='mov')
+        self.assertEqual(inst.torrent, '')
+        self.assertTrue(inst.fs is fs)
+        self.assertEqual(inst.chash, mov_hash)
+        self.assertEqual(inst.ext, 'mov')
+
+    def test_get_tmp(self):
+        # Test with ext='mov'
+        tmp = TempDir()
+        fs = FileStore(tmp.path)
+        inst = self.klass('', fs, mov_hash, 'mov')
+        d = tmp.join('transfers')
+        f = tmp.join('transfers', mov_hash + '.mov')
+        self.assertFalse(path.exists(d))
+        self.assertFalse(path.exists(f))
+        self.assertEqual(inst.get_tmp(), f)
+        self.assertTrue(path.isdir(d))
+        self.assertFalse(path.exists(f))
+
+        # Test with ext=None
+        tmp = TempDir()
+        fs = FileStore(tmp.path)
+        inst = self.klass('', fs, mov_hash)
+        d = tmp.join('transfers')
+        f = tmp.join('transfers', mov_hash)
+        self.assertFalse(path.exists(d))
+        self.assertFalse(path.exists(f))
+        self.assertEqual(inst.get_tmp(), f)
+        self.assertTrue(path.isdir(d))
+        self.assertFalse(path.exists(f))
+
+    def test_finalize(self):
+        tmp = TempDir()
+        fs = FileStore(tmp.path)
+        inst = self.klass('', fs, mov_hash, 'mov')
+
+        src_d = tmp.join('transfers')
+        src = tmp.join('transfers', mov_hash + '.mov')
+        dst_d = tmp.join(mov_hash[:2])
+        dst = tmp.join(mov_hash[:2], mov_hash[2:] + '.mov')
+
+        # Test when transfers/ dir doesn't exist:
+        e = raises(IOError, inst.finalize)
+        self.assertFalse(path.exists(src_d))
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test when transfers/ exists but file does not:
+        self.assertEqual(fs.temp(mov_hash, 'mov', create=True), src)
+        self.assertTrue(path.isdir(src_d))
+        e = raises(IOError, inst.finalize)
+        self.assertFalse(path.exists(src))
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test when file has wrong content hash and wrong size:
+        open(src, 'wb').write(open(sample_thm, 'rb').read())
+        e = raises(IntegrityError, inst.finalize)
+        self.assertEqual(e.got, thm_hash)
+        self.assertEqual(e.expected, mov_hash)
+        self.assertEqual(e.filename, src)
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test when file has wrong content hash and *correct* size:
+        fp1 = open(sample_mov, 'rb')
+        fp2 = open(src, 'wb')
+        while True:
+            chunk = fp1.read(LEAF_SIZE)
+            if not chunk:
+                break
+            fp2.write(chunk)
+        fp1.close()
+
+        # Now change final byte at end file:
+        fp2.seek(-1, os.SEEK_END)
+        fp2.write('A')
+        fp2.close()
+        self.assertEqual(path.getsize(sample_mov), path.getsize(src))
+
+        e = raises(IntegrityError, inst.finalize)
+        self.assertEqual(e.got, 'UECTT7A7EIHZ2SGGBMMO5WTTSVU4SUWM')
+        self.assertEqual(e.expected, mov_hash)
+        self.assertEqual(e.filename, src)
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test with correct content hash:
+        fp1 = open(sample_mov, 'rb')
+        fp2 = open(src, 'wb')
+        while True:
+            chunk = fp1.read(LEAF_SIZE)
+            if not chunk:
+                break
+            fp2.write(chunk)
+        fp1.close()
+        fp2.close()
+        self.assertEqual(inst.finalize(), dst)
+        self.assertTrue(path.isdir(src_d))
+        self.assertFalse(path.exists(src))
+        self.assertTrue(path.isdir(dst_d))
+        self.assertTrue(path.isfile(dst))
+
+        # Check content hash of file in canonical location
+        fp = open(dst, 'rb')
+        self.assertEqual(HashList(fp).run(), mov_hash)
