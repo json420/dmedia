@@ -212,7 +212,7 @@ class test_TorrentDownloader(TestCase):
         self.assertFalse(path.exists(dst))
 
         # Test when transfers/ exists but file does not:
-        self.assertEqual(fs.temp(mov_hash, 'mov', create=True), src)
+        self.assertEqual(fs.tmp(mov_hash, 'mov', create=True), src)
         self.assertTrue(path.isdir(src_d))
         e = raises(IOError, inst.finalize)
         self.assertFalse(path.exists(src))

@@ -751,27 +751,27 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
 
-    def test_temp(self):
+    def test_tmp(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
         self.assertEqual(
-            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            inst.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
             tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
-            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            inst.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
             tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
-        e = raises(ValueError, inst.temp, bad)
+        e = raises(ValueError, inst.tmp, bad)
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
         )
-        e = raises(ValueError, inst.temp, bad, ext='ogv')
+        e = raises(ValueError, inst.tmp, bad, ext='ogv')
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
@@ -780,7 +780,7 @@ class test_FileStore(TestCase):
         # Test to make sure ext is getting checked with safe_ext():
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         bad = '/../../../.ssh/id_pub'
-        e = raises(ValueError, inst.temp, chash, bad)
+        e = raises(ValueError, inst.tmp, chash, bad)
         self.assertEqual(
             str(e),
             'ext %r does not match pattern %r' % (bad, EXT_PAT)
@@ -795,13 +795,13 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
         self.assertEqual(
-            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            inst.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
             f
         )
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
         self.assertEqual(
-            inst.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', create=True),
+            inst.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', create=True),
             f
         )
         self.assertFalse(path.exists(f))
@@ -1017,7 +1017,7 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(dst))
 
         # Test when transfers/ exists but file does not:
-        self.assertEqual(inst.temp(mov_hash, 'mov', create=True), src)
+        self.assertEqual(inst.tmp(mov_hash, 'mov', create=True), src)
         self.assertTrue(path.isdir(src_d))
         e = raises(IOError, inst.tmp_verify_move, mov_hash, 'mov')
         self.assertFalse(path.exists(src))

@@ -576,7 +576,7 @@ class FileStore(object):
             self.create_parent(filename)
         return filename
 
-    def temp(self, chash, ext=None, create=False):
+    def tmp(self, chash, ext=None, create=False):
         """
         Returns path of temporary file with *chash*, ending with *ext*.
 
@@ -584,13 +584,13 @@ class FileStore(object):
         in which case the content-hash is already known.  For example:
 
         >>> fs = FileStore()
-        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
+        >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         Or with a file extension:
 
-        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
+        >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
 
@@ -603,7 +603,7 @@ class FileStore(object):
         return filename
 
     def allocate_for_transfer(self, size, chash, ext=None):
-        filename = self.temp(chash, ext, create=True)
+        filename = self.tmp(chash, ext, create=True)
         fallocate(size, filename)
         try:
             fp = open(filename, 'r+b')
@@ -726,7 +726,7 @@ class FileStore(object):
         temporary file name, like this:
 
         >>> fs = FileStore()
-        >>> tmp = fs.temp('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov', create=True)
+        >>> tmp = fs.tmp('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov', create=True)
         >>> tmp  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
@@ -759,7 +759,7 @@ class FileStore(object):
         :param chash: base32-encoded content-hash
         :param ext: normalized lowercase file extension, eg ``'mov'``
         """
-        tmp = self.temp(chash, ext)
+        tmp = self.tmp(chash, ext)
         tmp_fp = open(tmp, 'rb')
         h = HashList(tmp_fp)
         got = h.run()

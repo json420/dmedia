@@ -172,7 +172,7 @@ class TorrentDownloader(object):
         self.ext = ext
 
     def get_tmp(self):
-        tmp = self.fs.temp(self.chash, self.ext, create=True)
+        tmp = self.fs.tmp(self.chash, self.ext, create=True)
         log.debug('Writting file to %r', tmp)
         return tmp
 
