@@ -172,12 +172,12 @@ class TorrentDownloader(object):
         self.ext = ext
 
     def get_tmp(self):
-        tmp = self.fs.temp(self.chash, self.ext, create=True)
+        tmp = self.fs.tmp(self.chash, self.ext, create=True)
         log.debug('Writting file to %r', tmp)
         return tmp
 
     def finalize(self):
-        dst = self.fs.finalize_transfer(self.chash, self.ext)
+        dst = self.fs.tmp_verify_move(self.chash, self.ext)
         log.debug('Canonical name is %r', dst)
         return dst
 
