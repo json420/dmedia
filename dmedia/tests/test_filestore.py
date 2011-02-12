@@ -895,7 +895,7 @@ class test_FileStore(TestCase):
         self.assertEqual(path.dirname(fp.name), imports)
         self.assertTrue(fp.name.endswith('.mov'))
 
-    def test_tmp_verify_rename(self):
+    def test_tmp_verify_move(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
@@ -905,7 +905,7 @@ class test_FileStore(TestCase):
         dst = tmp.join(mov_hash[:2], mov_hash[2:] + '.mov')
 
         # Test when transfers/ dir doesn't exist:
-        e = raises(IOError, inst.tmp_verify_rename, mov_hash, 'mov')
+        e = raises(IOError, inst.tmp_verify_move, mov_hash, 'mov')
         self.assertFalse(path.exists(src_d))
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
@@ -913,14 +913,14 @@ class test_FileStore(TestCase):
         # Test when transfers/ exists but file does not:
         self.assertEqual(inst.temp(mov_hash, 'mov', create=True), src)
         self.assertTrue(path.isdir(src_d))
-        e = raises(IOError, inst.tmp_verify_rename, mov_hash, 'mov')
+        e = raises(IOError, inst.tmp_verify_move, mov_hash, 'mov')
         self.assertFalse(path.exists(src))
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
 
         # Test when file has wrong content hash and wrong size:
         open(src, 'wb').write(open(sample_thm, 'rb').read())
-        e = raises(IntegrityError, inst.tmp_verify_rename, mov_hash, 'mov')
+        e = raises(IntegrityError, inst.tmp_verify_move, mov_hash, 'mov')
         self.assertEqual(e.got, thm_hash)
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.filename, src)
@@ -943,7 +943,7 @@ class test_FileStore(TestCase):
         fp2.close()
         self.assertEqual(path.getsize(sample_mov), path.getsize(src))
 
-        e = raises(IntegrityError, inst.tmp_verify_rename, mov_hash, 'mov')
+        e = raises(IntegrityError, inst.tmp_verify_move, mov_hash, 'mov')
         self.assertEqual(e.got, 'UECTT7A7EIHZ2SGGBMMO5WTTSVU4SUWM')
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.filename, src)
@@ -960,7 +960,7 @@ class test_FileStore(TestCase):
             fp2.write(chunk)
         fp1.close()
         fp2.close()
-        self.assertEqual(inst.tmp_verify_rename(mov_hash, 'mov'), dst)
+        self.assertEqual(inst.tmp_verify_move(mov_hash, 'mov'), dst)
         self.assertTrue(path.isdir(src_d))
         self.assertFalse(path.exists(src))
         self.assertTrue(path.isdir(dst_d))
@@ -970,7 +970,7 @@ class test_FileStore(TestCase):
         fp = open(dst, 'rb')
         self.assertEqual(HashList(fp).run(), mov_hash)
 
-    def test_tmp_rename(self):
+    def test_tmp_move(self):
         tmp = TempDir()
         base = tmp.join('.dmedia')
         dst_d = tmp.join('.dmedia', mov_hash[:2])
@@ -978,7 +978,7 @@ class test_FileStore(TestCase):
         inst = self.klass(base)
 
         # Test with wrong tmp_fp type
-        e = raises(TypeError, inst.tmp_rename, 17, mov_hash, 'mov')
+        e = raises(TypeError, inst.tmp_move, 17, mov_hash, 'mov')
         self.assertEqual(str(e), TYPE_ERROR % ('tmp_fp', file, int, 17))
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
@@ -987,7 +987,7 @@ class test_FileStore(TestCase):
         bad = tmp.touch('.dmedia', 'bad1.mov')
         for mode in ('r', 'w', 'r+'):
             fp = open(bad, mode)
-            e = raises(ValueError, inst.tmp_rename, fp, mov_hash, 'mov')
+            e = raises(ValueError, inst.tmp_move, fp, mov_hash, 'mov')
             self.assertEqual(
                 str(e),
                 "tmp_fp: mode must be 'rb', 'wb', or 'r+b'; got %r" % mode
@@ -999,7 +999,7 @@ class test_FileStore(TestCase):
         # FileStore.check_path() is used to validate tmp_fp.name)
         bad = tmp.touch('.dmedia', '..', 'bad2.mov')
         fp = open(bad, 'rb')
-        e = raises(FileStoreTraversal, inst.tmp_rename, fp, mov_hash, 'mov')
+        e = raises(FileStoreTraversal, inst.tmp_move, fp, mov_hash, 'mov')
         self.assertEqual(e.pathname, bad)
         self.assertEqual(e.abspath, tmp.join('bad2.mov'))
         self.assertEqual(e.base, base)
@@ -1011,7 +1011,7 @@ class test_FileStore(TestCase):
         os.chmod(good, 0o660)
         fp = open(good, 'rb')
         b32 = 'NWBNVXVK5DQGIOW7MYR4K3KA'
-        e = raises(ValueError, inst.tmp_rename, fp, b32, 'mov')
+        e = raises(ValueError, inst.tmp_move, fp, b32, 'mov')
         self.assertEqual(
             str(e),
             "len(b32) must be 32; got 24: 'NWBNVXVK5DQGIOW7MYR4K3KA'"
@@ -1021,7 +1021,7 @@ class test_FileStore(TestCase):
 
         # Test that ext is validate with safe_ext()
         bad_ext = '/etc/ssh'
-        e = raises(ValueError, inst.tmp_rename, fp, mov_hash, bad_ext)
+        e = raises(ValueError, inst.tmp_move, fp, mov_hash, bad_ext)
         self.assertEqual(
             str(e),
             'ext %r does not match pattern %r' % (bad_ext, EXT_PAT)
@@ -1031,7 +1031,7 @@ class test_FileStore(TestCase):
 
         # Test when it's all good
         self.assertEqual(stat.S_IMODE(os.stat(good).st_mode), 0o660)
-        self.assertEqual(inst.tmp_rename(fp, mov_hash, 'mov'), dst)
+        self.assertEqual(inst.tmp_move(fp, mov_hash, 'mov'), dst)
         self.assertFalse(path.exists(good))
         self.assertTrue(path.isdir(dst_d))
         self.assertTrue(path.isfile(dst))
@@ -1042,7 +1042,7 @@ class test_FileStore(TestCase):
         dup = tmp.write('wowza', '.dmedia', 'imports', 'dup')
         os.chmod(dup, 0o660)
         fp = open(dup, 'rb')
-        e = raises(DuplicateFile, inst.tmp_rename, fp, mov_hash, 'mov')
+        e = raises(DuplicateFile, inst.tmp_move, fp, mov_hash, 'mov')
         self.assertEqual(e.chash, mov_hash)
         self.assertEqual(e.src, dup)
         self.assertEqual(e.dst, dst)

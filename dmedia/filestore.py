@@ -624,7 +624,7 @@ class FileStore(object):
         fallocate(size, filename)
         return open(filename, 'r+b')
 
-    def tmp_verify_rename(self, chash, ext=None):
+    def tmp_verify_move(self, chash, ext=None):
         """
         Move canonically named temporary file to its final canonical location.
 
@@ -666,7 +666,7 @@ class FileStore(object):
         Finally, the downloader will move the temporary file into its canonical
         location:
 
-        >>> dst = fs.tmp_verify_rename('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
+        >>> dst = fs.tmp_verify_move('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
         >>> dst  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
@@ -680,9 +680,9 @@ class FileStore(object):
         got = h.run()
         if got != chash:
             raise IntegrityError(got=got, expected=chash, filename=tmp_fp.name)
-        return self.tmp_rename(tmp_fp, chash, ext)
+        return self.tmp_move(tmp_fp, chash, ext)
 
-    def tmp_rename(self, tmp_fp, chash, ext=None):
+    def tmp_move(self, tmp_fp, chash, ext=None):
         # Validate tmp_fp:
         if not isinstance(tmp_fp, file):
             raise TypeError(
