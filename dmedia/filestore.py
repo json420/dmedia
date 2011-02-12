@@ -449,18 +449,18 @@ class FileStore(object):
         return (dname, fname)
 
     @staticmethod
-    def reltemp(chash, ext=None):
+    def reltmp(chash, ext=None):
         """
         Relative path of temporary file with *chash*, ending with *ext*.
 
         For example:
 
-        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
 
         Or with the file extension *ext*:
 
-        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
         ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
 
         Also see `FileStore.relpath()`.
@@ -597,7 +597,7 @@ class FileStore(object):
         If called with ``create=True``, the parent directory is created with
         `FileStore.create_parent()`.
         """
-        filename = self.join(*self.reltemp(chash, ext))
+        filename = self.join(*self.reltmp(chash, ext))
         if create:
             self.create_parent(filename)
         return filename

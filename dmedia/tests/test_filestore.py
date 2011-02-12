@@ -531,24 +531,24 @@ class test_FileStore(TestCase):
             'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
-    def test_reltemp(self):
+    def test_reltmp(self):
         self.assertEqual(
-            self.klass.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            self.klass.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
             ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
-            self.klass.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            self.klass.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
             ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
         bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
-        e = raises(ValueError, self.klass.reltemp, bad)
+        e = raises(ValueError, self.klass.reltmp, bad)
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
         )
-        e = raises(ValueError, self.klass.reltemp, bad, ext='ogv')
+        e = raises(ValueError, self.klass.reltmp, bad, ext='ogv')
         self.assertEqual(
             str(e),
             'b32: cannot b32decode %r: Non-base32 digit found' % bad
@@ -557,7 +557,7 @@ class test_FileStore(TestCase):
         # Test to make sure ext is getting checked with safe_ext():
         chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         bad = '/../../../.ssh/id_pub'
-        e = raises(ValueError, self.klass.reltemp, chash, bad)
+        e = raises(ValueError, self.klass.reltmp, chash, bad)
         self.assertEqual(
             str(e),
             'ext %r does not match pattern %r' % (bad, EXT_PAT)
