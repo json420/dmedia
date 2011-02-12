@@ -279,8 +279,6 @@ class HashList(object):
             if not chunk:
                 break
         self.thread.join()
-        if self.dst_fp is not None:
-            os.fchmod(self.dst_fp.fileno(), 0o444)
         return b32encode(self.h.digest())
 
 
