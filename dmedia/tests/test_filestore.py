@@ -26,6 +26,7 @@ Unit tests for `dmedia.filestore` module.
 
 import os
 from os import path
+import stat
 from hashlib import sha1
 from base64 import b32encode, b32decode
 import shutil
@@ -968,6 +969,94 @@ class test_FileStore(TestCase):
         # Check content hash of file in canonical location
         fp = open(dst, 'rb')
         self.assertEqual(HashList(fp).run(), mov_hash)
+
+    def test_tmp_rename(self):
+        tmp = TempDir()
+        base = tmp.join('.dmedia')
+        dst_d = tmp.join('.dmedia', mov_hash[:2])
+        dst = tmp.join('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
+        inst = self.klass(base)
+
+        # Test with wrong tmp_fp type
+        e = raises(TypeError, inst.tmp_rename, 17, mov_hash, 'mov')
+        self.assertEqual(str(e), TYPE_ERROR % ('tmp_fp', file, int, 17))
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test with tmp_fp opened in wrong mode
+        bad = tmp.touch('.dmedia', 'bad1.mov')
+        for mode in ('r', 'w', 'r+'):
+            fp = open(bad, mode)
+            e = raises(ValueError, inst.tmp_rename, fp, mov_hash, 'mov')
+            self.assertEqual(
+                str(e),
+                "tmp_fp: mode must be 'rb', 'wb', or 'r+b'; got %r" % mode
+            )
+            self.assertFalse(path.exists(dst_d))
+            self.assertFalse(path.exists(dst))
+
+        # Test when filename isn't contained in base (to ensure that
+        # FileStore.check_path() is used to validate tmp_fp.name)
+        bad = tmp.touch('.dmedia', '..', 'bad2.mov')
+        fp = open(bad, 'rb')
+        e = raises(FileStoreTraversal, inst.tmp_rename, fp, mov_hash, 'mov')
+        self.assertEqual(e.pathname, bad)
+        self.assertEqual(e.abspath, tmp.join('bad2.mov'))
+        self.assertEqual(e.base, base)
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test that chash is validated with safe_b32()
+        good = tmp.write('yup', '.dmedia', 'imports', 'good.mov')
+        os.chmod(good, 0o660)
+        fp = open(good, 'rb')
+        b32 = 'NWBNVXVK5DQGIOW7MYR4K3KA'
+        e = raises(ValueError, inst.tmp_rename, fp, b32, 'mov')
+        self.assertEqual(
+            str(e),
+            "len(b32) must be 32; got 24: 'NWBNVXVK5DQGIOW7MYR4K3KA'"
+        )
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test that ext is validate with safe_ext()
+        bad_ext = '/etc/ssh'
+        e = raises(ValueError, inst.tmp_rename, fp, mov_hash, bad_ext)
+        self.assertEqual(
+            str(e),
+            'ext %r does not match pattern %r' % (bad_ext, EXT_PAT)
+        )
+        self.assertFalse(path.exists(dst_d))
+        self.assertFalse(path.exists(dst))
+
+        # Test when it's all good
+        self.assertEqual(stat.S_IMODE(os.stat(good).st_mode), 0o660)
+        self.assertEqual(inst.tmp_rename(fp, mov_hash, 'mov'), dst)
+        self.assertFalse(path.exists(good))
+        self.assertTrue(path.isdir(dst_d))
+        self.assertTrue(path.isfile(dst))
+        self.assertEqual(stat.S_IMODE(os.stat(dst).st_mode), 0o444)
+        self.assertEqual(open(dst, 'rb').read(), 'yup')
+
+        # Test when it's a duplicate
+        dup = tmp.write('wowza', '.dmedia', 'imports', 'dup')
+        os.chmod(dup, 0o660)
+        fp = open(dup, 'rb')
+        e = raises(DuplicateFile, inst.tmp_rename, fp, mov_hash, 'mov')
+        self.assertEqual(e.chash, mov_hash)
+        self.assertEqual(e.src, dup)
+        self.assertEqual(e.dst, dst)
+
+        # Make sure dup wasn't altered
+        self.assertTrue(path.isfile(dup))
+        self.assertEqual(stat.S_IMODE(os.stat(dup).st_mode), 0o660)
+        self.assertEqual(open(dup, 'rb').read(), 'wowza')
+
+        # Make sure dst wasn't altered
+        self.assertTrue(path.isdir(dst_d))
+        self.assertTrue(path.isfile(dst))
+        self.assertEqual(stat.S_IMODE(os.stat(dst).st_mode), 0o444)
+        self.assertEqual(open(dst, 'rb').read(), 'yup')
 
     def test_import_file(self):
         tmp = TempDir()

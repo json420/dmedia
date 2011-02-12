@@ -39,6 +39,7 @@ safety.
 
 import os
 from os import path
+import stat
 import tempfile
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
@@ -472,6 +473,9 @@ class FileStore(object):
         return (TRANSFERS_DIR, chash)
 
     def check_path(self, pathname):
+        """
+        Verify that *pathname* in inside this filestore base directory.
+        """
         abspath = path.abspath(pathname)
         if abspath.startswith(self.base + os.sep):
             return abspath
@@ -685,6 +689,30 @@ class FileStore(object):
 
         # Set file to read-only and rename into canonical location
         os.fchmod(tmp_fp.fileno(), 0o444)
+        os.rename(tmp_fp.name, dst)
+
+        # Return canonical filename:
+        return dst
+
+    def tmp_rename(self, tmp_fp, chash, ext=None):
+        # Validate tmp_fp:
+        if not isinstance(tmp_fp, file):
+            raise TypeError(
+                TYPE_ERROR % ('tmp_fp', file, type(tmp_fp), tmp_fp)
+            )
+        if tmp_fp.mode not in ('rb', 'wb', 'r+b'):
+            raise ValueError(
+                "tmp_fp: mode must be 'rb', 'wb', or 'r+b'; got %r" % tmp_fp.mode
+            )
+        self.check_path(tmp_fp.name)
+
+        # Get canonical name, check for duplicate:
+        dst = self.path(chash, ext, create=True)
+        if path.exists(dst):
+            raise DuplicateFile(chash=chash, src=tmp_fp.name, dst=dst)
+
+        # Set file to read-only (0444) and rename into canonical location
+        os.fchmod(tmp_fp.fileno(), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         os.rename(tmp_fp.name, dst)
 
         # Return canonical filename:
