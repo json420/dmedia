@@ -674,25 +674,13 @@ class FileStore(object):
         Note above that this method returns the full path of the canonically
         named file.
         """
-        # Open temporary file and check content hash:
         tmp = self.temp(chash, ext)
         tmp_fp = open(tmp, 'rb')
         h = HashList(tmp_fp)
         got = h.run()
         if got != chash:
             raise IntegrityError(got=got, expected=chash, filename=tmp_fp.name)
-
-        # Get canonical name, check for duplicate:
-        dst = self.path(chash, ext, create=True)
-        if path.exists(dst):
-            raise DuplicateFile(chash=chash, src=tmp_fp.name, dst=dst)
-
-        # Set file to read-only and rename into canonical location
-        os.fchmod(tmp_fp.fileno(), 0o444)
-        os.rename(tmp_fp.name, dst)
-
-        # Return canonical filename:
-        return dst
+        return self.tmp_rename(tmp_fp, chash, ext)
 
     def tmp_rename(self, tmp_fp, chash, ext=None):
         # Validate tmp_fp:
