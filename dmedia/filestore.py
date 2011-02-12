@@ -630,8 +630,8 @@ class FileStore(object):
 
         This method will check the content hash of the canonically-named
         temporary file with content hash *chash* and extension *ext*.  If the
-        content hash is correct, it will do an ``os.fchmod()`` to set read-only
-        permissions, and then rename the file into its canonical location.
+        content hash is correct, this method will then move the temporary file
+        into its canonical location using `FileStore.tmp_move()`.
 
         If the content hash is incorrect, `IntegrityError` is raised.  If the
         canonical file already exists, `DuplicateFile` is raised.  Lastly, if
@@ -671,8 +671,10 @@ class FileStore(object):
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
 
-        Note above that this method returns the full path of the canonically
-        named file.
+        The return value is the absolute path of the canonical file.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         tmp = self.temp(chash, ext)
         tmp_fp = open(tmp, 'rb')
@@ -716,6 +718,8 @@ class FileStore(object):
         Just prior to moving the file, a call to ``os.fchmod()`` is made to set
         read-only permissions (0444).  After the move, *tmp_fp* is closed.
 
+        If the canonical file already exists, `DuplicateFile` is raised.
+
         The return value is the absolute path of the canonical file.
 
         :param tmp_fp: a ``file`` instance created with ``open()``
@@ -740,7 +744,7 @@ class FileStore(object):
         if path.exists(dst):
             raise DuplicateFile(chash=chash, src=tmp_fp.name, dst=dst)
 
-        # Set file to read-only (0444) and rename into canonical location
+        # Set file to read-only (0444) and move into canonical location
         os.fchmod(tmp_fp.fileno(), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         os.rename(tmp_fp.name, dst)
         tmp_fp.close()
