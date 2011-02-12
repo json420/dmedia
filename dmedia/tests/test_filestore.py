@@ -895,7 +895,7 @@ class test_FileStore(TestCase):
         self.assertEqual(path.dirname(fp.name), imports)
         self.assertTrue(fp.name.endswith('.mov'))
 
-    def test_finalize_transfer(self):
+    def test_tmp_verify_rename(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
@@ -905,7 +905,7 @@ class test_FileStore(TestCase):
         dst = tmp.join(mov_hash[:2], mov_hash[2:] + '.mov')
 
         # Test when transfers/ dir doesn't exist:
-        e = raises(IOError, inst.finalize_transfer, mov_hash, 'mov')
+        e = raises(IOError, inst.tmp_verify_rename, mov_hash, 'mov')
         self.assertFalse(path.exists(src_d))
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
@@ -913,14 +913,14 @@ class test_FileStore(TestCase):
         # Test when transfers/ exists but file does not:
         self.assertEqual(inst.temp(mov_hash, 'mov', create=True), src)
         self.assertTrue(path.isdir(src_d))
-        e = raises(IOError, inst.finalize_transfer, mov_hash, 'mov')
+        e = raises(IOError, inst.tmp_verify_rename, mov_hash, 'mov')
         self.assertFalse(path.exists(src))
         self.assertFalse(path.exists(dst_d))
         self.assertFalse(path.exists(dst))
 
         # Test when file has wrong content hash and wrong size:
         open(src, 'wb').write(open(sample_thm, 'rb').read())
-        e = raises(IntegrityError, inst.finalize_transfer, mov_hash, 'mov')
+        e = raises(IntegrityError, inst.tmp_verify_rename, mov_hash, 'mov')
         self.assertEqual(e.got, thm_hash)
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.filename, src)
@@ -943,7 +943,7 @@ class test_FileStore(TestCase):
         fp2.close()
         self.assertEqual(path.getsize(sample_mov), path.getsize(src))
 
-        e = raises(IntegrityError, inst.finalize_transfer, mov_hash, 'mov')
+        e = raises(IntegrityError, inst.tmp_verify_rename, mov_hash, 'mov')
         self.assertEqual(e.got, 'UECTT7A7EIHZ2SGGBMMO5WTTSVU4SUWM')
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.filename, src)
@@ -960,7 +960,7 @@ class test_FileStore(TestCase):
             fp2.write(chunk)
         fp1.close()
         fp2.close()
-        self.assertEqual(inst.finalize_transfer(mov_hash, 'mov'), dst)
+        self.assertEqual(inst.tmp_verify_rename(mov_hash, 'mov'), dst)
         self.assertTrue(path.isdir(src_d))
         self.assertFalse(path.exists(src))
         self.assertTrue(path.isdir(dst_d))

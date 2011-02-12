@@ -177,7 +177,7 @@ class TorrentDownloader(object):
         return tmp
 
     def finalize(self):
-        dst = self.fs.finalize_transfer(self.chash, self.ext)
+        dst = self.fs.tmp_verify_rename(self.chash, self.ext)
         log.debug('Canonical name is %r', dst)
         return dst
 

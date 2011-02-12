@@ -624,7 +624,7 @@ class FileStore(object):
         fallocate(size, filename)
         return open(filename, 'r+b')
 
-    def finalize_transfer(self, chash, ext=None):
+    def tmp_verify_rename(self, chash, ext=None):
         """
         Move canonically named temporary file to its final canonical location.
 
@@ -666,7 +666,7 @@ class FileStore(object):
         Finally, the downloader will move the temporary file into its canonical
         location:
 
-        >>> dst = fs.finalize_transfer('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
+        >>> dst = fs.tmp_verify_rename('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
         >>> dst  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
