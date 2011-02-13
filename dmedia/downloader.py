@@ -213,8 +213,40 @@ class TorrentDownloader(object):
         return self.finalize()
 
 
+class S3Progress(object):
+    """
+    S3 progress callback.
+
+    FIXME: This should relay to higher level code.
+    """
+    def __init__(self, key, bucket, verb='Uploaded'):
+        self.key = key
+        self.bucket = bucket
+        self.verb = verb
+
+    def __call__(self, completed, total):
+        log.debug('%s %d/%d bytes of key %r from bucket %r',
+            self.verb, completed, total, self.key, self.bucket
+        )
+
+
 class S3Transfer(object):
+    """
+    Upload to and download from Amazon S3 using ``boto``.
+
+    For documentation on ``boto``, see:
+
+        http://code.google.com/p/boto/
+    """
+
     def __init__(self, bucketname, keyid, secret):
+        """
+        Initialize.
+
+        :param bucketname: Name of S3 bucket, eg ``'novacut'``
+        :param keyid: Your aws_access_key_id
+        :param secret: You aws_secret_access_key
+        """
         self.bucketname = bucketname
         self.keyid = keyid
         self.secret = secret
@@ -244,33 +276,56 @@ class S3Transfer(object):
 
     @property
     def bucket(self):
+        """
+        Lazily create the ``boto.s3.bucket.Bucket`` instance.
+        """
         if self._bucket is None:
             conn = S3Connection(self.keyid, self.secret)
             self._bucket = conn.get_bucket(self.bucketname)
         return self._bucket
 
-    def callback(self, transfered, total):
-        log.info('Transfered %d of %d bytes', transfered, total)
-
     def upload(self, doc, fs):
+        """
+        Upload the file with *doc* metadata from the filestore *fs*.
+
+        :param doc: the CouchDB document of file to upload (a ``dict``)
+        :param fs: a `FileStore` instance from which the file will be read
+        """
         chash = doc['_id']
         ext = doc.get('ext')
+        key = self.key(chash, ext)
+        log.info('Uploading %r to S3 bucket %r...', key, self.bucketname)
+
         k = Key(self.bucket)
-        k.key = self.key(chash, ext)
+        k.key = key
         headers = {}
         if doc.get('content_type'):
             headers['Content-Type'] = doc['content_type']
         fp = fs.open(chash, ext)
         k.set_contents_from_file(fp,
             headers=headers,
+            cb=S3Progress(key, self.bucketname, 'Uploaded'),
             policy='public-read',
         )
+        log.info('Uploaded %r to S3 bucket %r', key, self.bucketname)
 
     def download(self, doc, fs):
+        """
+        Download the file with *doc* metadata into the filestore *fs*.
+
+        :param doc: the CouchDB document of file to download (a ``dict``)
+        :param fs: a `FileStore` instance into which the file will be written
+        """
         chash = doc['_id']
         ext = doc.get('ext')
-        key = self.bucket.get_key(self.key(chash, ext))
+        key = self.key(chash, ext)
+        log.info('Downloading %r from S3 bucket %r...', key, self.bucketname)
+
+        k = self.bucket.get_key(self.key(chash, ext))
         tmp_fp = fs.allocate_for_transfer(doc['size'], chash, ext)
-        key.get_file(tmp_fp, cb=self.callback)
+        k.get_file(tmp_fp,
+            cb=S3Progress(key, self.bucketname, 'Downloaded'),
+        )
         tmp_fp.close()
         fs.tmp_verify_move(chash, ext)
+        log.info('Downloaded %r from S3 bucket %r', key, self.bucketname)
