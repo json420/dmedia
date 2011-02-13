@@ -287,19 +287,16 @@ class test_S3Transfer(TestCase):
         self.assertEqual(repr(inst), "S3Transfer('novacut', <keyid>, <secret>)")
 
     def test_key(self):
-        doc = {'_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'}
         self.assertEqual(
-            self.klass.key(doc),
+            self.klass.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
             'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
         )
-        doc = {'_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'ext': None}
         self.assertEqual(
-            self.klass.key(doc),
+            self.klass.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext=None),
             'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
         )
-        doc = {'_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'ext': 'mov'}
         self.assertEqual(
-            self.klass.key(doc),
+            self.klass.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext='mov'),
             'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
         )
 

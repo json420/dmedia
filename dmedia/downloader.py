@@ -226,23 +226,21 @@ class S3Transfer(object):
         )
 
     @staticmethod
-    def key(doc):
+    def key(chash, ext=None):
         """
-        Create S3 key for file with *chash* and extension *ext*.
+        Return S3 key for file with *chash* and extension *ext*.
 
         For example:
 
-        >>> doc = {'_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'ext': 'mov'}
-        >>> S3Transfer.key(doc)
+        >>> S3Transfer.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
         'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
-        >>> doc = {'_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'}
-        >>> S3Transfer.key(doc)
+        >>> S3Transfer.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O')
         'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+
         """
-        ext = doc.get('ext')
         if ext:
-            return '.'.join([doc['_id'], ext])
-        return doc['_id']
+            return '.'.join([chash, ext])
+        return chash
 
     @property
     def bucket(self):
@@ -254,5 +252,14 @@ class S3Transfer(object):
     def upload(self, doc, fs):
         pass
 
+    def callback(self, transfered, total):
+        log.info('Transfered %d of %d bytes', transfered, total)
+
     def download(self, doc, fs):
-        pass
+        chash = doc['_id']
+        ext = doc.get('ext')
+        key = self.bucket.get_key(self.key(chash, ext))
+        tmp_fp = fs.allocate_for_transfer(doc['size'], chash, ext)
+        key.get_file(tmp_fp, cb=self.callback)
+        tmp_fp.close()
+        fs.tmp_verify_move(chash, ext)

@@ -576,6 +576,9 @@ class FileStore(object):
             self.create_parent(filename)
         return filename
 
+    def open(self, chash, ext=None):
+        return open(self.path(chash, ext), 'rb')
+
     def tmp(self, chash, ext=None, create=False):
         """
         Returns path of temporary file with *chash*, ending with *ext*.
