@@ -245,7 +245,7 @@ class S3Transfer(object):
 
         :param bucketname: Name of S3 bucket, eg ``'novacut'``
         :param keyid: Your aws_access_key_id
-        :param secret: You aws_secret_access_key
+        :param secret: Your aws_secret_access_key
         """
         self.bucketname = bucketname
         self.keyid = keyid
