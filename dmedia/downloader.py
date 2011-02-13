@@ -249,11 +249,22 @@ class S3Transfer(object):
             self._bucket = conn.get_bucket(self.bucketname)
         return self._bucket
 
-    def upload(self, doc, fs):
-        pass
-
     def callback(self, transfered, total):
         log.info('Transfered %d of %d bytes', transfered, total)
+
+    def upload(self, doc, fs):
+        chash = doc['_id']
+        ext = doc.get('ext')
+        k = Key(self.bucket)
+        k.key = self.key(chash, ext)
+        headers = {}
+        if doc.get('content_type'):
+            headers['Content-Type'] = doc['content_type']
+        fp = fs.open(chash, ext)
+        k.set_contents_from_file(fp,
+            headers=headers,
+            policy='public-read',
+        )
 
     def download(self, doc, fs):
         chash = doc['_id']
