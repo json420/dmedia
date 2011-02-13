@@ -29,11 +29,17 @@ from urlparse import urlparse
 from httplib import HTTPConnection, HTTPSConnection
 import logging
 import time
+
+import libtorrent
+from boto.s3.connection import S3Connection
+from boto.s3.bucket import Bucket
+from boto.s3.key import Key
+
 from . import __version__
 from .constants import CHUNK_SIZE, TYPE_ERROR
 from .errors import DownloadFailure
 from .filestore import FileStore, HashList, HASH
-import libtorrent
+
 
 USER_AGENT = 'dmedia %s' % __version__
 log = logging.getLogger()
@@ -205,3 +211,48 @@ class TorrentDownloader(object):
         time.sleep(1)
 
         return self.finalize()
+
+
+class S3Transfer(object):
+    def __init__(self, bucketname, keyid, secret):
+        self.bucketname = bucketname
+        self.keyid = keyid
+        self.secret = secret
+        self._bucket = None
+
+    def __repr__(self):
+        return '%s(%r, <keyid>, <secret>)' % (
+            self.__class__.__name__, self.bucketname
+        )
+
+    @staticmethod
+    def key(doc):
+        """
+        Create S3 key for file with *chash* and extension *ext*.
+
+        For example:
+
+        >>> doc = {'_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'ext': 'mov'}
+        >>> S3Transfer.key(doc)
+        'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+        >>> doc = {'_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'}
+        >>> S3Transfer.key(doc)
+        'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        """
+        ext = doc.get('ext')
+        if ext:
+            return '.'.join([doc['_id'], ext])
+        return doc['_id']
+
+    @property
+    def bucket(self):
+        if self._bucket is None:
+            conn = S3Connection(self.keyid, self.secret)
+            self._bucket = conn.get_bucket(self.bucketname)
+        return self._bucket
+
+    def upload(self, doc, fs):
+        pass
+
+    def download(self, doc, fs):
+        pass
