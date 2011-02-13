@@ -39,6 +39,7 @@ safety.
 
 import os
 from os import path
+import stat
 import tempfile
 from hashlib import sha1 as HASH
 from base64 import b32encode, b32decode
@@ -278,8 +279,6 @@ class HashList(object):
             if not chunk:
                 break
         self.thread.join()
-        if self.dst_fp is not None:
-            os.fchmod(self.dst_fp.fileno(), 0o444)
         return b32encode(self.h.digest())
 
 
@@ -450,18 +449,18 @@ class FileStore(object):
         return (dname, fname)
 
     @staticmethod
-    def reltemp(chash, ext=None):
+    def reltmp(chash, ext=None):
         """
         Relative path of temporary file with *chash*, ending with *ext*.
 
         For example:
 
-        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
 
         Or with the file extension *ext*:
 
-        >>> FileStore.reltemp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
         ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
 
         Also see `FileStore.relpath()`.
@@ -472,6 +471,9 @@ class FileStore(object):
         return (TRANSFERS_DIR, chash)
 
     def check_path(self, pathname):
+        """
+        Verify that *pathname* in inside this filestore base directory.
+        """
         abspath = path.abspath(pathname)
         if abspath.startswith(self.base + os.sep):
             return abspath
@@ -574,7 +576,7 @@ class FileStore(object):
             self.create_parent(filename)
         return filename
 
-    def temp(self, chash, ext=None, create=False):
+    def tmp(self, chash, ext=None, create=False):
         """
         Returns path of temporary file with *chash*, ending with *ext*.
 
@@ -582,26 +584,26 @@ class FileStore(object):
         in which case the content-hash is already known.  For example:
 
         >>> fs = FileStore()
-        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
+        >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
 
         Or with a file extension:
 
-        >>> fs.temp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
+        >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
 
         If called with ``create=True``, the parent directory is created with
         `FileStore.create_parent()`.
         """
-        filename = self.join(*self.reltemp(chash, ext))
+        filename = self.join(*self.reltmp(chash, ext))
         if create:
             self.create_parent(filename)
         return filename
 
     def allocate_for_transfer(self, size, chash, ext=None):
-        filename = self.temp(chash, ext, create=True)
+        filename = self.tmp(chash, ext, create=True)
         fallocate(size, filename)
         try:
             fp = open(filename, 'r+b')
@@ -620,14 +622,99 @@ class FileStore(object):
         fallocate(size, filename)
         return open(filename, 'r+b')
 
-    def finalize_transfer(self, chash, ext=None):
+    def tmp_move(self, tmp_fp, chash, ext=None):
         """
-        Move canonically named temporary file to its final canonical location.
+        Move temporary file into its canonical location.
+
+        This method will securely and atomically move a temporary file into its
+        canonical location.
+
+        For example:
+
+        >>> fs = FileStore()
+        >>> tmp_fp = open(fs.join('foo.mov'), 'wb')
+        >>> chash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        >>> fs.tmp_move(tmp_fp, chash, 'mov')  #doctest: +ELLIPSIS
+        '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+
+
+        Note, however, that this method does *not* verify the content hash of
+        the temporary file!  This is by design as many operations will compute
+        the content hash as they write to the temporary file.  Other operations
+        should use `FileStore.tmp_verify_move()` to verify and move in one step.
+
+        Regardless, the full content hash should have been verified prior to
+        calling this method.  To ensure the content is not modified, operations
+        must take these steps:
+
+            1. Open *tmp_fp* and keep it open, thereby retaining a lock on the
+               file
+
+            2. Compute the full content hash, which can be done as content is
+               written to *tmp_fp* (open in mode ``'r+b'`` to resume a transfer,
+               but hash of previously transfered leaves must still be verified)
+
+            3. With *tmp_fp* still open, move the temporary file into its
+               canonical location using this method.
+
+        As a simple locking mechanism, this method takes an open ``file`` rather
+        than a filename, thereby preventing the file from being modified during
+        the move.  A ``ValueError`` is raised if *tmp_fp* is already closed.
+
+        For portability reasons, this method requires that *tmp_fp* be opened in
+        a binary mode: ``'rb'``, ``'wb'``, or ``'r+b'``.  A ``ValueError`` is
+        raised if opened in any other mode.
+
+        For security reasons, this method will only move a temporary file
+        located within the ``FileStore.base`` directory or a subdirectory
+        thereof.  If an attempt is made to move a file from outside the store,
+        `FileStoreTraversal` is raised.  See `FileStore.check_path()`.
+
+        Just prior to moving the file, a call to ``os.fchmod()`` is made to set
+        read-only permissions (0444).  After the move, *tmp_fp* is closed.
+
+        If the canonical file already exists, `DuplicateFile` is raised.
+
+        The return value is the absolute path of the canonical file.
+
+        :param tmp_fp: a ``file`` instance created with ``open()``
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
+        # Validate tmp_fp:
+        if not isinstance(tmp_fp, file):
+            raise TypeError(
+                TYPE_ERROR % ('tmp_fp', file, type(tmp_fp), tmp_fp)
+            )
+        if tmp_fp.mode not in ('rb', 'wb', 'r+b'):
+            raise ValueError(
+                "tmp_fp: mode must be 'rb', 'wb', or 'r+b'; got %r" % tmp_fp.mode
+            )
+        if tmp_fp.closed:
+            raise ValueError('tmp_fp is closed, must be open: %r' % tmp_fp.name)
+        self.check_path(tmp_fp.name)
+
+        # Get canonical name, check for duplicate:
+        dst = self.path(chash, ext, create=True)
+        if path.exists(dst):
+            raise DuplicateFile(chash=chash, src=tmp_fp.name, dst=dst)
+
+        # Set file to read-only (0444) and move into canonical location
+        os.fchmod(tmp_fp.fileno(), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        os.rename(tmp_fp.name, dst)
+        tmp_fp.close()
+
+        # Return canonical filename:
+        return dst
+
+    def tmp_verify_move(self, chash, ext=None):
+        """
+        Verify temporary file, then move into its canonical location.
 
         This method will check the content hash of the canonically-named
         temporary file with content hash *chash* and extension *ext*.  If the
-        content hash is correct, it will do an ``os.fchmod()`` to set read-only
-        permissions, and then rename the file into its canonical location.
+        content hash is correct, this method will then move the temporary file
+        into its canonical location using `FileStore.tmp_move()`.
 
         If the content hash is incorrect, `IntegrityError` is raised.  If the
         canonical file already exists, `DuplicateFile` is raised.  Lastly, if
@@ -639,7 +726,7 @@ class FileStore(object):
         temporary file name, like this:
 
         >>> fs = FileStore()
-        >>> tmp = fs.temp('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov', create=True)
+        >>> tmp = fs.tmp('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov', create=True)
         >>> tmp  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
@@ -662,33 +749,23 @@ class FileStore(object):
         Finally, the downloader will move the temporary file into its canonical
         location:
 
-        >>> dst = fs.finalize_transfer('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
+        >>> dst = fs.tmp_verify_move('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
         >>> dst  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
 
-        Note above that this method returns the full path of the canonically
-        named file.
+        The return value is the absolute path of the canonical file.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
-        # Open temporary file and check content hash:
-        tmp = self.temp(chash, ext)
+        tmp = self.tmp(chash, ext)
         tmp_fp = open(tmp, 'rb')
         h = HashList(tmp_fp)
         got = h.run()
         if got != chash:
             raise IntegrityError(got=got, expected=chash, filename=tmp_fp.name)
-
-        # Get canonical name, check for duplicate:
-        dst = self.path(chash, ext, create=True)
-        if path.exists(dst):
-            raise DuplicateFile(chash=chash, src=tmp_fp.name, dst=dst)
-
-        # Set file to read-only and rename into canonical location
-        os.fchmod(tmp_fp.fileno(), 0o444)
-        os.rename(tmp_fp.name, dst)
-
-        # Return canonical filename:
-        return dst
+        return self.tmp_move(tmp_fp, chash, ext)
 
     def import_file(self, src_fp, ext=None):
         """
@@ -696,8 +773,8 @@ class FileStore(object):
 
         The method will compute the content-hash of *src_fp* as it copies it to
         a temporary file within this store.  Once the copying is complete, the
-        file will be renamed to its canonical location in the store, thus
-        ensuring an atomic operation.
+        temporary file will be moved to its canonical location using
+        `FileStore.tmp_move()`.
 
         A `DuplicatedFile` exception will be raised if the file already exists
         in this store.
@@ -708,15 +785,15 @@ class FileStore(object):
 
         Note that *src_fp* must have been opened in ``'rb'`` mode.
 
-        :param src_fp: A ``file`` instance created with ``open()``
-        :param ext: The file's extension, e.g., ``'ogv'``
+        :param src_fp: a ``file`` instance created with ``open()``
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         size = os.fstat(src_fp.fileno()).st_size
-        tmp_fp = self.allocate_for_import(size, ext=ext)
+        tmp_fp = self.allocate_for_import(size, ext)
         h = HashList(src_fp, tmp_fp)
         chash = h.run()
-        dst = self.path(chash, ext, create=True)
-        if path.exists(dst):
-            raise DuplicateFile(chash=chash, src=src_fp.name, dst=dst)
-        os.rename(tmp_fp.name, dst)
+        try:
+            self.tmp_move(tmp_fp, chash, ext)
+        except DuplicateFile as e:
+            raise DuplicateFile(src=src_fp.name, dst=e.dst, chash=e.chash)
         return (chash, h.leaves)
