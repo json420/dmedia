@@ -21,20 +21,44 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Store media files in a special layout according to their content hash.
+Store files in a special layout according to their content-hash.
 
-Security note: this module must be carefully designed to prevent path traversal!
-Two lines of defense are used:
+The `FileStore` is the heart of dmedia.  Files are assigned a canonical name
+based on the file's content-hash, and are placed in a special layout within the `FileStore` base directory.
 
-    * `safe_b32()` and `safe_ext()` validate the (assumed) untrusted *chash*,
-      *quickid*, and *ext* values
+The files in a `FileStore` are read-only... they must be as modifying a file
+will change its content-hash.  The only way to modify a file is to copy the
+original to a temporary file, modify it, and then place the new file into the
+`FileStore`.  This might seem like an unreasonable restriction, but it perfectly
+captures the use case dmedia is concerned with... a distributed library of media
+files.
 
-    * `FileStore.join()` and `FileStore.create_parent()` check the paths they
-       create to insure that the path did not traverse outside of the file store
-       base directory
+On the content-creation side, non-destructive editing is certainly the best
+practice, especially in professional use cases.  On the content consumption
+side, modifying a file is generally even less useful.
 
-Either should fully prevent path traversal but are used together for extra
-safety.
+Importantly, without the read-only restriction, it would be impossible to make a
+distributed file system whose file operations remain robust and atomic in the
+face of arbitrary and prolonged network outages.  True to its CouchDB
+foundations, dmedia is designing with the assumption that network connectivity
+is the exception rather than the rule.
+
+
+
+Design Decision: base32-encoded content-hash
+============================================
+
+
+
+Design Decision: canonical names have file extensions
+=====================================================
+
+
+
+Design Decision: security good, path traversals bad
+===================================================
+
+
 """
 
 import os
