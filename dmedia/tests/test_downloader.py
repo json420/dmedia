@@ -270,3 +270,37 @@ class test_TorrentDownloader(TestCase):
         # Check content hash of file in canonical location
         fp = open(dst, 'rb')
         self.assertEqual(HashList(fp).run(), mov_hash)
+
+
+class test_S3Transfer(TestCase):
+    klass = downloader.S3Transfer
+
+    def test_init(self):
+        inst = self.klass('novacut', 'foo', 'bar')
+        self.assertEqual(inst.bucketname, 'novacut')
+        self.assertEqual(inst.keyid, 'foo')
+        self.assertEqual(inst.secret, 'bar')
+        self.assertEqual(inst._bucket, None)
+
+    def test_repr(self):
+        inst = self.klass('novacut', 'foo', 'bar')
+        self.assertEqual(repr(inst), "S3Transfer('novacut', <keyid>, <secret>)")
+
+    def test_key(self):
+        self.assertEqual(
+            self.klass.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
+            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+        self.assertEqual(
+            self.klass.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext=None),
+            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+        self.assertEqual(
+            self.klass.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext='mov'),
+            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+        )
+
+    def test_bucket(self):
+        inst = self.klass('novacut', 'foo', 'bar')
+        inst._bucket = 'whatever'
+        self.assertEqual(inst.bucket, 'whatever')

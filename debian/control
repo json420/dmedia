@@ -20,7 +20,8 @@ Depends: ${misc:Depends}, ${python:Depends},
  python-notify,
  python-appindicator,
  python-xdg,
- python-libtorrent
+ python-libtorrent,
+ python-boto
 Provides: python-dmedia
 Replaces: python-dmedia (<< ${source:Version})
 Conflicts: python-dmedia (<< ${source:Version})

@@ -49,6 +49,7 @@ import logging
 from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
+
 from .schema import create_store
 from .errors import AmbiguousPath, FileStoreTraversal
 from .errors import DuplicateFile, IntegrityError
@@ -58,6 +59,7 @@ B32LENGTH = 32  # Length of base32-encoded hash
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
 FALLOCATE = '/usr/bin/fallocate'
 EXT_RE = re.compile(EXT_PAT)
+log = logging.getLogger()
 
 
 def safe_path(pathname):
@@ -424,6 +426,9 @@ class FileStore(object):
         self._doc = doc
         self._id = doc['_id']
 
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.base)
+
     @staticmethod
     def relpath(chash, ext=None):
         """
@@ -576,6 +581,26 @@ class FileStore(object):
             self.create_parent(filename)
         return filename
 
+    def exists(self, chash, ext=None):
+        """
+        Return ``True`` if a file with *chash* and *ext* exists.
+        """
+        return path.isfile(self.path(chash, ext))
+
+    def open(self, chash, ext=None):
+        """
+        Open the file with *chash* and *ext* in ``'rb'`` mode.
+        """
+        return open(self.path(chash, ext), 'rb')
+
+    def remove(self, chash, ext=None):
+        """
+        Delete file with *chash* and *ext* from underlying filesystem.
+        """
+        filename = self.path(chash, ext)
+        log.info('Deleting file %r from %r', filename, self)
+        os.remove(filename)
+
     def tmp(self, chash, ext=None, create=False):
         """
         Returns path of temporary file with *chash*, ending with *ext*.
@@ -700,6 +725,7 @@ class FileStore(object):
             raise DuplicateFile(chash=chash, src=tmp_fp.name, dst=dst)
 
         # Set file to read-only (0444) and move into canonical location
+        log.info('Moving file %r to %r', tmp_fp.name, dst)
         os.fchmod(tmp_fp.fileno(), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         os.rename(tmp_fp.name, dst)
         tmp_fp.close()
@@ -791,6 +817,7 @@ class FileStore(object):
         size = os.fstat(src_fp.fileno()).st_size
         tmp_fp = self.allocate_for_import(size, ext)
         h = HashList(src_fp, tmp_fp)
+        log.info('Importing file %r into %r', src_fp.name, self)
         chash = h.run()
         try:
             self.tmp_move(tmp_fp, chash, ext)
