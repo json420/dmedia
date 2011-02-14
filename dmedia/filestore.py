@@ -547,52 +547,8 @@ class FileStore(object):
     def __repr__(self):
         return '%s(%r)' % (self.__class__.__name__, self.base)
 
-    @staticmethod
-    def relpath(chash, ext=None):
-        """
-        Relative path of file with *chash*, ending with *ext*.
-
-        For example:
-
-        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-
-        Or with the file extension *ext*:
-
-        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
-        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
-
-        Also see `FileStore.reltmp()`.
-        """
-        chash = safe_b32(chash)
-        dname = chash[:2]
-        fname = chash[2:]
-        if ext:
-            return (dname, '.'.join((fname, safe_ext(ext))))
-        return (dname, fname)
-
-    @staticmethod
-    def reltmp(chash, ext=None):
-        """
-        Relative path of temporary file with *chash*, ending with *ext*.
-
-        For example:
-
-        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-
-        Or with the file extension *ext*:
-
-        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
-        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
-
-        Also see `FileStore.relpath()`.
-        """
-        chash = safe_b32(chash)
-        if ext:
-            return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
-        return (TRANSFERS_DIR, chash)
-
+    ############################################
+    # Methods to prevent path traversals attacks
     def check_path(self, pathname):
         """
         Verify that *pathname* in inside this filestore base directory.
@@ -674,6 +630,33 @@ class FileStore(object):
             os.makedirs(containing)
         return containing
 
+
+    #################################################
+    # Methods for working with files in the FileStore
+    @staticmethod
+    def relpath(chash, ext=None):
+        """
+        Relative path of file with *chash*, ending with *ext*.
+
+        For example:
+
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+
+        Or with the file extension *ext*:
+
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+
+        Also see `FileStore.reltmp()`.
+        """
+        chash = safe_b32(chash)
+        dname = chash[:2]
+        fname = chash[2:]
+        if ext:
+            return (dname, '.'.join((fname, safe_ext(ext))))
+        return (dname, fname)
+
     def path(self, chash, ext=None, create=False):
         """
         Returns path of file with content-hash *chash* and extension *ext*.
@@ -718,6 +701,31 @@ class FileStore(object):
         filename = self.path(chash, ext)
         log.info('Deleting file %r from %r', filename, self)
         os.remove(filename)
+
+
+    ###########################################################
+    # Methods for working with temporary files in the FileStore
+    @staticmethod
+    def reltmp(chash, ext=None):
+        """
+        Relative path of temporary file with *chash*, ending with *ext*.
+
+        For example:
+
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+
+        Or with the file extension *ext*:
+
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+
+        Also see `FileStore.relpath()`.
+        """
+        chash = safe_b32(chash)
+        if ext:
+            return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
+        return (TRANSFERS_DIR, chash)
 
     def tmp(self, chash, ext=None, create=False):
         """
