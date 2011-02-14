@@ -71,8 +71,8 @@ subdirectory.  For example:
 
 >>> from os import path
 >>> chash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
->>> path.join('/home/jderose/.dmedia', chash[:2], chash[2:])
-'/home/jderose/.dmedia/ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
+>>> path.join('/foo', chash[:2], chash[2:])
+'/foo/ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
 
 
 
