@@ -121,7 +121,38 @@ For example:
 Design Decision: security good, path traversals bad
 ===================================================
 
+The `FileStore` is probably the most security sensitive part of dmedia in that
+untrusted data (content-hash, file extension) is used to construct paths on the
+filesystem.  This means that the `FileStore` must be carefully designed to
+prevent path traversal attacks (aka directory traversal attacks).
 
+Two lines of defense are used.  First, the content-hash and file extension are
+validated with the following functions:
+
+    * `safe_b32()` - validates the content-hash
+
+    * `safe_ext()` - validates the file extension
+
+Second, there are methods that ensure that paths constructed relative to the
+`FileStore` base directory cannot be outside of the base directory:
+
+    * `FileStore.check_path()` - ensures that a path is inside the base
+       directory
+
+    * `FileStore.join()` - creates a path relative to the base directory,
+       ensures resulting path is inside the base directory
+
+    * `FileStore.create_parent()` - creates a file's parent directory only if
+       that parent directory is inside the base directory
+
+Each line of defense is designed to fully prevent path traversals, assumes the
+other defense doesn't exist or will fail.  Together, they should provide a
+strong defense against path traversal attacks.
+
+If you discover any security vulnerability in dmedia, please immediately file a
+bug:
+
+    https://bugs.launchpad.net/dmedia/+filebug
 """
 
 import os
