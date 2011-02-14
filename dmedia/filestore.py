@@ -91,7 +91,7 @@ file server without requiring special Apache plugins for dmedia integration.
 
 It also provides broader software compatibility as many applications and
 libraries do rely on the file extension for type determination.  And the file
-extension is helpful for developers, as bit bit of inteligible information in
+extension is helpful for developers, as a bit of intelligible information in
 canonical file name will make the layout easier to explore, aid debugging.
 
 The current `FileStore` always includes the file extension on the canonical name
