@@ -694,6 +694,24 @@ class FileStore(object):
         """
         return open(self.path(chash, ext), 'rb')
 
+    def verify(self, chash, ext=None):
+        """
+        Verify integrity of file with *chash* and *ext*.
+
+        If the file's content-hash does not equal *chash*, an `IntegrityError`
+        is raised.
+
+        Otherwise, the open ``file`` is returned after calling ``file.seek(0)``
+        to put read position back at the start of the file.
+        """
+        src_fp = self.open(chash, ext)
+        h = HashList(src_fp)
+        got = h.run()
+        if got != chash:
+            raise IntegrityError(got=got, expected=chash, filename=src_fp.name)
+        src_fp.seek(0)
+        return src_fp
+
     def remove(self, chash, ext=None):
         """
         Delete file with *chash* and *ext* from underlying filesystem.

@@ -751,6 +751,73 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
 
+    def test_exists(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        self.assertFalse(inst.exists(mov_hash, 'mov'))
+
+        # File exists
+        tmp.touch(mov_hash[:2], mov_hash[2:] + '.mov')
+        self.assertTrue(inst.exists(mov_hash, 'mov'))
+
+    def test_open(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        e = raises(IOError, inst.open, mov_hash, 'mov')
+        self.assertEqual(e.errno, 2)
+
+        # File exists
+        canonical = inst.path(mov_hash, 'mov', create=True)
+        shutil.copy2(sample_mov, canonical)
+        fp = inst.open(mov_hash, 'mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.mode, 'rb')
+        self.assertEqual(fp.tell(), 0)
+        self.assertEqual(fp.name, canonical)
+
+    def test_verify(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        e = raises(IOError, inst.verify, mov_hash, 'mov')
+        self.assertEqual(e.errno, 2)
+
+        # File exists
+        canonical = inst.path(mov_hash, 'mov', create=True)
+        shutil.copy2(sample_mov, canonical)
+        fp = inst.verify(mov_hash, 'mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.mode, 'rb')
+        self.assertEqual(fp.tell(), 0)
+        self.assertEqual(fp.name, canonical)
+
+        # File has wrong content-hash
+        os.remove(canonical)
+        shutil.copy2(sample_thm, canonical)
+        e = raises(IntegrityError, inst.verify, mov_hash, 'mov')
+        self.assertEqual(e.got, thm_hash)
+        self.assertEqual(e.expected, mov_hash)
+        self.assertEqual(e.filename, canonical)
+
+    def test_exists(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        e = raises(OSError, inst.remove, mov_hash, 'mov')
+        self.assertEqual(e.errno, 2)
+
+        # File exists
+        f = tmp.touch(mov_hash[:2], mov_hash[2:] + '.mov')
+        self.assertTrue(path.isfile(f))
+        inst.remove(mov_hash, 'mov')
+        self.assertFalse(path.exists(f))
+
     def test_tmp(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)
