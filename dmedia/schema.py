@@ -51,8 +51,8 @@ ValueError: doc missing keys: ['time', 'type']
 
 
 These test functions are used in the dmedia test suite, and 3rd-party apps would
-be well served by doing the same.  Please read on for the rationale for some of
-the key dmedia schema design decisions...
+be well served by doing the same.  Please read on for the rationale of some key
+dmedia schema design decisions...
 
 
 
