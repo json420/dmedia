@@ -396,6 +396,13 @@ class HashList(object):
 
 
 def pack_leaves(leaves, digest_bytes=20):
+    """
+    Pack leaves together into a ``bytes`` instance for CouchDB attachment.
+
+    :param leaves: a ``list`` containing content-hash of each leaf in the file
+        (content-hash is binary digest, not base32-encoded)
+    :param digest_bytes: digest size in bytes; default is 20 (160 bits)
+    """
     for (i, leaf) in enumerate(leaves):
         if len(leaf) != digest_bytes:
             raise ValueError('digest_bytes=%d, but len(leaves[%d]) is %d' % (
@@ -406,6 +413,13 @@ def pack_leaves(leaves, digest_bytes=20):
 
 
 def unpack_leaves(data, digest_bytes=20):
+    """
+    Unpack binary *data* into a list of leaf digests.
+
+    :param data: a ``bytes`` instance containing the packed leaf digests
+    :param digest_bytes: digest size in bytes; default is 20 (160 bits)
+    """
+    assert isinstance(data, bytes)
     if len(data) % digest_bytes != 0:
         raise ValueError(
             'len(data)=%d, not multiple of digest_bytes=%d' % (
@@ -458,7 +472,6 @@ def fallocate(size, filename):
         return True
     except CalledProcessError:
         return False
-
 
 
 class FileStore(object):
