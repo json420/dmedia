@@ -649,6 +649,9 @@ class FileStore(object):
         ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
 
         Also see `FileStore.reltmp()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         chash = safe_b32(chash)
         dname = chash[:2]
@@ -667,15 +670,18 @@ class FileStore(object):
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-
         Or with a file extension:
 
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
         '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
-
         If called with ``create=True``, the parent directory is created with
         `FileStore.create_parent()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        :param create: if ``True``, create parent directory if it does not
+            already exist; default is ``False``
         """
         filename = self.join(*self.relpath(chash, ext))
         if create:
@@ -685,12 +691,18 @@ class FileStore(object):
     def exists(self, chash, ext=None):
         """
         Return ``True`` if a file with *chash* and *ext* exists.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         return path.isfile(self.path(chash, ext))
 
     def open(self, chash, ext=None):
         """
         Open the file with *chash* and *ext* in ``'rb'`` mode.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         return open(self.path(chash, ext), 'rb')
 
@@ -703,6 +715,9 @@ class FileStore(object):
 
         Otherwise, the open ``file`` is returned after calling ``file.seek(0)``
         to put read position back at the start of the file.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         src_fp = self.open(chash, ext)
         h = HashList(src_fp)
@@ -715,6 +730,9 @@ class FileStore(object):
     def remove(self, chash, ext=None):
         """
         Delete file with *chash* and *ext* from underlying filesystem.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         filename = self.path(chash, ext)
         log.info('Deleting file %r from %r', filename, self)
@@ -739,6 +757,9 @@ class FileStore(object):
         ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
 
         Also see `FileStore.relpath()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         chash = safe_b32(chash)
         if ext:
@@ -756,15 +777,18 @@ class FileStore(object):
         >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-
         Or with a file extension:
 
         >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
-
         If called with ``create=True``, the parent directory is created with
         `FileStore.create_parent()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        :param create: if ``True``, create parent directory if it does not
+            already exist; default is ``False``
         """
         filename = self.join(*self.reltmp(chash, ext))
         if create:
