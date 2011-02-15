@@ -52,7 +52,7 @@ Please read on for the rationale of some key `FileStore` design decisions...
 Design Decision: base32-encoded content-hash
 ============================================
 
-The `FileStore` layout was designed to allow the canonical file name to be
+The `FileStore` layout was designed to allow the canonical filename to be
 constructed from the content-hash in the simplest way possible, without
 requiring any special decoding or encoding.  For this reason, the content-hash
 (as stored in CouchDB) is base32-encoded.
@@ -74,11 +74,11 @@ subdirectory.  For example:
 '/foo/ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
 
 
-Design Decision: canonical names have file extensions
-=====================================================
+Design Decision: canonical filenames have file extensions
+=========================================================
 
 Strictly speaking, there is no technical reason to include a file extension on
-the canonical file names.  However, there are some practical reasons that make
+the canonical filenames.  However, there are some practical reasons that make
 including the file extension worthwhile, despite additional complexity it adds
 to the `FileStore` API.
 
@@ -90,7 +90,7 @@ file server without requiring special Apache plugins for dmedia integration.
 It also provides broader software compatibility as many applications and
 libraries do rely on the file extension for type determination.  And the file
 extension is helpful for developers, as a bit of intelligible information in
-canonical file name will make the layout easier to explore, aid debugging.
+canonical filename will make the layout easier to explore, aid debugging.
 
 The current `FileStore` always includes the file extension on the canonical name
 when the extension is provided by the calling code.  However, the API is
