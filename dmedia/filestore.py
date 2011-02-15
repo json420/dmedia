@@ -21,20 +21,134 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Store media files in a special layout according to their content hash.
+Store files in a special layout according to their content-hash.
 
-Security note: this module must be carefully designed to prevent path traversal!
-Two lines of defense are used:
+The `FileStore` is the heart of dmedia.  Files are assigned a canonical name
+based on the file's content-hash, and are placed in a special layout within the
+`FileStore` base directory.
 
-    * `safe_b32()` and `safe_ext()` validate the (assumed) untrusted *chash*,
-      *quickid*, and *ext* values
+The files in a `FileStore` are read-only... they must be as modifying a file
+will change its content-hash.  The only way to modify a file is to copy the
+original to a temporary file, modify it, and then place the new file into the
+`FileStore`.  This might seem like an unreasonable restriction, but it perfectly
+captures the use case dmedia is concerned with... a distributed library of media
+files.
 
-    * `FileStore.join()` and `FileStore.create_parent()` check the paths they
-       create to insure that the path did not traverse outside of the file store
-       base directory
+On the content-creation side, non-destructive editing is certainly the best
+practice, especially in professional use cases.  On the content consumption
+side, modifying a file is rather rare.  And the somewhat common use case --
+modifying a file for the sake of updating metadata (say, EXIF) -- can instead be
+accomplished by updating metadata in the corresponding CouchDB document.
 
-Either should fully prevent path traversal but are used together for extra
-safety.
+Importantly, without the read-only restriction, it would be impossible to make a
+distributed file system whose file operations remain robust and atomic in the
+face of arbitrary and prolonged network outages.  True to its CouchDB
+foundations, dmedia is designing with the assumption that network connectivity
+is the exception rather than the rule.
+
+Please read on for the rationale of some key `FileStore` design decisions...
+
+
+Design Decision: base32-encoded content-hash
+============================================
+
+The `FileStore` layout was designed to allow the canonical filename to be
+constructed from the content-hash in the simplest way possible, without
+requiring any special decoding or encoding.  For this reason, the content-hash
+(as stored in CouchDB) is base32-encoded.
+
+Base32-encoding was chosen because:
+
+    1. It's more compact than base16/hex
+
+    2. It can be used to name files on case *insensitive* filesystems (whereas
+       base64-encoding cannot)
+
+Inside the `FileStore`, the first 2 characters of the content-hash are used for
+the subdirectory name, and the remaining characters for the filename within that
+subdirectory.  For example:
+
+>>> from os import path
+>>> chash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+>>> path.join('/foo', chash[:2], chash[2:])
+'/foo/ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
+
+
+Design Decision: canonical filenames have file extensions
+=========================================================
+
+Strictly speaking, there is no technical reason to include a file extension on
+the canonical filenames.  However, there are some practical reasons that make
+including the file extension worthwhile, despite additional complexity it adds
+to the `FileStore` API.
+
+Most importantly, it allows files in a `FileStore` layout to be served with the
+correct Content-Type by a vanilla web-server.  A key design goal was to be able
+to point, say, Apache at a dmedia `FileStore` directory have a useful dmedia
+file server without requiring special Apache plugins for dmedia integration.
+
+It also provides broader software compatibility as many applications and
+libraries do rely on the file extension for type determination.  And the file
+extension is helpful for developers, as a bit of intelligible information in
+canonical filename will make the layout easier to explore, aid debugging.
+
+The current `FileStore` always includes the file extension on the canonical name
+when the extension is provided by the calling code.  However, the API is
+designed to accommodate `FileStore` implementations that do not include the
+file extension.  The API is also designed so that the calling code isn't
+required to provide the file extension... say, if the extension was ever removed
+from the CouchDB schema.
+
+To accomplish this, files are identified by the content-hash and extension
+together, and the extension is optional, defaulting to ``None``.  This is the
+typical calling signature:
+
+>>> def canonical(chash, ext=None):
+...     pass
+
+For example:
+
+>>> FileStore.relpath('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O')
+('ZR', '765XWSF6S7JQHLUI4GCG5BHGPE252O')
+>>> FileStore.relpath('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
+('ZR', '765XWSF6S7JQHLUI4GCG5BHGPE252O.mov')
+
+
+Design Decision: security good, path traversals bad
+===================================================
+
+The `FileStore` is probably the most security sensitive part of dmedia in that
+untrusted data (content-hash, file extension) is used to construct paths on the
+filesystem.  This means that the `FileStore` must be carefully designed to
+prevent path traversal attacks (aka directory traversal attacks).
+
+Two lines of defense are used.  First, the content-hash and file extension are
+validated with the following functions:
+
+    * `safe_b32()` - validates the content-hash
+
+    * `safe_ext()` - validates the file extension
+
+Second, there are methods that ensure that paths constructed relative to the
+`FileStore` base directory cannot be outside of the base directory:
+
+    * `FileStore.check_path()` - ensures that a path is inside the base
+       directory
+
+    * `FileStore.join()` - creates a path relative to the base directory,
+       ensures resulting path is inside the base directory
+
+    * `FileStore.create_parent()` - creates a file's parent directory only if
+       that parent directory is inside the base directory
+
+Each line of defense is designed to fully prevent path traversals, assumes the
+other defense doesn't exist or will fail.  Together, they should provide a
+strong defense against path traversal attacks.
+
+If you discover any security vulnerability in dmedia, please immediately file a
+bug:
+
+    https://bugs.launchpad.net/dmedia/+filebug
 """
 
 import os
@@ -77,12 +191,10 @@ def safe_path(pathname):
       ...
     AmbiguousPath: '/foo/../root' resolves to '/root'
 
-
     Otherwise *pathname* is returned unchanged:
 
     >>> safe_path('/foo/bar')
     '/foo/bar'
-
 
     Also see `safe_open()`.
     """
@@ -105,7 +217,6 @@ def safe_open(filename, mode):
     Traceback (most recent call last):
       ...
     AmbiguousPath: '/foo/../root' resolves to '/root'
-
 
     Otherwise returns a ``file`` instance created with ``open()``.
     """
@@ -285,6 +396,13 @@ class HashList(object):
 
 
 def pack_leaves(leaves, digest_bytes=20):
+    """
+    Pack leaves together into a ``bytes`` instance for CouchDB attachment.
+
+    :param leaves: a ``list`` containing content-hash of each leaf in the file
+        (content-hash is binary digest, not base32-encoded)
+    :param digest_bytes: digest size in bytes; default is 20 (160 bits)
+    """
     for (i, leaf) in enumerate(leaves):
         if len(leaf) != digest_bytes:
             raise ValueError('digest_bytes=%d, but len(leaves[%d]) is %d' % (
@@ -295,6 +413,13 @@ def pack_leaves(leaves, digest_bytes=20):
 
 
 def unpack_leaves(data, digest_bytes=20):
+    """
+    Unpack binary *data* into a list of leaf digests.
+
+    :param data: a ``bytes`` instance containing the packed leaf digests
+    :param digest_bytes: digest size in bytes; default is 20 (160 bits)
+    """
+    assert isinstance(data, bytes)
     if len(data) % digest_bytes != 0:
         raise ValueError(
             'len(data)=%d, not multiple of digest_bytes=%d' % (
@@ -347,7 +472,6 @@ def fallocate(size, filename):
         return True
     except CalledProcessError:
         return False
-
 
 
 class FileStore(object):
@@ -429,52 +553,8 @@ class FileStore(object):
     def __repr__(self):
         return '%s(%r)' % (self.__class__.__name__, self.base)
 
-    @staticmethod
-    def relpath(chash, ext=None):
-        """
-        Relative path of file with *chash*, ending with *ext*.
-
-        For example:
-
-        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-
-        Or with the file extension *ext*:
-
-        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
-        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
-
-        Also see `FileStore.reltmp()`.
-        """
-        chash = safe_b32(chash)
-        dname = chash[:2]
-        fname = chash[2:]
-        if ext:
-            return (dname, '.'.join((fname, safe_ext(ext))))
-        return (dname, fname)
-
-    @staticmethod
-    def reltmp(chash, ext=None):
-        """
-        Relative path of temporary file with *chash*, ending with *ext*.
-
-        For example:
-
-        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-
-        Or with the file extension *ext*:
-
-        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
-        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
-
-        Also see `FileStore.relpath()`.
-        """
-        chash = safe_b32(chash)
-        if ext:
-            return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
-        return (TRANSFERS_DIR, chash)
-
+    ############################################
+    # Methods to prevent path traversals attacks
     def check_path(self, pathname):
         """
         Verify that *pathname* in inside this filestore base directory.
@@ -500,7 +580,6 @@ class FileStore(object):
         >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-
         However, a `FileStoreTraversal` is raised if *parts* cause a path
         traversal outside of the `FileStore` base directory:
 
@@ -509,14 +588,12 @@ class FileStore(object):
           ...
         FileStoreTraversal: '/tmp/ssh' outside base '/tmp/store...'
 
-
         Or Likewise if an absolute path is included in *parts*:
 
         >>> fs.join('NW', '/etc', 'ssh')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
         FileStoreTraversal: '/etc/ssh' outside base '/tmp/store...'
-
 
         Also see `FileStore.create_parent()`.
         """
@@ -536,14 +613,12 @@ class FileStore(object):
           ...
         FileStoreTraversal: '/foo/my.ogv' outside base '/tmp/store...'
 
-
         It also protects against malicious filenames like this:
 
         >>> fs.create_parent('/foo/../bar/my.ogv')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
         FileStoreTraversal: '/bar/my.ogv' outside base '/tmp/store...'
-
 
         If doesn't already exists, the directory containing *filename* is
         created.  Returns the directory containing *filename*.
@@ -556,6 +631,36 @@ class FileStore(object):
             os.makedirs(containing)
         return containing
 
+
+    #################################################
+    # Methods for working with files in the FileStore
+    @staticmethod
+    def relpath(chash, ext=None):
+        """
+        Relative path of file with *chash*, ending with *ext*.
+
+        For example:
+
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+
+        Or with the file extension *ext*:
+
+        >>> FileStore.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+
+        Also see `FileStore.reltmp()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
+        chash = safe_b32(chash)
+        dname = chash[:2]
+        fname = chash[2:]
+        if ext:
+            return (dname, '.'.join((fname, safe_ext(ext))))
+        return (dname, fname)
+
     def path(self, chash, ext=None, create=False):
         """
         Returns path of file with content-hash *chash* and extension *ext*.
@@ -566,15 +671,18 @@ class FileStore(object):
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-
         Or with a file extension:
 
         >>> fs.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
         '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
-
         If called with ``create=True``, the parent directory is created with
         `FileStore.create_parent()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        :param create: if ``True``, create parent directory if it does not
+            already exist; default is ``False``
         """
         filename = self.join(*self.relpath(chash, ext))
         if create:
@@ -584,22 +692,80 @@ class FileStore(object):
     def exists(self, chash, ext=None):
         """
         Return ``True`` if a file with *chash* and *ext* exists.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         return path.isfile(self.path(chash, ext))
 
     def open(self, chash, ext=None):
         """
         Open the file with *chash* and *ext* in ``'rb'`` mode.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         return open(self.path(chash, ext), 'rb')
+
+    def verify(self, chash, ext=None):
+        """
+        Verify integrity of file with *chash* and *ext*.
+
+        If the file's content-hash does not equal *chash*, an `IntegrityError`
+        is raised.
+
+        Otherwise, the open ``file`` is returned after calling ``file.seek(0)``
+        to put read position back at the start of the file.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
+        src_fp = self.open(chash, ext)
+        h = HashList(src_fp)
+        got = h.run()
+        if got != chash:
+            raise IntegrityError(got=got, expected=chash, filename=src_fp.name)
+        src_fp.seek(0)
+        return src_fp
 
     def remove(self, chash, ext=None):
         """
         Delete file with *chash* and *ext* from underlying filesystem.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
         """
         filename = self.path(chash, ext)
         log.info('Deleting file %r from %r', filename, self)
         os.remove(filename)
+
+
+    ###########################################################
+    # Methods for working with temporary files in the FileStore
+    @staticmethod
+    def reltmp(chash, ext=None):
+        """
+        Relative path of temporary file with *chash*, ending with *ext*.
+
+        For example:
+
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+
+        Or with the file extension *ext*:
+
+        >>> FileStore.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='mov')
+        ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.mov')
+
+        Also see `FileStore.relpath()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
+        chash = safe_b32(chash)
+        if ext:
+            return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
+        return (TRANSFERS_DIR, chash)
 
     def tmp(self, chash, ext=None, create=False):
         """
@@ -612,15 +778,18 @@ class FileStore(object):
         >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-
         Or with a file extension:
 
         >>> fs.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', 'txt')  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.txt'
 
-
         If called with ``create=True``, the parent directory is created with
         `FileStore.create_parent()`.
+
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        :param create: if ``True``, create parent directory if it does not
+            already exist; default is ``False``
         """
         filename = self.join(*self.reltmp(chash, ext))
         if create:
@@ -628,6 +797,36 @@ class FileStore(object):
         return filename
 
     def allocate_for_transfer(self, size, chash, ext=None):
+        """
+        Open the canonical temporary file for a transfer (download or upload).
+
+        When transferring files from other dmedia peers, the content-hash is
+        already known.  As we must be able to easily resume a download or
+        upload, transfers use a stable, canonical temporary filename derived
+        from the content-hash and file extension.
+
+        The file *size* is also known, so an attempt is made to efficiently
+        pre-allocate the temporary file using `fallocate()`.
+
+        If the temporary file already exists, it means we're resuming a
+        transfer.  The file is opened in ``'r+b'`` mode, leaving data in the
+        temporary file intact.  It is the responsibility of higher-level code
+        to verify the file leaf by leaf in order to determine what portions of
+        the file have been transfered, what portions of the file still need to
+        be transferred.
+
+        Note that as the temporary file will likely be pre-allocated, higher-
+        level code cannot use the size of the temporary file as a means of
+        determining how much of the file has been transfered.
+
+        If the temporary does not exist, and cannot be pre-allocated, a new
+        empty file is opened in ``'wb'`` mode.  Higher-level code must check
+        the mode of the ``file`` instance and act accordingly.
+
+        :param size: file size in bytes (an ``int``)
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
         filename = self.tmp(chash, ext, create=True)
         fallocate(size, filename)
         try:
@@ -639,6 +838,23 @@ class FileStore(object):
             return open(filename, 'wb')
 
     def allocate_for_import(self, size, ext=None):
+        """
+        Open a random temporary file for an import operation.
+
+        When importing a file, the content-hash is computed as the file is
+        copied into the `FileStore`.  As the content-hash isn't known when
+        allocating the temporary file, a randomly named temporary file is used.
+
+        However, the file *size* is known, so an attempt is made to efficiently
+        pre-allocate the temporary file using `fallocate()`.
+
+        The file extension *ext* is optional and serves no other purpose than to
+        aid in debugging.  The value of *ext* used here has no effect on the
+        ultimate canonical file name.
+
+        :param size: file size in bytes (an ``int``)
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
         imports = self.join(IMPORTS_DIR)
         if not path.exists(imports):
             os.makedirs(imports)
@@ -661,7 +877,6 @@ class FileStore(object):
         >>> chash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
         >>> fs.tmp_move(tmp_fp, chash, 'mov')  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
-
 
         Note, however, that this method does *not* verify the content hash of
         the temporary file!  This is by design as many operations will compute
@@ -756,7 +971,6 @@ class FileStore(object):
         >>> tmp  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
-
         Then the downloader will write to the temporary file as it's being
         downloaded:
 
@@ -771,14 +985,12 @@ class FileStore(object):
         ...
         >>> tmp_fp.close()
 
-
         Finally, the downloader will move the temporary file into its canonical
         location:
 
         >>> dst = fs.tmp_verify_move('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
         >>> dst  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
-
 
         The return value is the absolute path of the canonical file.
 

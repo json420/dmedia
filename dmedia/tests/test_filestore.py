@@ -499,70 +499,16 @@ class test_FileStore(TestCase):
         self.assertTrue(inst.base.startswith('/tmp/store.'))
         self.assertEqual(inst.record, path.join(inst.base, 'store.json'))
 
-    def test_relpath(self):
+    def test_repr(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
         self.assertEqual(
-            self.klass.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        )
-        self.assertEqual(
-            self.klass.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
-            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+            repr(inst),
+            'FileStore(%r)' % tmp.path
         )
 
-        # Test to make sure hashes are getting checked with safe_b32():
-        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
-        e = raises(ValueError, self.klass.relpath, bad)
-        self.assertEqual(
-            str(e),
-            'b32: cannot b32decode %r: Non-base32 digit found' % bad
-        )
-        e = raises(ValueError, self.klass.relpath, bad, ext='ogv')
-        self.assertEqual(
-            str(e),
-            'b32: cannot b32decode %r: Non-base32 digit found' % bad
-        )
-
-        # Test to make sure ext is getting checked with safe_ext():
-        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        bad = '/../../../.ssh/id_pub'
-        e = raises(ValueError, self.klass.relpath, chash, bad)
-        self.assertEqual(
-            str(e),
-            'ext %r does not match pattern %r' % (bad, EXT_PAT)
-        )
-
-    def test_reltmp(self):
-        self.assertEqual(
-            self.klass.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        )
-        self.assertEqual(
-            self.klass.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
-            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
-        )
-
-        # Test to make sure hashes are getting checked with safe_b32():
-        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
-        e = raises(ValueError, self.klass.reltmp, bad)
-        self.assertEqual(
-            str(e),
-            'b32: cannot b32decode %r: Non-base32 digit found' % bad
-        )
-        e = raises(ValueError, self.klass.reltmp, bad, ext='ogv')
-        self.assertEqual(
-            str(e),
-            'b32: cannot b32decode %r: Non-base32 digit found' % bad
-        )
-
-        # Test to make sure ext is getting checked with safe_ext():
-        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
-        bad = '/../../../.ssh/id_pub'
-        e = raises(ValueError, self.klass.reltmp, chash, bad)
-        self.assertEqual(
-            str(e),
-            'ext %r does not match pattern %r' % (bad, EXT_PAT)
-        )
-
+    ############################################
+    # Methods to prevent path traversals attacks
     def test_check_path(self):
         tmp = TempDir()
         base = tmp.join('foo', 'bar')
@@ -694,6 +640,41 @@ class test_FileStore(TestCase):
         self.assertFalse(path.exists(bad))
         self.assertFalse(path.exists(baddir))
 
+
+    #################################################
+    # Methods for working with files in the FileStore
+    def test_relpath(self):
+        self.assertEqual(
+            self.klass.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            self.klass.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            ('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+
+        # Test to make sure hashes are getting checked with safe_b32():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, self.klass.relpath, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, self.klass.relpath, bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, self.klass.relpath, chash, bad)
+        self.assertEqual(
+            str(e),
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
+        )
+
     def test_path(self):
         tmp = TempDir()
         base = tmp.join('foo', 'bar')
@@ -750,6 +731,108 @@ class test_FileStore(TestCase):
         )
         self.assertFalse(path.exists(f))
         self.assertTrue(path.isdir(d))
+
+    def test_exists(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        self.assertFalse(inst.exists(mov_hash, 'mov'))
+
+        # File exists
+        tmp.touch(mov_hash[:2], mov_hash[2:] + '.mov')
+        self.assertTrue(inst.exists(mov_hash, 'mov'))
+
+    def test_open(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        e = raises(IOError, inst.open, mov_hash, 'mov')
+        self.assertEqual(e.errno, 2)
+
+        # File exists
+        canonical = inst.path(mov_hash, 'mov', create=True)
+        shutil.copy2(sample_mov, canonical)
+        fp = inst.open(mov_hash, 'mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.mode, 'rb')
+        self.assertEqual(fp.tell(), 0)
+        self.assertEqual(fp.name, canonical)
+
+    def test_verify(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        e = raises(IOError, inst.verify, mov_hash, 'mov')
+        self.assertEqual(e.errno, 2)
+
+        # File exists
+        canonical = inst.path(mov_hash, 'mov', create=True)
+        shutil.copy2(sample_mov, canonical)
+        fp = inst.verify(mov_hash, 'mov')
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.mode, 'rb')
+        self.assertEqual(fp.tell(), 0)
+        self.assertEqual(fp.name, canonical)
+
+        # File has wrong content-hash
+        os.remove(canonical)
+        shutil.copy2(sample_thm, canonical)
+        e = raises(IntegrityError, inst.verify, mov_hash, 'mov')
+        self.assertEqual(e.got, thm_hash)
+        self.assertEqual(e.expected, mov_hash)
+        self.assertEqual(e.filename, canonical)
+
+    def test_remove(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+
+        # File doesn't exist
+        e = raises(OSError, inst.remove, mov_hash, 'mov')
+        self.assertEqual(e.errno, 2)
+
+        # File exists
+        f = tmp.touch(mov_hash[:2], mov_hash[2:] + '.mov')
+        self.assertTrue(path.isfile(f))
+        inst.remove(mov_hash, 'mov')
+        self.assertFalse(path.exists(f))
+
+
+    ###########################################################
+    # Methods for working with temporary files in the FileStore
+    def test_reltmp(self):
+        self.assertEqual(
+            self.klass.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
+            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            self.klass.reltmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
+            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+
+        # Test to make sure hashes are getting checked with safe_b32():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, self.klass.reltmp, bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, self.klass.reltmp, bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, self.klass.reltmp, chash, bad)
+        self.assertEqual(
+            str(e),
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
+        )
 
     def test_tmp(self):
         tmp = TempDir()
