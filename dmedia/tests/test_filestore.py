@@ -804,7 +804,7 @@ class test_FileStore(TestCase):
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.filename, canonical)
 
-    def test_exists(self):
+    def test_remove(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
