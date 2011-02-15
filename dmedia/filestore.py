@@ -49,7 +49,6 @@ is the exception rather than the rule.
 Please read on for the rationale of some key `FileStore` design decisions...
 
 
-
 Design Decision: base32-encoded content-hash
 ============================================
 
@@ -73,7 +72,6 @@ subdirectory.  For example:
 >>> chash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
 >>> path.join('/foo', chash[:2], chash[2:])
 '/foo/ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
-
 
 
 Design Decision: canonical names have file extensions
@@ -108,14 +106,12 @@ typical calling signature:
 >>> def canonical(chash, ext=None):
 ...     pass
 
-
 For example:
 
 >>> FileStore.relpath('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O')
 ('ZR', '765XWSF6S7JQHLUI4GCG5BHGPE252O')
 >>> FileStore.relpath('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
 ('ZR', '765XWSF6S7JQHLUI4GCG5BHGPE252O.mov')
-
 
 
 Design Decision: security good, path traversals bad
@@ -195,12 +191,10 @@ def safe_path(pathname):
       ...
     AmbiguousPath: '/foo/../root' resolves to '/root'
 
-
     Otherwise *pathname* is returned unchanged:
 
     >>> safe_path('/foo/bar')
     '/foo/bar'
-
 
     Also see `safe_open()`.
     """
@@ -223,7 +217,6 @@ def safe_open(filename, mode):
     Traceback (most recent call last):
       ...
     AmbiguousPath: '/foo/../root' resolves to '/root'
-
 
     Otherwise returns a ``file`` instance created with ``open()``.
     """
@@ -574,7 +567,6 @@ class FileStore(object):
         >>> fs.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')  #doctest: +ELLIPSIS
         '/tmp/store.../NW/BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
 
-
         However, a `FileStoreTraversal` is raised if *parts* cause a path
         traversal outside of the `FileStore` base directory:
 
@@ -583,14 +575,12 @@ class FileStore(object):
           ...
         FileStoreTraversal: '/tmp/ssh' outside base '/tmp/store...'
 
-
         Or Likewise if an absolute path is included in *parts*:
 
         >>> fs.join('NW', '/etc', 'ssh')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
         FileStoreTraversal: '/etc/ssh' outside base '/tmp/store...'
-
 
         Also see `FileStore.create_parent()`.
         """
@@ -610,14 +600,12 @@ class FileStore(object):
           ...
         FileStoreTraversal: '/foo/my.ogv' outside base '/tmp/store...'
 
-
         It also protects against malicious filenames like this:
 
         >>> fs.create_parent('/foo/../bar/my.ogv')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
         FileStoreTraversal: '/bar/my.ogv' outside base '/tmp/store...'
-
 
         If doesn't already exists, the directory containing *filename* is
         created.  Returns the directory containing *filename*.
@@ -877,7 +865,6 @@ class FileStore(object):
         >>> fs.tmp_move(tmp_fp, chash, 'mov')  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
-
         Note, however, that this method does *not* verify the content hash of
         the temporary file!  This is by design as many operations will compute
         the content hash as they write to the temporary file.  Other operations
@@ -971,7 +958,6 @@ class FileStore(object):
         >>> tmp  #doctest: +ELLIPSIS
         '/tmp/store.../transfers/ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
 
-
         Then the downloader will write to the temporary file as it's being
         downloaded:
 
@@ -986,14 +972,12 @@ class FileStore(object):
         ...
         >>> tmp_fp.close()
 
-
         Finally, the downloader will move the temporary file into its canonical
         location:
 
         >>> dst = fs.tmp_verify_move('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
         >>> dst  #doctest: +ELLIPSIS
         '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
-
 
         The return value is the absolute path of the canonical file.
 
