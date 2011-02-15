@@ -113,7 +113,7 @@ def files_iter(base):
     to dmedia... in which case we want to be more selective about which files to
     consider.
 
-    Note that `file_iter()` does not catch errors like ``OSError``.  We
+    Note that `files_iter()` does not catch errors like ``OSError``.  We
     specifically want these errors to propagate up!  We don't want a permission
     error to be interpreted as there being no files on the card!
     """

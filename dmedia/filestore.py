@@ -296,7 +296,7 @@ class HashList(object):
     Simple hash-list (a 1-deep tree-hash).
 
     For swarm upload/download, we need to keep the content hashes of the
-    individual leaves, a list of which is available via the `HashList.leaves`
+    individual leaves, a list of which is available via the ``HashList.leaves``
     attribute after `HashList.run()` has been called.
 
     The effective content-hash for the entire file is a hash of the leaf hashes
@@ -1014,7 +1014,7 @@ class FileStore(object):
         temporary file will be moved to its canonical location using
         `FileStore.tmp_move()`.
 
-        A `DuplicatedFile` exception will be raised if the file already exists
+        A `DuplicateFile` exception will be raised if the file already exists
         in this store.
 
         This method returns a ``(chash, leaves)`` tuple with the content hash

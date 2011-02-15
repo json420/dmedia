@@ -714,8 +714,6 @@ def check_origin(value, label='origin', strict=False):
         4. if called with strict=True, must be either 'user', 'download',
            'paid', 'proxy', 'cache', or 'render'
 
-    (4) may be relax or eliminated in the near future, but for now
-
     For example, some conforming values:
 
     >>> check_origin('hello_world2')

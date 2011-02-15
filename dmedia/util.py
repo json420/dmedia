@@ -250,7 +250,7 @@ class NotifyManager(object):
 
         To a display new or replace the existing notification regardless whether
         the current notification is visible, use
-        `NotificationManager.replace()`.
+        `NotifyManager.replace()`.
         """
         assert self._current is not None
         self._current.update(summary, body, icon)
