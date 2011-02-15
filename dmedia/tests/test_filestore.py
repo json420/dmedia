@@ -499,6 +499,14 @@ class test_FileStore(TestCase):
         self.assertTrue(inst.base.startswith('/tmp/store.'))
         self.assertEqual(inst.record, path.join(inst.base, 'store.json'))
 
+    def test_repr(self):
+        tmp = TempDir()
+        inst = self.klass(tmp.path)
+        self.assertEqual(
+            repr(inst),
+            'FileStore(%r)' % tmp.path
+        )
+
     def test_relpath(self):
         self.assertEqual(
             self.klass.relpath('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
