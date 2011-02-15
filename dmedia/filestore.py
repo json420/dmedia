@@ -772,6 +772,36 @@ class FileStore(object):
         return filename
 
     def allocate_for_transfer(self, size, chash, ext=None):
+        """
+        Open the canonical temporary file for a transfer (download or upload).
+
+        When transferring files from other dmedia peers, the content-hash is
+        already known.  As we must be able to easily resume a download or
+        upload, transfers use a stable, canonical temporary filename derived
+        from the content-hash and file extension.
+
+        The file *size* is also known, so an attempt is made to efficiently
+        pre-allocate the temporary file using `fallocate()`.
+
+        If the temporary file already exists, it means we're resuming a
+        transfer.  The file is opened in ``'r+b'`` mode, leaving data in the
+        temporary file intact.  It is the responsibility of higher-level code
+        to verify the file leaf by leaf in order to determine what portions of
+        the file have been transfered, what portions of the file still need to
+        be transferred.
+
+        Note that as the temporary file will likely be pre-allocated, higher-
+        level code cannot use the size of the temporary file as a means of
+        determining how much of the file has been transfered.
+
+        If the temporary does not exist, and cannot be pre-allocated, a new
+        empty file is opened in ``'wb'`` mode.  Higher-level code must check
+        the mode of the ``file`` instance and act accordingly.
+
+        :param size: file size in bytes (an ``int``)
+        :param chash: base32-encoded content-hash
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
         filename = self.tmp(chash, ext, create=True)
         fallocate(size, filename)
         try:
@@ -783,6 +813,23 @@ class FileStore(object):
             return open(filename, 'wb')
 
     def allocate_for_import(self, size, ext=None):
+        """
+        Open a random temporary file for an import operation.
+
+        When importing a file, the content-hash is computed as the file is
+        copied into the `FileStore`.  As the content-hash isn't known when
+        allocating the temporary file, a randomly named temporary file is used.
+
+        However, the file *size* is known, so an attempt is made to efficiently
+        pre-allocate the temporary file using `fallocate()`.
+
+        The file extension *ext* is optional and serves no other purpose than to
+        aid in debugging.  The value of *ext* used here has no effect on the
+        ultimate canonical file name.
+
+        :param size: file size in bytes (an ``int``)
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
         imports = self.join(IMPORTS_DIR)
         if not path.exists(imports):
             os.makedirs(imports)
