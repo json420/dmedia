@@ -235,10 +235,10 @@ Design Decision: schema extensibility
 As the goal is to make dmedia suitable for use by a wide range of applications,
 there is a special attribute namespace reserved for application-specific schema.
 
-Attributes starting with "x_" are reserved for extensibility.  The dmedia schema
-will never include attributes starting with "x_".  Additionally, the special "x"
-attribute is a dictionary that allows groups of related attributes to be placed
-under a single extension namespace.  For example:
+Attributes starting with ``"x_"`` are reserved for extensibility.  The dmedia
+schema will never include attributes starting with ``"x_"``.  Additionally, the
+special ``"x"`` attribute is a dictionary that allows groups of related
+attributes to be placed under a single extension namespace.  For example:
 
 >>> doc = {
 ...     '_id': 'GS5HPKZRK7DRXOECOYYXRUTUP26H3ECY',
@@ -254,10 +254,10 @@ under a single extension namespace.  For example:
 ... }
 
 
-desktopcouch has an "application_annotations" attribute that is used exactly
-the same way as the dmedia "x" attribute.  Likewise, dmedia will honor the
-"application_annotations" convention and never store any of its own schema under
-this key.
+desktopcouch has an ``"application_annotations"`` attribute that is used exactly
+the same way as the dmedia ``"x"`` attribute.  Likewise, dmedia will honor the
+``"application_annotations"`` convention and never store any of its own schema
+under this key.
 
 An important consequence of this extensibility is that when modifying documents,
 applications must always losslessly round-trip any attributes they don't know
