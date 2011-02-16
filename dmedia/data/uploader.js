@@ -309,7 +309,7 @@ var HashList = new Class({
         return {
             'size': this.file.size,
             'name': this.file.name,
-            'mime': this.file.mime,
+            'mime': this.file.type,
             'chash': this.chash,
             'leaves': this.leaves_b32,
         };
