@@ -249,23 +249,63 @@ var b32encode = function(s) {
 function handle(files) {
     var display = document.getElementById('display');
     var file = files[0];
-    var d = {
-        'name': file.name,
-        'size': file.size,
-        'mime': file.type
-    };
-    display.textContent = JSON.stringify(d);
-
-    var i = 0;
-    var s = file.slice(i * leaf_size, leaf_size);
-    var reader = new FileReader();
-    reader.onload = function() {
-        var digest1 = Crypto.SHA1(reader.result);
-        console.log(digest1);
-        var digest2 = hex_sha1(reader.result);
-        console.log(digest2);
-    };
-    reader.readAsBinaryString(s);
-
-
+    var h = new HashList(file);
+    h.addEvent('complete', function(chash) {
+        display.textContent = JSON.stringify(h.info());
+    });
+    h.run();
 };
+
+var HashList = new Class({
+    Implements: Events,
+
+    initialize: function(file) {
+        this.file = file;
+        this.reader = new FileReader();
+        this.reader.onload = this.on_load.bind(this);
+        this.leaves = [];
+        this.leaves_b32 = [];
+        this.chash = null;
+        this.i = 0;
+        this.stop = Math.ceil(file.size / leaf_size);
+    },
+
+    run: function() {
+        this.read_slice();
+    },
+
+    read_slice: function() {
+        var s = this.file.slice(this.i * leaf_size, leaf_size);
+        this.reader.readAsBinaryString(s);
+    },
+
+    info: function() {
+        return {
+            'size': this.file.size,
+            'name': this.file.name,
+            'mime': this.file.mime,
+            'chash': this.chash,
+            'leaves': this.leaves_b32,
+        };
+    },
+
+    next: function() {
+        this.i++;
+        if (this.i < this.stop) {
+            this.read_slice();
+            return;
+        }
+        this.packed_leaves = this.leaves.join('');
+        var digest = str_sha1(this.packed_leaves);
+        this.chash = b32encode(digest);
+        this.fireEvent('complete', this.chash);
+    },
+
+    on_load: function() {
+        var digest = str_sha1(this.reader.result);
+        this.leaves.push(digest);
+        this.leaves_b32.push(b32encode(digest));
+        this.next();
+    },
+
+});
