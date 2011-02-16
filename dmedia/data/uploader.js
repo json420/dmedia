@@ -246,6 +246,11 @@ var b32encode = function(s) {
  return parts.join("");
 };
 
+function on_progress(completed, total) {
+    var p = parseInt(completed / total * 100);
+    document.getElementById('progress').textContent = 'Hashing: ' + p + '% ' + completed + ' of ' + total + ' bytes';
+}
+
 function handle(files) {
     var display = document.getElementById('display');
     display.innerHTML = '';
@@ -259,9 +264,10 @@ function handle(files) {
     var file = files[0];
     addpre('name = ' + file.name);
     addpre('size = ' + file.size);
-    addpre('mime = ' + file.mime);
+    addpre('mime = ' + file.type);
 
     var h = new HashList(file);
+    h.addEvent('progress', on_progress);
     h.addEvent('complete', function(chash) {
         addpre(h.seconds() + ' seconds');
         addpre('chash = ' + chash);
@@ -286,6 +292,7 @@ var HashList = new Class({
 
     run: function() {
         this.time_start = Date.now();
+        this.fireEvent('progress', [0, this.file.size]);
         this.read_slice();
     },
 
@@ -310,6 +317,8 @@ var HashList = new Class({
 
     next: function() {
         this.i++;
+        var completed = Math.min(this.i * leaf_size, this.file.size);
+        this.fireEvent('progress', [completed, this.file.size]);
         if (this.i < this.stop) {
             this.read_slice();
             return;
