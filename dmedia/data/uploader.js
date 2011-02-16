@@ -248,10 +248,24 @@ var b32encode = function(s) {
 
 function handle(files) {
     var display = document.getElementById('display');
+    display.innerHTML = '';
+
+    function addpre(text) {
+        var pre = document.createElement('pre');
+        pre.textContent = text;
+        display.appendChild(pre);
+    };
+
     var file = files[0];
+    addpre('name = ' + file.name);
+    addpre('size = ' + file.size);
+    addpre('mime = ' + file.mime);
+
     var h = new HashList(file);
     h.addEvent('complete', function(chash) {
-        display.textContent = JSON.stringify(h.info());
+        addpre(h.seconds() + ' seconds');
+        addpre('chash = ' + chash);
+        addpre(JSON.stringify(h.info()));
     });
     h.run();
 };
@@ -271,7 +285,12 @@ var HashList = new Class({
     },
 
     run: function() {
+        this.time_start = Date.now();
         this.read_slice();
+    },
+
+    seconds: function() {
+        return (this.time_end - this.time_start) / 1000;
     },
 
     read_slice: function() {
@@ -298,6 +317,7 @@ var HashList = new Class({
         this.packed_leaves = this.leaves.join('');
         var digest = str_sha1(this.packed_leaves);
         this.chash = b32encode(digest);
+        this.time_end = Date.now();
         this.fireEvent('complete', this.chash);
     },
 
