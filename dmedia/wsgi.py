@@ -39,7 +39,7 @@ in parallel.
 
 The API is presented relative to the mount point of the import app.  Depending
 on where the app is mounted, all the resources might start with, say,
-``'/imports/'`` instead of ``'/'``.
+``"/imports/"`` instead of ``"/"``.
 
 
 Start/Resume an Import
@@ -55,7 +55,7 @@ request will look like this:
 
         {
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "size": 20202333
+            "bytes": 20202333
         }
 
 
@@ -73,7 +73,7 @@ For example, if starting a new import, the response would look like this:
 
         {
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "size": 20202333,
+            "bytes": 20202333,
             "leaf_size" 8388608,
             "leaves" [
                 null,
@@ -93,7 +93,7 @@ response would look like this:
 
         {
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "size": 20202333,
+            "bytes": 20202333,
             "leaf_size" 8388608,
             "leaves" [
                 null,
@@ -122,8 +122,8 @@ the 1st leaf with a request like this:
 
 The *x-dmedia-chash* header above is the base32-encoded sha1 hash of the leaf
 content.  If the server computes the same content-hash for the leaf on the
-receiving end (meaning no data errors occurred), the response would look like
-this:
+receiving end (meaning no data corruption occurred), the response would look
+like this:
 
     ::
 
@@ -138,7 +138,7 @@ this:
                 "size": 8388608
             },
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "size": 20202333,
+            "bytes": 20202333,
             "leaf_size" 8388608,
             "leaves" [
                 "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
@@ -168,7 +168,7 @@ like this:
                 "size": 8388608
             },
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "size": 20202333,
+            "bytes": 20202333,
             "leaf_size" 8388608,
             "leaves" [
                 null,
@@ -207,7 +207,7 @@ response like this:
                 "size": 3425117
             },
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "size": 20202333,
+            "bytes": 20202333,
             "leaf_size" 8388608,
             "leaves" [
                 "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
@@ -243,7 +243,7 @@ this:
                 "size": 3425117
             },
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "size": 20202333,
+            "bytes": 20202333,
             "leaf_size" 8388608,
             "leaves" [
                 "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
@@ -266,7 +266,7 @@ For example:
 
         {
             "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O",
-            "size": 20202333,
+            "bytes": 20202333,
             "name": "MVI_5751.MOV",
             "mime": "video/quicktime",
             "leaves" [
@@ -277,6 +277,34 @@ For example:
         }
 
 
+If everything went well on the server (all leaves were actually present and had
+correct content-hash), the response will contain the CouchDB document
+corresponding to this newly imported file:
 
+    ::
+
+        HTTP/1.1 201 Created
+        Content-Type: application/json
+
+        {
+            "success": true,
+            "doc": {
+                "_id": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O",
+                "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
+                "type": "dmedia/file",
+                "time": 1234567890,
+                "bytes": 20202333,
+                "ext" "mov",
+                "origin": "user",
+                "name": "MVI_5751.MOV",
+                "mime": "video/quicktime",
+                "stored": {
+                    "MZZG2ZDSOQVSW2TEMVZG643F": {
+                        "copies": 2,
+                        "time": 123456789
+                    }
+                }
+            }
+        }
 
 """
