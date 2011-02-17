@@ -861,7 +861,10 @@ class FileStore(object):
         suffix = ('' if ext is None else '.' + ext)
         (fileno, filename) = tempfile.mkstemp(suffix=suffix, dir=imports)
         fallocate(size, filename)
-        return open(filename, 'r+b')
+        # FIXME: This probably isn't the best approach, but for now it works:
+        tmp_fp = open(filename, 'r+b')
+        os.close(fileno)
+        return tmp_fp
 
     def tmp_move(self, tmp_fp, chash, ext=None):
         """
