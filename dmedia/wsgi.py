@@ -23,10 +23,25 @@
 WSGI HTTP file transfer server (upload and download).
 
 
-Start/Resume Upload:
-====================
+Import REST API
+===============
 
-Whether you're starting or resuming an upload, the request is the same.  The
+The import REST API is designed to allow files to be imported into dmedia from
+any browser that supports the HTML5 File API.  The process is very similar to
+how local imports work.  When the import starts, the file content-hash isn't
+yet known, but is computed as the file is imported.
+
+Unlike local imports, the browser must compute the content-hash of each leaf
+before uploading, and the server verifies the integrity of the leaf on the
+receiving end.  Also unlike local imports, the HTTP import can be resumed (in
+case of lost connectivity), and the leaves can be uploaded in any order, or even
+in parallel.
+
+
+Start/Resume an Import
+----------------------
+
+Whether you're starting or resuming an import, the request is the same.  The
 request will look like this:
 
     ::
@@ -41,11 +56,11 @@ request will look like this:
 
 
 The response will contain a list with a spot for each leaf (chunk) in the
-upload.  For each position in the list, the value with either be the
-content-hash of that leaf (meaning the leaf has been successfully uploaded) or
-a null (meaning the leaf was never uploaded or was not uploaded successfully).
+import.  For each position in the list, the value with either be the
+content-hash of that leaf (meaning the leaf has been successfully imported) or
+null (meaning the leaf was never imported or was not imported successfully).
 
-For example, if starting a new uploaded, the response would look like this:
+For example, if starting a new import, the response would look like this:
 
     ::
 
@@ -64,7 +79,7 @@ For example, if starting a new uploaded, the response would look like this:
         }
 
 
-If resuming an upload where you had previously uploaded the 2nd leaf, the
+If resuming an import where you had previously imported the 2nd leaf, the
 response would look like this:
 
     ::
@@ -84,11 +99,11 @@ response would look like this:
         }
 
 
-Upload a Leaf
-=============
+Import a Leaf
+-------------
 
-Say you resume an upload and receive the above response: the 2nd leaf has been
-uploaded, the 1st and 3rd leaves still need to be uploaded.  You would upload
+Say you resume an import and receive the above response: the 2nd leaf has been
+imported, the 1st and 3rd leaves still need to be imported.  You would import
 the 1st leaf with a request like this:
 
     ::
@@ -159,7 +174,7 @@ like this:
         }
 
 
-Once the 1st leaf has been successfully uploaded, you would upload the 3rd leaf
+Once the 1st leaf has been successfully imported, you would import the 3rd leaf
 with a request like this:
 
     ::
@@ -198,9 +213,38 @@ response like this:
             "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O"
         }
 
-Notice now that all the leaves have been uploaded, the response JSON now has the
-``"chash"`` key... the top-hash, or overall content-hash of the file.  At this
-point you complete the upload.
 
+Notice that now that all the leaves have been imported, the response JSON has
+the ``"chash"`` key... the top-hash, or overall content-hash of the file.  At
+this point you complete the import.
+
+
+Finish the Import
+-----------------
+
+To finish the import, just post back the response from the final leaf import to
+``"/imports/QUICK_ID"``.  For the above import, the request would look like
+this:
+
+        POST /import HTTP/1.1
+        Content-Type: application/json
+
+        {
+            "success": true,
+            "received": {
+                "index": 0,
+                "chash": "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI",
+                "size": 3425117
+            },
+            "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
+            "size": 20202333,
+            "leaf_size" 8388608,
+            "leaves" [
+                "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
+                "MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4",
+                "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI"
+            ],
+            "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O"
+        }
 
 """
