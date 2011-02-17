@@ -37,6 +37,10 @@ receiving end.  Also unlike local imports, the HTTP import can be resumed (in
 case of lost connectivity), and the leaves can be uploaded in any order, or even
 in parallel.
 
+The API is presented relative to the mount point of the import app.  Depending
+on where the app is mounted, all the resources might start with, say,
+``'/imports/'`` instead of ``'/'``.
+
 
 Start/Resume an Import
 ----------------------
@@ -46,7 +50,7 @@ request will look like this:
 
     ::
 
-        POST /import HTTP/1.1
+        POST / HTTP/1.1
         Content-Type: application/json
 
         {
@@ -108,7 +112,7 @@ the 1st leaf with a request like this:
 
     ::
 
-        PUT /import/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/0 HTTP/1.1
+        PUT /GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/0 HTTP/1.1
         Content-Type: application/octet-stream
         Content-Length: 8388608
         x-dmedia-chash: IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3
@@ -179,7 +183,7 @@ with a request like this:
 
     ::
 
-        PUT /import/GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/2 HTTP/1.1
+        PUT /GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/2 HTTP/1.1
         Content-Type: application/octet-stream
         Content-Length: 3425117
         x-dmedia-chash: FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI
@@ -223,12 +227,12 @@ Finish the Import
 -----------------
 
 To finish the import, just post back the response from the final leaf import to
-``"/imports/QUICK_ID"``.  For the above import, the request would look like
+``"/QUICK_ID"``.  For the above import, the request would look like
 this:
 
     ::
 
-        POST /import HTTP/1.1
+        POST /GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN HTTP/1.1
         Content-Type: application/json
 
         {
@@ -248,5 +252,31 @@ this:
             ],
             "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O"
         }
+
+
+Note that the ``"success"``, ``"received"``, ``"quick_id"``, and ``"leaf_size"``
+keys don't need to be sent back.  This is also when you should include certain
+other metadata, like the File.name and File.type from the HTML5 File object.
+For example:
+
+    ::
+
+        POST /GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN HTTP/1.1
+        Content-Type: application/json
+
+        {
+            "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O",
+            "size": 20202333,
+            "name": "MVI_5751.MOV",
+            "mime": "video/quicktime",
+            "leaves" [
+                "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
+                "MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4",
+                "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI"
+            ]
+        }
+
+
+
 
 """
