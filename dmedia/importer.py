@@ -157,10 +157,11 @@ def create_import(base, batch_id=None, machine_id=None):
     return {
         '_id': random_id(),
         'type': 'dmedia/import',
+        'time': time.time(),
         'batch_id': batch_id,
         'machine_id': machine_id,
         'base': base,
-        'time': time.time(),
+        'empty_files': [],
     }
 
 

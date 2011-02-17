@@ -173,6 +173,7 @@ class test_functions(TestCase):
             'base',
             'batch_id',
             'machine_id',
+            'empty_files',
         ])
 
         doc = f(base, batch_id=batch_id, machine_id=machine_id)
@@ -190,12 +191,14 @@ class test_functions(TestCase):
         self.assertEqual(doc['base'], base)
         self.assertEqual(doc['batch_id'], batch_id)
         self.assertEqual(doc['machine_id'], machine_id)
+        self.assertEqual(doc['empty_files'], [])
 
         doc = f(base)
         self.assertEqual(schema.check_dmedia(doc), None)
         self.assertEqual(set(doc), keys)
         self.assertEqual(doc['batch_id'], None)
         self.assertEqual(doc['machine_id'], None)
+        self.assertEqual(doc['empty_files'], [])
 
     def test_to_dbus_stats(self):
         f = importer.to_dbus_stats
@@ -277,6 +280,7 @@ class test_Importer(CouchCase):
                 'base',
                 'batch_id',
                 'machine_id',
+                'empty_files',
             ])
         )
         self.assertEqual(inst._import['batch_id'], self.batch_id)
@@ -285,6 +289,7 @@ class test_Importer(CouchCase):
             inst.metastore.machine_id
         )
         self.assertEqual(inst._import['base'], tmp.path)
+        self.assertEqual(inst._import['empty_files'], [])
 
     def test_get_stats(self):
         tmp = TempDir()
