@@ -327,6 +327,8 @@ class test_Importer(CouchCase):
         tmp = TempDir()
         inst = self.new(tmp.path)
 
+        inst.start()
+
         # Test that AmbiguousPath is raised:
         traversal = '/home/foo/.dmedia/../.ssh/id_rsa'
         e = raises(AmbiguousPath, inst.import_file, traversal)
@@ -389,7 +391,7 @@ class test_Importer(CouchCase):
         self.assertEqual(doc['bytes'], size)
         self.assertEqual(doc['ext'], 'mov')
 
-        self.assertEqual(doc['import_id'], None)
+        self.assertEqual(doc['import_id'], inst._import_id)
         self.assertEqual(doc['qid'], mov_qid)
         self.assertEqual(doc['mtime'], path.getmtime(src1))
         self.assertEqual(doc['basename'], 'MVI_5751.MOV')
@@ -428,6 +430,28 @@ class test_Importer(CouchCase):
             }
         )
 
+        # Test with empty file:
+        src3 = tmp.touch('DCIM', '100EOS5D2', 'foo.MOV')
+        (action, doc) = inst.import_file(src3)
+        self.assertEqual(action, 'empty')
+        self.assertEqual(doc, None)
+        self.assertEqual(inst.get_stats(),
+             {
+                'imported': {
+                    'count': 1,
+                    'bytes': size,
+                },
+                'skipped': {
+                    'count': 1,
+                    'bytes': size,
+                },
+            }
+        )
+        self.assertEqual(
+            inst.db[inst._import_id]['empty_files'],
+            [path.relpath(src3, tmp.path)]
+        )
+
     def test_import_all_iter(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
@@ -435,6 +459,9 @@ class test_Importer(CouchCase):
         src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
         dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
         src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+        src3 = tmp.touch('DCIM', '100EOS5D2', 'Zar.MOV')
+        src4 = tmp.touch('DCIM', '100EOS5D2', 'Zoo.MOV')
+
 
         import_id = inst.start()
         items = tuple(inst.import_all_iter())

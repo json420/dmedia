@@ -205,9 +205,9 @@ class Importer(object):
             batch_id=self.batch_id,
             machine_id=self.metastore.machine_id,
         )
+        self._import = doc
         self._import_id = doc['_id']
-        assert self.metastore.db.create(doc) == self._import_id
-        self._import = self.metastore.db[self._import_id]
+        self.metastore.db.save(doc)
         return self._import_id
 
     def get_stats(self):
@@ -222,6 +222,10 @@ class Importer(object):
 
     def __import_file(self, src):
         fp = safe_open(src, 'rb')
+        stat = os.fstat(fp.fileno())
+        if stat.st_size == 0:
+            return ('empty', None)
+
         quickid = quick_id(fp)
         ids = list(self.metastore.by_quickid(quickid))
         if ids:
@@ -274,14 +278,21 @@ class Importer(object):
     def import_file(self, src):
         (action, doc) = self.__import_file(src)
         self.__imported.append(src)
-        self.__stats[action]['count'] += 1
-        self.__stats[action]['bytes'] += doc['bytes']
+        if action == 'empty':
+            self._import['empty_files'].append(
+                path.relpath(src, self.base)
+            )
+            self.db.save(self._import)
+        else:
+            self.__stats[action]['count'] += 1
+            self.__stats[action]['bytes'] += doc['bytes']
         return (action, doc)
 
     def import_all_iter(self):
         for src in self.scanfiles():
             (action, doc) = self.import_file(src)
-            yield (src, action, doc)
+            if action != 'empty':
+                yield (src, action, doc)
 
     def finalize(self):
         files = self.scanfiles()
@@ -290,8 +301,9 @@ class Importer(object):
         s = self.get_stats()
         self._import.update(s)
         self._import['time_end'] = time.time()
-        self.db[self._import_id] = self._import
-        assert s['imported']['count'] + s['skipped']['count'] == len(files)
+        self.db.save(self._import)
+        total = sum(s[k]['count'] for k in s) + len(self._import['empty_files'])
+        assert total == len(files)
         return s
 
 
