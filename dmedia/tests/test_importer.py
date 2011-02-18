@@ -559,7 +559,6 @@ class test_Importer(CouchCase):
         self.assertEqual(imported1, {
             'src': src1,
             'id': mov_hash,
-            'bytes': path.getsize(src1),
         })
         self.assertEqual(
             inst.doc['log']['imported'],
@@ -575,7 +574,6 @@ class test_Importer(CouchCase):
         self.assertEqual(imported2, {
             'src': src2,
             'id': thm_hash,
-            'bytes': path.getsize(src2),
         })
         self.assertEqual(
             inst.doc['log']['imported'],
@@ -596,8 +594,6 @@ class test_Importer(CouchCase):
         self.assertEqual(skipped1, {
             'src': dup1,
             'id': mov_hash,
-            'mtime': path.getmtime(dup1),
-            'bytes': path.getsize(dup1),
         })
         self.assertEqual(
             inst.doc['log']['skipped'],
@@ -613,8 +609,6 @@ class test_Importer(CouchCase):
         self.assertEqual(skipped2, {
             'src': dup2,
             'id': thm_hash,
-            'mtime': path.getmtime(dup2),
-            'bytes': path.getsize(dup2),
         })
         self.assertEqual(
             inst.doc['log']['skipped'],

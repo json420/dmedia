@@ -315,18 +315,10 @@ class Importer(object):
             (action, doc) = self._import_file(src)
             if action == 'empty':
                 entry = src
-            elif action == 'skipped':
-                entry = {
-                    'mtime': doc['mtime'],
-                    'src': src,
-                    'id': doc['_id'],
-                    'bytes': doc['bytes']
-                }
             else:
                 entry = {
                     'src': src,
                     'id': doc['_id'],
-                    'bytes': doc['bytes']
                 }
         except Exception as e:
             log.exception('Error importing %r', src)
@@ -434,6 +426,7 @@ class ImportManager(Manager):
             to_dbus_stats(self.doc['stats'])
         )
         self.doc = None
+        log.info('Batch complete, compacting database...')
         self.db.compact()
 
     def on_terminate(self, key):
