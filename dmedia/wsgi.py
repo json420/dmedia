@@ -226,38 +226,7 @@ this point you complete the import.
 Finish the Import
 -----------------
 
-To finish the import, just post back the response from the final leaf import to
-``"/QUICK_ID"``.  For the above import, the request would look like
-this:
-
-    ::
-
-        POST /GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN HTTP/1.1
-        Content-Type: application/json
-
-        {
-            "success": true,
-            "received": {
-                "index": 0,
-                "chash": "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI",
-                "size": 3425117
-            },
-            "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "bytes": 20202333,
-            "leaf_size" 8388608,
-            "leaves" [
-                "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
-                "MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4",
-                "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI"
-            ],
-            "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O"
-        }
-
-
-Note that the ``"success"``, ``"received"``, ``"quick_id"``, and ``"leaf_size"``
-keys don't need to be sent back.  This is also when you should include certain
-other metadata, like the File.name and File.type from the HTML5 File object.
-For example:
+Finally, you finish the import with a request like this:
 
     ::
 
