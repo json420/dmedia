@@ -149,8 +149,13 @@ def create_batch(machine_id=None):
         'time': time.time(),
         'machine_id': machine_id,
         'imports': [],
-        'imported': {'count': 0, 'bytes': 0},
-        'skipped': {'count': 0, 'bytes': 0},
+        'stats': {
+            'considered': {'count': 0, 'bytes': 0},
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
     }
 
 
@@ -204,13 +209,13 @@ class Importer(object):
 
     def save(self):
         """
-        Save current 'dmedia/import' document to CouchDB.
+        Save current 'dmedia/import' record to CouchDB.
         """
         self.db.save(self.doc)
 
     def start(self):
         """
-        Create the initial import record, return that record's ID.
+        Create the initial 'dmedia/import' record, return that record's ID.
         """
         assert self._id is None
         self.doc = create_import(self.base,
@@ -421,7 +426,7 @@ class ImportManager(Manager):
         self._batch['time_end'] = time.time()
         self._batch = self.save(self._batch)
         self.emit('BatchFinished', self._batch['_id'],
-            to_dbus_stats(self._batch)
+            to_dbus_stats(self._batch['stats'])
         )
         self._batch = None
 
@@ -444,7 +449,7 @@ class ImportManager(Manager):
         self.emit('ImportProgress', key, import_id, completed, total, info)
 
     def on_finished(self, key, import_id, stats):
-        accumulate_stats(self._batch, stats)
+        accumulate_stats(self._batch['stats'], stats)
         self._batch = self.save(self._batch)
         self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
 

@@ -144,9 +144,8 @@ class test_functions(TestCase):
                 'type',
                 'time',
                 'imports',
-                'imported',
-                'skipped',
                 'machine_id',
+                'stats',
             ])
         )
         _id = doc['_id']
@@ -156,9 +155,17 @@ class test_functions(TestCase):
         self.assertTrue(isinstance(doc['time'], (int, float)))
         self.assertTrue(doc['time'] <= time.time())
         self.assertEqual(doc['imports'], [])
-        self.assertEqual(doc['imported'], {'count': 0, 'bytes': 0})
-        self.assertEqual(doc['skipped'], {'count': 0, 'bytes': 0})
         self.assertEqual(doc['machine_id'], machine_id)
+        self.assertEqual(
+            doc['stats'],
+            {
+                'considered': {'count': 0, 'bytes': 0},
+                'imported': {'count': 0, 'bytes': 0},
+                'skipped': {'count': 0, 'bytes': 0},
+                'empty': {'count': 0, 'bytes': 0},
+                'error': {'count': 0, 'bytes': 0},
+            }
+        )
 
     def test_create_import(self):
         f = importer.create_import
@@ -825,9 +832,8 @@ class test_ImportManager(CouchCase):
                 'type',
                 'time',
                 'imports',
-                'imported',
-                'skipped',
                 'machine_id',
+                'stats',
             ])
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
@@ -850,8 +856,10 @@ class test_ImportManager(CouchCase):
         batch_id = random_id()
         inst._batch = dict(
             _id=batch_id,
-            imported={'count': 17, 'bytes': 98765},
-            skipped={'count': 3, 'bytes': 12345},
+            stats=dict(
+                imported={'count': 17, 'bytes': 98765},
+                skipped={'count': 3, 'bytes': 12345},
+            ),
         )
 
         # Make sure it checks that workers is empty
@@ -881,8 +889,7 @@ class test_ImportManager(CouchCase):
             set([
                 '_id',
                 '_rev',
-                'imported',
-                'skipped',
+                'stats',
                 'time_end',
             ])
         )
@@ -1004,8 +1011,10 @@ class test_ImportManager(CouchCase):
         batch_id = random_id()
         inst._batch = dict(
             _id=batch_id,
-            imported={'count': 0, 'bytes': 0},
-            skipped={'count': 0, 'bytes': 0},
+            stats=dict(
+                imported={'count': 0, 'bytes': 0},
+                skipped={'count': 0, 'bytes': 0},
+            ),
         )
 
         # Call with first import
@@ -1030,15 +1039,15 @@ class test_ImportManager(CouchCase):
         )
         self.assertEqual(
             set(inst._batch),
-            set(['_id', '_rev', 'imported', 'skipped'])
+            set(['_id', '_rev', 'stats'])
         )
         self.assertEqual(inst._batch['_id'], batch_id)
         self.assertEqual(
-            inst._batch['imported'],
+            inst._batch['stats']['imported'],
             {'count': 17, 'bytes': 98765}
         )
         self.assertEqual(
-            inst._batch['skipped'],
+            inst._batch['stats']['skipped'],
             {'count': 3, 'bytes': 12345}
         )
 
@@ -1071,15 +1080,15 @@ class test_ImportManager(CouchCase):
         )
         self.assertEqual(
             set(inst._batch),
-            set(['_id', '_rev', 'imported', 'skipped'])
+            set(['_id', '_rev', 'stats'])
         )
         self.assertEqual(inst._batch['_id'], batch_id)
         self.assertEqual(
-            inst._batch['imported'],
+            inst._batch['stats']['imported'],
             {'count': 17 + 18, 'bytes': 98765 + 9876}
         )
         self.assertEqual(
-            inst._batch['skipped'],
+            inst._batch['stats']['skipped'],
             {'count': 3 + 5, 'bytes': 12345 + 1234}
         )
 
