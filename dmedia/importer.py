@@ -151,6 +151,7 @@ def create_batch(machine_id=None):
         'time': time.time(),
         'machine_id': machine_id,
         'imports': [],
+        'errors': [],
         'stats': {
             'considered': {'count': 0, 'bytes': 0},
             'imported': {'count': 0, 'bytes': 0},
@@ -428,6 +429,15 @@ class ImportManager(Manager):
         self.doc = None
         log.info('Batch complete, compacting database...')
         self.db.compact()
+
+    def on_error(self, key, exception, message):
+        super(ImportManager, self).on_error(key, exception, message)
+        if self.doc is None:
+            return
+        self.doc['errors'].append(
+            {'key': key, 'name': exception, 'msg': message}
+        )
+        self.save()
 
     def on_terminate(self, key):
         super(ImportManager, self).on_terminate(key)

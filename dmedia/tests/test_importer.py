@@ -144,6 +144,7 @@ class test_functions(TestCase):
                 'type',
                 'time',
                 'imports',
+                'errors',
                 'machine_id',
                 'stats',
             ])
@@ -155,6 +156,7 @@ class test_functions(TestCase):
         self.assertTrue(isinstance(doc['time'], (int, float)))
         self.assertTrue(doc['time'] <= time.time())
         self.assertEqual(doc['imports'], [])
+        self.assertEqual(doc['errors'], [])
         self.assertEqual(doc['machine_id'], machine_id)
         self.assertEqual(
             doc['stats'],
@@ -823,6 +825,7 @@ class test_ImportManager(CouchCase):
                 'type',
                 'time',
                 'imports',
+                'errors',
                 'machine_id',
                 'stats',
             ])
@@ -886,6 +889,35 @@ class test_ImportManager(CouchCase):
         )
         cur = time.time()
         self.assertTrue(cur - 1 <= doc['time_end'] <= cur)
+
+    def test_on_error(self):
+        callback = DummyCallback()
+        inst = self.klass(callback, self.dbname)
+
+        # Make sure it works when doc is None:
+        inst.on_error('foo', 'IOError', 'nope')
+        self.assertEqual(inst.doc, None)
+
+        # Test normally:
+        inst._start_batch()
+        self.assertEqual(inst.doc['errors'], [])
+        inst.on_error('foo', 'IOError', 'nope')
+        doc = inst.db[inst.doc['_id']]
+        self.assertEqual(
+            doc['errors'],
+            [
+                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
+            ]
+        )
+        inst.on_error('bar', 'error!', 'no way')
+        doc = inst.db[inst.doc['_id']]
+        self.assertEqual(
+            doc['errors'],
+            [
+                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
+                {'key': 'bar', 'name': 'error!', 'msg': 'no way'},
+            ]
+        )
 
     def test_on_started(self):
         callback = DummyCallback()
