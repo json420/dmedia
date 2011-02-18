@@ -122,7 +122,8 @@ def files_iter(base):
     error to be interpreted as there being no files on the card!
     """
     if path.isfile(base):
-        yield (base, path.getsize(base))
+        s = os.stat(base)
+        yield (base, s.st_size, s.st_mtime)
         return
     names = sorted(os.listdir(base))
     dirs = []
@@ -131,7 +132,8 @@ def files_iter(base):
         if path.islink(fullname):
             continue
         if path.isfile(fullname):
-            yield (fullname, path.getsize(fullname))
+            s = os.stat(fullname)
+            yield (fullname, s.st_size, s.st_mtime)
         elif path.isdir(fullname):
             dirs.append(fullname)
     for fullname in dirs:
@@ -228,7 +230,7 @@ class Importer(object):
 
     def scanfiles(self):
         assert self.pairs is None
-        self.pairs = tuple(files_iter(self.base))
+        self.pairs = tuple(t[:2] for t in files_iter(self.base))
         self.doc['log']['considered'] = [
             {'src': src, 'bytes': size} for (src, size) in self.pairs
         ]

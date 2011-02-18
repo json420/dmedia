@@ -108,11 +108,11 @@ class test_functions(TestCase):
         for (i, args) in enumerate(relpaths):
             content = 'a' * (2 ** i)
             p = tmp.write(content, 'subdir', *args)
-            files.append((p, len(content)))
+            files.append((p, len(content), path.getmtime(p)))
 
         # Test when base is a file:
-        for (p, s) in files:
-            self.assertEqual(list(f(p)), [(p, s)])
+        for (p, s, t) in files:
+            self.assertEqual(list(f(p)), [(p, s, t)])
 
         # Test importing from tmp.path:
         self.assertEqual(list(f(tmp.path)), files)
