@@ -109,14 +109,6 @@ function(doc) {
 }
 """
 
-file_qid = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.qid) {
-        emit(doc.qid, null);
-    }
-}
-"""
-
 file_import_id = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.import_id) {
@@ -181,7 +173,6 @@ class MetaStore(object):
         )),
 
         ('file', (
-            ('qid', file_qid, None),
             ('import_id', file_import_id, None),
             ('bytes', file_bytes, _sum),
             ('ext', file_ext, _count),
@@ -256,10 +247,6 @@ class MetaStore(object):
         for (name, views) in self.designs:
             (_id, doc) = build_design_doc(name, views)
             self.update(doc)
-
-    def by_quickid(self, qid):
-        for row in self.db.view('_design/file/_view/qid', key=qid):
-            yield row.id
 
     def total_bytes(self):
         for row in self.db.view('_design/file/_view/bytes'):
