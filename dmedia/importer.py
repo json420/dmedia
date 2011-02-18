@@ -432,6 +432,7 @@ class ImportManager(Manager):
             to_dbus_stats(self.doc['stats'])
         )
         self.doc = None
+        self.db.compact()
 
     def on_terminate(self, key):
         super(ImportManager, self).on_terminate(key)
