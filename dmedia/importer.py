@@ -118,7 +118,7 @@ def files_iter(base):
     error to be interpreted as there being no files on the card!
     """
     if path.isfile(base):
-        yield base
+        yield (base, path.getsize(base))
         return
     names = sorted(os.listdir(base))
     dirs = []
@@ -127,12 +127,12 @@ def files_iter(base):
         if path.islink(fullname):
             continue
         if path.isfile(fullname):
-            yield fullname
+            yield (fullname, path.getsize(fullname))
         elif path.isdir(fullname):
             dirs.append(fullname)
     for fullname in dirs:
-        for f in files_iter(fullname):
-            yield f
+        for tup in files_iter(fullname):
+            yield tup
 
 
 def create_batch(machine_id=None):
@@ -294,7 +294,7 @@ class Importer(object):
         return (action, doc)
 
     def import_all_iter(self):
-        for src in self.scanfiles():
+        for (src, size) in self.scanfiles():
             (action, doc) = self.import_file(src)
             if action != 'empty':
                 yield (src, action, doc)
@@ -302,13 +302,11 @@ class Importer(object):
     def finalize(self):
         files = self.scanfiles()
         assert len(files) == len(self.__imported)
-        assert set(files) == set(self.__imported)
+        assert set(t[0] for t in files) == set(self.__imported)
         s = self.get_stats()
         self.doc.update(s)
         self.doc['time_end'] = time.time()
         self.save()
-        total = sum(s[k]['count'] for k in s) + len(self.doc['empty_files'])
-        assert total == len(files)
         return s
 
 

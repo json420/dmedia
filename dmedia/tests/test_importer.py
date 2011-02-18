@@ -105,13 +105,14 @@ class test_functions(TestCase):
         f = importer.files_iter
         tmp = TempDir()
         files = []
-        for args in relpaths:
-            p = tmp.touch('subdir', *args)
-            files.append(p)
+        for (i, args) in enumerate(relpaths):
+            content = 'a' * (2 ** i)
+            p = tmp.write(content, 'subdir', *args)
+            files.append((p, len(content)))
 
         # Test when base is a file:
-        for p in files:
-            self.assertEqual(list(f(p)), [p])
+        for (p, s) in files:
+            self.assertEqual(list(f(p)), [(p, s)])
 
         # Test importing from tmp.path:
         self.assertEqual(list(f(tmp.path)), files)
@@ -316,9 +317,10 @@ class test_Importer(CouchCase):
         tmp = TempDir()
         inst = self.new(tmp.path)
         files = []
-        for args in relpaths:
-            p = tmp.touch('subdir', *args)
-            files.append(p)
+        for (i, args) in enumerate(relpaths):
+            content = 'a' * (2 ** i)
+            p = tmp.write(content, 'subdir', *args)
+            files.append((p, len(content)))
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
         self.assertTrue(inst.scanfiles() is got)
