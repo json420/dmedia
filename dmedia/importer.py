@@ -246,7 +246,7 @@ class Importer(object):
         fp = safe_open(src, 'rb')
         stat = os.fstat(fp.fileno())
         if stat.st_size == 0:
-            return ('empty', {'mtime': stat.st_mtime})
+            return ('empty', None)
 
         name = path.basename(src)
         (root, ext) = normalize_ext(name)
@@ -314,10 +314,7 @@ class Importer(object):
         try:
             (action, doc) = self._import_file(src)
             if action == 'empty':
-                entry = {
-                    'mtime': doc['mtime'],
-                    'src': src,
-                }
+                entry = src
             elif action == 'skipped':
                 entry = {
                     'mtime': doc['mtime'],

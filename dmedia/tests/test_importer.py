@@ -476,7 +476,7 @@ class test_Importer(CouchCase):
         src3 = tmp.touch('DCIM', '100EOS5D2', 'foo.MOV')
         (action, doc) = inst._import_file(src3)
         self.assertEqual(action, 'empty')
-        self.assertEqual(doc, {'mtime': path.getmtime(src3)})
+        self.assertEqual(doc, None)
 
     def test_import_file(self):
         """
@@ -632,10 +632,7 @@ class test_Importer(CouchCase):
 
         (action, empty1) = inst.import_file(emp1, 17)
         self.assertEqual(action, 'empty')
-        self.assertEqual(empty1, {
-            'src': emp1,
-            'mtime': path.getmtime(emp1),
-        })
+        self.assertEqual(empty1, emp1)
         self.assertEqual(
             inst.doc['log']['empty'],
             [empty1]
@@ -647,10 +644,7 @@ class test_Importer(CouchCase):
 
         (action, empty2) = inst.import_file(emp2, 17)
         self.assertEqual(action, 'empty')
-        self.assertEqual(empty2, {
-            'src': emp2,
-            'mtime': path.getmtime(emp2),
-        })
+        self.assertEqual(empty2, emp2)
         self.assertEqual(
             inst.doc['log']['empty'],
             [empty1, empty2]
