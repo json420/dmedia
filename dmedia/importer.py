@@ -224,9 +224,13 @@ class Importer(object):
     def scanfiles(self):
         assert self.pairs is None
         self.pairs = tuple(files_iter(self.base))
-        self.doc['considered'] = [
+        self.doc['log']['considered'] = [
             {'src': src, 'bytes': size} for (src, size) in self.pairs
         ]
+        total_bytes = sum(size for (src, size) in self.pairs)
+        self.doc['stats']['considered'] = {
+            'count': len(self.pairs), 'bytes': total_bytes
+        }
         self.save()
         return self.pairs
 
@@ -328,6 +332,8 @@ class Importer(object):
             self.doc['stats'][action]['bytes'] += size
         else:
             self.doc['stats'][action]['bytes'] += doc['bytes']
+        if action == 'error':
+            self.save()
         return (action, entry)
 
     def import_all_iter(self):

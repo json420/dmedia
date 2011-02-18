@@ -339,7 +339,7 @@ class test_Importer(CouchCase):
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
         self.assertEqual(
-            inst.db[inst._id]['considered'],
+            inst.db[inst._id]['log']['considered'],
             [{'src': src, 'bytes': size} for (src, size) in files]
         )
 
@@ -688,6 +688,10 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(inst.finalize(),
              {
+                'considered': {
+                    'count': 5,
+                    'bytes': path.getsize(src1) * 2 + path.getsize(src2),
+                },
                 'imported': {
                     'count': 2,
                     'bytes': path.getsize(src1) + path.getsize(src2),
@@ -780,6 +784,7 @@ class test_ImportWorker(CouchCase):
                 signal='finished',
                 args=(base, _id,
                     dict(
+                        considered={'count': 3, 'bytes': (mov_size*2 + thm_size)},
                         imported={'count': 2, 'bytes': (mov_size + thm_size)},
                         skipped={'count': 1, 'bytes': mov_size},
                         empty={'count': 0, 'bytes': 0},
