@@ -204,7 +204,7 @@ class Importer(object):
         except couchdb.ResourceConflict:
             pass
 
-        self.pairs = None
+        self.filetuples = None
         self._processed = []
         self.doc = None
         self._id = None
@@ -229,17 +229,18 @@ class Importer(object):
         return self._id
 
     def scanfiles(self):
-        assert self.pairs is None
-        self.pairs = tuple(t[:2] for t in files_iter(self.base))
+        assert self.filetuples is None
+        self.filetuples = tuple(files_iter(self.base))
         self.doc['log']['considered'] = [
-            {'src': src, 'bytes': size} for (src, size) in self.pairs
+            {'src': src, 'bytes': size, 'mtime': mtime}
+            for (src, size, mtime) in self.filetuples
         ]
-        total_bytes = sum(size for (src, size) in self.pairs)
+        total_bytes = sum(size for (src, size, mtime) in self.filetuples)
         self.doc['stats']['considered'] = {
-            'count': len(self.pairs), 'bytes': total_bytes
+            'count': len(self.filetuples), 'bytes': total_bytes
         }
         self.save()
-        return self.pairs
+        return self.filetuples
 
     def _import_file(self, src):
         fp = safe_open(src, 'rb')
@@ -340,22 +341,19 @@ class Importer(object):
             }
         self.doc['log'][action].append(entry)
         self.doc['stats'][action]['count'] += 1
-        if action in ('empty', 'error'):
-            self.doc['stats'][action]['bytes'] += size
-        else:
-            self.doc['stats'][action]['bytes'] += doc['bytes']
+        self.doc['stats'][action]['bytes'] += size
         if action == 'error':
             self.save()
         return (action, entry)
 
     def import_all_iter(self):
-        for (src, size) in self.pairs:
+        for (src, size, mtime) in self.filetuples:
             (action, entry) = self.import_file(src, size)
             yield (src, action)
 
     def finalize(self):
-        assert len(self.pairs) == len(self._processed)
-        assert list(t[0] for t in self.pairs) == self._processed
+        assert len(self.filetuples) == len(self._processed)
+        assert list(t[0] for t in self.filetuples) == self._processed
         self.doc['time_end'] = time.time()
         self.save()
         return self.doc['stats']

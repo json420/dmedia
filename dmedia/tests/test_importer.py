@@ -342,12 +342,20 @@ class test_Importer(CouchCase):
         for (i, args) in enumerate(relpaths):
             content = 'a' * (2 ** i)
             p = tmp.write(content, 'subdir', *args)
-            files.append((p, len(content)))
+            files.append((p, len(content), path.getmtime(p)))
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
         self.assertEqual(
             inst.db[inst._id]['log']['considered'],
-            [{'src': src, 'bytes': size} for (src, size) in files]
+            [{'src': src, 'bytes': size, 'mtime': mtime}
+            for (src, size, mtime) in files]
+        )
+        self.assertEqual(
+            inst.db[inst._id]['stats']['considered'],
+            {
+                'count': len(files),
+                'bytes': sum(t[1] for t in files),
+            }
         )
 
     def test_import_file_private(self):
