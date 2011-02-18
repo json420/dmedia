@@ -220,7 +220,7 @@ response like this:
 
 Notice that now that all the leaves have been imported, the response JSON has
 the ``"chash"`` key... the top-hash, or overall content-hash of the file.  At
-this point you complete the import.
+this point you can finish the import.
 
 
 Finish the Import
