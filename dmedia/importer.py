@@ -207,6 +207,7 @@ class Importer(object):
         """
         Create the initial import record, return that record's ID.
         """
+        assert self._id is None
         self.doc = create_import(self.base,
             batch_id=self.batch_id,
             machine_id=self.metastore.machine_id,
@@ -223,6 +224,10 @@ class Importer(object):
     def scanfiles(self):
         if self.__files is None:
             self.__files = tuple(files_iter(self.base))
+            self.doc['considered'] = [
+                {'src': src, 'bytes': size} for (src, size) in self.__files
+            ]
+            self.save()
         return self.__files
 
     def __import_file(self, src):

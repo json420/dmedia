@@ -316,6 +316,7 @@ class test_Importer(CouchCase):
     def test_scanfiles(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
+        inst.start()
         files = []
         for (i, args) in enumerate(relpaths):
             content = 'a' * (2 ** i)
@@ -324,6 +325,10 @@ class test_Importer(CouchCase):
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
         self.assertTrue(inst.scanfiles() is got)
+        self.assertEqual(
+            inst.db[inst._id]['considered'],
+            [{'src': src, 'bytes': size} for (src, size) in files]
+        )
 
     def test_import_file(self):
         tmp = TempDir()
