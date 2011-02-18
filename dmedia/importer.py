@@ -361,23 +361,22 @@ class ImportManager(Manager):
         if not isregistered(ImportWorker):
             register(ImportWorker)
 
-    def _sync(self, doc):
-        _id = doc['_id']
-        self.db[_id] = doc
-        return self.db[_id]
+    def save(self, doc):
+        self.db.save(doc)
+        return doc
 
     def _start_batch(self):
         assert self._batch is None
         assert self._workers == {}
         self._total = 0
         self._completed = 0
-        self._batch = self._sync(create_batch(self.metastore.machine_id))
+        self._batch = self.save(create_batch(self.metastore.machine_id))
         self.emit('BatchStarted', self._batch['_id'])
 
     def _finish_batch(self):
         assert self._workers == {}
         self._batch['time_end'] = time.time()
-        self._batch = self._sync(self._batch)
+        self._batch = self.save(self._batch)
         self.emit('BatchFinished', self._batch['_id'],
             to_dbus_stats(self._batch)
         )
@@ -390,7 +389,7 @@ class ImportManager(Manager):
 
     def on_started(self, key, import_id):
         self._batch['imports'].append(import_id)
-        self._batch = self._sync(self._batch)
+        self._batch = self.save(self._batch)
         self.emit('ImportStarted', key, import_id)
 
     def on_count(self, key, import_id, total):
@@ -403,7 +402,7 @@ class ImportManager(Manager):
 
     def on_finished(self, key, import_id, stats):
         accumulate_stats(self._batch, stats)
-        self._batch = self._sync(self._batch)
+        self._batch = self.save(self._batch)
         self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
 
     def get_batch_progress(self):
