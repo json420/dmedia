@@ -202,8 +202,7 @@ class Importer(object):
                 'bytes': 0,
             },
         }
-        self.__files = None
-        self.__imported = []
+        self.pairs = None
         self._processed = []
         self.doc = None
         self._id = None
@@ -228,81 +227,13 @@ class Importer(object):
         return self._id
 
     def scanfiles(self):
-        if self.__files is None:
-            self.__files = tuple(files_iter(self.base))
-            self.doc['considered'] = [
-                {'src': src, 'bytes': size} for (src, size) in self.__files
-            ]
-            self.save()
-        return self.__files
-
-    def __import_file(self, src):
-        fp = safe_open(src, 'rb')
-        stat = os.fstat(fp.fileno())
-        if stat.st_size == 0:
-            return ('empty', None)
-
-        quickid = quick_id(fp)
-        ids = list(self.metastore.by_quickid(quickid))
-        if ids:
-            # FIXME: Even if this is a duplicate, we should check if the file
-            # is stored on this machine, and if not copy into the FileStore.
-            doc = self.metastore.db[ids[0]]
-            return ('skipped', doc)
-        basename = path.basename(src)
-        (root, ext) = normalize_ext(basename)
-        # FIXME: We need to handle the (rare) case when a DuplicateFile
-        # exception is raised by FileStore.import_file()
-        (chash, leaves) = self.filestore.import_file(fp, ext)
-        stat = os.fstat(fp.fileno())
-
-        ts = time.time()
-        doc = {
-            '_id': chash,
-            '_attachments': {
-                'leaves': {
-                    'data': b64encode(pack_leaves(leaves)),
-                    'content_type': 'application/octet-stream',
-                }
-            },
-            'type': 'dmedia/file',
-            'time': ts,
-            'bytes': stat.st_size,
-            'ext': ext,
-            'origin': 'user',
-            'stored': {
-                self.filestore._id: {
-                    'copies': 1,
-                    'time': ts,
-                },
-            },
-
-            'qid': quickid,
-            'import_id': self._id,
-            'mtime': stat.st_mtime,
-            'basename': basename,
-            'dirname': path.relpath(path.dirname(src), self.base),
-        }
-        if ext:
-            doc['content_type'] = mimetypes.types_map.get('.' + ext)
-        if self.extract:
-            merge_metadata(src, doc)
-        (_id, _rev) = self.db.save(doc)
-        assert _id == chash
-        return ('imported', doc)
-
-    def import_file(self, src):
-        (action, doc) = self.__import_file(src)
-        self.__imported.append(src)
-        if action == 'empty':
-            self.doc['empty_files'].append(
-                path.relpath(src, self.base)
-            )
-            self.save()
-        else:
-            self._stats[action]['count'] += 1
-            self._stats[action]['bytes'] += doc['bytes']
-        return (action, doc)
+        assert self.pairs is None
+        self.pairs = tuple(files_iter(self.base))
+        self.doc['considered'] = [
+            {'src': src, 'bytes': size} for (src, size) in self.pairs
+        ]
+        self.save()
+        return self.pairs
 
     def _import_file(self, src):
         fp = safe_open(src, 'rb')
@@ -371,7 +302,7 @@ class Importer(object):
         assert _id == chash
         return (action, doc)
 
-    def import_file2(self, src, size=None):
+    def import_file(self, src, size=None):
         self._processed.append(src)
         try:
             (action, doc) = self._import_file(src)
@@ -400,15 +331,13 @@ class Importer(object):
         return (action, entry)
 
     def import_all_iter(self):
-        for (src, size) in self.scanfiles():
-            (action, doc) = self.import_file(src)
-            if action != 'empty':
-                yield (src, action, doc)
+        for (src, size) in self.pairs:
+            (action, entry) = self.import_file(src, size)
+            yield (src, action)
 
     def finalize(self):
-        files = self.scanfiles()
-        assert len(files) == len(self.__imported)
-        assert set(t[0] for t in files) == set(self.__imported)
+        assert len(self.pairs) == len(self._processed)
+        assert list(t[0] for t in self.pairs) == self._processed
         self.doc.update(self._stats)
         self.doc['time_end'] = time.time()
         self.save()
@@ -428,12 +357,11 @@ class ImportWorker(Worker):
         self.emit('count', import_id, total)
 
         c = 1
-        for (src, action, doc) in adapter.import_all_iter():
+        for (src, action) in adapter.import_all_iter():
             self.emit('progress', import_id, c, total,
                 dict(
                     action=action,
                     src=src,
-                    _id=doc['_id'],
                 )
             )
             c += 1
