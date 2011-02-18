@@ -194,21 +194,26 @@ class Importer(object):
         }
         self.__files = None
         self.__imported = []
-        self._import = None
-        self._import_id = None
+        self.doc = None
+        self._id = None
+
+    def save(self):
+        """
+        Save current import document to CouchDB.
+        """
+        self.db.save(self.doc)
 
     def start(self):
         """
         Create the initial import record, return that record's ID.
         """
-        doc = create_import(self.base,
+        self.doc = create_import(self.base,
             batch_id=self.batch_id,
             machine_id=self.metastore.machine_id,
         )
-        self._import = doc
-        self._import_id = doc['_id']
-        self.metastore.db.save(doc)
-        return self._import_id
+        self._id = self.doc['_id']
+        self.save()
+        return self._id
 
     def get_stats(self):
         return dict(
@@ -262,7 +267,7 @@ class Importer(object):
             },
 
             'qid': quickid,
-            'import_id': self._import_id,
+            'import_id': self._id,
             'mtime': stat.st_mtime,
             'basename': basename,
             'dirname': path.relpath(path.dirname(src), self.base),
@@ -279,10 +284,10 @@ class Importer(object):
         (action, doc) = self.__import_file(src)
         self.__imported.append(src)
         if action == 'empty':
-            self._import['empty_files'].append(
+            self.doc['empty_files'].append(
                 path.relpath(src, self.base)
             )
-            self.db.save(self._import)
+            self.save()
         else:
             self.__stats[action]['count'] += 1
             self.__stats[action]['bytes'] += doc['bytes']
@@ -299,10 +304,10 @@ class Importer(object):
         assert len(files) == len(self.__imported)
         assert set(files) == set(self.__imported)
         s = self.get_stats()
-        self._import.update(s)
-        self._import['time_end'] = time.time()
-        self.db.save(self._import)
-        total = sum(s[k]['count'] for k in s) + len(self._import['empty_files'])
+        self.doc.update(s)
+        self.doc['time_end'] = time.time()
+        self.save()
+        total = sum(s[k]['count'] for k in s) + len(self.doc['empty_files'])
         assert total == len(files)
         return s
 

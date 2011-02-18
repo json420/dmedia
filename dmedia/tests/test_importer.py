@@ -265,13 +265,13 @@ class test_Importer(CouchCase):
     def test_start(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
-        self.assertTrue(inst._import is None)
+        self.assertTrue(inst.doc is None)
         _id = inst.start()
         self.assertEqual(len(_id), 24)
         store = MetaStore(dbname=self.dbname)
-        self.assertEqual(inst._import, store.db[_id])
+        self.assertEqual(inst.doc, store.db[_id])
         self.assertEqual(
-            set(inst._import),
+            set(inst.doc),
             set([
                 '_id',
                 '_rev',
@@ -283,13 +283,13 @@ class test_Importer(CouchCase):
                 'empty_files',
             ])
         )
-        self.assertEqual(inst._import['batch_id'], self.batch_id)
+        self.assertEqual(inst.doc['batch_id'], self.batch_id)
         self.assertEqual(
-            inst._import['machine_id'],
+            inst.doc['machine_id'],
             inst.metastore.machine_id
         )
-        self.assertEqual(inst._import['base'], tmp.path)
-        self.assertEqual(inst._import['empty_files'], [])
+        self.assertEqual(inst.doc['base'], tmp.path)
+        self.assertEqual(inst.doc['empty_files'], [])
 
     def test_get_stats(self):
         tmp = TempDir()
@@ -391,7 +391,7 @@ class test_Importer(CouchCase):
         self.assertEqual(doc['bytes'], size)
         self.assertEqual(doc['ext'], 'mov')
 
-        self.assertEqual(doc['import_id'], inst._import_id)
+        self.assertEqual(doc['import_id'], inst._id)
         self.assertEqual(doc['qid'], mov_qid)
         self.assertEqual(doc['mtime'], path.getmtime(src1))
         self.assertEqual(doc['basename'], 'MVI_5751.MOV')
@@ -448,7 +448,7 @@ class test_Importer(CouchCase):
             }
         )
         self.assertEqual(
-            inst.db[inst._import_id]['empty_files'],
+            inst.db[inst._id]['empty_files'],
             [path.relpath(src3, tmp.path)]
         )
 
