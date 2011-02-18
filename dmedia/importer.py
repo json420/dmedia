@@ -29,17 +29,21 @@ from os import path
 import mimetypes
 import time
 from base64 import b64encode
+import logging
+
 import couchdb
+
 from .util import random_id
-from .workers import Worker, Manager, register, isregistered
+from .errors import DuplicateFile
+from .workers import Worker, Manager, register, isregistered, exception_name
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
 from .metastore import MetaStore
 from .extractor import merge_metadata
 
+
 mimetypes.init()
-
-
 DOTDIR = '.dmedia'
+log = logging.getLogger()
 
 
 def normalize_ext(name):
@@ -162,6 +166,12 @@ def create_import(base, batch_id=None, machine_id=None):
         'machine_id': machine_id,
         'base': base,
         'empty_files': [],
+        'log': {
+            'imported': [],
+            'skipped': [],
+            'empty': [],
+            'error': [],
+        },
     }
 
 
@@ -292,6 +302,88 @@ class Importer(object):
             self._stats[action]['count'] += 1
             self._stats[action]['bytes'] += doc['bytes']
         return (action, doc)
+
+    def _import_file(self, src):
+        fp = safe_open(src, 'rb')
+        stat = os.fstat(fp.fileno())
+        if stat.st_size == 0:
+            return ('empty', {'mtime': stat.st_mtime})
+
+        basename = path.basename(src)
+        (root, ext) = normalize_ext(basename)
+        try:
+            (chash, leaves) = self.filestore.import_file(fp, ext)
+            action = 'imported'
+        except DuplicateFile as e:
+            action = 'skipped'
+            assert e.tmp.startswith(self.filestore.join('imports'))
+            os.remove(e.tmp)
+
+        try:
+            doc = self.db[chash]
+            return (action, doc)
+        except couchdb.ResourceNotFound as e:
+            pass
+
+        ts = time.time()
+        doc = {
+            '_id': chash,
+            '_attachments': {
+                'leaves': {
+                    'data': b64encode(pack_leaves(leaves)),
+                    'content_type': 'application/octet-stream',
+                }
+            },
+            'type': 'dmedia/file',
+            'time': ts,
+            'bytes': stat.st_size,
+            'ext': ext,
+            'origin': 'user',
+            'stored': {
+                self.filestore._id: {
+                    'copies': 1,
+                    'time': ts,
+                },
+            },
+
+            'import_id': self._id,
+            'mtime': stat.st_mtime,
+            'name': basename,
+            'dir': path.relpath(path.dirname(src), self.base),
+        }
+        if ext:
+            doc['content_type'] = mimetypes.types_map.get('.' + ext)
+        if self.extract:
+            merge_metadata(src, doc)
+        (_id, _rev) = self.metastore.db.save(doc)
+        assert _id == chash
+        return ('imported', doc)
+
+    def import_file2(self, src, size=None):
+        try:
+            (action, doc) = self._import_file(src)
+            if action == 'empty':
+                entry = {
+                    'src': src,
+                    'mtime': doc['mtime'],
+                }
+            else:
+                entry = {
+                    'src': src,
+                    'id': doc['_id'],
+                    'mtime': doc['mtime'],
+                    'bytes': doc['bytes']
+                }
+        except Exception as e:
+            log.exception('Error importing %r', src)
+            action = 'error'
+            entry = {
+                'src': src,
+                'bytes': size,
+                'errname': exception_name(e),
+                'errmsg': str(e),
+            }
+        self.doc['log']['action'].append(entry)
 
     def import_all_iter(self):
         for (src, size) in self.scanfiles():

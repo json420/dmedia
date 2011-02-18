@@ -175,6 +175,7 @@ class test_functions(TestCase):
             'batch_id',
             'machine_id',
             'empty_files',
+            'log',
         ])
 
         doc = f(base, batch_id=batch_id, machine_id=machine_id)
@@ -200,6 +201,15 @@ class test_functions(TestCase):
         self.assertEqual(doc['batch_id'], None)
         self.assertEqual(doc['machine_id'], None)
         self.assertEqual(doc['empty_files'], [])
+        self.assertEqual(
+            doc['log'],
+            {
+                'imported': [],
+                'skipped': [],
+                'empty': [],
+                'error': [],
+            }
+        )
 
     def test_to_dbus_stats(self):
         f = importer.to_dbus_stats
@@ -282,6 +292,7 @@ class test_Importer(CouchCase):
                 'batch_id',
                 'machine_id',
                 'empty_files',
+                'log',
             ])
         )
         self.assertEqual(inst.doc['batch_id'], self.batch_id)
@@ -291,6 +302,15 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(inst.doc['base'], tmp.path)
         self.assertEqual(inst.doc['empty_files'], [])
+        self.assertEqual(
+            inst.doc['log'],
+            {
+                'imported': [],
+                'skipped': [],
+                'empty': [],
+                'error': [],
+            }
+        )
 
     def test_scanfiles(self):
         tmp = TempDir()
