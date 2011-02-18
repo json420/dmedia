@@ -182,7 +182,7 @@ class Importer(object):
         except couchdb.ResourceConflict:
             pass
 
-        self.__stats = {
+        self._stats = {
             'imported': {
                 'count': 0,
                 'bytes': 0,
@@ -215,11 +215,6 @@ class Importer(object):
         self._id = self.doc['_id']
         self.save()
         return self._id
-
-    def get_stats(self):
-        return dict(
-            (k, dict(v)) for (k, v) in self.__stats.iteritems()
-        )
 
     def scanfiles(self):
         if self.__files is None:
@@ -294,8 +289,8 @@ class Importer(object):
             )
             self.save()
         else:
-            self.__stats[action]['count'] += 1
-            self.__stats[action]['bytes'] += doc['bytes']
+            self._stats[action]['count'] += 1
+            self._stats[action]['bytes'] += doc['bytes']
         return (action, doc)
 
     def import_all_iter(self):
@@ -308,11 +303,10 @@ class Importer(object):
         files = self.scanfiles()
         assert len(files) == len(self.__imported)
         assert set(t[0] for t in files) == set(self.__imported)
-        s = self.get_stats()
-        self.doc.update(s)
+        self.doc.update(self._stats)
         self.doc['time_end'] = time.time()
         self.save()
-        return s
+        return self._stats
 
 
 class ImportWorker(Worker):

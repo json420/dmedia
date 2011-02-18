@@ -292,27 +292,6 @@ class test_Importer(CouchCase):
         self.assertEqual(inst.doc['base'], tmp.path)
         self.assertEqual(inst.doc['empty_files'], [])
 
-    def test_get_stats(self):
-        tmp = TempDir()
-        inst = self.new(tmp.path)
-        one = inst.get_stats()
-        self.assertEqual(one,
-             {
-                'imported': {
-                    'count': 0,
-                    'bytes': 0,
-                },
-                'skipped': {
-                    'count': 0,
-                    'bytes': 0,
-                },
-            }
-        )
-        two = inst.get_stats()
-        self.assertFalse(one is two)
-        self.assertFalse(one['imported'] is two['imported'])
-        self.assertFalse(one['skipped'] is two['skipped'])
-
     def test_scanfiles(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
@@ -405,7 +384,7 @@ class test_Importer(CouchCase):
         self.assertEqual(doc['dirname'], 'DCIM/100EOS5D2')
         self.assertEqual(doc['content_type'], 'video/quicktime')
 
-        self.assertEqual(inst.get_stats(),
+        self.assertEqual(inst._stats,
              {
                 'imported': {
                     'count': 1,
@@ -424,7 +403,7 @@ class test_Importer(CouchCase):
         doc2 = dict(wrapper)
         doc2['_attachments'] = doc['_attachments']
         self.assertEqual(doc2, doc)
-        self.assertEqual(inst.get_stats(),
+        self.assertEqual(inst._stats,
              {
                 'imported': {
                     'count': 1,
@@ -442,7 +421,7 @@ class test_Importer(CouchCase):
         (action, doc) = inst.import_file(src3)
         self.assertEqual(action, 'empty')
         self.assertEqual(doc, None)
-        self.assertEqual(inst.get_stats(),
+        self.assertEqual(inst._stats,
              {
                 'imported': {
                     'count': 1,
