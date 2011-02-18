@@ -312,14 +312,20 @@ class Importer(object):
             (action, doc) = self._import_file(src)
             if action == 'empty':
                 entry = {
-                    'src': src,
                     'mtime': doc['mtime'],
+                    'src': src,
+                }
+            elif action == 'skipped':
+                entry = {
+                    'mtime': doc['mtime'],
+                    'src': src,
+                    'id': doc['_id'],
+                    'bytes': doc['bytes']
                 }
             else:
                 entry = {
                     'src': src,
                     'id': doc['_id'],
-                    'mtime': doc['mtime'],
                     'bytes': doc['bytes']
                 }
         except Exception as e:

@@ -554,7 +554,6 @@ class test_Importer(CouchCase):
         self.assertEqual(imported1, {
             'src': src1,
             'id': mov_hash,
-            'mtime': path.getmtime(src1),
             'bytes': path.getsize(src1),
         })
         self.assertEqual(
@@ -571,7 +570,6 @@ class test_Importer(CouchCase):
         self.assertEqual(imported2, {
             'src': src2,
             'id': thm_hash,
-            'mtime': path.getmtime(src2),
             'bytes': path.getsize(src2),
         })
         self.assertEqual(
