@@ -335,7 +335,6 @@ class Importer(object):
             action = 'error'
             entry = {
                 'src': src,
-                'bytes': size,
                 'name': exception_name(e),
                 'msg': str(e),
             }

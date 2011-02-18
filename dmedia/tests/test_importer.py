@@ -488,7 +488,6 @@ class test_Importer(CouchCase):
         self.assertEqual(action, 'error')
         self.assertEqual(error1, {
             'src': nope1,
-            'bytes': 17,
             'name': 'AmbiguousPath',
             'msg': '%r resolves to %r' % (nope1, abspath),
         })
@@ -507,7 +506,6 @@ class test_Importer(CouchCase):
         self.assertEqual(action, 'error')
         self.assertEqual(error2, {
             'src': nope2,
-            'bytes': 18,
             'name': 'IOError',
             'msg': '[Errno 2] No such file or directory: %r' % nope2,
         })
@@ -528,7 +526,6 @@ class test_Importer(CouchCase):
             self.assertEqual(action, 'error')
             self.assertEqual(error3, {
                 'src': nope3,
-                'bytes': 19,
                 'name': 'IOError',
                 'msg': '[Errno 13] Permission denied: %r' % nope3,
             })
