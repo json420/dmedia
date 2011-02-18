@@ -335,7 +335,6 @@ class test_Importer(CouchCase):
         """
         tmp = TempDir()
         inst = self.new(tmp.path)
-
         inst.start()
 
         # Test that AmbiguousPath is raised:
@@ -435,16 +434,219 @@ class test_Importer(CouchCase):
         )
         self.assertEqual(inst.db[mov_hash]['stored'], doc['stored'])
 
+        # Test with existing doc but missing file:
+        old = inst.db[mov_hash]
+        inst.filestore.remove(mov_hash, 'mov')
+        (action, doc) = inst._import_file(src2)
+        self.assertEqual(action, 'imported')
+        self.assertEqual(doc['_rev'], old['_rev'])
+        self.assertEqual(doc['time'], old['time'])
+        self.assertEqual(inst.db[mov_hash], old)
+
         # Test with empty file:
         src3 = tmp.touch('DCIM', '100EOS5D2', 'foo.MOV')
         (action, doc) = inst._import_file(src3)
         self.assertEqual(action, 'empty')
         self.assertEqual(doc, {'mtime': path.getmtime(src3)})
 
+    def test_import_file2(self):
+        tmp = TempDir()
+        inst = self.new(tmp.path)
+        inst.start()
+
+        self.assertEqual(inst.doc['log']['error'], [])
+        self.assertEqual(inst._processed, [])
+
+        # Test that AmbiguousPath is raised:
+        nope1 = '/home/foo/.dmedia/../.ssh/id_rsa'
+        abspath = '/home/foo/.ssh/id_rsa'
+        (action, error1) = inst.import_file2(nope1)
+        self.assertEqual(action, 'error')
+        self.assertEqual(error1, {
+            'src': nope1,
+            'bytes': None,
+            'name': 'AmbiguousPath',
+            'msg': '%r resolves to %r' % (nope1, abspath),
+        })
+        self.assertEqual(
+            inst.doc['log']['error'],
+            [error1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1]
+        )
+
+        # Test that IOError propagates up with missing file
+        nope2 = tmp.join('nope.mov')
+        (action, error2) = inst.import_file2(nope2)
+        self.assertEqual(action, 'error')
+        self.assertEqual(error2, {
+            'src': nope2,
+            'bytes': None,
+            'name': 'IOError',
+            'msg': '[Errno 2] No such file or directory: %r' % nope2,
+        })
+        self.assertEqual(
+            inst.doc['log']['error'],
+            [error1, error2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2]
+        )
+
+        # Test that IOError propagates up with unreadable file
+        nope3 = tmp.touch('nope.mov')
+        os.chmod(nope3, 0o000)
+        try:
+            (action, error3) = inst.import_file2(nope3)
+            self.assertEqual(action, 'error')
+            self.assertEqual(error3, {
+                'src': nope3,
+                'bytes': None,
+                'name': 'IOError',
+                'msg': '[Errno 13] Permission denied: %r' % nope3,
+            })
+            self.assertEqual(
+                inst.doc['log']['error'],
+                [error1, error2, error3]
+            )
+            self.assertEqual(
+                inst._processed,
+                [nope1, nope2, nope3]
+            )
+        finally:
+            os.chmod(nope3, 0o600)
+
+
+        # Test with new files
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+        self.assertEqual(inst.doc['log']['imported'], [])
+
+        (action, imported1) = inst.import_file2(src1)
+        self.assertEqual(action, 'imported')
+        self.assertEqual(imported1, {
+            'src': src1,
+            'id': mov_hash,
+            'mtime': path.getmtime(src1),
+            'bytes': path.getsize(src1),
+        })
+        self.assertEqual(
+            inst.doc['log']['imported'],
+            [imported1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1]
+        )
+
+        (action, imported2) = inst.import_file2(src2)
+        self.assertEqual(action, 'imported')
+        self.assertEqual(imported2, {
+            'src': src2,
+            'id': thm_hash,
+            'mtime': path.getmtime(src2),
+            'bytes': path.getsize(src2),
+        })
+        self.assertEqual(
+            inst.doc['log']['imported'],
+            [imported1, imported2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2]
+        )
+
+        # Test with duplicate files
+        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5750.MOV')
+        dup2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5750.THM')
+        self.assertEqual(inst.doc['log']['skipped'], [])
+
+        (action, skipped1) = inst.import_file2(dup1)
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(skipped1, {
+            'src': dup1,
+            'id': mov_hash,
+            'mtime': path.getmtime(dup1),
+            'bytes': path.getsize(dup1),
+        })
+        self.assertEqual(
+            inst.doc['log']['skipped'],
+            [skipped1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1]
+        )
+
+        (action, skipped2) = inst.import_file2(dup2)
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(skipped2, {
+            'src': dup2,
+            'id': thm_hash,
+            'mtime': path.getmtime(dup2),
+            'bytes': path.getsize(dup2),
+        })
+        self.assertEqual(
+            inst.doc['log']['skipped'],
+            [skipped1, skipped2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1, dup2]
+        )
+
+        # Test with empty files
+        emp1 = tmp.touch('DCIM', '100EOS5D2', 'MVI_5759.MOV')
+        emp2 = tmp.touch('DCIM', '100EOS5D2', 'MVI_5759.THM')
+        self.assertEqual(inst.doc['log']['empty'], [])
+
+        (action, empty1) = inst.import_file2(emp1)
+        self.assertEqual(action, 'empty')
+        self.assertEqual(empty1, {
+            'src': emp1,
+            'mtime': path.getmtime(emp1),
+        })
+        self.assertEqual(
+            inst.doc['log']['empty'],
+            [empty1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1, dup2, emp1]
+        )
+
+        (action, empty2) = inst.import_file2(emp2)
+        self.assertEqual(action, 'empty')
+        self.assertEqual(empty2, {
+            'src': emp2,
+            'mtime': path.getmtime(emp2),
+        })
+        self.assertEqual(
+            inst.doc['log']['empty'],
+            [empty1, empty2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1, dup2, emp1, emp2]
+        )
+
+        # Check state of log one final time
+        self.assertEqual(
+            inst.doc['log'],
+            {
+                'imported': [imported1, imported2],
+                'skipped': [skipped1, skipped2],
+                'empty': [empty1, empty2],
+                'error': [error1, error2, error3],
+            }
+        )
+
     def test_import_file(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
-
         inst.start()
 
         # Test that AmbiguousPath is raised:

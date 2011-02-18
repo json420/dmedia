@@ -204,12 +204,13 @@ class Importer(object):
         }
         self.__files = None
         self.__imported = []
+        self._processed = []
         self.doc = None
         self._id = None
 
     def save(self):
         """
-        Save current import document to CouchDB.
+        Save current 'dmedia/import' document to CouchDB.
         """
         self.db.save(self.doc)
 
@@ -309,8 +310,8 @@ class Importer(object):
         if stat.st_size == 0:
             return ('empty', {'mtime': stat.st_mtime})
 
-        basename = path.basename(src)
-        (root, ext) = normalize_ext(basename)
+        name = path.basename(src)
+        (root, ext) = normalize_ext(name)
         try:
             (chash, leaves) = self.filestore.import_file(fp, ext)
             action = 'imported'
@@ -359,7 +360,7 @@ class Importer(object):
 
             'import_id': self._id,
             'mtime': stat.st_mtime,
-            'name': basename,
+            'name': name,
             'dir': path.relpath(path.dirname(src), self.base),
         }
         if ext:
@@ -371,6 +372,7 @@ class Importer(object):
         return (action, doc)
 
     def import_file2(self, src, size=None):
+        self._processed.append(src)
         try:
             (action, doc) = self._import_file(src)
             if action == 'empty':
@@ -391,10 +393,11 @@ class Importer(object):
             entry = {
                 'src': src,
                 'bytes': size,
-                'errname': exception_name(e),
-                'errmsg': str(e),
+                'name': exception_name(e),
+                'msg': str(e),
             }
-        self.doc['log']['action'].append(entry)
+        self.doc['log'][action].append(entry)
+        return (action, entry)
 
     def import_all_iter(self):
         for (src, size) in self.scanfiles():
