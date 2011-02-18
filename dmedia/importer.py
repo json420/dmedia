@@ -403,32 +403,35 @@ class ImportManager(Manager):
         self._dbname = dbname
         self.metastore = MetaStore(dbname=dbname)
         self.db = self.metastore.db
-        self._batch = None
+        self.doc = None
         self._total = 0
         self._completed = 0
         if not isregistered(ImportWorker):
             register(ImportWorker)
 
-    def save(self, doc):
-        self.db.save(doc)
-        return doc
+    def save(self):
+        """
+        Save current 'dmedia/batch' record to CouchDB.
+        """
+        self.db.save(self.doc)
 
     def _start_batch(self):
-        assert self._batch is None
+        assert self.doc is None
         assert self._workers == {}
         self._total = 0
         self._completed = 0
-        self._batch = self.save(create_batch(self.metastore.machine_id))
-        self.emit('BatchStarted', self._batch['_id'])
+        self.doc = create_batch(self.metastore.machine_id)
+        self.save()
+        self.emit('BatchStarted', self.doc['_id'])
 
     def _finish_batch(self):
         assert self._workers == {}
-        self._batch['time_end'] = time.time()
-        self._batch = self.save(self._batch)
-        self.emit('BatchFinished', self._batch['_id'],
-            to_dbus_stats(self._batch['stats'])
+        self.doc['time_end'] = time.time()
+        self.save()
+        self.emit('BatchFinished', self.doc['_id'],
+            to_dbus_stats(self.doc['stats'])
         )
-        self._batch = None
+        self.doc = None
 
     def on_terminate(self, key):
         super(ImportManager, self).on_terminate(key)
@@ -436,8 +439,8 @@ class ImportManager(Manager):
             self._finish_batch()
 
     def on_started(self, key, import_id):
-        self._batch['imports'].append(import_id)
-        self._batch = self.save(self._batch)
+        self.doc['imports'].append(import_id)
+        self.save()
         self.emit('ImportStarted', key, import_id)
 
     def on_count(self, key, import_id, total):
@@ -449,8 +452,8 @@ class ImportManager(Manager):
         self.emit('ImportProgress', key, import_id, completed, total, info)
 
     def on_finished(self, key, import_id, stats):
-        accumulate_stats(self._batch['stats'], stats)
-        self._batch = self.save(self._batch)
+        accumulate_stats(self.doc['stats'], stats)
+        self.save()
         self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
 
     def get_batch_progress(self):
@@ -464,7 +467,7 @@ class ImportManager(Manager):
             if len(self._workers) == 0:
                 self._start_batch()
             return self.do('ImportWorker', base,
-                self._batch['_id'], base, extract, self._dbname
+                self.doc['_id'], base, extract, self._dbname
             )
 
     def list_imports(self):

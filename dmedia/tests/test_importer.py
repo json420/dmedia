@@ -822,7 +822,7 @@ class test_ImportManager(CouchCase):
         inst._start_batch()
         self.assertEqual(inst._completed, 0)
         self.assertEqual(inst._total, 0)
-        batch = inst._batch
+        batch = inst.doc
         batch_id = batch['_id']
         self.assertTrue(isinstance(batch, dict))
         self.assertEqual(
@@ -854,7 +854,7 @@ class test_ImportManager(CouchCase):
         callback = DummyCallback()
         inst = self.klass(callback, self.dbname)
         batch_id = random_id()
-        inst._batch = dict(
+        inst.doc = dict(
             _id=batch_id,
             stats=dict(
                 imported={'count': 17, 'bytes': 98765},
@@ -870,7 +870,7 @@ class test_ImportManager(CouchCase):
         # Check that it fires signal correctly
         inst._workers.clear()
         inst._finish_batch()
-        self.assertEqual(inst._batch, None)
+        self.assertEqual(inst.doc, None)
         stats = dict(
             imported=17,
             imported_bytes=98765,
@@ -901,7 +901,7 @@ class test_ImportManager(CouchCase):
         inst = self.klass(callback, self.dbname)
         self.assertEqual(callback.messages, [])
         inst._start_batch()
-        batch_id = inst._batch['_id']
+        batch_id = inst.doc['_id']
         self.assertEqual(inst.db[batch_id]['imports'], [])
         self.assertEqual(
             callback.messages,
@@ -1009,7 +1009,7 @@ class test_ImportManager(CouchCase):
         callback = DummyCallback()
         inst = self.klass(callback, self.dbname)
         batch_id = random_id()
-        inst._batch = dict(
+        inst.doc = dict(
             _id=batch_id,
             stats=dict(
                 imported={'count': 0, 'bytes': 0},
@@ -1038,16 +1038,16 @@ class test_ImportManager(CouchCase):
             ]
         )
         self.assertEqual(
-            set(inst._batch),
+            set(inst.doc),
             set(['_id', '_rev', 'stats'])
         )
-        self.assertEqual(inst._batch['_id'], batch_id)
+        self.assertEqual(inst.doc['_id'], batch_id)
         self.assertEqual(
-            inst._batch['stats']['imported'],
+            inst.doc['stats']['imported'],
             {'count': 17, 'bytes': 98765}
         )
         self.assertEqual(
-            inst._batch['stats']['skipped'],
+            inst.doc['stats']['skipped'],
             {'count': 3, 'bytes': 12345}
         )
 
@@ -1079,16 +1079,16 @@ class test_ImportManager(CouchCase):
             ]
         )
         self.assertEqual(
-            set(inst._batch),
+            set(inst.doc),
             set(['_id', '_rev', 'stats'])
         )
-        self.assertEqual(inst._batch['_id'], batch_id)
+        self.assertEqual(inst.doc['_id'], batch_id)
         self.assertEqual(
-            inst._batch['stats']['imported'],
+            inst.doc['stats']['imported'],
             {'count': 17 + 18, 'bytes': 98765 + 9876}
         )
         self.assertEqual(
-            inst._batch['stats']['skipped'],
+            inst.doc['stats']['skipped'],
             {'count': 3 + 5, 'bytes': 12345 + 1234}
         )
 
