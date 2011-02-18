@@ -286,7 +286,7 @@ class Importer(object):
             doc['content_type'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
-        (_id, _rev) = self.metastore.db.save(doc)
+        (_id, _rev) = self.db.save(doc)
         assert _id == chash
         return ('imported', doc)
 
@@ -315,12 +315,23 @@ class Importer(object):
             (chash, leaves) = self.filestore.import_file(fp, ext)
             action = 'imported'
         except DuplicateFile as e:
+            chash = e.chash
+            leaves = e.leaves
             action = 'skipped'
             assert e.tmp.startswith(self.filestore.join('imports'))
+            # FIXME: We should really probably move this into duplicates/ or
+            # something and not delete till we verify integrity of what is
+            # already in the filestore.
             os.remove(e.tmp)
 
         try:
             doc = self.db[chash]
+            if self.filestore._id not in doc['stored']:
+                doc['stored'][self.filestore._id] =  {
+                    'copies': 1,
+                    'time': time.time(),
+                }
+                self.db.save(doc)
             return (action, doc)
         except couchdb.ResourceNotFound as e:
             pass
@@ -355,9 +366,9 @@ class Importer(object):
             doc['content_type'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
-        (_id, _rev) = self.metastore.db.save(doc)
+        (_id, _rev) = self.db.save(doc)
         assert _id == chash
-        return ('imported', doc)
+        return (action, doc)
 
     def import_file2(self, src, size=None):
         try:

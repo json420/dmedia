@@ -329,6 +329,118 @@ class test_Importer(CouchCase):
             [{'src': src, 'bytes': size} for (src, size) in files]
         )
 
+    def test_import_file_private(self):
+        """
+        Test the `Importer._import_file()` method.
+        """
+        tmp = TempDir()
+        inst = self.new(tmp.path)
+
+        inst.start()
+
+        # Test that AmbiguousPath is raised:
+        traversal = '/home/foo/.dmedia/../.ssh/id_rsa'
+        e = raises(AmbiguousPath, inst._import_file, traversal)
+        self.assertEqual(e.pathname, traversal)
+        self.assertEqual(e.abspath, '/home/foo/.ssh/id_rsa')
+
+        # Test that IOError propagates up with missing file
+        nope = tmp.join('nope.mov')
+        e = raises(IOError, inst._import_file, nope)
+        self.assertEqual(
+            str(e),
+            '[Errno 2] No such file or directory: %r' % nope
+        )
+
+        # Test that IOError propagates up with unreadable file
+        nope = tmp.touch('nope.mov')
+        os.chmod(nope, 0o000)
+        e = raises(IOError, inst._import_file, nope)
+        self.assertEqual(
+            str(e),
+            '[Errno 13] Permission denied: %r' % nope
+        )
+        os.chmod(nope, 0o600)
+
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        src2 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'duplicate.MOV')
+
+        # Test with new file
+        size = path.getsize(src1)
+        (action, doc) = inst._import_file(src1)
+
+        self.assertEqual(action, 'imported')
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                '_rev',
+                '_attachments',
+                'type',
+                'time',
+                'bytes',
+                'ext',
+                'origin',
+                'stored',
+
+                'import_id',
+                'mtime',
+                'name',
+                'dir',
+                'content_type',
+            ])
+        )
+        self.assertEqual(schema.check_dmedia_file(doc), None)
+
+        self.assertEqual(doc['_id'], mov_hash)
+        self.assertEqual(doc['_attachments'], {'leaves': mov_att})
+        self.assertEqual(doc['type'], 'dmedia/file')
+        self.assertTrue(doc['time'] <= time.time())
+        self.assertEqual(doc['bytes'], size)
+        self.assertEqual(doc['ext'], 'mov')
+
+        self.assertEqual(doc['import_id'], inst._id)
+        self.assertEqual(doc['mtime'], path.getmtime(src1))
+        self.assertEqual(doc['name'], 'MVI_5751.MOV')
+        self.assertEqual(doc['dir'], 'DCIM/100EOS5D2')
+        self.assertEqual(doc['content_type'], 'video/quicktime')
+
+        # Test with duplicate
+        (action, doc) = inst._import_file(src2)
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(doc, inst.db[mov_hash])
+
+        # Test with duplicate with missing doc
+        del inst.db[mov_hash]
+        (action, doc) = inst._import_file(src2)
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(doc['time'], inst.db[mov_hash]['time'])
+
+        # Test with duplicate when doc is missing this filestore in store:
+        old = inst.db[mov_hash]
+        rid = random_id()
+        old['stored'] = {rid: {'copies': 2, 'time': 1234567890}}
+        inst.db.save(old)
+        (action, doc) = inst._import_file(src2)
+        fid = inst.filestore._id
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(set(doc['stored']), set([rid, fid]))
+        t = doc['stored'][fid]['time']
+        self.assertEqual(
+            doc['stored'],
+            {
+                rid: {'copies': 2, 'time': 1234567890},
+                fid: {'copies': 1, 'time': t},
+            }
+        )
+        self.assertEqual(inst.db[mov_hash]['stored'], doc['stored'])
+
+        # Test with empty file:
+        src3 = tmp.touch('DCIM', '100EOS5D2', 'foo.MOV')
+        (action, doc) = inst._import_file(src3)
+        self.assertEqual(action, 'empty')
+        self.assertEqual(doc, {'mtime': path.getmtime(src3)})
+
     def test_import_file(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
