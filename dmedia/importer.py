@@ -165,13 +165,18 @@ def create_import(base, batch_id=None, machine_id=None):
         'batch_id': batch_id,
         'machine_id': machine_id,
         'base': base,
-        'empty_files': [],
         'log': {
             'imported': [],
             'skipped': [],
             'empty': [],
             'error': [],
         },
+        'stats': {
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
     }
 
 
@@ -192,16 +197,6 @@ class Importer(object):
         except couchdb.ResourceConflict:
             pass
 
-        self._stats = {
-            'imported': {
-                'count': 0,
-                'bytes': 0,
-            },
-            'skipped': {
-                'count': 0,
-                'bytes': 0,
-            },
-        }
         self.pairs = None
         self._processed = []
         self.doc = None
@@ -302,7 +297,7 @@ class Importer(object):
         assert _id == chash
         return (action, doc)
 
-    def import_file(self, src, size=None):
+    def import_file(self, src, size):
         self._processed.append(src)
         try:
             (action, doc) = self._import_file(src)
@@ -328,6 +323,11 @@ class Importer(object):
                 'msg': str(e),
             }
         self.doc['log'][action].append(entry)
+        self.doc['stats'][action]['count'] += 1
+        if action in ('empty', 'error'):
+            self.doc['stats'][action]['bytes'] += size
+        else:
+            self.doc['stats'][action]['bytes'] += doc['bytes']
         return (action, entry)
 
     def import_all_iter(self):
@@ -338,10 +338,9 @@ class Importer(object):
     def finalize(self):
         assert len(self.pairs) == len(self._processed)
         assert list(t[0] for t in self.pairs) == self._processed
-        self.doc.update(self._stats)
         self.doc['time_end'] = time.time()
         self.save()
-        return self._stats
+        return self.doc['stats']
 
 
 class ImportWorker(Worker):
@@ -381,6 +380,8 @@ def to_dbus_stats(stats):
 
 def accumulate_stats(accum, stats):
     for (key, d) in stats.items():
+        if key not in accum:
+            accum[key] = {'count': 0, 'bytes': 0}
         for (k, v) in d.items():
             accum[key][k] += v
 
