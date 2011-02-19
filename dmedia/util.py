@@ -43,12 +43,15 @@ except ImportError:
 def configure_logging(namespace):
     format = [
         '%(levelname)s',
-        '%(message)s'
+        '%(process)d',
+        '%(message)s',
     ]
     cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
     if not path.exists(cache):
         os.makedirs(cache)
     filename = path.join(cache, namespace + '.log')
+    if path.exists(filename):
+        os.rename(filename, filename + '.previous')
     logging.basicConfig(
         filename=filename,
         filemode='w',
