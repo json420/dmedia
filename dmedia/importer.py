@@ -247,6 +247,7 @@ class Importer(object):
         fp = safe_open(src, 'rb')
         stat = os.fstat(fp.fileno())
         if stat.st_size == 0:
+            log.warning('File size is zero: %r', src)
             return ('empty', None)
 
         name = path.basename(src)

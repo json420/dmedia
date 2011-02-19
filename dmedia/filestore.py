@@ -1037,6 +1037,7 @@ class FileStore(object):
         try:
             self.tmp_move(tmp_fp, chash, ext)
         except DuplicateFile as e:
+            log.warning('File %r is duplicate of %r', src_fp.name, e.dst)
             raise DuplicateFile(src=src_fp.name, dst=e.dst, tmp=e.src,
                 chash=chash, leaves=h.leaves
             )
