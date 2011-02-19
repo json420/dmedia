@@ -230,6 +230,14 @@ class Importer(object):
         return self._id
 
     def scanfiles(self):
+        """
+        Build list of files that will be considered for import.
+
+        After this method has been called, the ``Importer.filetuples`` attribute
+        will contain ``(filename,size,mtime)`` tuples for all files being
+        considered.  This information is saved into the dmedia/import record to
+        provide a rich audio trail and aid in debugging.
+        """
         assert self.filetuples is None
         self.filetuples = tuple(files_iter(self.base))
         self.doc['log']['considered'] = [
@@ -244,6 +252,9 @@ class Importer(object):
         return self.filetuples
 
     def _import_file(self, src):
+        """
+        Attempt to import *src* into dmedia library.
+        """
         fp = safe_open(src, 'rb')
         stat = os.fstat(fp.fileno())
         if stat.st_size == 0:
@@ -312,6 +323,9 @@ class Importer(object):
         return (action, doc)
 
     def import_file(self, src, size):
+        """
+        Wraps `Importer._import_file()` with error handling and logging.
+        """
         self._processed.append(src)
         try:
             (action, doc) = self._import_file(src)
@@ -343,6 +357,13 @@ class Importer(object):
             yield (src, action)
 
     def finalize(self):
+        """
+        Finalize import and save final import record to CouchDB.
+
+        The method will add the ``"time_end"`` key into the import record and
+        save it to CouchDB.  There will likely also be being changes in the
+        ``"log"`` and ``"stats"`` keys, which will likewise be saved to CouchDB.
+        """
         assert len(self.filetuples) == len(self._processed)
         assert list(t[0] for t in self.filetuples) == self._processed
         self.doc['time_end'] = time.time()
