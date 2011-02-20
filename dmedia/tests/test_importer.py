@@ -105,13 +105,14 @@ class test_functions(TestCase):
         f = importer.files_iter
         tmp = TempDir()
         files = []
-        for args in relpaths:
-            p = tmp.touch('subdir', *args)
-            files.append(p)
+        for (i, args) in enumerate(relpaths):
+            content = 'a' * (2 ** i)
+            p = tmp.write(content, 'subdir', *args)
+            files.append((p, len(content), path.getmtime(p)))
 
         # Test when base is a file:
-        for p in files:
-            self.assertEqual(list(f(p)), [p])
+        for (p, s, t) in files:
+            self.assertEqual(list(f(p)), [(p, s, t)])
 
         # Test importing from tmp.path:
         self.assertEqual(list(f(tmp.path)), files)
@@ -143,9 +144,9 @@ class test_functions(TestCase):
                 'type',
                 'time',
                 'imports',
-                'imported',
-                'skipped',
+                'errors',
                 'machine_id',
+                'stats',
             ])
         )
         _id = doc['_id']
@@ -155,9 +156,18 @@ class test_functions(TestCase):
         self.assertTrue(isinstance(doc['time'], (int, float)))
         self.assertTrue(doc['time'] <= time.time())
         self.assertEqual(doc['imports'], [])
-        self.assertEqual(doc['imported'], {'count': 0, 'bytes': 0})
-        self.assertEqual(doc['skipped'], {'count': 0, 'bytes': 0})
+        self.assertEqual(doc['errors'], [])
         self.assertEqual(doc['machine_id'], machine_id)
+        self.assertEqual(
+            doc['stats'],
+            {
+                'considered': {'count': 0, 'bytes': 0},
+                'imported': {'count': 0, 'bytes': 0},
+                'skipped': {'count': 0, 'bytes': 0},
+                'empty': {'count': 0, 'bytes': 0},
+                'error': {'count': 0, 'bytes': 0},
+            }
+        )
 
     def test_create_import(self):
         f = importer.create_import
@@ -173,6 +183,8 @@ class test_functions(TestCase):
             'base',
             'batch_id',
             'machine_id',
+            'log',
+            'stats',
         ])
 
         doc = f(base, batch_id=batch_id, machine_id=machine_id)
@@ -196,6 +208,24 @@ class test_functions(TestCase):
         self.assertEqual(set(doc), keys)
         self.assertEqual(doc['batch_id'], None)
         self.assertEqual(doc['machine_id'], None)
+        self.assertEqual(
+            doc['log'],
+            {
+                'imported': [],
+                'skipped': [],
+                'empty': [],
+                'error': [],
+            }
+        )
+        self.assertEqual(
+            doc['stats'],
+            {
+                'imported': {'count': 0, 'bytes': 0},
+                'skipped': {'count': 0, 'bytes': 0},
+                'empty': {'count': 0, 'bytes': 0},
+                'error': {'count': 0, 'bytes': 0},
+            }
+        )
 
     def test_to_dbus_stats(self):
         f = importer.to_dbus_stats
@@ -262,13 +292,13 @@ class test_Importer(CouchCase):
     def test_start(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
-        self.assertTrue(inst._import is None)
+        self.assertTrue(inst.doc is None)
         _id = inst.start()
         self.assertEqual(len(_id), 24)
         store = MetaStore(dbname=self.dbname)
-        self.assertEqual(inst._import, store.db[_id])
+        self.assertEqual(inst.doc, store.db[_id])
         self.assertEqual(
-            set(inst._import),
+            set(inst.doc),
             set([
                 '_id',
                 '_rev',
@@ -277,60 +307,76 @@ class test_Importer(CouchCase):
                 'base',
                 'batch_id',
                 'machine_id',
+                'log',
+                'stats',
             ])
         )
-        self.assertEqual(inst._import['batch_id'], self.batch_id)
+        self.assertEqual(inst.doc['batch_id'], self.batch_id)
         self.assertEqual(
-            inst._import['machine_id'],
+            inst.doc['machine_id'],
             inst.metastore.machine_id
         )
-        self.assertEqual(inst._import['base'], tmp.path)
-
-    def test_get_stats(self):
-        tmp = TempDir()
-        inst = self.new(tmp.path)
-        one = inst.get_stats()
-        self.assertEqual(one,
-             {
-                'imported': {
-                    'count': 0,
-                    'bytes': 0,
-                },
-                'skipped': {
-                    'count': 0,
-                    'bytes': 0,
-                },
+        self.assertEqual(inst.doc['base'], tmp.path)
+        self.assertEqual(
+            inst.doc['log'],
+            {
+                'imported': [],
+                'skipped': [],
+                'empty': [],
+                'error': [],
             }
         )
-        two = inst.get_stats()
-        self.assertFalse(one is two)
-        self.assertFalse(one['imported'] is two['imported'])
-        self.assertFalse(one['skipped'] is two['skipped'])
+        self.assertEqual(
+            inst.doc['stats'],
+            {
+                'imported': {'count': 0, 'bytes': 0},
+                'skipped': {'count': 0, 'bytes': 0},
+                'empty': {'count': 0, 'bytes': 0},
+                'error': {'count': 0, 'bytes': 0},
+            }
+        )
 
     def test_scanfiles(self):
         tmp = TempDir()
         inst = self.new(tmp.path)
+        inst.start()
         files = []
-        for args in relpaths:
-            p = tmp.touch('subdir', *args)
-            files.append(p)
+        for (i, args) in enumerate(relpaths):
+            content = 'a' * (2 ** i)
+            p = tmp.write(content, 'subdir', *args)
+            files.append((p, len(content), path.getmtime(p)))
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
-        self.assertTrue(inst.scanfiles() is got)
+        self.assertEqual(
+            inst.db[inst._id]['log']['considered'],
+            [{'src': src, 'bytes': size, 'mtime': mtime}
+            for (src, size, mtime) in files]
+        )
+        self.assertEqual(
+            inst.db[inst._id]['stats']['considered'],
+            {
+                'count': len(files),
+                'bytes': sum(t[1] for t in files),
+            }
+        )
 
-    def test_import_file(self):
+    def test_import_file_private(self):
+        """
+        Test the `Importer._import_file()` method.
+        """
         tmp = TempDir()
         inst = self.new(tmp.path)
+        inst.start()
 
         # Test that AmbiguousPath is raised:
         traversal = '/home/foo/.dmedia/../.ssh/id_rsa'
-        e = raises(AmbiguousPath, inst.import_file, traversal)
+        e = raises(AmbiguousPath, inst._import_file, traversal)
         self.assertEqual(e.pathname, traversal)
         self.assertEqual(e.abspath, '/home/foo/.ssh/id_rsa')
 
         # Test that IOError propagates up with missing file
         nope = tmp.join('nope.mov')
-        e = raises(IOError, inst.import_file, nope)
+        e = raises(IOError, inst._import_file, nope)
         self.assertEqual(
             str(e),
             '[Errno 2] No such file or directory: %r' % nope
@@ -339,7 +385,7 @@ class test_Importer(CouchCase):
         # Test that IOError propagates up with unreadable file
         nope = tmp.touch('nope.mov')
         os.chmod(nope, 0o000)
-        e = raises(IOError, inst.import_file, nope)
+        e = raises(IOError, inst._import_file, nope)
         self.assertEqual(
             str(e),
             '[Errno 13] Permission denied: %r' % nope
@@ -351,7 +397,7 @@ class test_Importer(CouchCase):
 
         # Test with new file
         size = path.getsize(src1)
-        (action, doc) = inst.import_file(src1)
+        (action, doc) = inst._import_file(src1)
 
         self.assertEqual(action, 'imported')
         self.assertEqual(
@@ -368,10 +414,9 @@ class test_Importer(CouchCase):
                 'stored',
 
                 'import_id',
-                'qid',
                 'mtime',
-                'basename',
-                'dirname',
+                'name',
+                'dir',
                 'content_type',
             ])
         )
@@ -384,42 +429,235 @@ class test_Importer(CouchCase):
         self.assertEqual(doc['bytes'], size)
         self.assertEqual(doc['ext'], 'mov')
 
-        self.assertEqual(doc['import_id'], None)
-        self.assertEqual(doc['qid'], mov_qid)
+        self.assertEqual(doc['import_id'], inst._id)
         self.assertEqual(doc['mtime'], path.getmtime(src1))
-        self.assertEqual(doc['basename'], 'MVI_5751.MOV')
-        self.assertEqual(doc['dirname'], 'DCIM/100EOS5D2')
+        self.assertEqual(doc['name'], 'MVI_5751.MOV')
+        self.assertEqual(doc['dir'], 'DCIM/100EOS5D2')
         self.assertEqual(doc['content_type'], 'video/quicktime')
 
-        self.assertEqual(inst.get_stats(),
-             {
-                'imported': {
-                    'count': 1,
-                    'bytes': size,
-                },
-                'skipped': {
-                    'count': 0,
-                    'bytes': 0,
-                },
+        # Test with duplicate
+        (action, doc) = inst._import_file(src2)
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(doc, inst.db[mov_hash])
+
+        # Test with duplicate with missing doc
+        del inst.db[mov_hash]
+        (action, doc) = inst._import_file(src2)
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(doc['time'], inst.db[mov_hash]['time'])
+
+        # Test with duplicate when doc is missing this filestore in store:
+        old = inst.db[mov_hash]
+        rid = random_id()
+        old['stored'] = {rid: {'copies': 2, 'time': 1234567890}}
+        inst.db.save(old)
+        (action, doc) = inst._import_file(src2)
+        fid = inst.filestore._id
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(set(doc['stored']), set([rid, fid]))
+        t = doc['stored'][fid]['time']
+        self.assertEqual(
+            doc['stored'],
+            {
+                rid: {'copies': 2, 'time': 1234567890},
+                fid: {'copies': 1, 'time': t},
             }
         )
+        self.assertEqual(inst.db[mov_hash]['stored'], doc['stored'])
 
-        # Test with duplicate
-        (action, wrapper) = inst.import_file(src2)
+        # Test with existing doc but missing file:
+        old = inst.db[mov_hash]
+        inst.filestore.remove(mov_hash, 'mov')
+        (action, doc) = inst._import_file(src2)
+        self.assertEqual(action, 'imported')
+        self.assertEqual(doc['_rev'], old['_rev'])
+        self.assertEqual(doc['time'], old['time'])
+        self.assertEqual(inst.db[mov_hash], old)
+
+        # Test with empty file:
+        src3 = tmp.touch('DCIM', '100EOS5D2', 'foo.MOV')
+        (action, doc) = inst._import_file(src3)
+        self.assertEqual(action, 'empty')
+        self.assertEqual(doc, None)
+
+    def test_import_file(self):
+        """
+        Test the `Importer.import_file()` method.
+        """
+        tmp = TempDir()
+        inst = self.new(tmp.path)
+        inst.start()
+
+        self.assertEqual(inst.doc['log']['error'], [])
+        self.assertEqual(inst._processed, [])
+
+        # Test that AmbiguousPath is raised:
+        nope1 = '/home/foo/.dmedia/../.ssh/id_rsa'
+        abspath = '/home/foo/.ssh/id_rsa'
+        (action, error1) = inst.import_file(nope1, 17)
+        self.assertEqual(action, 'error')
+        self.assertEqual(error1, {
+            'src': nope1,
+            'name': 'AmbiguousPath',
+            'msg': '%r resolves to %r' % (nope1, abspath),
+        })
+        self.assertEqual(
+            inst.doc['log']['error'],
+            [error1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1]
+        )
+
+        # Test that IOError propagates up with missing file
+        nope2 = tmp.join('nope.mov')
+        (action, error2) = inst.import_file(nope2, 18)
+        self.assertEqual(action, 'error')
+        self.assertEqual(error2, {
+            'src': nope2,
+            'name': 'IOError',
+            'msg': '[Errno 2] No such file or directory: %r' % nope2,
+        })
+        self.assertEqual(
+            inst.doc['log']['error'],
+            [error1, error2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2]
+        )
+
+        # Test that IOError propagates up with unreadable file
+        nope3 = tmp.touch('nope.mov')
+        os.chmod(nope3, 0o000)
+        try:
+            (action, error3) = inst.import_file(nope3, 19)
+            self.assertEqual(action, 'error')
+            self.assertEqual(error3, {
+                'src': nope3,
+                'name': 'IOError',
+                'msg': '[Errno 13] Permission denied: %r' % nope3,
+            })
+            self.assertEqual(
+                inst.doc['log']['error'],
+                [error1, error2, error3]
+            )
+            self.assertEqual(
+                inst._processed,
+                [nope1, nope2, nope3]
+            )
+        finally:
+            os.chmod(nope3, 0o600)
+
+
+        # Test with new files
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+        self.assertEqual(inst.doc['log']['imported'], [])
+
+        (action, imported1) = inst.import_file(src1, 17)
+        self.assertEqual(action, 'imported')
+        self.assertEqual(imported1, {
+            'src': src1,
+            'id': mov_hash,
+        })
+        self.assertEqual(
+            inst.doc['log']['imported'],
+            [imported1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1]
+        )
+
+        (action, imported2) = inst.import_file(src2, 17)
+        self.assertEqual(action, 'imported')
+        self.assertEqual(imported2, {
+            'src': src2,
+            'id': thm_hash,
+        })
+        self.assertEqual(
+            inst.doc['log']['imported'],
+            [imported1, imported2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2]
+        )
+
+        # Test with duplicate files
+        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5750.MOV')
+        dup2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5750.THM')
+        self.assertEqual(inst.doc['log']['skipped'], [])
+
+        (action, skipped1) = inst.import_file(dup1, 17)
         self.assertEqual(action, 'skipped')
-        doc2 = dict(wrapper)
-        doc2['_attachments'] = doc['_attachments']
-        self.assertEqual(doc2, doc)
-        self.assertEqual(inst.get_stats(),
-             {
-                'imported': {
-                    'count': 1,
-                    'bytes': size,
-                },
-                'skipped': {
-                    'count': 1,
-                    'bytes': size,
-                },
+        self.assertEqual(skipped1, {
+            'src': dup1,
+            'id': mov_hash,
+        })
+        self.assertEqual(
+            inst.doc['log']['skipped'],
+            [skipped1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1]
+        )
+
+        (action, skipped2) = inst.import_file(dup2, 17)
+        self.assertEqual(action, 'skipped')
+        self.assertEqual(skipped2, {
+            'src': dup2,
+            'id': thm_hash,
+        })
+        self.assertEqual(
+            inst.doc['log']['skipped'],
+            [skipped1, skipped2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1, dup2]
+        )
+
+        # Test with empty files
+        emp1 = tmp.touch('DCIM', '100EOS5D2', 'MVI_5759.MOV')
+        emp2 = tmp.touch('DCIM', '100EOS5D2', 'MVI_5759.THM')
+        self.assertEqual(inst.doc['log']['empty'], [])
+
+        (action, empty1) = inst.import_file(emp1, 17)
+        self.assertEqual(action, 'empty')
+        self.assertEqual(empty1, emp1)
+        self.assertEqual(
+            inst.doc['log']['empty'],
+            [empty1]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1, dup2, emp1]
+        )
+
+        (action, empty2) = inst.import_file(emp2, 17)
+        self.assertEqual(action, 'empty')
+        self.assertEqual(empty2, emp2)
+        self.assertEqual(
+            inst.doc['log']['empty'],
+            [empty1, empty2]
+        )
+        self.assertEqual(
+            inst._processed,
+            [nope1, nope2, nope3, src1, src2, dup1, dup2, emp1, emp2]
+        )
+
+        # Check state of log one final time
+        self.assertEqual(
+            inst.doc['log'],
+            {
+                'imported': [imported1, imported2],
+                'skipped': [skipped1, skipped2],
+                'empty': [empty1, empty2],
+                'error': [error1, error2, error3],
             }
         )
 
@@ -430,87 +668,30 @@ class test_Importer(CouchCase):
         src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
         dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
         src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+        src3 = tmp.touch('DCIM', '100EOS5D2', 'Zar.MOV')
+        src4 = tmp.touch('DCIM', '100EOS5D2', 'Zoo.MOV')
+
 
         import_id = inst.start()
+        inst.scanfiles()
         items = tuple(inst.import_all_iter())
-        self.assertEqual(len(items), 3)
+        self.assertEqual(len(items), 5)
         self.assertEqual(
-            [t[:2] for t in items],
-            [
+            items,
+            (
                 (src1, 'imported'),
                 (src2, 'imported'),
                 (dup1, 'skipped'),
-            ]
+                (src3, 'empty'),
+                (src4, 'empty'),
+            )
         )
-
-        doc = items[0][2]
-        self.assertEqual(schema.check_dmedia_file(doc), None)
-        self.assertEqual(doc,
-            {
-                '_id': mov_hash,
-                '_rev': doc['_rev'],
-                '_attachments': {
-                    'leaves': {
-                        'data': b64encode(''.join(mov_leaves)),
-                        'content_type': 'application/octet-stream',
-                    }
-                },
-                'type': 'dmedia/file',
-                'time': doc['time'],
-                'bytes': path.getsize(src1),
-                'ext': 'mov',
-                'origin': 'user',
-                'stored': {
-                    inst.filestore._id: {
-                        'copies': 1,
-                        'time': doc['time'],
-                    },
-                },
-
-                'import_id': import_id,
-                'qid': mov_qid,
-                'mtime': path.getmtime(src1),
-                'basename': 'MVI_5751.MOV',
-                'dirname': 'DCIM/100EOS5D2',
-                'content_type': 'video/quicktime',
-            }
-        )
-
-        doc = items[1][2]
-        self.assertEqual(schema.check_dmedia_file(doc), None)
-        self.assertEqual(doc,
-            {
-                '_id': thm_hash,
-                '_rev': doc['_rev'],
-                '_attachments': {
-                    'leaves': {
-                        'data': b64encode(''.join(thm_leaves)),
-                        'content_type': 'application/octet-stream',
-                    }
-                },
-                'type': 'dmedia/file',
-                'time': doc['time'],
-                'bytes': path.getsize(src2),
-                'ext': 'thm',
-                'origin': 'user',
-                'stored': {
-                    inst.filestore._id: {
-                        'copies': 1,
-                        'time': doc['time'],
-                    },
-                },
-
-                'import_id': import_id,
-                'qid': thm_qid,
-                'mtime': path.getmtime(src2),
-                'basename': 'MVI_5751.THM',
-                'dirname': 'DCIM/100EOS5D2',
-                'content_type': None,
-            }
-        )
-
         self.assertEqual(inst.finalize(),
              {
+                'considered': {
+                    'count': 5,
+                    'bytes': path.getsize(src1) * 2 + path.getsize(src2),
+                },
                 'imported': {
                     'count': 2,
                     'bytes': path.getsize(src1) + path.getsize(src2),
@@ -519,6 +700,8 @@ class test_Importer(CouchCase):
                     'count': 1,
                     'bytes': path.getsize(dup1),
                 },
+                'empty': {'count': 2, 'bytes': 0},
+                'error': {'count': 0, 'bytes': 0},
             }
         )
 
@@ -569,7 +752,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 1, 3,
-                    dict(action='imported', src=src1, _id=mov_hash)
+                    dict(action='imported', src=src1)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -579,7 +762,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 2, 3,
-                    dict(action='imported', src=src2, _id=thm_hash)
+                    dict(action='imported', src=src2)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -589,7 +772,7 @@ class test_ImportWorker(CouchCase):
             dict(
                 signal='progress',
                 args=(base, _id, 3, 3,
-                    dict(action='skipped', src=dup1, _id=mov_hash)
+                    dict(action='skipped', src=dup1)
                 ),
                 worker='ImportWorker',
                 pid=pid,
@@ -601,8 +784,11 @@ class test_ImportWorker(CouchCase):
                 signal='finished',
                 args=(base, _id,
                     dict(
+                        considered={'count': 3, 'bytes': (mov_size*2 + thm_size)},
                         imported={'count': 2, 'bytes': (mov_size + thm_size)},
                         skipped={'count': 1, 'bytes': mov_size},
+                        empty={'count': 0, 'bytes': 0},
+                        error={'count': 0, 'bytes': 0},
                     ),
                 ),
                 worker='ImportWorker',
@@ -629,7 +815,7 @@ class test_ImportManager(CouchCase):
         inst._start_batch()
         self.assertEqual(inst._completed, 0)
         self.assertEqual(inst._total, 0)
-        batch = inst._batch
+        batch = inst.doc
         batch_id = batch['_id']
         self.assertTrue(isinstance(batch, dict))
         self.assertEqual(
@@ -639,9 +825,9 @@ class test_ImportManager(CouchCase):
                 'type',
                 'time',
                 'imports',
-                'imported',
-                'skipped',
+                'errors',
                 'machine_id',
+                'stats',
             ])
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
@@ -662,10 +848,12 @@ class test_ImportManager(CouchCase):
         callback = DummyCallback()
         inst = self.klass(callback, self.dbname)
         batch_id = random_id()
-        inst._batch = dict(
+        inst.doc = dict(
             _id=batch_id,
-            imported={'count': 17, 'bytes': 98765},
-            skipped={'count': 3, 'bytes': 12345},
+            stats=dict(
+                imported={'count': 17, 'bytes': 98765},
+                skipped={'count': 3, 'bytes': 12345},
+            ),
         )
 
         # Make sure it checks that workers is empty
@@ -676,7 +864,7 @@ class test_ImportManager(CouchCase):
         # Check that it fires signal correctly
         inst._workers.clear()
         inst._finish_batch()
-        self.assertEqual(inst._batch, None)
+        self.assertEqual(inst.doc, None)
         stats = dict(
             imported=17,
             imported_bytes=98765,
@@ -695,20 +883,48 @@ class test_ImportManager(CouchCase):
             set([
                 '_id',
                 '_rev',
-                'imported',
-                'skipped',
+                'stats',
                 'time_end',
             ])
         )
         cur = time.time()
         self.assertTrue(cur - 1 <= doc['time_end'] <= cur)
 
+    def test_on_error(self):
+        callback = DummyCallback()
+        inst = self.klass(callback, self.dbname)
+
+        # Make sure it works when doc is None:
+        inst.on_error('foo', 'IOError', 'nope')
+        self.assertEqual(inst.doc, None)
+
+        # Test normally:
+        inst._start_batch()
+        self.assertEqual(inst.doc['errors'], [])
+        inst.on_error('foo', 'IOError', 'nope')
+        doc = inst.db[inst.doc['_id']]
+        self.assertEqual(
+            doc['errors'],
+            [
+                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
+            ]
+        )
+        inst.on_error('bar', 'error!', 'no way')
+        doc = inst.db[inst.doc['_id']]
+        self.assertEqual(
+            doc['errors'],
+            [
+                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
+                {'key': 'bar', 'name': 'error!', 'msg': 'no way'},
+            ]
+        )
+
     def test_on_started(self):
         callback = DummyCallback()
         inst = self.klass(callback, self.dbname)
         self.assertEqual(callback.messages, [])
         inst._start_batch()
-        batch_id = inst._batch['_id']
+        batch_id = inst.doc['_id']
         self.assertEqual(inst.db[batch_id]['imports'], [])
         self.assertEqual(
             callback.messages,
@@ -816,10 +1032,12 @@ class test_ImportManager(CouchCase):
         callback = DummyCallback()
         inst = self.klass(callback, self.dbname)
         batch_id = random_id()
-        inst._batch = dict(
+        inst.doc = dict(
             _id=batch_id,
-            imported={'count': 0, 'bytes': 0},
-            skipped={'count': 0, 'bytes': 0},
+            stats=dict(
+                imported={'count': 0, 'bytes': 0},
+                skipped={'count': 0, 'bytes': 0},
+            ),
         )
 
         # Call with first import
@@ -843,16 +1061,16 @@ class test_ImportManager(CouchCase):
             ]
         )
         self.assertEqual(
-            set(inst._batch),
-            set(['_id', '_rev', 'imported', 'skipped'])
+            set(inst.doc),
+            set(['_id', '_rev', 'stats'])
         )
-        self.assertEqual(inst._batch['_id'], batch_id)
+        self.assertEqual(inst.doc['_id'], batch_id)
         self.assertEqual(
-            inst._batch['imported'],
+            inst.doc['stats']['imported'],
             {'count': 17, 'bytes': 98765}
         )
         self.assertEqual(
-            inst._batch['skipped'],
+            inst.doc['stats']['skipped'],
             {'count': 3, 'bytes': 12345}
         )
 
@@ -884,16 +1102,16 @@ class test_ImportManager(CouchCase):
             ]
         )
         self.assertEqual(
-            set(inst._batch),
-            set(['_id', '_rev', 'imported', 'skipped'])
+            set(inst.doc),
+            set(['_id', '_rev', 'stats'])
         )
-        self.assertEqual(inst._batch['_id'], batch_id)
+        self.assertEqual(inst.doc['_id'], batch_id)
         self.assertEqual(
-            inst._batch['imported'],
+            inst.doc['stats']['imported'],
             {'count': 17 + 18, 'bytes': 98765 + 9876}
         )
         self.assertEqual(
-            inst._batch['skipped'],
+            inst.doc['stats']['skipped'],
             {'count': 3 + 5, 'bytes': 12345 + 1234}
         )
 
@@ -948,21 +1166,21 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             callback.messages[3],
             ('ImportProgress', (base, import_id, 1, 3,
-                    dict(action='imported', src=src1, _id=mov_hash)
+                    dict(action='imported', src=src1)
                 )
             )
         )
         self.assertEqual(
             callback.messages[4],
             ('ImportProgress', (base, import_id, 2, 3,
-                    dict(action='imported', src=src2, _id=thm_hash)
+                    dict(action='imported', src=src2)
                 )
             )
         )
         self.assertEqual(
             callback.messages[5],
             ('ImportProgress', (base, import_id, 3, 3,
-                    dict(action='skipped', src=dup1, _id=mov_hash)
+                    dict(action='skipped', src=dup1)
                 )
             )
         )

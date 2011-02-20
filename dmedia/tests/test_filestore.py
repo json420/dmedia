@@ -1188,3 +1188,4 @@ class test_FileStore(TestCase):
         self.assertEqual(e.chash, mov_hash)
         self.assertEqual(e.src, src)
         self.assertEqual(e.dst, dst)
+        self.assertTrue(e.tmp.startswith(base + '/imports/'))
