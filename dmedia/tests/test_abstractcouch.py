@@ -35,7 +35,7 @@ from dmedia import abstractcouch
 from .helpers import raises
 
 class test_functions(TestCase):
-    def setUp(self):
+    def tearDown(self):
         if abstractcouch.OAuthSession is None:
             abstractcouch.OAuthSession = OAuthSession
 

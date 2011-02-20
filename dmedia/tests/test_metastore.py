@@ -24,19 +24,18 @@ Unit tests for `dmedia.metastore` module.
 """
 
 from unittest import TestCase
-import socket
-import platform
-from helpers import CouchCase, TempDir, TempHome
-from dmedia import metastore
-import couchdb
-from desktopcouch.records.server import  CouchDatabase
-from desktopcouch.records.record import  Record
-from desktopcouch.local_files import Context
-from desktopcouch.stop_local_couchdb import stop_couchdb
-import desktopcouch
-import tempfile
 import os
 import shutil
+import socket
+import platform
+
+import couchdb
+import desktopcouch
+from desktopcouch.records.server import  CouchDatabase
+
+from dmedia import metastore
+from .helpers import TempDir, TempHome
+from .couch import CouchCase
 
 
 class test_functions(TestCase):

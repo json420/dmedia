@@ -24,6 +24,7 @@
 Unit tests for `dmedia.importer` module.
 """
 
+from unittest import TestCase
 import os
 from os import path
 import hashlib
@@ -31,21 +32,20 @@ import tempfile
 import shutil
 import time
 from base64 import b32decode, b32encode, b64encode
-from unittest import TestCase
 from multiprocessing import current_process
-from .helpers import CouchCase, TempDir, TempHome, raises
-from .helpers import DummyQueue, DummyCallback, prep_import_source
-from .helpers import sample_mov, sample_thm
-from .helpers import mov_hash, mov_leaves, mov_att, mov_qid
-from .helpers import thm_hash, thm_leaves, thm_qid
+
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.metastore import MetaStore
 from dmedia.util import random_id
 from dmedia import importer, schema
+from .helpers import TempDir, TempHome, raises
+from .helpers import DummyQueue, DummyCallback, prep_import_source
+from .helpers import sample_mov, sample_thm
+from .helpers import mov_hash, mov_leaves, mov_att, mov_qid
+from .helpers import thm_hash, thm_leaves, thm_qid
+from .couch import CouchCase
 
-import desktopcouch
-from desktopcouch.stop_local_couchdb import stop_couchdb
 
 
 letters = 'gihdwaqoebxtcklrnsmjufyvpz'
