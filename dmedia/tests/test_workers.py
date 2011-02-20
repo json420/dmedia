@@ -451,7 +451,6 @@ class test_Manager(TestCase):
         p.terminate()
         p.join()
 
-
     def test_emit(self):
         env = {'foo': 'bar'}
         # Test with no callback
@@ -471,6 +470,17 @@ class test_Manager(TestCase):
                 ('OneArg', ('baz',)),
             ]
         )
+
+    def test_list_jobs(self):
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
+        self.assertEqual(inst.list_jobs(), [])
+        inst._workers.update(
+            dict(foo=None, bar=None, baz=None)
+        )
+        self.assertEqual(inst.list_jobs(), ['bar', 'baz', 'foo'])
+        inst._workers.clear()
+        self.assertEqual(inst.list_jobs(), [])
 
 
 class test_CouchManager(CouchCase):

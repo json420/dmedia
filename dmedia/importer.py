@@ -493,7 +493,3 @@ class ImportManager(CouchManager):
             if len(self._workers) == 0:
                 self._start_batch()
             return self.start_job('ImportWorker', base, base, extract)
-
-    def list_imports(self):
-        with self._lock:
-            return sorted(self._workers)

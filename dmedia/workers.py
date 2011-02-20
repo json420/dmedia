@@ -257,6 +257,9 @@ class Manager(object):
             p.join()
             return True
 
+    def list_jobs(self):
+        return sorted(self._workers)
+
     def emit(self, signal, *args):
         """
         Emit a signal to higher-level code.

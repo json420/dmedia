@@ -1233,13 +1233,3 @@ class test_ImportManager(CouchCase):
                 )
             )
         )
-
-    def test_list_imports(self):
-        inst = self.new()
-        self.assertEqual(inst.list_imports(), [])
-        inst._workers.update(
-            dict(foo=None, bar=None, baz=None)
-        )
-        self.assertEqual(inst.list_imports(), ['bar', 'baz', 'foo'])
-        inst._workers.clear()
-        self.assertEqual(inst.list_imports(), [])
