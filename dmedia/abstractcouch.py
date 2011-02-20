@@ -42,6 +42,9 @@ try:
     from desktopcouch.records.http import OAuthSession
 except ImportError:
     OAuthSession = None
+if OAuthSession is not None:
+    from desktopcouch.application.platform import find_port
+    from desktopcouch.application.local_files import get_oauth_tokens
 
 
 def get_couchdb_server(env):
@@ -126,3 +129,19 @@ def get_dmedia_db(env, server=None):
         return server[dbname]
     except ResourceNotFound:
         return server.create(dbname)
+
+
+def get_env(dbname=None):
+    """
+    Return default *env*.
+
+    This well return an appropriate *env* based on whether desktopcouch is
+    available.  Not a perfect solution, but works for now.
+    """
+    if OAuthSession is None:
+        return {'dbname': dbname}
+    return {
+        'url': 'http://localhost:%d/' % find_port(),
+        'oauth': get_oauth_tokens(),
+        'dbname': dbname,
+    }

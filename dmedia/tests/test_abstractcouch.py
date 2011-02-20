@@ -172,3 +172,33 @@ class test_functions(TestCase):
         self.assertTrue(isinstance(d, couchdb.Database))
         self.assertEqual(repr(d), "<Database 'dmedia_test'>")
         self.assertEqual(d.info()['db_name'], 'dmedia_test')
+
+    def test_get_env(self):
+        f = abstractcouch.get_env
+        url = 'http://localhost:%d/' % find_port()
+        oauth = get_oauth_tokens()
+
+        # Test when OAuthSession is available
+        self.assertEqual(
+            f(),
+            {'url': url, 'oauth': oauth, 'dbname': None}
+        )
+        self.assertEqual(
+            f(dbname=None),
+            {'url': url, 'oauth': oauth, 'dbname': None}
+        )
+        self.assertEqual(
+            f(dbname='dmedia'),
+            {'url': url, 'oauth': oauth, 'dbname': 'dmedia'}
+        )
+        self.assertEqual(
+            f(dbname='dmedia_test'),
+            {'url': url, 'oauth': oauth, 'dbname': 'dmedia_test'}
+        )
+
+        # Test when OAuthSession is *not* available
+        abstractcouch.OAuthSession = None
+        self.assertEqual(f(), {'dbname': None})
+        self.assertEqual(f(dbname=None), {'dbname': None})
+        self.assertEqual(f(dbname='dmedia'), {'dbname': 'dmedia'})
+        self.assertEqual(f(dbname='dmedia_test'), {'dbname': 'dmedia_test'})
