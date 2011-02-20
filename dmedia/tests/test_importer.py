@@ -39,6 +39,7 @@ from dmedia.filestore import FileStore
 from dmedia.metastore import MetaStore
 from dmedia.util import random_id
 from dmedia import importer, schema
+from dmedia.abstractcouch import get_env
 from .helpers import TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_thm
@@ -816,7 +817,6 @@ class test_ImportManager(CouchCase):
         self.assertEqual(inst._completed, 0)
         self.assertEqual(inst._total, 0)
         batch = inst.doc
-        batch_id = batch['_id']
         self.assertTrue(isinstance(batch, dict))
         self.assertEqual(
             set(batch),
@@ -837,9 +837,14 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             callback.messages,
             [
-                ('BatchStarted', (batch_id,)),
+                ('BatchStarted', (batch['_id'],)),
             ]
         )
+
+        env = get_env(self.dbname)
+        env['machine_id'] = batch['machine_id']
+        env['batch_id'] = batch['_id']
+        self.assertEqual(inst.env, env)
 
         # Test that batch cannot be re-started without first finishing
         self.assertRaises(AssertionError, inst._start_batch)

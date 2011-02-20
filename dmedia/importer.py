@@ -39,6 +39,7 @@ from .workers import Worker, Manager, register, isregistered, exception_name
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
 from .metastore import MetaStore
 from .extractor import merge_metadata
+from .abstractcouch import get_env, get_couchdb_server, get_dmedia_db
 
 
 mimetypes.init()
@@ -421,6 +422,7 @@ class ImportManager(Manager):
         self.metastore = MetaStore(dbname=dbname)
         self.db = self.metastore.db
         self.doc = None
+        self.env = None
         self._total = 0
         self._completed = 0
         if not isregistered(ImportWorker):
@@ -439,6 +441,9 @@ class ImportManager(Manager):
         self._completed = 0
         self.doc = create_batch(self.metastore.machine_id)
         self.save()
+        self.env = get_env(self._dbname)
+        self.env['machine_id'] = self.metastore.machine_id
+        self.env['batch_id'] = self.doc['_id']
         self.emit('BatchStarted', self.doc['_id'])
 
     def _finish_batch(self):
@@ -449,6 +454,7 @@ class ImportManager(Manager):
             to_dbus_stats(self.doc['stats'])
         )
         self.doc = None
+        self.env = None
         log.info('Batch complete, compacting database...')
         self.db.compact()
 
