@@ -135,7 +135,7 @@ def get_env(dbname=None):
     """
     Return default *env*.
 
-    This well return an appropriate *env* based on whether desktopcouch is
+    This will return an appropriate *env* based on whether desktopcouch is
     available.  Not a perfect solution, but works for now.
     """
     if OAuthSession is None:

@@ -165,7 +165,7 @@ class Manager(object):
                 pass
 
     def _process_message(self, msg):
-        log.info('[From %(pid)d] %(signal)s %(args)r', msg)
+        log.info('[from %(worker)s %(pid)d] %(signal)s %(args)r', msg)
         with self._lock:
             signal = msg['signal']
             args = msg['args']
