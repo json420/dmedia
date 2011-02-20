@@ -109,7 +109,8 @@ class test_functions(TestCase):
 
         # Test with unknown worker name
         q = DummyQueue()
-        f(q, 'ImportFiles', 'the key', ('foo', 'bar'))
+        env = {'foo': 'bar'}
+        f('ImportFiles', env, q, 'the key', ('foo', 'bar'))
 
         self.assertEqual(
             q.messages,
@@ -136,7 +137,8 @@ class test_functions(TestCase):
         workers.register(ImportFiles)
 
         q = DummyQueue()
-        f(q, 'ImportFiles', 'the key', ('hello', 'world'))
+        env = {'foo': 'bar'}
+        f('ImportFiles', env, q, 'the key', ('hello', 'world'))
         self.assertEqual(
             q.messages,
             [
@@ -160,10 +162,12 @@ class test_Worker(TestCase):
     klass = workers.Worker
 
     def test_init(self):
+        env = {'foo': 'bar'}
         q = DummyQueue()
         key = 'the key'
         args = ('foo', 'bar')
-        inst = self.klass(q, key, args)
+        inst = self.klass(env, q, key, args)
+        self.assertTrue(inst.env is env)
         self.assertTrue(inst.q is q)
         self.assertTrue(inst.key is key)
         self.assertTrue(inst.args is args)
@@ -171,9 +175,10 @@ class test_Worker(TestCase):
         self.assertEqual(inst.name, 'Worker')
 
     def test_emit(self):
+        env = {'foo': 'bar'}
         q = DummyQueue()
         args = ('foo', 'bar')
-        inst = self.klass(q, 'akey', args)
+        inst = self.klass(env, q, 'akey', args)
         pid = current_process().pid
 
         self.assertEqual(q.messages, [])
@@ -206,6 +211,7 @@ class test_Worker(TestCase):
         self.assertEqual(q.messages, [one, two, three])
 
     def test_run(self):
+        env = {'foo': 'bar'}
         q = DummyQueue()
         args = ('foo', 'bar')
         pid = current_process().pid
@@ -214,7 +220,7 @@ class test_Worker(TestCase):
             def execute(self, one, two):
                 self.emit('Hello', '%s and %s' % (one, two))
 
-        inst = do_something(q, 'key', args)
+        inst = do_something(env, q, 'key', args)
         inst.run()
         self.assertEqual(q.messages[0],
             dict(
@@ -226,16 +232,17 @@ class test_Worker(TestCase):
         )
 
     def test_execute(self):
+        env = {'foo': 'bar'}
         q = DummyQueue()
         args = ('foo', 'bar')
-        inst = self.klass(q, 'key', args)
+        inst = self.klass(env, q, 'key', args)
 
         e = raises(NotImplementedError, inst.execute)
         self.assertEqual(str(e), 'Worker.execute()')
 
         class do_something(self.klass):
             pass
-        inst = do_something(q, 'key', args)
+        inst = do_something(env, q, 'key', args)
         e = raises(NotImplementedError, inst.execute)
         self.assertEqual(str(e), 'do_something.execute()')
 
@@ -254,8 +261,8 @@ def infinite_process():
 
 
 class ExampleWorker(workers.Worker):
-    def execute(self, run_infinitely=True):
-        if run_infinitely:
+    def execute(self, *args):
+        if self.env.get('infinite', True):
             infinite()
         else:
             time.sleep(1)
@@ -269,18 +276,21 @@ class test_Manager(TestCase):
         workers.register(ExampleWorker)
 
     def test_init(self):
+        env = {'foo': 'bar'}
         # Test with non-callable callback:
-        e = raises(TypeError, self.klass, 'foo')
+        e = raises(TypeError, self.klass, env, 'foo')
         self.assertEqual(str(e), "callback must be callable; got 'foo'")
 
         # Test that callback default is None:
-        inst = self.klass()
+        inst = self.klass(env)
+        self.assertTrue(inst._env is env)
         self.assertTrue(inst._callback is None)
 
         # Test with a callable:
         def foo():
             pass
-        inst = self.klass(callback=foo)
+        inst = self.klass(env, callback=foo)
+        self.assertTrue(inst._env is env)
         self.assertTrue(inst._callback is foo)
         self.assertTrue(inst._running is False)
         self.assertEqual(inst._workers, {})
@@ -294,7 +304,8 @@ class test_Manager(TestCase):
                 assert self._call is None
                 self._call = arg1 + arg2
 
-        inst = Example()
+        env = {'foo': 'bar'}
+        inst = Example(env = {'foo': 'bar'})
         msg = dict(signal='stuff', args=('foo', 'bar'))
         inst._process_message(msg)
         self.assertEqual(inst._call, 'foobar')
@@ -304,7 +315,8 @@ class test_Manager(TestCase):
         self.assertEqual(str(e), "'Example' object has no attribute 'on_nope'")
 
     def test_on_terminate(self):
-        inst = self.klass()
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
         e = raises(KeyError, inst.on_terminate, 'foo')
         p = multiprocessing.Process(target=time.sleep, args=(1,))
         p.daemon = True
@@ -316,7 +328,8 @@ class test_Manager(TestCase):
         self.assertEqual(inst._workers, {})
 
     def test_start(self):
-        inst = self.klass()
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
 
         # Test that start() returns False when already running:
         inst._running = True
@@ -336,7 +349,8 @@ class test_Manager(TestCase):
         inst._thread.join()
 
     def test_kill(self):
-        inst = self.klass()
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
 
         # Test that kill() returns False when not running:
         self.assertTrue(inst.kill() is False)
@@ -357,7 +371,8 @@ class test_Manager(TestCase):
         self.assertEqual(inst._workers, {})
 
     def test_kill_job(self):
-        inst = self.klass()
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
 
         # Test that kill_job() returns False when no such job exists:
         self.assertTrue(inst.kill_job('foo') is False)
@@ -373,30 +388,55 @@ class test_Manager(TestCase):
         self.assertTrue(inst.kill_job('foo') is False)
 
     def test_do(self):
-        inst = self.klass()
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
 
         # Test that False is returned when key already exists:
         inst._workers['foo'] = 'bar'
         self.assertTrue(inst.do('ExampleWorker', 'foo') is False)
 
-        # Test creating a process
+        # Test creating a process with no args
         inst._workers.clear()
-        self.assertTrue(inst.do('ExampleWorker', 'foo', ) is True)
+        self.assertTrue(inst.do('ExampleWorker', 'foo') is True)
         self.assertEqual(list(inst._workers), ['foo'])
         p = inst._workers['foo']
         self.assertTrue(isinstance(p, multiprocessing.Process))
         self.assertTrue(p.daemon)
         self.assertTrue(p.is_alive())
+        self.assertEqual(
+            p._args,
+            ('ExampleWorker', inst._env, inst._q, 'foo', tuple())
+        )
+        self.assertEqual(p._kwargs, {})
         p.terminate()
         p.join()
 
+        # Test creating a process *with* args
+        self.assertTrue(
+            inst.do('ExampleWorker', 'bar', 'some', 'args') is True
+        )
+        self.assertEqual(sorted(inst._workers), ['bar', 'foo'])
+        p = inst._workers['bar']
+        self.assertTrue(isinstance(p, multiprocessing.Process))
+        self.assertTrue(p.daemon)
+        self.assertTrue(p.is_alive())
+        self.assertEqual(
+            p._args,
+            ('ExampleWorker', inst._env, inst._q, 'bar', ('some', 'args'))
+        )
+        self.assertEqual(p._kwargs, {})
+        p.terminate()
+        p.join()
+
+
     def test_emit(self):
+        env = {'foo': 'bar'}
         # Test with no callback
-        inst = self.klass()
+        inst = self.klass(env)
         inst.emit('ImportStarted', 'foo', 'bar')
 
         callback = DummyCallback()
-        inst = self.klass(callback)
+        inst = self.klass(env, callback)
         inst.emit('ImportStarted', 'foo', 'bar')
         inst.emit('NoArgs')
         inst.emit('OneArg', 'baz')

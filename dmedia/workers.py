@@ -79,14 +79,24 @@ def exception_name(exception):
     return exception.__name__
 
 
-def dispatch(q, worker, key, args):
+def dispatch(worker, env, q, key, args):
+    """
+    Dispatch a worker in this proccess.
+
+    :param worker: name of worker class, eg ``'ImportWorker'``
+    :param env: a ``dict`` containing run-time information like the CouchDB URL
+    :param q: a ``multiprocessing.Queue`` or similar
+    :param key: a key to uniquely identify this worker among active workers
+        controlled by the `Manager` that launched this worker
+    :param args: arguments to be passed to `Worker.run()`
+    """
     pid = current_process().pid
-    log.debug('dispatch in process %d: worker=%r, key=%r, args=%r',
+    log.debug('** dispatch in process %d: worker=%r, key=%r, args=%r',
         pid, worker, key, args
     )
     try:
         klass = _workers[worker]
-        inst = klass(q, key, args)
+        inst = klass(env, q, key, args)
         inst.run()
     except Exception as e:
         log.exception('exception in procces %d, worker=%r', pid)
@@ -106,7 +116,8 @@ def dispatch(q, worker, key, args):
 
 
 class Worker(object):
-    def __init__(self, q, key, args):
+    def __init__(self, env, q, key, args):
+        self.env = env
         self.q = q
         self.key = key
         self.args = args
@@ -144,11 +155,12 @@ class Worker(object):
 
 
 class Manager(object):
-    def __init__(self, callback=None):
+    def __init__(self, env, callback=None):
         if not (callback is None or callable(callback)):
             raise TypeError(
                 'callback must be callable; got %r' % callback
             )
+        self._env = env
         self._callback = callback
         self._running = False
         self._workers = {}
@@ -211,7 +223,7 @@ class Manager(object):
             return False
         p = multiprocessing.Process(
             target=dispatch,
-            args=(self._q, worker, key, args),
+            args=(worker, self._env, self._q, key, args),
         )
         p.daemon = True
         self._workers[key] = p
