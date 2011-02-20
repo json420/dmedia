@@ -190,16 +190,16 @@ def create_import(base, batch_id=None, machine_id=None):
 
 
 class Importer(object):
-    def __init__(self, batch_id, base, extract, dbname=None):
-        self.batch_id = batch_id
+    def __init__(self, env, base, extract):
+        self.env = env
         self.base = base
         self.extract = extract
+        self.server = get_couchdb_server(self.env)
+        self.db = get_dmedia_db(self.env, self.server)
         self.home = path.abspath(os.environ['HOME'])
-        self.metastore = MetaStore(dbname=dbname)
-        self.db = self.metastore.db
         self.filestore = FileStore(
             path.join(self.home, DOTDIR),
-            self.metastore.machine_id
+            self.env.get('machine_id')
         )
         try:
             self.db.save(self.filestore._doc)
@@ -223,8 +223,8 @@ class Importer(object):
         """
         assert self._id is None
         self.doc = create_import(self.base,
-            batch_id=self.batch_id,
-            machine_id=self.metastore.machine_id,
+            batch_id=self.env.get('batch_id'),
+            machine_id=self.env.get('machine_id'),
         )
         self._id = self.doc['_id']
         self.save()
@@ -373,9 +373,9 @@ class Importer(object):
 
 
 class ImportWorker(Worker):
-    def execute(self, batch_id, base, extract=False, dbname=None):
+    def execute(self, env, base, extract=False):
 
-        adapter = Importer(batch_id, base, extract, dbname)
+        adapter = Importer(env, base, extract)
 
         import_id = adapter.start()
         self.emit('started', import_id)
@@ -500,9 +500,7 @@ class ImportManager(Manager):
                 return False
             if len(self._workers) == 0:
                 self._start_batch()
-            return self.do('ImportWorker', base,
-                self.doc['_id'], base, extract, self._dbname
-            )
+            return self.do('ImportWorker', base, self.env, base, extract)
 
     def list_imports(self):
         with self._lock:

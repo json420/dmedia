@@ -34,12 +34,14 @@ import time
 from base64 import b32decode, b32encode, b64encode
 from multiprocessing import current_process
 
+import couchdb
+
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.metastore import MetaStore
 from dmedia.util import random_id
 from dmedia import importer, schema
-from dmedia.abstractcouch import get_env
+from dmedia.abstractcouch import get_env, get_dmedia_db
 from .helpers import TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_thm
@@ -268,23 +270,37 @@ class test_functions(TestCase):
         )
 
 
-class test_Importer(CouchCase):
+class ImportTestCase(CouchCase):
+    """
+    Base class for `test_Importer` and `test_ImportWorker`.
+    """
+    def setUp(self):
+        super(ImportTestCase, self).setUp()
+        self.machine_id = random_id()
+        self.batch_id = random_id()
+        self.env['machine_id'] = self.machine_id
+        self.env['batch_id'] = self.batch_id
+
+
+class test_Importer(ImportTestCase):
     klass = importer.Importer
-    batch_id = 'YKGHY6H5RVCDNMUBL4NLP6AU'
 
     def new(self, base, extract=False):
-        return self.klass(self.batch_id, base, extract, dbname=self.dbname)
+        return self.klass(self.env, base, extract)
 
     def test_init(self):
         tmp = TempDir()
         inst = self.new(tmp.path, True)
-        self.assertEqual(inst.batch_id, self.batch_id)
+        self.assertEqual(inst.env, self.env)
         self.assertEqual(inst.base, tmp.path)
         self.assertTrue(inst.extract is True)
+
+        self.assertTrue(isinstance(inst.server, couchdb.Server))
+        self.assertTrue(isinstance(inst.db, couchdb.Database))
+
         self.assertEqual(inst.home, self.home.path)
         self.assertTrue(isinstance(inst.filestore, FileStore))
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
-        self.assertTrue(isinstance(inst.metastore, MetaStore))
 
         # Test with extract = False
         inst = self.new(tmp.path, False)
@@ -296,8 +312,8 @@ class test_Importer(CouchCase):
         self.assertTrue(inst.doc is None)
         _id = inst.start()
         self.assertEqual(len(_id), 24)
-        store = MetaStore(dbname=self.dbname)
-        self.assertEqual(inst.doc, store.db[_id])
+        db = get_dmedia_db(self.env)
+        self.assertEqual(inst.doc, db[_id])
         self.assertEqual(
             set(inst.doc),
             set([
@@ -313,10 +329,7 @@ class test_Importer(CouchCase):
             ])
         )
         self.assertEqual(inst.doc['batch_id'], self.batch_id)
-        self.assertEqual(
-            inst.doc['machine_id'],
-            inst.metastore.machine_id
-        )
+        self.assertEqual(inst.doc['machine_id'], self.machine_id)
         self.assertEqual(inst.doc['base'], tmp.path)
         self.assertEqual(
             inst.doc['log'],
@@ -707,17 +720,15 @@ class test_Importer(CouchCase):
         )
 
 
-class test_ImportWorker(CouchCase):
+class test_ImportWorker(ImportTestCase):
     klass = importer.ImportWorker
 
     def test_run(self):
         q = DummyQueue()
         pid = current_process().pid
-
         tmp = TempDir()
-        batch_id = 'YKGHY6H5RVCDNMUBL4NLP6AU'
         base = tmp.path
-        inst = self.klass(q, base, (batch_id, base, False, self.dbname))
+        inst = self.klass(q, base, (self.env, base, False))
 
         src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
         dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
