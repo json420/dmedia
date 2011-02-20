@@ -36,7 +36,17 @@ from .helpers import raises
 
 class test_functions(TestCase):
     def setUp(self):
-        abstractcouch.OAuthSession = OAuthSession
+        if abstractcouch.OAuthSession is None:
+            abstractcouch.OAuthSession = OAuthSession
+
+    def dc_env(self):
+        """
+        Create an *env* for desktopcouch.
+        """
+        return {
+            'url': 'http://localhost:%d/' % find_port(),
+            'oauth': get_oauth_tokens(),
+        }
 
     def test_get_couchdb_server(self):
         f = abstractcouch.get_couchdb_server
@@ -52,10 +62,7 @@ class test_functions(TestCase):
         self.assertEqual(repr(s), "<Server 'http://localhost:5984/'>")
 
         # Test with desktopcouch
-        env = {
-            'url': 'http://localhost:%d/' % find_port(),
-            'oauth': get_oauth_tokens(),
-        }
+        env = self.dc_env()
         s = f(env)
         self.assertTrue(isinstance(s, couchdb.Server))
         self.assertEqual(
@@ -78,3 +85,90 @@ class test_functions(TestCase):
         s = f({'url': 'http://localhost:5984/'})
         self.assertTrue(isinstance(s, couchdb.Server))
         self.assertEqual(repr(s), "<Server 'http://localhost:5984/'>")
+
+    def test_get_dmedia_db(self):
+        f = abstractcouch.get_dmedia_db
+
+        # Test when server is not provided
+        env = self.dc_env()
+
+        assert 'dmedia' not in env
+        d = f(env)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = None
+        d = f(env)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = 'dmedia'
+        d = f(env)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = 'dmedia_test'
+        d = f(env)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia_test'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia_test')
+
+
+        # Test when server *is* provided
+        env = self.dc_env()
+        server = abstractcouch.get_couchdb_server(env)
+
+        assert 'dmedia' not in env
+        d = f(env, server)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = None
+        d = f(env, server)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname', server] = 'dmedia'
+        d = f(env)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = 'dmedia_test'
+        d = f(env, server)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia_test'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia_test')
+
+
+        # Test when server=None is explicitly provided
+        env = self.dc_env()
+
+        assert 'dmedia' not in env
+        d = f(env, server=None)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = None
+        d = f(env, server=None)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = 'dmedia'
+        d = f(env, server=None)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia')
+
+        env['dbname'] = 'dmedia_test'
+        d = f(env, server=None)
+        self.assertTrue(isinstance(d, couchdb.Database))
+        self.assertEqual(repr(d), "<Database 'dmedia_test'>")
+        self.assertEqual(d.info()['db_name'], 'dmedia_test')

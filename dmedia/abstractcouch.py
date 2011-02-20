@@ -37,7 +37,7 @@ For more details, see:
     https://bugs.launchpad.net/dmedia/+bug/722035
 """
 
-from couchdb import Server
+from couchdb import Server, ResourceNotFound
 try:
     from desktopcouch.records.http import OAuthSession
 except ImportError:
@@ -88,7 +88,7 @@ def get_couchdb_server(env):
     ``"dmedia_test"``).
 
     The goal is to have all the needed information is one easily serialized
-    piece of data (important for testing across multiple processes.
+    piece of data (important for testing across multiple processes).
     """
     if env.get('oauth') is None:
         session = None
@@ -100,3 +100,27 @@ def get_couchdb_server(env):
             )
         session = OAuthSession(credentials=env['oauth'])
     return Server(env.get('url', 'http://localhost:5984/'), session=session)
+
+
+def get_dmedia_db(env, server=None):
+    """
+    Return the dmedia database specified by *env*.
+
+    The database name is determined by ``env['dbname']``.  If the ``"dbname"``
+    key is missing or is ``None``, the default database name ``"dmedia"`` is
+    used.
+
+    If *server* is ``None``, on is created with *env* by calling
+    `get_couchdb_server()`.
+
+    Returns a ``couchdb.Database`` instance.
+    """
+    if server is None:
+        server = get_couchdb_server(env)
+    dbname = env.get('dbname')
+    if dbname is None:
+        dbname = 'dmedia'
+    try:
+        return server[dbname]
+    except ResourceNotFound:
+        return server.create(dbname)
