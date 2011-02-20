@@ -38,7 +38,6 @@ import couchdb
 
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
-from dmedia.metastore import MetaStore
 from dmedia.util import random_id
 from dmedia import importer, schema
 from dmedia.abstractcouch import get_env, get_dmedia_db
@@ -270,23 +269,26 @@ class test_functions(TestCase):
         )
 
 
-class ImportTestCase(CouchCase):
-    """
-    Base class for `test_Importer` and `test_ImportWorker`.
-    """
+class test_ImportWorker(CouchCase):
+    klass = importer.ImportWorker
+
     def setUp(self):
-        super(ImportTestCase, self).setUp()
-        self.machine_id = random_id()
+        super(test_ImportWorker, self).setUp()
         self.batch_id = random_id()
-        self.env['machine_id'] = self.machine_id
         self.env['batch_id'] = self.batch_id
+        self.q = DummyQueue()
+        self.pid = current_process().pid
+        self.tmp = TempDir()
 
+    def tearDown(self):
+        super(test_ImportWorker, self).tearDown()
+        self.q = None
+        self.pid = None
+        self.tmp = None
 
-class test_Importer(ImportTestCase):
-    klass = importer.Importer
-
-    def new(self, base, extract=False):
-        return self.klass(self.env, base, extract)
+    def new(self, base=None, extract=False):
+        base = (self.tmp.path if base is None else base)
+        return self.klass(self.env, self.q, base, (base, extract))
 
     def test_init(self):
         tmp = TempDir()
@@ -305,6 +307,91 @@ class test_Importer(ImportTestCase):
         # Test with extract = False
         inst = self.new(tmp.path, False)
         self.assertTrue(inst.extract is False)
+
+    def test_run(self):
+        q = DummyQueue()
+        pid = current_process().pid
+        tmp = TempDir()
+        base = tmp.path
+        inst = self.klass(self.env, q, base, (base, False))
+
+        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
+        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
+        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
+
+        mov_size = path.getsize(sample_mov)
+        thm_size = path.getsize(sample_thm)
+
+        inst.run()
+
+        self.assertEqual(len(q.messages), 6)
+        _id = q.messages[0]['args'][1]
+        self.assertEqual(len(_id), 24)
+        self.assertEqual(
+            q.messages[0],
+            dict(
+                signal='started',
+                args=(base, _id),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(
+            q.messages[1],
+            dict(
+                signal='count',
+                args=(base, _id, 3),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(q.messages[2],
+            dict(
+                signal='progress',
+                args=(base, _id, 1, 3,
+                    dict(action='imported', src=src1)
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(q.messages[3],
+            dict(
+                signal='progress',
+                args=(base, _id, 2, 3,
+                    dict(action='imported', src=src2)
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(q.messages[4],
+            dict(
+                signal='progress',
+                args=(base, _id, 3, 3,
+                    dict(action='skipped', src=dup1)
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
+        self.assertEqual(
+            q.messages[5],
+            dict(
+                signal='finished',
+                args=(base, _id,
+                    dict(
+                        considered={'count': 3, 'bytes': (mov_size*2 + thm_size)},
+                        imported={'count': 2, 'bytes': (mov_size + thm_size)},
+                        skipped={'count': 1, 'bytes': mov_size},
+                        empty={'count': 0, 'bytes': 0},
+                        error={'count': 0, 'bytes': 0},
+                    ),
+                ),
+                worker='ImportWorker',
+                pid=pid,
+            )
+        )
 
     def test_start(self):
         tmp = TempDir()
@@ -720,101 +807,16 @@ class test_Importer(ImportTestCase):
         )
 
 
-class test_ImportWorker(ImportTestCase):
-    klass = importer.ImportWorker
-
-    def test_run(self):
-        q = DummyQueue()
-        pid = current_process().pid
-        tmp = TempDir()
-        base = tmp.path
-        inst = self.klass(q, base, (self.env, base, False))
-
-        src1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5751.MOV')
-        dup1 = tmp.copy(sample_mov, 'DCIM', '100EOS5D2', 'MVI_5752.MOV')
-        src2 = tmp.copy(sample_thm, 'DCIM', '100EOS5D2', 'MVI_5751.THM')
-
-        mov_size = path.getsize(sample_mov)
-        thm_size = path.getsize(sample_thm)
-
-        inst.run()
-
-        self.assertEqual(len(q.messages), 6)
-        _id = q.messages[0]['args'][1]
-        self.assertEqual(len(_id), 24)
-        self.assertEqual(
-            q.messages[0],
-            dict(
-                signal='started',
-                args=(base, _id),
-                worker='ImportWorker',
-                pid=pid,
-            )
-        )
-        self.assertEqual(
-            q.messages[1],
-            dict(
-                signal='count',
-                args=(base, _id, 3),
-                worker='ImportWorker',
-                pid=pid,
-            )
-        )
-        self.assertEqual(q.messages[2],
-            dict(
-                signal='progress',
-                args=(base, _id, 1, 3,
-                    dict(action='imported', src=src1)
-                ),
-                worker='ImportWorker',
-                pid=pid,
-            )
-        )
-        self.assertEqual(q.messages[3],
-            dict(
-                signal='progress',
-                args=(base, _id, 2, 3,
-                    dict(action='imported', src=src2)
-                ),
-                worker='ImportWorker',
-                pid=pid,
-            )
-        )
-        self.assertEqual(q.messages[4],
-            dict(
-                signal='progress',
-                args=(base, _id, 3, 3,
-                    dict(action='skipped', src=dup1)
-                ),
-                worker='ImportWorker',
-                pid=pid,
-            )
-        )
-        self.assertEqual(
-            q.messages[5],
-            dict(
-                signal='finished',
-                args=(base, _id,
-                    dict(
-                        considered={'count': 3, 'bytes': (mov_size*2 + thm_size)},
-                        imported={'count': 2, 'bytes': (mov_size + thm_size)},
-                        skipped={'count': 1, 'bytes': mov_size},
-                        empty={'count': 0, 'bytes': 0},
-                        error={'count': 0, 'bytes': 0},
-                    ),
-                ),
-                worker='ImportWorker',
-                pid=pid,
-            )
-        )
-
-
 class test_ImportManager(CouchCase):
     klass = importer.ImportManager
 
+    def new(self, callback=None):
+        return self.klass(self.env, callback)
+
+
     def test_start_batch(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
 
         # Test that batch cannot be started when there are active workers:
         inst._workers['foo'] = 'bar'
@@ -843,7 +845,7 @@ class test_ImportManager(CouchCase):
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
         self.assertEqual(batch['imports'], [])
-        self.assertEqual(batch['machine_id'], inst.metastore.machine_id)
+        self.assertEqual(batch['machine_id'], self.machine_id)
         self.assertEqual(inst.db[batch['_id']], batch)
         self.assertEqual(
             callback.messages,
@@ -852,17 +854,12 @@ class test_ImportManager(CouchCase):
             ]
         )
 
-        env = get_env(self.dbname)
-        env['machine_id'] = batch['machine_id']
-        env['batch_id'] = batch['_id']
-        self.assertEqual(inst.env, env)
-
         # Test that batch cannot be re-started without first finishing
         self.assertRaises(AssertionError, inst._start_batch)
 
     def test_finish_batch(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
         batch_id = random_id()
         inst.doc = dict(
             _id=batch_id,
@@ -908,7 +905,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_error(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
 
         # Make sure it works when doc is None:
         inst.on_error('foo', 'IOError', 'nope')
@@ -937,7 +934,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_started(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
         self.assertEqual(callback.messages, [])
         inst._start_batch()
         batch_id = inst.doc['_id']
@@ -976,7 +973,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_count(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
         self.assertEqual(callback.messages, [])
 
         one = TempDir()
@@ -1006,7 +1003,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_progress(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
         self.assertEqual(callback.messages, [])
 
         one = TempDir()
@@ -1046,7 +1043,7 @@ class test_ImportManager(CouchCase):
 
     def test_on_finished(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
         batch_id = random_id()
         inst.doc = dict(
             _id=batch_id,
@@ -1132,7 +1129,7 @@ class test_ImportManager(CouchCase):
         )
 
     def test_get_batch_progress(self):
-        inst = self.klass(dbname=self.dbname)
+        inst = self.new()
         self.assertEqual(inst.get_batch_progress(), (0, 0))
         inst._total = 18
         self.assertEqual(inst.get_batch_progress(), (0, 18))
@@ -1144,7 +1141,7 @@ class test_ImportManager(CouchCase):
 
     def test_start_import(self):
         callback = DummyCallback()
-        inst = self.klass(callback, self.dbname)
+        inst = self.new(callback)
         self.assertTrue(inst.start())
 
         tmp = TempDir()
@@ -1226,7 +1223,7 @@ class test_ImportManager(CouchCase):
         )
 
     def test_list_imports(self):
-        inst = self.klass(dbname=self.dbname)
+        inst = self.new()
         self.assertEqual(inst.list_imports(), [])
         inst._workers.update(
             dict(foo=None, bar=None, baz=None)

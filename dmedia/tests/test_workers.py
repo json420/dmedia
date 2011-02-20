@@ -306,14 +306,14 @@ class test_Manager(TestCase):
 
         # Test that callback default is None:
         inst = self.klass(env)
-        self.assertTrue(inst._env is env)
+        self.assertTrue(inst.env is env)
         self.assertTrue(inst._callback is None)
 
         # Test with a callable:
         def foo():
             pass
         inst = self.klass(env, callback=foo)
-        self.assertTrue(inst._env is env)
+        self.assertTrue(inst.env is env)
         self.assertTrue(inst._callback is foo)
         self.assertTrue(inst._running is False)
         self.assertEqual(inst._workers, {})
@@ -428,7 +428,7 @@ class test_Manager(TestCase):
         self.assertTrue(p.is_alive())
         self.assertEqual(
             p._args,
-            ('ExampleWorker', inst._env, inst._q, 'foo', tuple())
+            ('ExampleWorker', inst.env, inst._q, 'foo', tuple())
         )
         self.assertEqual(p._kwargs, {})
         p.terminate()
@@ -445,7 +445,7 @@ class test_Manager(TestCase):
         self.assertTrue(p.is_alive())
         self.assertEqual(
             p._args,
-            ('ExampleWorker', inst._env, inst._q, 'bar', ('some', 'args'))
+            ('ExampleWorker', inst.env, inst._q, 'bar', ('some', 'args'))
         )
         self.assertEqual(p._kwargs, {})
         p.terminate()
@@ -478,7 +478,7 @@ class test_CouchManager(CouchCase):
 
     def test_init(self):
         inst = self.klass(self.env)
-        self.assertTrue(inst._env is self.env)
+        self.assertTrue(inst.env is self.env)
         self.assertTrue(inst._callback is None)
         self.assertTrue(isinstance(inst.server, couchdb.Server))
         self.assertTrue(isinstance(inst.db, couchdb.Database))
@@ -486,7 +486,7 @@ class test_CouchManager(CouchCase):
         def func():
             pass
         inst = self.klass(self.env, func)
-        self.assertTrue(inst._env is self.env)
+        self.assertTrue(inst.env is self.env)
         self.assertTrue(inst._callback, func)
         self.assertTrue(isinstance(inst.server, couchdb.Server))
         self.assertTrue(isinstance(inst.db, couchdb.Database))

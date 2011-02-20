@@ -35,9 +35,10 @@ import couchdb
 
 from .util import random_id
 from .errors import DuplicateFile
-from .workers import Worker, Manager, register, isregistered, exception_name
+from .workers import (
+    CouchWorker, CouchManager, register, isregistered, exception_name
+)
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
-from .metastore import MetaStore
 from .extractor import merge_metadata
 from .abstractcouch import get_env, get_couchdb_server, get_dmedia_db
 
@@ -189,13 +190,10 @@ def create_import(base, batch_id=None, machine_id=None):
     }
 
 
-class Importer(object):
-    def __init__(self, env, base, extract):
-        self.env = env
-        self.base = base
-        self.extract = extract
-        self.server = get_couchdb_server(self.env)
-        self.db = get_dmedia_db(self.env, self.server)
+class ImportWorker(CouchWorker):
+    def __init__(self, env, q, key, args):
+        super(ImportWorker, self).__init__(env, q, key, args)
+        (self.base, self.extract) = args
         self.home = path.abspath(os.environ['HOME'])
         self.filestore = FileStore(
             path.join(self.home, DOTDIR),
@@ -210,6 +208,27 @@ class Importer(object):
         self._processed = []
         self.doc = None
         self._id = None
+
+    def execute(self, base, extract=False):
+        import_id = self.start()
+        self.emit('started', import_id)
+
+        files = self.scanfiles()
+        total = len(files)
+        self.emit('count', import_id, total)
+
+        c = 1
+        for (src, action) in self.import_all_iter():
+            self.emit('progress', import_id, c, total,
+                dict(
+                    action=action,
+                    src=src,
+                )
+            )
+            c += 1
+
+        stats = self.finalize()
+        self.emit('finished', import_id, stats)
 
     def save(self):
         """
@@ -372,31 +391,6 @@ class Importer(object):
         return self.doc['stats']
 
 
-class ImportWorker(Worker):
-    def execute(self, env, base, extract=False):
-
-        adapter = Importer(env, base, extract)
-
-        import_id = adapter.start()
-        self.emit('started', import_id)
-
-        files = adapter.scanfiles()
-        total = len(files)
-        self.emit('count', import_id, total)
-
-        c = 1
-        for (src, action) in adapter.import_all_iter():
-            self.emit('progress', import_id, c, total,
-                dict(
-                    action=action,
-                    src=src,
-                )
-            )
-            c += 1
-
-        stats = adapter.finalize()
-        self.emit('finished', import_id, stats)
-
 
 def to_dbus_stats(stats):
     return dict(
@@ -415,14 +409,10 @@ def accumulate_stats(accum, stats):
             accum[key][k] += v
 
 
-class ImportManager(Manager):
-    def __init__(self, callback=None, dbname=None):
-        super(ImportManager, self).__init__(callback)
-        self._dbname = dbname
-        self.metastore = MetaStore(dbname=dbname)
-        self.db = self.metastore.db
+class ImportManager(CouchManager):
+    def __init__(self, env, callback=None):
+        super(ImportManager, self).__init__(env, callback)
         self.doc = None
-        self.env = None
         self._total = 0
         self._completed = 0
         if not isregistered(ImportWorker):
@@ -439,12 +429,14 @@ class ImportManager(Manager):
         assert self._workers == {}
         self._total = 0
         self._completed = 0
-        self.doc = create_batch(self.metastore.machine_id)
+        self.doc = create_batch(self.env.get('machine_id'))
         self.save()
-        self.env = get_env(self._dbname)
-        self.env['machine_id'] = self.metastore.machine_id
-        self.env['batch_id'] = self.doc['_id']
         self.emit('BatchStarted', self.doc['_id'])
+
+    def get_worker_env(self, worker, key, args):
+        env = dict(self.env)
+        env['batch_id'] = self.doc['_id']
+        return env
 
     def _finish_batch(self):
         assert self._workers == {}
@@ -500,7 +492,7 @@ class ImportManager(Manager):
                 return False
             if len(self._workers) == 0:
                 self._start_batch()
-            return self.do('ImportWorker', base, self.env, base, extract)
+            return self.start_job('ImportWorker', base, base, extract)
 
     def list_imports(self):
         with self._lock:

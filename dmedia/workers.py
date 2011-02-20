@@ -169,7 +169,7 @@ class Manager(object):
             raise TypeError(
                 'callback must be callable; got %r' % callback
             )
-        self._env = env
+        self.env = env
         self._callback = callback
         self._running = False
         self._workers = {}
@@ -224,6 +224,9 @@ class Manager(object):
             self._workers.clear()
             return True
 
+    def get_worker_env(self, worker, key, args):
+        return dict(self.env)
+
     def start_job(self, worker, key, *args):
         """
         Start a process identified by *key*, using worker class *name*.
@@ -235,9 +238,10 @@ class Manager(object):
         """
         if key in self._workers:
             return False
+        env = self.get_worker_env(worker, key, args)
         p = multiprocessing.Process(
             target=dispatch,
-            args=(worker, self._env, self._q, key, args),
+            args=(worker, env, self._q, key, args),
         )
         p.daemon = True
         self._workers[key] = p

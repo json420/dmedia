@@ -28,6 +28,7 @@ from unittest import TestCase
 import couchdb
 
 from dmedia.abstractcouch import get_env, get_couchdb_server
+from dmedia.util import random_id
 from .helpers import TempHome
 
 
@@ -53,6 +54,8 @@ class CouchCase(TestCase):
             del server[self.dbname]
         except couchdb.ResourceNotFound:
             pass
+        self.machine_id = random_id()
+        self.env['machine_id'] = self.machine_id
 
     def tearDown(self):
         self.home = None
