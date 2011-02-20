@@ -192,10 +192,10 @@ class Manager(object):
         log.error('%s %s: %s: %s', self.name, key, exception, message)
 
     def start(self):
-        log.info('Killing %s', self.name)
         with self._lock:
             if self._running:
                 return False
+            log.info('Starting %s', self.name)
             self._running = True
             self._thread = Thread(target=self._signal_thread)
             self._thread.daemon = True
@@ -203,9 +203,9 @@ class Manager(object):
             return True
 
     def kill(self):
-        log.info('Killing %s', self.name)
         if not self._running:
             return False
+        log.info('Killing %s', self.name)
         self._running = False
         self._thread.join()  # Cleanly shutdown _signal_thread
         with self._lock:
