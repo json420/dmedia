@@ -37,6 +37,8 @@ For more details, see:
     https://bugs.launchpad.net/dmedia/+bug/722035
 """
 
+import logging
+
 from couchdb import Server, ResourceNotFound
 try:
     from desktopcouch.records.http import OAuthSession
@@ -45,6 +47,9 @@ except ImportError:
 if OAuthSession is not None:
     from desktopcouch.application.platform import find_port
     from desktopcouch.application.local_files import get_oauth_tokens
+
+
+log = logging.getLogger()
 
 
 def get_couchdb_server(env):
@@ -93,6 +98,8 @@ def get_couchdb_server(env):
     The goal is to have all the needed information is one easily serialized
     piece of data (important for testing across multiple processes).
     """
+    url = env.get('url', 'http://localhost:5984/')
+    log.info('CouchDB server is %r', url)
     if env.get('oauth') is None:
         session = None
     else:
@@ -101,8 +108,9 @@ def get_couchdb_server(env):
                 "provided env['oauth'] but OAuthSession not available: %r" %
                     (env,)
             )
+        log.info('Using desktopcouch `OAuthSession`')
         session = OAuthSession(credentials=env['oauth'])
-    return Server(env.get('url', 'http://localhost:5984/'), session=session)
+    return Server(url, session=session)
 
 
 def get_dmedia_db(env, server=None):
@@ -125,6 +133,7 @@ def get_dmedia_db(env, server=None):
     dbname = env.get('dbname')
     if dbname is None:
         dbname = 'dmedia'
+    log.info('CouchDB database is %r', dbname)
     try:
         return server[dbname]
     except ResourceNotFound:

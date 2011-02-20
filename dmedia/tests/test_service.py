@@ -50,4 +50,3 @@ class test_DMedia(CouchCase):
         self.assertTrue(inst._manager is m)
         self.assertTrue(isinstance(m, importer.ImportManager))
         self.assertEqual(m._callback, inst._on_signal)
-        self.assertTrue(m._dbname is self.dbname)

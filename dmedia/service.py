@@ -36,6 +36,7 @@ import gobject
 from .constants import BUS, INTERFACE, EXT_MAP
 from .util import NotifyManager, Timer, import_started, batch_finished
 from .importer import ImportManager
+from .abstractcouch import get_env
 from .metastore import MetaStore
 
 gobject.threads_init()
@@ -118,12 +119,21 @@ class DMedia(dbus.service.Object):
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
 
+        self._metastore = None
         self._manager = None
+
+    @property
+    def metastore(self):
+        if self._metastore is None:
+            self._metastore = MetaStore(get_env(self._dbname))
+        return self._metastore
 
     @property
     def manager(self):
         if self._manager is None:
-            self._manager = ImportManager(self._on_signal, self._dbname)
+            self._manager = ImportManager(
+                self.metastore.get_env(), self._on_signal
+            )
             self._manager.start()
         return self._manager
 
@@ -133,6 +143,8 @@ class DMedia(dbus.service.Object):
             method(*args)
 
     def _on_timer(self):
+        if self._manager is None:
+            return
         text = _('File %d of %d') % self._manager.get_batch_progress()
         self._current_label.set_text(text)
         self._indicator.set_menu(self._menu)
@@ -143,8 +155,7 @@ class DMedia(dbus.service.Object):
     def _on_futon(self, menuitem):
         log.info('Opening dmedia database in Futon..')
         try:
-            store = MetaStore()
-            uri = store.get_auth_uri() + '/_utils'
+            uri = self.metastore.get_auth_uri() + '/_utils'
             check_call(['/usr/bin/xdg-open', uri])
             log.info('Opened Futon')
         except Exception:
@@ -222,10 +233,11 @@ class DMedia(dbus.service.Object):
         """
         Kill the dmedia service process.
         """
-        log.info('Killing service')
+        log.info('Killing service...')
         if self._manager is not None:
             self._manager.kill()
         if callable(self._killfunc):
+            log.info('Calling killfunc()')
             self._killfunc()
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
@@ -288,4 +300,6 @@ class DMedia(dbus.service.Object):
         """
         Return list of currently running imports.
         """
-        return self.manager.list_imports()
+        if self._manager is None:
+            return []
+        return self.manager.list_jobs()
