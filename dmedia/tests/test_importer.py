@@ -932,6 +932,18 @@ class test_ImportManager(CouchCase):
             ]
         )
 
+    def test_get_worker_env(self):
+        batch_id = random_id()
+        inst = self.new()
+        env = dict(self.env)
+        assert 'batch_id' not in env
+        inst.doc = {'_id': batch_id}
+        env['batch_id'] = batch_id
+        self.assertEqual(
+            inst.get_worker_env('ImportWorker', 'a key', ('some', 'args')),
+            env
+        )
+
     def test_on_started(self):
         callback = DummyCallback()
         inst = self.new(callback)
