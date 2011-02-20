@@ -215,9 +215,14 @@ class Manager(object):
             self._workers.clear()
             return True
 
-    def do(self, worker, key, *args):
+    def start_job(self, worker, key, *args):
         """
         Start a process identified by *key*, using worker class *name*.
+
+        :param worker: name of worker class, eg ``'ImportWorker'``
+        :param key: a key to uniquely identify new `Worker` among active workers
+            controlled by this `Manager`
+        :param args: arguments to be passed to `Worker.run()`
         """
         if key in self._workers:
             return False

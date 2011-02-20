@@ -387,17 +387,17 @@ class test_Manager(TestCase):
         # Again test that kill_job() returns False when no such job exists:
         self.assertTrue(inst.kill_job('foo') is False)
 
-    def test_do(self):
+    def test_start_job(self):
         env = {'foo': 'bar'}
         inst = self.klass(env)
 
         # Test that False is returned when key already exists:
         inst._workers['foo'] = 'bar'
-        self.assertTrue(inst.do('ExampleWorker', 'foo') is False)
+        self.assertTrue(inst.start_job('ExampleWorker', 'foo') is False)
 
         # Test creating a process with no args
         inst._workers.clear()
-        self.assertTrue(inst.do('ExampleWorker', 'foo') is True)
+        self.assertTrue(inst.start_job('ExampleWorker', 'foo') is True)
         self.assertEqual(list(inst._workers), ['foo'])
         p = inst._workers['foo']
         self.assertTrue(isinstance(p, multiprocessing.Process))
@@ -413,7 +413,7 @@ class test_Manager(TestCase):
 
         # Test creating a process *with* args
         self.assertTrue(
-            inst.do('ExampleWorker', 'bar', 'some', 'args') is True
+            inst.start_job('ExampleWorker', 'bar', 'some', 'args') is True
         )
         self.assertEqual(sorted(inst._workers), ['bar', 'foo'])
         p = inst._workers['bar']
