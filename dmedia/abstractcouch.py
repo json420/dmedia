@@ -110,6 +110,8 @@ def get_dmedia_db(env, server=None):
     key is missing or is ``None``, the default database name ``"dmedia"`` is
     used.
 
+    If the database does not exist, it will be created.
+
     If *server* is ``None``, on is created with *env* by calling
     `get_couchdb_server()`.
 
