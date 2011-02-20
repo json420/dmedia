@@ -12,11 +12,11 @@ Architecture: all
 XB-Python-Version: ${python:Versions}
 Depends: ${misc:Depends}, ${python:Depends},
  python-desktopcouch-records,
+ python-couchdb (>= 0.8),
  totem,
  libimage-exiftool-perl,
  python-webkit,
  gir1.2-webkit-1.0,
- python-paste,
  python-notify,
  python-appindicator,
  python-xdg,
