@@ -30,8 +30,12 @@ import multiprocessing
 import multiprocessing.queues
 from multiprocessing import current_process
 import threading
+
+import couchdb
+
 from dmedia import workers
 from .helpers import raises, DummyQueue, DummyCallback
+from .couch import CouchCase
 
 
 class test_functions(TestCase):
@@ -247,6 +251,25 @@ class test_Worker(TestCase):
         self.assertEqual(str(e), 'do_something.execute()')
 
 
+class test_CouchWorker(CouchCase):
+    klass = workers.CouchWorker
+
+    def test_init(self):
+        q = DummyQueue()
+        key = 'a key'
+        args = ('some', 'args')
+        inst = self.klass(self.env, q, key, args)
+        self.assertTrue(inst.env is self.env)
+        self.assertTrue(inst.q is q)
+        self.assertTrue(inst.key is key)
+        self.assertTrue(inst.args is args)
+        self.assertTrue(isinstance(inst.server, couchdb.Server))
+        self.assertTrue(isinstance(inst.db, couchdb.Database))
+
+
+
+
+
 def infinite():
     while True:
         time.sleep(1)
@@ -448,3 +471,22 @@ class test_Manager(TestCase):
                 ('OneArg', ('baz',)),
             ]
         )
+
+
+class test_CouchManager(CouchCase):
+    klass = workers.CouchManager
+
+    def test_init(self):
+        inst = self.klass(self.env)
+        self.assertTrue(inst._env is self.env)
+        self.assertTrue(inst._callback is None)
+        self.assertTrue(isinstance(inst.server, couchdb.Server))
+        self.assertTrue(isinstance(inst.db, couchdb.Database))
+
+        def func():
+            pass
+        inst = self.klass(self.env, func)
+        self.assertTrue(inst._env is self.env)
+        self.assertTrue(inst._callback, func)
+        self.assertTrue(isinstance(inst.server, couchdb.Server))
+        self.assertTrue(isinstance(inst.db, couchdb.Database))

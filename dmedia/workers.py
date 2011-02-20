@@ -28,10 +28,12 @@ from multiprocessing import current_process
 from threading import Thread, Lock
 from Queue import Empty
 import logging
+
 from .constants import TYPE_ERROR
+from .abstractcouch import get_couchdb_server, get_dmedia_db
+
 
 log = logging.getLogger()
-
 _workers = {}
 
 
@@ -154,6 +156,13 @@ class Worker(object):
         )
 
 
+class CouchWorker(Worker):
+    def __init__(self, env, q, key, args):
+        super(CouchWorker, self).__init__(env, q, key, args)
+        self.server = get_couchdb_server(env)
+        self.db = get_dmedia_db(env, self.server)
+
+
 class Manager(object):
     def __init__(self, env, callback=None):
         if not (callback is None or callable(callback)):
@@ -251,3 +260,10 @@ class Manager(object):
         if self._callback is None:
             return
         self._callback(signal, args)
+
+
+class CouchManager(Manager):
+    def __init__(self, env, callback=None):
+        super(CouchManager, self).__init__(env, callback)
+        self.server = get_couchdb_server(env)
+        self.db = get_dmedia_db(env, self.server)
