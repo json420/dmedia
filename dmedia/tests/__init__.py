@@ -24,7 +24,13 @@
 Unit tests for `dmedia` package.
 """
 
+from unittest import TestCase
 from os import path
+
+from desktopcouch.application.platform import find_port
+from desktopcouch.application.local_files import get_oauth_tokens
+
+import dmedia
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
 sample_mov = path.join(datadir, 'MVI_5751.MOV')
@@ -33,3 +39,28 @@ sample_thm = path.join(datadir, 'MVI_5751.THM')
 assert path.isdir(datadir)
 assert path.isfile(sample_mov)
 assert path.isfile(sample_thm)
+
+
+class test_functions(TestCase):
+
+    def test_get_env(self):
+        f = dmedia.get_env
+        url = 'http://localhost:%d/' % find_port()
+        oauth = get_oauth_tokens()
+
+        self.assertEqual(
+            f(),
+            {'url': url, 'oauth': oauth, 'dbname': None}
+        )
+        self.assertEqual(
+            f(dbname=None),
+            {'url': url, 'oauth': oauth, 'dbname': None}
+        )
+        self.assertEqual(
+            f(dbname='dmedia'),
+            {'url': url, 'oauth': oauth, 'dbname': 'dmedia'}
+        )
+        self.assertEqual(
+            f(dbname='dmedia_test'),
+            {'url': url, 'oauth': oauth, 'dbname': 'dmedia_test'}
+        )
