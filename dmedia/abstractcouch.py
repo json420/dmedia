@@ -30,7 +30,7 @@ instance launched by desktopcouch, or a system-wide CouchDB started with an
 init script.
 
 This would be a great feature to upstream into desktopcouch, but for now we can
-give it a good trail by fire in dmedia.
+give it a good trial by fire in dmedia.
 
 For more details, see:
 
