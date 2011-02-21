@@ -55,7 +55,8 @@ def get_env(dbname=None):
     conn = dbus.SessionBus()
     proxy = conn.get_object(DC, '/')
     getPort = proxy.get_dbus_method('getPort', dbus_interface=DC)
-    url = 'http://localhost:%d/' % getPort()
+    port = getPort()
+    url = 'http://localhost:%d/' % port
 
     import gnomekeyring
     data = gnomekeyring.find_items_sync(
@@ -67,4 +68,4 @@ def get_env(dbname=None):
         data[0].secret.split(':')
     ))
 
-    return dict(url=url, oauth=oauth, dbname=dbname)
+    return dict(port=port, url=url, oauth=oauth, dbname=dbname)

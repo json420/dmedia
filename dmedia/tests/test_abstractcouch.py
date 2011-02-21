@@ -43,8 +43,10 @@ class test_functions(TestCase):
         """
         Create an *env* for desktopcouch.
         """
+        port = find_port()
         return {
-            'url': 'http://localhost:%d/' % find_port(),
+            'port': port,
+            'url': 'http://localhost:%d/' % port,
             'oauth': get_oauth_tokens(),
         }
 
@@ -175,25 +177,26 @@ class test_functions(TestCase):
 
     def test_get_env(self):
         f = abstractcouch.get_env
-        url = 'http://localhost:%d/' % find_port()
+        port = find_port()
+        url = 'http://localhost:%d/' % port
         oauth = get_oauth_tokens()
 
         # Test when OAuthSession is available
         self.assertEqual(
             f(),
-            {'url': url, 'oauth': oauth, 'dbname': None}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': None}
         )
         self.assertEqual(
             f(dbname=None),
-            {'url': url, 'oauth': oauth, 'dbname': None}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': None}
         )
         self.assertEqual(
             f(dbname='dmedia'),
-            {'url': url, 'oauth': oauth, 'dbname': 'dmedia'}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': 'dmedia'}
         )
         self.assertEqual(
             f(dbname='dmedia_test'),
-            {'url': url, 'oauth': oauth, 'dbname': 'dmedia_test'}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': 'dmedia_test'}
         )
 
         # Test when OAuthSession is *not* available

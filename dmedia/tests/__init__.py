@@ -44,26 +44,27 @@ assert path.isfile(sample_thm)
 class test_functions(TestCase):
 
     def test_get_env(self):
-        return
         # FIXME: Somehow this test is making gnomekeyring and
         # ~/.config/desktop-couch/desktop-couchdb.ini contain differnt values
+        return
         f = dmedia.get_env
-        url = 'http://localhost:%d/' % find_port()
+        port = find_port()
+        url = 'http://localhost:%d/' % port
         oauth = get_oauth_tokens()
 
         self.assertEqual(
             f(),
-            {'url': url, 'oauth': oauth, 'dbname': None}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': None}
         )
         self.assertEqual(
             f(dbname=None),
-            {'url': url, 'oauth': oauth, 'dbname': None}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': None}
         )
         self.assertEqual(
             f(dbname='dmedia'),
-            {'url': url, 'oauth': oauth, 'dbname': 'dmedia'}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': 'dmedia'}
         )
         self.assertEqual(
             f(dbname='dmedia_test'),
-            {'url': url, 'oauth': oauth, 'dbname': 'dmedia_test'}
+            {'port': port, 'url': url, 'oauth': oauth, 'dbname': 'dmedia_test'}
         )

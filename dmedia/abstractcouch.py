@@ -149,8 +149,10 @@ def get_env(dbname=None):
     """
     if OAuthSession is None:
         return {'dbname': dbname}
+    port = find_port()
     return {
-        'url': 'http://localhost:%d/' % find_port(),
+        'port': port,
+        'url': 'http://localhost:%d/' % port,
         'oauth': get_oauth_tokens(),
         'dbname': dbname,
     }

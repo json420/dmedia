@@ -199,7 +199,7 @@ class MetaStore(object):
         return (user, password)
 
     def get_port(self):
-        return find_port()
+        return self.env.get('port')
 
     def get_uri(self):
         return 'http://localhost:%s' % self.get_port()
