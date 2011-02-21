@@ -41,3 +41,30 @@ packagedir = path.dirname(path.abspath(__file__))
 assert path.isdir(packagedir)
 datadir = path.join(packagedir, 'data')
 assert path.isdir(datadir)
+
+
+def get_env(dbname=None):
+    """
+    Get desktopcouch runtime info in most the lightweight way possible.
+
+    Here "lightweight" doesn't necessarily mean "fast", but with as few imports
+    as possible to keep the dmedia memory footprint small.
+    """
+    import dbus
+    DC = 'org.desktopcouch.CouchDB'
+    conn = dbus.SessionBus()
+    proxy = conn.get_object(DC, '/')
+    getPort = proxy.get_dbus_method('getPort', dbus_interface=DC)
+    url = 'http://localhost:%d/' % getPort()
+
+    import gnomekeyring
+    data = gnomekeyring.find_items_sync(
+        gnomekeyring.ITEM_GENERIC_SECRET,
+        {'desktopcouch': 'oauth'}
+    )
+    oauth = dict(zip(
+        ('consumer_key', 'consumer_secret', 'token', 'token_secret'),
+        data[0].secret.split(':')
+    ))
+
+    return dict(url=url, oauth=oauth, dbname=dbname)
