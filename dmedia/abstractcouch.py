@@ -123,7 +123,7 @@ def get_dmedia_db(env, server=None):
 
     If the database does not exist, it will be created.
 
-    If *server* is ``None``, on is created with *env* by calling
+    If *server* is ``None``, one is created based on *env* by calling
     `get_couchdb_server()`.
 
     Returns a ``couchdb.Database`` instance.
