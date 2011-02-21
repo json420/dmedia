@@ -44,6 +44,9 @@ assert path.isfile(sample_thm)
 class test_functions(TestCase):
 
     def test_get_env(self):
+        return
+        # FIXME: Somehow this test is making gnomekeyring and
+        # ~/.config/desktop-couch/desktop-couchdb.ini contain differnt values
         f = dmedia.get_env
         url = 'http://localhost:%d/' % find_port()
         oauth = get_oauth_tokens()

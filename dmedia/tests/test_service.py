@@ -35,11 +35,11 @@ class test_DMedia(CouchCase):
 
     def test_init(self):
         bus = random_bus()
+        self.env['bus'] = bus
+        self.env['no_gui'] = True
         def kill():
             pass
-        inst = self.klass(
-            killfunc=kill, bus=bus, dbname=self.dbname, no_gui=True
-        )
+        inst = self.klass(self.env, killfunc=kill)
         self.assertTrue(inst._killfunc is kill)
         self.assertTrue(inst._bus is bus)
         self.assertTrue(inst._dbname is self.dbname)

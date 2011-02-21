@@ -33,14 +33,10 @@ import dbus
 import dbus.service
 import dbus.mainloop.glib
 import gobject
-from .constants import BUS, INTERFACE, EXT_MAP
+from .constants import BUS, INTERFACE, DBNAME, EXT_MAP
 from .util import NotifyManager, Timer, import_started, batch_finished
 from .importer import ImportManager
-from .abstractcouch import get_env
 from .metastore import MetaStore
-
-gobject.threads_init()
-dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 try:
     import pynotify
@@ -71,23 +67,24 @@ class DMedia(dbus.service.Object):
         'ImportFinished',
     ])
 
-    def __init__(self, killfunc=None, bus=None, dbname=None, no_gui=False):
+    def __init__(self, env, killfunc=None):
+        self._env = env
         self._killfunc = killfunc
-        self._bus = (BUS if bus is None else bus)
-        self._dbname = dbname
-        self._no_gui = no_gui
+        self._bus = env.get('bus', BUS)
+        self._dbname = env.get('dbname', DBNAME)
+        self._no_gui = env.get('no_gui', False)
         log.info('Starting service on %r', self._bus)
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(self._bus, self._conn)
 
-        if no_gui or pynotify is None:
+        if self._no_gui or pynotify is None:
             self._notify = None
         else:
             log.info('Using `pynotify`')
             self._notify = NotifyManager()
 
-        if no_gui or appindicator is None:
+        if self._no_gui or appindicator is None:
             self._indicator = None
         else:
             log.info('Using `appindicator`')
@@ -125,7 +122,7 @@ class DMedia(dbus.service.Object):
     @property
     def metastore(self):
         if self._metastore is None:
-            self._metastore = MetaStore(get_env(self._dbname))
+            self._metastore = MetaStore(self._env)
         return self._metastore
 
     @property

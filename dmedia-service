@@ -33,6 +33,7 @@ gobject.threads_init()
 
 import dmedia
 from dmedia.constants import BUS, DBNAME
+from dmedia.abstractcouch import get_env
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)
@@ -61,17 +62,14 @@ def exit(msg, code=1):
 if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
-    env = dmedia.get_env(options.dbname)
-    env['bus'] = options.bus
-    env['no_gui'] = options.no_gui
-    print env
-
     from dmedia.util import configure_logging
     configure_logging('service')
 
+    env = get_env(options.dbname)
+    env['bus'] = options.bus
+    env['no_gui'] = options.no_gui
+
     from dmedia import service
     mainloop = gobject.MainLoop()
-    obj = service.DMedia(mainloop.quit,
-        options.bus, options.dbname, options.no_gui
-    )
+    obj = service.DMedia(env, mainloop.quit)
     mainloop.run()
