@@ -388,6 +388,10 @@ class ImportWorker(CouchWorker):
         assert list(t[0] for t in self.filetuples) == self._processed
         self.doc['time_end'] = time.time()
         self.save()
+        dt = self.doc['time_end'] - self.doc['time']
+        log.info('Completed import of %r in %d:%02d',
+            self.base, dt / 60, dt % 60
+        )
         return self.doc['stats']
 
 
