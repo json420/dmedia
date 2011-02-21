@@ -27,7 +27,6 @@ from os import path
 import time
 import socket
 import platform
-import time
 
 import gnomekeyring
 from couchdb import ResourceNotFound, ResourceConflict
