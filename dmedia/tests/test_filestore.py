@@ -452,7 +452,7 @@ class test_HashList(TestCase):
         src_fp.read(1024)  # Make sure seek(0) is called
         dst_fp = open(tmp.join('dst1.mov'), 'wb')
         inst = self.klass(src_fp, dst_fp, 32 * 2**20)
-        self.assertEqual(inst.run(), 'R3QI4WFID6VDVK2NBB6WXE5ALMNLZAHQ')
+        self.assertEqual(inst.run(), '6PTK7CX54TFB6HMHI62FJZL7XAEWT72J')
         self.assertFalse(src_fp.closed)  # Should not close file
         self.assertFalse(dst_fp.closed)  # Should not close file
         dst_fp.close()
@@ -470,7 +470,7 @@ class test_HashList(TestCase):
         src_fp.read(1024)  # Make sure seek(0) is called
         dst_fp = open(tmp.join('dst2.mov'), 'wb')
         inst = self.klass(src_fp, dst_fp, 16 * 2**20)
-        self.assertEqual(inst.run(), 'B4IBNJ674EPXZZKNJYXFBDQQTFXIBSSC')
+        self.assertEqual(inst.run(), 'HNNTABOJXN4ZBJMD665IA7QAZRJKDA3B')
         self.assertFalse(src_fp.closed)  # Should not close file
         self.assertFalse(dst_fp.closed)  # Should not close file
         dst_fp.close()
@@ -1173,7 +1173,7 @@ class test_FileStore(TestCase):
         self.assertEqual(path.getsize(sample_mov), path.getsize(src))
 
         e = raises(IntegrityError, inst.tmp_verify_move, mov_hash, 'mov')
-        self.assertEqual(e.got, 'UECTT7A7EIHZ2SGGBMMO5WTTSVU4SUWM')
+        self.assertEqual(e.got, 'AYDIKK2IYAYTP7H5QCDK5FQ55F7QH4EN')
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.filename, src)
         self.assertFalse(path.exists(dst_d))

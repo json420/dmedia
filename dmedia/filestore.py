@@ -421,7 +421,7 @@ class HashList(object):
         self.dst_fp = dst_fp
         self.leaf_size = leaf_size
         self.file_size = os.fstat(src_fp.fileno()).st_size
-        self.h = HASH()
+        self.h = tophash(self.file_size)
         self.leaves = []
         self.q = Queue(4)
         self.thread = Thread(target=self.hashing_thread)
@@ -573,7 +573,7 @@ class FileStore(object):
     >>> from dmedia.tests import sample_mov  # Sample .MOV file
     >>> src_fp = open(sample_mov, 'rb')
     >>> fs.import_file(src_fp, 'mov')  #doctest: +ELLIPSIS
-    ('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', [...])
+    ('TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK', [...])
 
     And when you have the content-hash and extension, you can retrieve the full
     path of the file using `FileStore.path()`:
@@ -1044,9 +1044,9 @@ class FileStore(object):
         temporary file name, like this:
 
         >>> fs = FileStore()
-        >>> tmp = fs.tmp('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov', create=True)
+        >>> tmp = fs.tmp('TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK', 'mov', create=True)
         >>> tmp  #doctest: +ELLIPSIS
-        '/tmp/store.../transfers/ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+        '/tmp/store.../transfers/TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK.mov'
 
         Then the downloader will write to the temporary file as it's being
         downloaded:
@@ -1065,9 +1065,9 @@ class FileStore(object):
         Finally, the downloader will move the temporary file into its canonical
         location:
 
-        >>> dst = fs.tmp_verify_move('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov')
+        >>> dst = fs.tmp_verify_move('TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK', 'mov')
         >>> dst  #doctest: +ELLIPSIS
-        '/tmp/store.../ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+        '/tmp/store.../TG/X33XXWU3EVHEEY5J7NBOJGKBFXLEBK.mov'
 
         The return value is the absolute path of the canonical file.
 
