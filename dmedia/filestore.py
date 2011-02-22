@@ -334,6 +334,13 @@ def tophash_personalization(file_size):
     return ' '.join(['dmedia/tophash', str(file_size)]).encode('utf-8')
 
 
+def tophash(file_size):
+    """
+    Initialize hash for a file that is *file_size* bytes.
+    """
+    return HASH(tophash_personalization(file_size))
+
+
 def leafhash_personalization(file_size, leaf_index):
     """
     Personalize the leaf-hash with *file_size* and *leaf_index*.
@@ -349,6 +356,13 @@ def leafhash_personalization(file_size, leaf_index):
     return ' '.join(
         ['dmedia/leafhash', str(file_size), str(leaf_index)]
     ).encode('utf-8')
+
+
+def leafhash(file_size, leaf_index):
+    """
+    Initialize hash for the *leaf_index* leaf in a file of *file_size* bytes.
+    """
+    return HASH(leafhash_personalization(file_size, leaf_index))
 
 
 class HashList(object):

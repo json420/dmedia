@@ -153,6 +153,46 @@ class test_functions(TestCase):
         good = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
         assert f(good) is good
 
+    def test_tophash(self):
+        f = filestore.tophash
+        h = f(31415)
+        self.assertEqual(
+            h.digest(),
+            sha1(b'dmedia/tophash 31415').digest()
+        )
+        l = ''.join(mov_leaves)
+        h.update(l)
+        self.assertEqual(
+            h.digest(),
+            sha1(b'dmedia/tophash 31415' + l).digest()
+        )
+
+    def test_leafhash(self):
+        f = filestore.leafhash
+        l = ''.join(mov_leaves)
+
+        h = f(1079991, 0)
+        self.assertEqual(
+            h.digest(),
+            sha1(b'dmedia/leafhash 1079991 0').digest()
+        )
+        h.update(l)
+        self.assertEqual(
+            h.digest(),
+            sha1(b'dmedia/leafhash 1079991 0' + l).digest()
+        )
+
+        h = f(1079991, 1)
+        self.assertEqual(
+            h.digest(),
+            sha1(b'dmedia/leafhash 1079991 1').digest()
+        )
+        h.update(l)
+        self.assertEqual(
+            h.digest(),
+            sha1(b'dmedia/leafhash 1079991 1' + l).digest()
+        )
+
     def test_pack_leaves(self):
         f = filestore.pack_leaves
 
