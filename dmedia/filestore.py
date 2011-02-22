@@ -325,13 +325,30 @@ def tophash_personalization(file_size):
     >>> from hashlib import sha1
     >>> from base64 import b32encode
     >>> pers = tophash_personalization(3141)
-    >>> leaves = 'pretend this is the concatenated leaves'
+    >>> leaves = b'pretend this is the concatenated leaves'
     >>> b32encode(sha1(pers + leaves).digest())  # The top-hash
     'M55ORBTYICEDQ2WUREDYIYYO6VUJ3R6S'
 
     :param file_size: the file size in bytes (an ``int``)
     """
     return ' '.join(['dmedia/tophash', str(file_size)]).encode('utf-8')
+
+
+def leafhash_personalization(file_size, leaf_index):
+    """
+    Personalize the leaf-hash with *file_size* and *leaf_index*.
+
+    For example:
+
+    >>> leafhash_personalization(3141, 0)
+    'dmedia/leafhash 3141 0'
+
+    :param file_size: the file size in bytes (an ``int``)
+    :param leaf_index: the index of this leaf (an ``int``, starting at zero)
+    """
+    return ' '.join(
+        ['dmedia/leafhash', str(file_size), str(leaf_index)]
+    ).encode('utf-8')
 
 
 class HashList(object):
