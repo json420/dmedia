@@ -149,7 +149,7 @@ setup(
                 'data/indicator-rendermenu-att.svg',
             ]
         ),
-        ('share/icons/hicolor/scalable/status/'
+        ('share/icons/hicolor/scalable/status/',
             [
                 'data/indicator-rendermenu.svg',
                 'data/indicator-rendermenu-att.svg',
