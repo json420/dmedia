@@ -24,19 +24,16 @@ Unit tests for `dmedia.metastore` module.
 """
 
 from unittest import TestCase
-import socket
-import platform
-from helpers import CouchCase, TempDir, TempHome
-from dmedia import metastore
-import couchdb
-from desktopcouch.records.server import  CouchDatabase
-from desktopcouch.records.record import  Record
-from desktopcouch.local_files import Context
-from desktopcouch.stop_local_couchdb import stop_couchdb
-import desktopcouch
-import tempfile
 import os
 import shutil
+import socket
+import platform
+
+import couchdb
+
+from dmedia import metastore
+from .helpers import TempDir, TempHome
+from .couch import CouchCase
 
 
 class test_functions(TestCase):
@@ -90,13 +87,13 @@ class test_MetaStore(CouchCase):
     klass = metastore.MetaStore
 
     def new(self):
-        return self.klass(self.dbname)
+        return self.klass(self.env)
 
     def test_init(self):
         inst = self.new()
-        self.assertEqual(inst.dbname, self.dbname)
-        self.assertEqual(isinstance(inst.desktop, CouchDatabase), True)
-        self.assertEqual(isinstance(inst.server, couchdb.Server), True)
+        self.assertEqual(inst.env, self.env)
+        self.assertTrue(isinstance(inst.server, couchdb.Server))
+        self.assertTrue(isinstance(inst.db, couchdb.Database))
 
     def update(self):
         inst = self.new()

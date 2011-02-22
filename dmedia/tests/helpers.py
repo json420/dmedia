@@ -30,8 +30,7 @@ from subprocess import check_call
 import tempfile
 import shutil
 from base64 import b32encode, b32decode, b64encode
-from desktopcouch.records.server import  CouchDatabase
-from desktopcouch.records.server_base import NoSuchDatabase
+
 from . import sample_mov, sample_thm
 
 mov_hash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
@@ -173,22 +172,3 @@ class DummyCallback(object):
 
     def __call__(self, signal, args):
         self.messages.append((signal, args))
-
-
-class CouchCase(TestCase):
-    """
-    Base class for tests that need a desktopcouch testing Context.
-    """
-
-    def setUp(self):
-        self.home = TempHome()
-        self.dbname = 'dmedia_test'
-        try:
-            dc = CouchDatabase(self.dbname)
-            del dc._server[self.dbname]
-        except NoSuchDatabase:
-            pass
-
-    def tearDown(self):
-        self.home = None
-        self.dbname = None

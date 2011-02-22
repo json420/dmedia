@@ -25,6 +25,7 @@ import sys
 from subprocess import check_call
 import optparse
 import dmedia
+from dmedia.abstractcouch import get_env
 from dmedia.metastore import MetaStore
 from dmedia import ui
 
@@ -39,7 +40,7 @@ parser.add_option('--browser',
 (options, args) = parser.parse_args()
 
 
-store = MetaStore()
+store = MetaStore(get_env())
 app = ui.create_app()
 store.update(app)
 

@@ -86,6 +86,11 @@ class Test(Command):
                         break
 
     def run(self):
+        from dbus.mainloop.glib import DBusGMainLoop
+        import gobject
+        DBusGMainLoop(set_as_default=True)
+        gobject.threads_init()
+
         pynames = tuple(self._pynames_iter())
 
         # Add unit-tests:
