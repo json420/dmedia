@@ -291,6 +291,49 @@ def safe_b32(b32):
     return b32
 
 
+def tophash_personalization(file_size):
+    """
+    Personalize the top-hash with *file_size*.
+
+    For example:
+
+    >>> tophash_personalization(3141)
+    'dmedia/tophash 3141'
+
+    This is used to cryptographically tie ``doc['bytes']`` to ``doc['_id']``.
+    You can't change the leaves or the file size without affecting the top-hash.
+
+    The personalization is designed to be easy to implement in JavaScript.  For
+    example, this is the equivalent JavaScript function:
+
+        ::
+
+            function tophash_personalization(file_size) {
+                return ['dmedia/tophash', file_size].join(' ');
+            }
+
+    When hashing with Skein, this value would be used for the Skein
+    personalization parameter.  See PySkein and the Skein specification for
+    details:
+
+        http://packages.python.org/pyskein/
+
+        http://www.skein-hash.info/
+
+    When hashing with sha1, the top-hash is calculated like this:
+
+    >>> from hashlib import sha1
+    >>> from base64 import b32encode
+    >>> pers = tophash_personalization(3141)
+    >>> leaves = 'pretend this is the concatenated leaves'
+    >>> b32encode(sha1(pers + leaves).digest())  # The top-hash
+    'M55ORBTYICEDQ2WUREDYIYYO6VUJ3R6S'
+
+    :param file_size: the file size in bytes (an ``int``)
+    """
+    return ' '.join(['dmedia/tophash', str(file_size)]).encode('utf-8')
+
+
 class HashList(object):
     """
     Simple hash-list (a 1-deep tree-hash).
