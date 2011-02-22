@@ -24,6 +24,7 @@ Download files in chunks using HTTP Range requests.
 """
 
 from os import path
+from hashlib import sha1
 from base64 import b32encode
 from urlparse import urlparse
 from httplib import HTTPConnection, HTTPSConnection
@@ -38,7 +39,7 @@ from boto.s3.key import Key
 from . import __version__
 from .constants import CHUNK_SIZE, TYPE_ERROR
 from .errors import DownloadFailure
-from .filestore import FileStore, HashList, HASH
+from .filestore import FileStore, HashList
 
 
 USER_AGENT = 'dmedia %s' % __version__
@@ -154,7 +155,7 @@ class Downloader(object):
     def process_leaf(self, i, expected):
         for r in xrange(3):
             chunk = self.download_leaf(i)
-            got = b32encode(HASH(chunk).digest())
+            got = b32encode(sha1(chunk).digest())
             if got == expected:
                 self.dst_fp.write(chunk)
                 return chunk

@@ -155,7 +155,7 @@ import os
 from os import path
 import stat
 import tempfile
-from hashlib import sha1 as HASH
+from hashlib import sha1
 from base64 import b32encode, b32decode
 import json
 import re
@@ -338,7 +338,7 @@ def tophash(file_size):
     """
     Initialize hash for a file that is *file_size* bytes.
     """
-    return HASH(tophash_personalization(file_size))
+    return sha1(tophash_personalization(file_size))
 
 
 def leafhash_personalization(file_size, leaf_index):
@@ -362,7 +362,7 @@ def leafhash(file_size, leaf_index):
     """
     Initialize hash for the *leaf_index* leaf in a file of *file_size* bytes.
     """
-    return HASH(leafhash_personalization(file_size, leaf_index))
+    return sha1(leafhash_personalization(file_size, leaf_index))
 
 
 class HashList(object):
@@ -442,7 +442,7 @@ class HashList(object):
         queue.  This functionality is in its own method simply to make testing
         easier.
         """
-        digest = HASH(chunk).digest()
+        digest = sha1(chunk).digest()
         self.h.update(digest)
         self.leaves.append(digest)
         if self.dst_fp is not None:
@@ -517,7 +517,7 @@ def quick_id(fp):
     if fp.mode != 'rb':
         raise ValueError("fp: must be opened in mode 'rb'; got %r" % fp.mode)
     fp.seek(0)  # Make sure we are at beginning of file
-    h = HASH()
+    h = sha1()
     size = os.fstat(fp.fileno()).st_size
     h.update(str(size).encode('utf-8'))
     h.update(fp.read(QUICK_ID_CHUNK))
