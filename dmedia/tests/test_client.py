@@ -27,15 +27,18 @@ import os
 from os import path
 from subprocess import Popen
 import time
+
 import dbus
 from dbus.proxies import ProxyObject
 import gobject
+
 import dmedia
 from dmedia import client, service
 from dmedia.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
-from .helpers import CouchCase, TempDir, random_bus, prep_import_source
+from .helpers import TempDir, random_bus, prep_import_source
 from .helpers import sample_mov, sample_thm
 from .helpers import mov_hash, thm_hash
+from .couch import CouchCase
 
 
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))

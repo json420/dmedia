@@ -24,8 +24,10 @@ Unit tests for `dmedia.metastore` module.
 """
 
 from unittest import TestCase
-from helpers import CouchCase, TempDir, random_bus
+
 from dmedia import service, importer
+from .helpers import TempDir, random_bus
+from .couch import CouchCase
 
 
 class test_DMedia(CouchCase):
@@ -33,11 +35,11 @@ class test_DMedia(CouchCase):
 
     def test_init(self):
         bus = random_bus()
+        self.env['bus'] = bus
+        self.env['no_gui'] = True
         def kill():
             pass
-        inst = self.klass(
-            killfunc=kill, bus=bus, dbname=self.dbname, no_gui=True
-        )
+        inst = self.klass(self.env, killfunc=kill)
         self.assertTrue(inst._killfunc is kill)
         self.assertTrue(inst._bus is bus)
         self.assertTrue(inst._dbname is self.dbname)
@@ -48,4 +50,3 @@ class test_DMedia(CouchCase):
         self.assertTrue(inst._manager is m)
         self.assertTrue(isinstance(m, importer.ImportManager))
         self.assertEqual(m._callback, inst._on_signal)
-        self.assertTrue(m._dbname is self.dbname)
