@@ -86,6 +86,11 @@ class Test(Command):
                         break
 
     def run(self):
+        from dbus.mainloop.glib import DBusGMainLoop
+        import gobject
+        DBusGMainLoop(set_as_default=True)
+        gobject.threads_init()
+
         pynames = tuple(self._pynames_iter())
 
         # Add unit-tests:
@@ -144,6 +149,12 @@ setup(
                 'data/indicator-rendermenu-att.svg',
             ]
         ),
+        ('share/icons/hicolor/scalable/status/',
+            [
+                'data/indicator-rendermenu.svg',
+                'data/indicator-rendermenu-att.svg',
+            ]
+        ), #enables status icons to be referenced by icon name
         ('share/dbus-1/services', ['data/org.freedesktop.DMedia.service']),
         ('lib/dmedia', ['dmedia-service']),
     ],

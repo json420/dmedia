@@ -27,16 +27,11 @@ from os import path
 import time
 import socket
 import platform
+
 import gnomekeyring
 from couchdb import ResourceNotFound, ResourceConflict
-import desktopcouch
-from desktopcouch.records.server import  CouchDatabase
-from desktopcouch.records.record import  Record
-from desktopcouch.local_files import DEFAULT_CONTEXT, Context
-try:
-    from desktopcouch import find_port
-except ImportError:
-    from desktopcouch.application.platform import find_port
+
+from .abstractcouch import get_couchdb_server, get_dmedia_db
 from .util import random_id
 
 
@@ -109,14 +104,6 @@ function(doc) {
 }
 """
 
-file_qid = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.qid) {
-        emit(doc.qid, null);
-    }
-}
-"""
-
 file_import_id = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.import_id) {
@@ -181,7 +168,6 @@ class MetaStore(object):
         )),
 
         ('file', (
-            ('qid', file_qid, None),
             ('import_id', file_import_id, None),
             ('bytes', file_bytes, _sum),
             ('ext', file_ext, _count),
@@ -191,13 +177,17 @@ class MetaStore(object):
         )),
     )
 
-    def __init__(self, dbname=None):
-        self.dbname = ('dmedia' if dbname is None else dbname)
-        self.desktop = CouchDatabase(self.dbname, create=True)
-        self.server = self.desktop._server
-        self.db = self.server[self.dbname]
+    def __init__(self, env):
+        self.env = env
+        self.server = get_couchdb_server(env)
+        self.db = get_dmedia_db(env, self.server)
         self.create_views()
         self._machine_id = None
+
+    def get_env(self):
+        env = dict(self.env)
+        env['machine_id'] = self.machine_id
+        return env
 
     def get_basic_auth(self):
         data = gnomekeyring.find_items_sync(
@@ -208,7 +198,7 @@ class MetaStore(object):
         return (user, password)
 
     def get_port(self):
-        return find_port()
+        return self.env.get('port')
 
     def get_uri(self):
         return 'http://localhost:%s' % self.get_port()
@@ -256,10 +246,6 @@ class MetaStore(object):
         for (name, views) in self.designs:
             (_id, doc) = build_design_doc(name, views)
             self.update(doc)
-
-    def by_quickid(self, qid):
-        for row in self.db.view('_design/file/_view/qid', key=qid):
-            yield row.id
 
     def total_bytes(self):
         for row in self.db.view('_design/file/_view/bytes'):

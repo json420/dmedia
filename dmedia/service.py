@@ -1,6 +1,7 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 #   Manish SInha <mail@manishsinha.net>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -33,13 +34,10 @@ import dbus
 import dbus.service
 import dbus.mainloop.glib
 import gobject
-from .constants import BUS, INTERFACE, EXT_MAP
+from .constants import BUS, INTERFACE, DBNAME, EXT_MAP
 from .util import NotifyManager, Timer, import_started, batch_finished
 from .importer import ImportManager
 from .metastore import MetaStore
-
-gobject.threads_init()
-dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 try:
     import pynotify
@@ -56,8 +54,8 @@ except ImportError:
 log = logging.getLogger()
 
 
-ICON = '/usr/share/pixmaps/dmedia/indicator-rendermenu.svg'
-ICON_ATT = '/usr/share/pixmaps/dmedia/indicator-rendermenu-att.svg'
+ICON = 'indicator-rendermenu'
+ICON_ATT = 'indicator-rendermenu-att'
 
 
 class DMedia(dbus.service.Object):
@@ -70,23 +68,24 @@ class DMedia(dbus.service.Object):
         'ImportFinished',
     ])
 
-    def __init__(self, killfunc=None, bus=None, dbname=None, no_gui=False):
+    def __init__(self, env, killfunc=None):
+        self._env = env
         self._killfunc = killfunc
-        self._bus = (BUS if bus is None else bus)
-        self._dbname = dbname
-        self._no_gui = no_gui
+        self._bus = env.get('bus', BUS)
+        self._dbname = env.get('dbname', DBNAME)
+        self._no_gui = env.get('no_gui', False)
         log.info('Starting service on %r', self._bus)
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(self._bus, self._conn)
 
-        if no_gui or pynotify is None:
+        if self._no_gui or pynotify is None:
             self._notify = None
         else:
             log.info('Using `pynotify`')
             self._notify = NotifyManager()
 
-        if no_gui or appindicator is None:
+        if self._no_gui or appindicator is None:
             self._indicator = None
         else:
             log.info('Using `appindicator`')
@@ -118,12 +117,21 @@ class DMedia(dbus.service.Object):
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(appindicator.STATUS_ACTIVE)
 
+        self._metastore = None
         self._manager = None
+
+    @property
+    def metastore(self):
+        if self._metastore is None:
+            self._metastore = MetaStore(self._env)
+        return self._metastore
 
     @property
     def manager(self):
         if self._manager is None:
-            self._manager = ImportManager(self._on_signal, self._dbname)
+            self._manager = ImportManager(
+                self.metastore.get_env(), self._on_signal
+            )
             self._manager.start()
         return self._manager
 
@@ -133,6 +141,8 @@ class DMedia(dbus.service.Object):
             method(*args)
 
     def _on_timer(self):
+        if self._manager is None:
+            return
         text = _('File %d of %d') % self._manager.get_batch_progress()
         self._current_label.set_text(text)
         self._indicator.set_menu(self._menu)
@@ -143,8 +153,7 @@ class DMedia(dbus.service.Object):
     def _on_futon(self, menuitem):
         log.info('Opening dmedia database in Futon..')
         try:
-            store = MetaStore()
-            uri = store.get_auth_uri() + '/_utils'
+            uri = self.metastore.get_auth_uri() + '/_utils'
             check_call(['/usr/bin/xdg-open', uri])
             log.info('Opened Futon')
         except Exception:
@@ -222,10 +231,11 @@ class DMedia(dbus.service.Object):
         """
         Kill the dmedia service process.
         """
-        log.info('Killing service')
+        log.info('Killing service...')
         if self._manager is not None:
             self._manager.kill()
         if callable(self._killfunc):
+            log.info('Calling killfunc()')
             self._killfunc()
 
     @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
@@ -288,4 +298,6 @@ class DMedia(dbus.service.Object):
         """
         Return list of currently running imports.
         """
-        return self.manager.list_imports()
+        if self._manager is None:
+            return []
+        return self.manager.list_jobs()

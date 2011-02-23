@@ -29,17 +29,23 @@ from os import path
 import mimetypes
 import time
 from base64 import b64encode
+import logging
+
 import couchdb
+
 from .util import random_id
-from .workers import Worker, Manager, register, isregistered
+from .errors import DuplicateFile
+from .workers import (
+    CouchWorker, CouchManager, register, isregistered, exception_name
+)
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
-from .metastore import MetaStore
 from .extractor import merge_metadata
+from .abstractcouch import get_env, get_couchdb_server, get_dmedia_db
+
 
 mimetypes.init()
-
-
 DOTDIR = '.dmedia'
+log = logging.getLogger()
 
 
 def normalize_ext(name):
@@ -118,7 +124,8 @@ def files_iter(base):
     error to be interpreted as there being no files on the card!
     """
     if path.isfile(base):
-        yield base
+        s = os.stat(base)
+        yield (base, s.st_size, s.st_mtime)
         return
     names = sorted(os.listdir(base))
     dirs = []
@@ -127,12 +134,13 @@ def files_iter(base):
         if path.islink(fullname):
             continue
         if path.isfile(fullname):
-            yield fullname
+            s = os.stat(fullname)
+            yield (fullname, s.st_size, s.st_mtime)
         elif path.isdir(fullname):
             dirs.append(fullname)
     for fullname in dirs:
-        for f in files_iter(fullname):
-            yield f
+        for tup in files_iter(fullname):
+            yield tup
 
 
 def create_batch(machine_id=None):
@@ -145,8 +153,14 @@ def create_batch(machine_id=None):
         'time': time.time(),
         'machine_id': machine_id,
         'imports': [],
-        'imported': {'count': 0, 'bytes': 0},
-        'skipped': {'count': 0, 'bytes': 0},
+        'errors': [],
+        'stats': {
+            'considered': {'count': 0, 'bytes': 0},
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
     }
 
 
@@ -157,83 +171,142 @@ def create_import(base, batch_id=None, machine_id=None):
     return {
         '_id': random_id(),
         'type': 'dmedia/import',
+        'time': time.time(),
         'batch_id': batch_id,
         'machine_id': machine_id,
         'base': base,
-        'time': time.time(),
+        'log': {
+            'imported': [],
+            'skipped': [],
+            'empty': [],
+            'error': [],
+        },
+        'stats': {
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
     }
 
 
-class Importer(object):
-    def __init__(self, batch_id, base, extract, dbname=None):
-        self.batch_id = batch_id
-        self.base = base
-        self.extract = extract
+class ImportWorker(CouchWorker):
+    def __init__(self, env, q, key, args):
+        super(ImportWorker, self).__init__(env, q, key, args)
+        (self.base, self.extract) = args
         self.home = path.abspath(os.environ['HOME'])
-        self.metastore = MetaStore(dbname=dbname)
-        self.db = self.metastore.db
         self.filestore = FileStore(
             path.join(self.home, DOTDIR),
-            self.metastore.machine_id
+            self.env.get('machine_id')
         )
         try:
             self.db.save(self.filestore._doc)
         except couchdb.ResourceConflict:
             pass
 
-        self.__stats = {
-            'imported': {
-                'count': 0,
-                'bytes': 0,
-            },
-            'skipped': {
-                'count': 0,
-                'bytes': 0,
-            },
-        }
-        self.__files = None
-        self.__imported = []
-        self._import = None
-        self._import_id = None
+        self.filetuples = None
+        self._processed = []
+        self.doc = None
+        self._id = None
+
+    def execute(self, base, extract=False):
+        import_id = self.start()
+        self.emit('started', import_id)
+
+        files = self.scanfiles()
+        total = len(files)
+        self.emit('count', import_id, total)
+
+        c = 1
+        for (src, action) in self.import_all_iter():
+            self.emit('progress', import_id, c, total,
+                dict(
+                    action=action,
+                    src=src,
+                )
+            )
+            c += 1
+
+        stats = self.finalize()
+        self.emit('finished', import_id, stats)
+
+    def save(self):
+        """
+        Save current 'dmedia/import' record to CouchDB.
+        """
+        self.db.save(self.doc)
 
     def start(self):
         """
-        Create the initial import record, return that record's ID.
+        Create the initial 'dmedia/import' record, return that record's ID.
         """
-        doc = create_import(self.base,
-            batch_id=self.batch_id,
-            machine_id=self.metastore.machine_id,
+        assert self._id is None
+        self.doc = create_import(self.base,
+            batch_id=self.env.get('batch_id'),
+            machine_id=self.env.get('machine_id'),
         )
-        self._import_id = doc['_id']
-        assert self.metastore.db.create(doc) == self._import_id
-        self._import = self.metastore.db[self._import_id]
-        return self._import_id
-
-    def get_stats(self):
-        return dict(
-            (k, dict(v)) for (k, v) in self.__stats.iteritems()
-        )
+        self._id = self.doc['_id']
+        self.save()
+        return self._id
 
     def scanfiles(self):
-        if self.__files is None:
-            self.__files = tuple(files_iter(self.base))
-        return self.__files
+        """
+        Build list of files that will be considered for import.
 
-    def __import_file(self, src):
+        After this method has been called, the ``Importer.filetuples`` attribute
+        will contain ``(filename,size,mtime)`` tuples for all files being
+        considered.  This information is saved into the dmedia/import record to
+        provide a rich audio trail and aid in debugging.
+        """
+        assert self.filetuples is None
+        self.filetuples = tuple(files_iter(self.base))
+        self.doc['log']['considered'] = [
+            {'src': src, 'bytes': size, 'mtime': mtime}
+            for (src, size, mtime) in self.filetuples
+        ]
+        total_bytes = sum(size for (src, size, mtime) in self.filetuples)
+        self.doc['stats']['considered'] = {
+            'count': len(self.filetuples), 'bytes': total_bytes
+        }
+        self.save()
+        return self.filetuples
+
+    def _import_file(self, src):
+        """
+        Attempt to import *src* into dmedia library.
+        """
         fp = safe_open(src, 'rb')
-        quickid = quick_id(fp)
-        ids = list(self.metastore.by_quickid(quickid))
-        if ids:
-            # FIXME: Even if this is a duplicate, we should check if the file
-            # is stored on this machine, and if not copy into the FileStore.
-            doc = self.metastore.db[ids[0]]
-            return ('skipped', doc)
-        basename = path.basename(src)
-        (root, ext) = normalize_ext(basename)
-        # FIXME: We need to handle the (rare) case when a DuplicateFile
-        # exception is raised by FileStore.import_file()
-        (chash, leaves) = self.filestore.import_file(fp, ext)
         stat = os.fstat(fp.fileno())
+        if stat.st_size == 0:
+            log.warning('File size is zero: %r', src)
+            return ('empty', None)
+
+        name = path.basename(src)
+        (root, ext) = normalize_ext(name)
+        try:
+            (chash, leaves) = self.filestore.import_file(fp, ext)
+            action = 'imported'
+        except DuplicateFile as e:
+            chash = e.chash
+            leaves = e.leaves
+            action = 'skipped'
+            assert e.tmp.startswith(self.filestore.join('imports'))
+            # FIXME: We should really probably move this into duplicates/ or
+            # something and not delete till we verify integrity of what is
+            # already in the filestore.
+            os.remove(e.tmp)
+
+        try:
+            doc = self.db[chash]
+            if self.filestore._id not in doc['stored']:
+                doc['stored'][self.filestore._id] =  {
+                    'copies': 1,
+                    'time': time.time(),
+                }
+                self.db.save(doc)
+            return (action, doc)
+        except couchdb.ResourceNotFound as e:
+            pass
 
         ts = time.time()
         doc = {
@@ -256,69 +329,71 @@ class Importer(object):
                 },
             },
 
-            'qid': quickid,
-            'import_id': self._import_id,
+            'import_id': self._id,
             'mtime': stat.st_mtime,
-            'basename': basename,
-            'dirname': path.relpath(path.dirname(src), self.base),
+            'name': name,
+            'dir': path.relpath(path.dirname(src), self.base),
         }
         if ext:
             doc['content_type'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
-        (_id, _rev) = self.metastore.db.save(doc)
+        (_id, _rev) = self.db.save(doc)
         assert _id == chash
-        return ('imported', doc)
-
-    def import_file(self, src):
-        (action, doc) = self.__import_file(src)
-        self.__imported.append(src)
-        self.__stats[action]['count'] += 1
-        self.__stats[action]['bytes'] += doc['bytes']
         return (action, doc)
 
+    def import_file(self, src, size):
+        """
+        Wraps `Importer._import_file()` with error handling and logging.
+        """
+        self._processed.append(src)
+        try:
+            (action, doc) = self._import_file(src)
+            if action == 'empty':
+                entry = src
+            else:
+                entry = {
+                    'src': src,
+                    'id': doc['_id'],
+                }
+        except Exception as e:
+            log.exception('Error importing %r', src)
+            action = 'error'
+            entry = {
+                'src': src,
+                'name': exception_name(e),
+                'msg': str(e),
+            }
+        self.doc['log'][action].append(entry)
+        self.doc['stats'][action]['count'] += 1
+        self.doc['stats'][action]['bytes'] += size
+        if action == 'error':
+            self.save()
+        return (action, entry)
+
     def import_all_iter(self):
-        for src in self.scanfiles():
-            (action, doc) = self.import_file(src)
-            yield (src, action, doc)
+        for (src, size, mtime) in self.filetuples:
+            (action, entry) = self.import_file(src, size)
+            yield (src, action)
 
     def finalize(self):
-        files = self.scanfiles()
-        assert len(files) == len(self.__imported)
-        assert set(files) == set(self.__imported)
-        s = self.get_stats()
-        self._import.update(s)
-        self._import['time_end'] = time.time()
-        self.db[self._import_id] = self._import
-        assert s['imported']['count'] + s['skipped']['count'] == len(files)
-        return s
+        """
+        Finalize import and save final import record to CouchDB.
 
+        The method will add the ``"time_end"`` key into the import record and
+        save it to CouchDB.  There will likely also be being changes in the
+        ``"log"`` and ``"stats"`` keys, which will likewise be saved to CouchDB.
+        """
+        assert len(self.filetuples) == len(self._processed)
+        assert list(t[0] for t in self.filetuples) == self._processed
+        self.doc['time_end'] = time.time()
+        self.save()
+        dt = self.doc['time_end'] - self.doc['time']
+        log.info('Completed import of %r in %d:%02d',
+            self.base, dt / 60, dt % 60
+        )
+        return self.doc['stats']
 
-class ImportWorker(Worker):
-    def execute(self, batch_id, base, extract=False, dbname=None):
-
-        adapter = Importer(batch_id, base, extract, dbname)
-
-        import_id = adapter.start()
-        self.emit('started', import_id)
-
-        files = adapter.scanfiles()
-        total = len(files)
-        self.emit('count', import_id, total)
-
-        c = 1
-        for (src, action, doc) in adapter.import_all_iter():
-            self.emit('progress', import_id, c, total,
-                dict(
-                    action=action,
-                    src=src,
-                    _id=doc['_id'],
-                )
-            )
-            c += 1
-
-        stats = adapter.finalize()
-        self.emit('finished', import_id, stats)
 
 
 def to_dbus_stats(stats):
@@ -332,43 +407,61 @@ def to_dbus_stats(stats):
 
 def accumulate_stats(accum, stats):
     for (key, d) in stats.items():
+        if key not in accum:
+            accum[key] = {'count': 0, 'bytes': 0}
         for (k, v) in d.items():
             accum[key][k] += v
 
 
-class ImportManager(Manager):
-    def __init__(self, callback=None, dbname=None):
-        super(ImportManager, self).__init__(callback)
-        self._dbname = dbname
-        self.metastore = MetaStore(dbname=dbname)
-        self.db = self.metastore.db
-        self._batch = None
+class ImportManager(CouchManager):
+    def __init__(self, env, callback=None):
+        super(ImportManager, self).__init__(env, callback)
+        self.doc = None
         self._total = 0
         self._completed = 0
         if not isregistered(ImportWorker):
             register(ImportWorker)
 
-    def _sync(self, doc):
-        _id = doc['_id']
-        self.db[_id] = doc
-        return self.db[_id]
+    def save(self):
+        """
+        Save current 'dmedia/batch' record to CouchDB.
+        """
+        self.db.save(self.doc)
 
     def _start_batch(self):
-        assert self._batch is None
+        assert self.doc is None
         assert self._workers == {}
         self._total = 0
         self._completed = 0
-        self._batch = self._sync(create_batch(self.metastore.machine_id))
-        self.emit('BatchStarted', self._batch['_id'])
+        self.doc = create_batch(self.env.get('machine_id'))
+        self.save()
+        self.emit('BatchStarted', self.doc['_id'])
+
+    def get_worker_env(self, worker, key, args):
+        env = dict(self.env)
+        env['batch_id'] = self.doc['_id']
+        return env
 
     def _finish_batch(self):
         assert self._workers == {}
-        self._batch['time_end'] = time.time()
-        self._batch = self._sync(self._batch)
-        self.emit('BatchFinished', self._batch['_id'],
-            to_dbus_stats(self._batch)
+        self.doc['time_end'] = time.time()
+        self.save()
+        self.emit('BatchFinished', self.doc['_id'],
+            to_dbus_stats(self.doc['stats'])
         )
-        self._batch = None
+        self.doc = None
+        self.env = None
+        log.info('Batch complete, compacting database...')
+        self.db.compact()
+
+    def on_error(self, key, exception, message):
+        super(ImportManager, self).on_error(key, exception, message)
+        if self.doc is None:
+            return
+        self.doc['errors'].append(
+            {'key': key, 'name': exception, 'msg': message}
+        )
+        self.save()
 
     def on_terminate(self, key):
         super(ImportManager, self).on_terminate(key)
@@ -376,8 +469,8 @@ class ImportManager(Manager):
             self._finish_batch()
 
     def on_started(self, key, import_id):
-        self._batch['imports'].append(import_id)
-        self._batch = self._sync(self._batch)
+        self.doc['imports'].append(import_id)
+        self.save()
         self.emit('ImportStarted', key, import_id)
 
     def on_count(self, key, import_id, total):
@@ -389,8 +482,8 @@ class ImportManager(Manager):
         self.emit('ImportProgress', key, import_id, completed, total, info)
 
     def on_finished(self, key, import_id, stats):
-        accumulate_stats(self._batch, stats)
-        self._batch = self._sync(self._batch)
+        accumulate_stats(self.doc['stats'], stats)
+        self.save()
         self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
 
     def get_batch_progress(self):
@@ -403,10 +496,4 @@ class ImportManager(Manager):
                 return False
             if len(self._workers) == 0:
                 self._start_batch()
-            return self.do('ImportWorker', base,
-                self._batch['_id'], base, extract, self._dbname
-            )
-
-    def list_imports(self):
-        with self._lock:
-            return sorted(self._workers)
+            return self.start_job('ImportWorker', base, base, extract)

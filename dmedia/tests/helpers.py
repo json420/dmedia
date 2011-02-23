@@ -30,11 +30,10 @@ from subprocess import check_call
 import tempfile
 import shutil
 from base64 import b32encode, b32decode, b64encode
-from desktopcouch.records.server import  CouchDatabase
-from desktopcouch.records.server_base import NoSuchDatabase
+
 from . import sample_mov, sample_thm
 
-mov_hash = 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+mov_hash = 'TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK'
 mov_leaves = [
     b32decode('IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3'),
     b32decode('MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4'),
@@ -47,7 +46,7 @@ mov_att = {
 
 mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
 
-thm_hash = 'TA3676LFHP2SHNUHAVRYXP7YWGLMUQ4U'
+thm_hash = 'GKZMOPVZILR43MZCXLVYP7T62XGBT7BQ'
 thm_leaves = [b32decode('F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')]
 thm_qid = 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
 
@@ -173,22 +172,3 @@ class DummyCallback(object):
 
     def __call__(self, signal, args):
         self.messages.append((signal, args))
-
-
-class CouchCase(TestCase):
-    """
-    Base class for tests that need a desktopcouch testing Context.
-    """
-
-    def setUp(self):
-        self.home = TempHome()
-        self.dbname = 'dmedia_test'
-        try:
-            dc = CouchDatabase(self.dbname)
-            del dc._server[self.dbname]
-        except NoSuchDatabase:
-            pass
-
-    def tearDown(self):
-        self.home = None
-        self.dbname = None

@@ -110,7 +110,7 @@ The base32-encoded sha1 hash is 32-characters long.  For example:
 >>> src_fp = open(sample_mov, 'rb')
 >>> hashlist = HashList(src_fp)
 >>> hashlist.run()
-'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+'TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK'
 
 
 After calling `HashList.run()`, the binary digests of the leaf content-hashes

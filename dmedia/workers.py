@@ -28,10 +28,12 @@ from multiprocessing import current_process
 from threading import Thread, Lock
 from Queue import Empty
 import logging
+
 from .constants import TYPE_ERROR
+from .abstractcouch import get_couchdb_server, get_dmedia_db
+
 
 log = logging.getLogger()
-
 _workers = {}
 
 
@@ -79,14 +81,24 @@ def exception_name(exception):
     return exception.__name__
 
 
-def dispatch(q, worker, key, args):
+def dispatch(worker, env, q, key, args):
+    """
+    Dispatch a worker in this proccess.
+
+    :param worker: name of worker class, eg ``'ImportWorker'``
+    :param env: a ``dict`` containing run-time information like the CouchDB URL
+    :param q: a ``multiprocessing.Queue`` or similar
+    :param key: a key to uniquely identify this worker among active workers
+        controlled by the `Manager` that launched this worker
+    :param args: arguments to be passed to `Worker.run()`
+    """
     pid = current_process().pid
-    log.debug('dispatch in process %d: worker=%r, key=%r, args=%r',
+    log.debug('** dispatch in process %d: worker=%r, key=%r, args=%r',
         pid, worker, key, args
     )
     try:
         klass = _workers[worker]
-        inst = klass(q, key, args)
+        inst = klass(env, q, key, args)
         inst.run()
     except Exception as e:
         log.exception('exception in procces %d, worker=%r', pid)
@@ -106,7 +118,8 @@ def dispatch(q, worker, key, args):
 
 
 class Worker(object):
-    def __init__(self, q, key, args):
+    def __init__(self, env, q, key, args):
+        self.env = env
         self.q = q
         self.key = key
         self.args = args
@@ -143,12 +156,20 @@ class Worker(object):
         )
 
 
+class CouchWorker(Worker):
+    def __init__(self, env, q, key, args):
+        super(CouchWorker, self).__init__(env, q, key, args)
+        self.server = get_couchdb_server(env)
+        self.db = get_dmedia_db(env, self.server)
+
+
 class Manager(object):
-    def __init__(self, callback=None):
+    def __init__(self, env, callback=None):
         if not (callback is None or callable(callback)):
             raise TypeError(
                 'callback must be callable; got %r' % callback
             )
+        self.env = env
         self._callback = callback
         self._running = False
         self._workers = {}
@@ -165,7 +186,7 @@ class Manager(object):
                 pass
 
     def _process_message(self, msg):
-        log.info('%(signal)s %(args)r', msg)
+        log.info('[from %(worker)s %(pid)d] %(signal)s %(args)r', msg)
         with self._lock:
             signal = msg['signal']
             args = msg['args']
@@ -180,10 +201,10 @@ class Manager(object):
         log.error('%s %s: %s: %s', self.name, key, exception, message)
 
     def start(self):
-        log.info('Killing %s', self.name)
         with self._lock:
             if self._running:
                 return False
+            log.info('Starting %s', self.name)
             self._running = True
             self._thread = Thread(target=self._signal_thread)
             self._thread.daemon = True
@@ -191,9 +212,9 @@ class Manager(object):
             return True
 
     def kill(self):
-        log.info('Killing %s', self.name)
         if not self._running:
             return False
+        log.info('Killing %s', self.name)
         self._running = False
         self._thread.join()  # Cleanly shutdown _signal_thread
         with self._lock:
@@ -203,15 +224,24 @@ class Manager(object):
             self._workers.clear()
             return True
 
-    def do(self, worker, key, *args):
+    def get_worker_env(self, worker, key, args):
+        return dict(self.env)
+
+    def start_job(self, worker, key, *args):
         """
         Start a process identified by *key*, using worker class *name*.
+
+        :param worker: name of worker class, eg ``'ImportWorker'``
+        :param key: a key to uniquely identify new `Worker` among active workers
+            controlled by this `Manager`
+        :param args: arguments to be passed to `Worker.run()`
         """
         if key in self._workers:
             return False
+        env = self.get_worker_env(worker, key, args)
         p = multiprocessing.Process(
             target=dispatch,
-            args=(self._q, worker, key, args),
+            args=(worker, env, self._q, key, args),
         )
         p.daemon = True
         self._workers[key] = p
@@ -227,6 +257,9 @@ class Manager(object):
             p.join()
             return True
 
+    def list_jobs(self):
+        return sorted(self._workers)
+
     def emit(self, signal, *args):
         """
         Emit a signal to higher-level code.
@@ -234,3 +267,10 @@ class Manager(object):
         if self._callback is None:
             return
         self._callback(signal, args)
+
+
+class CouchManager(Manager):
+    def __init__(self, env, callback=None):
+        super(CouchManager, self).__init__(env, callback)
+        self.server = get_couchdb_server(env)
+        self.db = get_dmedia_db(env, self.server)

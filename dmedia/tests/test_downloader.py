@@ -245,7 +245,7 @@ class test_TorrentDownloader(TestCase):
         self.assertEqual(path.getsize(sample_mov), path.getsize(src))
 
         e = raises(IntegrityError, inst.finalize)
-        self.assertEqual(e.got, 'UECTT7A7EIHZ2SGGBMMO5WTTSVU4SUWM')
+        self.assertEqual(e.got, 'AYDIKK2IYAYTP7H5QCDK5FQ55F7QH4EN')
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.filename, src)
         self.assertFalse(path.exists(dst_d))
