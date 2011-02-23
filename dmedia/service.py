@@ -1,6 +1,7 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 #   Manish SInha <mail@manishsinha.net>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -53,8 +54,8 @@ except ImportError:
 log = logging.getLogger()
 
 
-ICON = '/usr/share/pixmaps/dmedia/indicator-rendermenu.svg'
-ICON_ATT = '/usr/share/pixmaps/dmedia/indicator-rendermenu-att.svg'
+ICON = 'indicator-rendermenu'
+ICON_ATT = 'indicator-rendermenu-att'
 
 
 class DMedia(dbus.service.Object):
