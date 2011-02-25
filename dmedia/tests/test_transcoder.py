@@ -67,3 +67,49 @@ class test_functions(TestCase):
         self.assertEqual(enc.get_factory().get_name(), 'theoraenc')
         self.assertEqual(enc.get_property('quality'), 50)
         self.assertEqual(enc.get_property('keyframe-force'), 32)
+
+
+class test_AudioTranscoder(TestCase):
+    klass = transcoder.AudioTranscoder
+
+    def test_init(self):
+        d = {
+            'enc': 'vorbisenc',
+            'props': {
+                'quality': 0.5,
+            },
+        }
+        inst = self.klass(d)
+        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertEqual(inst._enc.get_factory().get_name(), 'vorbisenc')
+        self.assertEqual(inst._enc.get_property('quality'), 0.5)
+
+
+class test_VideoTranscoder(TestCase):
+    klass = transcoder.VideoTranscoder
+
+    def test_init(self):
+        d = {
+            'enc': 'theoraenc',
+            'props': {
+                'quality': 50,
+                'keyframe-force': 32,
+            },
+        }
+        inst = self.klass(d)
+        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertEqual(inst._enc.get_factory().get_name(), 'theoraenc')
+        self.assertEqual(inst._enc.get_property('quality'), 50)
+
+        d = {
+            'enc': 'theoraenc',
+            'size': {'width': 800, 'height': 450},
+            'props': {
+                'quality': 50,
+                'keyframe-force': 32,
+            },
+        }
+        inst = self.klass(d)
+        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertEqual(inst._enc.get_factory().get_name(), 'theoraenc')
+        self.assertEqual(inst._enc.get_property('quality'), 50)
