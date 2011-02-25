@@ -167,7 +167,8 @@ from Queue import Queue
 from .schema import create_store
 from .errors import AmbiguousPath, FileStoreTraversal
 from .errors import DuplicateFile, IntegrityError
-from .constants import LEAF_SIZE, TRANSFERS_DIR, IMPORTS_DIR, TYPE_ERROR, EXT_PAT
+from .constants import LEAF_SIZE, TYPE_ERROR, EXT_PAT
+from .constants import TRANSFERS_DIR, IMPORTS_DIR, WRITES_DIR
 
 B32LENGTH = 32  # Length of base32-encoded hash
 QUICK_ID_CHUNK = 2 ** 20  # Amount to read for quick_id()
@@ -937,6 +938,28 @@ class FileStore(object):
         fallocate(size, filename)
         # FIXME: This probably isn't the best approach, but for now it works:
         tmp_fp = open(filename, 'r+b')
+        os.close(fileno)
+        return tmp_fp
+
+    def allocate_for_write(self, ext=None):
+        """
+        Open a random temporary file for a write operation.
+
+        Use this method to allocated a temporary file for cases when the file
+        size is not known in advance, eg when transcoding or rendering.
+
+        The file extension *ext* is optional and serves no other purpose than to
+        aid in debugging.  The value of *ext* used here has no effect on the
+        ultimate canonical file name.
+
+        :param ext: normalized lowercase file extension, eg ``'mov'``
+        """
+        writes = self.join(WRITES_DIR)
+        if not path.exists(writes):
+            os.makedirs(writes)
+        suffix = ('' if ext is None else '.' + ext)
+        (fileno, filename) = tempfile.mkstemp(suffix=suffix, dir=writes)
+        tmp_fp = open(filename, 'wb')
         os.close(fileno)
         return tmp_fp
 
