@@ -69,6 +69,79 @@ class test_functions(TestCase):
         self.assertEqual(enc.get_property('keyframe-force'), 32)
 
 
+class test_TranscodBin(TestCase):
+    klass = transcoder.TranscodeBin
+
+    def test_init(self):
+        d = {
+            'enc': 'vorbisenc',
+            'props': {
+                'quality': 0.5,
+            },
+        }
+        inst = self.klass(d)
+        self.assertTrue(inst._d is d)
+
+        self.assertTrue(inst._q1.get_parent() is inst)
+        self.assertTrue(isinstance(inst._q1, gst.Element))
+        self.assertEqual(inst._q1.get_factory().get_name(), 'queue')
+
+        self.assertTrue(inst._enc.get_parent() is inst)
+        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertEqual(inst._enc.get_factory().get_name(), 'vorbisenc')
+        self.assertEqual(inst._enc.get_property('quality'), 0.5)
+
+        self.assertTrue(inst._q2.get_parent() is inst)
+        self.assertTrue(isinstance(inst._q2, gst.Element))
+        self.assertEqual(inst._q2.get_factory().get_name(), 'queue')
+
+    def test_repr(self):
+        d = {
+            'enc': 'vorbisenc',
+            'props': {
+                'quality': 0.5,
+            },
+        }
+
+        inst = self.klass(d)
+        self.assertEqual(
+            repr(inst),
+            'TranscodeBin(%r)' % (d,)
+        )
+
+        class FooBar(self.klass):
+            pass
+        inst = FooBar(d)
+        self.assertEqual(
+            repr(inst),
+            'FooBar(%r)' % (d,)
+        )
+
+    def test_make(self):
+        d = {
+            'enc': 'vorbisenc',
+            'props': {
+                'quality': 0.5,
+            },
+        }
+        inst = self.klass(d)
+
+        enc = inst._make('theoraenc')
+        self.assertTrue(enc.get_parent() is inst)
+        self.assertTrue(isinstance(enc, gst.Element))
+        self.assertEqual(enc.get_factory().get_name(), 'theoraenc')
+        self.assertEqual(enc.get_property('quality'), 48)
+        self.assertEqual(enc.get_property('keyframe-force'), 64)
+
+        enc = inst._make('theoraenc', {'quality': 50, 'keyframe-force': 32})
+        self.assertTrue(enc.get_parent() is inst)
+        self.assertTrue(isinstance(enc, gst.Element))
+        self.assertEqual(enc.get_factory().get_name(), 'theoraenc')
+        self.assertEqual(enc.get_property('quality'), 50)
+        self.assertEqual(enc.get_property('keyframe-force'), 32)
+
+
+
 class test_AudioTranscoder(TestCase):
     klass = transcoder.AudioTranscoder
 

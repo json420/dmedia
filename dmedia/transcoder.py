@@ -22,9 +22,13 @@
 """
 GStreamer-based transcoder.
 """
+import logging
 
-
+import gobject
 import gst
+
+
+log = logging.getLogger()
 
 
 def make_encoder(d):
@@ -55,57 +59,149 @@ def make_encoder(d):
     return encoder
 
 
-class AudioTranscoder(gst.Bin):
+class TranscodeBin(gst.Bin):
     def __init__(self, d):
-        gst.Bin.__init__(self)
+        super(TranscodeBin, self).__init__()
+        self._d = d
+        self._q1 = self._make('queue')
+        self._enc = self._make(d['enc'], d.get('props'))
+        self._q2 = self._make('queue')
+        self._enc.link(self._q2)
+        self.add_pad(
+            gst.GhostPad('sink', self._q1.get_pad('sink'))
+        )
+        self.add_pad(
+            gst.GhostPad('src', self._q2.get_pad('src'))
+        )
 
-        # Create elements
-        self._q1 = gst.element_factory_make('queue')
-        self._conv = gst.element_factory_make('audioconvert')
-        self._rate = gst.element_factory_make('audiorate')
-        self._enc = make_encoder(d)
-        self._q2 = gst.element_factory_make('queue')
-        elements = (self._q1, self._conv, self._rate, self._enc, self._q2)
+    def __repr__(self):
+        return '%s(%r)' % (self.__class__.__name__, self._d)
 
-        # Add to bin and link:
-        self.add(*elements)
+    def _make(self, name, props=None):
+        element = gst.element_factory_make(name)
+        self.add(element)
+        if props:
+            for (key, value) in props.iteritems():
+                element.set_property(key, value)
+        return element
+
+
+class AudioTranscoder(TranscodeBin):
+    def __init__(self, d):
+        super(AudioTranscoder, self).__init__(d)
+
+        # Create processing elements:
+        self._conv = self._make('audioconvert')
+        self._rate = self._make('audiorate')
+
+        # Link elements:
         if d.get('caps'):
             gst.element_link_many(self._q1, self._conv, self._rate)
             caps = gst.caps_from_string(d['caps'])
             self._rate.link(self._enc, caps)
-            self._enc.link(self._q2)
         else:
-            gst.element_link_many(*elements)
-
-        # Add ghostpads
-        self.add_pad(gst.GhostPad('sink', self._q1.get_pad('sink')))
-        self.add_pad(gst.GhostPad('src', self._q2.get_pad('src')))
+            gst.element_link_many(self._q1, self._conv, self._rate, self._enc)
 
 
-class VideoTranscoder(gst.Bin):
+class VideoTranscoder(TranscodeBin):
     def __init__(self, d):
-        gst.Bin.__init__(self)
+        super(VideoTranscoder, self).__init__(d)
 
-        # Create elements
-        self._q1 = gst.element_factory_make('queue')
-        self._scale = gst.element_factory_make('videoscale')
+        # Create processing elements:
+        self._scale = self._make('videoscale')
         self._scale.set_property('method', 2)
-        self._enc = make_encoder(d)
-        self._q2 = gst.element_factory_make('queue')
-        elements = (self._q1, self._scale, self._enc, self._q2)
 
-        # Add to bin and link:
-        self.add(*elements)
+        # Link elements:
         if d.get('size'):
             self._q1.link(self._scale)
             caps = gst.caps_from_string(
                 'video/x-raw-yuv, width=%(width)d, height=%(height)d' % d['size']
             )
             self._scale.link(self._enc, caps)
-            self._enc.link(self._q2)
         else:
-            gst.element_link_many(*elements)
+            gst.element_link_many(self._q1, self._scale, self._enc)
 
-        # Add ghostpads
-        self.add_pad(gst.GhostPad('sink', self._q1.get_pad('sink')))
-        self.add_pad(gst.GhostPad('src', self._q2.get_pad('src')))
+
+class Transcoder(object):
+    def __init__(self, src, dst, d):
+        self.src = src
+        self.dst = dst
+        self.d = d
+        self.mainloop = gobject.MainLoop()
+        self.pipeline = gst.Pipeline()
+
+        # Create bus and connect several handlers
+        self.bus = self.pipeline.get_bus()
+        self.bus.add_signal_watch()
+        self.bus.connect('message::eos', self.on_eos)
+        self.bus.connect('message::error', self.on_error)
+
+        # Create elements
+        self.src = gst.element_factory_make('filesrc')
+        self.dec = gst.element_factory_make('decodebin2')
+        self.mux = gst.element_factory_make(d['mux'])
+        self.sink = gst.element_factory_make('filesink')
+
+        # Set properties
+        self.src.set_property('location', src)
+        self.sink.set_property('location', dst)
+
+        # Connect handler for 'new-decoded-pad' signal
+        self.dec.connect('new-decoded-pad', self.on_new_decoded_pad)
+
+        # Add elements to pipeline
+        self.pipeline.add(self.src, self.dec, self.mux, self.sink)
+
+        # Link *some* elements
+        # This is completed in self.on_new_decoded_pad()
+        self.src.link(self.dec)
+        self.mux.link(self.sink)
+
+        self.audio = None
+        self.video = None
+
+    def run(self):
+        self.pipeline.set_state(gst.STATE_PLAYING)
+        self.mainloop.run()
+
+    def kill(self):
+        self.pipeline.set_state(gst.STATE_NULL)
+        self.pipeline.get_state()
+        self.mainloop.quit()
+
+    def on_new_decoded_pad(self, element, pad, last):
+        name = pad.get_caps()[0].get_name()
+        log.debug('new decoded pad: %r', name)
+        if name.startswith('audio/'):
+            assert self.audio is None
+            if 'audio' in self.d:
+                self.audio = AudioTranscoder(self.d['audio'])
+            else:
+                self.audio = gst.element_factory_make('fakesink')
+            self.pipeline.add(self.audio)
+            log.info('Linking pad %r with %r', name, self.audio)
+            pad.link(self.audio.get_pad('sink'))
+            if 'audio' in self.d:
+                self.audio.link(self.mux)
+            self.audio.set_state(gst.STATE_PLAYING)
+        elif name.startswith('video/'):
+            assert self.video is None
+            if 'video' in self.d:
+                self.video = VideoTranscoder(self.d['video'])
+            else:
+                self.video = gst.element_factory_make('fakesink')
+            self.pipeline.add(self.video)
+            log.info('Linking pad %r with %r', name, self.video)
+            pad.link(self.video.get_pad('sink'))
+            if 'video' in self.d:
+                self.video.link(self.mux)
+            self.video.set_state(gst.STATE_PLAYING)
+
+    def on_eos(self, bus, msg):
+        log.info('eos')
+        self.kill()
+
+    def on_error(self, bus, msg):
+        error = msg.parse_error()[1]
+        log.error(error)
+        self.kill()
