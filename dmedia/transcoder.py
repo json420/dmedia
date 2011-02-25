@@ -22,6 +22,7 @@
 """
 GStreamer-based transcoder.
 """
+
 import logging
 
 import gobject
@@ -31,35 +32,10 @@ import gst
 log = logging.getLogger()
 
 
-def make_encoder(d):
-    """
-    Create encoder element from serialized description *d*.
-
-    For example:
-
-    >>> d = {
-    ...     'enc': 'theoraenc',
-    ...     'props': {
-    ...         'quality': 52,
-    ...         'keyframe-force': 32,
-    ...     },
-    ... }
-    ...
-    >>> enc = make_encoder(d)
-    >>> enc.get_factory().get_name()
-    'theoraenc'
-    >>> enc.get_property('quality')
-    52
-
-    :param d: a ``dict`` describing the GStreamer element
-    """
-    encoder = gst.element_factory_make(d['enc'])
-    for (key, value) in d['props'].iteritems():
-        encoder.set_property(key, value)
-    return encoder
-
-
 class TranscodeBin(gst.Bin):
+    """
+    Base class for `AudioTranscoder` and `VideoTranscoder`.
+    """
     def __init__(self, d):
         super(TranscodeBin, self).__init__()
         self._d = d
@@ -78,11 +54,14 @@ class TranscodeBin(gst.Bin):
         return '%s(%r)' % (self.__class__.__name__, self._d)
 
     def _make(self, name, props=None):
+        """
+        Create gst element, set properties, and add to this bin.
+        """
         element = gst.element_factory_make(name)
-        self.add(element)
         if props:
             for (key, value) in props.iteritems():
                 element.set_property(key, value)
+        self.add(element)
         return element
 
 
@@ -108,8 +87,7 @@ class VideoTranscoder(TranscodeBin):
         super(VideoTranscoder, self).__init__(d)
 
         # Create processing elements:
-        self._scale = self._make('videoscale')
-        self._scale.set_property('method', 2)
+        self._scale = self._make('videoscale', {'method': 2})
 
         # Link elements:
         if d.get('size'):
@@ -124,8 +102,6 @@ class VideoTranscoder(TranscodeBin):
 
 class Transcoder(object):
     def __init__(self, src, dst, d):
-        self.src = src
-        self.dst = dst
         self.d = d
         self.mainloop = gobject.MainLoop()
         self.pipeline = gst.Pipeline()
@@ -169,33 +145,29 @@ class Transcoder(object):
         self.pipeline.get_state()
         self.mainloop.quit()
 
+    def link_pad(self, pad, name, key):
+        if key in self.d:
+            klass = {'audio': AudioTranscoder, 'video': VideoTranscoder}[key]
+            el = klass(self.d[key])
+        else:
+            el = gst.element_factory_make('fakesink')
+        self.pipeline.add(el)
+        log.info('Linking pad %r with %r', name, el)
+        pad.link(el.get_pad('sink'))
+        if key in self.d:
+            el.link(self.mux)
+        el.set_state(gst.STATE_PLAYING)
+        return el
+
     def on_new_decoded_pad(self, element, pad, last):
         name = pad.get_caps()[0].get_name()
         log.debug('new decoded pad: %r', name)
         if name.startswith('audio/'):
             assert self.audio is None
-            if 'audio' in self.d:
-                self.audio = AudioTranscoder(self.d['audio'])
-            else:
-                self.audio = gst.element_factory_make('fakesink')
-            self.pipeline.add(self.audio)
-            log.info('Linking pad %r with %r', name, self.audio)
-            pad.link(self.audio.get_pad('sink'))
-            if 'audio' in self.d:
-                self.audio.link(self.mux)
-            self.audio.set_state(gst.STATE_PLAYING)
+            self.audio = self.link_pad(pad, name, 'audio')
         elif name.startswith('video/'):
             assert self.video is None
-            if 'video' in self.d:
-                self.video = VideoTranscoder(self.d['video'])
-            else:
-                self.video = gst.element_factory_make('fakesink')
-            self.pipeline.add(self.video)
-            log.info('Linking pad %r with %r', name, self.video)
-            pad.link(self.video.get_pad('sink'))
-            if 'video' in self.d:
-                self.video.link(self.mux)
-            self.video.set_state(gst.STATE_PLAYING)
+            self.video = self.link_pad(pad, name, 'video')
 
     def on_eos(self, bus, msg):
         log.info('eos')
