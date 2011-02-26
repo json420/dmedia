@@ -91,14 +91,16 @@ class VideoTranscoder(TranscodeBin):
 
         # Create processing elements:
         self._scale = self._make('videoscale', {'method': 2})
+        self._q = self._make('queue')
 
         # Link elements:
         self._q1.link(self._scale)
         if d.get('caps'):
             caps = gst.caps_from_string(d['caps'])
-            self._scale.link(self._enc, caps)
+            self._scale.link(self._q, caps)
         else:
-            self._scale.link(self._enc)
+            self._scale.link(self._q)
+        self._q.link(self._enc)
 
 
 class Transcoder(object):

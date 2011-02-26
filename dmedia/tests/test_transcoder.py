@@ -222,11 +222,11 @@ class test_Transcoder(TestCase):
             'mux': 'webmmux',
             'video': {
                 'enc': 'vp8enc',
+                'props': {'threads': 2},
                 'caps': 'video/x-raw-yuv, width=640, height=360',
             },
             'audio': {
                 'enc': 'vorbisenc',
-                'caps': 'audio/x-raw-float, rate=44100',
             },
         }
         inst = self.klass(self.src, self.dst, d)
