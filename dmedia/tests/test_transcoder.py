@@ -205,28 +205,37 @@ class test_Transcoder(TestCase):
         self.assertEqual(inst.sink.get_factory().get_name(), 'filesink')
         self.assertEqual(inst.sink.get_property('location'), self.dst)
 
-    def test_theora_450(self):
+    def test_theora450(self):
         d = {
             'mux': 'oggmux',
             'video': {
                 'enc': 'theoraenc',
                 'caps': 'video/x-raw-yuv, width=800, height=450',
             },
+        }
+        inst = self.klass(self.src, self.dst, d)
+        inst.run()
+
+    def test_flac(self):
+        d = {
+            'mux': 'oggmux',
             'audio': {'enc': 'flacenc'},
         }
         inst = self.klass(self.src, self.dst, d)
         inst.run()
 
-    def test_webm_360(self):
+    def test_theora360_vorbis(self):
         d = {
-            'mux': 'webmmux',
+            'mux': 'oggmux',
             'video': {
-                'enc': 'vp8enc',
-                'props': {'threads': 2},
+                'enc': 'theoraenc',
+                'props': {'quality': 40},
                 'caps': 'video/x-raw-yuv, width=640, height=360',
             },
             'audio': {
                 'enc': 'vorbisenc',
+                'props': {'quality': 0.4},
+                'caps': 'audio/x-raw-float, rate=44100',
             },
         }
         inst = self.klass(self.src, self.dst, d)
