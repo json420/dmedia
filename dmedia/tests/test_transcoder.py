@@ -176,19 +176,21 @@ class test_VideoTranscoder(TestCase):
 class test_Transcoder(TestCase):
     klass = transcoder.Transcoder
 
+    def setUp(self):
+        self.tmp = TempDir()
+        self.src = self.tmp.copy(sample_mov, 'src.mov')
+        self.dst = self.tmp.join('dst.mov')
+
     def test_init(self):
-        tmp = TempDir()
-        src = tmp.copy(sample_mov, 'src.mov')
-        dst = tmp.join('dst.mov')
         d = {'mux': 'oggmux'}
 
-        inst = self.klass(src, dst, d)
+        inst = self.klass(self.src, self.dst, d)
         self.assertTrue(inst.d is d)
 
         self.assertTrue(isinstance(inst.src, gst.Element))
         self.assertTrue(inst.src.get_parent() is inst.pipeline)
         self.assertEqual(inst.src.get_factory().get_name(), 'filesrc')
-        self.assertEqual(inst.src.get_property('location'), src)
+        self.assertEqual(inst.src.get_property('location'), self.src)
 
         self.assertTrue(isinstance(inst.dec, gst.Element))
         self.assertTrue(inst.dec.get_parent() is inst.pipeline)
@@ -201,4 +203,31 @@ class test_Transcoder(TestCase):
         self.assertTrue(isinstance(inst.sink, gst.Element))
         self.assertTrue(inst.sink.get_parent() is inst.pipeline)
         self.assertEqual(inst.sink.get_factory().get_name(), 'filesink')
-        self.assertEqual(inst.sink.get_property('location'), dst)
+        self.assertEqual(inst.sink.get_property('location'), self.dst)
+
+    def test_theora_450(self):
+        d = {
+            'mux': 'oggmux',
+            'video': {
+                'enc': 'theoraenc',
+                'caps': 'video/x-raw-yuv, width=800, height=450',
+            },
+            'audio': {'enc': 'flacenc'},
+        }
+        inst = self.klass(self.src, self.dst, d)
+        inst.run()
+
+    def test_webm_360(self):
+        d = {
+            'mux': 'webmmux',
+            'video': {
+                'enc': 'vp8enc',
+                'caps': 'video/x-raw-yuv, width=640, height=360',
+            },
+            'audio': {
+                'enc': 'vorbisenc',
+                'caps': 'audio/x-raw-float, rate=44100',
+            },
+        }
+        inst = self.klass(self.src, self.dst, d)
+        inst.run()
