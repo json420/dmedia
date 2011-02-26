@@ -71,15 +71,18 @@ class AudioTranscoder(TranscodeBin):
 
         # Create processing elements:
         self._conv = self._make('audioconvert')
+        self._rsp = self._make('audioresample', {'quality': 10})
         self._rate = self._make('audiorate')
 
         # Link elements:
+        self._q1.link(self._conv)
+        self._conv.link(self._rsp)
         if d.get('caps'):
-            gst.element_link_many(self._q1, self._conv, self._rate)
             caps = gst.caps_from_string(d['caps'])
-            self._rate.link(self._enc, caps)
+            self._rsp.link(self._rate, caps)
         else:
-            gst.element_link_many(self._q1, self._conv, self._rate, self._enc)
+            self._rsp.link(self._rate)
+        self._rate.link(self._enc)
 
 
 class VideoTranscoder(TranscodeBin):
@@ -90,14 +93,12 @@ class VideoTranscoder(TranscodeBin):
         self._scale = self._make('videoscale', {'method': 2})
 
         # Link elements:
-        if d.get('size'):
-            self._q1.link(self._scale)
-            caps = gst.caps_from_string(
-                'video/x-raw-yuv, width=%(width)d, height=%(height)d' % d['size']
-            )
+        self._q1.link(self._scale)
+        if d.get('caps'):
+            caps = gst.caps_from_string(d['caps'])
             self._scale.link(self._enc, caps)
         else:
-            gst.element_link_many(self._q1, self._scale, self._enc)
+            self._scale.link(self._enc)
 
 
 class Transcoder(object):
