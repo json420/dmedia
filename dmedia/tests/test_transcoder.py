@@ -33,6 +33,23 @@ from dmedia.filestore import FileStore
 from .helpers import sample_mov, mov_hash, TempDir, raises
 
 
+class test_functions(TestCase):
+    def test_caps_string(self):
+        f = transcoder.caps_string
+        self.assertEqual(
+            f('audio/x-raw-float', {}),
+            'audio/x-raw-float'
+        )
+        self.assertEqual(
+            f('audio/x-raw-float', {'rate': 44100}),
+            'audio/x-raw-float, rate=44100'
+        )
+        self.assertEqual(
+            f('audio/x-raw-float', {'rate': 44100, 'channels': 1}),
+            'audio/x-raw-float, channels=1, rate=44100'
+        )
+
+
 class test_TranscodBin(TestCase):
     klass = transcoder.TranscodeBin
 
@@ -134,10 +151,8 @@ class test_AudioTranscoder(TestCase):
 
         d = {
             'enc': 'vorbisenc',
-            'caps': 'audio/x-raw-float, rate=44100',
-            'props': {
-                'quality': 0.25,
-            },
+            'caps': {'rate': 44100},
+            'props': {'quality': 0.25},
         }
         inst = self.klass(d)
         self.assertTrue(isinstance(inst._enc, gst.Element))
@@ -163,7 +178,7 @@ class test_VideoTranscoder(TestCase):
 
         d = {
             'enc': 'theoraenc',
-            'caps': 'video/x-raw-yuv, width=800, height=450',
+            'caps': {'width': 800, 'height': 450},
             'props': {
                 'quality': 50,
                 'keyframe-force': 32,
@@ -243,7 +258,7 @@ class test_Transcoder(TestCase):
             'mux': 'oggmux',
             'video': {
                 'enc': 'theoraenc',
-                'caps': 'video/x-raw-yuv, width=800, height=450',
+                'caps': {'width': 800, 'height': 450},
             },
         }
         inst = self.klass(job, self.fs)
@@ -253,7 +268,10 @@ class test_Transcoder(TestCase):
         job = {
             'src': {'id': mov_hash, 'ext': 'mov'},
             'mux': 'oggmux',
-            'audio': {'enc': 'flacenc'},
+            'audio': {
+                'enc': 'flacenc',
+                'caps': {'rate': 44100},
+            },
         }
         inst = self.klass(job, self.fs)
         inst.run()
@@ -265,12 +283,12 @@ class test_Transcoder(TestCase):
             'video': {
                 'enc': 'theoraenc',
                 'props': {'quality': 40},
-                'caps': 'video/x-raw-yuv, width=640, height=360',
+                'caps': {'width': 800, 'height': 450},
             },
             'audio': {
                 'enc': 'vorbisenc',
                 'props': {'quality': 0.4},
-                'caps': 'audio/x-raw-float, rate=44100',
+                'caps': {'rate': 44100},
             },
         }
         inst = self.klass(job, self.fs)

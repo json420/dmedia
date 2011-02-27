@@ -35,6 +35,22 @@ from .filestore import FileStore
 log = logging.getLogger()
 
 
+def caps_string(mime, caps):
+    """
+    Build a GStreamer caps string.
+
+    For example:
+
+    >>> caps_string('video/x-raw-yuv', {'width': 800, 'height': 450})
+    'video/x-raw-yuv, height=450, width=800'
+    """
+    accum = [mime]
+    for key in sorted(caps):
+        accum.append('%s=%s' % (key, caps[key]))
+    return ', '.join(accum)
+
+
+
 class TranscodeBin(gst.Bin):
     """
     Base class for `AudioTranscoder` and `VideoTranscoder`.
@@ -81,7 +97,15 @@ class AudioTranscoder(TranscodeBin):
         self._q1.link(self._conv)
         self._conv.link(self._rsp)
         if d.get('caps'):
-            caps = gst.caps_from_string(d['caps'])
+            # FIXME: There is probably a better way to do this, but the caps API
+            # has always been a bit of a mystery to me.  --jderose
+            if d['enc'] == 'vorbisenc':
+                mime = 'audio/x-raw-float'
+            else:
+                mime = 'audio/x-raw-int'
+            caps = gst.caps_from_string(
+                caps_string(mime, d['caps'])
+            )
             self._rsp.link(self._rate, caps)
         else:
             self._rsp.link(self._rate)
@@ -99,7 +123,9 @@ class VideoTranscoder(TranscodeBin):
         # Link elements:
         self._q1.link(self._scale)
         if d.get('caps'):
-            caps = gst.caps_from_string(d['caps'])
+            caps = gst.caps_from_string(
+                caps_string('video/x-raw-yuv', d['caps'])
+            )
             self._scale.link(self._q, caps)
         else:
             self._scale.link(self._q)
