@@ -161,10 +161,12 @@ class Transcoder(object):
 
         self.audio = None
         self.video = None
+        self.tup = None
 
     def run(self):
         self.pipeline.set_state(gst.STATE_PLAYING)
         self.mainloop.run()
+        return self.tup
 
     def kill(self):
         self.pipeline.set_state(gst.STATE_NULL)
@@ -198,6 +200,9 @@ class Transcoder(object):
     def on_eos(self, bus, msg):
         log.info('eos')
         self.kill()
+        self.dst_fp.close()
+        fp = open(self.dst_fp.name, 'rb')
+        self.tup = self.fs.tmp_hash_move(fp, self.job.get('ext'))
 
     def on_error(self, bus, msg):
         error = msg.parse_error()[1]

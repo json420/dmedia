@@ -959,7 +959,7 @@ class FileStore(object):
             os.makedirs(writes)
         suffix = ('' if ext is None else '.' + ext)
         (fileno, filename) = tempfile.mkstemp(suffix=suffix, dir=writes)
-        tmp_fp = open(filename, 'wb')
+        tmp_fp = open(filename, 'r+b')
         os.close(fileno)
         return tmp_fp
 
@@ -1047,6 +1047,15 @@ class FileStore(object):
 
         # Return canonical filename:
         return dst
+
+    def tmp_hash_move(self, tmp_fp, ext=None):
+        """
+        Hash temporary file, then move into its canonical location.
+        """
+        h = HashList(tmp_fp)
+        chash = h.run()
+        self.tmp_move(tmp_fp, chash, ext)
+        return (chash, h.leaves)
 
     def tmp_verify_move(self, chash, ext=None):
         """

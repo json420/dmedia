@@ -213,7 +213,7 @@ class test_Transcoder(TestCase):
         )
 
         self.assertTrue(isinstance(inst.dst_fp, file))
-        self.assertEqual(inst.dst_fp.mode, 'wb')
+        self.assertEqual(inst.dst_fp.mode, 'r+b')
         self.assertTrue(
             inst.dst_fp.name.startswith(self.tmp.join('writes'))
         )
