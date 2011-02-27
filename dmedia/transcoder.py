@@ -28,6 +28,9 @@ import logging
 import gobject
 import gst
 
+from .constants import TYPE_ERROR
+from .filestore import FileStore
+
 
 log = logging.getLogger()
 
@@ -104,8 +107,28 @@ class VideoTranscoder(TranscodeBin):
 
 
 class Transcoder(object):
-    def __init__(self, src, dst, d):
-        self.d = d
+    def __init__(self, job, fs):
+        """
+        Initialize.
+
+        :param job: a ``dict`` describing the transcode to perform.
+        :param fs: a `FileStore` instance in which to store transcoded file
+        """
+        if not isinstance(job, dict):
+            raise TypeError(
+                TYPE_ERROR % ('job', dict, type(job), job)
+            )
+        if not isinstance(fs, FileStore):
+            raise TypeError(
+                TYPE_ERROR % ('fs', FileStore, type(fs), fs)
+            )
+        self.job = job
+        self.fs = fs
+
+        src = job['src']
+        self.src_fp = self.fs.open(src['id'], src.get('ext'))
+        self.dst_fp = self.fs.allocate_for_write(job.get('ext'))
+
         self.mainloop = gobject.MainLoop()
         self.pipeline = gst.Pipeline()
 
@@ -116,14 +139,14 @@ class Transcoder(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = gst.element_factory_make('filesrc')
+        self.src = gst.element_factory_make('fdsrc')
         self.dec = gst.element_factory_make('decodebin2')
-        self.mux = gst.element_factory_make(d['mux'])
-        self.sink = gst.element_factory_make('filesink')
+        self.mux = gst.element_factory_make(job['mux'])
+        self.sink = gst.element_factory_make('fdsink')
 
         # Set properties
-        self.src.set_property('location', src)
-        self.sink.set_property('location', dst)
+        self.src.set_property('fd', self.src_fp.fileno())
+        self.sink.set_property('fd', self.dst_fp.fileno())
 
         # Connect handler for 'new-decoded-pad' signal
         self.dec.connect('new-decoded-pad', self.on_new_decoded_pad)
@@ -149,15 +172,15 @@ class Transcoder(object):
         self.mainloop.quit()
 
     def link_pad(self, pad, name, key):
-        if key in self.d:
+        if key in self.job:
             klass = {'audio': AudioTranscoder, 'video': VideoTranscoder}[key]
-            el = klass(self.d[key])
+            el = klass(self.job[key])
         else:
             el = gst.element_factory_make('fakesink')
         self.pipeline.add(el)
         log.info('Linking pad %r with %r', name, el)
         pad.link(el.get_pad('sink'))
-        if key in self.d:
+        if key in self.job:
             el.link(self.mux)
         el.set_state(gst.STATE_PLAYING)
         return el

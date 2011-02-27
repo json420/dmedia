@@ -28,7 +28,9 @@ from unittest import TestCase
 import gst
 
 from dmedia import transcoder
-from .helpers import sample_mov, TempDir
+from dmedia.constants import TYPE_ERROR
+from dmedia.filestore import FileStore
+from .helpers import sample_mov, mov_hash, TempDir, raises
 
 
 class test_TranscodBin(TestCase):
@@ -178,19 +180,49 @@ class test_Transcoder(TestCase):
 
     def setUp(self):
         self.tmp = TempDir()
-        self.src = self.tmp.copy(sample_mov, 'src.mov')
-        self.dst = self.tmp.join('dst.mov')
+        self.fs = FileStore(self.tmp.path)
+        self.fs.import_file(open(sample_mov, 'rb'), 'mov')
 
     def test_init(self):
-        d = {'mux': 'oggmux'}
+        job = {
+            'src': {'id': mov_hash, 'ext': 'mov'},
+            'mux': 'oggmux',
+            'ext': 'ogv',
+        }
 
-        inst = self.klass(self.src, self.dst, d)
-        self.assertTrue(inst.d is d)
+        e = raises(TypeError, self.klass, 17, self.fs)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('job', dict, int, 17)
+        )
+        e = raises(TypeError, self.klass, job, 18)
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('fs', FileStore, int, 18)
+        )
+
+        inst = self.klass(job, self.fs)
+        self.assertTrue(inst.job is job)
+        self.assertTrue(inst.fs is self.fs)
+
+        self.assertTrue(isinstance(inst.src_fp, file))
+        self.assertEqual(inst.src_fp.mode, 'rb')
+        self.assertEqual(
+            inst.src_fp.name,
+            self.tmp.join(mov_hash[:2], mov_hash[2:] + '.mov')
+        )
+
+        self.assertTrue(isinstance(inst.dst_fp, file))
+        self.assertEqual(inst.dst_fp.mode, 'wb')
+        self.assertTrue(
+            inst.dst_fp.name.startswith(self.tmp.join('writes'))
+        )
+        self.assertTrue(inst.dst_fp.name.endswith('.ogv'))
 
         self.assertTrue(isinstance(inst.src, gst.Element))
         self.assertTrue(inst.src.get_parent() is inst.pipeline)
-        self.assertEqual(inst.src.get_factory().get_name(), 'filesrc')
-        self.assertEqual(inst.src.get_property('location'), self.src)
+        self.assertEqual(inst.src.get_factory().get_name(), 'fdsrc')
+        self.assertEqual(inst.src.get_property('fd'), inst.src_fp.fileno())
 
         self.assertTrue(isinstance(inst.dec, gst.Element))
         self.assertTrue(inst.dec.get_parent() is inst.pipeline)
@@ -202,30 +234,33 @@ class test_Transcoder(TestCase):
 
         self.assertTrue(isinstance(inst.sink, gst.Element))
         self.assertTrue(inst.sink.get_parent() is inst.pipeline)
-        self.assertEqual(inst.sink.get_factory().get_name(), 'filesink')
-        self.assertEqual(inst.sink.get_property('location'), self.dst)
+        self.assertEqual(inst.sink.get_factory().get_name(), 'fdsink')
+        self.assertEqual(inst.sink.get_property('fd'), inst.dst_fp.fileno())
 
     def test_theora450(self):
-        d = {
+        job = {
+            'src': {'id': mov_hash, 'ext': 'mov'},
             'mux': 'oggmux',
             'video': {
                 'enc': 'theoraenc',
                 'caps': 'video/x-raw-yuv, width=800, height=450',
             },
         }
-        inst = self.klass(self.src, self.dst, d)
+        inst = self.klass(job, self.fs)
         inst.run()
 
     def test_flac(self):
-        d = {
+        job = {
+            'src': {'id': mov_hash, 'ext': 'mov'},
             'mux': 'oggmux',
             'audio': {'enc': 'flacenc'},
         }
-        inst = self.klass(self.src, self.dst, d)
+        inst = self.klass(job, self.fs)
         inst.run()
 
     def test_theora360_vorbis(self):
-        d = {
+        job = {
+            'src': {'id': mov_hash, 'ext': 'mov'},
             'mux': 'oggmux',
             'video': {
                 'enc': 'theoraenc',
@@ -238,5 +273,5 @@ class test_Transcoder(TestCase):
                 'caps': 'audio/x-raw-float, rate=44100',
             },
         }
-        inst = self.klass(self.src, self.dst, d)
+        inst = self.klass(job, self.fs)
         inst.run()
