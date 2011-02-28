@@ -66,7 +66,8 @@ class ResultsApp(object):
     """
     Simple WSGI app for collecting results from JavaScript tests.
 
-    REST API:
+    REST API
+    ========
 
     To retrieve the test HTML page (will have appropriate JavaScript):
 
@@ -83,7 +84,6 @@ class ResultsApp(object):
 
             {"method": "assertEqual", "args": ["foo", "bar"]}
 
-
     To report an unhandled exception:
 
         ::
@@ -93,13 +93,11 @@ class ResultsApp(object):
 
             Oh no, caught an unhandled JavaScript exception!
 
-
     Finally, to conclude a test:
 
         ::
 
             POST /complete HTTP/1.1
-
     """
     def __init__(self, q, content, mime='text/html'):
         self.q = q
