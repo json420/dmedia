@@ -26,6 +26,7 @@ Unit tests for `dmedia.js` module.
 from unittest import TestCase
 import json
 import multiprocessing
+import multiprocessing.queues
 
 from dmedia import js
 from .helpers import DummyQueue
@@ -174,6 +175,7 @@ class test_JSTestCase(js.JSTestCase):
 
     def test_start_response_server(self):
         self.start_response_server('foo bar')
+        self.assertTrue(isinstance(self.q, multiprocessing.queues.Queue))
         self.assertTrue(isinstance(self.server, multiprocessing.Process))
         self.assertTrue(self.server.daemon)
         self.assertTrue(self.server.is_alive())
