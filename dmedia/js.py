@@ -60,6 +60,45 @@ template_s = """
 
 
 class WSGIApp(object):
+    """
+    Simple WSGI app for collecting results from JavaScript tests.
+
+    REST API:
+
+    To retrieve the test HTML page (will have appropriate JavaScript):
+
+        ::
+
+            GET / HTTP/1.1
+
+
+    To test an assertion (assertEqual, assertTrue, etc):
+
+        ::
+
+            POST / HTTP/1.1
+            Content-Type: application/json
+
+            {"method": "assertEqual", "args": ["foo", "bar"]}
+
+
+    To report an unhandled exception:
+
+        ::
+
+            POST /error HTTP/1.1
+            Content-Type: text/plain
+
+            Oh no, caught an unhadled JavaScript execption!
+
+
+    Finally, to conclude a test:
+
+        ::
+
+            POST /complete HTTP/1.1
+
+    """
     def __init__(self, q, content, mime='text/html'):
         self.q = q
         self.content = content
@@ -67,6 +106,7 @@ class WSGIApp(object):
 
     def __call__(self, environ, start_response):
         if environ['REQUEST_METHOD'] not in ('GET', 'POST'):
+            self.q.put(('bad_method', environ['REQUEST_METHOD']))
             start_response('405 Method Not Allowed', [])
             return ''
         if environ['REQUEST_METHOD'] == 'GET' and environ['PATH_INFO'] == '/':
@@ -92,6 +132,9 @@ class WSGIApp(object):
                 self.q.put(('complete', None))
                 start_response('202 Accepted', [])
                 return ''
+        self.q.put(
+            ('bad_request', '%(REQUEST_METHOD)s %(PATH_INFO)s' % environ)
+        )
         start_response('400 Bad Request', [])
         return ''
 

@@ -140,3 +140,31 @@ class test_WSGIApp(TestCase):
                 ('complete', None),
             ]
         )
+        
+        # Test with bad requests
+        q = DummyQueue()
+        content = 'foo bar'
+        inst = self.klass(q, content)
+        env = {'REQUEST_METHOD': 'PUT'}
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '405 Method Not Allowed')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(q.messages, [('bad_method', 'PUT')])
+        
+        env = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/error',
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '400 Bad Request')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(
+            q.messages,
+            [
+                ('bad_method', 'PUT'),
+                ('bad_request', 'GET /error'),
+            ]
+        )
+        
