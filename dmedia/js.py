@@ -41,6 +41,9 @@ Goals:
 """
 
 from unittest import TestCase
+import multiprocessing
+from Queue import Empty
+from wsgiref.simple_server import make_server
 
 from genshi.template import MarkupTemplate
 
@@ -139,15 +142,21 @@ class WSGIApp(object):
         return ''
 
 
-
+def response_server(q, content, mime):
+    app = WSGIApp(q, content, mime)
+    httpd = make_server('', 8000, app)
+    httpd.serve_forever()
 
 
 class JSTestCase(TestCase):
     js_files = tuple()
+    server = None
 
-    def test_foo(self):
-        pass
-
-    def wsgi_app(self, environ, start_response):
-        start_response('200 OK', [('Content-Type', 'text/plain')])
-        return 'hello'
+    def start_response_server(self, content, mime='text/html'):
+        self.q = multiprocessing.Queue()
+        self.server = multiprocessing.Process(
+            target=response_server,
+            args=(self.q, content, mime),
+        )
+        self.server.daemon = True
+        self.server.start()

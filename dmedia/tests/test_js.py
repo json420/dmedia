@@ -25,6 +25,7 @@ Unit tests for `dmedia.js` module.
 
 from unittest import TestCase
 import json
+import multiprocessing
 
 from dmedia import js
 from .helpers import DummyQueue
@@ -140,7 +141,7 @@ class test_WSGIApp(TestCase):
                 ('complete', None),
             ]
         )
-        
+
         # Test with bad requests
         q = DummyQueue()
         content = 'foo bar'
@@ -151,7 +152,7 @@ class test_WSGIApp(TestCase):
         self.assertEqual(sr.status, '405 Method Not Allowed')
         self.assertEqual(sr.headers, [])
         self.assertEqual(q.messages, [('bad_method', 'PUT')])
-        
+
         env = {
             'REQUEST_METHOD': 'GET',
             'PATH_INFO': '/error',
@@ -167,4 +168,19 @@ class test_WSGIApp(TestCase):
                 ('bad_request', 'GET /error'),
             ]
         )
-        
+
+
+class test_JSTestCase(js.JSTestCase):
+
+    def test_start_response_server(self):
+        self.start_response_server('foo bar')
+        self.assertTrue(isinstance(self.server, multiprocessing.Process))
+        self.assertTrue(self.server.daemon)
+        self.assertTrue(self.server.is_alive())
+        self.assertEqual(
+            self.server._args,
+            (self.q, 'foo bar', 'text/html')
+        )
+        self.assertEqual(self.server._kwargs, {})
+        self.server.terminate()
+        self.server.join()
