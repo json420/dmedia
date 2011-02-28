@@ -3,7 +3,7 @@
 #   Akshat Jain <ssj6akshat1234@gmail.com)
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
@@ -1017,6 +1017,35 @@ class test_FileStore(TestCase):
         self.assertTrue(stat.st_size in [0, 3141])
         self.assertEqual(path.dirname(fp.name), imports)
         self.assertTrue(fp.name.endswith('.mov'))
+
+    def test_allocate_for_write(self):
+        tmp = TempDir()
+        writes = tmp.join('writes')
+
+        inst = self.klass(tmp.path)
+        self.assertFalse(path.isdir(writes))
+
+        # Test with ext=None:
+        fp = inst.allocate_for_write()
+        self.assertTrue(path.isdir(writes))
+        self.assertTrue(isinstance(fp, file))
+        self.assertEqual(fp.mode, 'r+b')
+        stat = os.fstat(fp.fileno())
+        self.assertEqual(stat.st_size, 0)
+        self.assertEqual(path.dirname(fp.name), writes)
+        self.assertTrue(
+            '.' not in path.basename(fp.name)
+        )
+
+        # Test with ext='mov':
+        fp2 = inst.allocate_for_write(ext='mov')
+        self.assertTrue(isinstance(fp2, file))
+        self.assertNotEqual(fp2.name, fp.name)
+        self.assertEqual(fp2.mode, 'r+b')
+        stat = os.fstat(fp2.fileno())
+        self.assertEqual(stat.st_size, 0)
+        self.assertEqual(path.dirname(fp2.name), writes)
+        self.assertTrue(fp2.name.endswith('.mov'))
 
     def test_tmp_move(self):
         tmp = TempDir()

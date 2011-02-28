@@ -262,6 +262,48 @@ under this key.
 An important consequence of this extensibility is that when modifying documents,
 applications must always losslessly round-trip any attributes they don't know
 about.
+
+
+
+Design Decision: transparently distributed
+==========================================
+
+When a new job is queued, a document like this is created:
+
+>>> doc = {
+...     '_id': '2QBD5MP2AADUBCBBVCTTYTLV',
+...     'type': 'dmedia/job',
+...     'time': 1234567000,
+...     'status': 'waiting',
+...     'job': {'task': 'transcode', 'id': 'QOVCOHXGV657A4GEBXTJCXJOYB6VM6NB'},
+... }
+
+
+When execution of the job starts, the document is updated like this:
+
+>>> doc = {
+...     '_id': '2QBD5MP2AADUBCBBVCTTYTLV',
+...     'type': 'dmedia/job',
+...     'time': 1234567000,
+...     'time_start': 1234568000,
+...     'status': 'executing',
+...     'job': {'task': 'transcode', 'id': 'QOVCOHXGV657A4GEBXTJCXJOYB6VM6NB'},
+... }
+
+
+When the job is completed, the document is updated like this:
+
+>>> doc = {
+...     '_id': '2QBD5MP2AADUBCBBVCTTYTLV',
+...     'type': 'dmedia/job',
+...     'time': 1234567000,
+...     'time_start': 1234568000,
+...     'time_end': 1234569000,
+...     'status': 'complete',
+...     'job': {'task': 'transcode', 'id': 'QOVCOHXGV657A4GEBXTJCXJOYB6VM6NB'},
+...     'result': {'id': 'AQUUT2Y2PY2DRE5NJH5K43HIHQXSMRFL'},
+... }
+
 """
 
 from __future__ import print_function
