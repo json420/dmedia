@@ -29,7 +29,7 @@ import multiprocessing
 import multiprocessing.queues
 
 from dmedia import js
-from .helpers import DummyQueue
+from .helpers import DummyQueue, raises
 
 
 class StartResponse(object):
@@ -186,3 +186,86 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(self.server._kwargs, {})
         self.server.terminate()
         self.server.join()
+
+    def test_collect_results(self):
+        # Test when client times out:
+        self.q.put(('get', None))
+        e = raises(js.JavaScriptTimeout, self.collect_results, timeout=1)
+        self.assertEqual(self.messages, [('get', None)])
+
+        # Test when unhandled JavaScript exception is reported:
+        self.q.put(('error', 'messed up'))
+        e = raises(js.JavaScriptError, self.collect_results)
+        self.assertEqual(str(e), 'messed up')
+        self.assertEqual(
+            self.messages,
+            [
+                ('get', None),
+                ('error', 'messed up'),
+            ]
+        )
+
+        # Test when complete is recieved:
+        self.q.put(('complete', None))
+        self.assertEqual(self.collect_results(), None)
+        self.assertEqual(
+            self.messages,
+            [
+                ('get', None),
+                ('error', 'messed up'),
+                ('complete', None),
+            ]
+        )
+
+        # Test with invalid test method
+        data1 = json.dumps({'method': 'assertNope'})
+        self.q.put(('test', data1))
+        e = raises(js.InvalidTestMethod, self.collect_results)
+        self.assertEqual(str(e), data1)
+        self.assertEqual(
+            self.messages,
+            [
+                ('get', None),
+                ('error', 'messed up'),
+                ('complete', None),
+                ('test', data1),
+            ]
+        )
+
+        # Test with a correct test method and passing test
+        data2 = json.dumps({'method': 'assertNotEqual', 'args': ['foo', 'bar']})
+        self.q.put(('test', data2))
+        self.q.put(('complete', None))
+        self.assertEqual(self.collect_results(), None)
+        self.assertEqual(
+            self.messages,
+            [
+                ('get', None),
+                ('error', 'messed up'),
+                ('complete', None),
+                ('test', data1),
+                ('test', data2),
+                ('complete', None),
+            ]
+        )
+
+        # Test with a correct test method and failing test
+        data3 = json.dumps({'method': 'assertEqual', 'args': ['foo', 'bar']})
+        self.q.put(('test', data3))
+        e = raises(AssertionError, self.collect_results)
+        self.assertEqual(
+            self.messages,
+            [
+                ('get', None),
+                ('error', 'messed up'),
+                ('complete', None),
+                ('test', data1),
+                ('test', data2),
+                ('complete', None),
+                ('test', data3),
+            ]
+        )
+
+    def test_METHODS(self):
+        for name in js.METHODS:
+            self.assertTrue(callable(getattr(self, name, None)), name)

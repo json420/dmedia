@@ -44,6 +44,7 @@ from unittest import TestCase
 import multiprocessing
 from Queue import Empty
 from wsgiref.simple_server import make_server
+import json
 
 from genshi.template import MarkupTemplate
 
@@ -145,15 +146,80 @@ def results_server(q, content, mime):
     httpd.serve_forever()
 
 
+class JavaScriptError(StandardError):
+    pass
+
+
+class JavaScriptTimeout(StandardError):
+    pass
+
+
+class InvalidTestMethod(StandardError):
+    pass
+
+
+METHODS = (
+    'assertTrue',
+    'assertEqual',
+    'assertNotEqual',
+    'assertAlmostEqual',
+    'assertNotAlmostEqual',
+    'assertGreater',
+    'assertGreaterEqual',
+    'assertLess',
+    'assertLessEqual',
+    'assertRegexpMatches',
+    'assertNotRegexpMatches',
+    'assertIn',
+    'assertNotIn',
+    'assertItemsEqual',
+)
+
+
 class JSTestCase(TestCase):
     js_files = tuple()
+    q = None
     server = None
+    client = None
+
+    def setUp(self):
+        self.q = multiprocessing.Queue()
+        self.messages = []
 
     def start_results_server(self, content, mime='text/html'):
-        self.q = multiprocessing.Queue()
         self.server = multiprocessing.Process(
             target=results_server,
             args=(self.q, content, mime),
         )
         self.server.daemon = True
         self.server.start()
+
+    def collect_results(self, timeout=5):
+        while True:
+            try:
+                (action, data) = self.q.get(timeout=timeout)
+                self.messages.append((action, data))
+            except Empty:
+                raise JavaScriptTimeout()
+            self.assertIn(action, ['get', 'test', 'error', 'complete'])
+            if action == 'error':
+                raise JavaScriptError(data)
+            if action == 'complete':
+                break
+            if action == 'test':
+                d = json.loads(data)
+                if d['method'] not in METHODS:
+                    raise InvalidTestMethod(data)
+                method = getattr(self, d['method'])
+                method(*d['args'])
+
+    def tearDown(self):
+        if self.server is not None:
+            self.server.terminate()
+            self.server.join()
+        self.server = None
+        self.q = None
+        if self.client is not None:
+            self.client.terminate()
+            self.client.join()
+        self.client = None
