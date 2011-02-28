@@ -89,7 +89,7 @@ class WSGIApp(object):
             POST /error HTTP/1.1
             Content-Type: text/plain
 
-            Oh no, caught an unhadled JavaScript execption!
+            Oh no, caught an unhandled JavaScript exception!
 
 
     Finally, to conclude a test:
