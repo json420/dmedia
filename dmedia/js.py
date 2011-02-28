@@ -62,7 +62,7 @@ template_s = """
 """
 
 
-class WSGIApp(object):
+class ResultsApp(object):
     """
     Simple WSGI app for collecting results from JavaScript tests.
 
@@ -73,7 +73,6 @@ class WSGIApp(object):
         ::
 
             GET / HTTP/1.1
-
 
     To test an assertion (assertEqual, assertTrue, etc):
 
@@ -142,7 +141,7 @@ class WSGIApp(object):
         return ''
 
 
-def response_server(q, content, mime):
+def results_server(q, content, mime):
     app = WSGIApp(q, content, mime)
     httpd = make_server('', 8000, app)
     httpd.serve_forever()
@@ -152,10 +151,10 @@ class JSTestCase(TestCase):
     js_files = tuple()
     server = None
 
-    def start_response_server(self, content, mime='text/html'):
+    def start_results_server(self, content, mime='text/html'):
         self.q = multiprocessing.Queue()
         self.server = multiprocessing.Process(
-            target=response_server,
+            target=results_server,
             args=(self.q, content, mime),
         )
         self.server.daemon = True

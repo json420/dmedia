@@ -51,8 +51,8 @@ class Input(object):
         return self.content
 
 
-class test_WSGIApp(TestCase):
-    klass = js.WSGIApp
+class test_ResultsApp(TestCase):
+    klass = js.ResultsApp
 
     def test_init(self):
         q = DummyQueue()
@@ -173,8 +173,8 @@ class test_WSGIApp(TestCase):
 
 class test_JSTestCase(js.JSTestCase):
 
-    def test_start_response_server(self):
-        self.start_response_server('foo bar')
+    def test_start_results_server(self):
+        self.start_results_server('foo bar')
         self.assertTrue(isinstance(self.q, multiprocessing.queues.Queue))
         self.assertTrue(isinstance(self.server, multiprocessing.Process))
         self.assertTrue(self.server.daemon)
