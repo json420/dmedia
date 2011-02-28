@@ -36,7 +36,7 @@ Goals:
 
     4. Do out-of-band checks from Python to verify that the JavaScript executed
        correctly - the obvious one being checking the state of a CouchDB
-       database
+       database after the JavaScript tests have run
 
 """
 
