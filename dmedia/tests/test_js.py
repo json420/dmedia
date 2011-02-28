@@ -24,6 +24,7 @@ Unit tests for `dmedia.js` module.
 """
 
 from unittest import TestCase
+import json
 
 from dmedia import js
 from .helpers import DummyQueue
@@ -38,6 +39,14 @@ class StartResponse(object):
         assert self.headers is None
         self.status = status
         self.headers = headers
+
+
+class Input(object):
+    def __init__(self, content):
+        self.content = content
+
+    def read(self):
+        return self.content
 
 
 class test_WSGIApp(TestCase):
@@ -61,7 +70,10 @@ class test_WSGIApp(TestCase):
         content = 'foo bar'
         inst = self.klass(q, content)
 
-        env = {'REQUEST_METHOD': 'GET'}
+        env = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/',
+        }
         sr = StartResponse()
         self.assertEqual(inst(env, sr), 'foo bar')
         self.assertEqual(sr.status, '200 OK')
@@ -72,4 +84,59 @@ class test_WSGIApp(TestCase):
                 ('Content-Length', '7'),
             ]
         )
-        self.assertEqual(q.messages, [('init', None)])
+        self.assertEqual(q.messages, [('get', None)])
+
+        post1 = json.dumps({'args': ('one', 'two'), 'method': 'assertEqual'})
+        env = {
+            'REQUEST_METHOD': 'POST',
+            'PATH_INFO': '/',
+            'wsgi.input': Input(post1),
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '202 Accepted')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(
+            q.messages,
+            [
+                ('get', None),
+                ('test', post1),
+            ]
+        )
+
+        post2 = 'oh no, it no worky!'
+        env = {
+            'REQUEST_METHOD': 'POST',
+            'PATH_INFO': '/error',
+            'wsgi.input': Input(post2),
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '202 Accepted')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(
+            q.messages,
+            [
+                ('get', None),
+                ('test', post1),
+                ('error', post2),
+            ]
+        )
+
+        env = {
+            'REQUEST_METHOD': 'POST',
+            'PATH_INFO': '/complete',
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '202 Accepted')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(
+            q.messages,
+            [
+                ('get', None),
+                ('test', post1),
+                ('error', post2),
+                ('complete', None),
+            ]
+        )

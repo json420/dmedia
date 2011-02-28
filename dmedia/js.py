@@ -66,14 +66,35 @@ class WSGIApp(object):
         self.mime = mime
 
     def __call__(self, environ, start_response):
-        if environ['REQUEST_METHOD'] == 'GET':
-            self.q.put(('init', None))
+        if environ['REQUEST_METHOD'] not in ('GET', 'POST'):
+            start_response('405 Method Not Allowed', [])
+            return ''
+        if environ['REQUEST_METHOD'] == 'GET' and environ['PATH_INFO'] == '/':
+            self.q.put(('get', None))
             headers = [
-                ('Content-Typ', self.mime),
+                ('Content-Type', self.mime),
                 ('Content-Length', str(len(self.content))),
             ]
             start_response('200 OK', headers)
             return self.content
+        if environ['REQUEST_METHOD'] == 'POST':
+            if environ['PATH_INFO'] == '/':
+                content = environ['wsgi.input'].read()
+                self.q.put(('test', content))
+                start_response('202 Accepted', [])
+                return ''
+            if environ['PATH_INFO'] == '/error':
+                content = environ['wsgi.input'].read()
+                self.q.put(('error', content))
+                start_response('202 Accepted', [])
+                return ''
+            if environ['PATH_INFO'] == '/complete':
+                self.q.put(('complete', None))
+                start_response('202 Accepted', [])
+                return ''
+        start_response('400 Bad Request', [])
+        return ''
+
 
 
 
