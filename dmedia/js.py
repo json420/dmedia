@@ -84,6 +84,12 @@ class ResultsApp(object):
 
             GET / HTTP/1.1
 
+    To retrieve a JavaScript file:
+
+        ::
+
+            GET /scripts/foo.js HTTP/1.1
+
     To test an assertion (assertEqual, assertTrue, etc):
 
         ::
