@@ -171,6 +171,18 @@ class test_ResultsApp(TestCase):
         )
 
 
+expected = """
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Hello Naughty Nurse!</title>
+<script type="text/javascript">var foo = "bar";</script>
+</head>
+<body></body>
+</html>
+""".strip()
+
+
 class test_JSTestCase(js.JSTestCase):
 
     def test_start_results_server(self):
@@ -186,6 +198,10 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(self.server._kwargs, {})
         self.server.terminate()
         self.server.join()
+
+    def test_render(self):
+        kw = dict(title='Hello Naughty Nurse!', inline_js='var foo = "bar";')
+        self.assertMultiLineEqual(self.render(**kw), expected)
 
     def test_collect_results(self):
         # Test when client times out:

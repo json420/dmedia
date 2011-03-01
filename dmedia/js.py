@@ -45,22 +45,9 @@ import multiprocessing
 from Queue import Empty
 from wsgiref.simple_server import make_server
 import json
+from textwrap import dedent
 
 from genshi.template import MarkupTemplate
-
-
-template_s = """
-<html
-    xmlns="http://www.w3.org/1999/xhtml"
-    xmlns:py="http://genshi.edgewall.org/"
->
-<head>
-<title py:content="title" />
-<script py:content="inline_js" type="text/javascript" />
-</head>
-<body py:replace="body" />
-</html>
-"""
 
 
 class ResultsApp(object):
@@ -182,9 +169,30 @@ class JSTestCase(TestCase):
     server = None
     client = None
 
+    template = """
+    <html
+        xmlns="http://www.w3.org/1999/xhtml"
+        xmlns:py="http://genshi.edgewall.org/"
+    >
+    <head>
+    <title py:content="title" />
+    <script py:content="inline_js" type="text/javascript" />
+    </head>
+    <body />
+    </html>
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.template = dedent(cls.template).strip()
+        cls.template_t = MarkupTemplate(cls.template)
+
     def setUp(self):
         self.q = multiprocessing.Queue()
         self.messages = []
+
+    def render(self, **kw):
+        return self.template_t.generate(**kw).render('xhtml', doctype='html5')
 
     def start_results_server(self, content, mime='text/html'):
         self.server = multiprocessing.Process(
