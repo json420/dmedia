@@ -348,6 +348,3 @@ class JSTestCase(TestCase):
             self.client.terminate()
             self.client.wait()
         self.client = None
-
-    def test_self(self):
-        self.run_js()

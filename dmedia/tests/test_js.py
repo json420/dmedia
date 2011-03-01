@@ -339,3 +339,6 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(self.title, 'test_JSTestCase.test_METHODS')
         for name in js.METHODS:
             self.assertTrue(callable(getattr(self, name, None)), name)
+
+    def test_self(self):
+        self.run_js()
