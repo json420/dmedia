@@ -25,6 +25,8 @@ Unit tests for `dmedia.js` module.
 
 from unittest import TestCase
 import json
+import subprocess
+import time
 import multiprocessing
 import multiprocessing.queues
 
@@ -192,6 +194,7 @@ class test_JSTestCase(js.JSTestCase):
         self.start_results_server('foo bar')
         self.assertTrue(isinstance(self.q, multiprocessing.queues.Queue))
         self.assertTrue(isinstance(self.server, multiprocessing.Process))
+        time.sleep(1)
         self.assertTrue(self.server.daemon)
         self.assertTrue(self.server.is_alive())
         self.assertEqual(
@@ -201,6 +204,14 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(self.server._kwargs, {})
         self.server.terminate()
         self.server.join()
+
+    def test_start_dummy_client(self):
+        self.assertEqual(
+            self.title, 'test_JSTestCase.test_start_dummy_client'
+        )
+        self.assertEqual(self.client, None)
+        self.assertEqual(self.start_dummy_client(), None)
+        self.assertIsInstance(self.client, subprocess.Popen)
 
     def test_build_data(self):
         self.assertEqual(self.title, 'test_JSTestCase.test_build_data')

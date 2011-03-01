@@ -41,6 +41,9 @@ Goals:
 """
 
 from unittest import TestCase
+import sys
+from os import path
+from subprocess import Popen
 import multiprocessing
 from Queue import Empty
 from wsgiref.simple_server import make_server
@@ -50,6 +53,14 @@ from textwrap import dedent
 from genshi.template import MarkupTemplate
 
 from .ui import render_var
+
+
+tree = path.dirname(path.dirname(path.abspath(__file__)))
+if path.exists(path.join(tree, 'setup.py')):
+    dummy_client = path.join(tree, 'dummy-client')
+else:
+    dummy_client = path.join(sys.prefix, 'lib', 'dmedia', 'dummy-client')
+assert path.isfile(dummy_client)
 
 
 def read_input(environ):
@@ -107,14 +118,18 @@ class ResultsApp(object):
             self.q.put(('bad_method', environ['REQUEST_METHOD']))
             start_response('405 Method Not Allowed', [])
             return ''
-        if environ['REQUEST_METHOD'] == 'GET' and environ['PATH_INFO'] == '/':
-            self.q.put(('get', None))
-            headers = [
-                ('Content-Type', self.mime),
-                ('Content-Length', str(len(self.content))),
-            ]
-            start_response('200 OK', headers)
-            return self.content
+        if environ['REQUEST_METHOD'] == 'GET':
+            if environ['PATH_INFO'] == '/':
+                self.q.put(('get', None))
+                headers = [
+                    ('Content-Type', self.mime),
+                    ('Content-Length', str(len(self.content))),
+                ]
+                start_response('200 OK', headers)
+                return self.content
+            if environ['PATH_INFO'] == '/favicon.ico':
+                start_response('404 Not Found', [])
+                return ''
         if environ['REQUEST_METHOD'] == 'POST':
             if environ['PATH_INFO'] == '/':
                 content = read_input(environ)
@@ -138,7 +153,7 @@ class ResultsApp(object):
 
 
 def results_server(q, content, mime):
-    app = WSGIApp(q, content, mime)
+    app = ResultsApp(q, content, mime)
     httpd = make_server('', 8000, app)
     httpd.serve_forever()
 
@@ -240,7 +255,6 @@ class JSTestCase(TestCase):
     q = None
     server = None
     client = None
-    title = 'test'
 
     template = """
     <html
@@ -264,6 +278,12 @@ class JSTestCase(TestCase):
         self.title = '%s.%s' % (self.__class__.__name__, self._testMethodName)
         self.q = multiprocessing.Queue()
         self.messages = []
+
+    def run_js(self, **extra):
+        content = self.build_page(**extra)
+        self.start_results_server(content)
+        self.start_dummy_client()
+        self.collect_results()
 
     def build_data(self, **extra):
         data = {
@@ -295,6 +315,10 @@ class JSTestCase(TestCase):
         self.server.daemon = True
         self.server.start()
 
+    def start_dummy_client(self):
+        cmd = [dummy_client, 'http://localhost:8000/']
+        self.client = Popen(cmd)
+
     def collect_results(self, timeout=5):
         while True:
             try:
@@ -322,8 +346,8 @@ class JSTestCase(TestCase):
         self.q = None
         if self.client is not None:
             self.client.terminate()
-            self.client.join()
+            self.client.wait()
         self.client = None
 
-    def test_foo(self):
-        pass
+    def test_self(self):
+        self.run_js()
