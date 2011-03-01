@@ -58,21 +58,31 @@ class test_ResultsApp(TestCase):
 
     def test_init(self):
         q = DummyQueue()
-        content = 'foo'
-        inst = self.klass(q, content)
+        scripts = {
+            'mootools.js': 'here be mootools',
+            'dmedia.js': 'here be dmedia',
+        }
+        index = 'foo'
+        inst = self.klass(q, scripts, index)
         self.assertTrue(inst.q is q)
-        self.assertTrue(inst.content is content)
+        self.assertTrue(inst.scripts is scripts)
+        self.assertTrue(inst.index is index)
         self.assertEqual(inst.mime, 'text/html')
 
-        inst = self.klass(q, content, mime='application/xhtml+xml')
+        inst = self.klass(q, scripts, index, mime='application/xhtml+xml')
         self.assertTrue(inst.q is q)
-        self.assertTrue(inst.content is content)
+        self.assertTrue(inst.scripts is scripts)
+        self.assertTrue(inst.index is index)
         self.assertEqual(inst.mime, 'application/xhtml+xml')
 
     def test_call(self):
         q = DummyQueue()
-        content = 'foo bar'
-        inst = self.klass(q, content)
+        scripts = {
+            'mootools.js': 'here be mootools',
+            'dmedia.js': 'here be dmedia',
+        }
+        index = 'foo bar'
+        inst = self.klass(q, scripts, index)
 
         env = {
             'REQUEST_METHOD': 'GET',
@@ -147,8 +157,8 @@ class test_ResultsApp(TestCase):
 
         # Test with bad requests
         q = DummyQueue()
-        content = 'foo bar'
-        inst = self.klass(q, content)
+        index = 'foo bar'
+        inst = self.klass(q, {}, index)
         env = {'REQUEST_METHOD': 'PUT'}
         sr = StartResponse()
         self.assertEqual(inst(env, sr), '')

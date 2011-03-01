@@ -108,9 +108,10 @@ class ResultsApp(object):
 
             POST /complete HTTP/1.1
     """
-    def __init__(self, q, content, mime='text/html'):
+    def __init__(self, q, scripts, index, mime='text/html'):
         self.q = q
-        self.content = content
+        self.scripts = scripts
+        self.index = index
         self.mime = mime
 
     def __call__(self, environ, start_response):
@@ -123,10 +124,10 @@ class ResultsApp(object):
                 self.q.put(('get', None))
                 headers = [
                     ('Content-Type', self.mime),
-                    ('Content-Length', str(len(self.content))),
+                    ('Content-Length', str(len(self.index))),
                 ]
                 start_response('200 OK', headers)
-                return self.content
+                return self.index
             if environ['PATH_INFO'] == '/favicon.ico':
                 start_response('404 Not Found', [])
                 return ''
@@ -153,7 +154,7 @@ class ResultsApp(object):
 
 
 def results_server(q, content, mime):
-    app = ResultsApp(q, content, mime)
+    app = ResultsApp(q, {}, content, mime)
     httpd = make_server('', 8000, app)
     httpd.serve_forever()
 
