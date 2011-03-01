@@ -276,6 +276,7 @@ class JSTestCase(TestCase):
     q = None
     server = None
     client = None
+    js_files = tuple()
 
     template = """
     <html
@@ -304,6 +305,13 @@ class JSTestCase(TestCase):
         self.title = '%s.%s' % (self.__class__.__name__, self._testMethodName)
         self.q = multiprocessing.Queue()
         self.messages = []
+
+    def load_scripts(self):
+        for filename in self.js_files:
+            yield (
+                path.basename(filename),
+                open(filename, 'rb').read()
+            )
 
     def run_js(self, **extra):
         content = self.build_page(**extra)

@@ -31,6 +31,7 @@ import multiprocessing
 import multiprocessing.queues
 
 from dmedia import js
+from dmedia.ui import datafile, load_datafile
 from .helpers import DummyQueue, raises
 
 
@@ -296,6 +297,20 @@ expected = """
 
 
 class test_JSTestCase(js.JSTestCase):
+
+    def test_load_scripts(self):
+        self.assertEqual(list(self.load_scripts()), [])
+        self.js_files = (
+            datafile('browser.js'),
+            datafile('dmedia.js'),
+        )
+        self.assertEqual(
+            list(self.load_scripts()),
+            [
+                ('browser.js', load_datafile('browser.js')),
+                ('dmedia.js', load_datafile('dmedia.js')),
+            ]
+        )
 
     def test_start_results_server(self):
         self.assertEqual(
