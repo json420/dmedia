@@ -178,7 +178,7 @@ expected = """
 <title>Hello Naughty Nurse!</title>
 <script type="text/javascript">var foo = "bar";</script>
 </head>
-<body></body>
+<body onload="py.run()"></body>
 </html>
 """.strip()
 
@@ -186,6 +186,9 @@ expected = """
 class test_JSTestCase(js.JSTestCase):
 
     def test_start_results_server(self):
+        self.assertEqual(
+            self.title, 'test_JSTestCase.test_start_results_server'
+        )
         self.start_results_server('foo bar')
         self.assertTrue(isinstance(self.q, multiprocessing.queues.Queue))
         self.assertTrue(isinstance(self.server, multiprocessing.Process))
@@ -199,11 +202,50 @@ class test_JSTestCase(js.JSTestCase):
         self.server.terminate()
         self.server.join()
 
+    def test_build_data(self):
+        self.assertEqual(self.title, 'test_JSTestCase.test_build_data')
+        self.assertEqual(
+            self.build_data(),
+            {
+                'methodName': 'test_build_data',
+                'assertMethods': js.METHODS,
+            }
+        )
+        self.assertEqual(
+            self.build_data(foo='bar', stuff=17),
+            {
+                'methodName': 'test_build_data',
+                'assertMethods': js.METHODS,
+                'foo': 'bar',
+                'stuff': 17,
+            }
+        )
+
+    def test_build_inline_js(self):
+        self.assertEqual(self.title, 'test_JSTestCase.test_build_inline_js')
+        data = {
+            'methodName': 'test_build_inline_js',
+            'assertMethods': js.METHODS,
+        }
+        data_s = json.dumps(data, sort_keys=True, indent=4)
+        var = 'py.data = %s;' % data_s
+        self.assertEqual(
+            self.build_inline_js(),
+            '\n'.join([js.javascript, var])
+        )
+
     def test_render(self):
+        self.assertEqual(self.title, 'test_JSTestCase.test_render')
         kw = dict(title='Hello Naughty Nurse!', inline_js='var foo = "bar";')
         self.assertMultiLineEqual(self.render(**kw), expected)
 
+    def test_build_page(self):
+        s = self.build_page()
+        self.assertTrue(s.startswith('<!DOCTYPE html>'))
+
     def test_collect_results(self):
+        self.assertEqual(self.title, 'test_JSTestCase.test_collect_results')
+
         # Test when client times out:
         self.q.put(('get', None))
         e = raises(js.JavaScriptTimeout, self.collect_results, timeout=1)
@@ -283,5 +325,6 @@ class test_JSTestCase(js.JSTestCase):
         )
 
     def test_METHODS(self):
+        self.assertEqual(self.title, 'test_JSTestCase.test_METHODS')
         for name in js.METHODS:
             self.assertTrue(callable(getattr(self, name, None)), name)

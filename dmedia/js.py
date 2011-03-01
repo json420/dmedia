@@ -49,6 +49,8 @@ from textwrap import dedent
 
 from genshi.template import MarkupTemplate
 
+from .ui import render_var
+
 
 def read_input(environ):
     try:
@@ -172,11 +174,73 @@ METHODS = (
 )
 
 
+javascript = """
+var py = {
+
+    /* Synchronously POST results to ResultsApp */
+    post: function(path, obj) {
+        var request = new XMLHttpRequest();
+        request.open('POST', path, false);
+        if (obj) {
+            request.setRequestHeader('Content-Type', 'application/json');
+            request.send(JSON.stringify(obj));
+        }
+        else {
+            request.send();
+        }
+    },
+
+    /* Initialize the py.assertFoo() functions */
+    init: function() {
+        py.data.assertMethods.forEach(function(name) {
+            py[name] = function() {
+                var args = Array.prototype.slice.call(arguments);
+                py.post('/', {method: name, args: args});
+            };
+        });
+    },
+
+    /* Run the test function indicated by py.data.methodName */
+    run: function() {
+        try {
+            py.init();
+            var method = py[py.data.methodName];
+            method();
+        }
+        catch (e) {
+            py.post('/error', e);
+        }
+        finally {
+            py.post('/complete');
+        }
+    },
+
+    /* Run a selftest on the tester */
+    test_self: function() {
+        py.assertTrue(true);
+        py.assertFalse(false);
+        py.assertEqual('foo', 'foo');
+        py.assertNotEqual('foo', 'bar');
+        py.assertAlmostEqual(1.2, 1.2);
+        py.assertNotAlmostEqual(1.2, 1.3);
+        py.assertGreater(3, 2);
+        py.assertGreaterEqual(3, 3);
+        py.assertLess(2, 3);
+        py.assertLessEqual(2, 2);
+        py.assertIn('bar', ['foo', 'bar', 'baz']);
+        py.assertNotIn('car', ['foo', 'bar', 'baz']);
+        py.assertItemsEqual(['foo', 'bar', 'baz'], ['baz', 'foo', 'bar']);
+    },
+};
+"""
+
+
 class JSTestCase(TestCase):
     js_files = tuple()
     q = None
     server = None
     client = None
+    title = 'test'
 
     template = """
     <html
@@ -187,7 +251,7 @@ class JSTestCase(TestCase):
     <title py:content="title" />
     <script py:content="inline_js" type="text/javascript" />
     </head>
-    <body />
+    <body onload="py.run()" />
     </html>
     """
 
@@ -197,11 +261,31 @@ class JSTestCase(TestCase):
         cls.template_t = MarkupTemplate(cls.template)
 
     def setUp(self):
+        self.title = '%s.%s' % (self.__class__.__name__, self._testMethodName)
         self.q = multiprocessing.Queue()
         self.messages = []
 
+    def build_data(self, **extra):
+        data = {
+            'methodName': self._testMethodName,
+            'assertMethods': METHODS,
+        }
+        data.update(extra)
+        return data
+
+    def build_inline_js(self, **extra):
+        data = self.build_data(**extra)
+        return '\n'.join([javascript, render_var('py.data', data, 4)])
+
     def render(self, **kw):
         return self.template_t.generate(**kw).render('xhtml', doctype='html5')
+
+    def build_page(self, **extra):
+        kw = dict(
+            title=self.title,
+            inline_js=self.build_inline_js(**extra),
+        )
+        return self.render(**kw)
 
     def start_results_server(self, content, mime='text/html'):
         self.server = multiprocessing.Process(
@@ -240,3 +324,6 @@ class JSTestCase(TestCase):
             self.client.terminate()
             self.client.join()
         self.client = None
+
+    def test_foo(self):
+        pass

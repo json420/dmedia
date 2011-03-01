@@ -34,7 +34,7 @@ from desktopcouch.local_files import get_oauth_tokens
 from . import datadir
 
 
-def render_var(name, obj):
+def render_var(name, obj, indent=None):
     """
     Render *obj* to JavaScript variable *name*.
 
@@ -50,7 +50,7 @@ def render_var(name, obj):
 
     """
     format = ('%s = %s;' if '.' in name else 'var %s = %s;')
-    return format % (name, json.dumps(obj, sort_keys=True))
+    return format % (name, json.dumps(obj, sort_keys=True, indent=indent))
 
 
 def datafile(name):
