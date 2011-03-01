@@ -88,7 +88,7 @@ class ResultsApp(object):
 
         ::
 
-            POST / HTTP/1.1
+            POST /assert HTTP/1.1
             Content-Type: application/json
 
             {"method": "assertEqual", "args": ["foo", "bar"]}
@@ -98,9 +98,9 @@ class ResultsApp(object):
         ::
 
             POST /error HTTP/1.1
-            Content-Type: text/plain
+            Content-Type: application/json
 
-            Oh no, caught an unhandled JavaScript exception!
+            "Oh no, caught an unhandled JavaScript exception!"
 
     Finally, to conclude a test:
 
@@ -131,9 +131,9 @@ class ResultsApp(object):
                 start_response('404 Not Found', [])
                 return ''
         if environ['REQUEST_METHOD'] == 'POST':
-            if environ['PATH_INFO'] == '/':
+            if environ['PATH_INFO'] == '/assert':
                 content = read_input(environ)
-                self.q.put(('test', content))
+                self.q.put(('assert', content))
                 start_response('202 Accepted', [])
                 return ''
             if environ['PATH_INFO'] == '/error':
@@ -210,7 +210,7 @@ var py = {
         py.data.assertMethods.forEach(function(name) {
             py[name] = function() {
                 var args = Array.prototype.slice.call(arguments);
-                py.post('/', {method: name, args: args});
+                py.post('/assert', {method: name, args: args});
             };
         });
     },
@@ -326,12 +326,12 @@ class JSTestCase(TestCase):
                 self.messages.append((action, data))
             except Empty:
                 raise JavaScriptTimeout()
-            self.assertIn(action, ['get', 'test', 'error', 'complete'])
+            self.assertIn(action, ['get', 'assert', 'error', 'complete'])
             if action == 'error':
                 raise JavaScriptError(data)
             if action == 'complete':
                 break
-            if action == 'test':
+            if action == 'assert':
                 d = json.loads(data)
                 if d['method'] not in METHODS:
                     raise InvalidTestMethod(data)

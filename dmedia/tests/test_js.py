@@ -93,7 +93,7 @@ class test_ResultsApp(TestCase):
         post1 = json.dumps({'args': ('one', 'two'), 'method': 'assertEqual'})
         env = {
             'REQUEST_METHOD': 'POST',
-            'PATH_INFO': '/',
+            'PATH_INFO': '/assert',
             'wsgi.input': Input(post1),
         }
         sr = StartResponse()
@@ -104,7 +104,7 @@ class test_ResultsApp(TestCase):
             q.messages,
             [
                 ('get', None),
-                ('test', post1),
+                ('assert', post1),
             ]
         )
 
@@ -122,7 +122,7 @@ class test_ResultsApp(TestCase):
             q.messages,
             [
                 ('get', None),
-                ('test', post1),
+                ('assert', post1),
                 ('error', post2),
             ]
         )
@@ -139,7 +139,7 @@ class test_ResultsApp(TestCase):
             q.messages,
             [
                 ('get', None),
-                ('test', post1),
+                ('assert', post1),
                 ('error', post2),
                 ('complete', None),
             ]
@@ -288,7 +288,7 @@ class test_JSTestCase(js.JSTestCase):
 
         # Test with invalid test method
         data1 = json.dumps({'method': 'assertNope'})
-        self.q.put(('test', data1))
+        self.q.put(('assert', data1))
         e = raises(js.InvalidTestMethod, self.collect_results)
         self.assertEqual(str(e), data1)
         self.assertEqual(
@@ -297,13 +297,13 @@ class test_JSTestCase(js.JSTestCase):
                 ('get', None),
                 ('error', 'messed up'),
                 ('complete', None),
-                ('test', data1),
+                ('assert', data1),
             ]
         )
 
         # Test with a correct test method and passing test
         data2 = json.dumps({'method': 'assertNotEqual', 'args': ['foo', 'bar']})
-        self.q.put(('test', data2))
+        self.q.put(('assert', data2))
         self.q.put(('complete', None))
         self.assertEqual(self.collect_results(), None)
         self.assertEqual(
@@ -312,15 +312,15 @@ class test_JSTestCase(js.JSTestCase):
                 ('get', None),
                 ('error', 'messed up'),
                 ('complete', None),
-                ('test', data1),
-                ('test', data2),
+                ('assert', data1),
+                ('assert', data2),
                 ('complete', None),
             ]
         )
 
         # Test with a correct test method and failing test
         data3 = json.dumps({'method': 'assertEqual', 'args': ['foo', 'bar']})
-        self.q.put(('test', data3))
+        self.q.put(('assert', data3))
         e = raises(AssertionError, self.collect_results)
         self.assertEqual(
             self.messages,
@@ -328,10 +328,10 @@ class test_JSTestCase(js.JSTestCase):
                 ('get', None),
                 ('error', 'messed up'),
                 ('complete', None),
-                ('test', data1),
-                ('test', data2),
+                ('assert', data1),
+                ('assert', data2),
                 ('complete', None),
-                ('test', data3),
+                ('assert', data3),
             ]
         )
 
