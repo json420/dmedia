@@ -47,7 +47,7 @@ class Input(object):
     def __init__(self, content):
         self.content = content
 
-    def read(self):
+    def read(self, length):
         return self.content
 
 

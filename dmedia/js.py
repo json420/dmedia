@@ -50,6 +50,14 @@ from textwrap import dedent
 from genshi.template import MarkupTemplate
 
 
+def read_input(environ):
+    try:
+        length = int(environ.get('CONTENT_LENGTH', '0'))
+    except ValueError:
+        return ''
+    return environ['wsgi.input'].read(length)
+
+
 class ResultsApp(object):
     """
     Simple WSGI app for collecting results from JavaScript tests.
@@ -107,12 +115,12 @@ class ResultsApp(object):
             return self.content
         if environ['REQUEST_METHOD'] == 'POST':
             if environ['PATH_INFO'] == '/':
-                content = environ['wsgi.input'].read()
+                content = read_input(environ)
                 self.q.put(('test', content))
                 start_response('202 Accepted', [])
                 return ''
             if environ['PATH_INFO'] == '/error':
-                content = environ['wsgi.input'].read()
+                content = read_input(environ)
                 self.q.put(('error', content))
                 start_response('202 Accepted', [])
                 return ''
@@ -147,6 +155,7 @@ class InvalidTestMethod(StandardError):
 
 METHODS = (
     'assertTrue',
+    'assertFalse',
     'assertEqual',
     'assertNotEqual',
     'assertAlmostEqual',
