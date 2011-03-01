@@ -123,11 +123,11 @@ class ResultsApp(object):
         path_info = environ['PATH_INFO']
         if method == 'GET':
             if path_info == '/':
-                self.q.put(('get', None))
                 headers = [
                     ('Content-Type', self.mime),
                     ('Content-Length', str(len(self.index))),
                 ]
+                self.q.put(('get', path_info))
                 start_response('200 OK', headers)
                 return self.index
             s = '/scripts/'
@@ -139,7 +139,9 @@ class ResultsApp(object):
                         ('Content-Type', 'application/javascript'),
                         ('Content-Length', str(len(script))),
                     ]
+                    self.q.put(('get', path_info))
                     start_response('200 OK', headers)
+                    return script
             self.q.put(('not_found', path_info))
             start_response('404 Not Found', [])
             return ''

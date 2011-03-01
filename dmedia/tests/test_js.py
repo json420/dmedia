@@ -98,7 +98,7 @@ class test_ResultsApp(TestCase):
                 ('Content-Length', '7'),
             ]
         )
-        self.assertEqual(q.messages, [('get', None)])
+        self.assertEqual(q.messages, [('get', '/')])
 
         post1 = json.dumps({'args': ('one', 'two'), 'method': 'assertEqual'})
         env = {
@@ -113,7 +113,7 @@ class test_ResultsApp(TestCase):
         self.assertEqual(
             q.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('assert', post1),
             ]
         )
@@ -131,7 +131,7 @@ class test_ResultsApp(TestCase):
         self.assertEqual(
             q.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('assert', post1),
                 ('error', post2),
             ]
@@ -148,7 +148,7 @@ class test_ResultsApp(TestCase):
         self.assertEqual(
             q.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('assert', post1),
                 ('error', post2),
                 ('complete', None),
@@ -158,7 +158,7 @@ class test_ResultsApp(TestCase):
         # Test with bad requests
         q = DummyQueue()
         index = 'foo bar'
-        inst = self.klass(q, {}, index)
+        inst = self.klass(q, scripts, index)
         env = {'REQUEST_METHOD': 'PUT'}
         sr = StartResponse()
         self.assertEqual(inst(env, sr), '')
@@ -196,6 +196,88 @@ class test_ResultsApp(TestCase):
                 ('bad_method', 'PUT'),
                 ('not_found', '/error'),
                 ('bad_request', 'POST /nope'),
+            ]
+        )
+
+        # Test script reqests
+        q = DummyQueue()
+        index = 'foo bar'
+        inst = self.klass(q, scripts, index)
+
+        # /scripts/mootools.js
+        env = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/scripts/mootools.js',
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), 'here be mootools')
+        self.assertEqual(sr.status, '200 OK')
+        self.assertEqual(
+            sr.headers,
+            [
+                ('Content-Type', 'application/javascript'),
+                ('Content-Length', '16'),
+            ]
+        )
+        self.assertEqual(inst.q.messages, [('get', '/scripts/mootools.js')])
+
+        # /scripts/dmedia.js
+        env = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/scripts/dmedia.js',
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), 'here be dmedia')
+        self.assertEqual(sr.status, '200 OK')
+        self.assertEqual(
+            sr.headers,
+            [
+                ('Content-Type', 'application/javascript'),
+                ('Content-Length', '14'),
+            ]
+        )
+        self.assertEqual(
+            inst.q.messages,
+            [
+                ('get', '/scripts/mootools.js'),
+                ('get', '/scripts/dmedia.js'),
+            ]
+        )
+
+        # /scripts/foo.js
+        env = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/scripts/foo.js',
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '404 Not Found')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(
+            inst.q.messages,
+            [
+                ('get', '/scripts/mootools.js'),
+                ('get', '/scripts/dmedia.js'),
+                ('not_found', '/scripts/foo.js'),
+            ]
+        )
+
+        # /mootools.js
+        env = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/mootools.js',
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '404 Not Found')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(
+            inst.q.messages,
+            [
+                ('get', '/scripts/mootools.js'),
+                ('get', '/scripts/dmedia.js'),
+                ('not_found', '/scripts/foo.js'),
+                ('not_found', '/mootools.js'),
             ]
         )
 
@@ -285,9 +367,9 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(self.title, 'test_JSTestCase.test_collect_results')
 
         # Test when client times out:
-        self.q.put(('get', None))
+        self.q.put(('get', '/'))
         e = raises(js.JavaScriptTimeout, self.collect_results, timeout=1)
-        self.assertEqual(self.messages, [('get', None)])
+        self.assertEqual(self.messages, [('get', '/')])
 
         # Test when unhandled JavaScript exception is reported:
         self.q.put(('error', 'messed up'))
@@ -296,7 +378,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('error', 'messed up'),
             ]
         )
@@ -307,7 +389,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('error', 'messed up'),
                 ('complete', None),
             ]
@@ -321,7 +403,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('error', 'messed up'),
                 ('complete', None),
                 ('assert', data1),
@@ -336,7 +418,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('error', 'messed up'),
                 ('complete', None),
                 ('assert', data1),
@@ -352,7 +434,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.messages,
             [
-                ('get', None),
+                ('get', '/'),
                 ('error', 'messed up'),
                 ('complete', None),
                 ('assert', data1),
