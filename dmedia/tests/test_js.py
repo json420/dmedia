@@ -288,6 +288,7 @@ expected = """
 <head>
 <title>Hello Naughty Nurse!</title>
 <script type="text/javascript">var foo = "bar";</script>
+<script type="text/javascript" src="/scripts/dmedia.js"></script>
 </head>
 <body onload="py.run()"></body>
 </html>
@@ -341,22 +342,26 @@ class test_JSTestCase(js.JSTestCase):
             }
         )
 
-    def test_build_inline_js(self):
-        self.assertEqual(self.title, 'test_JSTestCase.test_build_inline_js')
+    def test_build_js_inline(self):
+        self.assertEqual(self.title, 'test_JSTestCase.test_build_js_inline')
         data = {
-            'methodName': 'test_build_inline_js',
+            'methodName': 'test_build_js_inline',
             'assertMethods': js.METHODS,
         }
         data_s = json.dumps(data, sort_keys=True, indent=4)
         var = 'py.data = %s;' % data_s
         self.assertEqual(
-            self.build_inline_js(),
+            self.build_js_inline(),
             '\n'.join([js.javascript, var])
         )
 
     def test_render(self):
         self.assertEqual(self.title, 'test_JSTestCase.test_render')
-        kw = dict(title='Hello Naughty Nurse!', inline_js='var foo = "bar";')
+        kw = dict(
+            title='Hello Naughty Nurse!',
+            js_inline='var foo = "bar";',
+            js_links=['/scripts/dmedia.js'],
+        )
         self.assertMultiLineEqual(self.render(**kw), expected)
 
     def test_build_page(self):

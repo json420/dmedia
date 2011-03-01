@@ -284,7 +284,12 @@ class JSTestCase(TestCase):
     >
     <head>
     <title py:content="title" />
-    <script py:content="inline_js" type="text/javascript" />
+    <script py:content="js_inline" type="text/javascript" />
+    <script
+        py:for="link in js_links"
+        type="text/javascript"
+        src="${link}"
+    />
     </head>
     <body onload="py.run()" />
     </html>
@@ -314,7 +319,7 @@ class JSTestCase(TestCase):
         data.update(extra)
         return data
 
-    def build_inline_js(self, **extra):
+    def build_js_inline(self, **extra):
         data = self.build_data(**extra)
         return '\n'.join([javascript, render_var('py.data', data, 4)])
 
@@ -324,7 +329,8 @@ class JSTestCase(TestCase):
     def build_page(self, **extra):
         kw = dict(
             title=self.title,
-            inline_js=self.build_inline_js(**extra),
+            js_inline=self.build_js_inline(**extra),
+            js_links=[],
         )
         return self.render(**kw)
 
