@@ -115,12 +115,14 @@ class ResultsApp(object):
         self.mime = mime
 
     def __call__(self, environ, start_response):
-        if environ['REQUEST_METHOD'] not in ('GET', 'POST'):
-            self.q.put(('bad_method', environ['REQUEST_METHOD']))
+        method = environ['REQUEST_METHOD']
+        if method not in ('GET', 'POST'):
+            self.q.put(('bad_method', method))
             start_response('405 Method Not Allowed', [])
             return ''
-        if environ['REQUEST_METHOD'] == 'GET':
-            if environ['PATH_INFO'] == '/':
+        path_info = environ['PATH_INFO']
+        if method == 'GET':
+            if path_info == '/':
                 self.q.put(('get', None))
                 headers = [
                     ('Content-Type', self.mime),
@@ -128,21 +130,31 @@ class ResultsApp(object):
                 ]
                 start_response('200 OK', headers)
                 return self.index
-            if environ['PATH_INFO'] == '/favicon.ico':
-                start_response('404 Not Found', [])
-                return ''
-        if environ['REQUEST_METHOD'] == 'POST':
-            if environ['PATH_INFO'] == '/assert':
+            s = '/scripts/'
+            if path_info.startswith(s):
+                name = path_info[len(s):]
+                if name in self.scripts:
+                    script = self.scripts[name]
+                    headers = [
+                        ('Content-Type', 'application/javascript'),
+                        ('Content-Length', str(len(script))),
+                    ]
+                    start_response('200 OK', headers)
+            self.q.put(('not_found', path_info))
+            start_response('404 Not Found', [])
+            return ''
+        if method == 'POST':
+            if path_info == '/assert':
                 content = read_input(environ)
                 self.q.put(('assert', content))
                 start_response('202 Accepted', [])
                 return ''
-            if environ['PATH_INFO'] == '/error':
+            if path_info == '/error':
                 content = read_input(environ)
                 self.q.put(('error', content))
                 start_response('202 Accepted', [])
                 return ''
-            if environ['PATH_INFO'] == '/complete':
+            if path_info == '/complete':
                 self.q.put(('complete', None))
                 start_response('202 Accepted', [])
                 return ''
@@ -327,7 +339,12 @@ class JSTestCase(TestCase):
                 self.messages.append((action, data))
             except Empty:
                 raise JavaScriptTimeout()
-            self.assertIn(action, ['get', 'assert', 'error', 'complete'])
+            self.assertIn(
+                action,
+                ['get', 'not_found', 'assert', 'error', 'complete']
+            )
+            # Note that no action is taken for 'get' and 'not_found'.
+            # 'not_found' is allowed because of things like GET /favicon.ico
             if action == 'error':
                 raise JavaScriptError(data)
             if action == 'complete':

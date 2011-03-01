@@ -172,13 +172,30 @@ class test_ResultsApp(TestCase):
         }
         sr = StartResponse()
         self.assertEqual(inst(env, sr), '')
+        self.assertEqual(sr.status, '404 Not Found')
+        self.assertEqual(sr.headers, [])
+        self.assertEqual(
+            q.messages,
+            [
+                ('bad_method', 'PUT'),
+                ('not_found', '/error'),
+            ]
+        )
+
+        env = {
+            'REQUEST_METHOD': 'POST',
+            'PATH_INFO': '/nope',
+        }
+        sr = StartResponse()
+        self.assertEqual(inst(env, sr), '')
         self.assertEqual(sr.status, '400 Bad Request')
         self.assertEqual(sr.headers, [])
         self.assertEqual(
             q.messages,
             [
                 ('bad_method', 'PUT'),
-                ('bad_request', 'GET /error'),
+                ('not_found', '/error'),
+                ('bad_request', 'POST /nope'),
             ]
         )
 
