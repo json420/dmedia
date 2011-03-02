@@ -88,7 +88,7 @@ Why this is Awesome
 You might be thinking, "Why reinvent the wheel, why not just use an existing
 JavaScript unit testing framework?"
 
-Fair enough, but the entire client side piece for this test framework is 39
+Fair enough, but the entire client side piece for this test framework is just 39
 lines of JavaScript plus a bit of JSON data that gets written automatically.
 Yet those 39 lines of JavaScript give you access to all these rich test methods:
 
