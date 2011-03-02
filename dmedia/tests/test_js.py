@@ -470,5 +470,9 @@ class test_JSTestCase(js.JSTestCase):
         for name in js.METHODS:
             self.assertTrue(callable(getattr(self, name, None)), name)
 
+
+class test_SelfTest(js.JSTestCase):
+    js_files = (datafile('selftest.js'),)
+
     def test_self(self):
         self.run_js()
