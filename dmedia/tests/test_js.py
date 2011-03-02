@@ -476,3 +476,11 @@ class test_SelfTest(js.JSTestCase):
 
     def test_self(self):
         self.run_js()
+
+    def test_bar(self):
+        """
+        Example test from js.py docstring.
+        """
+        # 1. Optionally do something cool like initialize a Couch DB
+        self.run_js()  # 2. Call test_bar() JavaScript function
+        # 3. Optionally do something cool like check state of a Couch DB

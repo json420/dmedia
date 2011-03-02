@@ -20,24 +20,141 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Attempt to make JavaScript unit testing more sane.
+Allow ``unittest.TestCase`` assert methods to be called from JavaScript.
 
-Goals:
 
-    1. Run JavaScript unit tests from `setup.py` without human intervention
+Example
+=======
 
-    2. By default run tests in embedded WebKit, have option of launching tests
-       in a browser
+On the Python side, you will need a `JSTestCase` subclass with one or more
+test methods, something like this:
 
-    3. Do arbitrary setUp/tearDown from Python - the most critical JavaScript in
-       dmedia and Novacut will interact with CouchDB using XMLHttpRequest, so we
-       need to put a CouchDB database into a known state prior to running the
-       JavaScript test
+>>> class TestFoo(JSTestCase):
+...     js_files = (
+...         '/abs/path/to/script/foo.js',
+...         '/abs/path/to/script/test_foo.js',
+...     )
+...
+...     def test_bar(self):
+...         # 1. Optionally do something cool like initialize a Couch DB
+...         self.run_js()  # 2. Call test_bar() JavaScript function
+...         # 3. Optionally do something cool like verify changes in a Couch DB
 
-    4. Do out-of-band checks from Python to verify that the JavaScript executed
-       correctly - the obvious one being checking the state of a CouchDB
-       database after the JavaScript tests have run
 
+Your foo.js file (containing the ``bar()`` function) would look something like
+this:
+
+    ::
+
+        function bar() {
+            return 'My JS unit testing is awesome';
+        }
+
+
+And your test_foo.js file (containing the ``test_bar()`` function) would look
+something like this:
+
+    ::
+
+        py.test_bar = function() {
+            py.assertEqual(bar(), 'My JS unit testing is awesome');
+            py.assertNotEqual(bar(), 'My JS unit testing is lame');
+        };
+
+
+When you call, say, ``py.assertEqual()`` from your JavaScript test, the test
+harness will ``JSON.stringify()`` the arguments and forward the call to the test
+server using a synchronous XMLHttpRequest.  When the main process receives this
+request from the `ResultsApp`, the actual test is performed using
+``TestCase.assertEqual()``.
+
+All the reporting is handled by the Python unit test framework, and you get an
+overall pass/fail for the combined Python and JavaScript tests when you run:
+
+    ::
+
+        ./setup.py test
+
+
+Oh, and the tests run headless in embedded WebKit making this viable for
+automatic tests run with, say, Tarmac:
+
+    https://launchpad.net/tarmac
+
+
+Why this is Awesome
+===================
+
+You might be thinking, "Why reinvent the wheel, why not just use an existing
+JavaScript unit testing framework?"
+
+Fair enough, but the entire client side piece for this test framework is 39
+lines of JavaScript plus a bit of JSON data that gets written automatically.
+Yet those 39 lines of JavaScript give you access to all these rich test methods:
+
+    - ``TestCase.assertTrue()``
+    - ``TestCase.assertFalse()``
+    - ``TestCase.assertEqual()``
+    - ``TestCase.assertNotEqual()``
+    - ``TestCase.assertAlmostEqual()``
+    - ``TestCase.assertNotAlmostEqual()``
+    - ``TestCase.assertGreater()``
+    - ``TestCase.assertGreaterEqual()``
+    - ``TestCase.assertLess()``
+    - ``TestCase.assertLessEqual()``
+    - ``TestCase.assertIn()``
+    - ``TestCase.assertNotIn()``
+    - ``TestCase.assertItemsEqual()``
+    - ``TestCase.assertIsNone()``
+    - ``TestCase.assertIsNotNone()``
+    - ``TestCase.assertRegexpMatches()``
+    - ``TestCase.assertNotRegexpMatches()``
+
+
+Existing JavaScript unit test frameworks don't tend to lend themselves to
+automatic testing as they typically report the results graphically in the
+browser... which is totally worthless if you want to run tests as part of an
+automatic pre-commit step.  Remember what the late, great Ian Clatworthy taught
+us: pre-commit continuous integration is 100% awesome.
+
+If this weren't enough, there are some reasons why dmedia and Novacut in
+particular benefit from this type of JavaScript testing.  Both use HTML5 user
+interfaces that do everything, and I mean *everything*, by talking directly to
+CouchDB with XMLHttpRequest.  The supporting core JavaScript needs to be very
+solid to enable great user experiences to be built atop.
+
+Considering the importance of these code paths, it's very handy to do setup from
+Python before calling `JSTestCase.run_js()`... for example, putting a CouchDB
+database into a known state.  Likewise, it's very handy to do out-of-band checks
+from Python after `JSTestCase.run_js()` completes... for example, verifying that
+the expected changes were made to the CouchDB  database.
+
+
+How it Works
+============
+
+When you call `JSTestCase.run_js()`, the following happens:
+
+    1. The correct HTML and JavaScript for the test are prepared
+
+    2. The `ResultsApp` is fired up in a ``multiprocessing.Process()``
+
+    3. The ``dummy-client`` script is launched using ``subprocess.Popen()``
+
+    4. The ``dummy-client`` requests the HTML and JavaScript the `ResultsApp`
+
+    5. The ``dummy-client`` executes the ``py.run()`` JavaScript function and
+       posts the results to the `ResultsApp` as the test runs
+
+    6. The `ResultsApp` puts the results in a ``multiprocessing.Queue`` as it
+       receives them
+
+    7. In the main process, `JSTestCase.collect_results()` gets results from the
+       queue and tests the assertions till the test completes, an exception is
+       raised, or the 5 second timeout is exceeded
+
+    8. The `JSTestCase.tearDown()` method terminates the ``dummy-client`` and
+       `ResultsApp`
 """
 
 from unittest import TestCase
@@ -178,7 +295,7 @@ def results_server(q, scripts, index, mime):
     Start HTTP server with `ResponseApp`.
 
     This function is the target of a ``multiprocessing.Process`` when the
-    response server is started by `JSTestCase.start_response_server()`.
+    response server is started by `JSTestCase.start_results_server()`.
 
     :param q: a ``multiprocessing.Queue`` used to send results to main process
     :param scripts: a ``dict`` mapping script names to script content
@@ -205,19 +322,26 @@ class InvalidTestMethod(StandardError):
 METHODS = (
     'assertTrue',
     'assertFalse',
+
     'assertEqual',
     'assertNotEqual',
     'assertAlmostEqual',
     'assertNotAlmostEqual',
+
     'assertGreater',
     'assertGreaterEqual',
     'assertLess',
     'assertLessEqual',
-    'assertRegexpMatches',
-    'assertNotRegexpMatches',
+
     'assertIn',
     'assertNotIn',
     'assertItemsEqual',
+
+    'assertIsNone',
+    'assertIsNotNone',
+
+    'assertRegexpMatches',
+    'assertNotRegexpMatches',
 )
 
 
@@ -245,6 +369,15 @@ class JSTestCase(TestCase):
     </html>
     """
 
+    # The entire client-side test harness is only 39 lines of JavaScript!
+    #
+    # Note that py.data is dynamically written by JSTestCase.build_js_inline(),
+    # and that this JavaScript will be inline in the first <script> tag in the
+    # test HTML/XHTML page.
+    #
+    # The JavaScript files containing implementation and tests will follow in
+    # the order they were defined in the JSTestClass.js_files subclass
+    # attribute.
     javascript = """
     var py = {
         /* Synchronously POST results to ResultsApp */
