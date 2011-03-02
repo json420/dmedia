@@ -39,6 +39,7 @@ LEAF_SIZE = 8 * 2**20  # 8 MiB
 # FileStore path compotents
 TRANSFERS_DIR = 'transfers'  # downloads/uploads
 IMPORTS_DIR = 'imports'  # eg importing from CF card
+WRITES_DIR = 'writes'  # eg transcoding or rendering
 
 
 # Normalized file extension

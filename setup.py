@@ -156,6 +156,6 @@ setup(
             ]
         ), #enables status icons to be referenced by icon name
         ('share/dbus-1/services', ['data/org.freedesktop.DMedia.service']),
-        ('lib/dmedia', ['dmedia-service']),
+        ('lib/dmedia', ['dmedia-service', 'dummy-client']),
     ],
 )
