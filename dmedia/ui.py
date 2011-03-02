@@ -34,7 +34,7 @@ from desktopcouch.local_files import get_oauth_tokens
 from . import datadir
 
 
-def render_var(name, obj):
+def render_var(name, obj, indent=None):
     """
     Render *obj* to JavaScript variable *name*.
 
@@ -42,8 +42,15 @@ def render_var(name, obj):
 
     >>> render_var('dmedia', dict(hello='world', foo='bar'))
     'var dmedia = {"foo": "bar", "hello": "world"};'
+
+    Also works for object attribute assignment:
+
+    >>> render_var('dmedia.data', dict(hello='world', foo='bar'))
+    'dmedia.data = {"foo": "bar", "hello": "world"};'
+
     """
-    return 'var %s = %s;' % (name, json.dumps(obj, sort_keys=True))
+    format = ('%s = %s;' if '.' in name else 'var %s = %s;')
+    return format % (name, json.dumps(obj, sort_keys=True, indent=indent))
 
 
 def datafile(name):
