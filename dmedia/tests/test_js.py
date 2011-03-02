@@ -317,7 +317,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.title, 'test_JSTestCase.test_start_results_server'
         )
-        self.start_results_server('foo bar')
+        self.start_results_server({}, 'foo bar')
         self.assertTrue(isinstance(self.q, multiprocessing.queues.Queue))
         self.assertTrue(isinstance(self.server, multiprocessing.Process))
         time.sleep(1)
@@ -325,7 +325,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertTrue(self.server.is_alive())
         self.assertEqual(
             self.server._args,
-            (self.q, 'foo bar', 'text/html')
+            (self.q, {}, 'foo bar', 'text/html')
         )
         self.assertEqual(self.server._kwargs, {})
         self.server.terminate()

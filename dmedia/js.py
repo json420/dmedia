@@ -173,8 +173,19 @@ class ResultsApp(object):
         return ''
 
 
-def results_server(q, content, mime):
-    app = ResultsApp(q, {}, content, mime)
+def results_server(q, scripts, index, mime):
+    """
+    Start HTTP server with `ResponseApp`.
+
+    This function is the target of a ``multiprocessing.Process`` when the
+    response server is started by `JSTestCase.start_response_server()`.
+
+    :param q: a ``multiprocessing.Queue`` used to send results to main process
+    :param scripts: a ``dict`` mapping script names to script content
+    :param index: the HTML/XHTML to send to client
+    :param mime: the content-type of the index page, eg ``'text/html'``
+    """
+    app = ResultsApp(q, scripts, index, mime)
     httpd = make_server('', 8000, app)
     httpd.serve_forever()
 
@@ -317,10 +328,9 @@ class JSTestCase(TestCase):
         self.q = multiprocessing.Queue()
         self.messages = []
 
-
     def run_js(self, **extra):
-        content = self.build_page(**extra)
-        self.start_results_server(content)
+        index = self.build_page(**extra)
+        self.start_results_server(dict(self.scripts), index)
         self.start_dummy_client()
         self.collect_results()
 
@@ -347,10 +357,10 @@ class JSTestCase(TestCase):
         )
         return self.render(**kw)
 
-    def start_results_server(self, content, mime='text/html'):
+    def start_results_server(self, scripts, index, mime='text/html'):
         self.server = multiprocessing.Process(
             target=results_server,
-            args=(self.q, content, mime),
+            args=(self.q, scripts, index, mime),
         )
         self.server.daemon = True
         self.server.start()
