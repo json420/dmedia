@@ -368,7 +368,7 @@ class test_JSTestCase(js.JSTestCase):
         var = 'py.data = %s;' % data_s
         self.assertEqual(
             self.build_js_inline(),
-            '\n'.join([js.javascript, var])
+            '\n'.join([self.javascript, var])
         )
 
     def test_render(self):

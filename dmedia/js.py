@@ -221,50 +221,6 @@ METHODS = (
 )
 
 
-javascript = """
-var py = {
-
-    /* Synchronously POST results to ResultsApp */
-    post: function(path, obj) {
-        var request = new XMLHttpRequest();
-        request.open('POST', path, false);
-        if (obj) {
-            request.setRequestHeader('Content-Type', 'application/json');
-            request.send(JSON.stringify(obj));
-        }
-        else {
-            request.send();
-        }
-    },
-
-    /* Initialize the py.assertFoo() functions */
-    init: function() {
-        py.data.assertMethods.forEach(function(name) {
-            py[name] = function() {
-                var args = Array.prototype.slice.call(arguments);
-                py.post('/assert', {method: name, args: args});
-            };
-        });
-    },
-
-    /* Run the test function indicated by py.data.methodName */
-    run: function() {
-        try {
-            py.init();
-            var method = py[py.data.methodName];
-            method();
-        }
-        catch (e) {
-            py.post('/error', e);
-        }
-        finally {
-            py.post('/complete');
-        }
-    },
-};
-"""
-
-
 class JSTestCase(TestCase):
     js_files = tuple()
     q = None
@@ -289,10 +245,53 @@ class JSTestCase(TestCase):
     </html>
     """
 
+    javascript = """
+    var py = {
+        /* Synchronously POST results to ResultsApp */
+        post: function(path, obj) {
+            var request = new XMLHttpRequest();
+            request.open('POST', path, false);
+            if (obj) {
+                request.setRequestHeader('Content-Type', 'application/json');
+                request.send(JSON.stringify(obj));
+            }
+            else {
+                request.send();
+            }
+        },
+
+        /* Initialize the py.assertFoo() functions */
+        init: function() {
+            py.data.assertMethods.forEach(function(name) {
+                py[name] = function() {
+                    var args = Array.prototype.slice.call(arguments);
+                    py.post('/assert', {method: name, args: args});
+                };
+            });
+        },
+
+        /* Run the test function indicated by py.data.methodName */
+        run: function() {
+            try {
+                py.init();
+                var method = py[py.data.methodName];
+                method();
+            }
+            catch (e) {
+                py.post('/error', e);
+            }
+            finally {
+                py.post('/complete');
+            }
+        },
+    };
+    """
+
     @classmethod
     def setUpClass(cls):
         cls.template = dedent(cls.template).strip()
         cls.template_t = MarkupTemplate(cls.template)
+        cls.javascript = dedent(cls.javascript).strip()
         cls.scripts = tuple(cls.load_scripts())
         cls.js_links = tuple(
             '/scripts/' + name for (name, script) in cls.scripts
@@ -327,7 +326,7 @@ class JSTestCase(TestCase):
 
     def build_js_inline(self, **extra):
         data = self.build_data(**extra)
-        return '\n'.join([javascript, render_var('py.data', data, 4)])
+        return '\n'.join([self.javascript, render_var('py.data', data, 4)])
 
     def render(self, **kw):
         return self.template_t.generate(**kw).render('xhtml', doctype='html5')
