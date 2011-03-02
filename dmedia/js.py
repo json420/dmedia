@@ -276,7 +276,6 @@ class JSTestCase(TestCase):
     q = None
     server = None
     client = None
-    js_files = tuple()
 
     template = """
     <html
@@ -300,18 +299,24 @@ class JSTestCase(TestCase):
     def setUpClass(cls):
         cls.template = dedent(cls.template).strip()
         cls.template_t = MarkupTemplate(cls.template)
+        cls.scripts = tuple(cls.load_scripts())
+        cls.js_links = tuple(
+            '/scripts/' + name for (name, script) in cls.scripts
+        )
+
+    @classmethod
+    def load_scripts(cls):
+        for filename in cls.js_files:
+            yield (
+                path.basename(filename),
+                open(filename, 'rb').read()
+            )
 
     def setUp(self):
         self.title = '%s.%s' % (self.__class__.__name__, self._testMethodName)
         self.q = multiprocessing.Queue()
         self.messages = []
 
-    def load_scripts(self):
-        for filename in self.js_files:
-            yield (
-                path.basename(filename),
-                open(filename, 'rb').read()
-            )
 
     def run_js(self, **extra):
         content = self.build_page(**extra)
@@ -338,7 +343,7 @@ class JSTestCase(TestCase):
         kw = dict(
             title=self.title,
             js_inline=self.build_js_inline(**extra),
-            js_links=[],
+            js_links=self.js_links,
         )
         return self.render(**kw)
 

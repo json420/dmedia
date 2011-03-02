@@ -299,13 +299,14 @@ expected = """
 class test_JSTestCase(js.JSTestCase):
 
     def test_load_scripts(self):
-        self.assertEqual(list(self.load_scripts()), [])
-        self.js_files = (
+        klass = self.__class__
+        self.assertEqual(list(klass.load_scripts()), [])
+        klass.js_files = (
             datafile('browser.js'),
             datafile('dmedia.js'),
         )
         self.assertEqual(
-            list(self.load_scripts()),
+            list(klass.load_scripts()),
             [
                 ('browser.js', load_datafile('browser.js')),
                 ('dmedia.js', load_datafile('dmedia.js')),
