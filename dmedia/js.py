@@ -137,11 +137,12 @@ When you call `JSTestCase.run_js()`, the following happens:
 
     1. The correct HTML and JavaScript for the test are prepared
 
-    2. The `ResultsApp` is fired up in a ``multiprocessing.Process()``
+    2. The `ResultsApp` is fired up in a ``multiprocessing.Process``
 
     3. The ``dummy-client`` script is launched using ``subprocess.Popen()``
 
-    4. The ``dummy-client`` requests the HTML and JavaScript the `ResultsApp`
+    4. The ``dummy-client`` requests the HTML and JavaScript from the
+       `ResultsApp`
 
     5. The ``dummy-client`` executes the ``py.run()`` JavaScript function and
        posts the results to the `ResultsApp` as the test runs
@@ -154,7 +155,7 @@ When you call `JSTestCase.run_js()`, the following happens:
        raised, or the 5 second timeout is exceeded
 
     8. The `JSTestCase.tearDown()` method terminates the ``dummy-client`` and
-       `ResultsApp`
+       `ResultsApp` processes
 """
 
 from unittest import TestCase
