@@ -23,13 +23,15 @@
 
 import sys
 
-import gtk
-from gi.repository import WebKit
+from gi.repository import Gtk, WebKit, GObject
 
-window = gtk.Window()
+
+GObject.threads_init()
+
+window = Gtk.Window()
 window.set_title('test')
 window.set_default_size(800, 450)
-window.connect('destroy', gtk.main_quit)
+window.connect('destroy', Gtk.main_quit)
 
 view = WebKit.WebView()
 window.add(view)
@@ -37,4 +39,4 @@ window.add(view)
 view.load_uri(sys.argv[1])
 
 #window.show_all()
-gtk.main()
+Gtk.main()
