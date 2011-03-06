@@ -33,7 +33,6 @@ from subprocess import check_call
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-import gobject
 from .constants import BUS, INTERFACE, DBNAME, EXT_MAP
 from .util import NotifyManager, Timer, import_started, batch_finished
 from .importer import ImportManager
