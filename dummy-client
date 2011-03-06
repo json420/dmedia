@@ -24,14 +24,14 @@
 import sys
 
 import gtk
-from gi.repository import WebKit
+import webkit
 
 window = gtk.Window()
 window.set_title('test')
 window.set_default_size(800, 450)
 window.connect('destroy', gtk.main_quit)
 
-view = WebKit.WebView()
+view = webkit.WebView()
 window.add(view)
 
 view.load_uri(sys.argv[1])
