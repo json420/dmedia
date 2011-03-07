@@ -25,6 +25,8 @@ Unit tests for `dmedia.js` module.
 
 from unittest import TestCase
 import json
+from base64 import b32encode
+import os
 import subprocess
 import time
 import multiprocessing
@@ -484,3 +486,19 @@ class test_SelfTest(js.JSTestCase):
         # 1. Optionally do something cool like initialize a Couch DB
         self.run_js()  # 2. Call test_bar() JavaScript function
         # 3. Optionally do something cool like check state of a Couch DB
+
+
+class TestUploader(js.JSTestCase):
+    js_files = (
+        datafile('mootools-core.js'),
+        datafile('uploader.js'),
+        datafile('test_uploader.js'),
+    )
+
+    def test_b32encode(self):
+        pairs = []
+        for i in xrange(40):
+            src = os.urandom(15).encode('hex')
+            dst = b32encode(src)
+            pairs.append(dict(src=src, dst=dst))
+        self.run_js(pairs=pairs)
