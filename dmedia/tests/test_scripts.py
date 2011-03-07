@@ -59,9 +59,12 @@ class TestUploader(JSTestCase):
                     'src': src,
                     'hex': sha1(src).hexdigest(),
                     'b64': b64encode(sha1(src).digest()),
+                    'b32': b32encode(sha1(src).digest()),
                 }
             )
         self.run_js(values=values)
 
     def test_uploader(self):
-        self.run_js()
+        leaf = 'a' * 1024
+        chash = b32encode(sha1(leaf).digest())
+        self.run_js(leaf=leaf, chash=chash)

@@ -248,6 +248,12 @@ var b32encode = function(s) {
     return parts.join("");
 };
 
+
+function b32_sha1(s) {
+    // Return base32-encoded sha1 hash of *s*.
+    return b32encode(str_sha1(s));
+}
+
 function on_progress(completed, total) {
     var p = parseInt(completed / total * 100);
     document.getElementById('progress').textContent = 'Hashing: ' + p + '% ' + completed + ' of ' + total + ' bytes';
@@ -343,21 +349,26 @@ var HashList = new Class({
 
 
 var Uploader = new Class({
-    initialize: function(baseurl) {
+    initialize: function(baseurl, Request) {
         if (baseurl.charAt(baseurl.length - 1) != '/') {
             this.baseurl = baseurl + '/';
         }
         else {
             this.baseurl = baseurl;
         }
+        this.Request = Request || XMLHttpRequest;
+        this.leaves = [];
     },
 
-    // construct URL relative to baseurl
-    // Examples:
-    //   u.url();
-    //   u.url('GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN');
-    //   u.url('GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', 17);
     url: function(quick_id, leaf) {
+        /*
+        Construct URL relative to baseurl.
+
+        Examples:
+            u.url();
+            u.url('GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN');
+            u.url('GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', 17);
+        */
         if (typeof quick_id != 'string' || quick_id.length < 1) {
             return this.baseurl;
         }
@@ -365,6 +376,14 @@ var Uploader = new Class({
             return this.baseurl + quick_id + '/' + leaf;
         }
         return this.baseurl + quick_id;
+    },
+
+    upload_leaf: function(data, i) {
+        var chash = b32_sha1(data);
+        this.leaves[i] = chash;
+        this.request = new this.Request();
+        var url = this.url(this.quick_id, i);
+        this.request.open('PUT', url);
     },
 
 });
