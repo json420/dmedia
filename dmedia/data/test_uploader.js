@@ -9,4 +9,5 @@ py.test_sha1 = function() {
         py.assertEqual(hex_sha1(d.src), d.hex);
         py.assertEqual(b64_sha1(d.src), d.b64);
     });
+    py.assertTrue(sha1_vm_test());
 };
