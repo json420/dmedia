@@ -25,7 +25,8 @@ Unit tests for `dmedia.js` module.
 
 from unittest import TestCase
 import json
-from base64 import b32encode
+from base64 import b32encode, b64encode
+from hashlib import sha1
 import os
 import subprocess
 import time
@@ -496,9 +497,26 @@ class TestUploader(js.JSTestCase):
     )
 
     def test_b32encode(self):
-        pairs = []
-        for i in xrange(40):
+        values = []
+        for i in xrange(20):
             src = os.urandom(15).encode('hex')
-            dst = b32encode(src)
-            pairs.append(dict(src=src, dst=dst))
-        self.run_js(pairs=pairs)
+            values.append(
+                {
+                    'src': src,
+                    'b32': b32encode(src),
+                }
+            )
+        self.run_js(values=values)
+
+    def test_sha1(self):
+        values = []
+        for i in xrange(20):
+            src = b32encode(os.urandom(30))
+            values.append(
+                {
+                    'src': src,
+                    'hex': sha1(src).hexdigest(),
+                    'b64': b64encode(sha1(src).digest()),
+                }
+            )
+        self.run_js(values=values)
