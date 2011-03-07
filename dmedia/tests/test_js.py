@@ -25,9 +25,6 @@ Unit tests for `dmedia.js` module.
 
 from unittest import TestCase
 import json
-from base64 import b32encode, b64encode
-from hashlib import sha1
-import os
 import subprocess
 import time
 import multiprocessing
@@ -487,39 +484,3 @@ class test_SelfTest(js.JSTestCase):
         # 1. Optionally do something cool like initialize a Couch DB
         self.run_js()  # 2. Call test_bar() JavaScript function
         # 3. Optionally do something cool like check state of a Couch DB
-
-
-class TestUploader(js.JSTestCase):
-    js_files = (
-        datafile('mootools-core.js'),
-        datafile('uploader.js'),
-        datafile('test_uploader.js'),
-    )
-
-    def test_b32encode(self):
-        values = []
-        for i in xrange(20):
-            src = os.urandom(15).encode('hex')
-            values.append(
-                {
-                    'src': src,
-                    'b32': b32encode(src),
-                }
-            )
-        self.run_js(values=values)
-
-    def test_sha1(self):
-        values = []
-        for i in xrange(20):
-            src = b32encode(os.urandom(30))
-            values.append(
-                {
-                    'src': src,
-                    'hex': sha1(src).hexdigest(),
-                    'b64': b64encode(sha1(src).digest()),
-                }
-            )
-        self.run_js(values=values)
-
-    def test_uploader(self):
-        self.run_js()
