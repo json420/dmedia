@@ -340,3 +340,31 @@ var HashList = new Class({
     },
 
 });
+
+
+var Uploader = new Class({
+    initialize: function(baseurl) {
+        if (baseurl.charAt(baseurl.length - 1) != '/') {
+            this.baseurl = baseurl + '/';
+        }
+        else {
+            this.baseurl = baseurl;
+        }
+    },
+
+    // construct URL relative to baseurl
+    // Examples:
+    //   u.url();
+    //   u.url('GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN');
+    //   u.url('GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN', 17);
+    url: function(quick_id, leaf) {
+        if (typeof quick_id != 'string' || quick_id.length < 1) {
+            return this.baseurl;
+        }
+        if (typeof leaf == 'number') {
+            return this.baseurl + quick_id + '/' + leaf;
+        }
+        return this.baseurl + quick_id;
+    },
+
+});

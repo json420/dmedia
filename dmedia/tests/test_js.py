@@ -520,3 +520,6 @@ class TestUploader(js.JSTestCase):
                 }
             )
         self.run_js(values=values)
+
+    def test_uploader(self):
+        self.run_js()
