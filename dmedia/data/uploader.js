@@ -204,6 +204,7 @@ function binb2b64(binarray)
 
 // 8 MiB leaf size
 leaf_size = 8 * Math.pow(2, 20);
+QID_CHUNK_SIZE = Math.pow(2, 20);
 
 
 /*
@@ -284,6 +285,7 @@ function handle(files) {
     h.run();
 };
 
+
 var HashList = new Class({
     Implements: Events,
 
@@ -349,6 +351,8 @@ var HashList = new Class({
 
 
 var Uploader = new Class({
+    Implements: Events,
+
     initialize: function(baseurl, Request) {
         if (baseurl.charAt(baseurl.length - 1) != '/') {
             this.baseurl = baseurl + '/';
@@ -358,6 +362,7 @@ var Uploader = new Class({
         }
         this.Request = Request || XMLHttpRequest;
         this.leaves = [];
+        this.i = null;
     },
 
     url: function(quick_id, leaf) {
@@ -378,6 +383,22 @@ var Uploader = new Class({
         return this.baseurl + quick_id;
     },
 
+    on_readystatechange: function() {
+
+    },
+
+    on_load: function() {
+        if (this.i == null) {
+            this.quick_id = b32_sha1(this.file.size.toString() + this.reader.result);
+            alert(this.quick_id);
+        }
+        else {
+            this.leaf = this.reader.result;
+            this.upload_leaf(this.leaf, this.i);
+        }
+
+    },
+
     upload_leaf: function(data, i) {
         var chash = b32_sha1(data);
         this.leaves[i] = chash;
@@ -386,7 +407,29 @@ var Uploader = new Class({
         this.request.open('PUT', url);
         this.request.setRequestHeader('x-dmedia-chash', chash);
         this.request.setRequestHeader('Content-Type', 'application/octet-stream');
+        this.request.onreadystatechange = this.on_readystatechange.bind(this);
         this.request.send(data);
     },
 
+    upload: function(file) {
+        this.file = file;
+        this.reader = new FileReader();
+        this.reader.onload = this.on_load.bind(this);
+        this.stop = Math.ceil(file.size / leaf_size);
+        this.time_start = Date.now();
+        var s = this.file.slice(0, QID_CHUNK_SIZE);
+        this.reader.readAsBinaryString(s);
+    },
+
+    read_slice: function() {
+        var s = this.file.slice(this.i * leaf_size, leaf_size);
+        this.reader.readAsBinaryString(s);
+    },
 });
+
+
+function handle(files) {
+    var u = new Uploader('http://localhost:9500');
+    var file = files[0];
+    u.upload(file);
+};

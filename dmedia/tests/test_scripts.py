@@ -65,6 +65,6 @@ class TestUploader(JSTestCase):
         self.run_js(values=values)
 
     def test_uploader(self):
-        leaf = 'a' * 1024
+        leaf = 'a' * (16 * 1024)
         chash = b32encode(sha1(leaf).digest())
         self.run_js(leaf=leaf, chash=chash)
