@@ -24,7 +24,6 @@ py.test_sha1 = function() {
         py.assertEqual(b64_sha1(d.src), d.b64);
         py.assertEqual(b32_sha1(d.src), d.b32);
     });
-    py.assertTrue(sha1_vm_test());
 };
 
 py.test_quick_id = function() {

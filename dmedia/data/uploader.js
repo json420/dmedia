@@ -27,14 +27,6 @@ function b64_sha1(s){return binb2b64(core_sha1(str2binb(s),s.length * chrsz));}
 function str_sha1(s){return binb2str(core_sha1(str2binb(s),s.length * chrsz));}
 
 /*
- * Perform a simple self-test to see if the VM is working
- */
-function sha1_vm_test()
-{
-  return hex_sha1("abc") == "a9993e364706816aba3e25717850c26c9cd0d89d";
-}
-
-/*
  * Calculate the SHA-1 of an array of big-endian words, and a bit length
  */
 function core_sha1(x, len)
