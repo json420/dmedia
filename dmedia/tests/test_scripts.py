@@ -23,12 +23,15 @@
 Test JavaScript included in dmedia.
 """
 
-from base64 import b32encode, b64encode
+from base64 import b16encode, b32encode, b64encode
 from hashlib import sha1
 import os
+import random
 
 from dmedia.js import JSTestCase
 from dmedia.ui import datafile, load_datafile
+
+MiB = 2 ** 20
 
 
 class TestUploader(JSTestCase):
@@ -41,7 +44,7 @@ class TestUploader(JSTestCase):
     def test_b32encode(self):
         values = []
         for i in xrange(20):
-            src = os.urandom(15).encode('hex')
+            src = b16encode(os.urandom(15))
             values.append(
                 {
                     'src': src,
@@ -60,6 +63,23 @@ class TestUploader(JSTestCase):
                     'hex': sha1(src).hexdigest(),
                     'b64': b64encode(sha1(src).digest()),
                     'b32': b32encode(sha1(src).digest()),
+                }
+            )
+        self.run_js(values=values)
+
+    def test_quick_id(self):
+        values = []
+        for i in xrange(10):
+            size = random.randint(MiB, 1024 * MiB)
+            chunk = b16encode(os.urandom(512))
+            quick_id = b32encode(
+                sha1(str(size).encode('utf-8') + chunk).digest()
+            )
+            values.append(
+                {
+                    'size': size,
+                    'chunk': chunk,
+                    'quick_id': quick_id,
                 }
             )
         self.run_js(values=values)

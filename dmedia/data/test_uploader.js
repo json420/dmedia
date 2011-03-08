@@ -27,6 +27,12 @@ py.test_sha1 = function() {
     py.assertTrue(sha1_vm_test());
 };
 
+py.test_quick_id = function() {
+    py.data.values.forEach(function(d) {
+        py.assertEqual(quick_id(d.size, d.chunk), d.quick_id);
+    });
+};
+
 py.test_uploader = function() {
     var url = 'https://example.com/upload/';
 

@@ -350,6 +350,11 @@ var HashList = new Class({
 });
 
 
+function quick_id(size, chunk) {
+    return b32_sha1(size.toString() + chunk);
+}
+
+
 var Uploader = new Class({
     Implements: Events,
 
@@ -389,14 +394,13 @@ var Uploader = new Class({
 
     on_load: function() {
         if (this.i == null) {
-            this.quick_id = b32_sha1(this.file.size.toString() + this.reader.result);
+            this.quick_id  = quick_id(this.file.size, this.reader.result);
             alert(this.quick_id);
         }
         else {
             this.leaf = this.reader.result;
             this.upload_leaf(this.leaf, this.i);
         }
-
     },
 
     upload_leaf: function(data, i) {
