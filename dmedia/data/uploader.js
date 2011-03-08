@@ -1,3 +1,6 @@
+LEAF_SIZE = 8 * Math.pow(2, 20);  // 8 MiB leaf size
+QID_CHUNK_SIZE = Math.pow(2, 20);  // quick_id() uses first MiB of file
+
 /*
  * A JavaScript implementation of the Secure Hash Algorithm, SHA-1, as defined
  * in FIPS PUB 180-1
@@ -202,11 +205,6 @@ function binb2b64(binarray)
 }
 
 
-// 8 MiB leaf size
-leaf_size = 8 * Math.pow(2, 20);
-QID_CHUNK_SIZE = Math.pow(2, 20);
-
-
 /*
 Base32-encoder compliments of:
     http://forthescience.org/blog/2010/11/30/base32-encoding-in-javascript/
@@ -297,7 +295,7 @@ var HashList = new Class({
         this.leaves_b32 = [];
         this.chash = null;
         this.i = 0;
-        this.stop = Math.ceil(file.size / leaf_size);
+        this.stop = Math.ceil(file.size / LEAF_SIZE);
     },
 
     run: function() {
@@ -311,7 +309,7 @@ var HashList = new Class({
     },
 
     read_slice: function() {
-        var s = this.file.slice(this.i * leaf_size, leaf_size);
+        var s = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
         this.reader.readAsBinaryString(s);
     },
 
@@ -327,7 +325,7 @@ var HashList = new Class({
 
     next: function() {
         this.i++;
-        var completed = Math.min(this.i * leaf_size, this.file.size);
+        var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
         this.fireEvent('progress', [completed, this.file.size]);
         if (this.i < this.stop) {
             this.read_slice();
@@ -423,14 +421,14 @@ var Uploader = new Class({
         this.file = file;
         this.reader = new FileReader();
         this.reader.onload = this.on_load.bind(this);
-        this.stop = Math.ceil(file.size / leaf_size);
+        this.stop = Math.ceil(file.size / LEAF_SIZE);
         this.time_start = Date.now();
         var s = this.file.slice(0, QID_CHUNK_SIZE);
         this.reader.readAsBinaryString(s);
     },
 
     read_slice: function() {
-        var s = this.file.slice(this.i * leaf_size, leaf_size);
+        var s = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
         this.reader.readAsBinaryString(s);
     },
 });
