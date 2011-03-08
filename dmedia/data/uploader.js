@@ -263,12 +263,11 @@ var Uploader = new Class({
     Implements: Events,
 
     initialize: function(baseurl, Request) {
+        var baseurl = baseurl || 'upload/';
         if (baseurl.charAt(baseurl.length - 1) != '/') {
-            this.baseurl = baseurl + '/';
+            var baseurl = baseurl + '/';
         }
-        else {
-            this.baseurl = baseurl;
-        }
+        this.baseurl = baseurl;
         this.Request = Request || XMLHttpRequest;
         this.leaves = [];
         this.i = null;
@@ -276,12 +275,28 @@ var Uploader = new Class({
 
     log: function() {
         var args = Array.prototype.slice.call(arguments);
-        args.push(this.elapsed());
         var msg = args.join(' ');
         var parent = document.getElementById('log');
         var pre = document.createElement('pre');
         pre.textContent = msg;
         parent.appendChild(pre);
+    },
+
+    new_request: function() {
+        this.request = new this.Request();
+        this.request.onreadystatechange = this.on_readystatechange.bind(this);
+        return this.request;
+    },
+
+    post: function(obj, quick_id) {
+        var obj = obj || {};
+        obj['quick_id'] = this.quick_id;
+        obj['bytes'] = this.file.size;
+        var request = this.new_request();
+        request.open('POST', this.url(quick_id), true);
+        request.setRequestHeader('Content-Type', 'application/json');
+        //request.setRequestHeader('Accept', 'application/json');
+        request.send(JSON.stringify(obj));
     },
 
     url: function(quick_id, leaf) {
@@ -302,22 +317,30 @@ var Uploader = new Class({
         return this.baseurl + quick_id;
     },
 
-    on_readystatechange: function() {
+    retry: function() {
 
+    },
+
+    on_readystatechange: function(state) {
+        if (this.request.readyState != 4) {
+            return;
+        }
+        this.log('readystatechange', this.request.status, this.request.statusText);
+        this.log(this.request.responseText);
     },
 
     on_load: function() {
         if (this.i == null) {
-            this.quick_id  = quick_id(this.file.size, this.reader.result);
+            this.preable = this.reader.result;
+            this.quick_id  = quick_id(this.file.size, this.preamble);
             this.log('quick_id', this.quick_id);
-            this.i = 0;
-            this.read_slice();
+            this.post();
         }
         else {
             this.leaf = this.reader.result;
             var chash = this.hash_leaf(this.leaf, this.i);
             this.log('leaf', this.i, chash);
-            this.next();
+            this.upload_leaf(this.leaf, chash, this.i);
         }
     },
 
@@ -329,11 +352,11 @@ var Uploader = new Class({
 
     upload_leaf: function(data, chash, i) {
         this.request = new this.Request();
+        this.request.onreadystatechange = this.on_readystatechange.bind(this);
         var url = this.url(this.quick_id, i);
         this.request.open('PUT', url, true);
         this.request.setRequestHeader('x-dmedia-chash', chash);
         this.request.setRequestHeader('Content-Type', 'application/octet-stream');
-        this.request.onreadystatechange = this.on_readystatechange.bind(this);
         this.request.send(data);
     },
 
@@ -369,7 +392,7 @@ var Uploader = new Class({
 
 
 function handle(files) {
-    var u = new Uploader('http://localhost:9500');
+    var u = new Uploader('/');
     var file = files[0];
     u.upload(file);
 };
