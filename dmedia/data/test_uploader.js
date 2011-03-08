@@ -61,8 +61,13 @@ py.test_uploader = function() {
     u.upload_leaf(py.data.leaf, 2);
     py.assertEqual(u.leaves[2], py.data.chash);
     py.assertEqual(
-        u.request.calls[0],
-        ['open', 'PUT', url + 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/2']
-    )
+        u.request.calls,
+        [
+            ['open', 'PUT', url + 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/2'],
+            ['setRequestHeader', 'x-dmedia-chash', py.data.chash],
+            ['setRequestHeader', 'Content-Type', 'application/octet-stream'],
+            ['send', py.data.leaf],
+        ]
+    );
 
 };

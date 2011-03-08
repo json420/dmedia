@@ -384,6 +384,9 @@ var Uploader = new Class({
         this.request = new this.Request();
         var url = this.url(this.quick_id, i);
         this.request.open('PUT', url);
+        this.request.setRequestHeader('x-dmedia-chash', chash);
+        this.request.setRequestHeader('Content-Type', 'application/octet-stream');
+        this.request.send(data);
     },
 
 });
