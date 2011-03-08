@@ -254,70 +254,6 @@ function handle(files) {
 };
 
 
-var HashList = new Class({
-    Implements: Events,
-
-    initialize: function(file) {
-        this.file = file;
-        this.reader = new FileReader();
-        this.reader.onload = this.on_load.bind(this);
-        this.leaves = [];
-        this.leaves_b32 = [];
-        this.chash = null;
-        this.i = 0;
-        this.stop = Math.ceil(file.size / LEAF_SIZE);
-    },
-
-    run: function() {
-        this.time_start = Date.now();
-        this.fireEvent('progress', [0, this.file.size]);
-        this.read_slice();
-    },
-
-    seconds: function() {
-        return (this.time_end - this.time_start) / 1000;
-    },
-
-    read_slice: function() {
-        var s = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
-        this.reader.readAsBinaryString(s);
-    },
-
-    info: function() {
-        return {
-            'size': this.file.size,
-            'name': this.file.name,
-            'mime': this.file.type,
-            'chash': this.chash,
-            'leaves': this.leaves_b32,
-        };
-    },
-
-    next: function() {
-        this.i++;
-        var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
-        this.fireEvent('progress', [completed, this.file.size]);
-        if (this.i < this.stop) {
-            this.read_slice();
-            return;
-        }
-        this.packed_leaves = this.leaves.join('');
-        var digest = str_sha1(this.packed_leaves);
-        this.chash = b32encode(digest);
-        this.time_end = Date.now();
-        this.fireEvent('complete', this.chash);
-    },
-
-    on_load: function() {
-        var digest = str_sha1(this.reader.result);
-        this.leaves.push(digest);
-        this.leaves_b32.push(b32encode(digest));
-        this.next();
-    },
-
-});
-
-
 function quick_id(size, chunk) {
     return b32_sha1(size.toString() + chunk);
 }
@@ -336,6 +272,16 @@ var Uploader = new Class({
         this.Request = Request || XMLHttpRequest;
         this.leaves = [];
         this.i = null;
+    },
+
+    log: function() {
+        var args = Array.prototype.slice.call(arguments);
+        args.push(this.elapsed());
+        var msg = args.join(' ');
+        var parent = document.getElementById('log');
+        var pre = document.createElement('pre');
+        pre.textContent = msg;
+        parent.appendChild(pre);
     },
 
     url: function(quick_id, leaf) {
@@ -363,11 +309,15 @@ var Uploader = new Class({
     on_load: function() {
         if (this.i == null) {
             this.quick_id  = quick_id(this.file.size, this.reader.result);
-            alert(this.quick_id);
+            this.log('quick_id', this.quick_id);
+            this.i = 0;
+            this.read_slice();
         }
         else {
             this.leaf = this.reader.result;
-            this.upload_leaf(this.leaf, this.i);
+            var chash = this.hash_leaf(this.leaf, this.i);
+            this.log('leaf', this.i, chash);
+            this.next();
         }
     },
 
@@ -397,9 +347,23 @@ var Uploader = new Class({
         this.reader.readAsBinaryString(s);
     },
 
+    elapsed: function() {
+        return (Date.now() - this.time_start) / 1000;
+    },
+
     read_slice: function() {
         var s = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
         this.reader.readAsBinaryString(s);
+    },
+
+    next: function() {
+        this.i++;
+        var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
+        this.fireEvent('progress', [completed, this.file.size]);
+        if (this.i < this.stop) {
+            this.read_slice();
+            return;
+        }
     },
 });
 
