@@ -403,12 +403,16 @@ var Uploader = new Class({
         }
     },
 
-    upload_leaf: function(data, i) {
+    hash_leaf: function(data, i) {
         var chash = b32_sha1(data);
         this.leaves[i] = chash;
+        return chash;
+    },
+
+    upload_leaf: function(data, chash, i) {
         this.request = new this.Request();
         var url = this.url(this.quick_id, i);
-        this.request.open('PUT', url);
+        this.request.open('PUT', url, true);
         this.request.setRequestHeader('x-dmedia-chash', chash);
         this.request.setRequestHeader('Content-Type', 'application/octet-stream');
         this.request.onreadystatechange = this.on_readystatechange.bind(this);
