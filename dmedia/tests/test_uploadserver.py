@@ -27,7 +27,7 @@ import sys
 import unittest
 from test import test_support
 from wsgiref.util import setup_testing_defaults
-from uploadserver import UploadApp, CHUNK_SIZE, UPLOAD_DIR
+from dmedia.uploadserver import UploadApp, CHUNK_SIZE, UPLOAD_DIR
 from base64 import b32encode
 from hashlib import sha1
 from StringIO import StringIO
