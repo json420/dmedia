@@ -79,6 +79,38 @@ py.test_uploader = function() {
         ]
     );
 
+    // Test Uploader.next
+    var u = new Uploader('https://example.com/upload');
+    u.stop = 3;
+    u.i = null;
+    u.leaves = [null, null, null];
+    py.assertTrue(u.next());
+    py.assertEqual(u.i, 0);
+    py.assertTrue(u.next());
+    py.assertEqual(u.i, 1);
+    py.assertTrue(u.next());
+    py.assertEqual(u.i, 2);
+    py.assertFalse(u.next());
+    py.assertEqual(u.i, 3);
 
+    u.stop = 3;
+    u.i = null;
+    u.leaves = [null, 'MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4', null];
+    py.assertTrue(u.next());
+    py.assertEqual(u.i, 0);
+    py.assertTrue(u.next());
+    py.assertEqual(u.i, 2);
+    py.assertFalse(u.next());
+    py.assertEqual(u.i, 3);
+
+    u.stop = 3;
+    u.i = null;
+    u.leaves = [
+        'IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3',
+        'MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4',
+        'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI',
+    ];
+    py.assertFalse(u.next());
+    py.assertEqual(u.i, 3);
 
 };

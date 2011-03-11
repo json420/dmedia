@@ -390,14 +390,33 @@ var Uploader = new Class({
     },
 
     next: function() {
-        this.i++;
-        var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
-        this.fireEvent('progress', [completed, this.file.size]);
-        if (this.i < this.stop) {
-            this.read_slice();
-            return;
+        /*
+        Move this.i to next leaf that needs uploading.
+
+        Returns true if a leaf needs to be uploaded (in which case this.i will
+        be set at the index of the leaf to upload).  Returns false if all leaves
+        have been uploaded.
+        */
+        while (true) {
+            if (this.i == null) {
+                this.i = 0;
+            }
+            else {
+                this.i++;
+            }
+            if (this.i >= this.stop) {
+                return false;
+            }
+            if (this.leaves[this.i] == null) {
+                return true;
+            }
         }
     },
+
+        /*
+        var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
+        this.fireEvent('progress', [completed, this.file.size]);
+        */
 });
 
 
