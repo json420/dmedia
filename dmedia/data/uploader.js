@@ -258,6 +258,19 @@ function quick_id(size, chunk) {
     return b32_sha1(size.toString() + chunk);
 }
 
+// FIXME: remove, for testing only
+function log() {
+    var parent = document.getElementById('log');
+    if (! parent) {
+        return;
+    }
+    var args = Array.prototype.slice.call(arguments);
+    var msg = args.join(' ');
+    var pre = document.createElement('pre');
+    pre.textContent = msg;
+    parent.appendChild(pre);
+}
+
 
 var Uploader = new Class({
     Implements: Events,
@@ -273,19 +286,9 @@ var Uploader = new Class({
         this.i = null;
     },
 
-    log: function() {
-        var args = Array.prototype.slice.call(arguments);
-        var msg = args.join(' ');
-        var parent = document.getElementById('log');
-        var pre = document.createElement('pre');
-        pre.textContent = msg;
-        parent.appendChild(pre);
-    },
-
     new_request: function() {
         this.request = new this.Request();
         this.request.onreadystatechange = this.on_readystatechange.bind(this);
-        return this.request;
     },
 
     post: function(obj, quick_id) {
@@ -293,11 +296,11 @@ var Uploader = new Class({
         var obj = obj || {};
         obj['quick_id'] = this.quick_id;
         obj['bytes'] = this.file.size;
-        var request = this.new_request();
-        request.open('POST', this.url(quick_id), true);
-        request.setRequestHeader('Content-Type', 'application/json');
-        request.setRequestHeader('Accept', 'application/json');
-        request.send(JSON.stringify(obj));
+        this.new_request();
+        this.request.open('POST', this.url(quick_id), true);
+        this.request.setRequestHeader('Content-Type', 'application/json');
+        this.request.setRequestHeader('Accept', 'application/json');
+        this.request.send(JSON.stringify(obj));
     },
 
     put: function(data, chash, i) {
@@ -333,10 +336,10 @@ var Uploader = new Class({
         if (this.request.readyState != 4) {
             return;
         }
-        this.log('readystatechange', this.request.status, this.request.statusText);
-        this.log(this.request.responseText);
+        log('readystatechange', this.request.status, this.request.statusText);
+        log(this.request.responseText);
         if (this.request.status >= 400) {
-            this.log('ERROR - retrying request');
+            log('ERROR - retrying request');
             this.send();  // retry the request
             return;
         }
@@ -344,7 +347,7 @@ var Uploader = new Class({
             var obj = JSON.parse(this.request.responseText);
         }
         catch (e) {
-            this.log(e);
+            log(e);
         }
         this.leaves = obj['leaves'];
         if (this.next()) {
@@ -353,17 +356,17 @@ var Uploader = new Class({
     },
 
     on_load: function() {
-        this.log('on_load');
+        log('on_load');
         if (this.i == null) {
             this.preable = this.reader.result;
             this.quick_id  = quick_id(this.file.size, this.preamble);
-            this.log('quick_id', this.quick_id);
+            log('quick_id', this.quick_id);
             this.send();
         }
         else {
             this.leaf = this.reader.result;
             var chash = this.hash_leaf(this.leaf, this.i);
-            this.log('leaf', this.i, chash);
+            log('leaf', this.i, chash);
             this.send();
         }
     },
@@ -394,7 +397,7 @@ var Uploader = new Class({
     },
 
     send: function() {
-        this.log('send', this.i, this.stop);
+        log('send', this.i, this.stop);
         if (this.i == null) {
             this.post();
             return;
