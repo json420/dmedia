@@ -332,7 +332,25 @@ var Uploader = new Class({
         return this.baseurl + quick_id;
     },
 
+    on_load: function() {
+        // Handle FileReader.onload
+        log('on_load');
+        if (this.i == null) {
+            this.preable = this.reader.result;
+            this.quick_id  = quick_id(this.file.size, this.preamble);
+            log('quick_id', this.quick_id);
+            this.send();
+        }
+        else {
+            this.leaf = this.reader.result;
+            var chash = this.hash_leaf(this.leaf, this.i);
+            log('leaf', this.i, chash);
+            this.send();
+        }
+    },
+
     on_readystatechange: function(state) {
+        // Handle XMLHttpRequest.onreadystatechange
         if (this.request.readyState != 4) {
             return;
         }
@@ -352,22 +370,6 @@ var Uploader = new Class({
         this.leaves = obj['leaves'];
         if (this.next()) {
             this.read_slice();
-        }
-    },
-
-    on_load: function() {
-        log('on_load');
-        if (this.i == null) {
-            this.preable = this.reader.result;
-            this.quick_id  = quick_id(this.file.size, this.preamble);
-            log('quick_id', this.quick_id);
-            this.send();
-        }
-        else {
-            this.leaf = this.reader.result;
-            var chash = this.hash_leaf(this.leaf, this.i);
-            log('leaf', this.i, chash);
-            this.send();
         }
     },
 

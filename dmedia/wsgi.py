@@ -131,7 +131,6 @@ like this:
         Content-Type: application/json
 
         {
-            "success": true,
             "received": {
                 "index": 0,
                 "chash": "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
@@ -153,11 +152,10 @@ like this:
 
     ::
 
-        HTTP/1.1 400 Bad Request
+        HTTP/1.1 412 Precondition Failed
         Content-Type: application/json
 
         {
-            "success": false,
             "received": {
                 "index": 0,
                 "chash": "F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A",
@@ -200,7 +198,6 @@ response like this:
         Content-Type: application/json
 
         {
-            "success": true,
             "received": {
                 "index": 0,
                 "chash": "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI",
