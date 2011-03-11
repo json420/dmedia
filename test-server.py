@@ -53,7 +53,6 @@ class App(object):
 
     def __call__(self, environ, start_response):
         method = environ['REQUEST_METHOD']
-        content_type = environ.get('CONTENT_TYPE')
         if method not in ('GET', 'POST', 'PUT'):
             start_response('405 Method Not Allowed', [])
             return ''
@@ -72,7 +71,12 @@ class App(object):
             start_response('200 OK', headers)
             return body
 
-        elif method == 'POST' and content_type.startswith('application/json'):
+        if environ.get('HTTP_ACCEPT') != 'application/json':
+            start_response('406 Not Acceptable', [])
+            return ''
+        content_type = environ.get('CONTENT_TYPE')
+
+        if method == 'POST' and content_type.startswith('application/json'):
             obj = json.loads(read_input(environ))
             print obj
             if path_info == '/':
@@ -112,6 +116,13 @@ class App(object):
 
         start_response('400 Bad Request', [])
         return ''
+
+    def do_post(self, environ, start_response):
+        obj = json.loads(read_input(environ))
+        print obj
+        if path_info == '/':
+            d = self.init(obj)
+            return self.json(d, environ, start_response)
 
     def json(self, d, environ, start_response, status='201 Created'):
         body = json.dumps(d, sort_keys=True, indent=4)
