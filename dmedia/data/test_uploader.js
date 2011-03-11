@@ -1,7 +1,7 @@
 var DummyRequest = new Class({
     initialize: function() {
         this.calls = [];
-        var methods = ['open', 'setRequestHeader', 'send'];
+        var methods = ['open', 'setRequestHeader', 'sendAsBinary'];
         methods.forEach(function(method) {
             this[method] = function() {
                 var args = Array.prototype.slice.call(arguments);
@@ -75,7 +75,7 @@ py.test_uploader = function() {
             ['open', 'PUT', url + 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/2', true],
             ['setRequestHeader', 'x-dmedia-chash', py.data.chash],
             ['setRequestHeader', 'Content-Type', 'application/octet-stream'],
-            ['send', py.data.leaf],
+            ['sendAsBinary', py.data.leaf],
         ]
     );
 

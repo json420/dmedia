@@ -2,6 +2,9 @@ from wsgiref.simple_server import make_server
 import math
 import json
 from copy import deepcopy
+import re
+from hashlib import sha1
+from base64 import b32encode
 
 from dmedia.ui import load_datafile
 
@@ -13,6 +16,10 @@ def read_input(environ):
     except ValueError:
         return ''
     return environ['wsgi.input'].read(length)
+
+
+def b32_sha1(chunk):
+    return b32encode(sha1(chunk).digest())
 
 
 class App(object):
@@ -44,7 +51,7 @@ class App(object):
     def __call__(self, environ, start_response):
         method = environ['REQUEST_METHOD']
         content_type = environ.get('CONTENT_TYPE')
-        if method not in ('GET', 'POST'):
+        if method not in ('GET', 'POST', 'PUT'):
             start_response('405 Method Not Allowed', [])
             return ''
         path_info = environ['PATH_INFO']
@@ -62,12 +69,31 @@ class App(object):
             start_response('200 OK', headers)
             return body
 
-        if method == 'POST' and content_type.startswith('application/json'):
+        elif method == 'POST' and content_type.startswith('application/json'):
             obj = json.loads(read_input(environ))
             print obj
             if path_info == '/':
                 d = self.init(obj)
                 return self.json_response(d, environ, start_response)
+
+        elif method == 'PUT' and content_type == 'application/octet-stream':
+            m = re.match('/([A-Z0-9]{32})/(\d+)$', path_info)
+            if m:
+                quick_id = m.group(1)
+                i = m.group(2)
+                chash = environ.get('HTTP_X_DMEDIA_CHASH')
+                leaf = read_input(environ)
+                if chash == b32_sha1(leaf):
+                    d = {
+                        'success': True,
+                        'received': {
+                            'index': i,
+                            'chash': chash,
+                            'size': len(leaf),
+                        },
+                        'quick_id': quick_id,
+                    }
+                    return self.json_response(d, environ, start_response)
 
         start_response('400 Bad Request', [])
         return ''

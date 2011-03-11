@@ -327,6 +327,17 @@ var Uploader = new Class({
         }
         this.log('readystatechange', this.request.status, this.request.statusText);
         this.log(this.request.responseText);
+        try {
+            var obj = JSON.parse(this.request.responseText);
+        }
+        catch (e) {
+            this.log(e);
+        }
+        if (this.i == null) {
+            this.leaves = obj['leaves'];
+            this.i = 0;
+            this.read_slice();
+        }
     },
 
     on_load: function() {
@@ -351,13 +362,12 @@ var Uploader = new Class({
     },
 
     upload_leaf: function(data, chash, i) {
-        this.request = new this.Request();
-        this.request.onreadystatechange = this.on_readystatechange.bind(this);
+        this.request = this.new_request();
         var url = this.url(this.quick_id, i);
         this.request.open('PUT', url, true);
         this.request.setRequestHeader('x-dmedia-chash', chash);
         this.request.setRequestHeader('Content-Type', 'application/octet-stream');
-        this.request.send(data);
+        this.request.sendAsBinary(data);
     },
 
     upload: function(file) {
