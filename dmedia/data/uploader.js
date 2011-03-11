@@ -289,6 +289,7 @@ var Uploader = new Class({
     },
 
     post: function(obj, quick_id) {
+        // Start, resume, or finish a multipart upload
         var obj = obj || {};
         obj['quick_id'] = this.quick_id;
         obj['bytes'] = this.file.size;
@@ -297,6 +298,17 @@ var Uploader = new Class({
         request.setRequestHeader('Content-Type', 'application/json');
         request.setRequestHeader('Accept', 'application/json');
         request.send(JSON.stringify(obj));
+    },
+
+    put: function(data, chash, i) {
+        // Upload a leaf
+        this.new_request();
+        var url = this.url(this.quick_id, i);
+        this.request.open('PUT', url, true);
+        this.request.setRequestHeader('x-dmedia-chash', chash);
+        this.request.setRequestHeader('Content-Type', 'application/octet-stream');
+        this.request.setRequestHeader('Accept', 'application/json');
+        this.request.sendAsBinary(data);
     },
 
     url: function(quick_id, leaf) {
@@ -317,16 +329,17 @@ var Uploader = new Class({
         return this.baseurl + quick_id;
     },
 
-    retry: function() {
-
-    },
-
     on_readystatechange: function(state) {
         if (this.request.readyState != 4) {
             return;
         }
         this.log('readystatechange', this.request.status, this.request.statusText);
         this.log(this.request.responseText);
+        if (this.request.status >= 400) {
+            this.log('ERROR - retrying request');
+            this.send();  // retry the request
+            return;
+        }
         try {
             var obj = JSON.parse(this.request.responseText);
         }
@@ -340,17 +353,18 @@ var Uploader = new Class({
     },
 
     on_load: function() {
+        this.log('on_load');
         if (this.i == null) {
             this.preable = this.reader.result;
             this.quick_id  = quick_id(this.file.size, this.preamble);
             this.log('quick_id', this.quick_id);
-            this.post();
+            this.send();
         }
         else {
             this.leaf = this.reader.result;
             var chash = this.hash_leaf(this.leaf, this.i);
             this.log('leaf', this.i, chash);
-            this.upload_leaf(this.leaf, chash, this.i);
+            this.send();
         }
     },
 
@@ -358,15 +372,6 @@ var Uploader = new Class({
         var chash = b32_sha1(data);
         this.leaves[i] = chash;
         return chash;
-    },
-
-    upload_leaf: function(data, chash, i) {
-        this.request = this.new_request();
-        var url = this.url(this.quick_id, i);
-        this.request.open('PUT', url, true);
-        this.request.setRequestHeader('x-dmedia-chash', chash);
-        this.request.setRequestHeader('Content-Type', 'application/octet-stream');
-        this.request.sendAsBinary(data);
     },
 
     upload: function(file) {
@@ -386,6 +391,18 @@ var Uploader = new Class({
     read_slice: function() {
         var s = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
         this.reader.readAsBinaryString(s);
+    },
+
+    send: function() {
+        this.log('send', this.i, this.stop);
+        if (this.i == null) {
+            this.post();
+            return;
+        }
+        if (this.i < this.stop) {
+            this.put(this.leaf, this.leaves[this.i], this.i);
+            return;
+        }
     },
 
     next: function() {

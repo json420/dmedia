@@ -5,6 +5,7 @@ from copy import deepcopy
 import re
 from hashlib import sha1
 from base64 import b32encode
+import random
 
 from dmedia.ui import load_datafile
 
@@ -76,7 +77,7 @@ class App(object):
             print obj
             if path_info == '/':
                 d = self.init(obj)
-                return self.json_response(d, environ, start_response)
+                return self.json(d, environ, start_response)
 
         elif method == 'PUT' and content_type == 'application/octet-stream':
             m = re.match('/([A-Z0-9]{32})/(\d+)$', path_info)
@@ -86,24 +87,33 @@ class App(object):
                 obj = self.sessions[quick_id]
                 chash = environ.get('HTTP_X_DMEDIA_CHASH')
                 leaf = read_input(environ)
-                if chash == b32_sha1(leaf):
+                if random.randint(0, 1) == 1:
+                    leaf += b'corruption'
+                got = b32_sha1(leaf)
+                d = {
+                    'received': {
+                        'index': i,
+                        'chash': got,
+                        'size': len(leaf),
+                    },
+                    'leaves': obj['leaves'],
+                    'quick_id': quick_id,
+                }
+                if got == chash:
                     obj['leaves'][i] = chash
-                    d = {
-                        'success': True,
-                        'received': {
-                            'index': i,
-                            'chash': chash,
-                            'size': len(leaf),
-                        },
-                        'leaves': obj['leaves'],
-                        'quick_id': quick_id,
+                    return self.json(d, environ, start_response)
+                else:
+                    d['expected'] = {
+                        'chash': chash,
                     }
-                    return self.json_response(d, environ, start_response)
+                    return self.json(d, environ, start_response,
+                        '412 Precondition Failed'
+                    )
 
         start_response('400 Bad Request', [])
         return ''
 
-    def json_response(self, d, environ, start_response, status='201 Created'):
+    def json(self, d, environ, start_response, status='201 Created'):
         body = json.dumps(d, sort_keys=True, indent=4)
         headers = [
             ('Content-Type', 'application/json'),

@@ -66,15 +66,16 @@ py.test_uploader = function() {
     py.assertEqual(u.hash_leaf(py.data.leaf, 2), py.data.chash);
     py.assertEqual(u.leaves[2], py.data.chash);
 
-    // Test Uploader.upload_leaf():
+    // Test Uploader.put():
     u.quick_id = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN';
-    u.upload_leaf(py.data.leaf, py.data.chash, 2);
+    u.put(py.data.leaf, py.data.chash, 2);
     py.assertEqual(
         u.request.calls,
         [
             ['open', 'PUT', url + 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN/2', true],
             ['setRequestHeader', 'x-dmedia-chash', py.data.chash],
             ['setRequestHeader', 'Content-Type', 'application/octet-stream'],
+            ['setRequestHeader', 'Accept', 'application/json'],
             ['sendAsBinary', py.data.leaf],
         ]
     );
