@@ -295,7 +295,7 @@ var Uploader = new Class({
         var request = this.new_request();
         request.open('POST', this.url(quick_id), true);
         request.setRequestHeader('Content-Type', 'application/json');
-        //request.setRequestHeader('Accept', 'application/json');
+        request.setRequestHeader('Accept', 'application/json');
         request.send(JSON.stringify(obj));
     },
 
@@ -333,9 +333,8 @@ var Uploader = new Class({
         catch (e) {
             this.log(e);
         }
-        if (this.i == null) {
-            this.leaves = obj['leaves'];
-            this.i = 0;
+        this.leaves = obj['leaves'];
+        if (this.next()) {
             this.read_slice();
         }
     },

@@ -27,8 +27,11 @@ class App(object):
         self.data = data
         self.sessions = {}
 
+    def key(self, obj):
+        return obj['quick_id']
+
     def init(self, obj):
-        key = (obj['quick_id'], obj['bytes'])
+        key = self.key(obj)
         try:
             return deepcopy(self.sessions[key])
         except KeyError:
@@ -45,8 +48,7 @@ class App(object):
         return d
 
     def get(self, obj):
-        key = (obj['quick_id'], obj['bytes'])
-        return deepcopy(self.sessions[key])
+        return deepcopy(self.sessions[self.key(obj)])
 
     def __call__(self, environ, start_response):
         method = environ['REQUEST_METHOD']
@@ -80,10 +82,12 @@ class App(object):
             m = re.match('/([A-Z0-9]{32})/(\d+)$', path_info)
             if m:
                 quick_id = m.group(1)
-                i = m.group(2)
+                i = int(m.group(2))
+                obj = self.sessions[quick_id]
                 chash = environ.get('HTTP_X_DMEDIA_CHASH')
                 leaf = read_input(environ)
                 if chash == b32_sha1(leaf):
+                    obj['leaves'][i] = chash
                     d = {
                         'success': True,
                         'received': {
@@ -91,6 +95,7 @@ class App(object):
                             'chash': chash,
                             'size': len(leaf),
                         },
+                        'leaves': obj['leaves'],
                         'quick_id': quick_id,
                     }
                     return self.json_response(d, environ, start_response)
