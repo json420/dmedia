@@ -284,6 +284,7 @@ var Uploader = new Class({
         this.Request = Request || XMLHttpRequest;
         this.leaves = [];
         this.i = null;
+        this.retries = 0;
     },
 
     new_request: function() {
@@ -356,20 +357,31 @@ var Uploader = new Class({
         }
         log('readystatechange', this.request.status, this.request.statusText);
         log(this.request.responseText);
-        if (this.request.status >= 400) {
+        if (this.request.status == 412) {
+            log('CORRUPTED - retrying leaf upload');
+            this.send();  // Re-upload leaf
+        }
+        else if (this.request.status >= 400) {
             log('ERROR - retrying request');
-            this.send();  // retry the request
+            this.retry();  // retry the request
+        }
+        else if (this.i >= this.stop) {
             return;
         }
-        try {
-            var obj = JSON.parse(this.request.responseText);
-        }
-        catch (e) {
-            log(e);
-        }
-        this.leaves = obj['leaves'];
-        if (this.next()) {
-            this.read_slice();
+        else {
+            try {
+                var obj = JSON.parse(this.request.responseText);
+            }
+            catch (e) {
+                log(e);
+            }
+            this.leaves = obj['leaves'];
+            if (this.next()) {
+                this.read_slice();
+            }
+            else {
+                this.send();
+            }
         }
     },
 
@@ -398,8 +410,15 @@ var Uploader = new Class({
         this.reader.readAsBinaryString(s);
     },
 
+    retry: function() {
+        if (this.retries < 5) {
+            this.retries++;
+            this.send();
+        }
+    },
+
     send: function() {
-        log('send', this.i, this.stop);
+        // Send (or re-send) a request
         if (this.i == null) {
             this.post();
             return;
@@ -408,6 +427,12 @@ var Uploader = new Class({
             this.put(this.leaf, this.leaves[this.i], this.i);
             return;
         }
+        obj = {
+            'leaves': this.leaves,
+            'name': this.file.name,
+            'mime': this.file.type,
+        }
+        this.post(obj, this.quick_id);
     },
 
     next: function() {

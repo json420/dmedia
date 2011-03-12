@@ -82,13 +82,26 @@ class App(object):
             if path_info == '/':
                 d = self.init(obj)
                 return self.json(d, environ, start_response)
+            m = re.match('/([A-Z0-9]{32})$', path_info)
+            if m:
+                quick_id = m.group(1)
+                try:
+                    d = self.sessions[quick_id]
+                except KeyError:
+                    start_response('409 Conflict', [])
+                    return ''
+                return self.json(d, environ, start_response)
 
         elif method == 'PUT' and content_type == 'application/octet-stream':
             m = re.match('/([A-Z0-9]{32})/(\d+)$', path_info)
             if m:
                 quick_id = m.group(1)
+                try:
+                    obj = self.sessions[quick_id]
+                except KeyError:
+                    start_response('409 Conflict', [])
+                    return ''
                 i = int(m.group(2))
-                obj = self.sessions[quick_id]
                 chash = environ.get('HTTP_X_DMEDIA_CHASH')
                 leaf = read_input(environ)
                 if random.randint(0, 1) == 1:
@@ -116,13 +129,6 @@ class App(object):
 
         start_response('400 Bad Request', [])
         return ''
-
-    def do_post(self, environ, start_response):
-        obj = json.loads(read_input(environ))
-        print obj
-        if path_info == '/':
-            d = self.init(obj)
-            return self.json(d, environ, start_response)
 
     def json(self, d, environ, start_response, status='201 Created'):
         body = json.dumps(d, sort_keys=True, indent=4)
