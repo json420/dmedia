@@ -176,6 +176,16 @@ like this:
         }
 
 
+If you try to upload the leaf of a multi-part upload that does not exist, the
+response would look like this:
+
+
+        HTTP/1.1 409 Conflict
+        Content-Type: application/json
+
+        {"quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN"}
+
+
 Once the 1st leaf has been successfully imported, you would import the 3rd leaf
 with a request like this:
 
