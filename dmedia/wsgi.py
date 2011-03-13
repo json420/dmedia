@@ -68,7 +68,7 @@ For example, if starting a new import, the response would look like this:
 
     ::
 
-        HTTP/1.1 202 Accepted
+        HTTP/1.1 201 Created
         Content-Type: application/json
 
         {
@@ -131,19 +131,9 @@ like this:
         Content-Type: application/json
 
         {
-            "received": {
-                "index": 0,
-                "chash": "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
-                "size": 8388608
-            },
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "bytes": 20202333,
-            "leaf_size" 8388608,
-            "leaves" [
-                "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
-                "MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4",
-                null
-            ]
+            "index": 0,
+            "received": "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
         }
 
 
@@ -156,23 +146,10 @@ like this:
         Content-Type: application/json
 
         {
-            "received": {
-                "index": 0,
-                "chash": "F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A",
-                "size": 27328
-            },
-            "expected": {
-                "chash": "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
-                "size": 8388608
-            },
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "bytes": 20202333,
-            "leaf_size" 8388608,
-            "leaves" [
-                null,
-                "MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4",
-                null
-            ]
+            "index": 0,
+            "received": "F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A",
+            "expected": "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
         }
 
 
@@ -208,26 +185,13 @@ response like this:
         Content-Type: application/json
 
         {
-            "received": {
-                "index": 0,
-                "chash": "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI",
-                "size": 3425117
-            },
             "quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN",
-            "bytes": 20202333,
-            "leaf_size" 8388608,
-            "leaves" [
-                "IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3",
-                "MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4",
-                "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI"
-            ],
-            "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O"
+            "index": 0,
+            "received": "FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI",
         }
 
 
-Notice that now that all the leaves have been imported, the response JSON has
-the ``"chash"`` key... the top-hash, or overall content-hash of the file.  At
-this point you can finish the import.
+Now that all the leaves have uploaded, you can finish the import.
 
 
 Finish the Import
@@ -241,7 +205,6 @@ Finally, you finish the import with a request like this:
         Content-Type: application/json
 
         {
-            "chash": "ZR765XWSF6S7JQHLUI4GCG5BHGPE252O",
             "bytes": 20202333,
             "name": "MVI_5751.MOV",
             "mime": "video/quicktime",
