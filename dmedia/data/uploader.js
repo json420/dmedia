@@ -340,8 +340,7 @@ var Uploader = new Class({
         // Handle FileReader.onload
         log('on_load');
         if (this.i == null) {
-            this.preable = this.reader.result;
-            this.quick_id  = quick_id(this.file.size, this.preamble);
+            this.quick_id  = quick_id(this.file.size, this.reader.result);
             log('quick_id', this.quick_id);
             this.send();
         }

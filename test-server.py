@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from wsgiref.simple_server import make_server
 import math
 import json
@@ -6,6 +8,7 @@ import re
 from hashlib import sha1
 from base64 import b32encode
 import random
+import optparse
 
 from dmedia.ui import load_datafile
 from dmedia.wsgi import *
@@ -19,9 +22,10 @@ def b32_sha1(chunk):
 
 
 class App(BaseWSGI):
-    def __init__(self, data):
+    def __init__(self, data, fail):
         super(App, self).__init__()
         self.data = data
+        self.fail = fail
         self.sessions = {}
 
     def key(self, obj):
@@ -45,7 +49,7 @@ class App(BaseWSGI):
         return d
 
     def get_session(self, quick_id):
-        if random.randint(0, 3) == 0:
+        if self.fail and random.randint(0, 3) == 0:
             self.sessions.pop(quick_id, None)
         try:
             return self.sessions[quick_id]
@@ -96,7 +100,7 @@ class App(BaseWSGI):
         i = int(m.group(2))
         chash = environ.get('HTTP_X_DMEDIA_CHASH')
         leaf = read_input(environ)
-        if random.randint(0, 1) == 1:
+        if self.fail and random.randint(0, 1) == 1:
             leaf += b'corruption'
         got = b32_sha1(leaf)
         d = {
@@ -144,7 +148,14 @@ data = {
 }
 
 
+parser = optparse.OptionParser()
+parser.add_option('--fail',
+    help='add random data corruption and server failures',
+    action='store_true',
+    default=False,
+)
 
-app = App(data)
+(options, args) = parser.parse_args()
+app = App(data, options.fail)
 httpd = make_server('', 8000, app)
 httpd.serve_forever()
