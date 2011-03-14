@@ -1,4 +1,3 @@
-LEAF_SIZE = 8 * Math.pow(2, 20);  // 8 MiB leaf size
 QID_CHUNK_SIZE = Math.pow(2, 20);  // quick_id() uses first MiB of file
 MAX_RETRIES = 5;
 
@@ -35,8 +34,6 @@ Uploader.prototype = {
         this.i = null;
         this.leaves = null;
         this.retries = 0;
-
-        this.stop = Math.ceil(file.size / LEAF_SIZE);
         this.time_start = Date.now();
 
         this.new_reader();
@@ -151,6 +148,8 @@ Uploader.prototype = {
             try {
                 var obj = JSON.parse(this.request.responseText);
                 this.leaves = obj['leaves'];
+                this.leaf_size = obj['leaf_size'];
+                this.stop = Math.ceil(this.file.size / this.leaf_size);
 
             }
             catch (e) {
@@ -178,7 +177,7 @@ Uploader.prototype = {
 
     read_slice: function() {
         this.new_reader();
-        this.slice = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
+        this.slice = this.file.slice(this.i * this.leaf_size, this.leaf_size);
         this.reader.readAsBinaryString(this.slice);
     },
 
@@ -223,7 +222,7 @@ Uploader.prototype = {
                 this.i++;
             }
             if (this.onprogress) {
-                var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
+                var completed = Math.min(this.i * this.leaf_size, this.file.size);
                 this.onprogress(completed, this.file.size);
             }
             if (this.i >= this.stop) {
