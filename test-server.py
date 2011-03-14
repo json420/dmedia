@@ -135,6 +135,7 @@ index = """<!DOCTYPE html>
 <head>
 <title>HTML5 File upload test</title>
 <script type="text/javascript" src="sha1.js"></script>
+<script type="text/javascript" src="base32.js"></script>
 <script type="text/javascript" src="uploader.js"></script>
 <script type="text/javascript">
 function handle(files) {
@@ -160,6 +161,10 @@ data = {
     ),
     '/sha1.js': (
         load_datafile('sha1.js'),
+        'application/javascript; charset=UTF-8'
+    ),
+    '/base32.js': (
+        load_datafile('base32.js'),
         'application/javascript; charset=UTF-8'
     ),
     '/uploader.js': (

@@ -37,6 +37,7 @@ MiB = 2 ** 20
 class TestUploader(JSTestCase):
     js_files = (
         datafile('sha1.js'),
+        datafile('base32.js'),
         datafile('uploader.js'),
         datafile('test_uploader.js'),
     )
