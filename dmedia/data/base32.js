@@ -10,9 +10,7 @@ Licensed under the WTFPL:
 
 */
 
-var baseenc = baseenc || {};
-
-baseenc.b32encode = function(s) {
+function b32encode(s) {
  /* encodes a string s to base32 and returns the encoded string */
  var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
