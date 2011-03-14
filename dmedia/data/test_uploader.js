@@ -1,6 +1,6 @@
 function DummyRequest() {
         this.calls = [];
-        var methods = ['open', 'setRequestHeader', 'sendAsBinary'];
+        var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
         methods.forEach(function(method) {
             var f = function() {
                 var args = Array.prototype.slice.call(arguments);
@@ -16,6 +16,14 @@ function DummyRequest() {
 DummyRequest.prototype = {
     onreadystatechange: null,
 }
+
+
+var DummyFile = {
+    'size': 20202333,
+    'name': 'MVI_5751.MOV',
+    'type': 'video/quicktime',
+}
+
 
 py.test_b32encode = function() {
     py.data.values.forEach(function(d) {
@@ -70,7 +78,7 @@ py.test_uploader = function() {
     py.assertEqual(u.url(null, 17), url);
 
     // Test Uploader.hash_leaf():
-    py.assertEqual(u.leaves, []);
+    u.leaves = [];
     py.assertEqual(u.hash_leaf(py.data.leaf, 2), py.data.chash);
     py.assertEqual(u.leaves[2], py.data.chash);
 
@@ -85,6 +93,23 @@ py.test_uploader = function() {
             ['setRequestHeader', 'Content-Type', 'application/octet-stream'],
             ['setRequestHeader', 'Accept', 'application/json'],
             ['sendAsBinary', py.data.leaf],
+        ]
+    );
+
+    // Test Uploader.post():
+    u.file = DummyFile;
+    u.post();
+    d = {
+        'quick_id': 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN',
+        'bytes': 20202333,
+    }
+    py.assertEqual(
+        u.request.calls,
+        [
+            ['open', 'POST', url, true],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send', JSON.stringify(d)],
         ]
     );
 

@@ -162,6 +162,8 @@ function on_progress(completed, total) {
 }
 
 function handle(files) {
+    document.getElementById('progress').textContent = '';
+    document.getElementById('log').textContent = '';
     var u = new Uploader('/');
     u.onrequest = on_request;
     u.onprogress = on_progress;

@@ -1,5 +1,6 @@
 LEAF_SIZE = 8 * Math.pow(2, 20);  // 8 MiB leaf size
 QID_CHUNK_SIZE = Math.pow(2, 20);  // quick_id() uses first MiB of file
+MAX_RETRIES = 5;
 
 
 function b32_sha1(s) {
@@ -16,13 +17,12 @@ function quick_id(size, chunk) {
 function Uploader(baseurl, Request) {
         var baseurl = baseurl || 'upload/';
         if (baseurl.charAt(baseurl.length - 1) != '/') {
-            var baseurl = baseurl + '/';
+            this.baseurl = baseurl + '/';
         }
-        this.baseurl = baseurl;
+        else {
+            this.baseurl = baseurl;
+        }
         this.Request = Request || XMLHttpRequest;
-        this.leaves = [];
-        this.i = null;
-        this.retries = 0;
 }
 
 Uploader.prototype = {
@@ -32,15 +32,26 @@ Uploader.prototype = {
     upload: function(file) {
         // Upload a file
         this.file = file;
-        this.reader = new FileReader();
-        this.reader.onload = this.on_load.bind(this);
+        this.i = null;
+        this.leaves = null;
+        this.retries = 0;
+
         this.stop = Math.ceil(file.size / LEAF_SIZE);
         this.time_start = Date.now();
+
+        this.new_reader();
         var s = this.file.slice(0, QID_CHUNK_SIZE);
         this.reader.readAsBinaryString(s);
     },
 
+    new_reader: function() {
+        // Create a new FileReader and set onload handler
+        this.reader = new FileReader();
+        this.reader.onload = this.on_load.bind(this);
+    },
+
     new_request: function() {
+        // Create a new XMLHttpRequest and set onreadystatechange handler
         this.request = new this.Request();
         if (this.on_readystatechange.bind) {
             this.request.onreadystatechange = this.on_readystatechange.bind(this);
@@ -57,10 +68,7 @@ Uploader.prototype = {
         obj['bytes'] = this.file.size;
         this.new_request();
         this.request.open('POST', this.url(quick_id), true);
-        this.request.setRequestHeader(
-            'Content-Type',
-            'application/json; charset=UTF-8'
-        );
+        this.request.setRequestHeader('Content-Type', 'application/json');
         this.request.setRequestHeader('Accept', 'application/json');
         this.request.send(JSON.stringify(obj));
     },
@@ -131,7 +139,7 @@ Uploader.prototype = {
             this.send();
             return;
         }
-        if (this.request.status >= 400) {
+        if (this.request.status != 201 && this.request.status != 202) {
             // Other unknown error, retry the last request, whatever it was:
             this.retry();  // retry the request
             return;
@@ -143,6 +151,7 @@ Uploader.prototype = {
             try {
                 var obj = JSON.parse(this.request.responseText);
                 this.leaves = obj['leaves'];
+
             }
             catch (e) {
                 this.retry();
@@ -168,14 +177,13 @@ Uploader.prototype = {
     },
 
     read_slice: function() {
-        this.reader = new FileReader();
-        this.reader.onload = this.on_load.bind(this);
+        this.new_reader();
         this.slice = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
         this.reader.readAsBinaryString(this.slice);
     },
 
     retry: function() {
-        if (this.retries < 5) {
+        if (this.retries < MAX_RETRIES) {
             this.retries++;
             this.send();
         }
