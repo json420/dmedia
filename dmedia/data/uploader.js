@@ -384,7 +384,7 @@ var Uploader = new Class({
             return;
         }
         if (this.i >= this.stop) {
-            log('upload complete');
+            log('upload complete', this.elapsed());
             return;
         }
         if (this.i == null) {
