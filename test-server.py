@@ -97,7 +97,7 @@ class App(object):
             if m:
                 quick_id = m.group(1)
                 try:
-                    obj = self.sessions[quick_id]
+                    session = self.sessions[quick_id]
                 except KeyError:
                     start_response('409 Conflict', [])
                     return ''
@@ -108,21 +108,15 @@ class App(object):
                     leaf += b'corruption'
                 got = b32_sha1(leaf)
                 d = {
-                    'received': {
-                        'index': i,
-                        'chash': got,
-                        'size': len(leaf),
-                    },
-                    'leaves': obj['leaves'],
                     'quick_id': quick_id,
+                    'index': i,
+                    'received': got,
                 }
                 if got == chash:
-                    obj['leaves'][i] = chash
+                    session['leaves'][i] = chash
                     return self.json(d, environ, start_response)
                 else:
-                    d['expected'] = {
-                        'chash': chash,
-                    }
+                    d['expected'] = chash
                     return self.json(d, environ, start_response,
                         '412 Precondition Failed'
                     )

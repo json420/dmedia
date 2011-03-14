@@ -246,4 +246,14 @@ corresponding to this newly imported file:
             }
         }
 
+
+If you try to finish a multi-part upload that does not exist, the response would
+look like this:
+
+
+        HTTP/1.1 409 Conflict
+        Content-Type: application/json
+
+        {"quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN"}
+
 """

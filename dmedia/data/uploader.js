@@ -350,38 +350,52 @@ var Uploader = new Class({
         }
     },
 
-    on_readystatechange: function(state) {
+    on_readystatechange: function(event) {
         // Handle XMLHttpRequest.onreadystatechange
         if (this.request.readyState != 4) {
+            // We only care about completed requests
             return;
         }
         log('readystatechange', this.request.status, this.request.statusText);
         log(this.request.responseText);
-        if (this.request.status == 412) {
-            log('CORRUPTED - retrying leaf upload');
-            this.send();  // Re-upload leaf
-        }
-        else if (this.request.status >= 400) {
-            log('ERROR - retrying request');
-            this.retry();  // retry the request
-        }
-        else if (this.i >= this.stop) {
+        if (this.request.status == 409) {
+            // Server lost track of upload, we need to start over:
+            this.i = null;
+            this.retry();
             return;
         }
-        else {
+        if (this.request.status == 412) {
+            // Leaf was corrupted in transit, try uploading again:
+            log('CORRUPTED - retrying leaf upload');
+            this.send();
+            return;
+        }
+        if (this.request.status >= 400) {
+            // Other unknown error, retry the last request, whatever it was:
+            log('ERROR - retrying request');
+            this.retry();  // retry the request
+            return;
+        }
+        if (this.i >= this.stop) {
+            log('upload complete');
+            return;
+        }
+        if (this.i == null) {
             try {
                 var obj = JSON.parse(this.request.responseText);
+                this.leaves = obj['leaves'];
             }
             catch (e) {
                 log(e);
+                this.retry();
+                return
             }
-            this.leaves = obj['leaves'];
-            if (this.next()) {
-                this.read_slice();
-            }
-            else {
-                this.send();
-            }
+        }
+        if (this.next()) {
+            this.read_slice();
+        }
+        else {
+            this.send();
         }
     },
 
