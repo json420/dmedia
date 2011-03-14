@@ -130,10 +130,6 @@ class App(BaseWSGI):
         return body
 
 
-scripts = dict(
-    (n, load_datafile(n)) for n in ['mootools-core.js', 'uploader.js']
-)
-
 data = {
     '/': (
         load_datafile('uploader.html'),
