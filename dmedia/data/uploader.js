@@ -133,7 +133,7 @@ Uploader.prototype = {
         }
         if (this.request.status == 412) {
             // Leaf was corrupted in transit, try uploading again:
-            this.send();
+            this.retry();
             return;
         }
         if (this.request.status != 201 && this.request.status != 202) {
