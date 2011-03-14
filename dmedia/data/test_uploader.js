@@ -1,5 +1,4 @@
-var DummyRequest = new Class({
-    initialize: function() {
+function DummyRequest() {
         this.calls = [];
         var methods = ['open', 'setRequestHeader', 'sendAsBinary'];
         methods.forEach(function(method) {
@@ -9,8 +8,10 @@ var DummyRequest = new Class({
                 this.calls.push(args);
             }.bind(this);
         }, this);
-    },
-});
+}
+DummyRequest.prototype = {
+    onreadystatechange: null,
+}
 
 py.test_b32encode = function() {
     py.data.values.forEach(function(d) {

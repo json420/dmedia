@@ -139,10 +139,6 @@ data = {
         load_datafile('uploader.html'),
         'text/html; charset=UTF-8'
     ),
-    '/mootools-core.js': (
-        load_datafile('mootools-core.js'),
-        'application/javascript; charset=UTF-8'
-    ),
     '/uploader.js': (
         load_datafile('uploader.js'),
         'application/javascript; charset=UTF-8'

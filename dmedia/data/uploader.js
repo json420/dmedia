@@ -272,10 +272,7 @@ function log() {
 }
 
 
-var Uploader = new Class({
-    Implements: Events,
-
-    initialize: function(baseurl, Request) {
+function Uploader(baseurl, Request) {
         var baseurl = baseurl || 'upload/';
         if (baseurl.charAt(baseurl.length - 1) != '/') {
             var baseurl = baseurl + '/';
@@ -285,7 +282,9 @@ var Uploader = new Class({
         this.leaves = [];
         this.i = null;
         this.retries = 0;
-    },
+}
+
+Uploader.prototype = {
 
     new_request: function() {
         this.request = new this.Request();
@@ -486,7 +485,7 @@ var Uploader = new Class({
         var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
         this.fireEvent('progress', [completed, this.file.size]);
         */
-});
+}
 
 
 function handle(files) {
