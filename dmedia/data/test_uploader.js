@@ -26,7 +26,6 @@ py.test_b32encode = function() {
 py.test_sha1 = function() {
     py.data.values.forEach(function(d) {
         py.assertEqual(hex_sha1(d.src), d.hex);
-        py.assertEqual(b64_sha1(d.src), d.b64);
         py.assertEqual(b32_sha1(d.src), d.b32);
     });
 };

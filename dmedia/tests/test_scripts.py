@@ -36,7 +36,7 @@ MiB = 2 ** 20
 
 class TestUploader(JSTestCase):
     js_files = (
-        #datafile('mootools-core.js'),
+        datafile('sha1.js'),
         datafile('uploader.js'),
         datafile('test_uploader.js'),
     )
@@ -61,7 +61,6 @@ class TestUploader(JSTestCase):
                 {
                     'src': src,
                     'hex': sha1(src).hexdigest(),
-                    'b64': b64encode(sha1(src).digest()),
                     'b32': b32encode(sha1(src).digest()),
                 }
             )
