@@ -315,7 +315,12 @@ var Uploader = new Class({
         this.request.setRequestHeader('x-dmedia-chash', chash);
         this.request.setRequestHeader('Content-Type', 'application/octet-stream');
         this.request.setRequestHeader('Accept', 'application/json');
-        this.request.sendAsBinary(data);
+        if (this.request.sendAsBinary) {
+            this.request.sendAsBinary(data);
+        }
+        else {
+            this.request.send(this.slice);
+        }
     },
 
     url: function(quick_id, leaf) {
@@ -345,8 +350,7 @@ var Uploader = new Class({
             this.send();
         }
         else {
-            this.leaf = this.reader.result;
-            var chash = this.hash_leaf(this.leaf, this.i);
+            var chash = this.hash_leaf(this.reader.result, this.i);
             log('leaf', this.i, chash);
             this.send();
         }
@@ -425,8 +429,8 @@ var Uploader = new Class({
     read_slice: function() {
         this.reader = new FileReader();
         this.reader.onload = this.on_load.bind(this);
-        var s = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
-        this.reader.readAsBinaryString(s);
+        this.slice = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
+        this.reader.readAsBinaryString(this.slice);
     },
 
     retry: function() {
@@ -443,7 +447,7 @@ var Uploader = new Class({
             return;
         }
         if (this.i < this.stop) {
-            this.put(this.leaf, this.leaves[this.i], this.i);
+            this.put(this.reader.result, this.leaves[this.i], this.i);
             return;
         }
         obj = {
