@@ -13,7 +13,7 @@ import optparse
 from dmedia.ui import load_datafile
 from dmedia.wsgi import *
 
-LEAF_SIZE = 8 * 2**20  # 8 MiB
+LEAF_SIZE = 4 * 2**20  # 8 MiB
 
 
 

@@ -31,7 +31,7 @@ import random
 from dmedia.js import JSTestCase
 from dmedia.ui import datafile, load_datafile
 
-MiB = 2 ** 20
+MiB = 1 ** 20
 
 
 class TestUploader(JSTestCase):
