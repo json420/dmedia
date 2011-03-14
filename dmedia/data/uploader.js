@@ -423,6 +423,8 @@ var Uploader = new Class({
     },
 
     read_slice: function() {
+        this.reader = new FileReader();
+        this.reader.onload = this.on_load.bind(this);
         var s = this.file.slice(this.i * LEAF_SIZE, LEAF_SIZE);
         this.reader.readAsBinaryString(s);
     },

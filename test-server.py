@@ -72,7 +72,8 @@ class App(BaseWSGI):
 
     @http_method
     def POST(self, environ, start_response):
-        if environ.get('CONTENT_TYPE') != 'application/json; charset=UTF-8':
+        content_type = environ.get('CONTENT_TYPE', '')
+        if not content_type.startswith('application/json'):
             raise UnsupportedMediaType()
         path_info = environ['PATH_INFO']
         obj = json.loads(read_input(environ))
@@ -89,7 +90,8 @@ class App(BaseWSGI):
 
     @http_method
     def PUT(self, environ, start_response):
-        if environ.get('CONTENT_TYPE') != 'application/octet-stream':
+        content_type = environ.get('CONTENT_TYPE', '')
+        if not content_type.startswith('application/octet-stream'):
             raise UnsupportedMediaType()
         path_info = environ['PATH_INFO']
         m = re.match('/([A-Z0-9]{32})/(\d+)$', path_info)
