@@ -2,11 +2,15 @@ function DummyRequest() {
         this.calls = [];
         var methods = ['open', 'setRequestHeader', 'sendAsBinary'];
         methods.forEach(function(method) {
-            this[method] = function() {
+            var f = function() {
                 var args = Array.prototype.slice.call(arguments);
                 args.unshift(method);
                 this.calls.push(args);
-            }.bind(this);
+            };
+            if (f.bind) {
+                var f = f.bind(this);
+            }
+            this[method] = f;
         }, this);
 }
 DummyRequest.prototype = {
@@ -34,6 +38,10 @@ py.test_quick_id = function() {
 };
 
 py.test_uploader = function() {
+    var d = new DummyRequest();
+    d.open('foo', 'bar');
+    py.assertEqual(d.calls, [['open', 'foo', 'bar']]);
+
     var url = 'https://example.com/upload/';
 
     // Test that '/' is appended to URL if it doesn't have it already:

@@ -36,7 +36,7 @@ MiB = 2 ** 20
 
 class TestUploader(JSTestCase):
     js_files = (
-        datafile('mootools-core.js'),
+        #datafile('mootools-core.js'),
         datafile('uploader.js'),
         datafile('test_uploader.js'),
     )

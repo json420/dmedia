@@ -288,7 +288,12 @@ Uploader.prototype = {
 
     new_request: function() {
         this.request = new this.Request();
-        this.request.onreadystatechange = this.on_readystatechange.bind(this);
+        if (this.on_readystatechange.bind) {
+            this.request.onreadystatechange = this.on_readystatechange.bind(this);
+        }
+        else {
+            this.request.onreadystatechange = this.on_readystatechange;
+        }
     },
 
     post: function(obj, quick_id) {
