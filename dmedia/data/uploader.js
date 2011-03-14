@@ -166,22 +166,26 @@ Uploader.prototype = {
     },
 
     hash_leaf: function(data, i) {
+        // Hash an individual leaf, save in this.leaves[i]
         var chash = b32_sha1(data);
         this.leaves[i] = chash;
         return chash;
     },
 
     elapsed: function() {
+        // Return time elapsed since start, in seconds
         return (Date.now() - this.time_start) / 1000;
     },
 
     read_slice: function() {
+        // Read the i-th slice of the file using a FileReader
         this.new_reader();
         this.slice = this.file.slice(this.i * this.leaf_size, this.leaf_size);
         this.reader.readAsBinaryString(this.slice);
     },
 
     retry: function() {
+        // Retry up to MAX_RETRIES times
         if (this.retries < MAX_RETRIES) {
             this.retries++;
             this.send();
