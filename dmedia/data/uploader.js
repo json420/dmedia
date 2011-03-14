@@ -29,6 +29,17 @@ Uploader.prototype = {
     onrequest: null,
     onprogress: null,
 
+    upload: function(file) {
+        // Upload a file
+        this.file = file;
+        this.reader = new FileReader();
+        this.reader.onload = this.on_load.bind(this);
+        this.stop = Math.ceil(file.size / LEAF_SIZE);
+        this.time_start = Date.now();
+        var s = this.file.slice(0, QID_CHUNK_SIZE);
+        this.reader.readAsBinaryString(s);
+    },
+
     new_request: function() {
         this.request = new this.Request();
         if (this.on_readystatechange.bind) {
@@ -152,16 +163,6 @@ Uploader.prototype = {
         return chash;
     },
 
-    upload: function(file) {
-        this.file = file;
-        this.reader = new FileReader();
-        this.reader.onload = this.on_load.bind(this);
-        this.stop = Math.ceil(file.size / LEAF_SIZE);
-        this.time_start = Date.now();
-        var s = this.file.slice(0, QID_CHUNK_SIZE);
-        this.reader.readAsBinaryString(s);
-    },
-
     elapsed: function() {
         return (Date.now() - this.time_start) / 1000;
     },
@@ -213,6 +214,10 @@ Uploader.prototype = {
             else {
                 this.i++;
             }
+            if (this.onprogress) {
+                var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
+                this.onprogress(completed, this.file.size);
+            }
             if (this.i >= this.stop) {
                 return false;
             }
@@ -221,9 +226,4 @@ Uploader.prototype = {
             }
         }
     },
-
-        /*
-        var completed = Math.min(this.i * LEAF_SIZE, this.file.size);
-        this.fireEvent('progress', [completed, this.file.size]);
-        */
 }

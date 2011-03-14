@@ -156,9 +156,15 @@ function on_request(request) {
     log(request.responseText);
 }
 
+function on_progress(completed, total) {
+    var progress = document.getElementById('progress');
+    progress.textContent = completed + ' of ' + total;
+}
+
 function handle(files) {
     var u = new Uploader('/');
     u.onrequest = on_request;
+    u.onprogress = on_progress;
     var file = files[0];
     u.upload(file);
 }
@@ -169,6 +175,7 @@ function handle(files) {
 <form>
 <input type="file" id="file" onchange="handle(this.files)" />
 </form>
+<div><strong id="progress"></strong></div>
 <div id="log"></div>
 </body>
 </html>"""
