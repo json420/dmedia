@@ -7,22 +7,9 @@ function b32_sha1(s) {
     return b32encode(rstr_sha1(s));
 }
 
+
 function quick_id(size, chunk) {
     return b32_sha1(size.toString() + chunk);
-}
-
-
-// FIXME: remove, for testing only
-function log() {
-    var parent = document.getElementById('log');
-    if (! parent) {
-        return;
-    }
-    var args = Array.prototype.slice.call(arguments);
-    var msg = args.join(' ');
-    var pre = document.createElement('pre');
-    pre.textContent = msg;
-    parent.appendChild(pre);
 }
 
 
@@ -39,6 +26,8 @@ function Uploader(baseurl, Request) {
 }
 
 Uploader.prototype = {
+    onrequest: null,
+    onprogress: null,
 
     new_request: function() {
         this.request = new this.Request();
@@ -101,15 +90,12 @@ Uploader.prototype = {
 
     on_load: function() {
         // Handle FileReader.onload
-        log('on_load');
         if (this.i == null) {
             this.quick_id  = quick_id(this.file.size, this.reader.result);
-            log('quick_id', this.quick_id);
             this.send();
         }
         else {
             var chash = this.hash_leaf(this.reader.result, this.i);
-            log('leaf', this.i, chash);
             this.send();
         }
     },
@@ -120,29 +106,26 @@ Uploader.prototype = {
             // We only care about completed requests
             return;
         }
-        log('readystatechange', this.request.status, this.request.statusText);
-        log(this.request.responseText);
+        if (this.onrequest) {
+            this.onrequest(this.request);
+        }
         if (this.request.status == 409) {
             // Server lost track of upload, we need to start over:
-            log('Session lost, restarting...');
             this.i = null;
             this.retry();
             return;
         }
         if (this.request.status == 412) {
             // Leaf was corrupted in transit, try uploading again:
-            log('CORRUPTED - retrying leaf upload');
             this.send();
             return;
         }
         if (this.request.status >= 400) {
             // Other unknown error, retry the last request, whatever it was:
-            log('ERROR - retrying request');
             this.retry();  // retry the request
             return;
         }
         if (this.i >= this.stop) {
-            log('upload complete', this.elapsed());
             return;
         }
         if (this.i == null) {
@@ -151,7 +134,6 @@ Uploader.prototype = {
                 this.leaves = obj['leaves'];
             }
             catch (e) {
-                log(e);
                 this.retry();
                 return
             }

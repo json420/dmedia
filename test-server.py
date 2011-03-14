@@ -138,11 +138,31 @@ index = """<!DOCTYPE html>
 <script type="text/javascript" src="base32.js"></script>
 <script type="text/javascript" src="uploader.js"></script>
 <script type="text/javascript">
+
+function log() {
+    var parent = document.getElementById('log');
+    if (! parent) {
+        return;
+    }
+    var args = Array.prototype.slice.call(arguments);
+    var msg = args.join(' ');
+    var pre = document.createElement('pre');
+    pre.textContent = msg;
+    parent.appendChild(pre);
+}
+
+function on_request(request) {
+    log('RESPONSE:', request.status, request.statusText);
+    log(request.responseText);
+}
+
 function handle(files) {
     var u = new Uploader('/');
+    u.onrequest = on_request;
     var file = files[0];
     u.upload(file);
 }
+
 </script>
 </head>
 <body>
