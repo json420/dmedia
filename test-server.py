@@ -130,9 +130,31 @@ class App(BaseWSGI):
         return body
 
 
+index = """<!DOCTYPE html>
+<html>
+<head>
+<title>HTML5 File upload test</title>
+<script type="text/javascript" src="uploader.js"></script>
+<script type="text/javascript">
+function handle(files) {
+    var u = new Uploader('/');
+    var file = files[0];
+    u.upload(file);
+}
+</script>
+</head>
+<body>
+<form>
+<input type="file" id="file" onchange="handle(this.files)" />
+</form>
+<div id="log"></div>
+</body>
+</html>"""
+
+
 data = {
     '/': (
-        load_datafile('uploader.html'),
+        index,
         'text/html; charset=UTF-8'
     ),
     '/uploader.js': (

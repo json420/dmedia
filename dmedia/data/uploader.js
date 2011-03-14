@@ -223,40 +223,11 @@ function b32_sha1(s) {
     return b32encode(str_sha1(s));
 }
 
-function on_progress(completed, total) {
-    var p = parseInt(completed / total * 100);
-    document.getElementById('progress').textContent = 'Hashing: ' + p + '% ' + completed + ' of ' + total + ' bytes';
-}
-
-function handle(files) {
-    var display = document.getElementById('display');
-    display.innerHTML = '';
-
-    function addpre(text) {
-        var pre = document.createElement('pre');
-        pre.textContent = text;
-        display.appendChild(pre);
-    };
-
-    var file = files[0];
-    addpre('name = ' + file.name);
-    addpre('size = ' + file.size);
-    addpre('mime = ' + file.type);
-
-    var h = new HashList(file);
-    h.addEvent('progress', on_progress);
-    h.addEvent('complete', function(chash) {
-        addpre(h.seconds() + ' seconds');
-        addpre('chash = ' + chash);
-        addpre(JSON.stringify(h.info()));
-    });
-    h.run();
-};
-
 
 function quick_id(size, chunk) {
     return b32_sha1(size.toString() + chunk);
 }
+
 
 // FIXME: remove, for testing only
 function log() {
@@ -491,10 +462,3 @@ Uploader.prototype = {
         this.fireEvent('progress', [completed, this.file.size]);
         */
 }
-
-
-function handle(files) {
-    var u = new Uploader('/');
-    var file = files[0];
-    u.upload(file);
-};
