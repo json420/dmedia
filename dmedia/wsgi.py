@@ -257,3 +257,65 @@ look like this:
         {"quick_id": "GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN"}
 
 """
+
+
+class HTTPError(Exception):
+    def __init__(self, body=b'', headers=None):
+        self.body = body
+        self.headers = ([] if headers is None else headers)
+        super(HTTPError, self).__init__(self.status)
+
+
+class BadRequest(HTTPError):
+    status = '400 Bad Request'
+
+
+class NotFound(HTTPError):
+    status = '404 Not Found'
+
+
+class MethodNotAllowed(HTTPError):
+    status = '405 Method Not Allowed'
+
+
+class Conflict(HTTPError):
+    status = '409 Conflict'
+
+
+class LengthRequired(HTTPError):
+    status = '411 Length Required'
+
+
+class PreconditionFailed(HTTPError):
+    status = '412 Precondition Failed'
+
+
+class UnsupportedMediaType(HTTPError):
+    status = '415 Unsupported Media Type'
+
+
+def http_method(method):
+    method.http_method = True
+    return method
+
+
+def read_input(environ):
+    try:
+        length = int(environ.get('CONTENT_LENGTH', ''))
+    except ValueError:
+        raise LengthRequired()
+    return environ['wsgi.input'].read(length)
+
+
+class BaseWSGI(object):
+    def __call__(self, environ, start_response):
+        try:
+            name = environ['REQUEST_METHOD']
+            method = getattr(self, name, None)
+            if callable(method) and getattr(method, 'http_method', False):
+                return method(environ, start_response)
+            else:
+                raise MethodNotAllowed()
+        except HTTPError as e:
+            start_response(e.status, e.headers)
+            return e.body

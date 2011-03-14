@@ -8,23 +8,19 @@ from base64 import b32encode
 import random
 
 from dmedia.ui import load_datafile
+from dmedia.wsgi import *
 
 LEAF_SIZE = 8 * 2**20  # 8 MiB
 
-def read_input(environ):
-    try:
-        length = int(environ.get('CONTENT_LENGTH'))
-    except ValueError:
-        return ''
-    return environ['wsgi.input'].read(length)
 
 
 def b32_sha1(chunk):
     return b32encode(sha1(chunk).digest())
 
 
-class App(object):
+class App(BaseWSGI):
     def __init__(self, data):
+        super(App, self).__init__()
         self.data = data
         self.sessions = {}
 
@@ -48,81 +44,74 @@ class App(object):
         d['leaf_size'] = LEAF_SIZE
         return d
 
-    def get(self, obj):
-        return deepcopy(self.sessions[self.key(obj)])
+    def get_session(self, quick_id):
+        if random.randint(0, 3) == 0:
+            self.sessions.pop(quick_id, None)
+        try:
+            return self.sessions[quick_id]
+        except KeyError:
+            raise Conflict()
 
-    def __call__(self, environ, start_response):
-        method = environ['REQUEST_METHOD']
-        if method not in ('GET', 'POST', 'PUT'):
-            start_response('405 Method Not Allowed', [])
-            return ''
+    @http_method
+    def GET(self, environ, start_response):
         path_info = environ['PATH_INFO']
+        try:
+            (body, mime) = self.data[path_info]
+        except KeyError:
+            raise NotFound()
+        headers = [
+            ('Content-Type', mime),
+            ('Content-Length', str(len(body)).encode('utf-8'))
+        ]
+        start_response('200 OK', headers)
+        return body
 
-        if method == 'GET':
-            try:
-                (body, mime) = self.data[path_info]
-            except KeyError:
-                start_response('404 Not Found', [])
-                return ''
-            headers = [
-                ('Content-Type', mime),
-                ('Content-Length', str(len(body)).encode('utf-8'))
-            ]
-            start_response('200 OK', headers)
-            return body
+    @http_method
+    def POST(self, environ, start_response):
+        if environ.get('CONTENT_TYPE') != 'application/json; charset=UTF-8':
+            raise UnsupportedMediaType()
+        path_info = environ['PATH_INFO']
+        obj = json.loads(read_input(environ))
+        print obj
+        if path_info == '/':
+            d = self.init(obj)
+            return self.json(d, environ, start_response)
+        m = re.match('/([A-Z0-9]{32})$', path_info)
+        if m:
+            quick_id = m.group(1)
+            session = self.get_session(quick_id)
+            return self.json(session, environ, start_response)
+        raise BadRequest()
 
-        if environ.get('HTTP_ACCEPT') != 'application/json':
-            start_response('406 Not Acceptable', [])
-            return ''
-        content_type = environ.get('CONTENT_TYPE')
-
-        if method == 'POST' and content_type.startswith('application/json'):
-            obj = json.loads(read_input(environ))
-            print obj
-            if path_info == '/':
-                d = self.init(obj)
-                return self.json(d, environ, start_response)
-            m = re.match('/([A-Z0-9]{32})$', path_info)
-            if m:
-                quick_id = m.group(1)
-                try:
-                    d = self.sessions[quick_id]
-                except KeyError:
-                    start_response('409 Conflict', [])
-                    return ''
-                return self.json(d, environ, start_response)
-
-        elif method == 'PUT' and content_type == 'application/octet-stream':
-            m = re.match('/([A-Z0-9]{32})/(\d+)$', path_info)
-            if m:
-                quick_id = m.group(1)
-                try:
-                    session = self.sessions[quick_id]
-                except KeyError:
-                    start_response('409 Conflict', [])
-                    return ''
-                i = int(m.group(2))
-                chash = environ.get('HTTP_X_DMEDIA_CHASH')
-                leaf = read_input(environ)
-                if random.randint(0, 1) == 1:
-                    leaf += b'corruption'
-                got = b32_sha1(leaf)
-                d = {
-                    'quick_id': quick_id,
-                    'index': i,
-                    'received': got,
-                }
-                if got == chash:
-                    session['leaves'][i] = chash
-                    return self.json(d, environ, start_response)
-                else:
-                    d['expected'] = chash
-                    return self.json(d, environ, start_response,
-                        '412 Precondition Failed'
-                    )
-
-        start_response('400 Bad Request', [])
-        return ''
+    @http_method
+    def PUT(self, environ, start_response):
+        if environ.get('CONTENT_TYPE') != 'application/octet-stream':
+            raise UnsupportedMediaType()
+        path_info = environ['PATH_INFO']
+        m = re.match('/([A-Z0-9]{32})/(\d+)$', path_info)
+        if not m:
+            raise BadRequest()
+        quick_id = m.group(1)
+        session = self.get_session(quick_id)
+        i = int(m.group(2))
+        chash = environ.get('HTTP_X_DMEDIA_CHASH')
+        leaf = read_input(environ)
+        if random.randint(0, 1) == 1:
+            leaf += b'corruption'
+        got = b32_sha1(leaf)
+        d = {
+            'quick_id': quick_id,
+            'index': i,
+            'received': got,
+        }
+        if got == chash:
+            session['leaves'][i] = chash
+            return self.json(d, environ, start_response)
+        else:
+            d['expected'] = chash
+            return self.json(d, environ, start_response,
+                '412 Precondition Failed'
+            )
 
     def json(self, d, environ, start_response, status='201 Created'):
         body = json.dumps(d, sort_keys=True, indent=4)

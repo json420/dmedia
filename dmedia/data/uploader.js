@@ -299,7 +299,10 @@ var Uploader = new Class({
         obj['bytes'] = this.file.size;
         this.new_request();
         this.request.open('POST', this.url(quick_id), true);
-        this.request.setRequestHeader('Content-Type', 'application/json');
+        this.request.setRequestHeader(
+            'Content-Type',
+            'application/json; charset=UTF-8'
+        );
         this.request.setRequestHeader('Accept', 'application/json');
         this.request.send(JSON.stringify(obj));
     },
@@ -360,6 +363,7 @@ var Uploader = new Class({
         log(this.request.responseText);
         if (this.request.status == 409) {
             // Server lost track of upload, we need to start over:
+            log('Session lost, restarting...');
             this.i = null;
             this.retry();
             return;
