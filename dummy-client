@@ -23,22 +23,18 @@
 
 import sys
 
-import gi
-gi.require_version('Gtk', '2.0')
-from gi.repository import Gtk, WebKit, GObject
+import gtk
+import webkit
 
-
-GObject.threads_init()
-
-window = Gtk.Window()
+window = gtk.Window()
 window.set_title('test')
 window.set_default_size(800, 450)
-window.connect('destroy', Gtk.main_quit)
+window.connect('destroy', gtk.main_quit)
 
-view = WebKit.WebView()
+view = webkit.WebView()
 window.add(view)
 
 view.load_uri(sys.argv[1])
 
 #window.show_all()
-Gtk.main()
+gtk.main()
