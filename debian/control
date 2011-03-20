@@ -11,7 +11,7 @@ Package: dmedia
 Architecture: all
 XB-Python-Version: ${python:Versions}
 Depends: ${misc:Depends}, ${python:Depends},
- python-desktopcouch-records,
+ desktopcouch,
  python-couchdb (>= 0.8),
  totem,
  libimage-exiftool-perl,
