@@ -25,7 +25,7 @@ GStreamer-based transcoder.
 
 import logging
 
-import gobject
+from gi.repository import GObject
 import gst
 
 from .constants import TYPE_ERROR
@@ -155,7 +155,7 @@ class Transcoder(object):
         self.src_fp = self.fs.open(src['id'], src.get('ext'))
         self.dst_fp = self.fs.allocate_for_write(job.get('ext'))
 
-        self.mainloop = gobject.MainLoop()
+        self.mainloop = GObject.MainLoop()
         self.pipeline = gst.Pipeline()
 
         # Create bus and connect several handlers

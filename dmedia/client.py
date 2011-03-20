@@ -25,8 +25,8 @@ Convenience wrapper for Python applications talking to dmedia dbus service.
 
 import dbus
 import dbus.mainloop.glib
-import gobject
-from gobject import TYPE_PYOBJECT
+from gi.repository import GObject
+from gi.repository.GObject import TYPE_PYOBJECT
 from .constants import BUS, INTERFACE, EXTENSIONS
 
 
@@ -34,7 +34,7 @@ from .constants import BUS, INTERFACE, EXTENSIONS
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 
-class Client(gobject.GObject):
+class Client(GObject.GObject):
     """
     Simple and Pythonic way to control dmedia dbus service.
 
@@ -47,7 +47,7 @@ class Client(gobject.GObject):
       2. More Pythonic API, including default argument values where they make
          sense
 
-      3. Can use convenient gobject signals
+      3. Can use convenient GObject signals
 
     Controlling import operations
     =============================
@@ -99,23 +99,23 @@ class Client(gobject.GObject):
     """
 
     __gsignals__ = {
-        'batch_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'batch_started': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
-        'batch_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'batch_finished': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
-        'import_started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'import_started': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
-        'import_count': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'import_count': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
-        'import_progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'import_progress': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT,
             TYPE_PYOBJECT]
         ),
-        'import_finished': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'import_finished': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
     }

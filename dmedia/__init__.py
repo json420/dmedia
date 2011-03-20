@@ -37,6 +37,15 @@ import os
 from os import path
 
 
+try:
+    import gi
+    gi.require_version('Gtk', '2.0')
+    from gi.repository import Gtk
+except ImportError:
+    pass
+
+
+
 packagedir = path.dirname(path.abspath(__file__))
 assert path.isdir(packagedir)
 datadir = path.join(packagedir, 'data')

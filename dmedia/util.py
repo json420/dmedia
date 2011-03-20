@@ -31,7 +31,7 @@ from gettext import gettext as _
 from gettext import ngettext
 import logging
 import xdg.BaseDirectory
-import gobject
+from gi.repository import GObject
 from .constants import TYPE_ERROR, CALLABLE_ERROR
 
 try:
@@ -294,7 +294,7 @@ class Timer(object):
     def start(self):
         if self.__timeout_id is not None:
             return False
-        self.__timeout_id = gobject.timeout_add(
+        self.__timeout_id = GObject.timeout_add(
             int(self.seconds * 1000),
             self.__on_timeout
         )
@@ -303,7 +303,7 @@ class Timer(object):
     def stop(self):
         if self.__timeout_id is None:
             return False
-        gobject.source_remove(self.__timeout_id)
+        GObject.source_remove(self.__timeout_id)
         self.__timeout_id = None
         return True
 

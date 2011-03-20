@@ -30,7 +30,7 @@ import time
 
 import dbus
 from dbus.proxies import ProxyObject
-import gobject
+from gi.repository import GObject
 
 import dmedia
 from dmedia import client, service
@@ -185,7 +185,7 @@ class test_Client(CouchCase):
             'import_finished',
             'batch_finished',
         )
-        mainloop = gobject.MainLoop()
+        mainloop = GObject.MainLoop()
         signals.handlers['batch_finished'].callback = mainloop.quit
 
         tmp = TempDir()
