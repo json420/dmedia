@@ -44,18 +44,7 @@ DummyRequest.prototype = {
 }
 
 
-py.test_stuff = function() {
-    py.assertEqual(
-        couch.stuff(),
-        'Woot!'
-    );
-}
-
-py.test_junk = function() {
-    py.assertEqual(couch.awesome('Akshat'), 'Akshat is awesome!');
-    py.assertEqual(couch.awesome('CouchDB'), 'CouchDB is awesome!');
-}
-
+// couch.CouchBase()
 py.test_init = function() {
     // Test default url value
     var inst = new couch.CouchBase();
@@ -66,6 +55,8 @@ py.test_init = function() {
     py.assertEqual(inst.url, '/foo/');
 }
 
+
+// couch.CouchBase.path()
 py.test_path = function() {
     var inst = new couch.CouchBase('/foo/');
 
@@ -121,6 +112,85 @@ py.test_path = function() {
     py.assertEqual(
         inst.path(['bar', 'baz'], options),
         '/foo/bar/baz?ok=true&rev=1-3e81'
+    );
+}
+
+
+// couch.CouchBase.request()
+py.test_request = function() {
+    var inst = new couch.CouchBase('/', DummyRequest);
+
+    py.assertEqual(
+        inst.request('GET', null, 'mydb'),
+        responseObj
+    );
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'GET', '/mydb', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send'],
+            ['getResponseHeader', 'Content-Type'],
+        ]
+    );
+
+    inst.request('GET', null, ['mydb', 'mydoc']);
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'GET', '/mydb/mydoc', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send'],
+            ['getResponseHeader', 'Content-Type'],
+        ]
+    );
+
+    inst.request('GET', null, ['mydb', 'mydoc'], {'rev': '1-foo'});
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'GET', '/mydb/mydoc?rev=1-foo', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send'],
+            ['getResponseHeader', 'Content-Type'],
+        ]
+    );
+
+    inst.request('POST', null, ['mydb', '_compact']);
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'POST', '/mydb/_compact', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send'],
+            ['getResponseHeader', 'Content-Type'],
+        ]
+    );
+
+    inst.request('PUT', null, 'mydb');
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'PUT', '/mydb', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send'],
+            ['getResponseHeader', 'Content-Type'],
+        ]
+    );
+
+    var doc = {'foo': 'bar', 'ok': 17};
+    inst.request('PUT', doc, ['mydb', 'mydoc']);
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'PUT', '/mydb/mydoc', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send', JSON.stringify(doc)],
+            ['getResponseHeader', 'Content-Type'],
+        ]
     );
 }
 
@@ -404,85 +474,4 @@ py.test_delete = function() {
     }
     py.assertEqual(i * 1, perms.parts.length - 1);
     py.assertEqual(j * 1, perms.options.length - 1);
-}
-
-
-// couch.CouchBase.request()
-py.test_request = function() {
-    var inst = new couch.CouchBase('/', DummyRequest);
-
-    py.assertEqual(
-        inst.request('GET', null, 'mydb'),
-        responseObj
-    );
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'GET', '/mydb', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['send'],
-            ['getResponseHeader', 'Content-Type'],
-        ]
-    );
-
-    inst.request('GET', null, ['mydb', 'mydoc']);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'GET', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['send'],
-            ['getResponseHeader', 'Content-Type'],
-        ]
-    );
-
-    inst.request('GET', null, ['mydb', 'mydoc'], {'rev': '1-foo'});
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'GET', '/mydb/mydoc?rev=1-foo', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['send'],
-            ['getResponseHeader', 'Content-Type'],
-        ]
-    );
-
-    inst.request('POST', null, ['mydb', '_compact']);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/_compact', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-            ['getResponseHeader', 'Content-Type'],
-        ]
-    );
-
-    inst.request('PUT', null, 'mydb');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-            ['getResponseHeader', 'Content-Type'],
-        ]
-    );
-
-    var doc = {'foo': 'bar', 'ok': 17};
-    inst.request('PUT', doc, ['mydb', 'mydoc']);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-            ['getResponseHeader', 'Content-Type'],
-        ]
-    );
-
-
 }
