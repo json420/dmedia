@@ -123,6 +123,10 @@ couch.CouchBase.prototype = {
         else {
             this.req.send();
         }
+        var mime = this.req.getResponseHeader('Content-Type');
+        if (mime == 'application/json') {
+            return JSON.parse(this.req.responseText);
+        }
     },
 
 }

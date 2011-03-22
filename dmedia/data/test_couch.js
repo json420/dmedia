@@ -1,3 +1,22 @@
+var perms = {
+    parts: [
+        [null, ''],
+        ['foo', 'foo'],
+        [['foo'], 'foo'],
+        [['foo', 'bar'], 'foo/bar'],
+        ['foo/bar', 'foo/bar'],
+    ],
+
+    options: [
+        [null, ''],
+        [{batch: true}, '?batch=true'],
+        [{rev: '1-blah', ok: 17}, '?ok=17&rev=1-blah'],
+        [{ok: 17, rev: '1-blah'}, '?ok=17&rev=1-blah'],
+    ],
+}
+
+var responseObj = {ok: true, id: 'woot', rev: '1-blah'};
+
 function DummyRequest() {
         this.calls = [];
         var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
@@ -12,6 +31,16 @@ function DummyRequest() {
             }
             this[method] = f;
         }, this);
+}
+DummyRequest.prototype = {
+    getResponseHeader: function(key) {
+        this.calls.push(['getResponseHeader', key]);
+        if (key == 'Content-Type') {
+            return 'application/json';
+        }
+    },
+
+    responseText: JSON.stringify(responseObj),
 }
 
 
@@ -99,472 +128,180 @@ py.test_path = function() {
 // couch.CouchBase.post()
 py.test_post = function() {
     var doc = {'foo': 'bar', 'ok': 17};
-    options = {be: 17, aye: true}
+    var server = new couch.CouchBase('/', DummyRequest);
+    var database = new couch.CouchBase('/aye/', DummyRequest);
 
-    // Test relative to server with obj=null
-    var inst = new couch.CouchBase('/', DummyRequest);
+    for (i in perms.parts) {
+        var p = perms.parts[i];
+        for (j in perms.options) {
+            var o = perms.options[j];
 
-    inst.post();
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            //////////////
+            // Test server
+            var url = ('/' + p[1] + o[1]);
 
-    inst.post(null, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=null
+            py.assertEqual(
+                server.post(null, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                server.req.calls,
+                [
+                    ['open', 'POST', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send'],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-    inst.post(null, 'mydb');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=doc
+            py.assertEqual(
+                server.post(doc, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                server.req.calls,
+                [
+                    ['open', 'POST', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send', JSON.stringify(doc)],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-    inst.post(null, 'mydb', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            ////////////////
+            // Test database
+            var url = ('/aye/' + p[1] + o[1]);
 
-    inst.post(null, ['mydb', 'mydoc']);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=null
+            py.assertEqual(
+                database.post(null, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                database.req.calls,
+                [
+                    ['open', 'POST', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send'],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-    inst.post(null, ['mydb', 'mydoc'], options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=doc
+            py.assertEqual(
+                database.post(doc, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                database.req.calls,
+                [
+                    ['open', 'POST', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send', JSON.stringify(doc)],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-
-    // Test relative to server with obj=doc
-    inst.post(doc);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, 'mydb');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, 'mydb', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, ['mydb', 'mydoc']);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, ['mydb', 'mydoc'], options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    // Test relative to database with obj=null
-    var inst = new couch.CouchBase('/mydb/', DummyRequest);
-
-    inst.post();
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    inst.post(null, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    inst.post(null, 'mydoc');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    inst.post(null, 'mydoc', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    // Test relative to server with obj=doc
-    inst.post(doc);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, 'mydoc');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.post(doc, 'mydoc', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'POST', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
+        }
+    }
+    py.assertEqual(i * 1, perms.parts.length - 1);
+    py.assertEqual(j * 1, perms.options.length - 1);
 }
 
 
 // couch.CouchBase.put()
 py.test_put = function() {
     var doc = {'foo': 'bar', 'ok': 17};
-    options = {be: 17, aye: true}
+    var server = new couch.CouchBase('/', DummyRequest);
+    var database = new couch.CouchBase('/aye/', DummyRequest);
 
-    // Test relative to server with obj=null
-    var inst = new couch.CouchBase('/', DummyRequest);
+    for (i in perms.parts) {
+        var p = perms.parts[i];
+        for (j in perms.options) {
+            var o = perms.options[j];
 
-    inst.put();
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            //////////////
+            // Test server
+            var url = ('/' + p[1] + o[1]);
 
-    inst.put(null, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=null
+            py.assertEqual(
+                server.put(null, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                server.req.calls,
+                [
+                    ['open', 'PUT', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send'],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-    inst.put(null, 'mydb');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=doc
+            py.assertEqual(
+                server.put(doc, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                server.req.calls,
+                [
+                    ['open', 'PUT', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send', JSON.stringify(doc)],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-    inst.put(null, 'mydb', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            ////////////////
+            // Test database
+            var url = ('/aye/' + p[1] + o[1]);
 
-    inst.put(null, ['mydb', 'mydoc']);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=null
+            py.assertEqual(
+                database.put(null, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                database.req.calls,
+                [
+                    ['open', 'PUT', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send'],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-    inst.put(null, ['mydb', 'mydoc'], options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
+            // Test with obj=doc
+            py.assertEqual(
+                database.put(doc, p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                database.req.calls,
+                [
+                    ['open', 'PUT', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['setRequestHeader', 'Content-Type', 'application/json'],
+                    ['send', JSON.stringify(doc)],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
 
-
-    // Test relative to server with obj=doc
-    inst.put(doc);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, 'mydb');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, 'mydb', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, ['mydb', 'mydoc']);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, ['mydb', 'mydoc'], options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    // Test relative to database with obj=null
-    var inst = new couch.CouchBase('/mydb/', DummyRequest);
-
-    inst.put();
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    inst.put(null, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    inst.put(null, 'mydoc');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    inst.put(null, 'mydoc', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send'],
-        ]
-    );
-
-    // Test relative to server with obj=doc
-    inst.put(doc);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, '', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, 'mydoc');
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
-
-    inst.put(doc, 'mydoc', options);
-    py.assertEqual(
-        inst.req.calls,
-        [
-            ['open', 'PUT', '/mydb/mydoc?aye=true&be=17', false],
-            ['setRequestHeader', 'Accept', 'application/json'],
-            ['setRequestHeader', 'Content-Type', 'application/json'],
-            ['send', JSON.stringify(doc)],
-        ]
-    );
+        }
+    }
+    py.assertEqual(i * 1, perms.parts.length - 1);
+    py.assertEqual(j * 1, perms.options.length - 1);
 }
 
 
@@ -572,13 +309,17 @@ py.test_put = function() {
 py.test_request = function() {
     var inst = new couch.CouchBase('/', DummyRequest);
 
-    inst.request('GET', null, 'mydb');
+    py.assertEqual(
+        inst.request('GET', null, 'mydb'),
+        responseObj
+    );
     py.assertEqual(
         inst.req.calls,
         [
             ['open', 'GET', '/mydb', false],
             ['setRequestHeader', 'Accept', 'application/json'],
             ['send'],
+            ['getResponseHeader', 'Content-Type'],
         ]
     );
 
@@ -589,6 +330,7 @@ py.test_request = function() {
             ['open', 'GET', '/mydb/mydoc', false],
             ['setRequestHeader', 'Accept', 'application/json'],
             ['send'],
+            ['getResponseHeader', 'Content-Type'],
         ]
     );
 
@@ -599,6 +341,7 @@ py.test_request = function() {
             ['open', 'GET', '/mydb/mydoc?rev=1-foo', false],
             ['setRequestHeader', 'Accept', 'application/json'],
             ['send'],
+            ['getResponseHeader', 'Content-Type'],
         ]
     );
 
@@ -610,6 +353,7 @@ py.test_request = function() {
             ['setRequestHeader', 'Accept', 'application/json'],
             ['setRequestHeader', 'Content-Type', 'application/json'],
             ['send'],
+            ['getResponseHeader', 'Content-Type'],
         ]
     );
 
@@ -621,6 +365,7 @@ py.test_request = function() {
             ['setRequestHeader', 'Accept', 'application/json'],
             ['setRequestHeader', 'Content-Type', 'application/json'],
             ['send'],
+            ['getResponseHeader', 'Content-Type'],
         ]
     );
 
@@ -633,6 +378,7 @@ py.test_request = function() {
             ['setRequestHeader', 'Accept', 'application/json'],
             ['setRequestHeader', 'Content-Type', 'application/json'],
             ['send', JSON.stringify(doc)],
+            ['getResponseHeader', 'Content-Type'],
         ]
     );
 
