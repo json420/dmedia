@@ -59,6 +59,9 @@ class TestCouch(JSTestCase):
     def test_get(self):
         self.run_js()
 
+    def test_delete(self):
+        self.run_js()
+
     def test_path(self):
         self.run_js()
 

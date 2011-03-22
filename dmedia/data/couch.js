@@ -80,6 +80,16 @@ couch.CouchBase.prototype = {
     },
 
     delete: function(parts, options) {
+        /*
+        Do a DELETE request.
+
+        Examples:
+
+        var cb = new couch.CouchBase('/');
+        cb.delete(['foo', 'bar', 'baz'], {rev: '1-blah'});  # delete attachment
+        cb.delete(['foo', 'bar'], {rev: '2-flop'});  # delete doc
+        cb.delete('foo');  # delete database
+        */
         return this.request('DELETE', null, parts, options);
     },
 
