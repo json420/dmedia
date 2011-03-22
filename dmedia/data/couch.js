@@ -25,39 +25,28 @@ couch.awesome = function(person) {
 }
 
 // microfiber.CouchBase
-couch.CouchBase = function(url) {
+couch.CouchBase = function(url, Request) {
     this.url = url || '/';
     if (this.url[this.url.length - 1] != '/') {
         this.url = this.url + '/';
     }
+    this.Request = Request || XMLHttpRequest;
 }
 couch.CouchBase.prototype = {
     post: function(obj, parts, options) {
-
+        return this.request('POST', obj, parts, options);
     },
 
     put: function(obj, parts, options) {
-
+        return this.request('PUT', obj, parts, options);
     },
 
     get: function(parts, options) {
-
+        return this.request('GET', null, parts, options);
     },
 
     delete: function(parts, options) {
-
-    },
-
-    head: function(parts, options) {
-
-    },
-
-    put_att: function(mime, data, parts, options) {
-
-    },
-
-    get_att: function(parts, options) {
-
+        return this.request('DELETE', null, parts, options);
     },
 
     path: function(parts, options) {
@@ -96,6 +85,22 @@ couch.CouchBase.prototype = {
             return url + '?' + query.join('&');
         }
         return url;
-   },
+    },
+
+    request: function(method, obj, parts, options) {
+        var url = this.path(parts, options);
+        this.req = new this.Request();
+        this.req.open(method, url, false);
+        this.req.setRequestHeader('Accept', 'application/json');
+        if (method == 'POST' || method == 'PUT') {
+            this.req.setRequestHeader('Content-Type', 'application/json');
+        }
+        if (obj) {
+            this.req.send(JSON.stringify(obj));
+        }
+        else {
+            this.req.send();
+        }
+    },
 
 }

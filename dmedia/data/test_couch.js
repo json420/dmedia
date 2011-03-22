@@ -1,3 +1,20 @@
+function DummyRequest() {
+        this.calls = [];
+        var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
+        methods.forEach(function(method) {
+            var f = function() {
+                var args = Array.prototype.slice.call(arguments);
+                args.unshift(method);
+                this.calls.push(args);
+            };
+            if (f.bind) {
+                var f = f.bind(this);
+            }
+            this[method] = f;
+        }, this);
+}
+
+
 py.test_stuff = function() {
     py.assertEqual(
         couch.stuff(),
@@ -76,4 +93,73 @@ py.test_path = function() {
         inst.path(['bar', 'baz'], options),
         '/foo/bar/baz?ok=true&rev=1-3e81'
     );
+}
+
+py.test_request = function() {
+    var inst = new couch.CouchBase('/', DummyRequest);
+
+    inst.request('GET', null, 'mydb');
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'GET', '/mydb', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send'],
+        ]
+    );
+
+    inst.request('GET', null, ['mydb', 'mydoc']);
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'GET', '/mydb/mydoc', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send'],
+        ]
+    );
+
+    inst.request('GET', null, ['mydb', 'mydoc'], {'rev': '1-foo'});
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'GET', '/mydb/mydoc?rev=1-foo', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send'],
+        ]
+    );
+
+    inst.request('POST', null, ['mydb', '_compact']);
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'POST', '/mydb/_compact', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send'],
+        ]
+    );
+
+    inst.request('PUT', null, 'mydb');
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'PUT', '/mydb', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send'],
+        ]
+    );
+
+    var doc = {'foo': 'bar', 'ok': 17};
+    inst.request('PUT', doc, ['mydb', 'mydoc']);
+    py.assertEqual(
+        inst.req.calls,
+        [
+            ['open', 'PUT', '/mydb/mydoc', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send', JSON.stringify(doc)],
+        ]
+    );
+
 }
