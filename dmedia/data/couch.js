@@ -64,6 +64,18 @@ couch.CouchBase.prototype = {
     },
 
     get: function(parts, options) {
+        /*
+        Do a GET request.
+
+        Examples:
+
+        var cb = new couch.CouchBase('/');
+        cb.get();  # info about server
+        cb.get('foo');  # info about db /foo
+        cb.get(['foo', 'bar']);  # get doc /foo/bar
+        cb.get(['foo', 'bar'], {attachments: true});  # include attachments
+        cb.get(['foo', 'bar', 'baz']);  # get attachment /foo/bar/baz
+        */
         return this.request('GET', null, parts, options);
     },
 

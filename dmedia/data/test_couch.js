@@ -305,6 +305,57 @@ py.test_put = function() {
 }
 
 
+// couch.CouchBase.get()
+py.test_get = function() {
+    var server = new couch.CouchBase('/', DummyRequest);
+    var database = new couch.CouchBase('/aye/', DummyRequest);
+
+    for (i in perms.parts) {
+        var p = perms.parts[i];
+        for (j in perms.options) {
+            var o = perms.options[j];
+
+            //////////////
+            // Test server
+            var url = ('/' + p[1] + o[1]);
+            py.assertEqual(
+                server.get(p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                server.req.calls,
+                [
+                    ['open', 'GET', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['send'],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
+
+            ////////////////
+            // Test database
+            var url = ('/aye/' + p[1] + o[1]);
+            py.assertEqual(
+                database.get(p[0], o[0]),
+                responseObj
+            );
+            py.assertEqual(
+                database.req.calls,
+                [
+                    ['open', 'GET', url, false],
+                    ['setRequestHeader', 'Accept', 'application/json'],
+                    ['send'],
+                    ['getResponseHeader', 'Content-Type'],
+                ]
+            );
+
+        }
+    }
+    py.assertEqual(i * 1, perms.parts.length - 1);
+    py.assertEqual(j * 1, perms.options.length - 1);
+}
+
+
 // couch.CouchBase.request()
 py.test_request = function() {
     var inst = new couch.CouchBase('/', DummyRequest);
