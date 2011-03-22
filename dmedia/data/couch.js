@@ -26,7 +26,10 @@ couch.awesome = function(person) {
 
 // microfiber.CouchBase
 couch.CouchBase = function(url) {
-    this.url = url;
+    this.url = url || '/';
+    if (this.url[this.url.length - 1] != '/') {
+        this.url = this.url + '/';
+    }
 }
 couch.CouchBase.prototype = {
     post: function(obj, parts, options) {
@@ -56,4 +59,43 @@ couch.CouchBase.prototype = {
     get_att: function(parts, options) {
 
     },
+
+    path: function(parts, options) {
+        /*
+        Construct a URL relative to this.url.
+
+        Examples:
+
+        var inst = new couch.CouchBase('/foo/');
+        inst.parts() => '/foo/'
+        inst.parts('bar') => '/foo/bar'
+        inst.parts(['bar', 'baz']) => '/foo/bar/baz'
+        */
+        if (!parts) {
+            var url = this.url;
+        }
+        else if (typeof parts == 'string') {
+            var url = this.url + parts;
+        }
+        else {
+            var url = this.url + parts.join('/');
+        }
+        if (options) {
+            var keys = [];
+            for (key in options) {
+                keys.push(key);
+            }
+            keys.sort();
+            var query = [];
+            keys.forEach(function(key) {
+                var value = options[key];
+                query.push(
+                    encodeURIComponent(key) + '=' + encodeURIComponent(value)
+                );
+            });
+            return url + '?' + query.join('&');
+        }
+        return url;
+   },
+
 }

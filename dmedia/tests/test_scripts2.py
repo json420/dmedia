@@ -44,5 +44,11 @@ class TestCouch(JSTestCase):
     def test_junk(self):
         """
         Same as above
-        """         
+        """
+        self.run_js()
+
+    def test_init(self):
+        self.run_js()
+
+    def test_path(self):
         self.run_js()
