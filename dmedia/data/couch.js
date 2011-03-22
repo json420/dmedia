@@ -34,10 +34,32 @@ couch.CouchBase = function(url, Request) {
 }
 couch.CouchBase.prototype = {
     post: function(obj, parts, options) {
+        /*
+        Do a POST request.
+
+        Examples:
+
+        var cb = new couch.CouchBase('/');
+        cb.post(null, ['foo', '_compact']);  # compact db /foo
+        cb.post({_id: 'bar'}, 'foo');  # create doc /foo/bar
+        cb.post({_id: 'baz'}, 'foo', {batch: true});  # with query option
+
+        */
         return this.request('POST', obj, parts, options);
     },
 
     put: function(obj, parts, options) {
+        /*
+        Do a PUT request.
+
+        Examples:
+
+        var cb = new couch.CouchBase('/');
+        cb.put(null, 'foo');  # create db /foo
+        cb.put({hello: 'world'}, ['foo', 'bar']);  # create doc /foo/bar
+        cb.put({a: 1}, ['foo', 'baz'], {batch: true});  # with query option
+
+        */
         return this.request('PUT', obj, parts, options);
     },
 

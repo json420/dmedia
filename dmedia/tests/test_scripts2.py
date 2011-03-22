@@ -53,6 +53,9 @@ class TestCouch(JSTestCase):
     def test_post(self):
         self.run_js()
 
+    def test_put(self):
+        self.run_js()
+
     def test_path(self):
         self.run_js()
 
