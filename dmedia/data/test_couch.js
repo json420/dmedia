@@ -213,6 +213,144 @@ py.test_request = function() {
             ['getResponseHeader', 'Content-Type'],
         ]
     );
+
+    //////////////////////////
+    // Test exception throwing
+    var inst = new couch.CouchBase('/', dummy_request(400));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'BadRequest');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(401));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'Unauthorized');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(402));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {  // No specific 402 error, so generic 4xx ClientError is thrown
+        py.assertEqual(e, 'ClientError');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(403));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'Forbidden');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(404));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'NotFound');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(405));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'MethodNotAllowed');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(406));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'NotAcceptable');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(409));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'Conflict');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(412));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'PreconditionFailed');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(415));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'BadContentType');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(416));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'BadRangeRequest');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(417));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'ExpectationFailed');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(499));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {  // No specific 499 error, so generic 4xx ClientError is thrown
+        py.assertEqual(e, 'ClientError');
+    }
+
+    // Any 5xx status is thrown as generic ServerError
+    var inst = new couch.CouchBase('/', dummy_request(500));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'ServerError');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(569));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'ServerError');
+    }
 }
 
 
