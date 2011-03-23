@@ -151,6 +151,9 @@ couch.Server = function(url, Request) {
 }
 couch.Server.prototype = {
     database: function(name) {
+        /*
+        Return a new couch.Database whose base url is this.url + name.
+        */
         return new couch.Database(this.url + name, this.Request);
     },
 }
@@ -163,7 +166,10 @@ couch.Database = function(url, Request) {
 }
 couch.Database.prototype = {
     save: function(doc) {
-
+        var r = this.post(doc);
+        doc['_rev'] = r['rev'];
+        doc['_id'] = r['id'];
+        return r;
     },
 
     bulksave: function(docs) {

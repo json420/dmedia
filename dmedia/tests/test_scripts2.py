@@ -55,3 +55,6 @@ class TestCouch(JSTestCase):
 
     def test_database(self):
         self.run_js()
+
+    def test_save(self):
+        self.run_js()

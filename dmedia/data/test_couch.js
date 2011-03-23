@@ -486,3 +486,30 @@ py.test_database = function() {
     py.assertEqual(db.url, '/mydb/');
     py.assertTrue(db.Request == DummyRequest);
 }
+
+
+// couch.Database.save():
+py.test_save = function() {
+    var db = new couch.Database('/mydb/', DummyRequest);
+    var doc = {'foo': 'bar'};
+    var data = JSON.stringify(doc);
+
+    py.assertEqual(
+        db.save(doc),
+        {'ok': true, 'id': 'woot', 'rev': '1-blah'}
+    );
+    py.assertEqual(
+        db.req.calls,
+        [
+            ['open', 'POST', '/mydb/', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send', data],
+            ['getResponseHeader', 'Content-Type'],
+        ]
+    );
+    py.assertEqual(
+        doc,
+        {'_id': 'woot', '_rev': '1-blah', 'foo': 'bar'}
+    );
+}
