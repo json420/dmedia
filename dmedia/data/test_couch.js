@@ -513,3 +513,70 @@ py.test_save = function() {
         {'_id': 'woot', '_rev': '1-blah', 'foo': 'bar'}
     );
 }
+
+
+// couch.Database.save():
+py.test_bulksave = function() {
+    var responseObj = [
+        {'id': 'foo', 'rev': '1-blah'},
+        {'id': 'bar', 'rev': '2-lala'},
+        {'id': 'baz', 'rev': '1-junk'},
+    ];
+    var docs = [
+        {'hello': 'world'},
+        {'whatup': 'dog'},
+        {'hello': 'naughty nurse'},
+    ];
+    var data = JSON.stringify({'docs': docs, 'all_or_nothing': true});
+
+    function DummyRequest() {
+            this.calls = [];
+            var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
+            methods.forEach(function(method) {
+                var f = function() {
+                    var args = Array.prototype.slice.call(arguments);
+                    args.unshift(method);
+                    this.calls.push(args);
+                };
+                if (f.bind) {
+                    var f = f.bind(this);
+                }
+                this[method] = f;
+            }, this);
+    }
+    DummyRequest.prototype = {
+        getResponseHeader: function(key) {
+            this.calls.push(['getResponseHeader', key]);
+            if (key == 'Content-Type') {
+                return 'application/json';
+            }
+        },
+
+        responseText: JSON.stringify(responseObj),
+    }
+
+
+    var db = new couch.Database('/mydb/', DummyRequest);
+    py.assertEqual(
+        db.bulksave(docs),
+        responseObj
+    );
+    py.assertEqual(
+        db.req.calls,
+        [
+            ['open', 'POST', '/mydb/_bulk_docs', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['setRequestHeader', 'Content-Type', 'application/json'],
+            ['send', data],
+            ['getResponseHeader', 'Content-Type'],
+        ]
+    );
+    py.assertEqual(
+        docs,
+        [
+            {'_id': 'foo', '_rev': '1-blah', 'hello': 'world'},
+            {'_id': 'bar', '_rev': '2-lala', 'whatup': 'dog'},
+            {'_id': 'baz', '_rev': '1-junk', 'hello': 'naughty nurse'},
+        ]
+    );
+}

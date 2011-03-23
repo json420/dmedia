@@ -173,7 +173,12 @@ couch.Database.prototype = {
     },
 
     bulksave: function(docs) {
-
+        var rows = this.post({docs: docs, all_or_nothing: true}, '_bulk_docs');
+        for (i in docs) {
+            docs[i]['_rev'] = rows[i]['rev'];
+            docs[i]['_id'] = rows[i]['id'];
+        }
+        return rows;
     },
 }
 couch.Database.prototype.__proto__ = couch.CouchBase.prototype;
