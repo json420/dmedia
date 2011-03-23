@@ -198,8 +198,8 @@ py.test_request = function() {
 // couch.CouchBase.post()
 py.test_post = function() {
     var doc = {'foo': 'bar', 'ok': 17};
-    var server = new couch.CouchBase('/', DummyRequest);
-    var database = new couch.CouchBase('/aye/', DummyRequest);
+    var server = new couch.Server('/', DummyRequest);
+    var database = new couch.Database('/aye/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -288,8 +288,8 @@ py.test_post = function() {
 // couch.CouchBase.put()
 py.test_put = function() {
     var doc = {'foo': 'bar', 'ok': 17};
-    var server = new couch.CouchBase('/', DummyRequest);
-    var database = new couch.CouchBase('/aye/', DummyRequest);
+    var server = new couch.Server('/', DummyRequest);
+    var database = new couch.Database('/aye/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -377,8 +377,8 @@ py.test_put = function() {
 
 // couch.CouchBase.get()
 py.test_get = function() {
-    var server = new couch.CouchBase('/', DummyRequest);
-    var database = new couch.CouchBase('/aye/', DummyRequest);
+    var server = new couch.Server('/', DummyRequest);
+    var database = new couch.Database('/aye/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -428,8 +428,8 @@ py.test_get = function() {
 
 // couch.CouchBase.delete()
 py.test_delete = function() {
-    var server = new couch.CouchBase('/', DummyRequest);
-    var database = new couch.CouchBase('/aye/', DummyRequest);
+    var server = new couch.Server('/', DummyRequest);
+    var database = new couch.Database('/aye/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -474,4 +474,15 @@ py.test_delete = function() {
     }
     py.assertEqual(i * 1, perms.parts.length - 1);
     py.assertEqual(j * 1, perms.options.length - 1);
+}
+
+
+// couch.Server.database()
+py.test_database = function() {
+    var s = new couch.Server('/', DummyRequest);
+    var db = s.database('mydb');
+    py.assertTrue(db instanceof couch.Database);
+    py.assertTrue(db instanceof couch.CouchBase);
+    py.assertEqual(db.url, '/mydb/');
+    py.assertTrue(db.Request == DummyRequest);
 }

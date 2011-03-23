@@ -52,3 +52,6 @@ class TestCouch(JSTestCase):
 
     def test_request(self):
         self.run_js()
+
+    def test_database(self):
+        self.run_js()

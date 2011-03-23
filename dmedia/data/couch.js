@@ -143,3 +143,31 @@ couch.CouchBase.prototype = {
         return this.request('DELETE', null, parts, options);
     },
 }
+
+
+// microfiber.Server
+couch.Server = function(url, Request) {
+    couch.CouchBase.call(this, url, Request);
+}
+couch.Server.prototype = {
+    database: function(name) {
+        return new couch.Database(this.url + name, this.Request);
+    },
+}
+couch.Server.prototype.__proto__ = couch.CouchBase.prototype;
+
+
+// microfiber.Database
+couch.Database = function(url, Request) {
+    couch.CouchBase.call(this, url, Request);
+}
+couch.Database.prototype = {
+    save: function(doc) {
+
+    },
+
+    bulksave: function(docs) {
+
+    },
+}
+couch.Database.prototype.__proto__ = couch.CouchBase.prototype;
