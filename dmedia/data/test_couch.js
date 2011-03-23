@@ -17,35 +17,45 @@ var perms = {
     ],
 }
 
-var responseObj = {ok: true, id: 'woot', rev: '1-blah'};
 
-function DummyRequest() {
-        this.calls = [];
-        var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
-        methods.forEach(function(method) {
-            var f = function() {
-                var args = Array.prototype.slice.call(arguments);
-                args.unshift(method);
-                this.calls.push(args);
-            };
-            if (f.bind) {
-                var f = f.bind(this);
+function dummy_request(status, responseText) {
+    /* Factory to create a new DummyRequest class. */
+
+    function DummyRequest() {
+            this.calls = [];
+            var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
+            methods.forEach(function(method) {
+                var f = function() {
+                    var args = Array.prototype.slice.call(arguments);
+                    args.unshift(method);
+                    this.calls.push(args);
+                };
+                if (f.bind) {
+                    var f = f.bind(this);
+                }
+                this[method] = f;
+            }, this);
+    }
+    DummyRequest.prototype = {
+        getResponseHeader: function(key) {
+            this.calls.push(['getResponseHeader', key]);
+            if (key == 'Content-Type') {
+                return 'application/json';
             }
-            this[method] = f;
-        }, this);
-}
-DummyRequest.prototype = {
-    getResponseHeader: function(key) {
-        this.calls.push(['getResponseHeader', key]);
-        if (key == 'Content-Type') {
-            return 'application/json';
-        }
-    },
+        },
 
-    responseText: JSON.stringify(responseObj),
+        responseText: responseText,
 
-    status: 201,
+        status: status,
+    }
+
+    return DummyRequest;
 }
+
+var responseObj = {ok: true, id: 'woot', rev: '1-blah'};
+var DummyRequest = dummy_request(201, JSON.stringify(responseObj));
+
+
 
 
 // couch.CouchBase()
@@ -533,33 +543,7 @@ py.test_bulksave = function() {
     ];
     var data = JSON.stringify({'docs': docs, 'all_or_nothing': true});
 
-    function DummyRequest() {
-            this.calls = [];
-            var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
-            methods.forEach(function(method) {
-                var f = function() {
-                    var args = Array.prototype.slice.call(arguments);
-                    args.unshift(method);
-                    this.calls.push(args);
-                };
-                if (f.bind) {
-                    var f = f.bind(this);
-                }
-                this[method] = f;
-            }, this);
-    }
-    DummyRequest.prototype = {
-        getResponseHeader: function(key) {
-            this.calls.push(['getResponseHeader', key]);
-            if (key == 'Content-Type') {
-                return 'application/json';
-            }
-        },
-
-        responseText: JSON.stringify(responseObj),
-        status: 201,
-    }
-
+    var DummyRequest = dummy_request(201, JSON.stringify(responseObj));
 
     var db = new couch.Database('/mydb/', DummyRequest);
     py.assertEqual(
