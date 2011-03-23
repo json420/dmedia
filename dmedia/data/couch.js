@@ -12,6 +12,24 @@ maintenances as additional features are added to the CouchDB API.
 For some good documentation of the CouchDB REST API, see:
 
     http://docs.couchone.com/couchdb-api/
+
+Examples:
+
+>>> var server = new couch.Server('/');
+>>> server.put(null, 'mydb');  // Create database 'mydb'
+{ok: true}
+>>> var database = couch.Database('/mydb');  // One way
+>>> var database = server.database('mydb');  // Or another, does same thing
+>>> var doc = {foo: 'bar'};
+>>> database.save(doc);  // POST to couch, update doc _id & _rev in place
+{ok: true, id: '2c370303', rev: '1-7a00dff5'}
+>>> doc
+{_id: '2c370303', _rev: '1-7a00dff5', foo: 'bar'}
+>>> database.post(null, '_compact');  // Compact db 'mydb'
+{ok: true}
+>>> server.post(null, ['mydb', '_compact']);  // Same as above
+{ok: true}
+
 */
 
 var couch = {};
@@ -46,10 +64,16 @@ couch.CouchBase.prototype = {
 
         Examples:
 
-        var inst = new couch.CouchBase('/foo/');
-        inst.parts() => '/foo/'
-        inst.parts('bar') => '/foo/bar'
-        inst.parts(['bar', 'baz']) => '/foo/bar/baz'
+        >>> var inst = new couch.CouchBase('/foo/');
+        >>> inst.parts();
+        '/foo/'
+        >>> inst.parts('bar');
+        '/foo/bar'
+        >>> inst.parts(['bar', 'baz']);
+        '/foo/bar/baz'
+        >>> inst.parts(['bar', 'baz'], {attachments: true});
+        '/foo/bar/baz?attachments=true'
+
         */
         if (!parts) {
             var url = this.url;
@@ -191,6 +215,19 @@ couch.Database = function(url, Request) {
 }
 couch.Database.prototype = {
     save: function(doc) {
+        /*
+        Save *doc* to Couch, update *doc* _id and _rev in place.
+
+        Examples:
+
+        >>> var db = new couch.Database('/mydb');
+        >>> var doc = {foo: 'bar'};
+        >>> db.save(doc);
+        {ok: true, id: '2c370303', rev: '1-7a00dff5'}
+        >>> doc
+        {_id: '2c370303', _rev: '1-7a00dff5', foo: 'bar'}
+
+        */
         var r = this.post(doc);
         doc['_rev'] = r['rev'];
         doc['_id'] = r['id'];
