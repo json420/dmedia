@@ -16,6 +16,21 @@ For some good documentation of the CouchDB REST API, see:
 
 var couch = {};
 
+
+couch.errors = {
+    400: 'BadRequest',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'NotFound',
+    405: 'MethodNotAllowed',
+    406: 'NotAcceptable',
+    409: 'Conflict',
+    412: 'PreconditionFailed',
+    415: 'BadContentType',
+    416: 'BadRangeRequest',
+    417: 'ExpectationFailed',
+}
+
 // microfiber.CouchBase
 couch.CouchBase = function(url, Request) {
     this.url = url || '/';
@@ -76,6 +91,16 @@ couch.CouchBase.prototype = {
         }
         else {
             this.req.send();
+        }
+        if (this.req.status >= 500) {
+            throw 'ServerError';
+        }
+        if (this.req.status >= 400) {
+            var error = couch.errors[this.req.status];
+            if (error) {
+                throw error;
+            }
+            throw 'ClientError';
         }
         var mime = this.req.getResponseHeader('Content-Type');
         if (mime == 'application/json') {

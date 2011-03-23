@@ -1,3 +1,5 @@
+var py = py || {};
+
 var perms = {
     parts: [
         [null, ''],
@@ -41,6 +43,8 @@ DummyRequest.prototype = {
     },
 
     responseText: JSON.stringify(responseObj),
+
+    status: 201,
 }
 
 
@@ -553,6 +557,7 @@ py.test_bulksave = function() {
         },
 
         responseText: JSON.stringify(responseObj),
+        status: 201,
     }
 
 
