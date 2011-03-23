@@ -18,8 +18,17 @@ var perms = {
 }
 
 
-function dummy_request(status, responseText) {
-    /* Factory to create a new DummyRequest class. */
+function dummy_request(status, responseObj) {
+    /*
+    Factory to create a new DummyRequest class.
+
+    The DummyRequest is used in place of XMLHttpRequest for unit testing.
+
+    Examples:
+
+    var DummyRequest = dummy_request(201, {'ok': true});
+    var DummyRequest = dummy_request(404);
+    */
 
     function DummyRequest() {
             this.calls = [];
@@ -44,7 +53,7 @@ function dummy_request(status, responseText) {
             }
         },
 
-        responseText: responseText,
+        responseText: JSON.stringify(responseObj),
 
         status: status,
     }
@@ -53,7 +62,7 @@ function dummy_request(status, responseText) {
 }
 
 var responseObj = {ok: true, id: 'woot', rev: '1-blah'};
-var DummyRequest = dummy_request(201, JSON.stringify(responseObj));
+var DummyRequest = dummy_request(201, responseObj);
 
 
 
@@ -543,7 +552,7 @@ py.test_bulksave = function() {
     ];
     var data = JSON.stringify({'docs': docs, 'all_or_nothing': true});
 
-    var DummyRequest = dummy_request(201, JSON.stringify(responseObj));
+    var DummyRequest = dummy_request(201, responseObj);
 
     var db = new couch.Database('/mydb/', DummyRequest);
     py.assertEqual(
