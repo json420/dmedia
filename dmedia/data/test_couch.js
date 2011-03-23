@@ -30,7 +30,7 @@ function dummy_request(status, responseObj) {
     var DummyRequest = dummy_request(404);
     */
 
-    function DummyRequest() {
+    function Dummy() {
             this.calls = [];
             var methods = ['open', 'setRequestHeader', 'send', 'sendAsBinary'];
             methods.forEach(function(method) {
@@ -45,7 +45,7 @@ function dummy_request(status, responseObj) {
                 this[method] = f;
             }, this);
     }
-    DummyRequest.prototype = {
+    Dummy.prototype = {
         getResponseHeader: function(key) {
             this.calls.push(['getResponseHeader', key]);
             if (key == 'Content-Type') {
@@ -58,13 +58,11 @@ function dummy_request(status, responseObj) {
         status: status,
     }
 
-    return DummyRequest;
+    return Dummy;
 }
 
 var responseObj = {ok: true, id: 'woot', rev: '1-blah'};
 var DummyRequest = dummy_request(201, responseObj);
-
-
 
 
 // couch.CouchBase()
@@ -552,9 +550,7 @@ py.test_bulksave = function() {
     ];
     var data = JSON.stringify({'docs': docs, 'all_or_nothing': true});
 
-    var DummyRequest = dummy_request(201, responseObj);
-
-    var db = new couch.Database('/mydb/', DummyRequest);
+    var db = new couch.Database('/mydb/', dummy_request(201, responseObj));
     py.assertEqual(
         db.bulksave(docs),
         responseObj
