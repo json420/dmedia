@@ -32,17 +32,32 @@ class TestCouch(JSTestCase):
         datafile('test_couch.js'),
     )
 
-    def test_stuff(self):
-        """
-        Easy example test.
-
-        When you call self.run_js(), it will execute the py.test_stuff()
-        JavaScript function defined in the dmedia/data/test_couch.js.
-        """
+    def test_init(self):
         self.run_js()
 
-    def test_junk(self):
-        """
-        Same as above
-        """         
+    def test_post(self):
+        self.run_js()
+
+    def test_put(self):
+        self.run_js()
+
+    def test_get(self):
+        self.run_js()
+
+    def test_delete(self):
+        self.run_js()
+
+    def test_path(self):
+        self.run_js()
+
+    def test_request(self):
+        self.run_js()
+
+    def test_database(self):
+        self.run_js()
+
+    def test_save(self):
+        self.run_js()
+
+    def test_bulksave(self):
         self.run_js()
