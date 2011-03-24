@@ -92,7 +92,7 @@ couch.CouchBase.prototype = {
             keys.sort();
             var query = [];
             keys.forEach(function(key) {
-                var value = options[key];
+                var value = JSON.stringify(options[key]);
                 query.push(
                     encodeURIComponent(key) + '=' + encodeURIComponent(value)
                 );
@@ -241,6 +241,10 @@ couch.Database.prototype = {
             docs[i]['_id'] = rows[i]['id'];
         }
         return rows;
+    },
+
+    view: function(design, view, options) {
+        return this.get(['_design', design, '_view', view], options);
     },
 }
 couch.Database.prototype.__proto__ = couch.CouchBase.prototype;

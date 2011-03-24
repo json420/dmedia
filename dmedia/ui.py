@@ -94,6 +94,10 @@ def create_app():
                 'data': encode_datafile('style.css'),
                 'content_type': 'text/css',
             },
+            'couch.js': {
+                'data': encode_datafile('couch.js'),
+                'content_type': 'application/javascript',
+            },
             'browser.js': {
                 'data': encode_datafile('browser.js'),
                 'content_type': 'application/javascript',

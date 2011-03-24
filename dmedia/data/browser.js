@@ -1,3 +1,4 @@
+var $ = document.getElementById;
 
 var selected = "none";
 
@@ -107,25 +108,15 @@ function close_box(){
 };
 
 
-$.couch.urlPrefix = "";
-
 var dmedia = {
-    db: $.couch.db('dmedia'),
+    db: new couch.Database('/dmedia/'),
 
     data: [],
 
-    callback: function(stuff) {
-        //console.log(stuff);
-        load(stuff.rows);
-    },
-
     load: function() {
-
-        dmedia.db.view('file/ext', {
-            success: dmedia.callback,
-            include_docs: true,
-            key: 'mov',
-            reduce: false
-        });
+        var r = dmedia.db.view('file', 'ext',
+            {key: 'mov', reduce: false, include_docs: true}
+        );
+        load(r.rows);
     }
-};
+}
