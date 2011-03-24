@@ -40,6 +40,7 @@ from os import path
 try:
     import gi
     gi.require_version('Gtk', '2.0')
+    gi.require_version('WebKit', '1.0')
     from gi.repository import Gtk
 except ImportError:
     pass

@@ -35,7 +35,7 @@ from gi.repository import GObject
 from .constants import TYPE_ERROR, CALLABLE_ERROR
 
 try:
-    from pynotify import Notification
+    from gi.repository.Notify import Notification
 except ImportError:
     Notification = None
 

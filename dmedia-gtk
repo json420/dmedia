@@ -53,18 +53,18 @@ if options.browser:
 uri = store.get_uri() + '/dmedia/app/browser'
 
 
-import gtk
-import gobject
-
-gobject.threads_init()
+from gi.repository import Gtk, GObject
 
 
-window = gtk.Window()
+GObject.threads_init()
+
+
+window = Gtk.Window()
 window.set_title('test')
 window.set_default_size(800, 450)
-window.connect('destroy', gtk.main_quit)
+window.connect('destroy', Gtk.main_quit)
 
-box = gtk.VBox()
+box = Gtk.VBox()
 window.add(box)
 
 view = ui.CouchView()
@@ -89,4 +89,4 @@ html = ui.load_datafile('browser.html')
 view.load_string(html, 'text/html', 'UTF-8', uri)
 
 
-gtk.main()
+Gtk.main()
