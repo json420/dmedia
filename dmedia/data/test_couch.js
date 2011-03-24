@@ -12,8 +12,8 @@ var perms = {
     options: [
         [null, ''],
         [{batch: true}, '?batch=true'],
-        [{rev: '1-blah', ok: 17}, '?ok=17&rev=%221-blah%22'],
-        [{ok: 17, rev: '1-blah'}, '?ok=17&rev=%221-blah%22'],
+        [{rev: '1-blah', ok: 17}, '?ok=17&rev=1-blah'],
+        [{ok: 17, rev: '1-blah'}, '?ok=17&rev=1-blah'],
     ],
 }
 
@@ -93,47 +93,55 @@ py.test_path = function() {
     var options = {rev: '1-3e81', ok: true}
     py.assertEqual(
         inst.path(null, options),
-        '/foo/?ok=true&rev=%221-3e81%22'
+        '/foo/?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path('bar', options),
-        '/foo/bar?ok=true&rev=%221-3e81%22'
+        '/foo/bar?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path(['bar'], options),
-        '/foo/bar?ok=true&rev=%221-3e81%22'
+        '/foo/bar?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path('bar/baz', options),
-        '/foo/bar/baz?ok=true&rev=%221-3e81%22'
+        '/foo/bar/baz?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path(['bar', 'baz'], options),
-        '/foo/bar/baz?ok=true&rev=%221-3e81%22'
+        '/foo/bar/baz?ok=true&rev=1-3e81'
     );
 
     // In different order to make sure keys are sorted
     var options = {ok: true, rev: '1-3e81'}
     py.assertEqual(
         inst.path(null, options),
-        '/foo/?ok=true&rev=%221-3e81%22'
+        '/foo/?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path('bar', options),
-        '/foo/bar?ok=true&rev=%221-3e81%22'
+        '/foo/bar?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path(['bar'], options),
-        '/foo/bar?ok=true&rev=%221-3e81%22'
+        '/foo/bar?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path('bar/baz', options),
-        '/foo/bar/baz?ok=true&rev=%221-3e81%22'
+        '/foo/bar/baz?ok=true&rev=1-3e81'
     );
     py.assertEqual(
         inst.path(['bar', 'baz'], options),
-        '/foo/bar/baz?ok=true&rev=%221-3e81%22'
+        '/foo/bar/baz?ok=true&rev=1-3e81'
     );
+
+    var options = {'key': 'foo', 'startkey': 'bar', 'endkey': 'baz'};
+    py.assertEqual(
+        inst.path(['bar', 'baz'], options),
+        '/foo/bar/baz?endkey=%22baz%22&key=%22foo%22&startkey=%22bar%22'
+    );
+
+
 }
 
 
@@ -170,7 +178,7 @@ py.test_request = function() {
     py.assertEqual(
         inst.req.calls,
         [
-            ['open', 'GET', '/mydb/mydoc?rev=%221-foo%22', false],
+            ['open', 'GET', '/mydb/mydoc?rev=1-foo', false],
             ['setRequestHeader', 'Accept', 'application/json'],
             ['send'],
             ['getResponseHeader', 'Content-Type'],

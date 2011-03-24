@@ -92,7 +92,12 @@ couch.CouchBase.prototype = {
             keys.sort();
             var query = [];
             keys.forEach(function(key) {
-                var value = JSON.stringify(options[key]);
+                if (['key', 'startkey', 'endkey'].indexOf(key) > -1) {
+                    var value = JSON.stringify(options[key]);
+                }
+                else {
+                    var value = options[key];
+                }
                 query.push(
                     encodeURIComponent(key) + '=' + encodeURIComponent(value)
                 );
