@@ -2,7 +2,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Test JavaScript included in dmedia.
+Test the couch.js JavaScript.
 """
 
 from dmedia.js import JSTestCase
