@@ -1,4 +1,23 @@
-var $ = document.getElementById;
+function $(id) {
+    /*
+    Return the element with id="id".
+
+    If id is an Element, it is returned unchanged.
+
+    Examples:
+
+    >>> $('browser');
+    <div id="browser" class="box">
+    >>> var el = $('browser');
+    undefined
+    >>> $(el);
+    <div id="browser" class="box">
+    */
+    if (id instanceof Element) {
+        return id;
+    }
+    return document.getElementById(id);
+}
 
 var selected = "none";
 

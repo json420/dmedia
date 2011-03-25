@@ -291,7 +291,9 @@ expected = """
 <script type="text/javascript">var foo = "bar";</script>
 <script type="text/javascript" src="/scripts/dmedia.js"></script>
 </head>
-<body onload="py.run()"></body>
+<body onload="py.run()">
+<div id="example"></div>
+</body>
 </html>
 """.strip()
 

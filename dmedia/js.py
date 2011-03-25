@@ -366,7 +366,9 @@ class JSTestCase(TestCase):
         src="${link}"
     />
     </head>
-    <body onload="py.run()" />
+    <body onload="py.run()">
+    <div id="example" />
+    </body>
     </html>
     """
 
