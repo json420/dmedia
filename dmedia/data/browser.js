@@ -36,8 +36,8 @@ function $el(tag, attributes) {
 
     */
     var el = document.createElement(tag);
-    var key;
     if (attributes) {
+        var key;
         for (key in attributes) {
             el.setAttribute(key, attributes[key]);
         }
@@ -60,19 +60,18 @@ Browser.prototype = {
     },
 
     load: function(rows) {
-        var i;
-        for (i in rows) {
-            var doc = rows[i].doc;
+        rows.forEach(function(r) {
+            var self = this;
+            var doc = r.doc;
 
             var div = $el('div', {'class': 'item'});
-
             var img = $el('img', {'width': 160, 'height': 90});
             if (doc._attachments.thumbnail) {
                 img.setAttribute('src', this.db.path([doc._id, 'thumbnail']));
             }
             img.onclick = function() {
-                this.get_data(doc);
-            }.bind(this);
+                self.get_data(doc);
+            };
 
             var time = $el('div', {'class': 'time'});
             time.textContent = doc.duration + 's';
@@ -82,57 +81,11 @@ Browser.prototype = {
             div.appendChild($el('div', {'class': 'star_off'}));
             div.appendChild($el('div', {'class': 'star_on'}));
             this.el.appendChild(div);
-        }
+        }, this);
     },
 
     get_data: function(doc) {
-        $('display').textContent = doc._id;
-        //console.log('get_data', doc);
-
-    //    if (selected != "none"){
-    //        //if something is selected, save the changes to it's values before loading the next object
-    //        form = document.forms[0];
-    //        title = form.elements["title"];
-    //        tags = form.elements["tags"];
-    //        description = form.elements["description"];
-    //        notes = form.elements["notes"];
-    //        set_data(selected, "title", title.value);
-    //        set_data(selected, "tags", tags.value);
-    //        set_data(selected, "description", description.value);
-    //        set_data(selected, "notes", notes.value);
-    //    };
-    //    selected = doc._id;
-
-//        var content = "<h2>Video Info</h2><p>";
-//        content += "<b>File Name: </b>" + doc.basename + "<br>";
-//        content += "<b>FPS: </b>" + doc.fps + "<br>";
-//        content += "<b>Aperture: </b>" + doc.aperture + "<br>";
-//        content += "<b>Focal Length: </b>" + doc.focal_length + "<br>";
-//        content += "<b>Shutter: </b>" + doc.shutter + "<br>";
-//        content += "<b>Camera: </b>" + doc.camera + "<br>";
-//        content += "<b>Video Codec: </b>" + doc.codec_video + "<br>";
-//        content += "<b>Resolution: </b>" + doc.width + "x" + doc.height + "<br>";
-//        //info.innerHTML = content;
-
-//        content += "<img src=\"data:";
-//        content += doc._attachments.thumbnail.content_type;
-//        content += ";base64,";
-//        content += doc._attachments.thumbnail.data;
-//        content += "\" width=\"192\" height=\"108\" align=\"center\"><br>";
-
-//        content += "<form>";
-//        content += "<b>Title: </b><input type=\"text\" class=\"field\" name=\"title\" value=\"" + doc.title + "\"><br>";
-//        content += "<div class=\"star " + doc.rating + "\">" + doc.rating + "</div>";
-//        content += "<b>Tags: </b><br><textarea class=\"field\" name=\"tags\" rows=\"5\" cols=\"34\">" + doc.tags + "</textarea><br>";
-//        content += "<b>Description: </b><br><textarea class=\"field\" name=\"description\" rows=\"5\" cols=\"34\">" + doc.description + "</textarea><br>";
-//        content += "<b>Notes: </b><br><textarea class=\"field\" name=\"notes\" rows=\"5\" cols=\"34\">" + doc.notes + "</textarea><br>";
-//        content += "</form>";
-//        preview.innerHTML = content;
-
-        //oText = oForm.elements["tags"];
-        //document.write(oText.value);
-
-
+        this.display.textContent = doc._id;
     },
 
 
