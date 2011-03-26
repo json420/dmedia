@@ -1,0 +1,31 @@
+<html
+    xmlns:py="http://genshi.edgewall.org/"
+    xmlns="http://www.w3.org/1999/xhtml"
+>
+<head>
+<meta http-equiv="Content-Type" content="${content_type}" />
+<title py:content="title" />
+<link
+    py:for="link in css_links"
+    href="${link}"
+    rel="stylesheet"
+    type="text/css"
+/>
+<style
+    py:if="css_inline"
+    py:content="css_inline"
+    type="text/css"
+/>
+<script
+    py:for="link in js_links"
+    src="${link}"
+    type="text/javascript"
+/>
+<script
+    py:if="js_inline"
+    py:content="js_inline"
+    type="text/javascript"
+/>
+</head>
+<body py:replace="body" />
+</html>
