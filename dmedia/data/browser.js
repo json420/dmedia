@@ -12,6 +12,7 @@ function $(id) {
     undefined
     >>> $(el);
     <div id="browser" class="box">
+
     */
     if (id instanceof Element) {
         return id;
@@ -19,41 +20,68 @@ function $(id) {
     return document.getElementById(id);
 }
 
+
+function $el(tag, attributes) {
+    /*
+    Convenience function to create a new DOM element and set its attributes.
+
+    Examples:
+
+    >>> $el('img');
+    <img>
+    >>> $el('img', {'class': 'thumbnail', 'src': 'foo.png'});
+    <img class="thumbnail" src="foo.png">
+
+    */
+    var el = document.createElement(tag);
+    if (attributes) {
+        for (key in attributes) {
+            el.setAttribute(key, attributes[key]);
+        }
+    }
+    return el;
+}
+
+
+function Browser(id, db) {
+    this.el = $(id);
+    this.db = db;
+}
+Browser.prototype = {
+    run: function() {
+        var r = this.db.view('file', 'ext',
+            {key: 'mov', reduce: false, include_docs: true}
+        );
+        this.load(r.rows);
+    },
+
+    load: function(rows) {
+        for (i in rows) {
+            var doc = rows[i].doc;
+
+            var div = $el('div', {'class': 'item'});
+
+            var img = $el('img', {'width': 160, 'height': 90});
+            if (doc._attachments.thumbnail) {
+                img.setAttribute('src', this.db.path([doc._id, 'thumbnail']));
+            }
+            img.onclick = function(){get_data(doc)};
+
+            var time = $el('div', {'class': 'time'});
+            time.textContent = doc.duration + 's';
+
+            div.appendChild(img);
+            div.appendChild(time);
+            div.appendChild($el('div', {'class': 'star_off'}));
+            div.appendChild($el('div', {'class': 'star_on'}));
+            this.el.appendChild(div);
+        }
+    },
+}
+
 var selected = "none";
 
-function load(rows) {
-    var browser = document.getElementById('browser');
-    for (i in rows) {
-        var doc = rows[i].doc;
 
-        var div = document.createElement('div');
-        div.setAttribute('class', 'item');
-
-        var img = document.createElement('img');
-        if (doc._attachments.thumbnail) {
-            img.setAttribute('src', '/dmedia/' + doc._id + '/thumbnail');
-        }
-        img.setAttribute('width', 160);
-        img.setAttribute('height', 90);
-        img.onclick = function(){get_data(doc)};
-
-        var time = document.createElement('div');
-        time.setAttribute('class', 'time');
-        time.textContent = doc.duration + 's';
-
-        var star_off = document.createElement('div');
-        star_off.setAttribute('class', 'star_off');
-
-        var star_on = document.createElement('div');
-        star_on.setAttribute('class', 'star_on');
-
-        div.appendChild(img);
-        div.appendChild(time);
-        div.appendChild(star_off);
-        div.appendChild(star_on);
-        browser.appendChild(div);
-    };
-};
 
 function get_data(doc){
     //console.log('get_data', doc);
@@ -133,9 +161,7 @@ var dmedia = {
     data: [],
 
     load: function() {
-        var r = dmedia.db.view('file', 'ext',
-            {key: 'mov', reduce: false, include_docs: true}
-        );
-        load(r.rows);
-    }
+        dmedia.browser = new Browser('browser', dmedia.db);
+        dmedia.browser.run();
+    },
 }
