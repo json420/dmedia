@@ -42,6 +42,7 @@ from dmedia.metastore import MetaStore
 
 class Browser(webui.Page):
     title = 'DMedia Browser'
+    body = ('browser.xml', None)
 
     css = (
         ('style.css', None),
