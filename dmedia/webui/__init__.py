@@ -76,29 +76,33 @@ class Page(object):
     def __init__(self, app):
         self.app = app
 
+    # You probably dont want to change these:
+    content_type = 'text/html; charset=UTF-8'
+    serializer = 'xml'
+    doctype = 'html5'
+    top = ('top.xml', None)  # Top level template
+
+    # Definitely do want to change these:
     name = 'page'
     title = 'To change, override `Page.title`'
+    body = ('placeholder.xml', None)  # The <body>...</body> template
 
-    top = ('top.xml', None)
-
-    body = ('placeholder.xml', None)
-
+    # CSS:
     css = (
         ('base.css', None),
     )
-
     inline_css = None
 
+    # JavaScript:
     js = (
         ('dmedia.js', None),
     )
-
     inline_js = None
 
     def render(self):
         body = self.app.template(*self.body)
         d = dict(
-            content_type='text/html; charset=UTF-8',
+            content_type=self.content_type,
             title=self.title,
             css=self.get_css(),
             inline_css=self.get_inline_css(),
@@ -107,7 +111,7 @@ class Page(object):
             body=body.generate(**self.get_body_vars()),
         )
         top = self.app.template(*self.top)
-        return top.generate(**d).render('xml', doctype='html5')
+        return top.generate(**d).render(self.serializer, doctype=self.doctype)
 
     def get_css(self):
         if not self.css:
