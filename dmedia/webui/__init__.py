@@ -25,3 +25,52 @@ Core HTML5 UI components.
 This is used both when running a web-accesible dmedia server, and when running
 an HTML5 UI in embedded WebKit.
 """
+
+typemap = {
+    'js': 'application/javascript',
+    'json': 'application/json',
+    'css': 'text/css',
+    'bin': 'application/octet-stream',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'svg': 'image/svg+xml',
+}
+
+def get_mime(name, mime=None):
+    if mime is not None:
+        return mime
+    ext = name.rsplit('.', 1)[-1].lower()
+    return typemap.get(ext, 'application/octet-stream')
+
+
+class App(object):
+    def __init__(self):
+        self._data = {}
+        self._templates = {}
+
+    def datafile(self, name, parent=None, mime=None):
+        filename = path.join(parent, name)
+        parent = (DATADIR if parent is None else parent)
+        content_type = get_mime(name, mime)
+        if name in self._data:
+            d = self._data[name]
+            assert d['filename'] == filename
+            assert d['content_type'] == content_type
+            return name
+        self._data[name] = {
+            'filename': filename,
+            'content_type': content_type,
+            'data': open(filename, 'rb').read(),
+        }
+        return name
+
+    def template(self, name, parent=None):
+        if name not in self._templates:
+            self._templates[name] = template(name, parent)
+        return self._templates[name]
+
+
+class Page(object):
+    top = ('top.xml', None)
+
+    body = ('placeholder.xml', None)

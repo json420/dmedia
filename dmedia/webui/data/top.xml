@@ -6,24 +6,26 @@
 <meta http-equiv="Content-Type" content="${content_type}" />
 <title py:content="title" />
 <link
-    py:for="link in css_links"
+    py:if="css"
+    py:for="link in css"
     href="${link}"
     rel="stylesheet"
     type="text/css"
 />
 <style
-    py:if="css_inline"
-    py:content="css_inline"
+    py:if="inline_css"
+    py:content="inline_css"
     type="text/css"
 />
 <script
-    py:for="link in js_links"
+    py:if="js"
+    py:for="link in js"
     src="${link}"
     type="text/javascript"
 />
 <script
-    py:if="js_inline"
-    py:content="js_inline"
+    py:if="inline_js"
+    py:content="inline_js"
     type="text/javascript"
 />
 </head>

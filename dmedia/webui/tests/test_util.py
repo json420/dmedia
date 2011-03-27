@@ -57,6 +57,14 @@ class TestFunctions(TestCase):
             'stuff.junk = {"bar": false, "baz": null, "foo": true};'
         )
 
+    def test_fullpath(self):
+        f = util.fullpath
+        self.assertEqual(f('baz.js'), path.join(util.DATADIR, 'baz.js'))
+        self.assertEqual(
+            f('baz.js', '/foo/bar'),
+            path.join('/foo/bar', 'baz.js')
+        )
+
     def test_datafile(self):
         f = util.datafile
         tmp = TempDir()
@@ -96,3 +104,8 @@ class TestFunctions(TestCase):
         t = f('top.xml')
         self.assertIsInstance(t, MarkupTemplate)
         self.assertEqual(t.filepath, path.join(util.DATADIR, 'top.xml'))
+
+        # Test with data/top.xml:
+        t = f('placeholder.xml')
+        self.assertIsInstance(t, MarkupTemplate)
+        self.assertEqual(t.filepath, path.join(util.DATADIR, 'placeholder.xml'))

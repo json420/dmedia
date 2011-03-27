@@ -52,18 +52,22 @@ def render_var(name, obj, indent=None):
     return t.format(name, json.dumps(obj, sort_keys=True, indent=indent))
 
 
-def datafile(name, parent=DATADIR):
+def fullpath(name, parent=None):
+    parent = (DATADIR if parent is None else parent)
+    return path.join(parent, name)
+
+
+def datafile(name, parent=None):
     """
     Load the contests of the file at path.join(parentdir, name).
     """
-    filename = path.join(parent, name)
-    return open(filename, 'rb').read()
+    return open(fullpath(name, parent), 'rb').read()
 
 
-def template(name, parent=DATADIR):
+def template(name, parent=None):
     """
     Load a Genshi XML template from file file at path.join(parentdir, name).
     """
-    filename = path.join(parent, name)
+    filename = fullpath(name, parent)
     data = open(filename, 'rb').read()
     return MarkupTemplate(data, filepath=filename)
