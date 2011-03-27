@@ -23,8 +23,8 @@
 Test the couch.js JavaScript.
 """
 
-from dmedia.js import JSTestCase
-from dmedia.ui import datafile
+from dmedia.webui.js import JSTestCase
+from dmedia.webui.util import datafile
 
 class TestCouch(JSTestCase):
     js_files = (

@@ -23,8 +23,8 @@
 Test the browser.js JavaScript.
 """
 
-from dmedia.js import JSTestCase
-from dmedia.ui import datafile
+from dmedia.webui.js import JSTestCase
+from dmedia.webui.util import datafile
 
 class TestBrowser(JSTestCase):
     js_files = (

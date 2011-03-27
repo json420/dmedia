@@ -28,8 +28,8 @@ from hashlib import sha1
 import os
 import random
 
-from dmedia.js import JSTestCase
-from dmedia.ui import datafile, load_datafile
+from dmedia.webui.js import JSTestCase
+from dmedia.webui.util import datafile
 
 MiB = 1 ** 20
 
