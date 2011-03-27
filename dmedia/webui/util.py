@@ -64,10 +64,9 @@ def datafile(name, parent=None):
     return open(fullpath(name, parent), 'rb').read()
 
 
-def template(name, parent=None):
+def template(filename):
     """
-    Load a Genshi XML template from file file at path.join(parentdir, name).
+    Load a Genshi XML template from file at *filename*.
     """
-    filename = fullpath(name, parent)
     data = open(filename, 'rb').read()
     return MarkupTemplate(data, filepath=filename)

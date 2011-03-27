@@ -67,10 +67,12 @@ class App(object):
 
     def template(self, name, parent=None):
         filename = fullpath(name, parent)
-        if filename not in self._templates:
-            self._templates[filename] = template(name, parent)
-        return self._templates[filename]
-
+        try:
+            return self._templates[filename]
+        except KeyError:
+            t = template(filename)
+            self._templates[filename] = t
+            return t
 
 class Page(object):
     def __init__(self, app):

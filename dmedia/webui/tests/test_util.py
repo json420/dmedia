@@ -88,24 +88,27 @@ class TestFunctions(TestCase):
         tmp = TempDir()
 
         # Test when file doesn't exist:
-        self.assertRaises(IOError, f, 'nope.xml', tmp.path)
+        nope = tmp.join('nope.xml')
+        self.assertRaises(IOError, f, nope)
 
         # Test with invalid XML:
-        tmp.write(bad_t, 'bad.xml')
-        self.assertRaises(TemplateSyntaxError, f, 'bad.xml', tmp.path)
+        bad = tmp.write(bad_t, 'bad.xml')
+        self.assertRaises(TemplateSyntaxError, f, bad)
 
         # Test with good template:
         good = tmp.write(good_t, 'good.xml')
-        t = f('good.xml', tmp.path)
+        t = f(good)
         self.assertIsInstance(t, MarkupTemplate)
         self.assertEqual(t.filepath, good)
 
         # Test with data/top.xml:
-        t = f('top.xml')
+        xml = path.join(util.DATADIR, 'top.xml')
+        t = f(xml)
         self.assertIsInstance(t, MarkupTemplate)
-        self.assertEqual(t.filepath, path.join(util.DATADIR, 'top.xml'))
+        self.assertEqual(t.filepath, xml)
 
-        # Test with data/top.xml:
-        t = f('placeholder.xml')
+        # Test with data/placeholder.xml:
+        xml = path.join(util.DATADIR, 'placeholder.xml')
+        t = f(xml)
         self.assertIsInstance(t, MarkupTemplate)
-        self.assertEqual(t.filepath, path.join(util.DATADIR, 'placeholder.xml'))
+        self.assertEqual(t.filepath, xml)
