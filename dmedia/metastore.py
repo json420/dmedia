@@ -32,7 +32,7 @@ import gnomekeyring
 from couchdb import ResourceNotFound, ResourceConflict
 
 from .abstractcouch import get_couchdb_server, get_dmedia_db
-from .util import random_id
+from .schema import random_id
 
 
 _sum = '_sum'

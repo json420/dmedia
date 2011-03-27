@@ -26,7 +26,6 @@ Misc. utility functions and classes.
 from math import log, floor
 import os
 from os import path
-from base64 import b32encode
 from gettext import gettext as _
 from gettext import ngettext
 import logging
@@ -59,30 +58,6 @@ def configure_logging(namespace):
         level=logging.DEBUG,
         format='\t'.join(format),
     )
-
-
-def random_id(random=None):
-    """
-    Returns a 120-bit base32-encoded random ID.
-
-    The ID will be 24-characters long, URL and filesystem safe.  For example:
-
-    >>> random_id()  #doctest: +SKIP
-    'OVRHK3TUOUQCWIDMNFXGC4TP'
-
-
-    Optionally you can provide the 15-byte random seed yourself:
-
-    >>> random_id(random='abcdefghijklmno'.encode('utf-8'))
-    'MFRGGZDFMZTWQ2LKNNWG23TP'
-
-
-    :param random: optionally provide 15-byte random seed; when not provided,
-        seed is created by calling ``os.urandom(15)``
-    """
-    random = (os.urandom(15) if random is None else random)
-    assert len(random) % 5 == 0
-    return b32encode(random)
 
 
 UNITS_BASE10 = (

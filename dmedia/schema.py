@@ -81,7 +81,6 @@ Random IDs are 120-bit random numbers, base32-encoded.  They're much like a
 Version 4 (random) UUID, except dmedia random IDs have no reserved bits.  For
 example:
 
->>> from dmedia.util import random_id
 >>> random_id()  #doctest: +SKIP
 'NZXXMYLDOV2F6ZTUO5PWM5DX'
 
@@ -308,10 +307,10 @@ When the job is completed, the document is updated like this:
 
 from __future__ import print_function
 
-from base64 import b32decode
+import os
+from base64 import b32encode, b32decode
 import re
 import time
-from .util import random_id
 from .constants import TYPE_ERROR, EXT_PAT
 
 # Some private helper functions that don't directly define any schema.
@@ -927,6 +926,28 @@ def check_dmedia_store(doc):
     dc = doc[key]
     _check_int(dc, key)
     _check_at_least(dc, 1, key)
+
+
+def random_id(random=None):
+    """
+    Returns a 120-bit base32-encoded random ID.
+
+    The ID will be 24-characters long, URL and filesystem safe.  For example:
+
+    >>> random_id()  #doctest: +SKIP
+    'OVRHK3TUOUQCWIDMNFXGC4TP'
+
+    Optionally you can provide the 15-byte random seed yourself:
+
+    >>> random_id(random='abcdefghijklmno'.encode('utf-8'))
+    'MFRGGZDFMZTWQ2LKNNWG23TP'
+
+    :param random: optionally provide 15-byte random seed; when not provided,
+        seed is created by calling ``os.urandom(15)``
+    """
+    random = (os.urandom(15) if random is None else random)
+    assert len(random) % 5 == 0
+    return b32encode(random)
 
 
 # This should probably be moved

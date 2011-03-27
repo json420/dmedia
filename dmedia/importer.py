@@ -33,7 +33,7 @@ import logging
 
 import couchdb
 
-from .util import random_id
+from .schema import random_id
 from .errors import DuplicateFile
 from .workers import (
     CouchWorker, CouchManager, register, isregistered, exception_name
