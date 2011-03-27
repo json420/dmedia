@@ -185,7 +185,7 @@ from textwrap import dedent
 
 from genshi.template import MarkupTemplate
 
-from .ui import render_var
+from .util import render_var
 
 
 tree = path.dirname(path.dirname(path.abspath(__file__)))

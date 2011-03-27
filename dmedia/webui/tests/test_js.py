@@ -30,9 +30,9 @@ import time
 import multiprocessing
 import multiprocessing.queues
 
-from dmedia import js
-from dmedia.ui import datafile, load_datafile
-from .helpers import DummyQueue, raises
+from dmedia.webui import js
+from dmedia.webui.util import datafile, load_data
+from dmedia.tests.helpers import DummyQueue, raises
 
 
 class StartResponse(object):
@@ -310,8 +310,8 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             list(klass.load_scripts()),
             [
-                ('browser.js', load_datafile('browser.js')),
-                ('dmedia.js', load_datafile('dmedia.js')),
+                ('browser.js', load_data(datafile('browser.js'))),
+                ('dmedia.js', load_data(datafile('dmedia.js'))),
             ]
         )
 
