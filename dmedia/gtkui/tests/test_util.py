@@ -25,9 +25,9 @@ Unit tests for `dmedia.util` module.
 
 from unittest import TestCase
 from base64 import b32encode, b32decode
-from .helpers import raises
+from dmedia.tests.helpers import raises
 from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
-from dmedia import util
+from dmedia.gtkui import util
 
 
 class test_functions(TestCase):

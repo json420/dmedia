@@ -32,7 +32,8 @@ from gettext import ngettext
 import logging
 import xdg.BaseDirectory
 from gi.repository import GObject
-from .constants import TYPE_ERROR, CALLABLE_ERROR
+
+from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
 
 try:
     from gi.repository.Notify import Notification
