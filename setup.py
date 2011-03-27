@@ -131,13 +131,12 @@ setup(
     author='Jason Gerard DeRose',
     author_email='jderose@novacut.com',
     license='AGPLv3+',
-
     cmdclass={'test': Test},
-    packages=['dmedia'],
-    package_data=dict(
-        dmedia=['data/*'],
-    ),
+
     scripts=['dmedia-cli', 'dmedia-import', 'dmedia-gtk'],
+    packages=['dmedia', 'dmedia.webui', 'dmedia.gtkui'],
+    package_data={'dmedia.webui': ['data/*']},
+
     data_files=[
         ('share/man/man1', ['data/dmedia-cli.1']),
         ('share/applications', ['data/dmedia-import.desktop']),
