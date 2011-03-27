@@ -25,9 +25,10 @@ Unit tests for `dmedia.metastore` module.
 
 from unittest import TestCase
 
-from dmedia import service, importer
-from .helpers import TempDir, random_bus
-from .couch import CouchCase
+from dmedia.tests.helpers import TempDir, random_bus
+from dmedia.tests.couch import CouchCase
+from dmedia import importer
+from dmedia.gtkui import service
 
 
 class test_DMedia(CouchCase):
