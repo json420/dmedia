@@ -26,7 +26,9 @@ This is used both when running a web-accesible dmedia server, and when running
 an HTML5 UI in embedded WebKit.
 """
 
-from util import load_template, datafile
+from base64 import b64encode
+
+from util import datafile, load_data, load_template
 
 typemap = {
     'js': 'application/javascript; charset=UTF-8',
@@ -46,23 +48,26 @@ def get_mime(name, mime=None):
 
 
 class App(object):
+    pages = tuple()
+
     def __init__(self):
         self._data = {}
+        self._datafiles = {}
         self._templates = {}
+        self.name = self.__class__.__name__.lower()
 
     def datafile(self, name, parent=None, mime=None):
         filename = datafile(name, parent)
         content_type = get_mime(name, mime)
         if name in self._data:
-            d = self._data[name]
-            assert d['filename'] == filename
-            assert d['content_type'] == content_type
+            assert self._data[name]['content_type'] == content_type
+            assert self._datafiles[name] == filename
             return name
         self._data[name] = {
-            'filename': filename,
             'content_type': content_type,
-            'data': open(filename, 'rb').read(),
+            'data': load_data(filename),
         }
+        self._datafiles[name] = filename
         return name
 
     def template(self, name, parent=None):
@@ -74,18 +79,50 @@ class App(object):
             self._templates[filename] = t
             return t
 
+    def render(self):
+        for klass in self.pages:
+            page = klass(self)
+            for asset in page.assets:
+                self.datafile(*asset)
+            self._data[page.name] = {
+                'content_type': page.content_type,
+                'data': page.render(),
+            }
+        return self._data
+
+    def b64render(self):
+        self.render()
+        return dict(
+            (
+                name,
+                {
+                    'content_type': d['content_type'],
+                    'data': b64encode(d['data']),
+                }
+            )
+            for (name, d) in self._data.items()
+        )
+
+    def get_doc(self):
+        return {
+            '_id': self.name,
+            '_attachments': self.b64render(),
+        }
+
+
+
 class Page(object):
     def __init__(self, app):
         self.app = app
+        self.name = self.__class__.__name__.lower()
 
     # You probably dont want to change these:
     content_type = 'text/html; charset=UTF-8'
-    serializer = 'xml'
+    serializer = 'xhtml'
     doctype = 'html5'
     top = ('top.xml', None)  # Top level template
 
     # Definitely do want to change these:
-    name = 'page'
     title = 'To change, override `Page.title`'
     body = ('placeholder.xml', None)  # The <body>...</body> template
 
@@ -100,6 +137,9 @@ class Page(object):
         ('dmedia.js', None),
     )
     inline_js = None
+
+    # Other assets:
+    assets = tuple()
 
     def render(self):
         body = self.app.template(*self.body)

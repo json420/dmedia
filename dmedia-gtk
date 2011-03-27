@@ -25,9 +25,6 @@ import sys
 from subprocess import check_call
 import optparse
 import dmedia
-from dmedia.abstractcouch import get_env
-from dmedia.metastore import MetaStore
-from dmedia import ui
 
 parser = optparse.OptionParser(
     version=dmedia.__version__,
@@ -39,10 +36,36 @@ parser.add_option('--browser',
 )
 (options, args) = parser.parse_args()
 
+from dmedia import webui
+from dmedia.abstractcouch import get_env
+from dmedia.metastore import MetaStore
 
-store = MetaStore(get_env())
-app = ui.create_app()
-store.update(app)
+class Browser(webui.Page):
+    title = 'DMedia Browser'
+
+    css = (
+        ('style.css', None),
+    )
+
+    js = (
+        ('couch.js', None),
+        ('browser.js', None),
+    )
+
+    assets = (
+        ('search.png', None, None),
+        ('stars.png', None, None),
+    )
+
+class App(webui.App):
+    pages = [Browser]
+
+
+app = App()
+
+env = get_env()
+store = MetaStore(env)
+store.update(app.get_doc())
 
 
 if options.browser:
@@ -53,6 +76,7 @@ if options.browser:
 uri = store.get_uri() + '/dmedia/app/browser'
 
 
+from dmedia.gtkui.widgets import CouchView
 from gi.repository import Gtk, GObject
 
 
@@ -67,7 +91,7 @@ window.connect('destroy', Gtk.main_quit)
 box = Gtk.VBox()
 window.add(box)
 
-view = ui.CouchView()
+view = CouchView(env['oauth'])
 box.pack_start(view, True, True, 2)
 
 # Enable inspector
@@ -85,8 +109,7 @@ box.pack_start(view, True, True, 2)
 
 
 window.show_all()
-html = ui.load_datafile('browser.html')
-view.load_string(html, 'text/html', 'UTF-8', uri)
+view.load_uri(uri)
 
 
 Gtk.main()

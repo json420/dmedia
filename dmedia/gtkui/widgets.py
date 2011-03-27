@@ -25,7 +25,7 @@ Custom dmedia GTK widgets, currently just `CouchView`.
 
 from urlparse import urlparse, parse_qsl
 
-from oauth.oauth import OAuthConsumer, OAuthToken
+from oauth import oauth
 from gi.repository import WebKit
 
 
@@ -64,11 +64,11 @@ class CouchView(WebKit.WebView):
         self.connect('resource-request-starting', self._on_nav)
         if oauth_tokens:
             self._oauth = True
-            self._consumer = OAuthConsumer(
+            self._consumer = oauth.OAuthConsumer(
                 oauth_tokens['consumer_key'],
                 oauth_tokens['consumer_secret']
             )
-            self._token = OAuthToken(
+            self._token = oauth.OAuthToken(
                 oauth_tokens['token'],
                 oauth_tokens['token_secret']
             )
