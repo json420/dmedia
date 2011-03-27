@@ -23,18 +23,24 @@
 
 import sys
 
-import gtk
-import webkit
+import gi
+gi.require_version('Gtk', '2.0')
+gi.require_version('WebKit', '1.0')
+from gi.repository import Gtk, WebKit
 
-window = gtk.Window()
+window = Gtk.Window()
 window.set_title('test')
 window.set_default_size(800, 450)
-window.connect('destroy', gtk.main_quit)
+window.connect('destroy', Gtk.main_quit)
 
-view = webkit.WebView()
-window.add(view)
+scroll = Gtk.ScrolledWindow()
+scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+window.add(scroll)
+
+view = WebKit.WebView()
+scroll.add(view)
 
 view.load_uri(sys.argv[1])
 
 #window.show_all()
-gtk.main()
+Gtk.main()
