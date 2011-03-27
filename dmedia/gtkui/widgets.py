@@ -20,98 +20,13 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Web UI for dmedia browser.
+Custom dmedia GTK widgets, currently just `CouchView`.
 """
 
-import os
-from os import path
-import json
-from base64 import b64encode
 from urlparse import urlparse, parse_qsl
+
+from oauth.oauth import OAuthConsumer, OAuthToken
 from gi.repository import WebKit
-from oauth import oauth
-from desktopcouch.local_files import get_oauth_tokens
-from . import datadir
-
-
-def render_var(name, obj, indent=None):
-    """
-    Render *obj* to JavaScript variable *name*.
-
-    For example:
-
-    >>> render_var('dmedia', dict(hello='world', foo='bar'))
-    'var dmedia = {"foo": "bar", "hello": "world"};'
-
-    Also works for object attribute assignment:
-
-    >>> render_var('dmedia.data', dict(hello='world', foo='bar'))
-    'dmedia.data = {"foo": "bar", "hello": "world"};'
-
-    """
-    format = ('%s = %s;' if '.' in name else 'var %s = %s;')
-    return format % (name, json.dumps(obj, sort_keys=True, indent=indent))
-
-
-def datafile(name):
-    """
-    Return absolute path of datafile named *name*.
-    """
-    return path.join(datadir, name)
-
-
-def datafile_comment(name):
-    """
-    Returns JavaScript/CSS comment with source of inlined datafile.
-    """
-    return '/* %s */\n' % datafile(name)
-
-
-def load_datafile(name):
-    return open(datafile(name), 'rb').read()
-
-
-def inline_datafile(name):
-    return datafile_comment(name) + load_datafile(name)
-
-
-def encode_datafile(name):
-    """
-    Read datafile *name* and return base64-encoded.
-    """
-    return b64encode(load_datafile(name))
-
-
-def create_app():
-    return {
-        '_id': 'app',
-        '_attachments': {
-            'browser': {
-                'data': encode_datafile('browser.html'),
-                'content_type': 'text/html',
-            },
-            'style.css': {
-                'data': encode_datafile('style.css'),
-                'content_type': 'text/css',
-            },
-            'couch.js': {
-                'data': encode_datafile('couch.js'),
-                'content_type': 'application/javascript',
-            },
-            'browser.js': {
-                'data': encode_datafile('browser.js'),
-                'content_type': 'application/javascript',
-            },
-            'search.png': {
-                'data': encode_datafile('search.png'),
-                'content_type': 'image/png',
-            },
-            'stars.png': {
-                'data': encode_datafile('stars.png'),
-                'content_type': 'image/png',
-            },
-        }
-    }
 
 
 class CouchView(WebKit.WebView):
@@ -143,22 +58,28 @@ class CouchView(WebKit.WebView):
     Special thanks to Stuart Langridge for the example code that helped get this
     working.
     """
-    def __init__(self):
+
+    def __init__(self, oauth_tokens=None):
         super(CouchView, self).__init__()
         self.connect('resource-request-starting', self._on_nav)
-        oauth_data = get_oauth_tokens()
-        self._consumer = oauth.OAuthConsumer(
-            oauth_data['consumer_key'],
-            oauth_data['consumer_secret']
-        )
-        self._token = oauth.OAuthToken(
-            oauth_data['token'],
-            oauth_data['token_secret']
-        )
+        if oauth_tokens:
+            self._oauth = True
+            self._consumer = OAuthConsumer(
+                oauth_tokens['consumer_key'],
+                oauth_tokens['consumer_secret']
+            )
+            self._token = OAuthToken(
+                oauth_tokens['token'],
+                oauth_tokens['token_secret']
+            )
+        else:
+            self._oauth = False
 
     def _on_nav(self, view, frame, resource, request, response):
         # This seems to be a good way to filter out data: URIs
         if request.props.message is None:
+            return
+        if not self._oauth:
             return
         # FIXME: For the Novacut player, we need a way for external links (say
         # to artist's homepage) to open in a regular browser using `xdg-open`.
