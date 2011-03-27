@@ -57,15 +57,15 @@ class TestFunctions(TestCase):
             'stuff.junk = {"bar": false, "baz": null, "foo": true};'
         )
 
-    def test_fullpath(self):
-        f = util.fullpath
+    def test_datafile(self):
+        f = util.datafile
         self.assertEqual(f('baz.js'), path.join(util.DATADIR, 'baz.js'))
         self.assertEqual(
             f('baz.js', '/foo/bar'),
             path.join('/foo/bar', 'baz.js')
         )
 
-    def test_datafile(self):
+    def test_load_data(self):
         f = util.load_data
         tmp = TempDir()
 

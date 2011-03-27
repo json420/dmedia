@@ -26,7 +26,7 @@ This is used both when running a web-accesible dmedia server, and when running
 an HTML5 UI in embedded WebKit.
 """
 
-from util import load_template, fullpath
+from util import load_template, datafile
 
 typemap = {
     'js': 'application/javascript; charset=UTF-8',
@@ -51,7 +51,7 @@ class App(object):
         self._templates = {}
 
     def datafile(self, name, parent=None, mime=None):
-        filename = fullpath(name, parent)
+        filename = datafile(name, parent)
         content_type = get_mime(name, mime)
         if name in self._data:
             d = self._data[name]
@@ -66,7 +66,7 @@ class App(object):
         return name
 
     def template(self, name, parent=None):
-        filename = fullpath(name, parent)
+        filename = datafile(name, parent)
         try:
             return self._templates[filename]
         except KeyError:

@@ -52,7 +52,13 @@ def render_var(name, obj, indent=None):
     return t.format(name, json.dumps(obj, sort_keys=True, indent=indent))
 
 
-def fullpath(name, parent=None):
+def datafile(name, parent=None):
+    """
+    Return full path of data file *name* in directory *parent*.
+
+    If *parent* is ommited or None, the default dmedia.webui package data
+    directory is used.
+    """
     parent = (DATADIR if parent is None else parent)
     return path.join(parent, name)
 
