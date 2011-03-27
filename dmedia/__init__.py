@@ -79,3 +79,29 @@ def get_env(dbname=None):
     ))
 
     return dict(port=port, url=url, oauth=oauth, dbname=dbname)
+
+
+def configure_logging(namespace):
+    import os
+    from os import path
+    import logging
+
+    import xdg.BaseDirectory
+
+    format = [
+        '%(levelname)s',
+        '%(process)d',
+        '%(message)s',
+    ]
+    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
+    if not path.exists(cache):
+        os.makedirs(cache)
+    filename = path.join(cache, namespace + '.log')
+    if path.exists(filename):
+        os.rename(filename, filename + '.previous')
+    logging.basicConfig(
+        filename=filename,
+        filemode='w',
+        level=logging.DEBUG,
+        format='\t'.join(format),
+    )

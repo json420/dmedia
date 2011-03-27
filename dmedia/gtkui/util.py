@@ -24,40 +24,16 @@ Misc. utility functions and classes.
 """
 
 from math import log, floor
-import os
-from os import path
 from gettext import gettext as _
 from gettext import ngettext
-import logging
-import xdg.BaseDirectory
+
 from gi.repository import GObject
-
-from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
-
 try:
     from gi.repository.Notify import Notification
 except ImportError:
     Notification = None
 
-
-def configure_logging(namespace):
-    format = [
-        '%(levelname)s',
-        '%(process)d',
-        '%(message)s',
-    ]
-    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
-    if not path.exists(cache):
-        os.makedirs(cache)
-    filename = path.join(cache, namespace + '.log')
-    if path.exists(filename):
-        os.rename(filename, filename + '.previous')
-    logging.basicConfig(
-        filename=filename,
-        filemode='w',
-        level=logging.DEBUG,
-        format='\t'.join(format),
-    )
+from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
 
 
 UNITS_BASE10 = (
