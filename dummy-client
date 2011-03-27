@@ -21,7 +21,20 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
+import optparse
+
+parser = optparse.OptionParser()
+parser.add_option('--browser',
+    action='store_true',
+    default=False,
+    help='open test in default browser instead of dummy client',
+)
+parser.add_option('--show',
+    action='store_true',
+    default=False,
+    help='make dummy client open a window instead of running headless',
+)
+(options, args) = parser.parse_args()
 
 import gi
 gi.require_version('Gtk', '2.0')
@@ -40,7 +53,8 @@ window.add(scroll)
 view = WebKit.WebView()
 scroll.add(view)
 
-view.load_uri(sys.argv[1])
+view.load_uri(args[0])
 
-#window.show_all()
+if options.show:
+    window.show_all()
 Gtk.main()
