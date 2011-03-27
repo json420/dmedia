@@ -24,20 +24,19 @@
 
 import os
 from os import path
-import gtk
-import pango
-import gconf
-from gettext import gettext as _
 from xml.sax import saxutils
+from gettext import gettext as _
+
+from gi.repository import Gtk, Pango, GConf
 
 
 NO_DIALOG = '/apps/dmedia/dont-show-import-firstrun'
-conf = gconf.client_get_default()
+conf = GConf.Client.get_default()
 
 
 TITLE = _('DMedia Importer')
 
-ICON_SIZE = gtk.ICON_SIZE_LARGE_TOOLBAR
+ICON_SIZE = Gtk.IconSize.LARGE_TOOLBAR
 PADDING = 5
 
 
@@ -51,15 +50,15 @@ class EasyBox(object):
         return widget
 
 
-class VBox(gtk.VBox, EasyBox):
+class VBox(Gtk.VBox, EasyBox):
     pass
 
 
-class HBox(gtk.HBox, EasyBox):
+class HBox(Gtk.HBox, EasyBox):
     pass
 
 
-class Label(gtk.Label):
+class Label(Gtk.Label):
     """
     A more convenient label borrowed from TymeLapse.
     """
@@ -97,12 +96,12 @@ class Label(gtk.Label):
             self.set_text(text)
 
 
-class Button(gtk.Button):
+class Button(Gtk.Button):
     def __init__(self, stock=None, text=None):
         super(Button, self).__init__()
         hbox = HBox()
         self.add(hbox)
-        self._image = gtk.Image()
+        self._image = Gtk.Image()
         self._label = Label(None)
         hbox._pack(self._image)
         hbox._pack(self._label, expand=True)
@@ -120,8 +119,8 @@ class Button(gtk.Button):
 
 class FolderChooser(Button):
     def __init__(self):
-        super(FolderChooser, self).__init__(stock=gtk.STOCK_OPEN)
-        self._label.set_ellipsize(pango.ELLIPSIZE_START)
+        super(FolderChooser, self).__init__(stock=Gtk.STOCK_OPEN)
+        self._label.set_ellipsize(Pango.EllipsizeMode.START)
         self._title = _('Choose folder to import...')
         self.connect('clicked', self._on_clicked)
         self._set_value(os.environ['HOME'])
@@ -131,26 +130,26 @@ class FolderChooser(Button):
         self._label._set_text(self._value)
 
     def _on_clicked(self, button):
-        dialog = gtk.FileChooserDialog(
+        dialog = Gtk.FileChooserDialog(
             title=self._title,
-            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+            action=Gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
             buttons=(
-                gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                gtk.STOCK_OPEN, gtk.RESPONSE_OK,
+                Gtk.STOCK_CANCEL, Gtk.RESPONSE_CANCEL,
+                Gtk.STOCK_OPEN, Gtk.RESPONSE_OK,
             ),
         )
         dialog.set_current_folder(self._value)
         response = dialog.run()
-        if response == gtk.RESPONSE_OK:
+        if response == Gtk.RESPONSE_OK:
             self._set_value(dialog.get_filename())
         dialog.destroy()
 
 
 def okay_button():
-    return Button(gtk.STOCK_OK, _('OK, Import Files'))
+    return Button(Gtk.STOCK_OK, _('OK, Import Files'))
 
 
-class ImportDialog(gtk.Window):
+class ImportDialog(Gtk.Window):
     def __init__(self):
         super(ImportDialog, self).__init__()
         self.set_default_size(425, 200)
@@ -159,7 +158,7 @@ class ImportDialog(gtk.Window):
             self.set_icon_from_file('/usr/share/pixmaps/dmedia.svg')
         except:
             pass
-        self.connect('destroy', gtk.main_quit)
+        self.connect('destroy', Gtk.main_quit)
 
         self._value = None
 
@@ -180,21 +179,21 @@ class ImportDialog(gtk.Window):
         self.show_all()
 
     def run(self):
-        gtk.main()
+        Gtk.main()
         return self._value
 
     def _on_clicked(self, button):
         self._value = self._folder._value
-        gtk.main_quit()
+        Gtk.main_quit()
 
 
-class FirstRunGUI(gtk.Window):
+class FirstRunGUI(Gtk.Window):
     """
     Promt use first time dmedia importer is run.
 
     For example:
 
-    >>> from dmedia.firstrun import FirstRunGUI
+    >>> from dmedia.gtkui.firstrun import FirstRunGUI
     >>> run = FirstRunGUI.run_if_first_run('/media/EOS_DIGITAL')  #doctest: +SKIP
     """
 
@@ -226,10 +225,10 @@ class FirstRunGUI(gtk.Window):
         vbox._pack(label2)
 
         self.folder = Label(None, 'b')
-        self.folder.set_ellipsize(pango.ELLIPSIZE_START)
+        self.folder.set_ellipsize(Pango.EllipsizeMode.START)
         vbox._pack(self.folder)
 
-        self.dont_show_again = gtk.CheckButton(label=_("Don't show this again"))
+        self.dont_show_again = Gtk.CheckButton(label=_("Don't show this again"))
         self.dont_show_again.set_active(True)
 
         self.ok = okay_button()
@@ -248,7 +247,7 @@ class FirstRunGUI(gtk.Window):
 
 
     def destroy(self, widget, data=None):
-        gtk.main_quit()
+        Gtk.main_quit()
 
 
     def delete_event(self, widget, event, data=None):
@@ -267,7 +266,7 @@ class FirstRunGUI(gtk.Window):
     def go(self, folder):
         self.folder._set_text(folder)
         self.show_all()
-        gtk.main()
+        Gtk.main()
         return self.ok_was_pressed
 
     @classmethod

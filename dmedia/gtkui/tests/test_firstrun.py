@@ -24,7 +24,8 @@ Unit tests for `dmedia.firstrun` module.
 """
 
 from unittest import TestCase
-from dmedia import firstrun
+
+from dmedia.gtkui import firstrun
 
 
 class test_FirstRunGUI(TestCase):
