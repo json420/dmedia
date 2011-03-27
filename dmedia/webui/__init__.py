@@ -26,10 +26,12 @@ This is used both when running a web-accesible dmedia server, and when running
 an HTML5 UI in embedded WebKit.
 """
 
+from util import template, fullpath
+
 typemap = {
-    'js': 'application/javascript',
+    'js': 'application/javascript; charset=UTF-8',
     'json': 'application/json',
-    'css': 'text/css',
+    'css': 'text/css; charset=UTF-8',
     'bin': 'application/octet-stream',
     'png': 'image/png',
     'jpg': 'image/jpeg',
@@ -49,8 +51,7 @@ class App(object):
         self._templates = {}
 
     def datafile(self, name, parent=None, mime=None):
-        filename = path.join(parent, name)
-        parent = (DATADIR if parent is None else parent)
+        filename = fullpath(name, parent)
         content_type = get_mime(name, mime)
         if name in self._data:
             d = self._data[name]
@@ -65,12 +66,70 @@ class App(object):
         return name
 
     def template(self, name, parent=None):
-        if name not in self._templates:
-            self._templates[name] = template(name, parent)
-        return self._templates[name]
+        filename = fullpath(name, parent)
+        if filename not in self._templates:
+            self._templates[filename] = template(name, parent)
+        return self._templates[filename]
 
 
 class Page(object):
+    def __init__(self, app):
+        self.app = app
+
+    name = 'page'
+    title = 'To change, override `Page.title`'
+
     top = ('top.xml', None)
 
     body = ('placeholder.xml', None)
+
+    css = (
+        ('base.css', None),
+    )
+
+    inline_css = None
+
+    js = (
+        ('dmedia.js', None),
+    )
+
+    inline_js = None
+
+    def render(self):
+        body = self.app.template(*self.body)
+        d = dict(
+            content_type='text/html; charset=UTF-8',
+            title=self.title,
+            css=self.get_css(),
+            inline_css=self.get_inline_css(),
+            js=self.get_js(),
+            inline_js=self.get_inline_js(),
+            body=body.generate(**self.get_body_vars()),
+        )
+        top = self.app.template(*self.top)
+        return top.generate(**d).render('xml', doctype='html5')
+
+    def get_css(self):
+        if not self.css:
+            return tuple()
+        t = typemap['css']
+        return tuple(
+            self.app.datafile(name, parent, t) for (name, parent) in self.css,
+        )
+
+    def get_inline_css(self):
+        return self.inline_css
+
+    def get_js(self):
+        if not self.js:
+            return tuple()
+        t = typemap['js']
+        return tuple(
+            self.app.datafile(name, parent, t) for (name, parent) in self.js,
+        )
+
+    def get_inline_js(self):
+        return self.inline_js
+
+    def get_body_vars(self):
+        return {}

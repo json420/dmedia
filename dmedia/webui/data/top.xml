@@ -6,7 +6,6 @@
 <meta http-equiv="Content-Type" content="${content_type}" />
 <title py:content="title" />
 <link
-    py:if="css"
     py:for="link in css"
     href="${link}"
     rel="stylesheet"
@@ -18,7 +17,6 @@
     type="text/css"
 />
 <script
-    py:if="js"
     py:for="link in js"
     src="${link}"
     type="text/javascript"
