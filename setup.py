@@ -36,6 +36,9 @@ from doctest import DocTestSuite
 import dmedia
 
 
+packagedir = path.dirname(path.abspath(dmedia.__file__))
+
+
 def pynames_iter(pkdir, pkname=None):
     """
     Recursively yield dotted names for *.py files in directory *pydir*.
@@ -76,7 +79,7 @@ class Test(Command):
     ]
 
     def _pynames_iter(self):
-        for pyname in pynames_iter(dmedia.packagedir):
+        for pyname in pynames_iter(packagedir):
             if not self.names:
                 yield pyname
             else:
