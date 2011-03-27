@@ -57,14 +57,14 @@ def fullpath(name, parent=None):
     return path.join(parent, name)
 
 
-def datafile(name, parent=None):
+def load_data(filename):
     """
-    Load the contests of the file at path.join(parentdir, name).
+    Load the contents of the file at *filename*.
     """
-    return open(fullpath(name, parent), 'rb').read()
+    return open(filename, 'rb').read()
 
 
-def template(filename):
+def load_template(filename):
     """
     Load a Genshi XML template from file at *filename*.
     """

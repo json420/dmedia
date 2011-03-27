@@ -26,7 +26,7 @@ This is used both when running a web-accesible dmedia server, and when running
 an HTML5 UI in embedded WebKit.
 """
 
-from util import template, fullpath
+from util import load_template, fullpath
 
 typemap = {
     'js': 'application/javascript; charset=UTF-8',
@@ -70,7 +70,7 @@ class App(object):
         try:
             return self._templates[filename]
         except KeyError:
-            t = template(filename)
+            t = load_template(filename)
             self._templates[filename] = t
             return t
 

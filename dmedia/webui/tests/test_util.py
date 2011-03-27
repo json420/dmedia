@@ -66,25 +66,19 @@ class TestFunctions(TestCase):
         )
 
     def test_datafile(self):
-        f = util.datafile
+        f = util.load_data
         tmp = TempDir()
 
         # Test when file doesn't exist:
-        self.assertRaises(IOError, f, 'nope.xml', tmp.path)
-        self.assertRaises(IOError, f, 'nope.xml')
+        nope = tmp.join('nope.xml')
+        self.assertRaises(IOError, f, nope)
 
-        # Test that default parent is util.DATADIR:
-        self.assertEqual(
-            f('top.xml'),
-            open(path.join(util.DATADIR, 'top.xml'), 'rb').read()
-        )
+        # Test when file does exist:
+        good = tmp.write(good_t, 'good.xml')
+        self.assertEqual(f(good), good_t)
 
-        # Test when parent is provided:
-        tmp.write(good_t, 'good.xml')
-        self.assertEqual(f('good.xml', tmp.path), good_t)
-
-    def test_template(self):
-        f = util.template
+    def test_load_template(self):
+        f = util.load_template
         tmp = TempDir()
 
         # Test when file doesn't exist:
