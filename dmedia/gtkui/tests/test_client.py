@@ -33,12 +33,13 @@ from dbus.proxies import ProxyObject
 from gi.repository import GObject
 
 import dmedia
-from dmedia import client, service
 from dmedia.constants import VIDEO, AUDIO, IMAGE, EXTENSIONS
-from .helpers import TempDir, random_bus, prep_import_source
-from .helpers import sample_mov, sample_thm
-from .helpers import mov_hash, thm_hash
-from .couch import CouchCase
+from dmedia.gtkui import client, service
+
+from dmedia.tests.helpers import TempDir, random_bus, prep_import_source
+from dmedia.tests.helpers import sample_mov, sample_thm
+from dmedia.tests.helpers import mov_hash, thm_hash
+from dmedia.tests.couch import CouchCase
 
 
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))

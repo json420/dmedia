@@ -93,7 +93,7 @@ class DMedia(dbus.service.Object):
         else:
             log.info('Using `AppIndicator`')
             self._indicator = AppIndicator.Indicator('rendermenu', ICON,
-                AppIndicator.CATEGORY_APPLICATION_STATUS
+                AppIndicator.IndicatorCategory.APPLICATION_STATUS
             )
             self._timer = Timer(2, self._on_timer)
             self._indicator.set_attention_icon(ICON_ATT)
