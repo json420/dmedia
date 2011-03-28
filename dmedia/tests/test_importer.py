@@ -38,7 +38,7 @@ import couchdb
 
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
-from dmedia.util import random_id
+from dmedia.schema import random_id
 from dmedia import importer, schema
 from dmedia.abstractcouch import get_env, get_dmedia_db
 from .helpers import TempDir, TempHome, raises
