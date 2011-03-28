@@ -132,15 +132,15 @@ class FolderChooser(Button):
     def _on_clicked(self, button):
         dialog = Gtk.FileChooserDialog(
             title=self._title,
-            action=Gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+            action=Gtk.FileChooserAction.SELECT_FOLDER,
             buttons=(
-                Gtk.STOCK_CANCEL, Gtk.RESPONSE_CANCEL,
-                Gtk.STOCK_OPEN, Gtk.RESPONSE_OK,
+                Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                Gtk.STOCK_OPEN, Gtk.ResponseType.OK,
             ),
         )
         dialog.set_current_folder(self._value)
         response = dialog.run()
-        if response == Gtk.RESPONSE_OK:
+        if response == Gtk.ResponseType.OK:
             self._set_value(dialog.get_filename())
         dialog.destroy()
 
