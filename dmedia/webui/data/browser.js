@@ -85,7 +85,14 @@ Browser.prototype = {
     },
 
     get_data: function(doc) {
-        this.display.textContent = doc._id;
+        var names = ['name', 'iso', 'aperture', 'shutter', 'focal_length',
+            'lens', 'camera'];
+        names.forEach(function(n) {
+            var el = $('meta.' + n);
+            if (el) {
+                el.textContent = doc[n];
+            }
+        });
     },
 
 

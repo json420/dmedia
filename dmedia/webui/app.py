@@ -49,9 +49,13 @@ class Browser(base.Page):
     def get_body_vars(self):
         return {
             'meta': [
-                dict(name='name', text='File Name:'),
-                dict(name='fps', text='FPS:'),
-                dict(name='aperture', text='Aperture:'),
+                dict(label=_('File Name'), name='name'),
+                dict(label=_('ISO'), name='iso'),
+                dict(label=_('Aperture'), name='aperture'),
+                dict(label=_('Shutter'), name='shutter'),
+                dict(label=_('Focal Length'), name='focal_length'),
+                dict(label=_('Lens'), name='lens'),
+                dict(label=_('Camera'), name='camera'),
             ],
         }
 
