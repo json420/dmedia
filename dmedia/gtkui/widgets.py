@@ -63,6 +63,9 @@ class CouchView(WebKit.WebView):
         'play': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [GObject.TYPE_PYOBJECT]
         ),
+        'open': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [GObject.TYPE_PYOBJECT]
+        ),
     }
 
     def __init__(self, couch_url, oauth_tokens=None):
@@ -108,11 +111,10 @@ class CouchView(WebKit.WebView):
         u = urlparse(uri)
         if u.netloc == self._couch_netloc and u.scheme in ('http', 'https'):
             return False
-        if u.scheme == 'play':
-            print('play: {!r}'.format(u.path))
-            self.emit('play', u.path)
-        elif u.netloc != self._couch_netloc:
-            print('external: {!r}'.format(uri))
+        if uri.startswith('play:'):
+            self.emit('play', uri)
+        elif u.netloc != self._couch_netloc and u.scheme in ('http', 'https'):
+            self.emit('open', uri)
         policy.ignore()
         return True
 

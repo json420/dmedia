@@ -27,6 +27,7 @@ from unittest import TestCase
 
 from oauth.oauth import OAuthConsumer, OAuthToken
 
+from dmedia.schema import random_id
 from dmedia.gtkui import widgets
 
 
@@ -38,6 +39,44 @@ tokens = {
     'token': 'NBGPaRrdXK',
     'token_secret': 'SGtppOobin'
 }
+
+
+class DummyRequest(object):
+    def __init__(self, uri):
+        self._uri = uri
+
+    def get_uri(self):
+        return self._uri
+
+
+class DummyPolicy(object):
+    def __init__(self):
+        self._calls = []
+
+    def ignore(self):
+        self._calls.append('ignore')
+
+    def use(self):
+        self._calls.append('use')
+
+    def download(self):
+        self._calls.append('download')
+
+
+class SignalCollector(object):
+    def __init__(self, couchview):
+        self._couchview = couchview
+        couchview.connect('play', self.on_play)
+        couchview.connect('open', self.on_open)
+        self._sigs = []
+
+    def on_play(self, cv, *args):
+        assert cv is self._couchview
+        self._sigs.append(('play',) + args)
+
+    def on_open(self, cv, *args):
+        assert cv is self._couchview
+        self._sigs.append(('open',) + args)
 
 
 class TestCouchView(TestCase):
@@ -62,3 +101,47 @@ class TestCouchView(TestCase):
         self.assertTrue(inst._oauth)
         self.assertIsInstance(inst._consumer, OAuthConsumer)
         self.assertIsInstance(inst._token, OAuthToken)
+
+    def test_on_nav_policy_decision(self):
+        # Method signature:
+        # CouchView_on_nav_policy_decision(view, frame, request, nav, policy)
+
+        url = 'http://localhost:40705/dmedia/'
+        inst = self.klass(url)
+        s = SignalCollector(inst)
+        p = DummyPolicy()
+
+        # Test a requset to desktopcouch
+        r = DummyRequest('http://localhost:40705/foo/bar/baz')
+        self.assertFalse(
+            inst._on_nav_policy_decision(None, None, r, None, p)
+        )
+        self.assertEqual(p._calls, [])
+        self.assertEqual(s._sigs, [])
+
+        # Test a play:foo URI
+        play = 'play:' + random_id() + '?start=17&end=69'
+        r = DummyRequest(play)
+        self.assertTrue(
+            inst._on_nav_policy_decision(None, None, r, None, p)
+        )
+        self.assertEqual(p._calls, ['ignore'])
+        self.assertEqual(s._sigs, [('play', play)])
+
+        # Test opening an external URL
+        lp = 'https://launchpad.net/dmedia'
+        r = DummyRequest(lp)
+        self.assertTrue(
+            inst._on_nav_policy_decision(None, None, r, None, p)
+        )
+        self.assertEqual(p._calls, ['ignore', 'ignore'])
+        self.assertEqual(s._sigs, [('play', play), ('open', lp)])
+
+        # Test a URI that will just be ignored, not emit a signal
+        nope = 'ftp://example.com'
+        r = DummyRequest(nope)
+        self.assertTrue(
+            inst._on_nav_policy_decision(None, None, r, None, p)
+        )
+        self.assertEqual(p._calls, ['ignore', 'ignore', 'ignore'])
+        self.assertEqual(s._sigs, [('play', play), ('open', lp)])
