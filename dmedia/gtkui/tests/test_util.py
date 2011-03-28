@@ -214,6 +214,10 @@ class Adapter(object):
         return attr
 
 
+class Adapter2(object):
+    new = Adapter
+
+
 inst = Adapter()
 inst.update('foo', 'bar', 'baz')
 assert inst._calls == [
@@ -254,7 +258,7 @@ class test_NotifyManger(TestCase):
         self.assertFalse(inst.isvisible())
 
     def test_notify(self):
-        inst = self.klass(Adapter)
+        inst = self.klass(Adapter2)
         self.assertTrue(inst._current is None)
         inst.notify('foo', 'bar', 'baz')
         self.assertTrue(isinstance(inst._current, Adapter))
@@ -291,7 +295,7 @@ class test_NotifyManger(TestCase):
 
     def test_replace(self):
         # Test with no current notification
-        inst = self.klass(Adapter)
+        inst = self.klass(Adapter2)
         self.assertTrue(inst._current is None)
         inst.replace('foo', 'bar', 'baz')
         self.assertTrue(isinstance(inst._current, Adapter))

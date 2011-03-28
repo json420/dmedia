@@ -171,11 +171,8 @@ class NotifyManager(object):
     Helper class to make it easier to update notification when still visible.
     """
 
-    _klass = Notification
-
     def __init__(self, klass=None):
-        if klass is not None:
-            self._klass = klass
+        self._klass = (Notification if klass is None else klass)
         self._current = None
 
     def _on_closed(self, notification):
@@ -193,7 +190,7 @@ class NotifyManager(object):
         Display a notification with *summary*, *body*, and *icon*.
         """
         assert self._current is None
-        self._current = self._klass(summary, body, icon)
+        self._current = self._klass.new(summary, body, icon)
         self._current.connect('closed', self._on_closed)
         self._current.show()
 

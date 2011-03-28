@@ -488,7 +488,10 @@ class ImportManager(CouchManager):
 
     def get_batch_progress(self):
         with self._lock:
-            return (self._completed, self._total)
+            return dict(
+                completed=self._completed,
+                total=self._total,
+            )
 
     def start_import(self, base, extract=True):
         with self._lock:

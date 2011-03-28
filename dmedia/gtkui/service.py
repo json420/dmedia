@@ -49,13 +49,8 @@ except ImportError:
     Notify = None
 
 try:
-    # FIXME:
-    # Trying to create an AppIndicator.Indicator() gives this error:
-    # TypeError: GObject.__init__() takes exactly 0 arguments (3 given)
-    # Am I use the API incorrectly, or is it just broken?
-    #from gi.repository import AppIndicator
-    #from gi.repository import Gtk
-    AppIndicator = None
+    from gi.repository import AppIndicator
+    from gi.repository import Gtk
 except ImportError:
     AppIndicator = None
 
@@ -97,7 +92,7 @@ class DMedia(dbus.service.Object):
             self._indicator = None
         else:
             log.info('Using `AppIndicator`')
-            self._indicator = AppIndicator.Indicator('rendermenu', ICON,
+            self._indicator = AppIndicator.Indicator.new('rendermenu', ICON,
                 AppIndicator.IndicatorCategory.APPLICATION_STATUS
             )
             self._timer = Timer(2, self._on_timer)
@@ -105,25 +100,25 @@ class DMedia(dbus.service.Object):
             self._menu = Gtk.Menu()
 
             self._current = Gtk.MenuItem()
-            self._current_label = Gtk.Label()
-            self._current.add(self._current_label)
             self._menu.append(self._current)
 
             sep = Gtk.SeparatorMenuItem()
             self._menu.append(sep)
 
-            futon = Gtk.MenuItem(_('Browse DB in Futon'))
+            futon = Gtk.MenuItem()
+            futon.set_label(_('Browse DB in Futon'))
             futon.connect('activate', self._on_futon)
             self._menu.append(futon)
 
-            quit = Gtk.MenuItem(_('Shutdown dmedia'))
+            quit = Gtk.MenuItem()
+            quit.set_label(_('Shutdown dmedia'))
             quit.connect('activate', self._on_quit)
             self._menu.append(quit)
 
             self._menu.show_all()
             self._current.hide()
             self._indicator.set_menu(self._menu)
-            self._indicator.set_status(AppIndicator.STATUS_ACTIVE)
+            self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
 
         self._metastore = None
         self._manager = None
@@ -151,9 +146,11 @@ class DMedia(dbus.service.Object):
     def _on_timer(self):
         if self._manager is None:
             return
-        text = _('File %d of %d') % self._manager.get_batch_progress()
-        self._current_label.set_text(text)
-        self._indicator.set_menu(self._menu)
+        text = _('File {completed} of {total}').format(
+            **self._manager.get_batch_progress()
+        )
+        self._current.set_label(text)
+#        self._indicator.set_menu(self._menu)
 
     def _on_quit(self, menuitem):
         self.Kill()
@@ -178,9 +175,9 @@ class DMedia(dbus.service.Object):
         if self._notify:
             self._batch = []
         if self._indicator:
-            self._indicator.set_status(AppIndicator.STATUS_ATTENTION)
+            self._indicator.set_status(AppIndicator.IndicatorStatus.ATTENTION)
             self._current.show()
-            self._current_label.set_text(_('Searching for files...'))
+            self._current.set_label(_('Searching for files...'))
             self._indicator.set_menu(self._menu)
             self._timer.start()
 
@@ -196,7 +193,7 @@ class DMedia(dbus.service.Object):
         be displayed when this signal is received.
         """
         if self._indicator:
-            self._indicator.set_status(AppIndicator.STATUS_ACTIVE)
+            self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
         if self._notify is None:
             return
         (summary, body) = batch_finished(stats)
