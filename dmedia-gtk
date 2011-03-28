@@ -58,6 +58,15 @@ class Browser(webui.Page):
         ('stars.png', None, None),
     )
 
+    def get_body_vars(self):
+        return {
+            'meta': [
+                dict(name='name', text='File Name:'),
+                dict(name='fps', text='FPS:'),
+                dict(name='aperture', text='Aperture:'),
+            ],
+        }
+
 class App(webui.App):
     pages = [Browser]
 
@@ -86,7 +95,7 @@ GObject.threads_init()
 
 window = Gtk.Window()
 window.set_title('test')
-window.set_default_size(800, 450)
+window.set_default_size(960, 540)
 window.connect('destroy', Gtk.main_quit)
 
 scroll = Gtk.ScrolledWindow()

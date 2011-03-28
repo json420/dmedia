@@ -2,7 +2,15 @@
 
 <!-- Layer One -->
 <div id="browser" class="box" />
-<div id="display" class="box" />
+<div id="display" class="box">
+<h2>Video Info</h2>
+
+<br py:for="d in meta">
+<b py:content="d.text" />
+<span id="meta.${d.name}" />
+</br>
+
+</div>
 <div id="search" class="box">
 <form
     name="search"
