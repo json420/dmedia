@@ -26,7 +26,7 @@ Custom dmedia GTK widgets, currently just `CouchView`.
 from urlparse import urlparse, parse_qsl
 
 from oauth import oauth
-from gi.repository import WebKit
+from gi.repository import GObject, WebKit
 
 
 class CouchView(WebKit.WebView):
@@ -59,9 +59,20 @@ class CouchView(WebKit.WebView):
     working.
     """
 
-    def __init__(self, oauth_tokens=None):
+    __gsignals__ = {
+        'play': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [GObject.TYPE_PYOBJECT]
+        ),
+    }
+
+    def __init__(self, couch_url, oauth_tokens=None):
         super(CouchView, self).__init__()
-        self.connect('resource-request-starting', self._on_nav)
+        self._couch_url = couch_url
+        self._couch_netloc = urlparse(couch_url).netloc
+        self.connect('resource-request-starting', self._on_resource_request)
+        self.connect('navigation-policy-decision-requested',
+            self._on_nav_policy_decision
+        )
         if oauth_tokens:
             self._oauth = True
             self._consumer = oauth.OAuthConsumer(
@@ -75,21 +86,56 @@ class CouchView(WebKit.WebView):
         else:
             self._oauth = False
 
-    def _on_nav(self, view, frame, resource, request, response):
-        # This seems to be a good way to filter out data: URIs
-        if request.props.message is None:
-            return
-        if not self._oauth:
-            return
-        # FIXME: For the Novacut player, we need a way for external links (say
-        # to artist's homepage) to open in a regular browser using `xdg-open`.
+    def _on_nav_policy_decision(self, view, frame, request, nav, policy):
+        """
+        Handle user trying to Navigate away from current page.
+
+        Note that this will be called before `CouchView._on_resource_request()`.
+
+        The *policy* arg is a ``WebPolicyDecision`` instance.  To handle the
+        decision, call one of:
+
+            * ``WebPolicyDecision.ignore()``
+            * ``WebPolicyDecision.use()``
+            * ``WebPolicyDecision.download()``
+
+        And then return ``True``.
+
+        Otherwise, return ``False`` or ``None`` to have the WebKit default
+        behavior apply.
+        """
         uri = request.get_uri()
-        c = urlparse(uri)
-        query = dict(parse_qsl(c.query))
+        u = urlparse(uri)
+        if u.netloc == self._couch_netloc and u.scheme in ('http', 'https'):
+            return False
+        if u.scheme == 'play':
+            print('play: {!r}'.format(u.path))
+            self.emit('play', u.path)
+        elif u.netloc != self._couch_netloc:
+            print('external: {!r}'.format(uri))
+        policy.ignore()
+        return True
+
+    def _on_resource_request(self, view, frame, resource, request, response):
+        """
+        When appropriate, OAuth-sign the request prior to it being sent.
+
+        This will only sign requests on the same host and port in the URL passed
+        to `CouchView.__init__()`.
+        """
+        uri = request.get_uri()
+        u = urlparse(uri)
+        if u.scheme not in ('http', 'https'):  # Ignore data:foo requests
+            return
+        if u.netloc != self._couch_netloc:  # Dont sign requests to broader net!
+            return
+        if not self._oauth:  # OAuth info wasn't provided
+            return
+        query = dict(parse_qsl(u.query))
         # Handle bloody CouchDB having foo.html?dbname URLs, that is
         # a querystring which isn't of the form foo=bar
-        if c.query and not query:
-            query = {c.query: ''}
+        if u.query and not query:
+            query = {u.query: ''}
         req = oauth.OAuthRequest.from_consumer_and_token(
             self._consumer,
             self._token,

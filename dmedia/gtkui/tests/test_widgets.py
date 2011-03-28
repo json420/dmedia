@@ -44,14 +44,21 @@ class TestCouchView(TestCase):
     klass = widgets.CouchView
 
     def test_init(self):
+        url = 'http://localhost:40705/dmedia/'
+        netloc = 'localhost:40705'
+
         # Test with no oauth tokens provided:
-        inst = self.klass()
+        inst = self.klass(url)
+        self.assertEqual(inst._couch_url, url)
+        self.assertEqual(inst._couch_netloc, netloc)
         self.assertFalse(inst._oauth)
         self.assertFalse(hasattr(inst, '_consumer'))
         self.assertFalse(hasattr(inst, '_token'))
 
         # Test with oauth tokens:
-        inst = self.klass(oauth_tokens=tokens)
+        inst = self.klass(url, oauth_tokens=tokens)
+        self.assertEqual(inst._couch_url, url)
+        self.assertEqual(inst._couch_netloc, netloc)
         self.assertTrue(inst._oauth)
         self.assertIsInstance(inst._consumer, OAuthConsumer)
         self.assertIsInstance(inst._token, OAuthToken)

@@ -102,7 +102,7 @@ scroll = Gtk.ScrolledWindow()
 scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 window.add(scroll)
 
-view = CouchView(env['oauth'])
+view = CouchView(env['url'], env['oauth'])
 scroll.add(view)
 
 window.show_all()
