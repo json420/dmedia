@@ -49,8 +49,13 @@ except ImportError:
     Notify = None
 
 try:
-    from gi.repository import AppIndicator
-    from gi.repository import Gtk
+    # FIXME:
+    # Trying to create an AppIndicator.Indicator() gives this error:
+    # TypeError: GObject.__init__() takes exactly 0 arguments (3 given)
+    # Am I use the API incorrectly, or is it just broken?
+    #from gi.repository import AppIndicator
+    #from gi.repository import Gtk
+    AppIndicator = None
 except ImportError:
     AppIndicator = None
 
