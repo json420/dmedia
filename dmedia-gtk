@@ -36,43 +36,11 @@ parser.add_option('--browser',
 )
 (options, args) = parser.parse_args()
 
-from dmedia import webui
+from dmedia.webui.app import App
 from dmedia.abstractcouch import get_env
 from dmedia.metastore import MetaStore
 
-class Browser(webui.Page):
-    title = 'DMedia Browser'
-    body = ('browser.xml', None)
-
-    css = (
-        ('style.css', None),
-    )
-
-    js = (
-        ('couch.js', None),
-        ('browser.js', None),
-    )
-
-    assets = (
-        ('search.png', None, None),
-        ('stars.png', None, None),
-    )
-
-    def get_body_vars(self):
-        return {
-            'meta': [
-                dict(name='name', text='File Name:'),
-                dict(name='fps', text='FPS:'),
-                dict(name='aperture', text='Aperture:'),
-            ],
-        }
-
-class App(webui.App):
-    pages = [Browser]
-
-
 app = App()
-
 env = get_env()
 store = MetaStore(env)
 store.update(app.get_doc())

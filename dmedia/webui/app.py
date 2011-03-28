@@ -20,8 +20,40 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Core HTML5 UI components.
-
-This is used both when running a web-accesible dmedia server, and when running
-an HTML5 UI in embedded WebKit.
+DMedia browser app.
 """
+
+from gettext import gettext as _
+
+from . import base
+
+
+class Browser(base.Page):
+    title = 'DMedia Browser'
+    body = ('browser.xml', None)
+
+    css = (
+        ('style.css', None),
+    )
+
+    js = (
+        ('couch.js', None),
+        ('browser.js', None),
+    )
+
+    assets = (
+        ('search.png', None, None),
+        ('stars.png', None, None),
+    )
+
+    def get_body_vars(self):
+        return {
+            'meta': [
+                dict(name='name', text='File Name:'),
+                dict(name='fps', text='FPS:'),
+                dict(name='aperture', text='Aperture:'),
+            ],
+        }
+
+class App(base.App):
+    pages = [Browser]
