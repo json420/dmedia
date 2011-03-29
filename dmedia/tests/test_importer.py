@@ -38,7 +38,7 @@ import couchdb
 
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
-from dmedia.util import random_id
+from dmedia.schema import random_id
 from dmedia import importer, schema
 from dmedia.abstractcouch import get_env, get_dmedia_db
 from .helpers import TempDir, TempHome, raises
@@ -1142,14 +1142,26 @@ class test_ImportManager(CouchCase):
 
     def test_get_batch_progress(self):
         inst = self.new()
-        self.assertEqual(inst.get_batch_progress(), (0, 0))
+        self.assertEqual(
+            inst.get_batch_progress(),
+            dict(completed=0, total=0)
+        )
         inst._total = 18
-        self.assertEqual(inst.get_batch_progress(), (0, 18))
+        self.assertEqual(
+            inst.get_batch_progress(),
+            dict(completed=0, total=18)
+        )
         inst._completed = 17
-        self.assertEqual(inst.get_batch_progress(), (17, 18))
+        self.assertEqual(
+            inst.get_batch_progress(),
+            dict(completed=17, total=18)
+        )
         inst._completed = 0
         inst._total = 0
-        self.assertEqual(inst.get_batch_progress(), (0, 0))
+        self.assertEqual(
+            inst.get_batch_progress(),
+            dict(completed=0, total=0)
+        )
 
     def test_start_import(self):
         callback = DummyCallback()

@@ -2,7 +2,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
@@ -20,15 +20,10 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedia.firstrun` module.
+GTK UI components for dmedia and apps built atop dmedia.
 """
 
-from unittest import TestCase
-from dmedia import firstrun
-
-
-class test_FirstRunGUI(TestCase):
-    klass = firstrun.FirstRunGUI
-
-    def test_init(self):
-        inst = self.klass()
+import gi
+gi.require_version('Gtk', '2.0')
+gi.require_version('WebKit', '1.0')
+from gi.repository import Gtk, WebKit

@@ -20,33 +20,16 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedia.metastore` module.
+Unit tests for `dmedia.firstrun` module.
 """
 
 from unittest import TestCase
 
-from dmedia import service, importer
-from .helpers import TempDir, random_bus
-from .couch import CouchCase
+from dmedia.gtkui import firstrun
 
 
-class test_DMedia(CouchCase):
-    klass = service.DMedia
+class test_FirstRunGUI(TestCase):
+    klass = firstrun.FirstRunGUI
 
     def test_init(self):
-        bus = random_bus()
-        self.env['bus'] = bus
-        self.env['no_gui'] = True
-        def kill():
-            pass
-        inst = self.klass(self.env, killfunc=kill)
-        self.assertTrue(inst._killfunc is kill)
-        self.assertTrue(inst._bus is bus)
-        self.assertTrue(inst._dbname is self.dbname)
-        self.assertTrue(inst._no_gui)
-        self.assertEqual(inst._manager, None)
-
-        m = inst.manager
-        self.assertTrue(inst._manager is m)
-        self.assertTrue(isinstance(m, importer.ImportManager))
-        self.assertEqual(m._callback, inst._on_signal)
+        inst = self.klass()

@@ -28,7 +28,8 @@ from unittest import TestCase
 import couchdb
 
 from dmedia.abstractcouch import get_env, get_couchdb_server
-from dmedia.util import random_id
+from dmedia.schema import random_id
+
 from .helpers import TempHome
 
 

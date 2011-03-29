@@ -27,7 +27,7 @@ import dbus
 import dbus.mainloop.glib
 from gi.repository import GObject
 from gi.repository.GObject import TYPE_PYOBJECT
-from .constants import BUS, INTERFACE, EXTENSIONS
+from dmedia.constants import BUS, INTERFACE, EXTENSIONS
 
 
 # We need mainloop integration to test signals:
@@ -58,7 +58,7 @@ class Client(GObject.GObject):
     For example, use `Client.list_imports()` to get the list of currently running
     imports:
 
-    >>> from dmedia.client import Client
+    >>> from dmedia.gtkui.client import Client
     >>> client = Client()  #doctest: +SKIP
     >>> client.list_imports()  #doctest: +SKIP
     []

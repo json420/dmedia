@@ -134,6 +134,14 @@ py.test_path = function() {
         inst.path(['bar', 'baz'], options),
         '/foo/bar/baz?ok=true&rev=1-3e81'
     );
+
+    var options = {'key': 'foo', 'startkey': 'bar', 'endkey': 'baz'};
+    py.assertEqual(
+        inst.path(['bar', 'baz'], options),
+        '/foo/bar/baz?endkey=%22baz%22&key=%22foo%22&startkey=%22bar%22'
+    );
+
+
 }
 
 

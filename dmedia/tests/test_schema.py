@@ -24,12 +24,12 @@ Unit tests for `dmedia.schema` module.
 """
 
 from unittest import TestCase
-from base64 import b32encode
+from base64 import b32encode, b32decode
 from copy import deepcopy
 import time
 from .helpers import raises, TempDir
-from dmedia.util import random_id
 from dmedia.constants import TYPE_ERROR
+from dmedia.schema import random_id
 from dmedia import schema
 
 
@@ -584,6 +584,14 @@ class test_functions(TestCase):
             str(e),
             'copies must be >= 1; got -2'
         )
+
+    def test_random_id(self):
+        f = schema.random_id
+        _id = f()
+        self.assertEqual(len(_id), 24)
+        binary = b32decode(_id)
+        self.assertEqual(len(binary), 15)
+        self.assertEqual(b32encode(binary), _id)
 
     def test_create_store(self):
         f = schema.create_store

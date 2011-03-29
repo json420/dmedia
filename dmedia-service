@@ -26,10 +26,8 @@ import optparse
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
-import gobject
 
 DBusGMainLoop(set_as_default=True)
-gobject.threads_init()
 
 import dmedia
 from dmedia.constants import BUS, DBNAME
@@ -62,14 +60,14 @@ def exit(msg, code=1):
 if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
-    from dmedia.util import configure_logging
-    configure_logging('service')
+    dmedia.configure_logging('service')
 
     env = get_env(options.dbname)
     env['bus'] = options.bus
     env['no_gui'] = options.no_gui
 
-    from dmedia import service
-    mainloop = gobject.MainLoop()
+    from dmedia.gtkui import service
+    from gi.repository import GObject
+    mainloop = GObject.MainLoop()
     obj = service.DMedia(env, mainloop.quit)
     mainloop.run()

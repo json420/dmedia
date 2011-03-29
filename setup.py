@@ -36,6 +36,9 @@ from doctest import DocTestSuite
 import dmedia
 
 
+packagedir = path.dirname(path.abspath(dmedia.__file__))
+
+
 def pynames_iter(pkdir, pkname=None):
     """
     Recursively yield dotted names for *.py files in directory *pydir*.
@@ -76,7 +79,7 @@ class Test(Command):
     ]
 
     def _pynames_iter(self):
-        for pyname in pynames_iter(dmedia.packagedir):
+        for pyname in pynames_iter(packagedir):
             if not self.names:
                 yield pyname
             else:
@@ -128,13 +131,12 @@ setup(
     author='Jason Gerard DeRose',
     author_email='jderose@novacut.com',
     license='AGPLv3+',
-
     cmdclass={'test': Test},
-    packages=['dmedia'],
-    package_data=dict(
-        dmedia=['data/*'],
-    ),
+
     scripts=['dmedia-cli', 'dmedia-import', 'dmedia-gtk'],
+    packages=['dmedia', 'dmedia.webui', 'dmedia.gtkui'],
+    package_data={'dmedia.webui': ['data/*']},
+
     data_files=[
         ('share/man/man1', ['data/dmedia-cli.1']),
         ('share/applications', ['data/dmedia-import.desktop']),

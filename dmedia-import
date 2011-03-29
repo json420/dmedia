@@ -29,8 +29,8 @@ import optparse
 from os import path
 
 import dmedia
-from dmedia.client import Client
-from dmedia.firstrun import FirstRunGUI, ImportDialog
+from dmedia.gtkui.client import Client
+from dmedia.gtkui.firstrun import FirstRunGUI, ImportDialog
 
 
 parser = optparse.OptionParser(

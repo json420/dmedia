@@ -156,7 +156,22 @@ When you call `JSTestCase.run_js()`, the following happens:
 
     8. The `JSTestCase.tearDown()` method terminates the ``dummy-client`` and
        `ResultsApp` processes
+
+
+FIXME:
+
+    1. So that tests can be better organized and mirror how the Python tests are
+       arranged, we should call by class name and method name, ie self.run_js()
+       calls the JavaScript function:
+
+       ``py.ClassName.method_name()``
+
+    2. Need to be able to supply arbitrary files to ResultsApp so tests can GET
+       these files... this is especially important for testing on binary data,
+       which we can't directly make available to JavaScript.  We can borrow code
+       from test-server.py, which already makes this totally generic.
 """
+
 
 from unittest import TestCase
 import sys
@@ -170,7 +185,7 @@ from textwrap import dedent
 
 from genshi.template import MarkupTemplate
 
-from .ui import render_var
+from .util import render_var
 
 
 tree = path.dirname(path.dirname(path.abspath(__file__)))
@@ -366,7 +381,9 @@ class JSTestCase(TestCase):
         src="${link}"
     />
     </head>
-    <body onload="py.run()" />
+    <body onload="py.run()">
+    <div id="example" />
+    </body>
     </html>
     """
 

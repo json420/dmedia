@@ -25,20 +25,12 @@ Unit tests for `dmedia.util` module.
 
 from unittest import TestCase
 from base64 import b32encode, b32decode
-from .helpers import raises
+from dmedia.tests.helpers import raises
 from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
-from dmedia import util
+from dmedia.gtkui import util
 
 
 class test_functions(TestCase):
-    def test_random_id(self):
-        f = util.random_id
-        _id = f()
-        self.assertEqual(len(_id), 24)
-        binary = b32decode(_id)
-        self.assertEqual(len(binary), 15)
-        self.assertEqual(b32encode(binary), _id)
-
     def test_units_base10(self):
         f = util.units_base10
 
@@ -222,6 +214,10 @@ class Adapter(object):
         return attr
 
 
+class Adapter2(object):
+    new = Adapter
+
+
 inst = Adapter()
 inst.update('foo', 'bar', 'baz')
 assert inst._calls == [
@@ -262,7 +258,7 @@ class test_NotifyManger(TestCase):
         self.assertFalse(inst.isvisible())
 
     def test_notify(self):
-        inst = self.klass(Adapter)
+        inst = self.klass(Adapter2)
         self.assertTrue(inst._current is None)
         inst.notify('foo', 'bar', 'baz')
         self.assertTrue(isinstance(inst._current, Adapter))
@@ -299,7 +295,7 @@ class test_NotifyManger(TestCase):
 
     def test_replace(self):
         # Test with no current notification
-        inst = self.klass(Adapter)
+        inst = self.klass(Adapter2)
         self.assertTrue(inst._current is None)
         inst.replace('foo', 'bar', 'baz')
         self.assertTrue(isinstance(inst._current, Adapter))

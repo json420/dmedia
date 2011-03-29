@@ -25,9 +25,6 @@ import sys
 from subprocess import check_call
 import optparse
 import dmedia
-from dmedia.abstractcouch import get_env
-from dmedia.metastore import MetaStore
-from dmedia import ui
 
 parser = optparse.OptionParser(
     version=dmedia.__version__,
@@ -39,10 +36,14 @@ parser.add_option('--browser',
 )
 (options, args) = parser.parse_args()
 
+from dmedia.webui.app import App
+from dmedia.abstractcouch import get_env
+from dmedia.metastore import MetaStore
 
-store = MetaStore(get_env())
-app = ui.create_app()
-store.update(app)
+app = App()
+env = get_env()
+store = MetaStore(env)
+store.update(app.get_doc())
 
 
 if options.browser:
@@ -53,40 +54,27 @@ if options.browser:
 uri = store.get_uri() + '/dmedia/app/browser'
 
 
-import gtk
-import gobject
-
-gobject.threads_init()
+from dmedia.gtkui.widgets import CouchView
+from gi.repository import Gtk, GObject
 
 
-window = gtk.Window()
+GObject.threads_init()
+
+
+window = Gtk.Window()
 window.set_title('test')
-window.set_default_size(800, 450)
-window.connect('destroy', gtk.main_quit)
+window.set_default_size(960, 540)
+window.connect('destroy', Gtk.main_quit)
 
-box = gtk.VBox()
-window.add(box)
+scroll = Gtk.ScrolledWindow()
+scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+window.add(scroll)
 
-view = ui.CouchView()
-box.pack_start(view, True, True, 2)
-
-# Enable inspector
-#settings = view.get_settings()
-#settings.set_property('enable-developer-extras', True)
-#inspector = view.get_web_inspector()
-#inspector.set_property('javascript-profiling-enabled', True)
-
-#def on_inspect(*args):
-#    view2 = webkit.WebView()
-#    box.pack_start(view2, True, True, 2)
-#    return view2
-
-#inspector.connect('inspect-web-view', on_inspect)
-
+view = CouchView(env['url'], env['oauth'])
+scroll.add(view)
 
 window.show_all()
-html = ui.load_datafile('browser.html')
-view.load_string(html, 'text/html', 'UTF-8', uri)
+view.load_uri(uri)
 
 
-gtk.main()
+Gtk.main()

@@ -1,9 +1,4 @@
 include AUTHORS COPYING HACKING.txt README.txt
 include dmedia-service
-include data/*
-include dmedia/data/*.html
-include dmedia/data/*.js
-include dmedia/data/*.css
-include dmedia/data/*.png
-include dmedia/tests/*.py
+include dmedia/webui/data/*
 include dmedia/tests/data/*

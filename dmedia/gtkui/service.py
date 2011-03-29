@@ -25,30 +25,34 @@
 Makes dmedia functionality avaible over D-Bus.
 """
 
-from dmedia import __version__
 from os import path
 from gettext import gettext as _
 import logging
 from subprocess import check_call
+
 import dbus
 import dbus.service
 import dbus.mainloop.glib
-from .constants import BUS, INTERFACE, DBNAME, EXT_MAP
+
+from dmedia import __version__
+from dmedia.constants import BUS, INTERFACE, DBNAME, EXT_MAP
+from dmedia.importer import ImportManager
+from dmedia.metastore import MetaStore
+
 from .util import NotifyManager, Timer, import_started, batch_finished
-from .importer import ImportManager
-from .metastore import MetaStore
+
 
 try:
-    import pynotify
-    pynotify.init('dmedia')
+    from gi.repository import Notify
+    Notify.init('dmedia')
 except ImportError:
-    pynotify = None
+    Notify = None
 
 try:
-    import appindicator
-    import gtk
+    from gi.repository import AppIndicator
+    from gi.repository import Gtk
 except ImportError:
-    appindicator = None
+    AppIndicator = None
 
 log = logging.getLogger()
 
@@ -78,43 +82,43 @@ class DMedia(dbus.service.Object):
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(self._bus, self._conn)
 
-        if self._no_gui or pynotify is None:
+        if self._no_gui or Notify is None:
             self._notify = None
         else:
-            log.info('Using `pynotify`')
+            log.info('Using `Notify`')
             self._notify = NotifyManager()
 
-        if self._no_gui or appindicator is None:
+        if self._no_gui or AppIndicator is None:
             self._indicator = None
         else:
-            log.info('Using `appindicator`')
-            self._indicator = appindicator.Indicator('rendermenu', ICON,
-                appindicator.CATEGORY_APPLICATION_STATUS
+            log.info('Using `AppIndicator`')
+            self._indicator = AppIndicator.Indicator.new('rendermenu', ICON,
+                AppIndicator.IndicatorCategory.APPLICATION_STATUS
             )
             self._timer = Timer(2, self._on_timer)
             self._indicator.set_attention_icon(ICON_ATT)
-            self._menu = gtk.Menu()
+            self._menu = Gtk.Menu()
 
-            self._current = gtk.MenuItem()
-            self._current_label = gtk.Label()
-            self._current.add(self._current_label)
+            self._current = Gtk.MenuItem()
             self._menu.append(self._current)
 
-            sep = gtk.SeparatorMenuItem()
+            sep = Gtk.SeparatorMenuItem()
             self._menu.append(sep)
 
-            futon = gtk.MenuItem(_('Browse DB in Futon'))
+            futon = Gtk.MenuItem()
+            futon.set_label(_('Browse DB in Futon'))
             futon.connect('activate', self._on_futon)
             self._menu.append(futon)
 
-            quit = gtk.MenuItem(_('Shutdown dmedia'))
+            quit = Gtk.MenuItem()
+            quit.set_label(_('Shutdown dmedia'))
             quit.connect('activate', self._on_quit)
             self._menu.append(quit)
 
             self._menu.show_all()
             self._current.hide()
             self._indicator.set_menu(self._menu)
-            self._indicator.set_status(appindicator.STATUS_ACTIVE)
+            self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
 
         self._metastore = None
         self._manager = None
@@ -142,9 +146,11 @@ class DMedia(dbus.service.Object):
     def _on_timer(self):
         if self._manager is None:
             return
-        text = _('File %d of %d') % self._manager.get_batch_progress()
-        self._current_label.set_text(text)
-        self._indicator.set_menu(self._menu)
+        text = _('File {completed} of {total}').format(
+            **self._manager.get_batch_progress()
+        )
+        self._current.set_label(text)
+#        self._indicator.set_menu(self._menu)
 
     def _on_quit(self, menuitem):
         self.Kill()
@@ -169,9 +175,9 @@ class DMedia(dbus.service.Object):
         if self._notify:
             self._batch = []
         if self._indicator:
-            self._indicator.set_status(appindicator.STATUS_ATTENTION)
+            self._indicator.set_status(AppIndicator.IndicatorStatus.ATTENTION)
             self._current.show()
-            self._current_label.set_text(_('Searching for files...'))
+            self._current.set_label(_('Searching for files...'))
             self._indicator.set_menu(self._menu)
             self._timer.start()
 
@@ -187,7 +193,7 @@ class DMedia(dbus.service.Object):
         be displayed when this signal is received.
         """
         if self._indicator:
-            self._indicator.set_status(appindicator.STATUS_ACTIVE)
+            self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
         if self._notify is None:
             return
         (summary, body) = batch_finished(stats)

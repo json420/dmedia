@@ -32,6 +32,8 @@ Examples:
 
 */
 
+"use strict";
+
 var couch = {};
 
 
@@ -86,13 +88,19 @@ couch.CouchBase.prototype = {
         }
         if (options) {
             var keys = [];
+            var key;
             for (key in options) {
                 keys.push(key);
             }
             keys.sort();
             var query = [];
             keys.forEach(function(key) {
-                var value = options[key];
+                if (['key', 'startkey', 'endkey'].indexOf(key) > -1) {
+                    var value = JSON.stringify(options[key]);
+                }
+                else {
+                    var value = options[key];
+                }
                 query.push(
                     encodeURIComponent(key) + '=' + encodeURIComponent(value)
                 );
@@ -236,11 +244,16 @@ couch.Database.prototype = {
 
     bulksave: function(docs) {
         var rows = this.post({docs: docs, all_or_nothing: true}, '_bulk_docs');
+        var i;
         for (i in docs) {
             docs[i]['_rev'] = rows[i]['rev'];
             docs[i]['_id'] = rows[i]['id'];
         }
         return rows;
+    },
+
+    view: function(design, view, options) {
+        return this.get(['_design', design, '_view', view], options);
     },
 }
 couch.Database.prototype.__proto__ = couch.CouchBase.prototype;

@@ -1,0 +1,8 @@
+<body xmlns:py="http://genshi.edgewall.org/">
+<p>
+Hi, this is a place holder!
+</p>
+<p>
+You should override <code>Page.body</code> to change this!
+</p>
+</body>

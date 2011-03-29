@@ -24,64 +24,16 @@ Misc. utility functions and classes.
 """
 
 from math import log, floor
-import os
-from os import path
-from base64 import b32encode
 from gettext import gettext as _
 from gettext import ngettext
-import logging
-import xdg.BaseDirectory
-from gi.repository import GObject
-from .constants import TYPE_ERROR, CALLABLE_ERROR
 
+from gi.repository import GObject
 try:
-    from pynotify import Notification
+    from gi.repository.Notify import Notification
 except ImportError:
     Notification = None
 
-
-def configure_logging(namespace):
-    format = [
-        '%(levelname)s',
-        '%(process)d',
-        '%(message)s',
-    ]
-    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
-    if not path.exists(cache):
-        os.makedirs(cache)
-    filename = path.join(cache, namespace + '.log')
-    if path.exists(filename):
-        os.rename(filename, filename + '.previous')
-    logging.basicConfig(
-        filename=filename,
-        filemode='w',
-        level=logging.DEBUG,
-        format='\t'.join(format),
-    )
-
-
-def random_id(random=None):
-    """
-    Returns a 120-bit base32-encoded random ID.
-
-    The ID will be 24-characters long, URL and filesystem safe.  For example:
-
-    >>> random_id()  #doctest: +SKIP
-    'OVRHK3TUOUQCWIDMNFXGC4TP'
-
-
-    Optionally you can provide the 15-byte random seed yourself:
-
-    >>> random_id(random='abcdefghijklmno'.encode('utf-8'))
-    'MFRGGZDFMZTWQ2LKNNWG23TP'
-
-
-    :param random: optionally provide 15-byte random seed; when not provided,
-        seed is created by calling ``os.urandom(15)``
-    """
-    random = (os.urandom(15) if random is None else random)
-    assert len(random) % 5 == 0
-    return b32encode(random)
+from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
 
 
 UNITS_BASE10 = (
@@ -219,11 +171,8 @@ class NotifyManager(object):
     Helper class to make it easier to update notification when still visible.
     """
 
-    _klass = Notification
-
     def __init__(self, klass=None):
-        if klass is not None:
-            self._klass = klass
+        self._klass = (Notification if klass is None else klass)
         self._current = None
 
     def _on_closed(self, notification):
@@ -241,7 +190,7 @@ class NotifyManager(object):
         Display a notification with *summary*, *body*, and *icon*.
         """
         assert self._current is None
-        self._current = self._klass(summary, body, icon)
+        self._current = self._klass.new(summary, body, icon)
         self._current.connect('closed', self._on_closed)
         self._current.show()
 
