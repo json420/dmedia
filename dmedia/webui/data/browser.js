@@ -175,7 +175,7 @@ function close_box(){
 
 
 var dmedia = {
-    db: new couch.Database('/dmedia/'),
+    db: new couch.Database('dmedia', '/'),
 
     data: [],
 

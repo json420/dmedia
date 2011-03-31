@@ -18,7 +18,7 @@ Examples:
 >>> var server = new couch.Server('/');
 >>> server.put(null, 'mydb');  // Create database 'mydb'
 {ok: true}
->>> var database = couch.Database('/mydb');  // One way
+>>> var database = couch.Database('mydb', '/');  // One way
 >>> var database = server.database('mydb');  // Or another, does same thing
 >>> var doc = {foo: 'bar'};
 >>> database.save(doc);  // POST to couch, update doc _id & _rev in place
@@ -57,34 +57,35 @@ couch.CouchBase = function(url, Request) {
     if (this.url[this.url.length - 1] != '/') {
         this.url = this.url + '/';
     }
+    this.basepath = this.url;
     this.Request = Request || XMLHttpRequest;
 }
 couch.CouchBase.prototype = {
     path: function(parts, options) {
         /*
-        Construct a URL relative to this.url.
+        Construct a URL relative to this.basepath.
 
         Examples:
 
         >>> var inst = new couch.CouchBase('/foo/');
-        >>> inst.parts();
+        >>> inst.path();
         '/foo/'
-        >>> inst.parts('bar');
+        >>> inst.path('bar');
         '/foo/bar'
-        >>> inst.parts(['bar', 'baz']);
+        >>> inst.path(['bar', 'baz']);
         '/foo/bar/baz'
-        >>> inst.parts(['bar', 'baz'], {attachments: true});
+        >>> inst.path(['bar', 'baz'], {attachments: true});
         '/foo/bar/baz?attachments=true'
 
         */
         if (!parts) {
-            var url = this.url;
+            var url = this.basepath;
         }
         else if (typeof parts == 'string') {
-            var url = this.url + parts;
+            var url = this.basepath + parts;
         }
         else {
-            var url = this.url + parts.join('/');
+            var url = this.basepath + parts.join('/');
         }
         if (options) {
             var keys = [];
@@ -211,15 +212,31 @@ couch.Server.prototype = {
         /*
         Return a new couch.Database whose base url is this.url + name.
         */
-        return new couch.Database(this.url + name, this.Request);
+        return new couch.Database(name, this.url, this.Request);
     },
 }
 couch.Server.prototype.__proto__ = couch.CouchBase.prototype;
 
 
 // microfiber.Database
-couch.Database = function(url, Request) {
+couch.Database = function(name, url, Request) {
+    /*
+    Make requests related to a database URL.
+
+    Examples:
+
+    >>> var db = new couch.Database('dmedia', '/');
+    >>> db.url;
+    "/"
+    >>> db.basepath;
+    "/dmedia/"
+    >>> db.name;
+    "dmedia"
+
+    */
     couch.CouchBase.call(this, url, Request);
+    this.basepath = this.url + name + '/';
+    this.name = name;
 }
 couch.Database.prototype = {
     save: function(doc) {
@@ -228,7 +245,7 @@ couch.Database.prototype = {
 
         Examples:
 
-        >>> var db = new couch.Database('/mydb');
+        >>> var db = new couch.Database('mydb');
         >>> var doc = {foo: 'bar'};
         >>> db.save(doc);
         {ok: true, id: '2c370303', rev: '1-7a00dff5'}
@@ -253,6 +270,18 @@ couch.Database.prototype = {
     },
 
     view: function(design, view, options) {
+        /*
+        Shortcut for making a GET request to a view.
+
+        No magic here, just saves you having to type "_design" and "_view" over
+        and over.  This:
+
+            Database.view(design, view, options);
+
+        Is just a shortcut for:
+
+            Database.view(['_design', design, '_view', view], options);
+        */
         return this.get(['_design', design, '_view', view], options);
     },
 }

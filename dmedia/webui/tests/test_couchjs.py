@@ -61,3 +61,6 @@ class TestCouch(JSTestCase):
 
     def test_bulksave(self):
         self.run_js()
+
+    def test_view(self):
+        self.run_js()
