@@ -57,12 +57,13 @@ couch.CouchBase = function(url, Request) {
     if (this.url[this.url.length - 1] != '/') {
         this.url = this.url + '/';
     }
+    this.basepath = this.url;
     this.Request = Request || XMLHttpRequest;
 }
 couch.CouchBase.prototype = {
     path: function(parts, options) {
         /*
-        Construct a URL relative to this.url.
+        Construct a URL relative to this.basepath.
 
         Examples:
 
@@ -78,13 +79,13 @@ couch.CouchBase.prototype = {
 
         */
         if (!parts) {
-            var url = this.url;
+            var url = this.basepath;
         }
         else if (typeof parts == 'string') {
-            var url = this.url + parts;
+            var url = this.basepath + parts;
         }
         else {
-            var url = this.url + parts.join('/');
+            var url = this.basepath + parts.join('/');
         }
         if (options) {
             var keys = [];
