@@ -682,7 +682,7 @@ py.test_save = function() {
 }
 
 
-// couch.Database.save():
+// couch.Database.bulksave():
 py.test_bulksave = function() {
     var responseObj = [
         {'id': 'foo', 'rev': '1-blah'},
@@ -717,6 +717,27 @@ py.test_bulksave = function() {
             {'_id': 'foo', '_rev': '1-blah', 'hello': 'world'},
             {'_id': 'bar', '_rev': '2-lala', 'whatup': 'dog'},
             {'_id': 'baz', '_rev': '1-junk', 'hello': 'naughty nurse'},
+        ]
+    );
+}
+
+
+// couch.Database.view():
+py.test_view = function() {
+    var responseObj = {'rows': [{'value': 80, 'key': null}]};
+    var db = new couch.Database('/dmedia/', dummy_request(201, responseObj));
+
+    py.assertEqual(
+        db.view('file', 'ext'),
+        responseObj
+    );
+    py.assertEqual(
+        db.req.calls,
+        [
+            ['open', 'GET', '/dmedia/_design/file/_view/ext', false],
+            ['setRequestHeader', 'Accept', 'application/json'],
+            ['send'],
+            ['getResponseHeader', 'Content-Type'],
         ]
     );
 }

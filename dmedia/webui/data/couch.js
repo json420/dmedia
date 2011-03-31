@@ -253,6 +253,18 @@ couch.Database.prototype = {
     },
 
     view: function(design, view, options) {
+        /*
+        Shortcut for making a GET request to a view.
+
+        No magic here, just saves you having to type "_design" and "_view" over
+        and over.  This:
+
+            Database.view(design, view, options);
+
+        Is just a shortcut for:
+
+            Database.view(['_design', design, '_view', view], options);
+        */
         return this.get(['_design', design, '_view', view], options);
     },
 }
