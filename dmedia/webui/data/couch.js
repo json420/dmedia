@@ -68,13 +68,13 @@ couch.CouchBase.prototype = {
         Examples:
 
         >>> var inst = new couch.CouchBase('/foo/');
-        >>> inst.parts();
+        >>> inst.path();
         '/foo/'
-        >>> inst.parts('bar');
+        >>> inst.path('bar');
         '/foo/bar'
-        >>> inst.parts(['bar', 'baz']);
+        >>> inst.path(['bar', 'baz']);
         '/foo/bar/baz'
-        >>> inst.parts(['bar', 'baz'], {attachments: true});
+        >>> inst.path(['bar', 'baz'], {attachments: true});
         '/foo/bar/baz?attachments=true'
 
         */
@@ -220,6 +220,20 @@ couch.Server.prototype.__proto__ = couch.CouchBase.prototype;
 
 // microfiber.Database
 couch.Database = function(name, url, Request) {
+    /*
+    Make requests related to a database URL.
+
+    Examples:
+
+    >>> var db = new couch.Database('dmedia', '/');
+    >>> db.url;
+    "/"
+    >>> db.basepath;
+    "/dmedia/"
+    >>> db.name;
+    "dmedia"
+
+    */
     couch.CouchBase.call(this, url, Request);
     this.basepath = this.url + name + '/';
     this.name = name;
@@ -231,7 +245,7 @@ couch.Database.prototype = {
 
         Examples:
 
-        >>> var db = new couch.Database('/mydb');
+        >>> var db = new couch.Database('mydb');
         >>> var doc = {foo: 'bar'};
         >>> db.save(doc);
         {ok: true, id: '2c370303', rev: '1-7a00dff5'}
