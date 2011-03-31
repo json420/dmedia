@@ -1,3 +1,7 @@
+// Unit tests for couch.js
+
+"use strict";
+
 var py = py || {};
 
 var perms = {
@@ -439,6 +443,7 @@ py.test_post = function() {
     var server = new couch.Server('/', DummyRequest);
     var database = new couch.Database('aye', '/', DummyRequest);
 
+    var i, j;
     for (i in perms.parts) {
         var p = perms.parts[i];
         for (j in perms.options) {
@@ -529,6 +534,7 @@ py.test_put = function() {
     var server = new couch.Server('/', DummyRequest);
     var database = new couch.Database('aye', '/', DummyRequest);
 
+    var i, j;
     for (i in perms.parts) {
         var p = perms.parts[i];
         for (j in perms.options) {
@@ -618,6 +624,7 @@ py.test_get = function() {
     var server = new couch.Server('/', DummyRequest);
     var database = new couch.Database('aye', '/', DummyRequest);
 
+    var i, j;
     for (i in perms.parts) {
         var p = perms.parts[i];
         for (j in perms.options) {
@@ -669,6 +676,7 @@ py.test_delete = function() {
     var server = new couch.Server('/', DummyRequest);
     var database = new couch.Database('aye', '/', DummyRequest);
 
+    var i, j;
     for (i in perms.parts) {
         var p = perms.parts[i];
         for (j in perms.options) {

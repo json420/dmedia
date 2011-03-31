@@ -1,3 +1,7 @@
+// Unit tests for browser.js
+
+"use strict";
+
 py.test_dollar = function() {
     // Retrieve by ID:
     var el = $('example');
