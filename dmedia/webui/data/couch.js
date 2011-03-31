@@ -18,7 +18,7 @@ Examples:
 >>> var server = new couch.Server('/');
 >>> server.put(null, 'mydb');  // Create database 'mydb'
 {ok: true}
->>> var database = couch.Database('/mydb');  // One way
+>>> var database = couch.Database('mydb', '/');  // One way
 >>> var database = server.database('mydb');  // Or another, does same thing
 >>> var doc = {foo: 'bar'};
 >>> database.save(doc);  // POST to couch, update doc _id & _rev in place
