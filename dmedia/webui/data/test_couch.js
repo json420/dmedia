@@ -79,7 +79,11 @@ py.test_init = function() {
 
 // couch.CouchBase.path()
 py.test_path = function() {
-    var inst = new couch.CouchBase('/foo/');
+    /////////////////////////////////
+    // Test against a Server at /foo/
+    var inst = new couch.Server('/foo/');
+    py.assertEqual(inst.url, '/foo/');
+    py.assertEqual(inst.basepath, '/foo/');
 
     py.assertEqual(inst.path(), '/foo/');
     py.assertEqual(inst.path(null), '/foo/');
@@ -141,6 +145,73 @@ py.test_path = function() {
         '/foo/bar/baz?endkey=%22baz%22&key=%22foo%22&startkey=%22bar%22'
     );
 
+
+    /////////////////////////////////////
+    // Test against a "Database" at /foo/
+    var inst = new couch.Database('foo', '/');
+    py.assertEqual(inst.url, '/');
+    py.assertEqual(inst.basepath, '/foo/');
+    py.assertEqual(inst.name, 'foo');
+
+    py.assertEqual(inst.path(), '/foo/');
+    py.assertEqual(inst.path(null), '/foo/');
+    py.assertEqual(inst.path([]), '/foo/');
+    py.assertEqual(inst.path(''), '/foo/');
+    py.assertEqual(inst.path('bar'), '/foo/bar');
+    py.assertEqual(inst.path(['bar']), '/foo/bar');
+    py.assertEqual(inst.path('bar/baz'), '/foo/bar/baz');
+    py.assertEqual(inst.path(['bar', 'baz']), '/foo/bar/baz');
+
+    var options = {rev: '1-3e81', ok: true}
+    py.assertEqual(
+        inst.path(null, options),
+        '/foo/?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path('bar', options),
+        '/foo/bar?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path(['bar'], options),
+        '/foo/bar?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path('bar/baz', options),
+        '/foo/bar/baz?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path(['bar', 'baz'], options),
+        '/foo/bar/baz?ok=true&rev=1-3e81'
+    );
+
+    // In different order to make sure keys are sorted
+    var options = {ok: true, rev: '1-3e81'}
+    py.assertEqual(
+        inst.path(null, options),
+        '/foo/?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path('bar', options),
+        '/foo/bar?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path(['bar'], options),
+        '/foo/bar?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path('bar/baz', options),
+        '/foo/bar/baz?ok=true&rev=1-3e81'
+    );
+    py.assertEqual(
+        inst.path(['bar', 'baz'], options),
+        '/foo/bar/baz?ok=true&rev=1-3e81'
+    );
+
+    var options = {'key': 'foo', 'startkey': 'bar', 'endkey': 'baz'};
+    py.assertEqual(
+        inst.path(['bar', 'baz'], options),
+        '/foo/bar/baz?endkey=%22baz%22&key=%22foo%22&startkey=%22bar%22'
+    );
 
 }
 
@@ -366,7 +437,7 @@ py.test_request = function() {
 py.test_post = function() {
     var doc = {'foo': 'bar', 'ok': 17};
     var server = new couch.Server('/', DummyRequest);
-    var database = new couch.Database('/aye/', DummyRequest);
+    var database = new couch.Database('aye', '/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -456,7 +527,7 @@ py.test_post = function() {
 py.test_put = function() {
     var doc = {'foo': 'bar', 'ok': 17};
     var server = new couch.Server('/', DummyRequest);
-    var database = new couch.Database('/aye/', DummyRequest);
+    var database = new couch.Database('aye', '/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -545,7 +616,7 @@ py.test_put = function() {
 // couch.CouchBase.get()
 py.test_get = function() {
     var server = new couch.Server('/', DummyRequest);
-    var database = new couch.Database('/aye/', DummyRequest);
+    var database = new couch.Database('aye', '/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -596,7 +667,7 @@ py.test_get = function() {
 // couch.CouchBase.delete()
 py.test_delete = function() {
     var server = new couch.Server('/', DummyRequest);
-    var database = new couch.Database('/aye/', DummyRequest);
+    var database = new couch.Database('aye', '/', DummyRequest);
 
     for (i in perms.parts) {
         var p = perms.parts[i];
@@ -650,14 +721,16 @@ py.test_database = function() {
     var db = s.database('mydb');
     py.assertTrue(db instanceof couch.Database);
     py.assertTrue(db instanceof couch.CouchBase);
-    py.assertEqual(db.url, '/mydb/');
+    py.assertEqual(db.url, '/');
+    py.assertEqual(db.basepath, '/mydb/');
+    py.assertEqual(db.name, 'mydb');
     py.assertTrue(db.Request == DummyRequest);
 }
 
 
 // couch.Database.save():
 py.test_save = function() {
-    var db = new couch.Database('/mydb/', DummyRequest);
+    var db = new couch.Database('mydb', '/', DummyRequest);
     var doc = {'foo': 'bar'};
     var data = JSON.stringify(doc);
 
@@ -696,7 +769,7 @@ py.test_bulksave = function() {
     ];
     var data = JSON.stringify({'docs': docs, 'all_or_nothing': true});
 
-    var db = new couch.Database('/mydb/', dummy_request(201, responseObj));
+    var db = new couch.Database('mydb', '/', dummy_request(201, responseObj));
     py.assertEqual(
         db.bulksave(docs),
         responseObj
@@ -725,7 +798,7 @@ py.test_bulksave = function() {
 // couch.Database.view():
 py.test_view = function() {
     var responseObj = {'rows': [{'value': 80, 'key': null}]};
-    var db = new couch.Database('/dmedia/', dummy_request(201, responseObj));
+    var db = new couch.Database('dmedia', '/', dummy_request(201, responseObj));
 
     py.assertEqual(
         db.view('file', 'ext'),

@@ -212,15 +212,17 @@ couch.Server.prototype = {
         /*
         Return a new couch.Database whose base url is this.url + name.
         */
-        return new couch.Database(this.url + name, this.Request);
+        return new couch.Database(name, this.url, this.Request);
     },
 }
 couch.Server.prototype.__proto__ = couch.CouchBase.prototype;
 
 
 // microfiber.Database
-couch.Database = function(url, Request) {
+couch.Database = function(name, url, Request) {
     couch.CouchBase.call(this, url, Request);
+    this.basepath = this.url + name + '/';
+    this.name = name;
 }
 couch.Database.prototype = {
     save: function(doc) {
