@@ -193,9 +193,9 @@ def build_design_doc(design, views):
     _id = '_design/' + design
     d = {}
     for (view, map_, reduce_) in views:
-        d[view] = {'map': map_}
+        d[view] = {'map': map_.strip()}
         if reduce_ is not None:
-            d[view]['reduce'] = reduce_
+            d[view]['reduce'] = reduce_.strip()
     doc = {
         '_id': _id,
         'language': 'javascript',
