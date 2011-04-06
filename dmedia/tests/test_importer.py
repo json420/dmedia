@@ -143,6 +143,7 @@ class test_functions(TestCase):
             set(doc),
             set([
                 '_id',
+                'ver',
                 'type',
                 'time',
                 'imports',
@@ -180,6 +181,7 @@ class test_functions(TestCase):
 
         keys = set([
             '_id',
+            'ver',
             'type',
             'time',
             'base',
@@ -406,6 +408,7 @@ class test_ImportWorker(CouchCase):
             set([
                 '_id',
                 '_rev',
+                'ver',
                 'type',
                 'time',
                 'base',
@@ -507,6 +510,7 @@ class test_ImportWorker(CouchCase):
                 '_id',
                 '_rev',
                 '_attachments',
+                'ver',
                 'type',
                 'time',
                 'bytes',
@@ -834,7 +838,9 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             set(batch),
             set([
-                '_id', '_rev',
+                '_id',
+                '_rev',
+                'ver',
                 'type',
                 'time',
                 'imports',

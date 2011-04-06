@@ -163,13 +163,24 @@ class test_functions(TestCase):
 
         good = {
             '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
+            'ver': 0,
             'type': 'dmedia/foo',
             'time': 1234567890,
             'foo': 'bar',
         }
         g = deepcopy(good)
         self.assertEqual(f(g), None)
-        for key in ['_id', 'type', 'time']:
+
+        # check with bad ver:
+        bad = deepcopy(good)
+        bad['ver'] = 0.0
+        e = raises(TypeError, f, bad)
+        self.assertEqual(str(e), TYPE_ERROR % ('ver', int, float, 0.0))
+        bad['ver'] = 1
+        e = raises(ValueError, f, bad)
+        self.assertEqual(str(e), "doc['ver'] must be 0; got 1")
+
+        for key in ['_id', 'ver', 'type', 'time']:
             bad = deepcopy(good)
             del bad[key]
             e = raises(ValueError, f, bad)
@@ -190,7 +201,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'doc missing keys: %r' % ['_id', 'time', 'type']
+            'doc missing keys: %r' % ['_id', 'time', 'type', 'ver']
         )
 
     def test_check_stored(self):
@@ -420,6 +431,7 @@ class test_functions(TestCase):
         # Test with good doc:
         good = {
             '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
             'bytes': 20202333,
@@ -527,6 +539,7 @@ class test_functions(TestCase):
         # Test with good doc:
         good = {
             '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
             'plugin': 'filestore',
@@ -605,6 +618,7 @@ class test_functions(TestCase):
             set(doc),
             set([
                 '_id',
+                'ver',
                 'type',
                 'time',
                 'plugin',
@@ -625,6 +639,7 @@ class test_functions(TestCase):
             set(doc),
             set([
                 '_id',
+                'ver',
                 'type',
                 'time',
                 'plugin',

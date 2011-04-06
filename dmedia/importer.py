@@ -149,6 +149,7 @@ def create_batch(machine_id=None):
     """
     return {
         '_id': random_id(),
+        'ver': 0,
         'type': 'dmedia/batch',
         'time': time.time(),
         'machine_id': machine_id,
@@ -170,6 +171,7 @@ def create_import(base, batch_id=None, machine_id=None):
     """
     return {
         '_id': random_id(),
+        'ver': 0,
         'type': 'dmedia/import',
         'time': time.time(),
         'batch_id': batch_id,
@@ -317,6 +319,7 @@ class ImportWorker(CouchWorker):
                     'content_type': 'application/octet-stream',
                 }
             },
+            'ver': 0,
             'type': 'dmedia/file',
             'time': ts,
             'bytes': stat.st_size,

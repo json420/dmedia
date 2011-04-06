@@ -33,6 +33,7 @@ For example:
 
 >>> good = {
 ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     'ver': 0,
 ...     'type': 'dmedia/foo',
 ...     'time': 1234567890,
 ... }
@@ -40,6 +41,7 @@ For example:
 >>> check_dmedia(good)  # Returns None
 >>> bad = {
 ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     'ver': 0,
 ...     'kind': 'dmedia/foo',
 ...     'timestamp': 1234567890,
 ... }
@@ -222,6 +224,7 @@ example:
 
 >>> doc = {
 ...     '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
+...     'ver': 0,
 ...     'type': 'dmedia/batch',
 ...     'time': 1234567890,
 ... }
@@ -591,14 +594,17 @@ def check_dmedia(doc):
 
         1. have '_id' that passes `check_base32()`
 
-        2. have 'type' that passes `check_type()`
+        2. have a 'ver' equal to ``0``
 
-        3. have 'time' that passes `check_time()`
+        3. have 'type' that passes `check_type()`
+
+        4. have 'time' that passes `check_time()`
 
     For example, a conforming value:
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ... }
@@ -610,6 +616,7 @@ def check_dmedia(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'kind': 'dmedia/file',
     ...     'timestamp': 1234567890,
     ... }
@@ -620,8 +627,13 @@ def check_dmedia(doc):
     ValueError: doc missing keys: ['time', 'type']
 
     """
-    _check_required(doc, ['_id', 'type', 'time'])
+    _check_required(doc, ['_id', 'ver', 'type', 'time'])
     check_base32(doc['_id'])
+    _check_int(doc['ver'], 'ver')
+    if doc['ver'] != 0:
+        raise ValueError(
+            "doc['ver'] must be 0; got {!r}".format(doc['ver'])
+        )
     check_type(doc['type'])
     check_time(doc['time'])
 
@@ -803,6 +815,7 @@ def check_dmedia_file(doc):
 
     >>> doc = {
     ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
@@ -823,6 +836,7 @@ def check_dmedia_file(doc):
 
     >>> doc = {
     ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
@@ -883,6 +897,7 @@ def check_dmedia_store(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'plugin': 'filestore',
@@ -896,6 +911,7 @@ def check_dmedia_store(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'dispatch': 'filestore',
@@ -950,10 +966,13 @@ def random_id(random=None):
     return b32encode(random)
 
 
-# This should probably be moved
 def create_store(base, machine_id, copies=1):
+    """
+    Create a "dmedia/store" record.
+    """
     return {
         '_id': random_id(),
+        'ver': 0,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 'filestore',
