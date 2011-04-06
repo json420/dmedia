@@ -78,10 +78,10 @@ function(doc) {
 }
 """
 
-file_content_type = """
+file_mime = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.content_type, null);
+        emit(doc.mime, null);
     }
 }
 """
@@ -171,7 +171,7 @@ class MetaStore(object):
             ('import_id', file_import_id, None),
             ('bytes', file_bytes, _sum),
             ('ext', file_ext, _count),
-            ('content_type', file_content_type, _count),
+            ('mime', file_mime, _count),
             ('mtime', file_mtime, None),
             ('tags', file_tags, _count),
         )),

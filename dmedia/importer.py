@@ -289,7 +289,7 @@ class ImportWorker(CouchWorker):
             'dir': path.relpath(path.dirname(src), self.base),
         }
         if ext:
-            doc['content_type'] = mimetypes.types_map.get('.' + ext)
+            doc['mime'] = mimetypes.types_map.get('.' + ext)
         if self.extract:
             merge_metadata(src, doc)
         (_id, _rev) = self.db.save(doc)

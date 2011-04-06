@@ -423,7 +423,7 @@ class test_ImportWorker(CouchCase):
                 'mtime',
                 'name',
                 'dir',
-                'content_type',
+                'mime',
             ])
         )
         self.assertEqual(schema.check_dmedia_file(doc), None)
@@ -439,7 +439,7 @@ class test_ImportWorker(CouchCase):
         self.assertEqual(doc['mtime'], path.getmtime(src1))
         self.assertEqual(doc['name'], 'MVI_5751.MOV')
         self.assertEqual(doc['dir'], 'DCIM/100EOS5D2')
-        self.assertEqual(doc['content_type'], 'video/quicktime')
+        self.assertEqual(doc['mime'], 'video/quicktime')
 
         # Test with duplicate
         (action, doc) = inst._import_file(src2)
