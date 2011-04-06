@@ -74,7 +74,7 @@ Browser.prototype = {
             };
 
             var time = $el('div', {'class': 'time'});
-            time.textContent = doc.duration + 's';
+            time.textContent = doc.meta.duration + 's';
 
             div.appendChild(img);
             div.appendChild(time);
@@ -90,7 +90,7 @@ Browser.prototype = {
         names.forEach(function(n) {
             var el = $('meta.' + n);
             if (el) {
-                el.textContent = doc[n];
+                el.textContent = doc.meta[n];
             }
         });
     },
