@@ -120,6 +120,25 @@ function(doc) {
 }
 """
 
+user_tags = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.tags) {
+        var key;
+        for (key in doc.tags) {
+            emit(key, doc.tags[key]);
+        }
+    }
+}
+"""
+
+user_all = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        emit(doc.mtime, null);
+    }
+}
+"""
+
 user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -149,6 +168,7 @@ function(doc) {
     }
 }
 """
+
 
 def build_design_doc(design, views):
     _id = '_design/' + design
@@ -216,6 +236,8 @@ class MetaStore(object):
 
         ('user', (
             ('media', user_media, _count),
+            ('tags', user_tags, _count),
+            ('all', user_all, None),
             ('video', user_video, None),
             ('image', user_image, None),
             ('audio', user_audio, None),
