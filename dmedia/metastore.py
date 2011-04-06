@@ -94,16 +94,6 @@ function(doc) {
 }
 """
 
-file_tags = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.tags) {
-        doc.tags.forEach(function(tag) {
-            emit(tag, null);
-        });
-    }
-}
-"""
-
 file_import_id = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.import_id) {
@@ -112,6 +102,8 @@ function(doc) {
 }
 """
 
+# views in the 'user' design only index docs for which doc.type == 'dmedia/file'
+# and doc.origin == 'user'
 user_media = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -231,7 +223,6 @@ class MetaStore(object):
             ('ext', file_ext, _count),
             ('mime', file_mime, _count),
             ('mtime', file_mtime, None),
-            ('tags', file_tags, _count),
         )),
 
         ('user', (
