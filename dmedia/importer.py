@@ -33,7 +33,7 @@ import logging
 
 import couchdb
 
-from .schema import random_id
+from .schema import random_id, create_batch, create_import
 from .errors import DuplicateFile
 from .workers import (
     CouchWorker, CouchManager, register, isregistered, exception_name
@@ -141,55 +141,6 @@ def files_iter(base):
     for fullname in dirs:
         for tup in files_iter(fullname):
             yield tup
-
-
-def create_batch(machine_id=None):
-    """
-    Create initial 'dmedia/batch' accounting document.
-    """
-    return {
-        '_id': random_id(),
-        'ver': 0,
-        'type': 'dmedia/batch',
-        'time': time.time(),
-        'machine_id': machine_id,
-        'imports': [],
-        'errors': [],
-        'stats': {
-            'considered': {'count': 0, 'bytes': 0},
-            'imported': {'count': 0, 'bytes': 0},
-            'skipped': {'count': 0, 'bytes': 0},
-            'empty': {'count': 0, 'bytes': 0},
-            'error': {'count': 0, 'bytes': 0},
-        }
-    }
-
-
-def create_import(base, batch_id=None, machine_id=None):
-    """
-    Create initial 'dmedia/import' accounting document.
-    """
-    return {
-        '_id': random_id(),
-        'ver': 0,
-        'type': 'dmedia/import',
-        'time': time.time(),
-        'batch_id': batch_id,
-        'machine_id': machine_id,
-        'base': base,
-        'log': {
-            'imported': [],
-            'skipped': [],
-            'empty': [],
-            'error': [],
-        },
-        'stats': {
-            'imported': {'count': 0, 'bytes': 0},
-            'skipped': {'count': 0, 'bytes': 0},
-            'empty': {'count': 0, 'bytes': 0},
-            'error': {'count': 0, 'bytes': 0},
-        }
-    }
 
 
 class ImportWorker(CouchWorker):

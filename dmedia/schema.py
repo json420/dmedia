@@ -968,7 +968,7 @@ def random_id(random=None):
 
 def create_store(base, machine_id, copies=1):
     """
-    Create a "dmedia/store" record.
+    Create a "dmedia/store" document.
     """
     return {
         '_id': random_id(),
@@ -979,4 +979,53 @@ def create_store(base, machine_id, copies=1):
         'copies': copies,
         'path': base,
         'machine_id': machine_id,
+    }
+
+
+def create_batch(machine_id=None):
+    """
+    Create initial 'dmedia/batch' accounting document.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/batch',
+        'time': time.time(),
+        'machine_id': machine_id,
+        'imports': [],
+        'errors': [],
+        'stats': {
+            'considered': {'count': 0, 'bytes': 0},
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
+    }
+
+
+def create_import(base, batch_id=None, machine_id=None):
+    """
+    Create initial 'dmedia/import' accounting document.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/import',
+        'time': time.time(),
+        'batch_id': batch_id,
+        'machine_id': machine_id,
+        'base': base,
+        'log': {
+            'imported': [],
+            'skipped': [],
+            'empty': [],
+            'error': [],
+        },
+        'stats': {
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
     }
