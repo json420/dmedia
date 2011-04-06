@@ -112,6 +112,44 @@ function(doc) {
 }
 """
 
+user_media = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        emit(doc.media, null);
+    }
+}
+"""
+
+user_video = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'video') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
+user_image = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'image') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
+user_audio = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'audio') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
 def build_design_doc(design, views):
     _id = '_design/' + design
     d = {}
@@ -174,6 +212,13 @@ class MetaStore(object):
             ('mime', file_mime, _count),
             ('mtime', file_mtime, None),
             ('tags', file_tags, _count),
+        )),
+
+        ('user', (
+            ('media', user_media, _count),
+            ('video', user_video, None),
+            ('image', user_image, None),
+            ('audio', user_audio, None),
         )),
     )
 

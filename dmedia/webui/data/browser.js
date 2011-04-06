@@ -53,8 +53,8 @@ function Browser(id, db) {
 }
 Browser.prototype = {
     run: function() {
-        var r = this.db.view('file', 'ext',
-            {key: 'mov', reduce: false, include_docs: true}
+        var r = this.db.view('user', 'video',
+            {include_docs: true, descending: true}
         );
         this.load(r.rows);
     },

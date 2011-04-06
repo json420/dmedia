@@ -424,6 +424,7 @@ class test_ImportWorker(CouchCase):
                 'name',
                 'dir',
                 'mime',
+                'media',
             ])
         )
         self.assertEqual(schema.check_dmedia_file(doc), None)

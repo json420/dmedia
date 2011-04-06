@@ -48,6 +48,19 @@ DOTDIR = '.dmedia'
 log = logging.getLogger()
 
 
+# FIXME: This needs to be done with some real inspection of the file contents,
+# but this is just a stopgap for the sake of getting the schema stable:
+MEDIA_MAP = {
+    'mov': 'video',
+    'ogv': 'video',
+    'wav': 'audio',
+    'oga': 'audio',
+    'cr2': 'image',
+    'jpg': 'image',
+    'png': 'image',
+}
+
+
 def normalize_ext(name):
     """
     Return (root, ext) from *name* where extension is normalized to lower-case.
@@ -290,6 +303,7 @@ class ImportWorker(CouchWorker):
         }
         if ext:
             doc['mime'] = mimetypes.types_map.get('.' + ext)
+            doc['media'] = MEDIA_MAP.get(ext)
         if self.extract:
             merge_metadata(src, doc)
         (_id, _rev) = self.db.save(doc)
