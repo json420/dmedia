@@ -532,6 +532,64 @@ class test_functions(TestCase):
             "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
         )
 
+    def test_check_dmedia_file_optional(self):
+        f = schema.check_dmedia_file_optional
+        f({})
+
+        e = raises(TypeError, f, {'mime': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('mime', basestring, int, 42)
+        )
+
+        e = raises(TypeError, f, {'media': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('media', basestring, int, 42)
+        )
+
+        e = raises(TypeError, f, {'mtime': '1234567890'})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('mtime', (int, float), str, '1234567890')
+        )
+
+        e = raises(ValueError, f, {'atime': -2})
+        self.assertEqual(
+            str(e),
+            'atime must be >= 0; got -2'
+        )
+
+        e = raises(TypeError, f, {'name': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('name', basestring, int, 42)
+        )
+
+        e = raises(TypeError, f, {'dir': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('dir', basestring, int, 42)
+        )
+
+        e = raises(TypeError, f, {'meta': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('meta', dict, int, 42)
+        )
+
+        e = raises(TypeError, f, {'user': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('user', dict, int, 42)
+        )
+
+        e = raises(TypeError, f, {'tags': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ('tags', dict, int, 42)
+        )
+
 
     def test_check_dmedia_store(self):
         f = schema.check_dmedia_store

@@ -880,6 +880,53 @@ def check_dmedia_file(doc):
     # Check 'stored'
     check_stored(doc['stored'])
 
+    check_dmedia_file_optional(doc)
+
+
+def check_dmedia_file_optional(doc):
+    """
+    Check the optional attributes in a 'dmedia/file' document.
+    """
+    _check_dict(doc, 'doc')
+
+    # mime like 'video/quicktime'
+    if doc.get('mime') is not None:
+        mime = doc['mime']
+        _check_str(mime, 'mime')
+
+    # media like 'video'
+    if doc.get('media') is not None:
+        media = doc['media']
+        _check_str(media, 'media')
+
+    # mtime like 1234567890
+    if 'mtime' in doc:
+        check_time(doc['mtime'], 'mtime')
+
+    # atime like 1234567890
+    if 'atime' in doc:
+        check_time(doc['atime'], 'atime')
+
+    # name like 'MVI_5899.MOV'
+    if 'name' in doc:
+        _check_str(doc['name'], 'name')
+
+    # dir like 'DCIM/100EOS5D2'
+    if 'dir' in doc:
+        _check_str(doc['dir'], 'dir')
+
+    # 'meta' like {'iso': 800}
+    if 'meta' in doc:
+        _check_dict(doc['meta'], 'meta')
+
+    # 'user' like {'title': 'cool sunset'}
+    if 'user' in doc:
+        _check_dict(doc['user'], 'user')
+
+    # 'tags' like {'uds-n': {'start': 3, 'end': 17}}
+    if 'tags' in doc:
+        _check_dict(doc['tags'], 'tags')
+
 
 def check_dmedia_store(doc):
     """

@@ -279,7 +279,6 @@ class ImportWorker(CouchWorker):
         except couchdb.ResourceNotFound as e:
             pass
 
-        ts = time.time()
         doc = create_file(stat.st_size, leaves, self.filestore._id,
             copies=1, ext=ext
         )
