@@ -311,9 +311,11 @@ When the job is completed, the document is updated like this:
 from __future__ import print_function
 
 import os
-from base64 import b32encode, b32decode
+from hashlib import sha1
+from base64 import b32encode, b32decode, b64encode
 import re
 import time
+
 from .constants import TYPE_ERROR, EXT_PAT
 
 # Some private helper functions that don't directly define any schema.
@@ -650,7 +652,7 @@ def check_stored(stored, label='stored'):
 
         3. have values that are themselves ``dict`` instances
 
-        4. values must have 'copies' that is an ``int`` >= 1
+        4. values must have 'copies' that is an ``int`` >= 0
 
         5. values must have 'time' that conforms with `check_time()`
 
@@ -698,7 +700,7 @@ def check_stored(stored, label='stored'):
         copies = value['copies']
         l3 = l2 + "['copies']"
         _check_int(copies, l3)
-        _check_at_least(copies, 1, l3)
+        _check_at_least(copies, 0, l3)
 
         # Check 'time':
         check_time(value['time'], l2 + "['time']")
@@ -790,7 +792,6 @@ def check_origin(value, label='origin', strict=False):
     allowed = ['user', 'download', 'paid', 'proxy', 'cache', 'render']
     if value not in allowed:
         raise ValueError('%s: %r not in %r' % (label, value, allowed))
-
 
 
 def check_dmedia_file(doc):
@@ -966,9 +967,64 @@ def random_id(random=None):
     return b32encode(random)
 
 
+# FIXME: There is current a recursize import issue with filestore, but FileStore
+# shouldn't deal with the store.json file anyway, should not import
+# `schema.create_store()`
+def tophash_personalization(file_size):
+    return ' '.join(['dmedia/tophash', str(file_size)]).encode('utf-8')
+
+
+def tophash(file_size, leaves):
+    """
+    Initialize hash for a file that is *file_size* bytes.
+    """
+    h = sha1(tophash_personalization(file_size))
+    h.update(leaves)
+    return b32encode(h.digest())
+
+
+def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
+    """
+    Create a minimal 'dmedia/file' document.
+
+    :param file_size: an ``int``, the file size in bytes, eg ``20202333``
+    :param leaves: a ``list`` containing the content hash of each leaf
+    :param store: the ID of the store where this file is initially stored, eg
+        ``'Y4J3WQCMKV5GHATOCZZBHF4Y'``
+    :param copies: an ``int`` to represent the durability of the file on this
+        store; default is ``0``
+    :param ext: the file extension, eg ``'mov'``; default is ``None``
+    :param origin: the file's origin (for durability/reclamation purposes);
+        default is ``'user'``
+    """
+    ts = time.time()
+    packed = b''.join(leaves)
+    return {
+        '_id': tophash(file_size, packed),
+        '_attachments': {
+            'leaves': {
+                'data': b64encode(packed),
+                'content_type': 'application/octet-stream',
+            }
+        },
+        'ver': 0,
+        'type': 'dmedia/file',
+        'time': ts,
+        'bytes': file_size,
+        'ext': ext,
+        'origin': origin,
+        'stored': {
+            store: {
+                'copies': copies,
+                'time': ts,
+            }
+        }
+    }
+
+
 def create_store(base, machine_id, copies=1):
     """
-    Create a "dmedia/store" document.
+    Create a 'dmedia/store' document.
     """
     return {
         '_id': random_id(),

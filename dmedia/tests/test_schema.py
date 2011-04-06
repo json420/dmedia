@@ -24,10 +24,10 @@ Unit tests for `dmedia.schema` module.
 """
 
 from unittest import TestCase
-from base64 import b32encode, b32decode
+from base64 import b32encode, b32decode, b64encode
 from copy import deepcopy
 import time
-from .helpers import raises, TempDir
+from .helpers import raises, TempDir, mov_hash, mov_leaves, mov_size
 from dmedia.constants import TYPE_ERROR
 from dmedia.schema import random_id
 from dmedia import schema
@@ -286,11 +286,11 @@ class test_functions(TestCase):
             TYPE_ERROR % (label, int, float, 2.0)
         )
         bad = deepcopy(good)
-        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = 0
+        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -2
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            '%s must be >= 1; got 0' % label
+            '%s must be >= 0; got -2' % label
         )
 
         # Test with bad 'time' type/value:
@@ -529,7 +529,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 1; got -1"
+            "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
         )
 
 
@@ -605,6 +605,64 @@ class test_functions(TestCase):
         binary = b32decode(_id)
         self.assertEqual(len(binary), 15)
         self.assertEqual(b32encode(binary), _id)
+
+    def test_create_file(self):
+        f = schema.create_file
+        store = schema.random_id()
+
+        d = f(mov_size, mov_leaves, store)
+        schema.check_dmedia_file(d)
+        self.assertEqual(
+            set(d),
+            set([
+                '_id',
+                '_attachments',
+                'ver',
+                'type',
+                'time',
+                'bytes',
+                'ext',
+                'origin',
+                'stored',
+            ])
+        )
+        self.assertEqual(d['_id'], mov_hash)
+        self.assertEqual(
+            d['_attachments'],
+            {
+                'leaves': {
+                    'data': b64encode(b''.join(mov_leaves)),
+                    'content_type': 'application/octet-stream',
+                }
+            }
+        )
+        self.assertEqual(d['ver'], 0)
+        self.assertEqual(d['type'], 'dmedia/file')
+        self.assertLessEqual(d['time'], time.time())
+        self.assertEqual(d['bytes'], mov_size)
+        self.assertIsNone(d['ext'], None)
+        self.assertEqual(d['origin'], 'user')
+
+        s = d['stored']
+        self.assertIsInstance(s, dict)
+        self.assertEqual(list(s), [store])
+        self.assertEqual(set(s[store]), set(['copies', 'time']))
+        self.assertEqual(s[store]['copies'], 0)
+        self.assertEqual(s[store]['time'], d['time'])
+
+        # Test overriding default kwarg values:
+        d = f(mov_size, mov_leaves, store, copies=2)
+        schema.check_dmedia_file(d)
+        self.assertEqual(d['stored'][store]['copies'], 2)
+
+        d = f(mov_size, mov_leaves, store, ext='mov')
+        schema.check_dmedia_file(d)
+        self.assertEqual(d['ext'], 'mov')
+
+        d = f(mov_size, mov_leaves, store, origin='proxy')
+        schema.check_dmedia_file(d)
+        self.assertEqual(d['origin'], 'proxy')
+
 
     def test_create_store(self):
         f = schema.create_store
