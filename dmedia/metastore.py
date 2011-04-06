@@ -62,6 +62,19 @@ function(doc) {
 }
 """
 
+# views in the 'file' design only index docs for which doc.type == 'dmedia/file'
+file_stored = """
+// Get list of all files on a given store, total bytes on that store
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.stored) {
+            emit(key, doc.bytes);
+        }
+    }
+}
+"""
+
 file_bytes = """
 function(doc) {
     if (doc.type == 'dmedia/file' && typeof(doc.bytes) == 'number') {
@@ -104,6 +117,20 @@ function(doc) {
 
 # views in the 'user' design only index docs for which doc.type == 'dmedia/file'
 # and doc.origin == 'user'
+user_copies = """
+// Durability of user's personal files
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            copies += doc.stored[key].copies;
+        }
+        emit(copies, null);
+    }
+}
+"""
+
 user_media = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -218,6 +245,7 @@ class MetaStore(object):
         )),
 
         ('file', (
+            ('stored', file_stored, _sum),
             ('import_id', file_import_id, None),
             ('bytes', file_bytes, _sum),
             ('ext', file_ext, _count),
@@ -226,6 +254,7 @@ class MetaStore(object):
         )),
 
         ('user', (
+            ('copies', user_copies, None),
             ('media', user_media, _count),
             ('tags', user_tags, _count),
             ('all', user_all, None),
