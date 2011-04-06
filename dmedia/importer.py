@@ -33,7 +33,7 @@ import logging
 
 import couchdb
 
-from .schema import random_id, create_batch, create_import
+from .schema import random_id, create_file, create_batch, create_import
 from .errors import DuplicateFile
 from .workers import (
     CouchWorker, CouchManager, register, isregistered, exception_name
@@ -51,12 +51,17 @@ log = logging.getLogger()
 # FIXME: This needs to be done with some real inspection of the file contents,
 # but this is just a stopgap for the sake of getting the schema stable:
 MEDIA_MAP = {
-    'mov': 'video',
     'ogv': 'video',
-    'wav': 'audio',
+    'mov': 'video',
+    'avi': 'video',
+
     'oga': 'audio',
-    'cr2': 'image',
+    'flac': 'audio',
+    'wav': 'audio',
+    'mp3': 'audio',
+
     'jpg': 'image',
+    'cr2': 'image',
     'png': 'image',
 }
 
@@ -275,32 +280,16 @@ class ImportWorker(CouchWorker):
             pass
 
         ts = time.time()
-        doc = {
-            '_id': chash,
-            '_attachments': {
-                'leaves': {
-                    'data': b64encode(pack_leaves(leaves)),
-                    'content_type': 'application/octet-stream',
-                }
-            },
-            'ver': 0,
-            'type': 'dmedia/file',
-            'time': ts,
-            'bytes': stat.st_size,
-            'ext': ext,
-            'origin': 'user',
-            'stored': {
-                self.filestore._id: {
-                    'copies': 1,
-                    'time': ts,
-                },
-            },
-
-            'import_id': self._id,
-            'mtime': stat.st_mtime,
-            'name': name,
-            'dir': path.relpath(path.dirname(src), self.base),
-        }
+        doc = create_file(stat.st_size, leaves, self.filestore._id,
+            copies=1, ext=ext
+        )
+        assert doc['_id'] == chash
+        doc.update(
+            import_id=self._id,
+            mtime=stat.st_mtime,
+            name=name,
+            dir=path.relpath(path.dirname(src), self.base),
+        )
         if ext:
             doc['mime'] = mimetypes.types_map.get('.' + ext)
             doc['media'] = MEDIA_MAP.get(ext)
