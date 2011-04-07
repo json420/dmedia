@@ -331,8 +331,10 @@ from .constants import TYPE_ERROR, EXT_PAT
 # That is all.
 
 
-# FIXME: These 6 functions are a step toward making the checks more concise and
-# the error messages consistent and even more helpful.
+# FIXME: These functions are a step toward making the checks more concise and
+# the error messages consistent and even more helpful.  However, these functions
+# aren't used much yet... but all the schema checks should be ported to these
+# functions eventually.
 def _label(path):
     """
     Create a helpful debugging label to indicate the attribute in question.
@@ -491,7 +493,7 @@ def _can_be_none(value, label):
     if value is None:
         return True
 
-# /FIXME
+# /FIXME new helper functions
 
 
 def _check_dict(value, label):
@@ -644,6 +646,25 @@ def _check_required(d, required, label='doc'):
         raise ValueError(
             '%s missing keys: %r' % (label, missing)
         )
+
+
+def _check_in(value, label, *possible):
+    """
+    Check that *value* is one of *possible*.
+
+    For example:
+
+    >>> _check_in('foo', "doc['media']", 'video', 'audio', 'image')
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['media'] value 'foo' not in ('video', 'audio', 'image')
+
+    """
+    if value not in possible:
+        raise ValueError(
+            '{} value {!r} not in {!r}'.format(label, value, possible)
+        )
+
 
 
 # The schema defining functions:
@@ -1053,43 +1074,53 @@ def check_dmedia_file_optional(doc):
     """
     _check_dict(doc, 'doc')
 
-    # mime like 'video/quicktime'
-    if doc.get('mime') is not None:
-        mime = doc['mime']
-        _check_str(mime, 'mime')
+    # 'mime' like 'video/quicktime'
+    _check_if_exists(doc, ['mime'],
+        _can_be_none,
+        _check_str,
+    )
 
-    # media like 'video'
-    if doc.get('media') is not None:
-        media = doc['media']
-        _check_str(media, 'media')
+    # 'media' like 'video'
+    _check_if_exists(doc, ['media'],
+        _can_be_none,
+        _check_str,
+        (_check_in, 'video', 'audio', 'image'),
+    )
 
-    # mtime like 1234567890
-    if 'mtime' in doc:
-        check_time(doc['mtime'], 'mtime')
+    # 'mtime' like 1234567890
+    _check_if_exists(doc, ['mtime'],
+        check_time
+    )
 
-    # atime like 1234567890
-    if 'atime' in doc:
-        check_time(doc['atime'], 'atime')
+    # 'atime' like 1234567890
+    _check_if_exists(doc, ['atime'],
+        check_time
+    )
 
     # name like 'MVI_5899.MOV'
-    if 'name' in doc:
-        _check_str(doc['name'], 'name')
+    _check_if_exists(doc, ['name'],
+        _check_str,
+    )
 
     # dir like 'DCIM/100EOS5D2'
-    if 'dir' in doc:
-        _check_str(doc['dir'], 'dir')
+    _check_if_exists(doc, ['dir'],
+        _check_str,
+    )
 
     # 'meta' like {'iso': 800}
-    if 'meta' in doc:
-        _check_dict(doc['meta'], 'meta')
+    _check_if_exists(doc, ['meta'],
+        _check_dict
+    )
 
     # 'user' like {'title': 'cool sunset'}
-    if 'user' in doc:
-        _check_dict(doc['user'], 'user')
+    _check_if_exists(doc, ['user'],
+        _check_dict
+    )
 
-    # 'tags' like {'uds-n': {'start': 3, 'end': 17}}
-    if 'tags' in doc:
-        _check_dict(doc['tags'], 'tags')
+    # 'tags' like {'burp': {'start': 6, 'end': 73}}
+    _check_if_exists(doc, ['tags'],
+        _check_dict
+    )
 
 
 def check_dmedia_store(doc):

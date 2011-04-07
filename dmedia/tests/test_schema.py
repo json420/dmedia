@@ -536,58 +536,96 @@ class test_functions(TestCase):
         f = schema.check_dmedia_file_optional
         f({})
 
+        # mime
+        self.assertIsNone(f({'mime': 'video/quicktime'}))
         e = raises(TypeError, f, {'mime': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('mime', basestring, int, 42)
+            TYPE_ERROR % ("doc['mime']", basestring, int, 42)
         )
 
+        # media
+        self.assertIsNone(f({'media': None}))
+        self.assertIsNone(f({'media': 'video'}))
+        self.assertIsNone(f({'media': 'audio'}))
+        self.assertIsNone(f({'media': 'image'}))
         e = raises(TypeError, f, {'media': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('media', basestring, int, 42)
+            TYPE_ERROR % ("doc['media']", basestring, int, 42)
+        )
+        e = raises(ValueError, f, {'media': 'stuff'})
+        self.assertEqual(
+            str(e),
+            "doc['media'] value 'stuff' not in ('video', 'audio', 'image')"
         )
 
+        # mtime
+        self.assertIsNone(f({'mtime': 1302125982.946627}))
+        self.assertIsNone(f({'mtime': 1234567890}))
         e = raises(TypeError, f, {'mtime': '1234567890'})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('mtime', (int, float), str, '1234567890')
+            TYPE_ERROR % ("doc['mtime']", (int, float), str, '1234567890')
         )
-
-        e = raises(ValueError, f, {'atime': -2})
+        e = raises(ValueError, f, {'mtime': -1})
         self.assertEqual(
             str(e),
-            'atime must be >= 0; got -2'
+            "doc['mtime'] must be >= 0; got -1"
         )
 
+        # atime
+        self.assertIsNone(f({'atime': 1302125982.946627}))
+        self.assertIsNone(f({'atime': 1234567890}))
+        e = raises(TypeError, f, {'atime': '1234567890'})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['atime']", (int, float), str, '1234567890')
+        )
+        e = raises(ValueError, f, {'atime': -0.3})
+        self.assertEqual(
+            str(e),
+            "doc['atime'] must be >= 0; got -0.3"
+        )
+
+        # name
+        self.assertIsNone(f({'name': 'MVI_5899.MOV'}))
         e = raises(TypeError, f, {'name': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('name', basestring, int, 42)
+            TYPE_ERROR % ("doc['name']", basestring, int, 42)
         )
 
+        # dir
+        self.assertIsNone(f({'dir': 'DCIM/100EOS5D2'}))
         e = raises(TypeError, f, {'dir': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('dir', basestring, int, 42)
+            TYPE_ERROR % ("doc['dir']", basestring, int, 42)
         )
 
+        # meta
+        self.assertIsNone(f({'meta': {'iso': 800}}))
         e = raises(TypeError, f, {'meta': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('meta', dict, int, 42)
+            TYPE_ERROR % ("doc['meta']", dict, int, 42)
         )
 
+        # user
+        self.assertIsNone(f({'user': {'title': 'cool sunset'}}))
         e = raises(TypeError, f, {'user': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('user', dict, int, 42)
+            TYPE_ERROR % ("doc['user']", dict, int, 42)
         )
 
+        # tags
+        self.assertIsNone(f({'tags': {'burp': {'start': 6, 'end': 73}}}))
         e = raises(TypeError, f, {'tags': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('tags', dict, int, 42)
+            TYPE_ERROR % ("doc['tags']", dict, int, 42)
         )
 
 
