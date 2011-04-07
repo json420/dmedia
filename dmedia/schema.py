@@ -439,6 +439,35 @@ def _exists(doc, path):
 
 
 def _check(doc, path, *checks):
+    """
+    Run a series of *checks* on the value in *doc* addressed by *path*.
+
+    For example:
+
+    >>> doc = {'foo': [None, {'bar': 'aye'}, None]}
+    >>> _check(doc, ['foo', 1, 'bar'],
+    ...     _check_str,
+    ...     (_check_in, 'bee', 'sea'),
+    ... )
+    ...
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['foo'][1]['bar'] value 'aye' not in ('bee', 'sea')
+
+
+    Or if a value is missing:
+
+    >>> _check(doc, ['foo', 3],
+    ...     _can_be_none,
+    ... )
+    ...
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['foo'][3] does not exists
+
+
+    See also `_check_if_exists()`.
+    """
     value = _value(doc, path)
     label = _label(path)
     for c in checks:
@@ -464,7 +493,7 @@ def _check_if_exists(doc, path, *checks):
     TypeError: doc['name']: need a <type 'basestring'>; got a <type 'int'>: 17
 
 
-    See also `_exists()` and `_check()`.
+    See also `_check()` and `_exists()`.
     """
     if _exists(doc, path):
         _check(doc, path, *checks)
