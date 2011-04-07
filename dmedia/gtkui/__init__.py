@@ -26,4 +26,6 @@ GTK UI components for dmedia and apps built atop dmedia.
 import gi
 gi.require_version('Gtk', '2.0')
 gi.require_version('WebKit', '1.0')
-from gi.repository import Gtk, WebKit
+from gi.repository import GObject, Gtk, WebKit
+
+GObject.threads_init()

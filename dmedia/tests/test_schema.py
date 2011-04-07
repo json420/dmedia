@@ -24,10 +24,10 @@ Unit tests for `dmedia.schema` module.
 """
 
 from unittest import TestCase
-from base64 import b32encode, b32decode
+from base64 import b32encode, b32decode, b64encode
 from copy import deepcopy
 import time
-from .helpers import raises, TempDir
+from .helpers import raises, TempDir, mov_hash, mov_leaves, mov_size
 from dmedia.constants import TYPE_ERROR
 from dmedia.schema import random_id
 from dmedia import schema
@@ -163,13 +163,24 @@ class test_functions(TestCase):
 
         good = {
             '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
+            'ver': 0,
             'type': 'dmedia/foo',
             'time': 1234567890,
             'foo': 'bar',
         }
         g = deepcopy(good)
         self.assertEqual(f(g), None)
-        for key in ['_id', 'type', 'time']:
+
+        # check with bad ver:
+        bad = deepcopy(good)
+        bad['ver'] = 0.0
+        e = raises(TypeError, f, bad)
+        self.assertEqual(str(e), TYPE_ERROR % ('ver', int, float, 0.0))
+        bad['ver'] = 1
+        e = raises(ValueError, f, bad)
+        self.assertEqual(str(e), "doc['ver'] must be 0; got 1")
+
+        for key in ['_id', 'ver', 'type', 'time']:
             bad = deepcopy(good)
             del bad[key]
             e = raises(ValueError, f, bad)
@@ -190,7 +201,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'doc missing keys: %r' % ['_id', 'time', 'type']
+            'doc missing keys: %r' % ['_id', 'time', 'type', 'ver']
         )
 
     def test_check_stored(self):
@@ -275,11 +286,11 @@ class test_functions(TestCase):
             TYPE_ERROR % (label, int, float, 2.0)
         )
         bad = deepcopy(good)
-        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = 0
+        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -2
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            '%s must be >= 1; got 0' % label
+            '%s must be >= 0; got -2' % label
         )
 
         # Test with bad 'time' type/value:
@@ -420,6 +431,7 @@ class test_functions(TestCase):
         # Test with good doc:
         good = {
             '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
             'bytes': 20202333,
@@ -517,7 +529,103 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 1; got -1"
+            "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
+        )
+
+    def test_check_dmedia_file_optional(self):
+        f = schema.check_dmedia_file_optional
+        f({})
+
+        # mime
+        self.assertIsNone(f({'mime': 'video/quicktime'}))
+        e = raises(TypeError, f, {'mime': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['mime']", basestring, int, 42)
+        )
+
+        # media
+        self.assertIsNone(f({'media': None}))
+        self.assertIsNone(f({'media': 'video'}))
+        self.assertIsNone(f({'media': 'audio'}))
+        self.assertIsNone(f({'media': 'image'}))
+        e = raises(TypeError, f, {'media': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['media']", basestring, int, 42)
+        )
+        e = raises(ValueError, f, {'media': 'stuff'})
+        self.assertEqual(
+            str(e),
+            "doc['media'] value 'stuff' not in ('video', 'audio', 'image')"
+        )
+
+        # mtime
+        self.assertIsNone(f({'mtime': 1302125982.946627}))
+        self.assertIsNone(f({'mtime': 1234567890}))
+        e = raises(TypeError, f, {'mtime': '1234567890'})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['mtime']", (int, float), str, '1234567890')
+        )
+        e = raises(ValueError, f, {'mtime': -1})
+        self.assertEqual(
+            str(e),
+            "doc['mtime'] must be >= 0; got -1"
+        )
+
+        # atime
+        self.assertIsNone(f({'atime': 1302125982.946627}))
+        self.assertIsNone(f({'atime': 1234567890}))
+        e = raises(TypeError, f, {'atime': '1234567890'})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['atime']", (int, float), str, '1234567890')
+        )
+        e = raises(ValueError, f, {'atime': -0.3})
+        self.assertEqual(
+            str(e),
+            "doc['atime'] must be >= 0; got -0.3"
+        )
+
+        # name
+        self.assertIsNone(f({'name': 'MVI_5899.MOV'}))
+        e = raises(TypeError, f, {'name': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['name']", basestring, int, 42)
+        )
+
+        # dir
+        self.assertIsNone(f({'dir': 'DCIM/100EOS5D2'}))
+        e = raises(TypeError, f, {'dir': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['dir']", basestring, int, 42)
+        )
+
+        # meta
+        self.assertIsNone(f({'meta': {'iso': 800}}))
+        e = raises(TypeError, f, {'meta': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['meta']", dict, int, 42)
+        )
+
+        # user
+        self.assertIsNone(f({'user': {'title': 'cool sunset'}}))
+        e = raises(TypeError, f, {'user': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['user']", dict, int, 42)
+        )
+
+        # tags
+        self.assertIsNone(f({'tags': {'burp': {'start': 6, 'end': 73}}}))
+        e = raises(TypeError, f, {'tags': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['tags']", dict, int, 42)
         )
 
 
@@ -527,6 +635,7 @@ class test_functions(TestCase):
         # Test with good doc:
         good = {
             '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
             'plugin': 'filestore',
@@ -593,6 +702,64 @@ class test_functions(TestCase):
         self.assertEqual(len(binary), 15)
         self.assertEqual(b32encode(binary), _id)
 
+    def test_create_file(self):
+        f = schema.create_file
+        store = schema.random_id()
+
+        d = f(mov_size, mov_leaves, store)
+        schema.check_dmedia_file(d)
+        self.assertEqual(
+            set(d),
+            set([
+                '_id',
+                '_attachments',
+                'ver',
+                'type',
+                'time',
+                'bytes',
+                'ext',
+                'origin',
+                'stored',
+            ])
+        )
+        self.assertEqual(d['_id'], mov_hash)
+        self.assertEqual(
+            d['_attachments'],
+            {
+                'leaves': {
+                    'data': b64encode(b''.join(mov_leaves)),
+                    'content_type': 'application/octet-stream',
+                }
+            }
+        )
+        self.assertEqual(d['ver'], 0)
+        self.assertEqual(d['type'], 'dmedia/file')
+        self.assertLessEqual(d['time'], time.time())
+        self.assertEqual(d['bytes'], mov_size)
+        self.assertIsNone(d['ext'], None)
+        self.assertEqual(d['origin'], 'user')
+
+        s = d['stored']
+        self.assertIsInstance(s, dict)
+        self.assertEqual(list(s), [store])
+        self.assertEqual(set(s[store]), set(['copies', 'time']))
+        self.assertEqual(s[store]['copies'], 0)
+        self.assertEqual(s[store]['time'], d['time'])
+
+        # Test overriding default kwarg values:
+        d = f(mov_size, mov_leaves, store, copies=2)
+        schema.check_dmedia_file(d)
+        self.assertEqual(d['stored'][store]['copies'], 2)
+
+        d = f(mov_size, mov_leaves, store, ext='mov')
+        schema.check_dmedia_file(d)
+        self.assertEqual(d['ext'], 'mov')
+
+        d = f(mov_size, mov_leaves, store, origin='proxy')
+        schema.check_dmedia_file(d)
+        self.assertEqual(d['origin'], 'proxy')
+
+
     def test_create_store(self):
         f = schema.create_store
         tmp = TempDir()
@@ -605,6 +772,7 @@ class test_functions(TestCase):
             set(doc),
             set([
                 '_id',
+                'ver',
                 'type',
                 'time',
                 'plugin',
@@ -625,6 +793,7 @@ class test_functions(TestCase):
             set(doc),
             set([
                 '_id',
+                'ver',
                 'type',
                 'time',
                 'plugin',
@@ -639,3 +808,102 @@ class test_functions(TestCase):
         self.assertEqual(doc['copies'], 3)
         self.assertEqual(doc['path'], base)
         self.assertEqual(doc['machine_id'], machine_id)
+
+    def test_create_batch(self):
+        f = schema.create_batch
+        machine_id = random_id()
+        doc = f(machine_id)
+
+        self.assertEqual(schema.check_dmedia(doc), None)
+        self.assertTrue(isinstance(doc, dict))
+        self.assertEqual(
+            set(doc),
+            set([
+                '_id',
+                'ver',
+                'type',
+                'time',
+                'imports',
+                'errors',
+                'machine_id',
+                'stats',
+            ])
+        )
+        _id = doc['_id']
+        self.assertEqual(b32encode(b32decode(_id)), _id)
+        self.assertEqual(len(_id), 24)
+        self.assertEqual(doc['type'], 'dmedia/batch')
+        self.assertTrue(isinstance(doc['time'], (int, float)))
+        self.assertTrue(doc['time'] <= time.time())
+        self.assertEqual(doc['imports'], [])
+        self.assertEqual(doc['errors'], [])
+        self.assertEqual(doc['machine_id'], machine_id)
+        self.assertEqual(
+            doc['stats'],
+            {
+                'considered': {'count': 0, 'bytes': 0},
+                'imported': {'count': 0, 'bytes': 0},
+                'skipped': {'count': 0, 'bytes': 0},
+                'empty': {'count': 0, 'bytes': 0},
+                'error': {'count': 0, 'bytes': 0},
+            }
+        )
+
+    def test_create_import(self):
+        f = schema.create_import
+
+        base = '/media/EOS_DIGITAL'
+        batch_id = random_id()
+        machine_id = random_id()
+
+        keys = set([
+            '_id',
+            'ver',
+            'type',
+            'time',
+            'base',
+            'batch_id',
+            'machine_id',
+            'log',
+            'stats',
+        ])
+
+        doc = f(base, batch_id=batch_id, machine_id=machine_id)
+        self.assertEqual(schema.check_dmedia(doc), None)
+        self.assertTrue(isinstance(doc, dict))
+        self.assertEqual(set(doc), keys)
+
+        _id = doc['_id']
+        self.assertEqual(b32encode(b32decode(_id)), _id)
+        self.assertEqual(len(_id), 24)
+
+        self.assertEqual(doc['type'], 'dmedia/import')
+        self.assertTrue(isinstance(doc['time'], (int, float)))
+        self.assertTrue(doc['time'] <= time.time())
+        self.assertEqual(doc['base'], base)
+        self.assertEqual(doc['batch_id'], batch_id)
+        self.assertEqual(doc['machine_id'], machine_id)
+
+        doc = f(base)
+        self.assertEqual(schema.check_dmedia(doc), None)
+        self.assertEqual(set(doc), keys)
+        self.assertEqual(doc['batch_id'], None)
+        self.assertEqual(doc['machine_id'], None)
+        self.assertEqual(
+            doc['log'],
+            {
+                'imported': [],
+                'skipped': [],
+                'empty': [],
+                'error': [],
+            }
+        )
+        self.assertEqual(
+            doc['stats'],
+            {
+                'imported': {'count': 0, 'bytes': 0},
+                'skipped': {'count': 0, 'bytes': 0},
+                'empty': {'count': 0, 'bytes': 0},
+                'error': {'count': 0, 'bytes': 0},
+            }
+        )

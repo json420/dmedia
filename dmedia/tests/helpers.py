@@ -34,6 +34,7 @@ from base64 import b32encode, b32decode, b64encode
 from . import sample_mov, sample_thm
 
 mov_hash = 'TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK'
+mov_size = 20202333
 mov_leaves = [
     b32decode('IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3'),
     b32decode('MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4'),

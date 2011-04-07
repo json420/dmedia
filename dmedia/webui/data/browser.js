@@ -53,8 +53,8 @@ function Browser(id, db) {
 }
 Browser.prototype = {
     run: function() {
-        var r = this.db.view('file', 'ext',
-            {key: 'mov', reduce: false, include_docs: true}
+        var r = this.db.view('user', 'video',
+            {include_docs: true, descending: true}
         );
         this.load(r.rows);
     },
@@ -74,7 +74,7 @@ Browser.prototype = {
             };
 
             var time = $el('div', {'class': 'time'});
-            time.textContent = doc.duration + 's';
+            time.textContent = doc.meta.duration + 's';
 
             div.appendChild(img);
             div.appendChild(time);
@@ -90,7 +90,7 @@ Browser.prototype = {
         names.forEach(function(n) {
             var el = $('meta.' + n);
             if (el) {
-                el.textContent = doc[n];
+                el.textContent = doc.meta[n];
             }
         });
     },

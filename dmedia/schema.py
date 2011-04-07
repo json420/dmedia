@@ -33,6 +33,7 @@ For example:
 
 >>> good = {
 ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     'ver': 0,
 ...     'type': 'dmedia/foo',
 ...     'time': 1234567890,
 ... }
@@ -40,6 +41,7 @@ For example:
 >>> check_dmedia(good)  # Returns None
 >>> bad = {
 ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     'ver': 0,
 ...     'kind': 'dmedia/foo',
 ...     'timestamp': 1234567890,
 ... }
@@ -222,6 +224,7 @@ example:
 
 >>> doc = {
 ...     '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
+...     'ver': 0,
 ...     'type': 'dmedia/batch',
 ...     'time': 1234567890,
 ... }
@@ -308,9 +311,11 @@ When the job is completed, the document is updated like this:
 from __future__ import print_function
 
 import os
-from base64 import b32encode, b32decode
+from hashlib import sha1
+from base64 import b32encode, b32decode, b64encode
 import re
 import time
+
 from .constants import TYPE_ERROR, EXT_PAT
 
 # Some private helper functions that don't directly define any schema.
@@ -324,6 +329,201 @@ from .constants import TYPE_ERROR, EXT_PAT
 #      with the schema
 #
 # That is all.
+
+
+# FIXME: These functions are a step toward making the checks more concise and
+# the error messages consistent and even more helpful.  However, these functions
+# aren't used much yet... but all the schema checks should be ported to these
+# functions eventually.
+def _label(path):
+    """
+    Create a helpful debugging label to indicate the attribute in question.
+
+    For example:
+
+    >>> _label([])
+    'doc'
+    >>> _label(['log'])
+    "doc['log']"
+    >>> _label(['log', 'considered', 2, 'src'])
+    "doc['log']['considered'][2]['src']"
+
+
+    See also `_value()`.
+    """
+    return 'doc' + ''.join('[{!r}]'.format(key) for key in path)
+
+
+def _value(doc, path):
+    """
+    Retrieve value from *doc* by traversing *path*.
+
+    For example:
+
+    >>> doc = {'log': {'considered': [None, None, {'src': 'hello'}, None]}}
+    >>> _value(doc, [])
+    {'log': {'considered': [None, None, {'src': 'hello'}, None]}}
+    >>> _value(doc, ['log'])
+    {'considered': [None, None, {'src': 'hello'}, None]}
+    >>> _value(doc, ['log', 'considered', 2, 'src'])
+    'hello'
+
+
+    Or if you try to retrieve something that doesn't exist:
+
+    >>> _value(doc, ['log', 'considered', 7])
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['log']['considered'][7] does not exists
+
+
+    Or if a key/index is missing higher up in the path:
+
+    >>> _value(doc, ['dog', 'considered', 7])
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['dog'] does not exists
+
+
+    See also `_label()`.
+    """
+    value = doc
+    p = []
+    for key in path:
+        p.append(key)
+        try:
+            value = value[key]
+        except (KeyError, IndexError):
+            raise ValueError(
+                '{} does not exists'.format(_label(p))
+            )
+    return value
+
+
+def _exists(doc, path):
+    """
+    Return ``True`` if the end of *path* exists.
+
+    For example:
+
+    >>> doc = {'foo': {'hello': 'world'}, 'bar': ['hello', 'naughty', 'nurse']}
+    >>> _exists(doc, ['foo', 'hello'])
+    True
+    >>> _exists(doc, ['foo', 'sup'])
+    False
+    >>> _exists(doc, ['bar', 2])
+    True
+    >>> _exists(doc, ['bar', 3])
+    False
+
+
+    Or if a key/index is missing higher up the path:
+
+    >>> _exists(doc, ['stuff', 'junk'])
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['stuff'] does not exists
+
+
+    See also `_check_if_exists()`.
+    """
+    if len(path) == 0:
+        return True
+    base = _value(doc, path[:-1])
+    key = path[-1]
+    try:
+        value = base[key]
+        return True
+    except (KeyError, IndexError):
+        return False
+
+
+def _check(doc, path, *checks):
+    """
+    Run a series of *checks* on the value in *doc* addressed by *path*.
+
+    For example:
+
+    >>> doc = {'foo': [None, {'bar': 'aye'}, None]}
+    >>> _check(doc, ['foo', 1, 'bar'],
+    ...     _check_str,
+    ...     (_check_in, 'bee', 'sea'),
+    ... )
+    ...
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['foo'][1]['bar'] value 'aye' not in ('bee', 'sea')
+
+
+    Or if a value is missing:
+
+    >>> _check(doc, ['foo', 3],
+    ...     _can_be_none,
+    ... )
+    ...
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['foo'][3] does not exists
+
+
+    See also `_check_if_exists()`.
+    """
+    value = _value(doc, path)
+    label = _label(path)
+    for c in checks:
+        if isinstance(c, tuple):
+            (c, args) = (c[0], c[1:])
+        else:
+            args = tuple()
+        if c(value, label, *args) is True:
+            break
+
+
+def _check_if_exists(doc, path, *checks):
+    """
+    Run *checks* only if value at *path* exists.
+
+    For example:
+
+    >>> doc = {'name': 17}
+    >>> _check_if_exists(doc, ['dir'], _check_str)
+    >>> _check_if_exists(doc, ['name'], _check_str)
+    Traceback (most recent call last):
+      ...
+    TypeError: doc['name']: need a <type 'basestring'>; got a <type 'int'>: 17
+
+
+    See also `_check()` and `_exists()`.
+    """
+    if _exists(doc, path):
+        _check(doc, path, *checks)
+
+
+def _can_be_none(value, label):
+    """
+    Stop execution of check if *value* is ``None``.
+
+    `_check()` will abort upon a check function returning ``True``.
+
+    For example, here a ``TypeError`` is raised:
+
+    >>> doc = {'ext': None}
+    >>> _check(doc, ['ext'], _check_str)
+    Traceback (most recent call last):
+      ...
+    TypeError: doc['ext']: need a <type 'basestring'>; got a <type 'NoneType'>: None
+
+
+    But here it is not:
+
+    >>> _check(doc, ['ext'], _can_be_none, _check_str)
+
+    """
+    if value is None:
+        return True
+
+# /FIXME new helper functions
+
 
 def _check_dict(value, label):
     """
@@ -387,13 +587,13 @@ def _check_int_float(value, label):
     if not isinstance(value, (int, float)):
         raise TypeError(TYPE_ERROR % (label, (int, float), type(value), value))
 
-def _check_at_least(value, minvalue, label):
+def _check_at_least(value, label, minvalue=0):
     """
     Verify that *value* is greater than or equal to *minvalue*.
 
     For example:
 
-    >>> _check_at_least(0, 1, 'bytes')
+    >>> _check_at_least(0, 'bytes', 1)
     Traceback (most recent call last):
       ...
     ValueError: bytes must be >= 1; got 0
@@ -475,6 +675,25 @@ def _check_required(d, required, label='doc'):
         raise ValueError(
             '%s missing keys: %r' % (label, missing)
         )
+
+
+def _check_in(value, label, *possible):
+    """
+    Check that *value* is one of *possible*.
+
+    For example:
+
+    >>> _check_in('foo', "doc['media']", 'video', 'audio', 'image')
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['media'] value 'foo' not in ('video', 'audio', 'image')
+
+    """
+    if value not in possible:
+        raise ValueError(
+            '{} value {!r} not in {!r}'.format(label, value, possible)
+        )
+
 
 
 # The schema defining functions:
@@ -579,7 +798,7 @@ def check_time(value, label='time'):
 
     """
     _check_int_float(value, label)
-    _check_at_least(value, 0, label)
+    _check_at_least(value, label, 0)
 
 
 def check_dmedia(doc):
@@ -591,14 +810,17 @@ def check_dmedia(doc):
 
         1. have '_id' that passes `check_base32()`
 
-        2. have 'type' that passes `check_type()`
+        2. have a 'ver' equal to ``0``
 
-        3. have 'time' that passes `check_time()`
+        3. have 'type' that passes `check_type()`
+
+        4. have 'time' that passes `check_time()`
 
     For example, a conforming value:
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ... }
@@ -610,6 +832,7 @@ def check_dmedia(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'kind': 'dmedia/file',
     ...     'timestamp': 1234567890,
     ... }
@@ -620,8 +843,13 @@ def check_dmedia(doc):
     ValueError: doc missing keys: ['time', 'type']
 
     """
-    _check_required(doc, ['_id', 'type', 'time'])
+    _check_required(doc, ['_id', 'ver', 'type', 'time'])
     check_base32(doc['_id'])
+    _check_int(doc['ver'], 'ver')
+    if doc['ver'] != 0:
+        raise ValueError(
+            "doc['ver'] must be 0; got {!r}".format(doc['ver'])
+        )
     check_type(doc['type'])
     check_time(doc['time'])
 
@@ -638,7 +866,7 @@ def check_stored(stored, label='stored'):
 
         3. have values that are themselves ``dict`` instances
 
-        4. values must have 'copies' that is an ``int`` >= 1
+        4. values must have 'copies' that is an ``int`` >= 0
 
         5. values must have 'time' that conforms with `check_time()`
 
@@ -686,7 +914,7 @@ def check_stored(stored, label='stored'):
         copies = value['copies']
         l3 = l2 + "['copies']"
         _check_int(copies, l3)
-        _check_at_least(copies, 1, l3)
+        _check_at_least(copies, l3, 0)
 
         # Check 'time':
         check_time(value['time'], l2 + "['time']")
@@ -780,7 +1008,6 @@ def check_origin(value, label='origin', strict=False):
         raise ValueError('%s: %r not in %r' % (label, value, allowed))
 
 
-
 def check_dmedia_file(doc):
     """
     Verify that *doc* is a valid 'dmedia/file' record type.
@@ -803,6 +1030,7 @@ def check_dmedia_file(doc):
 
     >>> doc = {
     ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
@@ -823,6 +1051,7 @@ def check_dmedia_file(doc):
 
     >>> doc = {
     ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
@@ -854,7 +1083,7 @@ def check_dmedia_file(doc):
     # Check 'bytes':
     b = doc['bytes']
     _check_int(b, 'bytes')
-    _check_at_least(b, 1, 'bytes')
+    _check_at_least(b, 'bytes', 1)
 
     # Check 'ext':
     check_ext(doc['ext'])
@@ -864,6 +1093,63 @@ def check_dmedia_file(doc):
 
     # Check 'stored'
     check_stored(doc['stored'])
+
+    check_dmedia_file_optional(doc)
+
+
+def check_dmedia_file_optional(doc):
+    """
+    Check the optional attributes in a 'dmedia/file' document.
+    """
+    _check_dict(doc, 'doc')
+
+    # 'mime' like 'video/quicktime'
+    _check_if_exists(doc, ['mime'],
+        _can_be_none,
+        _check_str,
+    )
+
+    # 'media' like 'video'
+    _check_if_exists(doc, ['media'],
+        _can_be_none,
+        _check_str,
+        (_check_in, 'video', 'audio', 'image'),
+    )
+
+    # 'mtime' like 1234567890
+    _check_if_exists(doc, ['mtime'],
+        check_time
+    )
+
+    # 'atime' like 1234567890
+    _check_if_exists(doc, ['atime'],
+        check_time
+    )
+
+    # name like 'MVI_5899.MOV'
+    _check_if_exists(doc, ['name'],
+        _check_str,
+    )
+
+    # dir like 'DCIM/100EOS5D2'
+    _check_if_exists(doc, ['dir'],
+        _check_str,
+    )
+
+    # 'meta' like {'iso': 800}
+    _check_if_exists(doc, ['meta'],
+        _check_dict
+    )
+
+    # 'user' like {'title': 'cool sunset'}
+    _check_if_exists(doc, ['user'],
+        _check_dict
+    )
+
+    # 'tags' like {'burp': {'start': 6, 'end': 73}}
+    _check_if_exists(doc, ['tags'],
+        _check_dict
+    )
 
 
 def check_dmedia_store(doc):
@@ -883,6 +1169,7 @@ def check_dmedia_store(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'plugin': 'filestore',
@@ -896,6 +1183,7 @@ def check_dmedia_store(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'dispatch': 'filestore',
@@ -925,7 +1213,7 @@ def check_dmedia_store(doc):
     key = 'copies'
     dc = doc[key]
     _check_int(dc, key)
-    _check_at_least(dc, 1, key)
+    _check_at_least(dc, key, 1)
 
 
 def random_id(random=None):
@@ -950,14 +1238,121 @@ def random_id(random=None):
     return b32encode(random)
 
 
-# This should probably be moved
+# FIXME: There is current a recursize import issue with filestore, but FileStore
+# shouldn't deal with the store.json file anyway, should not import
+# `schema.create_store()`
+def tophash_personalization(file_size):
+    return ' '.join(['dmedia/tophash', str(file_size)]).encode('utf-8')
+
+
+def tophash(file_size, leaves):
+    """
+    Initialize hash for a file that is *file_size* bytes.
+    """
+    h = sha1(tophash_personalization(file_size))
+    h.update(leaves)
+    return b32encode(h.digest())
+
+
+def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
+    """
+    Create a minimal 'dmedia/file' document.
+
+    :param file_size: an ``int``, the file size in bytes, eg ``20202333``
+    :param leaves: a ``list`` containing the content hash of each leaf
+    :param store: the ID of the store where this file is initially stored, eg
+        ``'Y4J3WQCMKV5GHATOCZZBHF4Y'``
+    :param copies: an ``int`` to represent the durability of the file on this
+        store; default is ``0``
+    :param ext: the file extension, eg ``'mov'``; default is ``None``
+    :param origin: the file's origin (for durability/reclamation purposes);
+        default is ``'user'``
+    """
+    ts = time.time()
+    packed = b''.join(leaves)
+    return {
+        '_id': tophash(file_size, packed),
+        '_attachments': {
+            'leaves': {
+                'data': b64encode(packed),
+                'content_type': 'application/octet-stream',
+            }
+        },
+        'ver': 0,
+        'type': 'dmedia/file',
+        'time': ts,
+        'bytes': file_size,
+        'ext': ext,
+        'origin': origin,
+        'stored': {
+            store: {
+                'copies': copies,
+                'time': ts,
+            }
+        }
+    }
+
+
 def create_store(base, machine_id, copies=1):
+    """
+    Create a 'dmedia/store' document.
+    """
     return {
         '_id': random_id(),
+        'ver': 0,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 'filestore',
         'copies': copies,
         'path': base,
         'machine_id': machine_id,
+    }
+
+
+def create_batch(machine_id=None):
+    """
+    Create initial 'dmedia/batch' accounting document.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/batch',
+        'time': time.time(),
+        'machine_id': machine_id,
+        'imports': [],
+        'errors': [],
+        'stats': {
+            'considered': {'count': 0, 'bytes': 0},
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
+    }
+
+
+def create_import(base, batch_id=None, machine_id=None):
+    """
+    Create initial 'dmedia/import' accounting document.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/import',
+        'time': time.time(),
+        'batch_id': batch_id,
+        'machine_id': machine_id,
+        'base': base,
+        'log': {
+            'imported': [],
+            'skipped': [],
+            'empty': [],
+            'error': [],
+        },
+        'stats': {
+            'imported': {'count': 0, 'bytes': 0},
+            'skipped': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'error': {'count': 0, 'bytes': 0},
+        }
     }
