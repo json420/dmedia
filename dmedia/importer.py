@@ -33,7 +33,7 @@ import logging
 
 import couchdb
 
-from .schema import random_id
+from .schema import random_id, create_file, create_batch, create_import
 from .errors import DuplicateFile
 from .workers import (
     CouchWorker, CouchManager, register, isregistered, exception_name
@@ -46,6 +46,24 @@ from .abstractcouch import get_env, get_couchdb_server, get_dmedia_db
 mimetypes.init()
 DOTDIR = '.dmedia'
 log = logging.getLogger()
+
+
+# FIXME: This needs to be done with some real inspection of the file contents,
+# but this is just a stopgap for the sake of getting the schema stable:
+MEDIA_MAP = {
+    'ogv': 'video',
+    'mov': 'video',
+    'avi': 'video',
+
+    'oga': 'audio',
+    'flac': 'audio',
+    'wav': 'audio',
+    'mp3': 'audio',
+
+    'jpg': 'image',
+    'cr2': 'image',
+    'png': 'image',
+}
 
 
 def normalize_ext(name):
@@ -141,53 +159,6 @@ def files_iter(base):
     for fullname in dirs:
         for tup in files_iter(fullname):
             yield tup
-
-
-def create_batch(machine_id=None):
-    """
-    Create initial 'dmedia/batch' accounting document.
-    """
-    return {
-        '_id': random_id(),
-        'type': 'dmedia/batch',
-        'time': time.time(),
-        'machine_id': machine_id,
-        'imports': [],
-        'errors': [],
-        'stats': {
-            'considered': {'count': 0, 'bytes': 0},
-            'imported': {'count': 0, 'bytes': 0},
-            'skipped': {'count': 0, 'bytes': 0},
-            'empty': {'count': 0, 'bytes': 0},
-            'error': {'count': 0, 'bytes': 0},
-        }
-    }
-
-
-def create_import(base, batch_id=None, machine_id=None):
-    """
-    Create initial 'dmedia/import' accounting document.
-    """
-    return {
-        '_id': random_id(),
-        'type': 'dmedia/import',
-        'time': time.time(),
-        'batch_id': batch_id,
-        'machine_id': machine_id,
-        'base': base,
-        'log': {
-            'imported': [],
-            'skipped': [],
-            'empty': [],
-            'error': [],
-        },
-        'stats': {
-            'imported': {'count': 0, 'bytes': 0},
-            'skipped': {'count': 0, 'bytes': 0},
-            'empty': {'count': 0, 'bytes': 0},
-            'error': {'count': 0, 'bytes': 0},
-        }
-    }
 
 
 class ImportWorker(CouchWorker):
@@ -308,34 +279,19 @@ class ImportWorker(CouchWorker):
         except couchdb.ResourceNotFound as e:
             pass
 
-        ts = time.time()
-        doc = {
-            '_id': chash,
-            '_attachments': {
-                'leaves': {
-                    'data': b64encode(pack_leaves(leaves)),
-                    'content_type': 'application/octet-stream',
-                }
-            },
-            'type': 'dmedia/file',
-            'time': ts,
-            'bytes': stat.st_size,
-            'ext': ext,
-            'origin': 'user',
-            'stored': {
-                self.filestore._id: {
-                    'copies': 1,
-                    'time': ts,
-                },
-            },
-
-            'import_id': self._id,
-            'mtime': stat.st_mtime,
-            'name': name,
-            'dir': path.relpath(path.dirname(src), self.base),
-        }
+        doc = create_file(stat.st_size, leaves, self.filestore._id,
+            copies=1, ext=ext
+        )
+        assert doc['_id'] == chash
+        doc.update(
+            import_id=self._id,
+            mtime=stat.st_mtime,
+            name=name,
+            dir=path.relpath(path.dirname(src), self.base),
+        )
         if ext:
-            doc['content_type'] = mimetypes.types_map.get('.' + ext)
+            doc['mime'] = mimetypes.types_map.get('.' + ext)
+            doc['media'] = MEDIA_MAP.get(ext)
         if self.extract:
             merge_metadata(src, doc)
         (_id, _rev) = self.db.save(doc)

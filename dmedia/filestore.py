@@ -613,6 +613,9 @@ class FileStore(object):
             raise ValueError('%s.base not a directory: %r' %
                 (self.__class__.__name__, self.base)
             )
+
+        # FIXME: This is too high-level for FileStore, should instead be deault
+        # with by the core API entry point as FileStore are first initialized
         self.record = path.join(self.base, 'store.json')
         try:
             fp = open(self.record, 'rb')

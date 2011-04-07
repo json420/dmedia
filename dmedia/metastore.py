@@ -62,6 +62,19 @@ function(doc) {
 }
 """
 
+# views in the 'file' design only index docs for which doc.type == 'dmedia/file'
+file_stored = """
+// Get list of all files on a given store, total bytes on that store
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.stored) {
+            emit(key, doc.bytes);
+        }
+    }
+}
+"""
+
 file_bytes = """
 function(doc) {
     if (doc.type == 'dmedia/file' && typeof(doc.bytes) == 'number') {
@@ -78,10 +91,10 @@ function(doc) {
 }
 """
 
-file_content_type = """
+file_mime = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.content_type, null);
+        emit(doc.mime, null);
     }
 }
 """
@@ -94,16 +107,6 @@ function(doc) {
 }
 """
 
-file_tags = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.tags) {
-        doc.tags.forEach(function(tag) {
-            emit(tag, null);
-        });
-    }
-}
-"""
-
 file_import_id = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.import_id) {
@@ -112,13 +115,87 @@ function(doc) {
 }
 """
 
+# views in the 'user' design only index docs for which doc.type == 'dmedia/file'
+# and doc.origin == 'user'
+user_copies = """
+// Durability of user's personal files
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            copies += doc.stored[key].copies;
+        }
+        emit(copies, null);
+    }
+}
+"""
+
+user_media = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        emit(doc.media, null);
+    }
+}
+"""
+
+user_tags = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.tags) {
+        var key;
+        for (key in doc.tags) {
+            emit(key, doc.tags[key]);
+        }
+    }
+}
+"""
+
+user_all = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        emit(doc.mtime, null);
+    }
+}
+"""
+
+user_video = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'video') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
+user_image = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'image') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
+user_audio = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'audio') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
+
 def build_design_doc(design, views):
     _id = '_design/' + design
     d = {}
     for (view, map_, reduce_) in views:
-        d[view] = {'map': map_}
+        d[view] = {'map': map_.strip()}
         if reduce_ is not None:
-            d[view]['reduce'] = reduce_
+            d[view]['reduce'] = reduce_.strip()
     doc = {
         '_id': _id,
         'language': 'javascript',
@@ -168,12 +245,22 @@ class MetaStore(object):
         )),
 
         ('file', (
+            ('stored', file_stored, _sum),
             ('import_id', file_import_id, None),
             ('bytes', file_bytes, _sum),
             ('ext', file_ext, _count),
-            ('content_type', file_content_type, _count),
+            ('mime', file_mime, _count),
             ('mtime', file_mtime, None),
-            ('tags', file_tags, _count),
+        )),
+
+        ('user', (
+            ('copies', user_copies, None),
+            ('media', user_media, _count),
+            ('tags', user_tags, _count),
+            ('all', user_all, None),
+            ('video', user_video, None),
+            ('image', user_image, None),
+            ('audio', user_audio, None),
         )),
     )
 

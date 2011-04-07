@@ -132,103 +132,6 @@ class test_functions(TestCase):
         )
         os.chmod(subdir, 0o700)
 
-    def test_create_batch(self):
-        f = importer.create_batch
-        machine_id = random_id()
-        doc = f(machine_id)
-
-        self.assertEqual(schema.check_dmedia(doc), None)
-        self.assertTrue(isinstance(doc, dict))
-        self.assertEqual(
-            set(doc),
-            set([
-                '_id',
-                'type',
-                'time',
-                'imports',
-                'errors',
-                'machine_id',
-                'stats',
-            ])
-        )
-        _id = doc['_id']
-        self.assertEqual(b32encode(b32decode(_id)), _id)
-        self.assertEqual(len(_id), 24)
-        self.assertEqual(doc['type'], 'dmedia/batch')
-        self.assertTrue(isinstance(doc['time'], (int, float)))
-        self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['imports'], [])
-        self.assertEqual(doc['errors'], [])
-        self.assertEqual(doc['machine_id'], machine_id)
-        self.assertEqual(
-            doc['stats'],
-            {
-                'considered': {'count': 0, 'bytes': 0},
-                'imported': {'count': 0, 'bytes': 0},
-                'skipped': {'count': 0, 'bytes': 0},
-                'empty': {'count': 0, 'bytes': 0},
-                'error': {'count': 0, 'bytes': 0},
-            }
-        )
-
-    def test_create_import(self):
-        f = importer.create_import
-
-        base = '/media/EOS_DIGITAL'
-        batch_id = random_id()
-        machine_id = random_id()
-
-        keys = set([
-            '_id',
-            'type',
-            'time',
-            'base',
-            'batch_id',
-            'machine_id',
-            'log',
-            'stats',
-        ])
-
-        doc = f(base, batch_id=batch_id, machine_id=machine_id)
-        self.assertEqual(schema.check_dmedia(doc), None)
-        self.assertTrue(isinstance(doc, dict))
-        self.assertEqual(set(doc), keys)
-
-        _id = doc['_id']
-        self.assertEqual(b32encode(b32decode(_id)), _id)
-        self.assertEqual(len(_id), 24)
-
-        self.assertEqual(doc['type'], 'dmedia/import')
-        self.assertTrue(isinstance(doc['time'], (int, float)))
-        self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['base'], base)
-        self.assertEqual(doc['batch_id'], batch_id)
-        self.assertEqual(doc['machine_id'], machine_id)
-
-        doc = f(base)
-        self.assertEqual(schema.check_dmedia(doc), None)
-        self.assertEqual(set(doc), keys)
-        self.assertEqual(doc['batch_id'], None)
-        self.assertEqual(doc['machine_id'], None)
-        self.assertEqual(
-            doc['log'],
-            {
-                'imported': [],
-                'skipped': [],
-                'empty': [],
-                'error': [],
-            }
-        )
-        self.assertEqual(
-            doc['stats'],
-            {
-                'imported': {'count': 0, 'bytes': 0},
-                'skipped': {'count': 0, 'bytes': 0},
-                'empty': {'count': 0, 'bytes': 0},
-                'error': {'count': 0, 'bytes': 0},
-            }
-        )
-
     def test_to_dbus_stats(self):
         f = importer.to_dbus_stats
         stats = dict(
@@ -406,6 +309,7 @@ class test_ImportWorker(CouchCase):
             set([
                 '_id',
                 '_rev',
+                'ver',
                 'type',
                 'time',
                 'base',
@@ -507,6 +411,7 @@ class test_ImportWorker(CouchCase):
                 '_id',
                 '_rev',
                 '_attachments',
+                'ver',
                 'type',
                 'time',
                 'bytes',
@@ -518,7 +423,8 @@ class test_ImportWorker(CouchCase):
                 'mtime',
                 'name',
                 'dir',
-                'content_type',
+                'mime',
+                'media',
             ])
         )
         self.assertEqual(schema.check_dmedia_file(doc), None)
@@ -534,7 +440,7 @@ class test_ImportWorker(CouchCase):
         self.assertEqual(doc['mtime'], path.getmtime(src1))
         self.assertEqual(doc['name'], 'MVI_5751.MOV')
         self.assertEqual(doc['dir'], 'DCIM/100EOS5D2')
-        self.assertEqual(doc['content_type'], 'video/quicktime')
+        self.assertEqual(doc['mime'], 'video/quicktime')
 
         # Test with duplicate
         (action, doc) = inst._import_file(src2)
@@ -834,7 +740,9 @@ class test_ImportManager(CouchCase):
         self.assertEqual(
             set(batch),
             set([
-                '_id', '_rev',
+                '_id',
+                '_rev',
+                'ver',
                 'type',
                 'time',
                 'imports',

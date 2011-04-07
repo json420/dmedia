@@ -223,13 +223,18 @@ def register(callback, *extensions):
 def merge_metadata(src, doc):
     ext = doc['ext']
     attachments = doc.get('_attachments', {})
+    meta = doc.get('meta', {})
     if ext in _extractors:
         callback = _extractors[ext]
         for (key, value) in callback(src, attachments):
-            if key not in doc or key == 'mtime':
+            if key == 'mtime':
                 doc[key] = value
+            elif key not in meta:
+                meta[key] = value
     if attachments and '_attachments' not in doc:
         doc['_attachments'] = attachments
+    if meta and 'meta' not in doc:
+        doc['meta'] = meta
 
 
 def merge_exif(src, attachments):
