@@ -556,13 +556,13 @@ def _check_int_float(value, label):
     if not isinstance(value, (int, float)):
         raise TypeError(TYPE_ERROR % (label, (int, float), type(value), value))
 
-def _check_at_least(value, minvalue, label):
+def _check_at_least(value, label, minvalue=0):
     """
     Verify that *value* is greater than or equal to *minvalue*.
 
     For example:
 
-    >>> _check_at_least(0, 1, 'bytes')
+    >>> _check_at_least(0, 'bytes', 1)
     Traceback (most recent call last):
       ...
     ValueError: bytes must be >= 1; got 0
@@ -748,7 +748,7 @@ def check_time(value, label='time'):
 
     """
     _check_int_float(value, label)
-    _check_at_least(value, 0, label)
+    _check_at_least(value, label, 0)
 
 
 def check_dmedia(doc):
@@ -864,7 +864,7 @@ def check_stored(stored, label='stored'):
         copies = value['copies']
         l3 = l2 + "['copies']"
         _check_int(copies, l3)
-        _check_at_least(copies, 0, l3)
+        _check_at_least(copies, l3, 0)
 
         # Check 'time':
         check_time(value['time'], l2 + "['time']")
@@ -1033,7 +1033,7 @@ def check_dmedia_file(doc):
     # Check 'bytes':
     b = doc['bytes']
     _check_int(b, 'bytes')
-    _check_at_least(b, 1, 'bytes')
+    _check_at_least(b, 'bytes', 1)
 
     # Check 'ext':
     check_ext(doc['ext'])
@@ -1153,7 +1153,7 @@ def check_dmedia_store(doc):
     key = 'copies'
     dc = doc[key]
     _check_int(dc, key)
-    _check_at_least(dc, 1, key)
+    _check_at_least(dc, key, 1)
 
 
 def random_id(random=None):
