@@ -330,6 +330,170 @@ from .constants import TYPE_ERROR, EXT_PAT
 #
 # That is all.
 
+
+# FIXME: These 6 functions are a step toward making the checks more concise and
+# the error messages consistent and even more helpful.
+def _label(path):
+    """
+    Create a helpful debugging label to indicate the attribute in question.
+
+    For example:
+
+    >>> _label([])
+    'doc'
+    >>> _label(['log'])
+    "doc['log']"
+    >>> _label(['log', 'considered', 2, 'src'])
+    "doc['log']['considered'][2]['src']"
+
+
+    See also `_value()`.
+    """
+    return 'doc' + ''.join('[{!r}]'.format(key) for key in path)
+
+
+def _value(doc, path):
+    """
+    Retrieve value from *doc* by traversing *path*.
+
+    For example:
+
+    >>> doc = {'log': {'considered': [None, None, {'src': 'hello'}, None]}}
+    >>> _value(doc, [])
+    {'log': {'considered': [None, None, {'src': 'hello'}, None]}}
+    >>> _value(doc, ['log'])
+    {'considered': [None, None, {'src': 'hello'}, None]}
+    >>> _value(doc, ['log', 'considered', 2, 'src'])
+    'hello'
+
+
+    Or if you try to retrieve something that doesn't exist:
+
+    >>> _value(doc, ['log', 'considered', 7])
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['log']['considered'][7] does not exists
+
+
+    Or if a key/index is missing higher up in the path:
+
+    >>> _value(doc, ['dog', 'considered', 7])
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['dog'] does not exists
+
+
+    See also `_label()`.
+    """
+    value = doc
+    p = []
+    for key in path:
+        p.append(key)
+        try:
+            value = value[key]
+        except (KeyError, IndexError):
+            raise ValueError(
+                '{} does not exists'.format(_label(p))
+            )
+    return value
+
+
+def _exists(doc, path):
+    """
+    Return ``True`` if the end of *path* exists.
+
+    For example:
+
+    >>> doc = {'foo': {'hello': 'world'}, 'bar': ['hello', 'naughty', 'nurse']}
+    >>> _exists(doc, ['foo', 'hello'])
+    True
+    >>> _exists(doc, ['foo', 'sup'])
+    False
+    >>> _exists(doc, ['bar', 2])
+    True
+    >>> _exists(doc, ['bar', 3])
+    False
+
+
+    Or if a key/index is missing higher up the path:
+
+    >>> _exists(doc, ['stuff', 'junk'])
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['stuff'] does not exists
+
+
+    See also `_check_if_exists()`.
+    """
+    if len(path) == 0:
+        return True
+    base = _value(doc, path[:-1])
+    key = path[-1]
+    try:
+        value = base[key]
+        return True
+    except (KeyError, IndexError):
+        return False
+
+
+def _check(doc, path, *checks):
+    value = _value(doc, path)
+    label = _label(path)
+    for c in checks:
+        if isinstance(c, tuple):
+            (c, args) = (c[0], c[1:])
+        else:
+            args = tuple()
+        if c(value, label, *args) is True:
+            break
+
+
+def _check_if_exists(doc, path, *checks):
+    """
+    Run *checks* only if value at *path* exists.
+
+    For example:
+
+    >>> doc = {'name': 17}
+    >>> _check_if_exists(doc, ['dir'], _check_str)
+    >>> _check_if_exists(doc, ['name'], _check_str)
+    Traceback (most recent call last):
+      ...
+    TypeError: doc['name']: need a <type 'basestring'>; got a <type 'int'>: 17
+
+
+    See also `_exists()` and `_check()`.
+    """
+    if _exists(doc, path):
+        _check(doc, path, *checks)
+
+
+def _can_be_none(value, label):
+    """
+    Stop execution of check if *value* is ``None``.
+
+    `_check()` will abort upon a check function returning ``True``.
+
+    For example, here a ``TypeError`` is raised:
+
+    >>> doc = {'ext': None}
+    >>> _check(doc, ['ext'], _check_str)
+    Traceback (most recent call last):
+      ...
+    TypeError: doc['ext']: need a <type 'basestring'>; got a <type 'NoneType'>: None
+
+
+    But here it is not:
+
+    >>> _check(doc, ['ext'], _can_be_none, _check_str)
+
+    """
+    if value is None:
+        return True
+
+# /FIXME
+
+
 def _check_dict(value, label):
     """
     Verify that *value* is a ``dict`` instance.
