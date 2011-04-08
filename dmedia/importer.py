@@ -406,7 +406,6 @@ class ImportManager(CouchManager):
             to_dbus_stats(self.doc['stats'])
         )
         self.doc = None
-        self.env = None
         log.info('Batch complete, compacting database...')
         self.db.compact()
 
