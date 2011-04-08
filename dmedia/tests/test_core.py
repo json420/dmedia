@@ -46,6 +46,12 @@ class TestDMedia(CouchCase):
         self.assertIs(inst.env, self.env)
         self.assertIsInstance(inst.db, couchdb.Database)
 
+    def test_bootstrap(self):
+        inst = self.klass(self.dbname)
+        self.assertNotIn('machine_id', inst.env)
+        self.assertIsNone(inst.bootstrap())
+        self.assertEqual(inst.env['machine_id'], inst.machine_id)
+
     def test_init_machine(self):
         inst = self.klass(self.dbname)
 
@@ -101,3 +107,12 @@ class TestDMedia(CouchCase):
         self.assertEqual(set(doc), set(['_id', '_rev']))
         self.assertEqual(doc['_id'], 'HelloNaughtyNurse')
         self.assertEqual(doc, inst.db['HelloNaughtyNurse'])
+
+    def test_init_filestores(self):
+        inst = self.klass(self.dbname)
+        _id = '_local/filestores'
+        self.assertIsNone(inst.db.get(_id))
+        self.assertIsNone(inst.init_filestores())
+        doc = inst.db.get(_id)
+        self.assertEqual(doc['_id'], _id)
+        self.assertEqual(doc['fixed'], {})
