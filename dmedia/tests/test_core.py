@@ -52,6 +52,38 @@ class TestDMedia(CouchCase):
         self.assertIsNone(inst.bootstrap())
         self.assertEqual(inst.env['machine_id'], inst.machine_id)
 
+    def test_init_local(self):
+        inst = self.klass(self.dbname)
+
+        # Test when _local/node doesn't exist:
+        local = inst.init_local()
+        self.assertEqual(
+            set(local),
+            set([
+                '_id',
+                '_rev',
+                'machine',
+                'filestores',
+            ])
+        )
+        machine = local['machine']
+        self.assertIsInstance(machine, dict)
+        self.assertEqual(
+            set(machine),
+            set([
+                '_id',
+                'type',
+                'time',
+                'hostname',
+                'distribution',
+            ])
+        )
+        self.assertEqual(local['filestores'], {})
+
+        loc2 = inst.db['_local/node']
+        self.assertEqual(loc2['machine'], local['machine'])
+
+
     def test_init_machine(self):
         inst = self.klass(self.dbname)
 

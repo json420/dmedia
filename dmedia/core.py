@@ -49,6 +49,7 @@ already exists), they are completely ignored when it comes to deciding what
 filestores and mount points are configured.
 """
 
+from copy import deepcopy
 import time
 import socket
 import platform
@@ -56,7 +57,7 @@ import platform
 from couchdb import ResourceNotFound
 
 from .abstractcouch import get_env, get_dmedia_db
-from .schema import random_id
+from .schema import random_id, create_machine
 
 
 class DMedia(object):
@@ -68,6 +69,30 @@ class DMedia(object):
         self.machine = self.init_machine()
         self.machine_id = self.machine['_id']
         self.env['machine_id'] = self.machine_id
+
+    def init_local(self):
+        """
+        Get the /dmedia/_local/node document, creating it if needed.
+        """
+        local_id = '_local/node'
+        try:
+            local = self.db[local_id]
+        except ResourceNotFound:
+            machine = create_machine()
+            local = {
+                '_id': local_id,
+                'machine': deepcopy(machine),
+                'filestores': {},
+            }
+            self.db.save(local)
+            self.db.save(machine)
+        else:
+            try:
+                machine = self.db[local['machine']['_id']]
+            except ResourceNotFound:
+                machine = deepcopy(local['machine'])
+                self.db.save(machine)
+        return local
 
     def init_machine(self):
         """

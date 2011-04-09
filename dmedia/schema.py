@@ -315,6 +315,8 @@ from hashlib import sha1
 from base64 import b32encode, b32decode, b64encode
 import re
 import time
+import socket
+import platform
 
 from .constants import TYPE_ERROR, EXT_PAT
 
@@ -1284,12 +1286,25 @@ def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
         'bytes': file_size,
         'ext': ext,
         'origin': origin,
-        'stored': {
+            'stored': {
             store: {
                 'copies': copies,
                 'time': ts,
             }
         }
+    }
+
+
+def create_machine():
+    """
+    Create a 'dmedia/machine' document.
+    """
+    return {
+        '_id': random_id(),
+        'type': 'dmedia/machine',
+        'time': time.time(),
+        'hostname': socket.gethostname(),
+        'distribution': list(platform.linux_distribution()),
     }
 
 
