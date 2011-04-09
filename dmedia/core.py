@@ -27,11 +27,11 @@ For background, please see:
     https://bugs.launchpad.net/dmedia/+bug/753260
 
 
-Security note on /dmedia/_local/filestores
-==========================================
+Security note on /dmedia/_local/dmedia
+======================================
 
 When `DMedia.init_filestores()` is called, it creates `FileStore` instances
-based solely on information in the non-replicated /dmedia/_local/filestores
+based solely on information in the non-replicated /dmedia/_local/dmedia
 document... despite the fact that the exact same information is also available
 in the corresponding 'dmedia/store' documents.
 
@@ -39,7 +39,7 @@ When it comes to deciding what files dmedia will read and write, it's prudent to
 assume that replicated documents are untrustworthy.
 
 The dangerous approach would be to use a view to get all the 'dmedia/store'
-documents with a machine_id that matches this machine_id, and initialize those `FileStore`.  But the problem is that if any attacker gained control of just one
+documents with a machine_id that matches this machine_id, and initialize those `FileStore`.  But the problem is that if an attacker gained control of just one
 of your replicating peers or services, they could insert arbitrary
 'dmedia/store' documents, and have dmedia happily initialize `FileStore` at
 those mount points.  And that would be "a bad thing".
@@ -66,15 +66,15 @@ class DMedia(object):
         self.db = get_dmedia_db(self.env)
 
     def bootstrap(self):
-        self.machine = self.init_machine()
+        (self.local, self.machine) = self.init_local()
         self.machine_id = self.machine['_id']
         self.env['machine_id'] = self.machine_id
 
     def init_local(self):
         """
-        Get the /dmedia/_local/node document, creating it if needed.
+        Get the /dmedia/_local/dmedia document, creating it if needed.
         """
-        local_id = '_local/node'
+        local_id = '_local/dmedia'
         try:
             local = self.db[local_id]
         except ResourceNotFound:
@@ -92,40 +92,4 @@ class DMedia(object):
             except ResourceNotFound:
                 machine = deepcopy(local['machine'])
                 self.db.save(machine)
-        return local
-
-    def init_machine(self):
-        """
-        If needed, create the 'dmedia/machine' record for this computer.
-        """
-        try:
-            loc = self.db['_local/machine']
-        except ResourceNotFound:
-            loc = {
-                '_id': '_local/machine',
-                'machine_id': random_id(),
-            }
-            self.db.save(loc)
-        machine_id = loc['machine_id']
-        try:
-            machine = self.db[machine_id]
-        except ResourceNotFound:
-            machine = {
-                '_id': machine_id,
-                'type': 'dmedia/machine',
-                'time': time.time(),
-                'hostname': socket.gethostname(),
-                'distribution': platform.linux_distribution(),
-            }
-            self.db.save(machine)
-        return machine
-
-    def init_filestores(self):
-        try:
-            loc = self.db['_local/filestores']
-        except ResourceNotFound:
-            loc = {
-                '_id': '_local/filestores',
-                'fixed': {},
-            }
-            self.db.save(loc)
+        return (local, machine)

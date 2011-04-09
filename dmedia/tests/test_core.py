@@ -55,8 +55,10 @@ class TestDMedia(CouchCase):
     def test_init_local(self):
         inst = self.klass(self.dbname)
 
-        # Test when _local/node doesn't exist:
-        local = inst.init_local()
+        # Test when _local/dmedia doesn't exist:
+        (local, machine) = inst.init_local()
+
+        self.assertIsInstance(local, dict)
         self.assertEqual(
             set(local),
             set([
@@ -66,33 +68,14 @@ class TestDMedia(CouchCase):
                 'filestores',
             ])
         )
-        machine = local['machine']
+        self.assertEqual(local['filestores'], {})
+        self.assertEqual(local, inst.db['_local/dmedia'])
+
         self.assertIsInstance(machine, dict)
         self.assertEqual(
             set(machine),
             set([
                 '_id',
-                'type',
-                'time',
-                'hostname',
-                'distribution',
-            ])
-        )
-        self.assertEqual(local['filestores'], {})
-
-        loc2 = inst.db['_local/node']
-        self.assertEqual(loc2['machine'], local['machine'])
-
-
-    def test_init_machine(self):
-        inst = self.klass(self.dbname)
-
-        # Test when _local/machine doesn't exist:
-        doc = inst.init_machine()
-        self.assertEqual(
-            set(doc),
-            set([
-                '_id',
                 '_rev',
                 'type',
                 'time',
@@ -100,51 +83,34 @@ class TestDMedia(CouchCase):
                 'distribution',
             ])
         )
-        self.assertEqual(doc['type'], 'dmedia/machine')
-        loc = inst.db['_local/machine']
-        self.assertEqual(doc['_id'], loc['machine_id'])
+        self.assertEqual(machine, inst.db[local['machine']['_id']])
 
         # Test when _local/machine exists but 'dmedia/machine' doc doesn't:
-        old = doc
-        loc['machine_id'] = 'foobar'
-        inst.db.save(loc)
-        doc = inst.init_machine()
-        self.assertEqual(
-            set(doc),
-            set([
-                '_id',
-                '_rev',
-                'type',
-                'time',
-                'hostname',
-                'distribution',
-            ])
-        )
-        self.assertEqual(doc['type'], 'dmedia/machine')
-        self.assertEqual(doc['_id'], 'foobar')
-        self.assertGreater(doc['time'], old['time'])
+        inst.db.delete(machine)
+        (local2, machine2) = inst.init_local()
+        self.assertEqual(local2, local)
+        self.assertTrue(machine2['_rev'].startswith('3-'))
+        self.assertNotEqual(machine2['_rev'], machine['_rev'])
+        d = dict(machine2)
+        d.pop('_rev')
+        self.assertEqual(d, local['machine'])
 
-        # Test when both _local/machine and 'dmedia/machine' doc exist:
-        inst.db.delete(loc)
-        loc = {
-            '_id': '_local/machine',
-            'machine_id': 'HelloNaughtyNurse',
+        # Test when both _local/dmedia and 'dmedia/machine' doc exist:
+        local3 = {
+            '_id': '_local/dmedia',
+            '_rev': local2['_rev'],
+            'machine': {
+                '_id': 'foobar',
+                'hello': 'world',
+            }
         }
-        inst.db.save(loc)
-        machine = {
-            '_id': 'HelloNaughtyNurse',
+        inst.db.save(local3)
+        machine3 = {
+            '_id': 'foobar',
+            '_rev': machine2['_rev'],
+            'hello': 'naughty nurse',
         }
-        inst.db.save(machine)
-        doc = inst.init_machine()
-        self.assertEqual(set(doc), set(['_id', '_rev']))
-        self.assertEqual(doc['_id'], 'HelloNaughtyNurse')
-        self.assertEqual(doc, inst.db['HelloNaughtyNurse'])
-
-    def test_init_filestores(self):
-        inst = self.klass(self.dbname)
-        _id = '_local/filestores'
-        self.assertIsNone(inst.db.get(_id))
-        self.assertIsNone(inst.init_filestores())
-        doc = inst.db.get(_id)
-        self.assertEqual(doc['_id'], _id)
-        self.assertEqual(doc['fixed'], {})
+        inst.db.save(machine3)
+        (local4, machine4) = inst.init_local()
+        self.assertEqual(local4, local3)
+        self.assertEqual(machine4, machine3)
