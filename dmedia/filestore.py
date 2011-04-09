@@ -164,7 +164,6 @@ from subprocess import check_call, CalledProcessError
 from threading import Thread
 from Queue import Queue
 
-from .schema import create_store
 from .errors import AmbiguousPath, FileStoreTraversal
 from .errors import DuplicateFile, IntegrityError
 from .constants import LEAF_SIZE, TYPE_ERROR, EXT_PAT
@@ -601,7 +600,11 @@ class FileStore(object):
     `fallocate()` function, which calls the Linux ``fallocate`` command.
     """
 
-    def __init__(self, base=None, machine_id=None):
+    def __init__(self, base=None):
+        # FIXME: for security, MAC friendliness, and consistency, FileStore
+        # should take a parent dir (which must exist and be a dir), and then
+        # use a base of path.join(parent, '.dmedia')
+
         if base is None:
             base = tempfile.mkdtemp(prefix='store.')
         self.base = safe_path(base)
@@ -613,20 +616,6 @@ class FileStore(object):
             raise ValueError('%s.base not a directory: %r' %
                 (self.__class__.__name__, self.base)
             )
-
-        # FIXME: This is too high-level for FileStore, should instead be deault
-        # with by the core API entry point as FileStore are first initialized
-        self.record = path.join(self.base, 'store.json')
-        try:
-            fp = open(self.record, 'rb')
-            doc = json.load(fp)
-        except IOError:
-            fp = open(self.record, 'wb')
-            doc = create_store(self.base, machine_id)
-            json.dump(doc, fp, sort_keys=True, indent=4)
-        fp.close()
-        self._doc = doc
-        self._id = doc['_id']
 
     def __repr__(self):
         return '%s(%r)' % (self.__class__.__name__, self.base)

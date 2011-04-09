@@ -39,7 +39,7 @@ from .helpers import thm_hash, thm_leaves, thm_qid
 from dmedia.errors import AmbiguousPath, FileStoreTraversal
 from dmedia.errors import DuplicateFile, IntegrityError
 from dmedia.filestore import HashList
-from dmedia import filestore, constants, schema
+from dmedia import filestore, constants
 from dmedia.constants import TYPE_ERROR, EXT_PAT, LEAF_SIZE
 
 
@@ -59,7 +59,6 @@ class test_functions(TestCase):
 
         # Test with normalized absolute path:
         self.assertEqual(f('/home/jderose/.dmedia'), '/home/jderose/.dmedia')
-
 
     def test_safe_open(self):
         f = filestore.safe_open
@@ -513,31 +512,19 @@ class test_FileStore(TestCase):
         # Test when base does not exist
         tmp = TempDir()
         base = tmp.join('.dmedia')
-        record = tmp.join('.dmedia', 'store.json')
         inst = self.klass(base)
         self.assertEqual(inst.base, base)
         self.assertTrue(path.isdir(inst.base))
-        self.assertEqual(inst.record, record)
-        self.assertTrue(path.isfile(record))
-        store_s = open(record, 'rb').read()
-        doc = json.loads(store_s)
-        self.assertEqual(schema.check_dmedia_store(doc), None)
-        self.assertEqual(inst._doc, doc)
-        self.assertEqual(inst._id, doc['_id'])
 
         # Test when base exists and is a directory
         inst = self.klass(base)
         self.assertEqual(inst.base, base)
         self.assertTrue(path.isdir(inst.base))
-        self.assertEqual(inst.record, record)
-        self.assertTrue(path.isfile(record))
-        self.assertEqual(open(record, 'rb').read(), store_s)
 
         # Test when base=None
         inst = self.klass()
         self.assertTrue(path.isdir(inst.base))
         self.assertTrue(inst.base.startswith('/tmp/store.'))
-        self.assertEqual(inst.record, path.join(inst.base, 'store.json'))
 
     def test_repr(self):
         tmp = TempDir()
