@@ -36,6 +36,11 @@ parser = argparse.ArgumentParser(
     description='Core dmedia DBus service @org.freedesktop.DMedia',
 )
 parser.add_argument('--version', action='version', version=dmedia.__version__)
+parser.add_argument('--no-dc',
+    action='store_true',
+    default=False,
+    help='Use system-wide CouchDB instead of desktopcouch',
+)
 parser.add_argument('--bus',
     default=BUS,
     help='DBus bus name; default is %(default)r',
@@ -58,5 +63,7 @@ GObject.threads_init()
 from dmedia.service import DMedia
 
 mainloop = GObject.MainLoop()
-obj = DMedia(args.bus, args.dbname, mainloop.quit, start=time.time())
+obj = DMedia(args.dbname, args.no_dc, args.bus, mainloop.quit,
+    start=time.time()
+)
 mainloop.run()
