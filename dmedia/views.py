@@ -216,10 +216,10 @@ designs = (
 
 def iter_views(views):
     for (name, map_, reduce_) in views:
-        view = {'map': map_.strip()}
-        if reduce_ is not None:
-            view['reduce'] = reduce_.strip()
-        yield (name, view)
+        if reduce_ is None:
+            yield (name, {'map': map_.strip()})
+        else:
+            yield (name, {'map': map_.strip(), 'reduce': reduce_.strip()})
 
 
 def build_design_doc(design, views):

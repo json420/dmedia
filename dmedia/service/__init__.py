@@ -24,11 +24,13 @@ Core dmedia DBus service at org.freedesktop.DMedia.
 """
 
 import logging
+import json
 import time
 
 import dbus
 import dbus.service
 
+from dmedia import __version__
 from dmedia.constants import IFACE
 from dmedia.core import Core
 
@@ -47,8 +49,23 @@ class DMedia(dbus.service.Object):
         self._busname = dbus.service.BusName(bus, self._conn)
         self._core = Core(dbname)
         self._core.bootstrap()
+        self._env_s = json.dumps(self._core.env)
         if start is not None:
             log.info('Started in %.3f', time.time() - start)
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def Version(self):
+        """
+        Return dmedia version.
+        """
+        return __version__
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetEnv(self):
+        """
+        Return dmedia version.
+        """
+        return self._env_s
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def Kill(self):

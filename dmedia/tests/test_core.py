@@ -23,12 +23,97 @@
 Unit tests for `dmedia.core` module.
 """
 
+from unittest import TestCase
+
 import couchdb
+import desktopcouch
+from desktopcouch.application.platform import find_port
+from desktopcouch.application.local_files import get_oauth_tokens
 
 from dmedia.schema import random_id
 from dmedia import core
 
 from .couch import CouchCase
+
+
+def dc_env(dbname):
+    """
+    Create desktopcouch environment.
+    """
+    port = find_port()
+    return {
+        'dbname': dbname,
+        'port': port,
+        'url': 'http://localhost:%d/' % port,
+        'oauth': get_oauth_tokens(),
+    }
+
+
+class TestFunctions(TestCase):
+    def tearDown(self):
+        if core.desktopcouch is None:
+            core.desktopcouch = desktopcouch
+
+    def test_get_env(self):
+        f = core.get_env
+
+        # Test when desktopcouch is available
+        self.assertEqual(f(), dc_env('dmedia'))
+        self.assertEqual(f('foo'), dc_env('foo'))
+        self.assertEqual(f(dbname='bar'), dc_env('bar'))
+
+        # Test when desktopcouch is available but no_dc=True
+        self.assertEqual(
+            f(no_dc=True),
+            {
+                'dbname': 'dmedia',
+                'port': 5984,
+                'url': 'http://localhost:5984/',
+            }
+        )
+        self.assertEqual(
+            f(dbname='foo', no_dc=True),
+            {
+                'dbname': 'foo',
+                'port': 5984,
+                'url': 'http://localhost:5984/',
+            }
+        )
+        self.assertEqual(
+            f('bar', True),
+            {
+                'dbname': 'bar',
+                'port': 5984,
+                'url': 'http://localhost:5984/',
+            }
+        )
+
+        # Test when desktopcouch is *not* available
+        core.desktopcouch = None
+        self.assertEqual(
+            f(),
+            {
+                'dbname': 'dmedia',
+                'port': 5984,
+                'url': 'http://localhost:5984/',
+            }
+        )
+        self.assertEqual(
+            f('foo'),
+            {
+                'dbname': 'foo',
+                'port': 5984,
+                'url': 'http://localhost:5984/',
+            }
+        )
+        self.assertEqual(
+            f(dbname='bar'),
+            {
+                'dbname': 'bar',
+                'port': 5984,
+                'url': 'http://localhost:5984/',
+            }
+        )
 
 
 class TestCore(CouchCase):
@@ -44,11 +129,6 @@ class TestCore(CouchCase):
         self.assertEqual(inst.env['port'], self.env['port'])
         self.assertEqual(inst.env['url'], self.env['url'])
         self.assertEqual(inst.env['oauth'], self.env['oauth'])
-        self.assertEqual(inst.home, self.home.path)
-        self.assertIsInstance(inst.db, couchdb.Database)
-
-        inst = self.klass(env=self.env)
-        self.assertIs(inst.env, self.env)
         self.assertEqual(inst.home, self.home.path)
         self.assertIsInstance(inst.db, couchdb.Database)
 

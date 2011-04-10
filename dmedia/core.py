@@ -54,10 +54,49 @@ import os
 from os import path
 
 from couchdb import ResourceNotFound
+try:
+    import desktopcouch
+    from desktopcouch.application.platform import find_port
+    from desktopcouch.application.local_files import get_oauth_tokens
+except ImportError:
+    desktopcouch = None
 
-from .abstractcouch import get_env, get_dmedia_db
+from .constants import DBNAME
+from .abstractcouch import get_dmedia_db
 from .schema import random_id, create_machine, create_store
 from .views import init_views
+
+
+def get_env(dbname=DBNAME, no_dc=False):
+    """
+    Return default CouchDB environment.
+
+    This will return an appropriate environment based on whether desktopcouch is
+    available.  If you supply ``no_dc=True``, the environment for the default
+    system wide CouchDB will be returned, even if desktopcouch is available.
+
+    For example:
+
+    >>> get_env(no_dc=True)
+    {'url': 'http://localhost:5984/', 'dbname': 'dmedia', 'port': 5984}
+    >>> get_env(dbname='foo', no_dc=True)
+    {'url': 'http://localhost:5984/', 'dbname': 'foo', 'port': 5984}
+
+    Not a perfect solution, but works for now.
+    """
+    if desktopcouch is None or no_dc:
+        return {
+            'dbname': dbname,
+            'port': 5984,
+            'url': 'http://localhost:5984/',
+        }
+    port = find_port()
+    return {
+        'dbname': dbname,
+        'port': port,
+        'url': 'http://localhost:%d/' % port,
+        'oauth': get_oauth_tokens(),
+    }
 
 
 class LocalStores(object):
@@ -72,8 +111,8 @@ class LocalStores(object):
 
 
 class Core(object):
-    def __init__(self, dbname=None, env=None):
-        self.env = (get_env(dbname) if env is None else env)
+    def __init__(self, dbname=DBNAME, no_dc=False):
+        self.env = get_env(dbname, no_dc)
         self.home = path.abspath(os.environ['HOME'])
         if not path.isdir(self.home):
             raise ValueError('HOME is not a dir: {!}'.format(self.home))
