@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
@@ -25,37 +23,32 @@
 Core dmedia DBus service at org.freedesktop.DMedia.
 """
 
-import argparse
+import logging
 
-import dmedia
-from dmedia.constants import BUS, DBNAME
+import dbus
+import dbus.service
+
+from dmedia.constants import IFACE
 
 
-parser = argparse.ArgumentParser(
-    description='Core dmedia DBus service @org.freedesktop.DMedia',
-)
-parser.add_argument('--version', action='version', version=dmedia.__version__)
-parser.add_argument('--bus',
-    default=BUS,
-    help='DBus bus name; default is %(default)r',
-)
-parser.add_argument('--dbname',
-    metavar='DB',
-    default=DBNAME,
-    help='CouchDB database; default is %(default)r',
-)
+log = logging.getLogger()
 
-args = parser.parse_args()
-dmedia.configure_logging('service')
 
-from dbus.mainloop.glib import DBusGMainLoop
-DBusGMainLoop(set_as_default=True)
+class DMedia(dbus.service.Object):
+    def __init__(self, bus, killfunc=None):
+        self._bus = bus
+        self._killfunc = killfunc
+        log.info('Starting dmedia core service on %r', bus)
+        self._conn = dbus.SessionBus()
+        super(DMedia, self).__init__(self._conn, object_path='/')
+        self._busname = dbus.service.BusName(bus, self._conn)
 
-from gi.repository import GObject
-GObject.threads_init()
-
-from dmedia.service import DMedia
-
-mainloop = GObject.MainLoop()
-obj = DMedia(args.bus, mainloop.quit)
-mainloop.run()
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def Kill(self):
+        """
+        Kill the dmedia service process.
+        """
+        log.info('Killing dmedia core service on %r', self._bus)
+        if callable(self._killfunc):
+            log.info('Calling killfunc()')
+            self._killfunc()
