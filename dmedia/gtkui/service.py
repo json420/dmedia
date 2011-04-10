@@ -37,7 +37,7 @@ import dbus.mainloop.glib
 from dmedia import __version__
 from dmedia.constants import BUS, INTERFACE, DBNAME, EXT_MAP
 from dmedia.importer import ImportManager
-from dmedia.metastore import MetaStore
+#from dmedia.metastore import MetaStore
 
 from .util import NotifyManager, Timer, import_started, batch_finished
 
