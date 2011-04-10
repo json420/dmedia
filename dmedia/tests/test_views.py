@@ -20,25 +20,25 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedia.metastore` module.
+Unit tests for `dmedia.views` module.
 """
 
 from unittest import TestCase
 
 from dmedia.abstractcouch import get_dmedia_db
-from dmedia import metastore
+from dmedia import views
 
 from .couch import CouchCase
 
 
 class test_functions(TestCase):
     def test_build_design_doc(self):
-        f = metastore.build_design_doc
-        views = (
+        f = views.build_design_doc
+        views_ = (
             ('bytes', 'foo', '_sum'),
             ('mtime', 'bar', None),
         )
-        self.assertEqual(f('file', views),
+        self.assertEqual(f('file', views_),
             {
                 '_id': '_design/file',
                 'language': 'javascript',
@@ -57,42 +57,42 @@ class test_functions(TestCase):
 
 class TestCouchFunctions(CouchCase):
     def test_update_design_doc(self):
-        f = metastore.update_design_doc
+        f = views.update_design_doc
         db = get_dmedia_db(self.env)
 
         # Test when design doesn't exist:
-        doc = metastore.build_design_doc('user',
-            [('video', metastore.user_video, None)]
+        doc = views.build_design_doc('user',
+            [('video', views.user_video, None)]
         )
         self.assertEqual(f(db, doc), 'new')
         self.assertTrue(db['_design/user']['_rev'].startswith('1-'))
 
         # Test when design is same:
-        doc = metastore.build_design_doc('user',
-            [('video', metastore.user_video, None)]
+        doc = views.build_design_doc('user',
+            [('video', views.user_video, None)]
         )
         self.assertEqual(f(db, doc), 'same')
         self.assertTrue(db['_design/user']['_rev'].startswith('1-'))
 
         # Test when design is changed:
-        doc = metastore.build_design_doc('user',
-            [('video', metastore.user_audio, None)]
+        doc = views.build_design_doc('user',
+            [('video', views.user_audio, None)]
         )
         self.assertEqual(f(db, doc), 'changed')
         self.assertTrue(db['_design/user']['_rev'].startswith('2-'))
 
         # Again test when design is same:
-        doc = metastore.build_design_doc('user',
-            [('video', metastore.user_audio, None)]
+        doc = views.build_design_doc('user',
+            [('video', views.user_audio, None)]
         )
         self.assertEqual(f(db, doc), 'same')
         self.assertTrue(db['_design/user']['_rev'].startswith('2-'))
 
     def test_init_views(self):
         db = get_dmedia_db(self.env)
-        metastore.init_views(db)
-        for (name, views) in metastore.designs:
-            doc = metastore.build_design_doc(name, views)
+        views.init_views(db)
+        for (name, views_) in views.designs:
+            doc = views.build_design_doc(name, views_)
             saved = db[doc['_id']]
             doc['_rev'] = saved['_rev']
             self.assertEqual(saved, doc)

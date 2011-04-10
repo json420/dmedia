@@ -20,9 +20,8 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Store meta-data in desktop-couch.
+Defines the dmedia CouchDB views.
 """
-
 
 from couchdb import ResourceNotFound
 
