@@ -52,14 +52,12 @@ filestores and mount points are configured.
 from copy import deepcopy
 import os
 from os import path
-import time
-import socket
-import platform
 
 from couchdb import ResourceNotFound
 
 from .abstractcouch import get_env, get_dmedia_db
 from .schema import random_id, create_machine, create_store
+from .views import init_views
 
 
 class LocalStores(object):
@@ -87,6 +85,7 @@ class DMedia(object):
         self.env['machine_id'] = self.machine_id
         store = self.init_filestores()
         self.env['filestore'] = {'_id': store['_id'], 'path': store['path']}
+        init_views(self.db)
 
     def init_local(self):
         """
