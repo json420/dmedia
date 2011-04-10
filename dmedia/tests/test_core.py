@@ -31,8 +31,8 @@ from dmedia import core
 from .couch import CouchCase
 
 
-class TestDMedia(CouchCase):
-    klass = core.DMedia
+class TestCore(CouchCase):
+    klass = core.Core
 
     def test_init(self):
         inst = self.klass(self.dbname)

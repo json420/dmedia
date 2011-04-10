@@ -71,7 +71,7 @@ class LocalStores(object):
         pass
 
 
-class DMedia(object):
+class Core(object):
     def __init__(self, dbname=None, env=None):
         self.env = (get_env(dbname) if env is None else env)
         self.home = path.abspath(os.environ['HOME'])
