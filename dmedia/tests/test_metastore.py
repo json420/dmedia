@@ -24,16 +24,10 @@ Unit tests for `dmedia.metastore` module.
 """
 
 from unittest import TestCase
-import os
-import shutil
-import socket
-import platform
-
-import couchdb
 
 from dmedia.abstractcouch import get_dmedia_db
 from dmedia import metastore
-from .helpers import TempDir, TempHome
+
 from .couch import CouchCase
 
 
@@ -59,26 +53,6 @@ class test_functions(TestCase):
                 }
             }
         )
-
-    def test_create_machine(self):
-        f = metastore.create_machine
-        doc = f()
-        self.assertTrue(isinstance(doc, dict))
-        self.assertEqual(
-            set(doc),
-            set([
-                '_id',
-                'machine_id',
-                'type',
-                'time',
-                'hostname',
-                'distribution',
-            ])
-        )
-        self.assertEqual(doc['type'], 'dmedia/machine')
-        self.assertEqual(doc['_id'], '_local/machine')
-        self.assertEqual(doc['hostname'], socket.gethostname())
-        self.assertEqual(doc['distribution'], platform.linux_distribution())
 
 
 class TestCouchFunctions(CouchCase):
@@ -114,41 +88,11 @@ class TestCouchFunctions(CouchCase):
         self.assertEqual(f(db, doc), 'same')
         self.assertTrue(db['_design/user']['_rev'].startswith('2-'))
 
-
-class test_MetaStore(CouchCase):
-    klass = metastore.MetaStore
-
-    def new(self):
-        return self.klass(self.env)
-
-    def test_init(self):
-        inst = self.new()
-        self.assertEqual(inst.env, self.env)
-        self.assertTrue(isinstance(inst.server, couchdb.Server))
-        self.assertTrue(isinstance(inst.db, couchdb.Database))
-
-    def update(self):
-        inst = self.new()
-        '_local/app'
-        inst.update(dict(_id=_id, foo='bar'))
-        old = inst.db[_id]
-        inst.update(dict(_id=_id, foo='bar'))
-        self.assertEqual(inst.db[_id]['_rev'], old['_rev'])
-        inst.update(dict(_id=_id, foo='baz'))
-        self.assertNotEqual(inst.db[_id]['_rev'], old['_rev'])
-
-    def test_create_machine(self):
-        inst = self.new()
-        self.assertFalse('_local/machine' in inst.db)
-        _id = inst.create_machine()
-        self.assertTrue('_local/machine' in inst.db)
-        self.assertTrue(_id in inst.db)
-        loc = inst.db['_local/machine']
-        doc = inst.db[_id]
-        self.assertEqual(set(loc), set(doc))
-        self.assertEqual(loc['machine_id'], doc['machine_id'])
-        self.assertEqual(loc['time'], doc['time'])
-
-        self.assertEqual(inst._machine_id, None)
-        self.assertEqual(inst.machine_id, _id)
-        self.assertEqual(inst._machine_id, _id)
+    def test_init_views(self):
+        db = get_dmedia_db(self.env)
+        metastore.init_views(db)
+        for (name, views) in metastore.designs:
+            doc = metastore.build_design_doc(name, views)
+            saved = db[doc['_id']]
+            doc['_rev'] = saved['_rev']
+            self.assertEqual(saved, doc)
