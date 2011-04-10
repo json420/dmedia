@@ -224,13 +224,13 @@ class test_Transcoder(TestCase):
         self.assertEqual(inst.src_fp.mode, 'rb')
         self.assertEqual(
             inst.src_fp.name,
-            self.tmp.join(mov_hash[:2], mov_hash[2:] + '.mov')
+            self.tmp.join('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
         )
 
         self.assertTrue(isinstance(inst.dst_fp, file))
         self.assertEqual(inst.dst_fp.mode, 'r+b')
         self.assertTrue(
-            inst.dst_fp.name.startswith(self.tmp.join('writes'))
+            inst.dst_fp.name.startswith(self.tmp.join('.dmedia', 'writes'))
         )
         self.assertTrue(inst.dst_fp.name.endswith('.ogv'))
 
