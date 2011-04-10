@@ -600,25 +600,31 @@ class FileStore(object):
     `fallocate()` function, which calls the Linux ``fallocate`` command.
     """
 
-    def __init__(self, base=None):
-        # FIXME: for security, MAC friendliness, and consistency, FileStore
-        # should take a parent dir (which must exist and be a dir), and then
-        # use a base of path.join(parent, '.dmedia')
-
-        if base is None:
-            base = tempfile.mkdtemp(prefix='store.')
-        self.base = safe_path(base)
+    def __init__(self, parent=None, dotdir='.dmedia'):
+        if parent is None:
+            parent = tempfile.mkdtemp(prefix='store.')
+        self.parent = safe_path(parent)
+        if not path.isdir(self.parent):
+            raise ValueError('%s.parent not a directory: %r' %
+                (self.__class__.__name__, parent)
+            )
+        self.base = path.join(self.parent, dotdir)
         try:
-            os.makedirs(self.base)
+            os.mkdir(self.base)
         except OSError:
             pass
         if not path.isdir(self.base):
             raise ValueError('%s.base not a directory: %r' %
                 (self.__class__.__name__, self.base)
             )
+        if path.islink(self.base):
+            raise ValueError('{!r} is symlink to {!r}'.format(
+                    self.base, os.readlink(self.base)
+                )
+            )
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.base)
+        return '%s(%r)' % (self.__class__.__name__, self.parent)
 
     ############################################
     # Methods to prevent path traversals attacks
