@@ -23,16 +23,8 @@
 Store meta-data in desktop-couch.
 """
 
-from os import path
-import time
-import socket
-import platform
 
-import gnomekeyring
-from couchdb import ResourceNotFound, ResourceConflict
-
-from .abstractcouch import get_couchdb_server, get_dmedia_db
-from .schema import random_id
+from couchdb import ResourceNotFound
 
 
 _sum = '_sum'
