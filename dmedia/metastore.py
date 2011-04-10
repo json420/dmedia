@@ -201,7 +201,7 @@ def build_design_doc(design, views):
         'language': 'javascript',
         'views': d,
     }
-    return (_id, doc)
+    return doc
 
 
 def create_machine():
@@ -331,7 +331,7 @@ class MetaStore(object):
 
     def create_views(self):
         for (name, views) in self.designs:
-            (_id, doc) = build_design_doc(name, views)
+            doc = build_design_doc(name, views)
             self.update(doc)
 
     def total_bytes(self):

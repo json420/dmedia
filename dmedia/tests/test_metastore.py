@@ -44,22 +44,19 @@ class test_functions(TestCase):
             ('mtime', 'bar', None),
         )
         self.assertEqual(f('file', views),
-            (
-                '_design/file',
-                {
-                    '_id': '_design/file',
-                    'language': 'javascript',
-                    'views': {
-                        'bytes': {
-                            'map': 'foo',
-                            'reduce': '_sum',
-                        },
-                        'mtime': {
-                            'map': 'bar',
-                        },
-                    }
+            {
+                '_id': '_design/file',
+                'language': 'javascript',
+                'views': {
+                    'bytes': {
+                        'map': 'foo',
+                        'reduce': '_sum',
+                    },
+                    'mtime': {
+                        'map': 'bar',
+                    },
                 }
-            )
+            }
         )
 
     def test_create_machine(self):
