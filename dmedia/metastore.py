@@ -189,6 +189,40 @@ function(doc) {
 """
 
 
+designs = (
+    ('type', (
+        ('type', type_type, _count),
+    )),
+
+    ('batch', (
+        ('time', batch_time, None),
+    )),
+
+    ('import', (
+        ('time', import_time, None),
+    )),
+
+    ('file', (
+        ('stored', file_stored, _sum),
+        ('import_id', file_import_id, None),
+        ('bytes', file_bytes, _sum),
+        ('ext', file_ext, _count),
+        ('mime', file_mime, _count),
+        ('mtime', file_mtime, None),
+    )),
+
+    ('user', (
+        ('copies', user_copies, None),
+        ('media', user_media, _count),
+        ('tags', user_tags, _count),
+        ('all', user_all, None),
+        ('video', user_video, None),
+        ('image', user_image, None),
+        ('audio', user_audio, None),
+    )),
+)
+
+
 def build_design_doc(design, views):
     _id = '_design/' + design
     d = {}
@@ -202,6 +236,23 @@ def build_design_doc(design, views):
         'views': d,
     }
     return doc
+
+
+def update_design_doc(db, doc):
+    assert '_rev' not in doc
+    try:
+        old = db[doc['_id']]
+        doc['_rev'] = old['_rev']
+        if doc != old:
+            db.save(doc)
+            return 'changed'
+        else:
+            return 'same'
+    except ResourceNotFound:
+        db.save(doc)
+        return 'new'
+
+
 
 
 def create_machine():

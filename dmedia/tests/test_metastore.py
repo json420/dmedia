@@ -31,6 +31,7 @@ import platform
 
 import couchdb
 
+from dmedia.abstractcouch import get_dmedia_db
 from dmedia import metastore
 from .helpers import TempDir, TempHome
 from .couch import CouchCase
@@ -80,6 +81,40 @@ class test_functions(TestCase):
         self.assertEqual(doc['distribution'], platform.linux_distribution())
 
 
+class TestCouchFunctions(CouchCase):
+    def test_update_design_doc(self):
+        f = metastore.update_design_doc
+        db = get_dmedia_db(self.env)
+
+        # Test when design doesn't exist:
+        doc = metastore.build_design_doc('user',
+            [('video', metastore.user_video, None)]
+        )
+        self.assertEqual(f(db, doc), 'new')
+        self.assertTrue(db['_design/user']['_rev'].startswith('1-'))
+
+        # Test when design is same:
+        doc = metastore.build_design_doc('user',
+            [('video', metastore.user_video, None)]
+        )
+        self.assertEqual(f(db, doc), 'same')
+        self.assertTrue(db['_design/user']['_rev'].startswith('1-'))
+
+        # Test when design is changed:
+        doc = metastore.build_design_doc('user',
+            [('video', metastore.user_audio, None)]
+        )
+        self.assertEqual(f(db, doc), 'changed')
+        self.assertTrue(db['_design/user']['_rev'].startswith('2-'))
+
+        # Again test when design is same:
+        doc = metastore.build_design_doc('user',
+            [('video', metastore.user_audio, None)]
+        )
+        self.assertEqual(f(db, doc), 'same')
+        self.assertTrue(db['_design/user']['_rev'].startswith('2-'))
+
+
 class test_MetaStore(CouchCase):
     klass = metastore.MetaStore
 
@@ -117,50 +152,3 @@ class test_MetaStore(CouchCase):
         self.assertEqual(inst._machine_id, None)
         self.assertEqual(inst.machine_id, _id)
         self.assertEqual(inst._machine_id, _id)
-
-    def test_total_bytes(self):
-        inst = self.new()
-        self.assertEqual(inst.total_bytes(), 0)
-        total = 0
-        for exp in xrange(20, 31):
-            size = 2 ** exp + 1
-            total += size
-            inst.db.create({'bytes': size, 'type': 'dmedia/file'})
-            self.assertEqual(inst.total_bytes(), total)
-
-    def test_extensions(self):
-        inst = self.new()
-        self.assertEqual(list(inst.extensions()), [])
-        for i in xrange(17):
-            inst.db.create({'ext': 'mov', 'type': 'dmedia/file'})
-            inst.db.create({'ext': 'jpg', 'type': 'dmedia/file'})
-            inst.db.create({'ext': 'cr2', 'type': 'dmedia/file'})
-        self.assertEqual(
-            list(inst.extensions()),
-            [
-                ('cr2', 17),
-                ('jpg', 17),
-                ('mov', 17),
-            ]
-        )
-        for i in xrange(27):
-            inst.db.create({'ext': 'mov', 'type': 'dmedia/file'})
-            inst.db.create({'ext': 'jpg', 'type': 'dmedia/file'})
-        self.assertEqual(
-            list(inst.extensions()),
-            [
-                ('cr2', 17),
-                ('jpg', 44),
-                ('mov', 44),
-            ]
-        )
-        for i in xrange(25):
-            inst.db.create({'ext': 'mov', 'type': 'dmedia/file'})
-        self.assertEqual(
-            list(inst.extensions()),
-            [
-                ('cr2', 17),
-                ('jpg', 44),
-                ('mov', 69),
-            ]
-        )
