@@ -21,46 +21,59 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-import optparse
+"""
+dmedia importer DBus service at "org.freedesktop.DMedia.Importer".
+"""
 
-import dbus
-from dbus.mainloop.glib import DBusGMainLoop
-
-DBusGMainLoop(set_as_default=True)
+import argparse
+import json
+import time
 
 import dmedia
-from dmedia.constants import IMPORT_BUS, DBNAME
-from dmedia.abstractcouch import get_env
+from dmedia.constants import BUS, IMPORT_BUS
 
 
-parser = optparse.OptionParser(version=dmedia.__version__)
-parser.add_option('--bus',
-    default=IMPORT_BUS,
-    help='D-Bus bus name; default is {!r}'.format(IMPORT_BUS),
+parser = argparse.ArgumentParser(
+    description='dmedia importer DBus service @{!r}'.format(IMPORT_BUS),
 )
-parser.add_option('--dbname',
-    metavar='DB',
-    default=DBNAME,
-    help='CouchDB database; default is {!r}'.format(DBNAME),
-)
-parser.add_option('--no-gui',
+parser.add_argument('--version', action='version', version=dmedia.__version__)
+parser.add_argument('--no-gui',
+    help='run without NotifyOSD and Application Indicators',
     action='store_true',
     default=False,
-    help='run without NotifyOSD and Application Indicators',
+)
+parser.add_argument('--bus',
+    help='DBus bus name; default is %(default)r',
+    default=IMPORT_BUS,
+)
+parser.add_argument('--env',
+    help='dmedia environment as JSON serialized string',
+    metavar='JSON',
 )
 
+args = parser.parse_args()
+dmedia.configure_logging('importer')
 
-if __name__ == '__main__':
-    (options, args) = parser.parse_args()
+from dbus.mainloop.glib import DBusGMainLoop
+DBusGMainLoop(set_as_default=True)
 
-    dmedia.configure_logging('import-service')
+from gi.repository import GObject
+GObject.threads_init()
 
-    env = get_env(options.dbname)
-    env['bus'] = options.bus
-    env['no_gui'] = options.no_gui
 
-    from dmedia.gtkui import service
-    from gi.repository import GObject
-    mainloop = GObject.MainLoop()
-    obj = service.DMedia(env, mainloop.quit)
-    mainloop.run()
+if args.env:
+    env = json.loads(args.env)
+else:
+    import dbus
+    conn = dbus.SessionBus()
+    proxy = conn.get_object(BUS, '/')
+    env = json.loads(proxy.GetEnv())
+if args.no_gui:
+    env['no_gui'] = True
+
+
+from dmedia.gtkui.service import DMedia
+
+mainloop = GObject.MainLoop()
+obj = DMedia(env, args.bus, mainloop.quit)
+mainloop.run()

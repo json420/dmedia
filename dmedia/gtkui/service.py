@@ -22,7 +22,11 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Makes dmedia functionality avaible over D-Bus.
+D-Bus service implementing Pro File Import UX.
+
+For details, please see:
+
+  https://wiki.ubuntu.com/AyatanaDmediaLovefest
 """
 
 from os import path
@@ -35,9 +39,8 @@ import dbus.service
 import dbus.mainloop.glib
 
 from dmedia import __version__
-from dmedia.constants import IMPORT_BUS, IMPORT_IFACE, DBNAME, EXT_MAP
+from dmedia.constants import IMPORT_BUS, IMPORT_IFACE, EXT_MAP
 from dmedia.importer import ImportManager
-#from dmedia.metastore import MetaStore
 
 from .util import NotifyManager, Timer, import_started, batch_finished
 
@@ -71,11 +74,12 @@ class DMedia(dbus.service.Object):
         'ImportFinished',
     ])
 
-    def __init__(self, env, killfunc=None):
+    def __init__(self, env, bus, killfunc):
+        assert callable(killfunc)
         self._env = env
+        self._bus = bus
         self._killfunc = killfunc
-        self._bus = env.get('bus', IMPORT_BUS)
-        self._dbname = env.get('dbname', DBNAME)
+        self._bus = bus
         self._no_gui = env.get('no_gui', False)
         log.info('Starting service on %r', self._bus)
         self._conn = dbus.SessionBus()
@@ -120,21 +124,12 @@ class DMedia(dbus.service.Object):
             self._indicator.set_menu(self._menu)
             self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
 
-        self._metastore = None
         self._manager = None
-
-    @property
-    def metastore(self):
-        if self._metastore is None:
-            self._metastore = MetaStore(self._env)
-        return self._metastore
 
     @property
     def manager(self):
         if self._manager is None:
-            self._manager = ImportManager(
-                self.metastore.get_env(), self._on_signal
-            )
+            self._manager = ImportManager(self._env, self._on_signal)
             self._manager.start()
         return self._manager
 

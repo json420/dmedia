@@ -27,6 +27,7 @@ import os
 from os import path
 from subprocess import Popen
 import time
+import json
 
 import dbus
 from dbus.proxies import ProxyObject
@@ -90,8 +91,8 @@ class test_Client(CouchCase):
         super(test_Client, self).setUp()
         self.bus = random_bus()
         cmd = [script, '--no-gui',
-            '--dbname', self.dbname,
             '--bus', self.bus,
+            '--env', json.dumps(self.env),
         ]
         self.service = Popen(cmd)
         time.sleep(1)  # Give dmedia-service time to start

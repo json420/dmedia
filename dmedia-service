@@ -22,7 +22,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Core dmedia DBus service at org.freedesktop.DMedia.
+Core dmedia DBus service at "org.freedesktop.DMedia".
 """
 
 import argparse
@@ -33,7 +33,7 @@ from dmedia.constants import BUS, DBNAME
 
 
 parser = argparse.ArgumentParser(
-    description='Core dmedia DBus service @org.freedesktop.DMedia',
+    description='Core dmedia DBus service @{!r}'.format(BUS),
 )
 parser.add_argument('--version', action='version', version=dmedia.__version__)
 parser.add_argument('--no-dc',
