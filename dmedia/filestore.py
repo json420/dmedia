@@ -659,7 +659,7 @@ class FileStore(object):
         >>> fs.join('../ssh')  #doctest: +ELLIPSIS
         Traceback (most recent call last):
           ...
-        FileStoreTraversal: '/tmp/ssh' outside base '/tmp/store...'
+        FileStoreTraversal: '/tmp/.../ssh' outside base '/tmp/.../.dmedia'
 
         Or Likewise if an absolute path is included in *parts*:
 
