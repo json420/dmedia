@@ -36,14 +36,24 @@ class TestDMedia(CouchCase):
 
     def test_init(self):
         inst = self.klass(self.dbname)
+        self.assertEqual(
+            set(inst.env),
+            set(['port', 'url', 'dbname', 'oauth', 'home'])
+        )
         self.assertEqual(inst.env['dbname'], self.dbname)
         self.assertEqual(inst.env['port'], self.env['port'])
         self.assertEqual(inst.env['url'], self.env['url'])
         self.assertEqual(inst.env['oauth'], self.env['oauth'])
+        self.assertEqual(inst.env['home'], self.home.path)
         self.assertIsInstance(inst.db, couchdb.Database)
 
         inst = self.klass(env=self.env)
         self.assertIs(inst.env, self.env)
+        self.assertEqual(
+            set(inst.env),
+            set(['port', 'url', 'dbname', 'oauth', 'home', 'machine_id'])
+        )
+        self.assertEqual(inst.env['home'], self.home.path)
         self.assertIsInstance(inst.db, couchdb.Database)
 
     def test_bootstrap(self):

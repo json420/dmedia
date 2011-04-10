@@ -50,6 +50,8 @@ filestores and mount points are configured.
 """
 
 from copy import deepcopy
+import os
+from os import path
 import time
 import socket
 import platform
@@ -63,6 +65,8 @@ from .schema import random_id, create_machine
 class DMedia(object):
     def __init__(self, dbname=None, env=None):
         self.env = (get_env(dbname) if env is None else env)
+        if 'home' not in self.env:
+            self.env['home'] = path.abspath(os.environ['HOME'])
         self.db = get_dmedia_db(self.env)
 
     def bootstrap(self):
