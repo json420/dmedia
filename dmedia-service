@@ -26,6 +26,7 @@ Core dmedia DBus service at org.freedesktop.DMedia.
 """
 
 import argparse
+import time
 
 import dmedia
 from dmedia.constants import BUS, DBNAME
@@ -57,5 +58,5 @@ GObject.threads_init()
 from dmedia.service import DMedia
 
 mainloop = GObject.MainLoop()
-obj = DMedia(args.bus, mainloop.quit)
+obj = DMedia(args.bus, args.dbname, mainloop.quit, start=time.time())
 mainloop.run()

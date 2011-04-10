@@ -24,24 +24,31 @@ Core dmedia DBus service at org.freedesktop.DMedia.
 """
 
 import logging
+import time
 
 import dbus
 import dbus.service
 
 from dmedia.constants import IFACE
+from dmedia.core import Core
 
 
 log = logging.getLogger()
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, bus, killfunc=None):
+    def __init__(self, bus, dbname, killfunc, start=None):
         self._bus = bus
+        self._dbname = dbname
         self._killfunc = killfunc
         log.info('Starting dmedia core service on %r', bus)
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(bus, self._conn)
+        self._core = Core(dbname)
+        self._core.bootstrap()
+        if start is not None:
+            log.info('Started in %.3f', time.time() - start)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def Kill(self):
@@ -49,6 +56,4 @@ class DMedia(dbus.service.Object):
         Kill the dmedia service process.
         """
         log.info('Killing dmedia core service on %r', self._bus)
-        if callable(self._killfunc):
-            log.info('Calling killfunc()')
-            self._killfunc()
+        self._killfunc()
