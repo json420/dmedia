@@ -2,7 +2,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
