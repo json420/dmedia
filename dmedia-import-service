@@ -21,7 +21,6 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import optparse
 
 import dbus
@@ -40,7 +39,7 @@ parser.add_option('--bus',
     help='D-Bus bus name; default is {!r}'.format(IMPORT_BUS),
 )
 parser.add_option('--dbname',
-    metavar='DIR',
+    metavar='DB',
     default=DBNAME,
     help='CouchDB database; default is {!r}'.format(DBNAME),
 )
@@ -51,16 +50,10 @@ parser.add_option('--no-gui',
 )
 
 
-def exit(msg, code=1):
-    parser.print_help()
-    print('ERROR: ' + msg)
-    sys.exit(code)
-
-
 if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
-    dmedia.configure_logging('service')
+    dmedia.configure_logging('import-service')
 
     env = get_env(options.dbname)
     env['bus'] = options.bus

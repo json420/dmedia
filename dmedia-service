@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+#
+# dmedia: distributed media library
+# Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under the
+# terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+Core dmedia DBus service at org.freedesktop.DMedia.
+"""
+
+import argparse
+
+import dmedia
+from dmedia.constants import BUS, DBNAME
+
+
+parser = argparse.ArgumentParser(
+    description='Core dmedia DBus service @org.freedesktop.DMedia',
+)
+parser.add_argument('--version', action='version', version=dmedia.__version__)
+parser.add_argument('--bus',
+    default=BUS,
+    help='DBus bus name; default is %(default)r',
+)
+parser.add_argument('--dbname',
+    metavar='DB',
+    default=DBNAME,
+    help='CouchDB database; default is %(default)r',
+)
+
+args = parser.parse_args()
