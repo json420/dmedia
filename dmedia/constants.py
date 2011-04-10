@@ -49,6 +49,8 @@ EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
 # D-Bus releated:
 BUS = 'org.freedesktop.DMedia'
 INTERFACE = BUS
+IMPORT_BUS = 'org.freedesktop.DMedia.Import'
+IMPORT_IFACE = IMPORT_BUS
 DC_BUS = 'org.desktopcouch.CouchDB'
 DC_INTERFACE = DC_BUS
 

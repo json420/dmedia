@@ -27,7 +27,7 @@ import dbus
 import dbus.mainloop.glib
 from gi.repository import GObject
 from gi.repository.GObject import TYPE_PYOBJECT
-from dmedia.constants import BUS, INTERFACE, EXTENSIONS
+from dmedia.constants import IMPORT_BUS, IMPORT_IFACE, EXTENSIONS
 
 
 # We need mainloop integration to test signals:
@@ -122,7 +122,7 @@ class Client(GObject.GObject):
 
     def __init__(self, bus=None):
         super(Client, self).__init__()
-        self._bus = (BUS if bus is None else bus)
+        self._bus = (IMPORT_BUS if bus is None else bus)
         self._conn = dbus.SessionBus()
         self._proxy = None
 
@@ -137,27 +137,27 @@ class Client(GObject.GObject):
         return self._proxy
 
     def _call(self, name, *args):
-        method = self.proxy.get_dbus_method(name, dbus_interface=INTERFACE)
+        method = self.proxy.get_dbus_method(name, dbus_interface=IMPORT_IFACE)
         return method(*args)
 
     def _connect_signals(self):
         self.proxy.connect_to_signal(
-            'BatchStarted', self._on_BatchStarted, INTERFACE
+            'BatchStarted', self._on_BatchStarted, IMPORT_IFACE
         )
         self.proxy.connect_to_signal(
-            'BatchFinished', self._on_BatchFinished, INTERFACE
+            'BatchFinished', self._on_BatchFinished, IMPORT_IFACE
         )
         self.proxy.connect_to_signal(
-            'ImportStarted', self._on_ImportStarted, INTERFACE
+            'ImportStarted', self._on_ImportStarted, IMPORT_IFACE
         )
         self.proxy.connect_to_signal(
-            'ImportCount', self._on_ImportCount, INTERFACE
+            'ImportCount', self._on_ImportCount, IMPORT_IFACE
         )
         self.proxy.connect_to_signal(
-            'ImportProgress', self._on_ImportProgress, INTERFACE
+            'ImportProgress', self._on_ImportProgress, IMPORT_IFACE
         )
         self.proxy.connect_to_signal(
-            'ImportFinished', self._on_ImportFinished, INTERFACE
+            'ImportFinished', self._on_ImportFinished, IMPORT_IFACE
         )
 
     def _on_BatchStarted(self, batch_id):

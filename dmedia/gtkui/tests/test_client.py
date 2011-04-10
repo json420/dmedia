@@ -44,7 +44,7 @@ from dmedia.tests.couch import CouchCase
 
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
-script = path.join(tree, 'dmedia-service')
+script = path.join(tree, 'dmedia-import-service')
 assert path.isfile(script)
 
 
@@ -112,7 +112,7 @@ class test_Client(CouchCase):
     def test_init(self):
         # Test with no bus
         inst = self.klass()
-        self.assertEqual(inst._bus, 'org.freedesktop.DMedia')
+        self.assertEqual(inst._bus, 'org.freedesktop.DMedia.Import')
         self.assertTrue(isinstance(inst._conn, dbus.SessionBus))
         self.assertTrue(inst._proxy is None)
 

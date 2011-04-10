@@ -35,7 +35,7 @@ import dbus.service
 import dbus.mainloop.glib
 
 from dmedia import __version__
-from dmedia.constants import BUS, INTERFACE, DBNAME, EXT_MAP
+from dmedia.constants import IMPORT_BUS, IMPORT_IFACE, DBNAME, EXT_MAP
 from dmedia.importer import ImportManager
 #from dmedia.metastore import MetaStore
 
@@ -74,7 +74,7 @@ class DMedia(dbus.service.Object):
     def __init__(self, env, killfunc=None):
         self._env = env
         self._killfunc = killfunc
-        self._bus = env.get('bus', BUS)
+        self._bus = env.get('bus', IMPORT_BUS)
         self._dbname = env.get('dbname', DBNAME)
         self._no_gui = env.get('no_gui', False)
         log.info('Starting service on %r', self._bus)
@@ -164,7 +164,7 @@ class DMedia(dbus.service.Object):
         except Exception:
             log.exception('Could not open dmedia database in Futon')
 
-    @dbus.service.signal(INTERFACE, signature='s')
+    @dbus.service.signal(IMPORT_IFACE, signature='s')
     def BatchStarted(self, batch_id):
         """
         Fired at transition from idle to at least one active import.
@@ -181,7 +181,7 @@ class DMedia(dbus.service.Object):
             self._indicator.set_menu(self._menu)
             self._timer.start()
 
-    @dbus.service.signal(INTERFACE, signature='sa{sx}')
+    @dbus.service.signal(IMPORT_IFACE, signature='sa{sx}')
     def BatchFinished(self, batch_id, stats):
         """
         Fired at transition from at least one active import to idle.
@@ -201,7 +201,7 @@ class DMedia(dbus.service.Object):
         self._timer.stop()
         self._current.hide()
 
-    @dbus.service.signal(INTERFACE, signature='ss')
+    @dbus.service.signal(IMPORT_IFACE, signature='ss')
     def ImportStarted(self, base, import_id):
         """
         Fired when card is inserted.
@@ -219,19 +219,19 @@ class DMedia(dbus.service.Object):
         # via FireWire or USB
         self._notify.replace(summary, body, 'notification-device-usb')
 
-    @dbus.service.signal(INTERFACE, signature='ssx')
+    @dbus.service.signal(IMPORT_IFACE, signature='ssx')
     def ImportCount(self, base, import_id, total):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='ssiia{ss}')
+    @dbus.service.signal(IMPORT_IFACE, signature='ssiia{ss}')
     def ImportProgress(self, base, import_id, completed, total, info):
         pass
 
-    @dbus.service.signal(INTERFACE, signature='ssa{sx}')
+    @dbus.service.signal(IMPORT_IFACE, signature='ssa{sx}')
     def ImportFinished(self, base, import_id, stats):
         pass
 
-    @dbus.service.method(INTERFACE, in_signature='', out_signature='')
+    @dbus.service.method(IMPORT_IFACE, in_signature='', out_signature='')
     def Kill(self):
         """
         Kill the dmedia service process.
@@ -243,14 +243,14 @@ class DMedia(dbus.service.Object):
             log.info('Calling killfunc()')
             self._killfunc()
 
-    @dbus.service.method(INTERFACE, in_signature='', out_signature='s')
+    @dbus.service.method(IMPORT_IFACE, in_signature='', out_signature='s')
     def Version(self):
         """
         Return dmedia version.
         """
         return __version__
 
-    @dbus.service.method(INTERFACE, in_signature='as', out_signature='as')
+    @dbus.service.method(IMPORT_IFACE, in_signature='as', out_signature='as')
     def GetExtensions(self, types):
         """
         Get a list of extensions based on broad categories in *types*.
@@ -267,7 +267,7 @@ class DMedia(dbus.service.Object):
                 extensions.update(EXT_MAP[key])
         return sorted(extensions)
 
-    @dbus.service.method(INTERFACE, in_signature='sb', out_signature='s')
+    @dbus.service.method(IMPORT_IFACE, in_signature='sb', out_signature='s')
     def StartImport(self, base, extract):
         """
         Start import of card mounted at *base*.
@@ -289,7 +289,7 @@ class DMedia(dbus.service.Object):
             return 'started'
         return 'already_running'
 
-    @dbus.service.method(INTERFACE, in_signature='s', out_signature='s')
+    @dbus.service.method(IMPORT_IFACE, in_signature='s', out_signature='s')
     def StopImport(self, base):
         """
         In running, stop the import of directory or file at *base*.
@@ -298,7 +298,7 @@ class DMedia(dbus.service.Object):
             return 'stopped'
         return 'not_running'
 
-    @dbus.service.method(INTERFACE, in_signature='', out_signature='as')
+    @dbus.service.method(IMPORT_IFACE, in_signature='', out_signature='as')
     def ListImports(self):
         """
         Return list of currently running imports.

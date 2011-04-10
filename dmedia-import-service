@@ -30,19 +30,19 @@ from dbus.mainloop.glib import DBusGMainLoop
 DBusGMainLoop(set_as_default=True)
 
 import dmedia
-from dmedia.constants import BUS, DBNAME
+from dmedia.constants import IMPORT_BUS, DBNAME
 from dmedia.abstractcouch import get_env
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)
 parser.add_option('--bus',
-    default=BUS,
-    help='D-Bus bus name; default is %r' % BUS,
+    default=IMPORT_BUS,
+    help='D-Bus bus name; default is {!r}'.format(IMPORT_BUS),
 )
 parser.add_option('--dbname',
     metavar='DIR',
     default=DBNAME,
-    help='CouchDB database; default is %r' % DBNAME,
+    help='CouchDB database; default is {!r}'.format(DBNAME),
 )
 parser.add_option('--no-gui',
     action='store_true',
