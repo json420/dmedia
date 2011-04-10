@@ -49,10 +49,6 @@ class TestDMedia(CouchCase):
 
         inst = self.klass(env=self.env)
         self.assertIs(inst.env, self.env)
-        self.assertEqual(
-            set(inst.env),
-            set(['port', 'url', 'dbname', 'oauth', 'machine_id'])
-        )
         self.assertEqual(inst.home, self.home.path)
         self.assertIsInstance(inst.db, couchdb.Database)
 

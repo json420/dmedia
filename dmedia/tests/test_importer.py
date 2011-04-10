@@ -203,8 +203,8 @@ class test_ImportWorker(CouchCase):
         self.assertTrue(isinstance(inst.server, couchdb.Server))
         self.assertTrue(isinstance(inst.db, couchdb.Database))
 
-        self.assertEqual(inst.home, self.home.path)
         self.assertTrue(isinstance(inst.filestore, FileStore))
+        self.assertEqual(inst.filestore.parent, self.home.path)
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
 
         # Test with extract = False
@@ -459,7 +459,7 @@ class test_ImportWorker(CouchCase):
         old['stored'] = {rid: {'copies': 2, 'time': 1234567890}}
         inst.db.save(old)
         (action, doc) = inst._import_file(src2)
-        fid = inst.filestore._id
+        fid = inst.filestore_id
         self.assertEqual(action, 'skipped')
         self.assertEqual(set(doc['stored']), set([rid, fid]))
         t = doc['stored'][fid]['time']

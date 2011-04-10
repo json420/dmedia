@@ -57,6 +57,7 @@ class CouchCase(TestCase):
             pass
         self.machine_id = random_id()
         self.env['machine_id'] = self.machine_id
+        self.env['filestore'] = {'_id': random_id(), 'path': self.home.path}
 
     def tearDown(self):
         self.home = None

@@ -165,15 +165,8 @@ class ImportWorker(CouchWorker):
     def __init__(self, env, q, key, args):
         super(ImportWorker, self).__init__(env, q, key, args)
         (self.base, self.extract) = args
-        self.home = path.abspath(os.environ['HOME'])
-        self.filestore = FileStore(
-            path.join(self.home, DOTDIR),
-            self.env.get('machine_id')
-        )
-        try:
-            self.db.save(self.filestore._doc)
-        except couchdb.ResourceConflict:
-            pass
+        self.filestore = FileStore(self.env['filestore']['path'])
+        self.filestore_id = self.env['filestore']['_id']
 
         self.filetuples = None
         self._processed = []
@@ -269,8 +262,8 @@ class ImportWorker(CouchWorker):
 
         try:
             doc = self.db[chash]
-            if self.filestore._id not in doc['stored']:
-                doc['stored'][self.filestore._id] =  {
+            if self.filestore_id not in doc['stored']:
+                doc['stored'][self.filestore_id] =  {
                     'copies': 1,
                     'time': time.time(),
                 }
@@ -279,7 +272,7 @@ class ImportWorker(CouchWorker):
         except couchdb.ResourceNotFound as e:
             pass
 
-        doc = create_file(stat.st_size, leaves, self.filestore._id,
+        doc = create_file(stat.st_size, leaves, self.filestore_id,
             copies=1, ext=ext
         )
         assert doc['_id'] == chash
