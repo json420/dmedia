@@ -38,22 +38,22 @@ class TestDMedia(CouchCase):
         inst = self.klass(self.dbname)
         self.assertEqual(
             set(inst.env),
-            set(['port', 'url', 'dbname', 'oauth', 'home'])
+            set(['port', 'url', 'dbname', 'oauth'])
         )
         self.assertEqual(inst.env['dbname'], self.dbname)
         self.assertEqual(inst.env['port'], self.env['port'])
         self.assertEqual(inst.env['url'], self.env['url'])
         self.assertEqual(inst.env['oauth'], self.env['oauth'])
-        self.assertEqual(inst.env['home'], self.home.path)
+        self.assertEqual(inst.home, self.home.path)
         self.assertIsInstance(inst.db, couchdb.Database)
 
         inst = self.klass(env=self.env)
         self.assertIs(inst.env, self.env)
         self.assertEqual(
             set(inst.env),
-            set(['port', 'url', 'dbname', 'oauth', 'home', 'machine_id'])
+            set(['port', 'url', 'dbname', 'oauth', 'machine_id'])
         )
-        self.assertEqual(inst.env['home'], self.home.path)
+        self.assertEqual(inst.home, self.home.path)
         self.assertIsInstance(inst.db, couchdb.Database)
 
     def test_bootstrap(self):
@@ -134,11 +134,11 @@ class TestDMedia(CouchCase):
 
         self.assertEqual(inst.local['filestores'], {})
         self.assertNotIn('default_filestore', inst.local)
-        inst.init_filestores()
+        lstore = inst.init_filestores()
         self.assertEqual(inst.local, inst.db['_local/dmedia'])
         self.assertEqual(len(inst.local['filestores']), 1)
         _id = inst.local['default_filestore']
-        lstore = inst.local['filestores'][_id]
+        self.assertEqual(inst.local['filestores'][_id], lstore)
         self.assertEqual(
             set(lstore),
             set([
@@ -163,3 +163,6 @@ class TestDMedia(CouchCase):
         self.assertTrue(store['_rev'].startswith('1-'))
         store.pop('_rev')
         self.assertEqual(store, lstore)
+
+        # Try again when docs already exist:
+        self.assertEqual(inst.init_filestores(), lstore)

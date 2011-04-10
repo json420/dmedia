@@ -62,19 +62,31 @@ from .abstractcouch import get_env, get_dmedia_db
 from .schema import random_id, create_machine, create_store
 
 
+class LocalStores(object):
+    def by_id(self, _id):
+        pass
+
+    def by_path(self, parentdir):
+        pass
+
+    def by_device(self, device):
+        pass
+
+
 class DMedia(object):
     def __init__(self, dbname=None, env=None):
         self.env = (get_env(dbname) if env is None else env)
-        if 'home' not in self.env:
-            self.env['home'] = path.abspath(os.environ['HOME'])
-        self.home = self.env['home']
+        self.home = path.abspath(os.environ['HOME'])
+        if not path.isdir(self.home):
+            raise ValueError('HOME is not a dir: {!}'.format(self.home))
         self.db = get_dmedia_db(self.env)
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()
         self.machine_id = self.machine['_id']
         self.env['machine_id'] = self.machine_id
-        self.init_filestores()
+        store = self.init_filestores()
+        self.env['filestore'] = {'_id': store['_id'], 'path': store['path']}
 
     def init_local(self):
         """
@@ -107,6 +119,7 @@ class DMedia(object):
             self.local['default_filestore'] = store['_id']
             self.db.save(self.local)
             self.db.save(store)
+        return self.local['filestores'][self.local['default_filestore']]
 
     def load_filestore(self):
         # FIXME: moved from FileStore.__init__(), complete equivalent here:
