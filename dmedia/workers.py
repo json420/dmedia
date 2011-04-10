@@ -30,7 +30,7 @@ from Queue import Empty
 import logging
 
 from .constants import TYPE_ERROR
-from .abstractcouch import get_couchdb_server, get_dmedia_db
+from .abstractcouch import get_server, get_db
 
 
 log = logging.getLogger()
@@ -159,8 +159,8 @@ class Worker(object):
 class CouchWorker(Worker):
     def __init__(self, env, q, key, args):
         super(CouchWorker, self).__init__(env, q, key, args)
-        self.server = get_couchdb_server(env)
-        self.db = get_dmedia_db(env, self.server)
+        self.server = get_server(env)
+        self.db = get_db(env, self.server)
 
 
 class Manager(object):
@@ -272,5 +272,5 @@ class Manager(object):
 class CouchManager(Manager):
     def __init__(self, env, callback=None):
         super(CouchManager, self).__init__(env, callback)
-        self.server = get_couchdb_server(env)
-        self.db = get_dmedia_db(env, self.server)
+        self.server = get_server(env)
+        self.db = get_db(env, self.server)

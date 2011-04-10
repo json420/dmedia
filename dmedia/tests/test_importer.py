@@ -40,7 +40,7 @@ from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.schema import random_id
 from dmedia import importer, schema
-from dmedia.abstractcouch import get_env, get_dmedia_db
+from dmedia.abstractcouch import get_db
 from .helpers import TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_thm
@@ -302,7 +302,7 @@ class test_ImportWorker(CouchCase):
         self.assertTrue(inst.doc is None)
         _id = inst.start()
         self.assertEqual(len(_id), 24)
-        db = get_dmedia_db(self.env)
+        db = get_db(self.env)
         self.assertEqual(inst.doc, db[_id])
         self.assertEqual(
             set(inst.doc),

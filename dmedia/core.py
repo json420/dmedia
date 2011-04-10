@@ -62,7 +62,7 @@ except ImportError:
     desktopcouch = None
 
 from .constants import DBNAME
-from .abstractcouch import get_dmedia_db
+from .abstractcouch import get_server, get_db
 from .schema import random_id, create_machine, create_store
 from .views import init_views
 
@@ -116,7 +116,8 @@ class Core(object):
         self.home = path.abspath(os.environ['HOME'])
         if not path.isdir(self.home):
             raise ValueError('HOME is not a dir: {!}'.format(self.home))
-        self.db = get_dmedia_db(self.env)
+        self.server = get_server(self.env)
+        self.db = get_db(self.env, self.server)
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()

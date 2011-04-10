@@ -27,7 +27,8 @@ from unittest import TestCase
 
 import couchdb
 
-from dmedia.abstractcouch import get_env, get_couchdb_server
+from dmedia.core import get_env
+from dmedia.abstractcouch import get_server
 from dmedia.schema import random_id
 
 from .helpers import TempHome
@@ -48,9 +49,9 @@ class CouchCase(TestCase):
 
     def setUp(self):
         self.home = TempHome()
-        self.dbname = 'dmedia_test'
+        self.dbname = 'test_dmedia'
         self.env = get_env(self.dbname)
-        server = get_couchdb_server(self.env)
+        server = get_server(self.env)
         try:
             del server[self.dbname]
         except couchdb.ResourceNotFound:

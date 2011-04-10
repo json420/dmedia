@@ -40,8 +40,6 @@ from .workers import (
 )
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
 from .extractor import merge_metadata
-from .abstractcouch import get_env, get_couchdb_server, get_dmedia_db
-
 
 mimetypes.init()
 DOTDIR = '.dmedia'
