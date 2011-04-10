@@ -120,17 +120,3 @@ class DMedia(object):
             self.db.save(self.local)
             self.db.save(store)
         return self.local['filestores'][self.local['default_filestore']]
-
-    def load_filestore(self):
-        # FIXME: moved from FileStore.__init__(), complete equivalent here:
-        self.record = path.join(self.base, 'store.json')
-        try:
-            fp = open(self.record, 'rb')
-            doc = json.load(fp)
-        except IOError:
-            fp = open(self.record, 'wb')
-            doc = create_store(self.base, machine_id)
-            json.dump(doc, fp, sort_keys=True, indent=4)
-        fp.close()
-        self._doc = doc
-        self._id = doc['_id']
