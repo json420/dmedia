@@ -223,17 +223,19 @@ designs = (
 )
 
 
-def build_design_doc(design, views):
-    _id = '_design/' + design
-    d = {}
-    for (view, map_, reduce_) in views:
-        d[view] = {'map': map_.strip()}
+def iter_views(views):
+    for (name, map_, reduce_) in views:
+        view = {'map': map_.strip()}
         if reduce_ is not None:
-            d[view]['reduce'] = reduce_.strip()
+            view['reduce'] = reduce_.strip()
+        yield (name, view)
+
+
+def build_design_doc(design, views):
     doc = {
-        '_id': _id,
+        '_id': '_design/' + design,
         'language': 'javascript',
-        'views': d,
+        'views': dict(iter_views(views)),
     }
     return doc
 
