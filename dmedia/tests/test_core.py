@@ -87,6 +87,7 @@ class TestDMedia(CouchCase):
             set([
                 '_id',
                 '_rev',
+                'ver',
                 'type',
                 'time',
                 'hostname',
@@ -124,3 +125,41 @@ class TestDMedia(CouchCase):
         (local4, machine4) = inst.init_local()
         self.assertEqual(local4, local3)
         self.assertEqual(machine4, machine3)
+
+    def test_init_filestores(self):
+        inst = self.klass(self.dbname)
+        (inst.local, inst.machine) = inst.init_local()
+        inst.machine_id = inst.machine['_id']
+        inst.env['machine_id'] = inst.machine_id
+
+        self.assertEqual(inst.local['filestores'], {})
+        self.assertNotIn('default_filestore', inst.local)
+        inst.init_filestores()
+        self.assertEqual(inst.local, inst.db['_local/dmedia'])
+        self.assertEqual(len(inst.local['filestores']), 1)
+        _id = inst.local['default_filestore']
+        lstore = inst.local['filestores'][_id]
+        self.assertEqual(
+            set(lstore),
+            set([
+                '_id',
+                'ver',
+                'type',
+                'time',
+                'plugin',
+                'copies',
+                'path',
+                'machine_id',
+            ])
+        )
+        self.assertEqual(lstore['ver'], 0)
+        self.assertEqual(lstore['type'], 'dmedia/store')
+        self.assertEqual(lstore['plugin'], 'filestore')
+        self.assertEqual(lstore['copies'], 1)
+        self.assertEqual(lstore['path'], self.home.path)
+        self.assertEqual(lstore['machine_id'], inst.machine_id)
+
+        store = inst.db[_id]
+        self.assertTrue(store['_rev'].startswith('1-'))
+        store.pop('_rev')
+        self.assertEqual(store, lstore)

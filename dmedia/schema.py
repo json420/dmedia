@@ -1301,6 +1301,7 @@ def create_machine():
     """
     return {
         '_id': random_id(),
+        'ver': 0,
         'type': 'dmedia/machine',
         'time': time.time(),
         'hostname': socket.gethostname(),
@@ -1308,7 +1309,7 @@ def create_machine():
     }
 
 
-def create_store(base, machine_id, copies=1):
+def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' document.
     """
@@ -1319,7 +1320,7 @@ def create_store(base, machine_id, copies=1):
         'time': time.time(),
         'plugin': 'filestore',
         'copies': copies,
-        'path': base,
+        'path': parentdir,
         'machine_id': machine_id,
     }
 

@@ -59,7 +59,7 @@ import platform
 from couchdb import ResourceNotFound
 
 from .abstractcouch import get_env, get_dmedia_db
-from .schema import random_id, create_machine
+from .schema import random_id, create_machine, create_store
 
 
 class DMedia(object):
@@ -67,12 +67,14 @@ class DMedia(object):
         self.env = (get_env(dbname) if env is None else env)
         if 'home' not in self.env:
             self.env['home'] = path.abspath(os.environ['HOME'])
+        self.home = self.env['home']
         self.db = get_dmedia_db(self.env)
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()
         self.machine_id = self.machine['_id']
         self.env['machine_id'] = self.machine_id
+        self.init_filestores()
 
     def init_local(self):
         """
@@ -97,6 +99,14 @@ class DMedia(object):
                 machine = deepcopy(local['machine'])
                 self.db.save(machine)
         return (local, machine)
+
+    def init_filestores(self):
+        if not self.local['filestores']:
+            store = create_store(self.home, self.machine_id)
+            self.local['filestores'][store['_id']] = deepcopy(store)
+            self.local['default_filestore'] = store['_id']
+            self.db.save(self.local)
+            self.db.save(store)
 
     def load_filestore(self):
         # FIXME: moved from FileStore.__init__(), complete equivalent here:
