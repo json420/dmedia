@@ -33,7 +33,7 @@ from dmedia.constants import BUS, DBNAME
 
 
 parser = argparse.ArgumentParser(
-    description='Core dmedia DBus service @{!r}'.format(BUS),
+    description='DBus service @{}'.format(BUS),
 )
 parser.add_argument('--version', action='version', version=dmedia.__version__)
 parser.add_argument('--no-dc',
@@ -50,6 +50,10 @@ parser.add_argument('--dbname',
     default=DBNAME,
     help='CouchDB database; default is %(default)r',
 )
+parser.add_argument('--env',
+    help='dmedia environment as JSON serialized string',
+    metavar='JSON',
+)
 
 args = parser.parse_args()
 dmedia.configure_logging('service')
@@ -63,7 +67,6 @@ GObject.threads_init()
 from dmedia.service import DMedia
 
 mainloop = GObject.MainLoop()
-obj = DMedia(args.dbname, args.no_dc, args.bus, mainloop.quit,
-    start=time.time()
-)
+couchargs = (args.dbname, args.no_dc, args.env)
+obj = DMedia(couchargs, args.bus, mainloop.quit, start=time.time())
 mainloop.run()

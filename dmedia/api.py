@@ -23,11 +23,10 @@
 Python convenience API for talking to dmedia components over DBus.
 """
 
-import json
-
 import dbus
 
 from dmedia.constants import BUS
+from dmedia.abstractcouch import load_env
 
 
 class DMedia(object):
@@ -49,20 +48,13 @@ class DMedia(object):
         return self.proxy.Version()
 
     def kill(self):
-        return self.proxy.Kill()
+        self.proxy.Kill()
+        self._proxy = None
 
     def get_env(self, env_s=None):
         if not env_s:
             env_s = self.proxy.GetEnv()
-        env = json.loads(env_s)
-        # FIXME: hack to work-around for Python oauth not working with unicode,
-        # which is what we get when the env is retrieved over D-Bus as JSON
-        if 'oauth' in env:
-            env['oauth'] = dict(
-                (k.encode('ascii'), v.encode('ascii'))
-                for (k, v) in env['oauth'].iteritems()
-            )
-        return env
+        return load_env(env_s)
 
     def get_auth_url(self):
         return self.proxy.GetAuthURL()

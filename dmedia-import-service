@@ -60,8 +60,8 @@ DBusGMainLoop(set_as_default=True)
 from gi.repository import GObject
 GObject.threads_init()
 
-import dmedia.client
-dm = dmedia.client.DMedia()
+from dmedia import api
+dm = api.DMedia()
 
 env = dm.get_env(args.env)
 if args.no_gui:

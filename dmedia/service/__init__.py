@@ -40,16 +40,15 @@ log = logging.getLogger()
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, dbname, no_dc, bus, killfunc, start=None):
+    def __init__(self, couchargs, bus, killfunc, start=None):
         self._bus = bus
-        self._dbname = dbname
         self._killfunc = killfunc
         log.info('Starting dmedia core service on %r', bus)
         self._conn = dbus.SessionBus()
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(bus, self._conn)
-        self._core = Core(dbname, no_dc)
-        #self._core.bootstrap()
+        self._core = Core(*couchargs)
+        self._core.bootstrap()
         self._env_s = json.dumps(self._core.env)
         if start is not None:
             log.info('Started in %.3f', time.time() - start)

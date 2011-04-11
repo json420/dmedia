@@ -29,6 +29,8 @@ from subprocess import Popen
 import json
 import time
 
+import gnomekeyring
+
 import dmedia
 from dmedia import api
 
@@ -40,6 +42,15 @@ tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
 script = path.join(tree, 'dmedia-service')
 assert path.isfile(script)
+
+
+def get_auth():
+    data = gnomekeyring.find_items_sync(
+        gnomekeyring.ITEM_GENERIC_SECRET,
+        {'desktopcouch': 'basic'}
+    )
+    (user, password) = data[0].secret.split(':')
+    return (user, password)
 
 
 class TestDMedia(CouchCase):
@@ -60,7 +71,7 @@ class TestDMedia(CouchCase):
         self.bus = random_bus()
         cmd = [script,
             '--bus', self.bus,
-            '--dbname', self.dbname,
+            '--env', json.dumps(self.env),
         ]
         self.service = Popen(cmd)
         time.sleep(1)  # Give dmedia-service time to start
@@ -77,5 +88,26 @@ class TestDMedia(CouchCase):
 
     def test_all(self):
         inst = self.klass(self.bus)
-        env = json.loads(inst.proxy.GetEnv())
+
+        # DMedia.Version()
+        self.assertEqual(inst.version(), dmedia.__version__)
+
+        # DMedia.GetEnv()
+        env = inst.get_env()
         self.assertEqual(env['oauth'], self.env['oauth'])
+
+        # DMedia.GetAuthURL()
+        (user, password) = get_auth()
+        self.assertEqual(
+            inst.get_auth_url(),
+            'http://{user}:{password}@localhost:{port}'.format(
+                user=user, password=password, port=self.env['port']
+            )
+        )
+
+        # DMedia.Kill()
+        self.assertIsNone(self.service.poll(), None)
+        inst.kill()
+        self.assertTrue(inst._proxy is None)
+        time.sleep(1)  # Give dmedia-service time to shutdown
+        self.assertEqual(self.service.poll(), 0)
