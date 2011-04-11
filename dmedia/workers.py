@@ -101,7 +101,7 @@ def dispatch(worker, env, q, key, args):
         inst = klass(env, q, key, args)
         inst.run()
     except Exception as e:
-        log.exception('exception in procces %d, worker=%r', pid)
+        log.exception('exception in procces %d, worker=%r', pid, worker)
         q.put(dict(
             signal='error',
             args=(key, exception_name(e), str(e)),
