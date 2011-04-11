@@ -95,18 +95,25 @@ def get_server(env):
     The goal is to have all the needed information is one easily serialized
     piece of data (important for testing across multiple processes).
     """
-    log.info('CouchDB server is %r', env['url'])
+    url = env['url']
+    log.info('CouchDB server is %r', url)
     if 'oauth' in env:
         if OAuthSession is None:
             raise ValueError(
                 "provided env['oauth'] but OAuthSession not available: %r" %
                     (env,)
             )
+        # FIXME: hacky work-around for Python oauth not working with unicode,
+        # which is what we get when the env is retrieved over D-Bus as JSON
+        oauth = dict(
+            (k.encode('ascii'), v.encode('ascii'))
+            for (k, v) in env['oauth'].iteritems()
+        )
         log.info('Using desktopcouch `OAuthSession`')
-        session = OAuthSession(credentials=env['oauth'])
+        session = OAuthSession(credentials=oauth)
     else:
         session = None
-    return Server(env['url'], session=session)
+    return Server(url, session=session)
 
 
 def get_db(env, server=None):

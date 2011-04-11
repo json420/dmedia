@@ -24,6 +24,7 @@ Unit tests for `dmedia.abstractcouch` module.
 """
 
 from unittest import TestCase
+import json
 
 import couchdb
 from couchdb import ResourceNotFound
@@ -47,6 +48,13 @@ def dc_env(dbname='test_dmedia'):
         'url': 'http://localhost:%d/' % port,
         'oauth': get_oauth_tokens(),
     }
+
+
+def json_env(dbname='test_dmedia'):
+    """
+    For testing with dc env that has gone though json.dumps() + json.loads().
+    """
+    return json.loads(json.dumps(dc_env(dbname)))
 
 
 class test_functions(TestCase):
@@ -83,6 +91,7 @@ class test_functions(TestCase):
         s = f({'url': 'http://localhost:666/'})
         self.assertTrue(isinstance(s, couchdb.Server))
         self.assertEqual(repr(s), "<Server 'http://localhost:666/'>")
+
 
     def test_get_db(self):
         f = abstractcouch.get_db
@@ -123,5 +132,48 @@ class test_functions(TestCase):
         db = f(env, server=server)
         self.assertTrue(isinstance(db, couchdb.Database))
         self.assertEqual(repr(db), "<Database 'test_dmedia'>")
+        self.assertEqual(db.info()['db_name'], 'test_dmedia')
+        self.assertIn('test_dmedia', server)
+
+        # Now again, but with dmedia env that has gone though json serialization
+        # aka this tests workaround for the ouath module not working with
+        # the Python unicode type.
+        env = json_env('test_dmedia')
+        server = abstractcouch.get_server(env)
+
+        # Make sure database doesn't exist:
+        try:
+            server.delete('test_dmedia')
+        except ResourceNotFound:
+            pass
+
+        # Test when db does not exist, server not provided
+        self.assertNotIn('test_dmedia', server)
+        db = f(env)
+        self.assertTrue(isinstance(db, couchdb.Database))
+        self.assertEqual(repr(db), "<Database u'test_dmedia'>")
+        self.assertEqual(db.info()['db_name'], 'test_dmedia')
+        self.assertIn('test_dmedia', server)
+
+        # Test when db exists, server not provided
+        db = f(env)
+        self.assertTrue(isinstance(db, couchdb.Database))
+        self.assertEqual(repr(db), "<Database u'test_dmedia'>")
+        self.assertEqual(db.info()['db_name'], 'test_dmedia')
+        self.assertIn('test_dmedia', server)
+
+        # Test when db does not exist, server *is* provided
+        server.delete('test_dmedia')
+        self.assertNotIn('test_dmedia', server)
+        db = f(env, server=server)
+        self.assertTrue(isinstance(db, couchdb.Database))
+        self.assertEqual(repr(db), "<Database u'test_dmedia'>")
+        self.assertEqual(db.info()['db_name'], 'test_dmedia')
+        self.assertIn('test_dmedia', server)
+
+        # Test when db exists, server *is* provided
+        db = f(env, server=server)
+        self.assertTrue(isinstance(db, couchdb.Database))
+        self.assertEqual(repr(db), "<Database u'test_dmedia'>")
         self.assertEqual(db.info()['db_name'], 'test_dmedia')
         self.assertIn('test_dmedia', server)
