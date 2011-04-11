@@ -37,6 +37,7 @@ For more details, see:
     https://bugs.launchpad.net/dmedia/+bug/722035
 """
 
+import json
 import logging
 
 from couchdb import Server, ResourceNotFound
@@ -131,3 +132,15 @@ def get_db(env, server=None):
         return server[dbname]
     except ResourceNotFound:
         return server.create(dbname)
+
+
+def load_env(env_s):
+    env = json.loads(env_s)
+    # FIXME: hack to work-around for Python oauth not working with unicode,
+    # which is what we get when the env is retrieved over D-Bus as JSON
+    if 'oauth' in env:
+        env['oauth'] = dict(
+            (k.encode('ascii'), v.encode('ascii'))
+            for (k, v) in env['oauth'].iteritems()
+        )
+    return env

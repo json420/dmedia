@@ -24,6 +24,7 @@ Unit tests for `dmedia.core` module.
 """
 
 from unittest import TestCase
+import json
 
 import couchdb
 import desktopcouch
@@ -121,6 +122,7 @@ class TestCore(CouchCase):
 
     def test_init(self):
         inst = self.klass(self.dbname)
+        self.assertNotEqual(inst.env, self.env)
         self.assertEqual(
             set(inst.env),
             set(['port', 'url', 'dbname', 'oauth'])
@@ -131,6 +133,9 @@ class TestCore(CouchCase):
         self.assertEqual(inst.env['oauth'], self.env['oauth'])
         self.assertEqual(inst.home, self.home.path)
         self.assertIsInstance(inst.db, couchdb.Database)
+
+        inst = self.klass(env_s=json.dumps(self.env))
+        self.assertEqual(inst.env, self.env)
 
     def test_bootstrap(self):
         inst = self.klass(self.dbname)

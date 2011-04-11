@@ -62,7 +62,7 @@ except ImportError:
     desktopcouch = None
 
 from .constants import DBNAME
-from .abstractcouch import get_server, get_db
+from .abstractcouch import get_server, get_db, load_env
 from .schema import random_id, create_machine, create_store
 from .views import init_views
 
@@ -111,8 +111,11 @@ class LocalStores(object):
 
 
 class Core(object):
-    def __init__(self, dbname=DBNAME, no_dc=False):
-        self.env = get_env(dbname, no_dc)
+    def __init__(self, dbname=DBNAME, no_dc=False, env_s=None):
+        if env_s:
+            self.env = load_env(env_s)
+        else:
+            self.env = get_env(dbname, no_dc)
         self.home = path.abspath(os.environ['HOME'])
         if not path.isdir(self.home):
             raise ValueError('HOME is not a dir: {!}'.format(self.home))

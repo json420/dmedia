@@ -27,6 +27,7 @@ import logging
 import json
 import time
 
+import gnomekeyring
 import dbus
 import dbus.service
 
@@ -48,7 +49,7 @@ class DMedia(dbus.service.Object):
         super(DMedia, self).__init__(self._conn, object_path='/')
         self._busname = dbus.service.BusName(bus, self._conn)
         self._core = Core(dbname, no_dc)
-        self._core.bootstrap()
+        #self._core.bootstrap()
         self._env_s = json.dumps(self._core.env)
         if start is not None:
             log.info('Started in %.3f', time.time() - start)
@@ -60,6 +61,14 @@ class DMedia(dbus.service.Object):
         """
         return __version__
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def Kill(self):
+        """
+        Kill the `dmedia-service` process.
+        """
+        log.info('Killing dmedia core service on %r', self._bus)
+        self._killfunc()
+
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
         """
@@ -67,10 +76,16 @@ class DMedia(dbus.service.Object):
         """
         return self._env_s
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='')
-    def Kill(self):
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetAuthURL(self):
         """
-        Kill the dmedia service process.
+        Get URL with basic auth user and password.
         """
-        log.info('Killing dmedia core service on %r', self._bus)
-        self._killfunc()
+        data = gnomekeyring.find_items_sync(
+            gnomekeyring.ITEM_GENERIC_SECRET,
+            {'desktopcouch': 'basic'}
+        )
+        (user, password) = data[0].secret.split(':')
+        return 'http://{user}:{password}@localhost:{port}'.format(
+            user=user, password=password, port=self._core.env['port']
+        )

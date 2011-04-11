@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Python convenience wrapper for talking to dmedia components over DBus.
+Python convenience API for talking to dmedia components over DBus.
 """
 
 import json
@@ -35,8 +35,21 @@ class DMedia(object):
     Talk to "org.freedesktop.DMedia".
     """
     def __init__(self, bus=BUS):
+        self.bus = bus
         self.conn = dbus.SessionBus()
-        self.proxy = self.conn.get_object(BUS, '/')
+        self._proxy = None
+
+    @property
+    def proxy(self):
+        if self._proxy is None:
+            self._proxy = self.conn.get_object(self.bus, '/')
+        return self._proxy
+
+    def version(self):
+        return self.proxy.Version()
+
+    def kill(self):
+        return self.proxy.Kill()
 
     def get_env(self, env_s=None):
         if not env_s:
@@ -50,3 +63,6 @@ class DMedia(object):
                 for (k, v) in env['oauth'].iteritems()
             )
         return env
+
+    def get_auth_url(self):
+        return self.proxy.GetAuthURL()
