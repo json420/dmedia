@@ -188,7 +188,7 @@ from genshi.template import MarkupTemplate
 from .util import render_var
 
 
-tree = path.dirname(path.dirname(path.abspath(__file__)))
+tree = path.dirname(path.dirname(path.dirname(path.abspath(__file__))))
 if path.exists(path.join(tree, 'setup.py')):
     dummy_client = path.join(tree, 'dummy-client')
 else:
