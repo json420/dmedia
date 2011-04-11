@@ -26,7 +26,6 @@
 Install `dmedia`
 """
 
-import sys
 import os
 from os import path
 from distutils.core import setup
@@ -89,11 +88,6 @@ class Test(Command):
                         break
 
     def run(self):
-        from dbus.mainloop.glib import DBusGMainLoop
-        import gobject
-        DBusGMainLoop(set_as_default=True)
-        gobject.threads_init()
-
         pynames = tuple(self._pynames_iter())
 
         # Add unit-tests:
@@ -112,7 +106,7 @@ class Test(Command):
         runner = TextTestRunner(verbosity=2)
         result = runner.run(suite)
         if not result.wasSuccessful():
-            sys.exit(1)
+            raise SystemExit(1)
 
     def initialize_options(self):
         self.no_doctest = 0
