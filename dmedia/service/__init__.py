@@ -71,7 +71,7 @@ class DMedia(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
         """
-        Return dmedia version.
+        Return dmedia env as JSON string.
         """
         return self._env_s
 
@@ -91,4 +91,4 @@ class DMedia(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def HasApp(self):
-        pass
+        return self._core.has_app()

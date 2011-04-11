@@ -58,3 +58,6 @@ class DMedia(object):
 
     def get_auth_url(self):
         return self.proxy.GetAuthURL()
+
+    def has_app(self):
+        return self.proxy.HasApp()

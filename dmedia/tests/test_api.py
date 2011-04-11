@@ -32,6 +32,7 @@ import time
 import gnomekeyring
 
 import dmedia
+from dmedia.abstractcouch import get_db
 from dmedia import api
 
 from .couch import CouchCase
@@ -107,6 +108,14 @@ class TestDMedia(CouchCase):
                 user=user, password=password, port=self.env['port']
             )
         )
+
+        # DMedia.HasApp()
+        db = get_db(self.env)
+        self.assertNotIn('app', db)
+        self.assertTrue(inst.has_app())
+        self.assertTrue(db['app']['_rev'].startswith('1-'))
+        self.assertTrue(inst.has_app())
+        self.assertTrue(db['app']['_rev'].startswith('1-'))
 
         # DMedia.Kill()
         self.assertIsNone(self.service.poll(), None)
