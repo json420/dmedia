@@ -61,3 +61,9 @@ class DMedia(object):
 
     def has_app(self):
         return self.proxy.HasApp()
+
+
+class DMediaImporter(object):
+    """
+    Talk to "org.freedesktop.DMediaImporter".
+    """

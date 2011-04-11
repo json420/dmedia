@@ -34,7 +34,7 @@ from dmedia.constants import BUS, IMPORT_BUS
 
 
 parser = argparse.ArgumentParser(
-    description='dmedia importer DBus service @{!r}'.format(IMPORT_BUS),
+    description='DBus service @{}'.format(IMPORT_BUS),
 )
 parser.add_argument('--version', action='version', version=dmedia.__version__)
 parser.add_argument('--no-gui',
