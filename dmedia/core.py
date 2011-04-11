@@ -61,6 +61,11 @@ try:
 except ImportError:
     desktopcouch = None
 
+try:
+    from dmedia.webui.app import App
+except ImportError:
+    App = None
+
 from .constants import DBNAME
 from .abstractcouch import get_server, get_db, load_env
 from .schema import random_id, create_machine, create_store
@@ -121,6 +126,7 @@ class Core(object):
             raise ValueError('HOME is not a dir: {!}'.format(self.home))
         self.server = get_server(self.env)
         self.db = get_db(self.env, self.server)
+        self._has_app = None
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()
@@ -162,3 +168,22 @@ class Core(object):
             self.db.save(self.local)
             self.db.save(store)
         return self.local['filestores'][self.local['default_filestore']]
+
+    def init_app(self):
+        if App is None:
+            return False
+        doc = App().get_doc()
+        _id = doc['_id']
+        assert '_rev' not in doc
+        try:
+            old = self.db[_id]
+            doc['_rev'] = old['_rev']
+            self.db.save(doc)
+        except ResourceNotFound:
+            self.db.save(doc)
+        return True
+
+    def has_app(self):
+        if self._has_app is None:
+            self._has_app = self.init_app()
+        return self._has_app

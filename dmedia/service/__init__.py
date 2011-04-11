@@ -88,3 +88,7 @@ class DMedia(dbus.service.Object):
         return 'http://{user}:{password}@localhost:{port}'.format(
             user=user, password=password, port=self._core.env['port']
         )
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def HasApp(self):
+        pass

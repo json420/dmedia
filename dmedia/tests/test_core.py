@@ -31,6 +31,7 @@ import desktopcouch
 from desktopcouch.application.platform import find_port
 from desktopcouch.application.local_files import get_oauth_tokens
 
+from dmedia.webui.app import App
 from dmedia.schema import random_id
 from dmedia import core
 
@@ -119,6 +120,11 @@ class TestFunctions(TestCase):
 
 class TestCore(CouchCase):
     klass = core.Core
+
+    def tearDown(self):
+        super(TestCore, self).tearDown()
+        if core.App is None:
+            core.App = App
 
     def test_init(self):
         inst = self.klass(self.dbname)
@@ -247,3 +253,84 @@ class TestCore(CouchCase):
 
         # Try again when docs already exist:
         self.assertEqual(inst.init_filestores(), lstore)
+
+    def test_init_app(self):
+        inst = self.klass(self.dbname)
+
+        # App is available
+        self.assertNotIn('app', inst.db)
+        self.assertIs(inst.init_app(), True)
+        self.assertIn('app', inst.db)
+        self.assertIs(inst.init_app(), True)
+
+        # App is not available
+        core.App = None
+        self.assertIs(inst.init_app(), False)
+
+        # App is available again (make sure there is no state)
+        core.App = App
+        self.assertIs(inst.init_app(), True)
+        self.assertIs(inst.init_app(), True)
+
+    def test_has_app(self):
+        class Sub(self.klass):
+            _calls = 0
+
+            def init_app(self):
+                self._calls += 1
+                return 'A' * self._calls
+
+        inst = Sub(self.dbname)
+        self.assertIsNone(inst._has_app)
+
+        inst._has_app = 'foo'
+        self.assertEqual(inst.has_app(), 'foo')
+        self.assertEqual(inst._calls, 0)
+
+        inst._has_app = None
+        self.assertEqual(inst.has_app(), 'A')
+        self.assertEqual(inst._calls, 1)
+        self.assertEqual(inst._has_app, 'A')
+
+        self.assertEqual(inst.has_app(), 'A')
+        self.assertEqual(inst._calls, 1)
+        self.assertEqual(inst._has_app, 'A')
+
+        inst._has_app = None
+        self.assertEqual(inst.has_app(), 'AA')
+        self.assertEqual(inst._calls, 2)
+        self.assertEqual(inst._has_app, 'AA')
+
+        self.assertEqual(inst.has_app(), 'AA')
+        self.assertEqual(inst._calls, 2)
+        self.assertEqual(inst._has_app, 'AA')
+
+
+        # Test the real thing, no App
+        core.App = None
+        inst = self.klass(self.dbname)
+        self.assertIs(inst.has_app(), False)
+        self.assertIs(inst._has_app, False)
+        self.assertNotIn('app', inst.db)
+
+
+        # Test the real thing, App available
+        core.App = App
+        inst = self.klass(self.dbname)
+
+        self.assertNotIn('app', inst.db)
+        self.assertIs(inst.has_app(), True)
+        self.assertIs(inst._has_app, True)
+        rev = inst.db['app']['_rev']
+        self.assertTrue(rev.startswith('1-'))
+
+        self.assertIs(inst.has_app(), True)
+        self.assertIs(inst._has_app, True)
+        self.assertEqual(inst.db['app']['_rev'], rev)
+
+        inst._has_app = None
+        self.assertIs(inst.has_app(), True)
+        self.assertIs(inst._has_app, True)
+        rev2 = inst.db['app']['_rev']
+        self.assertNotEqual(rev2, rev)
+        self.assertTrue(rev2.startswith('2-'))

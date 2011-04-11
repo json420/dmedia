@@ -95,6 +95,9 @@ class TestDMedia(CouchCase):
         # DMedia.GetEnv()
         env = inst.get_env()
         self.assertEqual(env['oauth'], self.env['oauth'])
+        self.assertEqual(env['port'], self.env['port'])
+        self.assertEqual(env['url'], self.env['url'])
+        self.assertEqual(env['dbname'], self.env['dbname'])
 
         # DMedia.GetAuthURL()
         (user, password) = get_auth()
