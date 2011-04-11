@@ -60,17 +60,12 @@ DBusGMainLoop(set_as_default=True)
 from gi.repository import GObject
 GObject.threads_init()
 
+import dmedia.client
+dm = dmedia.client.DMedia()
 
-if args.env:
-    env = json.loads(args.env)
-else:
-    import dbus
-    conn = dbus.SessionBus()
-    proxy = conn.get_object(BUS, '/')
-    env = json.loads(proxy.GetEnv())
+env = dm.get_env(args.env)
 if args.no_gui:
     env['no_gui'] = True
-
 
 from dmedia.gtkui.service import DMedia
 

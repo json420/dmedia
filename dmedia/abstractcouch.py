@@ -103,14 +103,8 @@ def get_server(env):
                 "provided env['oauth'] but OAuthSession not available: %r" %
                     (env,)
             )
-        # FIXME: hacky work-around for Python oauth not working with unicode,
-        # which is what we get when the env is retrieved over D-Bus as JSON
-        oauth = dict(
-            (k.encode('ascii'), v.encode('ascii'))
-            for (k, v) in env['oauth'].iteritems()
-        )
         log.info('Using desktopcouch `OAuthSession`')
-        session = OAuthSession(credentials=oauth)
+        session = OAuthSession(credentials=env['oauth'])
     else:
         session = None
     return Server(url, session=session)
