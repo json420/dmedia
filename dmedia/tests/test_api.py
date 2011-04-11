@@ -104,7 +104,7 @@ class TestDMedia(CouchCase):
         (user, password) = get_auth()
         self.assertEqual(
             inst.get_auth_url(),
-            'http://{user}:{password}@localhost:{port}'.format(
+            'http://{user}:{password}@localhost:{port}/'.format(
                 user=user, password=password, port=self.env['port']
             )
         )

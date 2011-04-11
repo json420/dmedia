@@ -49,6 +49,7 @@ already exists), they are completely ignored when it comes to deciding what
 filestores and mount points are configured.
 """
 
+import logging
 from copy import deepcopy
 import os
 from os import path
@@ -70,6 +71,9 @@ from .constants import DBNAME
 from .abstractcouch import get_server, get_db, load_env
 from .schema import random_id, create_machine, create_store
 from .views import init_views
+
+
+log = logging.getLogger()
 
 
 def get_env(dbname=DBNAME, no_dc=False):
@@ -171,7 +175,9 @@ class Core(object):
 
     def init_app(self):
         if App is None:
+            log.info('init_app(): `dmedia.webui.app` not available')
             return False
+        log.info('init_app(): creating /dmedia/app document')
         doc = App().get_doc()
         _id = doc['_id']
         assert '_rev' not in doc

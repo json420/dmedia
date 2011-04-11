@@ -58,3 +58,4 @@ def configure_logging(namespace):
         level=logging.DEBUG,
         format='\t'.join(format),
     )
+    logging.info('dmedia %s, namespace=%r', __version__, namespace)

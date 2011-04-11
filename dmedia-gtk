@@ -4,7 +4,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
@@ -21,67 +21,58 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-from subprocess import check_call
-import optparse
-import dmedia
+from __future__ import print_function
 
-parser = optparse.OptionParser(
-    version=dmedia.__version__,
+import argparse
+from gettext import gettext as _
+
+import dmedia
+from dmedia.constants import BUS
+from dmedia.api import DMedia
+
+
+BROWSER = 'dmedia/app/browser'
+
+parser = argparse.ArgumentParser(
+    description='Manage media files in your dmedia library',
 )
-parser.add_option('--browser',
+parser.add_argument('--version', action='version', version=dmedia.__version__)
+parser.add_argument('--browser',
+    help='open dmedia HTML5 UI in default browser',
     action='store_true',
     default=False,
-    help='open dmedia HTML5 UI in default browser',
 )
-(options, args) = parser.parse_args()
+parser.add_argument('--bus',
+    help='DBus bus name; default is %(default)r',
+    default=BUS,
+)
+parser.add_argument('--att',
+    help='CouchDB attachment path; default is %(default)r',
+    default=BROWSER,
+)
 
-from dmedia.webui.app import App
-from dmedia.abstractcouch import get_env
-from dmedia.metastore import MetaStore
+args = parser.parse_args()
+dm = DMedia(args.bus)
 
-app = App()
-env = get_env()
-store = MetaStore(env)
-store.update(app.get_doc())
-
-
-# FIXME: Relocated from metastore.MetaStore
-def get_basic_auth(self):
-    data = gnomekeyring.find_items_sync(
-        gnomekeyring.ITEM_GENERIC_SECRET,
-        {'desktopcouch': 'basic'}
-    )
-    (user, password) = data[0].secret.split(':')
-    return (user, password)
-
-def get_uri(self):
-    return 'http://localhost:%s' % self.get_port()
-
-def get_auth_uri(self):
-    (user, password) = self.get_basic_auth()
-    return 'http://%s:%s@localhost:%s' % (
-        user, password, self.get_port()
-    )
+if not dm.has_app():
+    print('Oops, cannot import dmedia.webui.app!')
+    raise SystemExit(2)
 
 
-if options.browser:
-    uri = store.get_auth_uri() + '/dmedia/app/browser'
-    check_call(['xdg-open', uri])
-    sys.exit()
+if args.browser:
+    url = dm.get_auth_url() + args.att
+    import subprocess
+    subprocess.check_call(['/usr/bin/xdg-open', url])
+    raise SystemExit()
 
-uri = store.get_uri() + '/dmedia/app/browser'
 
+env = dm.get_env()
 
 from dmedia.gtkui.widgets import CouchView
 from gi.repository import Gtk, GObject
 
-
-GObject.threads_init()
-
-
 window = Gtk.Window()
-window.set_title('test')
+window.set_title(_('Media Browser'))
 window.set_default_size(960, 540)
 window.connect('destroy', Gtk.main_quit)
 
@@ -89,11 +80,10 @@ scroll = Gtk.ScrolledWindow()
 scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
 window.add(scroll)
 
-view = CouchView(env['url'], env['oauth'])
+view = CouchView(env['url'], env.get('oauth'))
 scroll.add(view)
 
 window.show_all()
-view.load_uri(uri)
-
+view.load_uri(env['url'] + args.att)
 
 Gtk.main()

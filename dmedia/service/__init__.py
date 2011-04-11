@@ -51,7 +51,7 @@ class DMedia(dbus.service.Object):
         self._core.bootstrap()
         self._env_s = json.dumps(self._core.env)
         if start is not None:
-            log.info('Started in %.3f', time.time() - start)
+            log.info('Started service in %.3f seconds', time.time() - start)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -85,7 +85,7 @@ class DMedia(dbus.service.Object):
             {'desktopcouch': 'basic'}
         )
         (user, password) = data[0].secret.split(':')
-        return 'http://{user}:{password}@localhost:{port}'.format(
+        return 'http://{user}:{password}@localhost:{port}/'.format(
             user=user, password=password, port=self._core.env['port']
         )
 

@@ -23,7 +23,12 @@
 Defines the dmedia CouchDB views.
 """
 
+import logging
+
 from couchdb import ResourceNotFound
+
+
+log = logging.getLogger()
 
 
 _sum = '_sum'
@@ -247,6 +252,7 @@ def update_design_doc(db, doc):
 
 
 def init_views(db):
+    log.info('Initializing views in %r', db)
     for (name, views) in designs:
         doc = build_design_doc(name, views)
         update_design_doc(db, doc)

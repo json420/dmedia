@@ -23,10 +23,28 @@
 Python convenience API for talking to dmedia components over DBus.
 """
 
+import json
+
 import dbus
 
 from dmedia.constants import BUS
-from dmedia.abstractcouch import load_env
+
+# On my system, this takes around 0.15 seconds, almost all because of
+# >>> from desktopcouch.records.http import OAuthSession
+#
+#from dmedia.abstractcouch import load_env
+
+
+def load_env(env_s):
+    env = json.loads(env_s)
+    # FIXME: hack to work-around for Python oauth not working with unicode,
+    # which is what we get when the env is retrieved over D-Bus as JSON
+    if 'oauth' in env:
+        env['oauth'] = dict(
+            (k.encode('ascii'), v.encode('ascii'))
+            for (k, v) in env['oauth'].iteritems()
+        )
+    return env
 
 
 class DMedia(object):
