@@ -1,4 +1,4 @@
 include AUTHORS COPYING HACKING.txt README.txt
-include dmedia-service
+include dmedia-service dmedia-importer-service dummy-client
 include dmedia/webui/data/*
 include dmedia/tests/data/*

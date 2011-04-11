@@ -133,31 +133,54 @@ setup(
     license='AGPLv3+',
     cmdclass={'test': Test},
 
-    scripts=['dmedia-cli', 'dmedia-import', 'dmedia-gtk'],
-    packages=['dmedia', 'dmedia.webui', 'dmedia.gtkui'],
-    package_data={'dmedia.webui': ['data/*']},
-
+    scripts=[
+        'dmedia-cli',
+        'dmedia-import',
+        'dmedia-gtk',
+    ],
+    packages=[
+        'dmedia',
+        'dmedia.service',
+        'dmedia.webui',
+        'dmedia.gtkui',
+    ],
+    package_data={
+        'dmedia.webui': ['data/*']
+    },
     data_files=[
-        ('share/man/man1', ['data/dmedia-cli.1']),
-        ('share/applications', ['data/dmedia-import.desktop']),
-        #^ this enables Nautilus to use dmedia-import as a handler for
-        #media devices such as cameras. `sudo update-desktop-database`
-        #may need to run for this to show up in the Nautilus
-        #media handling preferences.
-        ('share/pixmaps', ['data/dmedia.svg']),
+        ('share/man/man1',
+            ['data/dmedia-cli.1']
+        ),
+        ('share/applications',
+            ['data/dmedia-import.desktop']
+        ),
+        ('share/pixmaps',
+            ['data/dmedia.svg']
+        ),
         ('share/pixmaps/dmedia',
             [
                 'data/indicator-rendermenu.svg',
                 'data/indicator-rendermenu-att.svg',
             ]
         ),
-        ('share/icons/hicolor/scalable/status/',
+        ('share/icons/hicolor/scalable/status',
             [
                 'data/indicator-rendermenu.svg',
                 'data/indicator-rendermenu-att.svg',
             ]
-        ), #enables status icons to be referenced by icon name
-        ('share/dbus-1/services', ['data/org.freedesktop.DMedia.service']),
-        ('lib/dmedia', ['dmedia-service', 'dummy-client']),
+        ),
+        ('share/dbus-1/services',
+            [
+                'data/org.freedesktop.DMedia.service',
+                'data/org.freedesktop.DMediaImporter.service',
+            ]
+        ),
+        ('lib/dmedia',
+            [
+                'dmedia-service',
+                'dmedia-importer-service',
+                'dummy-client',
+            ]
+        ),
     ],
 )
