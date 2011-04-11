@@ -40,7 +40,7 @@ from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
 from dmedia.schema import random_id
 from dmedia import importer, schema
-from dmedia.abstractcouch import get_env, get_dmedia_db
+from dmedia.abstractcouch import get_db
 from .helpers import TempDir, TempHome, raises
 from .helpers import DummyQueue, DummyCallback, prep_import_source
 from .helpers import sample_mov, sample_thm
@@ -203,8 +203,8 @@ class test_ImportWorker(CouchCase):
         self.assertTrue(isinstance(inst.server, couchdb.Server))
         self.assertTrue(isinstance(inst.db, couchdb.Database))
 
-        self.assertEqual(inst.home, self.home.path)
         self.assertTrue(isinstance(inst.filestore, FileStore))
+        self.assertEqual(inst.filestore.parent, self.home.path)
         self.assertEqual(inst.filestore.base, self.home.join('.dmedia'))
 
         # Test with extract = False
@@ -302,7 +302,7 @@ class test_ImportWorker(CouchCase):
         self.assertTrue(inst.doc is None)
         _id = inst.start()
         self.assertEqual(len(_id), 24)
-        db = get_dmedia_db(self.env)
+        db = get_db(self.env)
         self.assertEqual(inst.doc, db[_id])
         self.assertEqual(
             set(inst.doc),
@@ -459,7 +459,7 @@ class test_ImportWorker(CouchCase):
         old['stored'] = {rid: {'copies': 2, 'time': 1234567890}}
         inst.db.save(old)
         (action, doc) = inst._import_file(src2)
-        fid = inst.filestore._id
+        fid = inst.filestore_id
         self.assertEqual(action, 'skipped')
         self.assertEqual(set(doc['stored']), set([rid, fid]))
         t = doc['stored'][fid]['time']

@@ -27,6 +27,7 @@ import os
 from os import path
 from subprocess import Popen
 import time
+import json
 
 import dbus
 from dbus.proxies import ProxyObject
@@ -44,7 +45,7 @@ from dmedia.tests.couch import CouchCase
 
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
-script = path.join(tree, 'dmedia-service')
+script = path.join(tree, 'dmedia-importer-service')
 assert path.isfile(script)
 
 
@@ -73,7 +74,7 @@ class SignalCapture(object):
             self.handlers[name] = callback
 
 
-class test_Client(CouchCase):
+class TestClient(CouchCase):
     klass = client.Client
 
     def setUp(self):
@@ -87,17 +88,17 @@ class test_Client(CouchCase):
         How do people usually unit test dbus services?  This works, but not sure
         if there is a better idiom in common use.  --jderose
         """
-        super(test_Client, self).setUp()
+        super(TestClient, self).setUp()
         self.bus = random_bus()
         cmd = [script, '--no-gui',
-            '--dbname', self.dbname,
             '--bus', self.bus,
+            '--env', json.dumps(self.env),
         ]
         self.service = Popen(cmd)
         time.sleep(1)  # Give dmedia-service time to start
 
     def tearDown(self):
-        super(test_Client, self).tearDown()
+        super(TestClient, self).tearDown()
         try:
             self.service.terminate()
             self.service.wait()
@@ -112,7 +113,7 @@ class test_Client(CouchCase):
     def test_init(self):
         # Test with no bus
         inst = self.klass()
-        self.assertEqual(inst._bus, 'org.freedesktop.DMedia')
+        self.assertEqual(inst._bus, 'org.freedesktop.DMediaImporter')
         self.assertTrue(isinstance(inst._conn, dbus.SessionBus))
         self.assertTrue(inst._proxy is None)
 
@@ -243,19 +244,19 @@ class test_Client(CouchCase):
         self.assertEqual(
             signals.messages[3],
             ('import_progress', inst, base, import_id, 1, 3,
-                dict(action='imported', src=src1, _id=mov_hash)
+                dict(action='imported', src=src1)
             )
         )
         self.assertEqual(
             signals.messages[4],
             ('import_progress', inst, base, import_id, 2, 3,
-                dict(action='imported', src=src2, _id=thm_hash)
+                dict(action='imported', src=src2)
             )
         )
         self.assertEqual(
             signals.messages[5],
             ('import_progress', inst, base, import_id, 3, 3,
-                dict(action='skipped', src=dup1, _id=mov_hash)
+                dict(action='skipped', src=dup1)
             )
         )
         self.assertEqual(

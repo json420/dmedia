@@ -4,7 +4,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 #
 # dmedia: distributed media library
-# Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
 #
 # This file is part of `dmedia`.
 #
@@ -22,33 +22,29 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Core dmedia DBus service at "org.freedesktop.DMedia".
+dmedia importer DBus service at "org.freedesktop.DMedia.Importer".
 """
 
 import argparse
+import json
 import time
 
 import dmedia
-from dmedia.constants import BUS, DBNAME
+from dmedia.constants import BUS, IMPORT_BUS
 
 
 parser = argparse.ArgumentParser(
-    description='DBus service @{}'.format(BUS),
+    description='DBus service @{}'.format(IMPORT_BUS),
 )
 parser.add_argument('--version', action='version', version=dmedia.__version__)
-parser.add_argument('--no-dc',
+parser.add_argument('--no-gui',
+    help='run without NotifyOSD and Application Indicators',
     action='store_true',
     default=False,
-    help='Use system-wide CouchDB instead of desktopcouch',
 )
 parser.add_argument('--bus',
-    default=BUS,
     help='DBus bus name; default is %(default)r',
-)
-parser.add_argument('--dbname',
-    metavar='DB',
-    default=DBNAME,
-    help='CouchDB database; default is %(default)r',
+    default=IMPORT_BUS,
 )
 parser.add_argument('--env',
     help='dmedia environment as JSON serialized string',
@@ -56,7 +52,7 @@ parser.add_argument('--env',
 )
 
 args = parser.parse_args()
-dmedia.configure_logging('service')
+dmedia.configure_logging('importer')
 
 from dbus.mainloop.glib import DBusGMainLoop
 DBusGMainLoop(set_as_default=True)
@@ -64,9 +60,15 @@ DBusGMainLoop(set_as_default=True)
 from gi.repository import GObject
 GObject.threads_init()
 
-from dmedia.service import DMedia
+from dmedia import api
+dm = api.DMedia()
+
+env = dm.get_env(args.env)
+if args.no_gui:
+    env['no_gui'] = True
+
+from dmedia.gtkui.service import DMedia
 
 mainloop = GObject.MainLoop()
-couchargs = (args.dbname, args.no_dc, args.env)
-obj = DMedia(couchargs, args.bus, mainloop.quit, start=time.time())
+obj = DMedia(env, args.bus, mainloop.quit)
 mainloop.run()

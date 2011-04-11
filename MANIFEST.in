@@ -1,4 +1,5 @@
-include AUTHORS COPYING HACKING.txt README.txt
-include dmedia-service
-include dmedia/webui/data/*
+include AUTHORS COPYING HACKING.txt
+include dmedia/tests/*.py
 include dmedia/tests/data/*
+include dmedia/webui/tests/*.py
+include dmedia/gtkui/tests/*.py

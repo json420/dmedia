@@ -39,7 +39,7 @@ from .helpers import thm_hash, thm_leaves, thm_qid
 from dmedia.errors import AmbiguousPath, FileStoreTraversal
 from dmedia.errors import DuplicateFile, IntegrityError
 from dmedia.filestore import HashList
-from dmedia import filestore, constants, schema
+from dmedia import filestore, constants
 from dmedia.constants import TYPE_ERROR, EXT_PAT, LEAF_SIZE
 
 
@@ -59,7 +59,6 @@ class test_functions(TestCase):
 
         # Test with normalized absolute path:
         self.assertEqual(f('/home/jderose/.dmedia'), '/home/jderose/.dmedia')
-
 
     def test_safe_open(self):
         f = filestore.safe_open
@@ -501,43 +500,66 @@ class test_FileStore(TestCase):
         self.assertEqual(e.pathname, '/foo/bar/../../root')
         self.assertEqual(e.abspath, '/root')
 
-        # Test when base is a file
+        # Test when parent does not exist
+        tmp = TempDir()
+        parent = tmp.join('foo')
+        e = raises(ValueError, self.klass, parent)
+        self.assertEqual(
+            str(e),
+            'FileStore.parent not a directory: %r' % parent
+        )
+
+        # Test when parent is a file
+        tmp = TempDir()
+        parent = tmp.touch('foo')
+        e = raises(ValueError, self.klass, parent)
+        self.assertEqual(
+            str(e),
+            'FileStore.parent not a directory: %r' % parent
+        )
+
+        # Test when parent=None
+        inst = self.klass()
+        self.assertTrue(path.isdir(inst.parent))
+        self.assertTrue(inst.parent.startswith('/tmp/store.'))
+        base = path.join(inst.parent, '.dmedia')
+        self.assertTrue(path.isdir(base))
+
+        # Test when base does not exist
+        tmp = TempDir()
+        base = tmp.join('.dmedia')
+        inst = self.klass(tmp.path)
+        self.assertEqual(inst.parent, tmp.path)
+        self.assertEqual(inst.base, base)
+        self.assertTrue(path.isdir(inst.base))
+
+        # Test when base exists and is a directory
+        tmp = TempDir()
+        base = tmp.makedirs('.dmedia')
+        inst = self.klass(tmp.path)
+        self.assertEqual(inst.parent, tmp.path)
+        self.assertEqual(inst.base, base)
+        self.assertTrue(path.isdir(inst.base))
+
+        # Test when base exists and is a file
         tmp = TempDir()
         base = tmp.touch('.dmedia')
-        e = raises(ValueError, self.klass, base)
+        e = raises(ValueError, self.klass, tmp.path)
         self.assertEqual(
             str(e),
             'FileStore.base not a directory: %r' % base
         )
 
-        # Test when base does not exist
+        # Test when base exists and is a symlink to a dir
         tmp = TempDir()
+        d = tmp.makedirs('foo')
         base = tmp.join('.dmedia')
-        record = tmp.join('.dmedia', 'store.json')
-        inst = self.klass(base)
-        self.assertEqual(inst.base, base)
-        self.assertTrue(path.isdir(inst.base))
-        self.assertEqual(inst.record, record)
-        self.assertTrue(path.isfile(record))
-        store_s = open(record, 'rb').read()
-        doc = json.loads(store_s)
-        self.assertEqual(schema.check_dmedia_store(doc), None)
-        self.assertEqual(inst._doc, doc)
-        self.assertEqual(inst._id, doc['_id'])
-
-        # Test when base exists and is a directory
-        inst = self.klass(base)
-        self.assertEqual(inst.base, base)
-        self.assertTrue(path.isdir(inst.base))
-        self.assertEqual(inst.record, record)
-        self.assertTrue(path.isfile(record))
-        self.assertEqual(open(record, 'rb').read(), store_s)
-
-        # Test when base=None
-        inst = self.klass()
-        self.assertTrue(path.isdir(inst.base))
-        self.assertTrue(inst.base.startswith('/tmp/store.'))
-        self.assertEqual(inst.record, path.join(inst.base, 'store.json'))
+        os.symlink(d, base)
+        e = raises(ValueError, self.klass, tmp.path)
+        self.assertEqual(
+            str(e),
+            '{!r} is symlink to {!r}'.format(base, d)
+        )
 
     def test_repr(self):
         tmp = TempDir()
@@ -551,29 +573,31 @@ class test_FileStore(TestCase):
     # Methods to prevent path traversals attacks
     def test_check_path(self):
         tmp = TempDir()
-        base = tmp.join('foo', 'bar')
-        inst = self.klass(base)
+        parent = tmp.makedirs('foo')
+        base = tmp.join('foo', '.dmedia')
+        inst = self.klass(parent)
 
-        bad = tmp.join('foo', 'barNone', 'stuff')
+        bad = tmp.join('foo', '.dmedia2', 'stuff')
         e = raises(FileStoreTraversal, inst.check_path, bad)
         self.assertEqual(e.pathname, bad)
         self.assertEqual(e.abspath, bad)
         self.assertEqual(e.base, base)
 
-        bad = tmp.join('foo', 'bar', '..', 'barNone')
+        bad = tmp.join('foo', '.dmedia', '..', '.dmedia2')
         assert '..' in bad
         e = raises(FileStoreTraversal, inst.check_path, bad)
         self.assertEqual(e.pathname, bad)
-        self.assertEqual(e.abspath, tmp.join('foo', 'barNone'))
+        self.assertEqual(e.abspath, tmp.join('foo', '.dmedia2'))
         self.assertEqual(e.base, base)
 
-        good = tmp.join('foo', 'bar', 'stuff')
+        good = tmp.join('foo', '.dmedia', 'stuff')
         self.assertEqual(inst.check_path(good), good)
 
     def test_join(self):
         tmp = TempDir()
-        base = tmp.join('foo', 'bar')
-        inst = self.klass(base)
+        parent = tmp.makedirs('foo')
+        base = tmp.join('foo', '.dmedia')
+        inst = self.klass(parent)
 
         # Test with an absolute path in parts:
         e = raises(FileStoreTraversal, inst.join, 'dmedia', '/root')
@@ -585,31 +609,32 @@ class test_FileStore(TestCase):
         e = raises(FileStoreTraversal, inst.join, 'NW', '..', '..', '.ssh')
         self.assertEqual(
             e.pathname,
-            tmp.join('foo', 'bar', 'NW', '..', '..', '.ssh')
+            tmp.join('foo', '.dmedia', 'NW', '..', '..', '.ssh')
         )
         self.assertEqual(e.abspath, tmp.join('foo', '.ssh'))
         self.assertEqual(e.base, base)
 
         # Test for former security issue!  See:
         # https://bugs.launchpad.net/dmedia/+bug/708663
-        e = raises(FileStoreTraversal, inst.join, '..', 'barNone', 'stuff')
+        e = raises(FileStoreTraversal, inst.join, '..', '.dmedia2', 'stuff')
         self.assertEqual(
             e.pathname,
-            tmp.join('foo', 'bar', '..', 'barNone', 'stuff')
+            tmp.join('foo', '.dmedia', '..', '.dmedia2', 'stuff')
         )
-        self.assertEqual(e.abspath, tmp.join('foo', 'barNone', 'stuff'))
+        self.assertEqual(e.abspath, tmp.join('foo', '.dmedia2', 'stuff'))
         self.assertEqual(e.base, base)
 
         # Test with some correct parts:
         self.assertEqual(
             inst.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            tmp.join('foo', 'bar', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+            tmp.join('foo', '.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
 
     def test_create_parent(self):
         tmp = TempDir()
         tmp2 = TempDir()
         inst = self.klass(tmp.path)
+        base = tmp.join('.dmedia')
 
         # Test with a normpath but outside of base:
         f = tmp2.join('foo', 'bar')
@@ -619,7 +644,7 @@ class test_FileStore(TestCase):
         e = raises(FileStoreTraversal, inst.create_parent, f)
         self.assertEqual(e.pathname, f)
         self.assertEqual(e.abspath, f)
-        self.assertEqual(e.base, tmp.path)
+        self.assertEqual(e.base, base)
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
 
@@ -632,13 +657,13 @@ class test_FileStore(TestCase):
         e = raises(FileStoreTraversal, inst.create_parent, f)
         self.assertEqual(e.pathname, f)
         self.assertEqual(e.abspath, tmp2.join('baz', 'f'))
-        self.assertEqual(e.base, tmp.path)
+        self.assertEqual(e.base, base)
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
 
         # Test with some correct parts:
-        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        d = tmp.join('NW')
+        f = tmp.join('.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('.dmedia', 'NW')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
         self.assertEqual(inst.create_parent(f), d)
@@ -649,8 +674,8 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(d))
 
         # Confirm that it's using os.makedirs(), not os.mkdir()
-        f = tmp.join('OM', 'LU', 'WE', 'IP')
-        d = tmp.join('OM', 'LU', 'WE')
+        f = tmp.join('.dmedia', 'OM', 'LU', 'WE', 'IP')
+        d = tmp.join('.dmedia', 'OM', 'LU', 'WE')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
         self.assertEqual(inst.create_parent(f), d)
@@ -661,18 +686,19 @@ class test_FileStore(TestCase):
         self.assertTrue(path.isdir(d))
 
         # Test with 1-deep:
-        f = tmp.join('woot')
+        f = tmp.join('.dmedia', 'woot')
         self.assertFalse(path.exists(f))
-        self.assertEqual(inst.create_parent(f), tmp.path)
+        self.assertEqual(inst.create_parent(f), base)
         self.assertFalse(path.exists(f))
 
         # Test for former security issue!  See:
         # https://bugs.launchpad.net/dmedia/+bug/708663
         tmp = TempDir()
-        base = tmp.join('foo', 'bar')
-        bad = tmp.join('foo', 'barNone', 'stuff')
-        baddir = tmp.join('foo', 'barNone')
-        inst = self.klass(base)
+        parent = tmp.makedirs('foo')
+        base = tmp.join('foo', '.dmedia')
+        bad = tmp.join('foo', '.dmedia2', 'stuff')
+        baddir = tmp.join('foo', '.dmedia2')
+        inst = self.klass(parent)
         e = raises(FileStoreTraversal, inst.create_parent, bad)
         self.assertEqual(e.pathname, bad)
         self.assertEqual(e.abspath, bad)
@@ -717,16 +743,17 @@ class test_FileStore(TestCase):
 
     def test_path(self):
         tmp = TempDir()
-        base = tmp.join('foo', 'bar')
-        inst = self.klass(base)
+        parent = tmp.makedirs('foo')
+        base = tmp.join('foo', '.dmedia')
+        inst = self.klass(parent)
 
         self.assertEqual(
             inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            tmp.join('foo', 'bar', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+            tmp.join('foo', '.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
             inst.path('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
-            tmp.join('foo', 'bar', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+            tmp.join('foo', '.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
@@ -755,8 +782,8 @@ class test_FileStore(TestCase):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
-        f = tmp.join('NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        d = tmp.join('NW')
+        f = tmp.join('.dmedia', 'NW', 'BNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('.dmedia', 'NW')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
         self.assertEqual(
@@ -780,7 +807,7 @@ class test_FileStore(TestCase):
         self.assertFalse(inst.exists(mov_hash, 'mov'))
 
         # File exists
-        tmp.touch(mov_hash[:2], mov_hash[2:] + '.mov')
+        tmp.touch('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
         self.assertTrue(inst.exists(mov_hash, 'mov'))
 
     def test_open(self):
@@ -834,7 +861,7 @@ class test_FileStore(TestCase):
         self.assertEqual(e.errno, 2)
 
         # File exists
-        f = tmp.touch(mov_hash[:2], mov_hash[2:] + '.mov')
+        f = tmp.touch('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
         self.assertTrue(path.isfile(f))
         inst.remove(mov_hash, 'mov')
         self.assertFalse(path.exists(f))
@@ -880,11 +907,13 @@ class test_FileStore(TestCase):
 
         self.assertEqual(
             inst.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'),
-            tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+            tmp.join('.dmedia', 'transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
         )
         self.assertEqual(
             inst.tmp('NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW', ext='ogv'),
-            tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+            tmp.join(
+                '.dmedia', 'transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv'
+            )
         )
 
         # Test to make sure hashes are getting checked with safe_b32():
@@ -913,8 +942,8 @@ class test_FileStore(TestCase):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
-        f = tmp.join('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
-        d = tmp.join('transfers')
+        f = tmp.join('.dmedia', 'transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        d = tmp.join('.dmedia', 'transfers')
         self.assertFalse(path.exists(f))
         self.assertFalse(path.exists(d))
         self.assertEqual(
@@ -935,7 +964,7 @@ class test_FileStore(TestCase):
 
         tmp = TempDir()
         inst = self.klass(tmp.path)
-        filename = tmp.join('transfers', chash)
+        filename = tmp.join('.dmedia', 'transfers', chash)
 
         # Test when file dosen't yet exist
         fp = inst.allocate_for_transfer(2311, chash)
@@ -965,7 +994,7 @@ class test_FileStore(TestCase):
 
         tmp = TempDir()
         inst = self.klass(tmp.path)
-        filename = tmp.join('transfers', chash + '.mov')
+        filename = tmp.join('.dmedia', 'transfers', chash + '.mov')
 
         # Test when file dosen't yet exist
         fp = inst.allocate_for_transfer(2311, chash, ext='mov')
@@ -992,7 +1021,7 @@ class test_FileStore(TestCase):
 
     def test_allocate_for_import(self):
         tmp = TempDir()
-        imports = tmp.join('imports')
+        imports = tmp.join('.dmedia', 'imports')
 
         inst = self.klass(tmp.path)
         self.assertFalse(path.isdir(imports))
@@ -1020,7 +1049,7 @@ class test_FileStore(TestCase):
 
     def test_allocate_for_write(self):
         tmp = TempDir()
-        writes = tmp.join('writes')
+        writes = tmp.join('.dmedia', 'writes')
 
         inst = self.klass(tmp.path)
         self.assertFalse(path.isdir(writes))
@@ -1052,7 +1081,7 @@ class test_FileStore(TestCase):
         base = tmp.join('.dmedia')
         dst_d = tmp.join('.dmedia', mov_hash[:2])
         dst = tmp.join('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
-        inst = self.klass(base)
+        inst = self.klass(tmp.path)
 
         # Test with wrong tmp_fp type
         e = raises(TypeError, inst.tmp_move, 17, mov_hash, 'mov')
@@ -1157,10 +1186,10 @@ class test_FileStore(TestCase):
         tmp = TempDir()
         inst = self.klass(tmp.path)
 
-        src_d = tmp.join('transfers')
-        src = tmp.join('transfers', mov_hash + '.mov')
-        dst_d = tmp.join(mov_hash[:2])
-        dst = tmp.join(mov_hash[:2], mov_hash[2:] + '.mov')
+        src_d = tmp.join('.dmedia', 'transfers')
+        src = tmp.join('.dmedia', 'transfers', mov_hash + '.mov')
+        dst_d = tmp.join('.dmedia', mov_hash[:2])
+        dst = tmp.join('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
 
         # Test when transfers/ dir doesn't exist:
         e = raises(IOError, inst.tmp_verify_move, mov_hash, 'mov')
@@ -1235,7 +1264,7 @@ class test_FileStore(TestCase):
         dst = tmp.join('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
         shutil.copy(sample_mov, src)
 
-        inst = self.klass(base)
+        inst = self.klass(tmp.path)
         self.assertTrue(path.isfile(src))
         self.assertTrue(path.isdir(base))
         self.assertFalse(path.exists(dst))

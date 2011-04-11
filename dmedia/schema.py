@@ -315,6 +315,8 @@ from hashlib import sha1
 from base64 import b32encode, b32decode, b64encode
 import re
 import time
+import socket
+import platform
 
 from .constants import TYPE_ERROR, EXT_PAT
 
@@ -1284,7 +1286,7 @@ def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
         'bytes': file_size,
         'ext': ext,
         'origin': origin,
-        'stored': {
+            'stored': {
             store: {
                 'copies': copies,
                 'time': ts,
@@ -1293,7 +1295,21 @@ def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
     }
 
 
-def create_store(base, machine_id, copies=1):
+def create_machine():
+    """
+    Create a 'dmedia/machine' document.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/machine',
+        'time': time.time(),
+        'hostname': socket.gethostname(),
+        'distribution': list(platform.linux_distribution()),
+    }
+
+
+def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' document.
     """
@@ -1304,7 +1320,7 @@ def create_store(base, machine_id, copies=1):
         'time': time.time(),
         'plugin': 'filestore',
         'copies': copies,
-        'path': base,
+        'path': parentdir,
         'machine_id': machine_id,
     }
 

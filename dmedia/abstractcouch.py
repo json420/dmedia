@@ -37,6 +37,7 @@ For more details, see:
     https://bugs.launchpad.net/dmedia/+bug/722035
 """
 
+import json
 import logging
 
 from couchdb import Server, ResourceNotFound
@@ -44,15 +45,12 @@ try:
     from desktopcouch.records.http import OAuthSession
 except ImportError:
     OAuthSession = None
-if OAuthSession is not None:
-    from desktopcouch.application.platform import find_port
-    from desktopcouch.application.local_files import get_oauth_tokens
 
 
 log = logging.getLogger()
 
 
-def get_couchdb_server(env):
+def get_server(env):
     """
     Return `couchdb.Server` for desktopcouch or system-wide CouchDB.
 
@@ -98,11 +96,9 @@ def get_couchdb_server(env):
     The goal is to have all the needed information is one easily serialized
     piece of data (important for testing across multiple processes).
     """
-    url = env.get('url', 'http://localhost:5984/')
+    url = env['url']
     log.info('CouchDB server is %r', url)
-    if env.get('oauth') is None:
-        session = None
-    else:
+    if 'oauth' in env:
         if OAuthSession is None:
             raise ValueError(
                 "provided env['oauth'] but OAuthSession not available: %r" %
@@ -110,29 +106,27 @@ def get_couchdb_server(env):
             )
         log.info('Using desktopcouch `OAuthSession`')
         session = OAuthSession(credentials=env['oauth'])
+    else:
+        session = None
     return Server(url, session=session)
 
 
-def get_dmedia_db(env, server=None):
+def get_db(env, server=None):
     """
-    Return the dmedia database specified by *env*.
+    Return the CouchDB database specified by *env*.
 
-    The database name is determined by ``env['dbname']``.  If the ``"dbname"``
-    key is missing or is ``None``, the default database name ``"dmedia"`` is
-    used.
+    The database name is determined by ``env['dbname']``.
 
     If the database does not exist, it will be created.
 
     If *server* is ``None``, one is created based on *env* by calling
-    `get_couchdb_server()`.
+    `get_server()`.
 
     Returns a ``couchdb.Database`` instance.
     """
     if server is None:
-        server = get_couchdb_server(env)
-    dbname = env.get('dbname')
-    if dbname is None:
-        dbname = 'dmedia'
+        server = get_server(env)
+    dbname = env['dbname']
     log.info('CouchDB database is %r', dbname)
     try:
         return server[dbname]
@@ -140,19 +134,13 @@ def get_dmedia_db(env, server=None):
         return server.create(dbname)
 
 
-def get_env(dbname=None):
-    """
-    Return default *env*.
-
-    This will return an appropriate *env* based on whether desktopcouch is
-    available.  Not a perfect solution, but works for now.
-    """
-    if OAuthSession is None:
-        return {'dbname': dbname}
-    port = find_port()
-    return {
-        'port': port,
-        'url': 'http://localhost:%d/' % port,
-        'oauth': get_oauth_tokens(),
-        'dbname': dbname,
-    }
+def load_env(env_s):
+    env = json.loads(env_s)
+    # FIXME: hack to work-around for Python oauth not working with unicode,
+    # which is what we get when the env is retrieved over D-Bus as JSON
+    if 'oauth' in env:
+        env['oauth'] = dict(
+            (k.encode('ascii'), v.encode('ascii'))
+            for (k, v) in env['oauth'].iteritems()
+        )
+    return env
