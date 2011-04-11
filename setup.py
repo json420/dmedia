@@ -149,30 +149,30 @@ setup(
     },
     data_files=[
         ('share/man/man1',
-            ['data/dmedia-cli.1']
+            ['share/dmedia-cli.1']
         ),
         ('share/applications',
-            ['data/dmedia-import.desktop']
+            ['share/dmedia-import.desktop']
         ),
         ('share/pixmaps',
-            ['data/dmedia.svg']
+            ['share/dmedia.svg']
         ),
         ('share/pixmaps/dmedia',
             [
-                'data/indicator-rendermenu.svg',
-                'data/indicator-rendermenu-att.svg',
+                'share/indicator-rendermenu.svg',
+                'share/indicator-rendermenu-att.svg',
             ]
         ),
         ('share/icons/hicolor/scalable/status',
             [
-                'data/indicator-rendermenu.svg',
-                'data/indicator-rendermenu-att.svg',
+                'share/indicator-rendermenu.svg',
+                'share/indicator-rendermenu-att.svg',
             ]
         ),
         ('share/dbus-1/services',
             [
-                'data/org.freedesktop.DMedia.service',
-                'data/org.freedesktop.DMediaImporter.service',
+                'share/org.freedesktop.DMedia.service',
+                'share/org.freedesktop.DMediaImporter.service',
             ]
         ),
         ('lib/dmedia',
