@@ -32,6 +32,18 @@ class TestCouch(JSTestCase):
         datafile('test_base.js'),
     )
 
+    def test_dollar(self):
+        """
+        Test the $() JavaScript function.
+        """
+        self.run_js()
+
+    def test_dollar_el(self):
+        """
+        Test the $el() JavaScript function.
+        """
+        self.run_js()
+
     def test_minsec(self):
         self.run_js()
 

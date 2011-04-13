@@ -29,21 +29,10 @@ from dmedia.webui.util import datafile
 class TestBrowser(JSTestCase):
     js_files = (
         datafile('couch.js'),
+        datafile('base.js'),
         datafile('browser.js'),
         datafile('test_browser.js'),
     )
-
-    def test_dollar(self):
-        """
-        Test the $() JavaScript function.
-        """
-        self.run_js()
-
-    def test_dollar_el(self):
-        """
-        Test the $el() JavaScript function.
-        """
-        self.run_js()
 
     def test_init(self):
         self.run_js()

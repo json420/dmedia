@@ -49,6 +49,7 @@ class Browser(base.Page):
 
     js = (
         ('couch.js', None),
+        ('base.js', None),
         ('browser.js', None),
     )
 
