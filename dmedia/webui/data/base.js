@@ -1,18 +1,18 @@
 "use strict";
 
 /*
-
 A very minimal "unframework" to capture just a few important patterns, make a
 few things nicer, less verbose.  But this is *not* a band aid for browser
-compatibility, nor the JavaScript language for that matter.
+compatibility, nor for the JavaScript language.
 
+Note that couch.js should never depend on anything in here.
 */
 
 function $(id) {
     /*
     Return the element with id="id".
 
-    If id is an Element, it is returned unchanged.
+    If `id` is an Element, it is returned unchanged.
 
     Examples:
 
@@ -52,6 +52,13 @@ function $el(tag, attributes) {
 }
 
 function $replace(incumbent, replacement) {
+    /*
+    Replace `incumbent` with `replacement`.
+
+    `incumbent` can be an element or id, `replacement` must be an element.
+
+    Returns the element `incumbent`.
+    */
     var incumbent = $(incumbent);
     return incumbent.parentNode.replaceChild(replacement, incumbent);
 }
@@ -62,6 +69,12 @@ function $hide(el) {
 
 function $show(el) {
     $(el).classList.remove('hide');
+}
+
+function $appendEach(parent, viewresult, func) {
+    viewresult.rows.forEach(function(row) {
+        parent.appendChild(func(row.doc));
+    });
 }
 
 function minsec(seconds) {
