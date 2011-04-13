@@ -28,6 +28,17 @@ from gettext import gettext as _
 from . import base
 
 
+class Inbox(base.Page):
+    title = _('Imports Inbox')
+
+    js = (
+        ('couch.js', None),
+    )
+
+    def get_body_vars(self):
+        return {}
+
+
 class Browser(base.Page):
     title = 'DMedia Browser'
     body = ('browser.xml', None)
@@ -59,5 +70,6 @@ class Browser(base.Page):
             ],
         }
 
+
 class App(base.App):
-    pages = [Browser]
+    pages = [Browser, Inbox]

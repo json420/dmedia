@@ -131,7 +131,7 @@ class Page(object):
 
     # JavaScript:
     js = (
-        ('dmedia.js', None),
+        ('couch.js', None),
     )
     inline_js = None
 
