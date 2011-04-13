@@ -69,5 +69,4 @@ from dmedia.service import DMedia
 mainloop = GObject.MainLoop()
 couchargs = (args.dbname, args.no_dc, args.env)
 obj = DMedia(couchargs, args.bus, mainloop.quit, start=time.time())
-obj.HasApp()
 mainloop.run()
