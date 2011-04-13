@@ -30,9 +30,16 @@ from . import base
 
 class Inbox(base.Page):
     title = _('Imports Inbox')
+    body = ('inbox.xml', None)
+
+    css = (
+        ('base.css', None),
+    )
 
     js = (
         ('couch.js', None),
+        ('base.js', None),
+        ('inbox.js', None),
     )
 
     def get_body_vars(self):

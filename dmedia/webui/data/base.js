@@ -1,5 +1,13 @@
 "use strict";
 
+/*
+
+A very minimal "unframework" to capture just a few important patterns, make a
+few things nicer, less verbose.  But this is *not* a band aid for browser
+compatibility, nor the JavaScript language for that matter.
+
+*/
+
 function $(id) {
     /*
     Return the element with id="id".
@@ -11,7 +19,6 @@ function $(id) {
     >>> $('browser');
     <div id="browser" class="box">
     >>> var el = $('browser');
-    undefined
     >>> $(el);
     <div id="browser" class="box">
 
@@ -42,6 +49,19 @@ function $el(tag, attributes) {
         }
     }
     return el;
+}
+
+function $replace(incumbent, replacement) {
+    var incumbent = $(incumbent);
+    return incumbent.parentNode.replaceChild(replacement, incumbent);
+}
+
+function $hide(el) {
+    $(el).classList.add('hide');
+}
+
+function $show(el) {
+    $(el).classList.remove('hide');
 }
 
 function minsec(seconds) {

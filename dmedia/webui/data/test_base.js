@@ -16,7 +16,6 @@ py.test_dollar = function() {
 }
 
 py.test_dollar_el = function() {
-    // Retrieve by ID:
     var el = $el('button');
     py.assertTrue(el instanceof Element);
     py.assertEqual(el.tagName, 'BUTTON');
@@ -27,6 +26,63 @@ py.test_dollar_el = function() {
     py.assertEqual(el.className, 'foo');
     py.assertEqual(el.id, 'bar');
     py.assertEqual(el.getAttribute('src'), 'baz.jpg');
+}
+
+py.test_dollar_replace = function() {
+    // By id
+    var oldEl = $('example');
+    py.assertEqual(oldEl.tagName, 'DIV');
+    var newEl = $el('p', {'id': 'foo'});
+    py.assertTrue($replace('example', newEl) == oldEl);
+    py.assertIsNone(oldEl.parentNode);
+    py.assertEqual(newEl.parentNode.tagName, 'BODY');
+    py.assertTrue($('foo') == newEl);
+
+    // By el
+    var oldEl = $('foo');
+    py.assertEqual(oldEl.tagName, 'P');
+    var newEl = $el('table', {'id': 'bar'});
+    py.assertTrue($replace(oldEl, newEl) == oldEl);
+    py.assertIsNone(oldEl.parentNode);
+    py.assertEqual(newEl.parentNode.tagName, 'BODY');
+    py.assertTrue($('bar') == newEl);
+}
+
+py.test_dollar_hide = function() {
+    // By id
+    var el = $('example');
+    py.assertFalse(el.classList.contains('hide'));
+    $hide('example');
+    py.assertTrue(el.classList.contains('hide'));
+    $hide('example');
+    py.assertTrue(el.classList.contains('hide'));
+
+    // By element
+    var el = $el('button');
+    py.assertFalse(el.classList.contains('hide'));
+    $hide(el);
+    py.assertTrue(el.classList.contains('hide'));
+    $hide(el);
+    py.assertTrue(el.classList.contains('hide'));
+}
+
+py.test_dollar_show = function() {
+    // By id
+    var el = $('example');
+    el.classList.add('hide');
+    py.assertTrue(el.classList.contains('hide'));
+    $show('example');
+    py.assertFalse(el.classList.contains('hide'));
+    $show('example');
+    py.assertFalse(el.classList.contains('hide'));
+
+    // By element
+    var el = $el('button', {'class': 'hide'});
+    py.assertTrue(el.classList.contains('hide'));
+    $show(el);
+    py.assertFalse(el.classList.contains('hide'));
+    $show(el);
+    py.assertFalse(el.classList.contains('hide'));
 }
 
 py.test_minsec = function() {

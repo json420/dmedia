@@ -44,6 +44,24 @@ class TestCouch(JSTestCase):
         """
         self.run_js()
 
+    def test_dollar_replace(self):
+        """
+        Test the $replace() JavaScript function.
+        """
+        self.run_js()
+
+    def test_dollar_hide(self):
+        """
+        Test the $hide() JavaScript function.
+        """
+        self.run_js()
+
+    def test_dollar_show(self):
+        """
+        Test the $show() JavaScript function.
+        """
+        self.run_js()
+
     def test_minsec(self):
         self.run_js()
 

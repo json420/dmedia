@@ -1,3 +1,7 @@
 body {
     font-family: Ubuntu;
 }
+
+.hide {
+    display: none !important;
+}
