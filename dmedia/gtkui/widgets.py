@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -20,13 +21,15 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Custom dmedia GTK widgets, currently just `CouchView`.
+Custom dmedia GTK widgets, currently just `CouchView` and `BrowserMenu`.
 """
 
 from urlparse import urlparse, parse_qsl
 
 from oauth import oauth
-from gi.repository import GObject, WebKit
+from gi.repository import GObject, WebKit, Gtk
+
+from .menu import MENU, ACTIONS
 
 
 class CouchView(WebKit.WebView):
@@ -153,3 +156,37 @@ class CouchView(WebKit.WebView):
         request.props.message.props.request_headers.append(
             'Authorization', req.to_header()['Authorization']
         )
+
+
+class BrowserMenu(Gtk.MenuBar):
+    def __init__(self, menu=MENU, actions=ACTIONS):
+        super(BrowserMenu, self).__init__()
+        self.show()
+        self.menu = menu
+        self.actions = actions
+        self.reset()
+
+    def add_items_to_menu(self, menu, *items):
+        for item in items:
+            menu.append(item)
+
+    def make_menu(self, menu):
+        items = []
+        for i in menu:
+            item = Gtk.MenuItem()
+            item.show()
+            item.set_label(i["label"])
+            if i["type"] == "menu":
+                submenu = Gtk.Menu()
+                submenu.show()
+                self.add_items_to_menu(submenu, *self.make_menu(i["items"]))
+                item.set_submenu(submenu)
+            elif i["type"] == "action":
+                item.connect("activate", self.actions[i["action"]])
+            items.append(item)
+        return items
+
+    def reset(self):
+        self.add_items_to_menu(self, *self.make_menu(self.menu))
+
+

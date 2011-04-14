@@ -69,7 +69,7 @@ if args.browser:
 
 env = dm.get_env()
 
-from dmedia.gtkui.widgets import CouchView
+from dmedia.gtkui.widgets import CouchView, BrowserMenu
 from gi.repository import Gtk, GObject
 
 window = Gtk.Window()
@@ -80,51 +80,9 @@ window.connect('destroy', Gtk.main_quit)
 container = Gtk.VBox()
 container.show()
 
-#TODO: move menus into separate file(s) to make them easier to edit
+menu = BrowserMenu()
 
-actions = {"close" : Gtk.main_quit}
-
-menu = [
-    {
-        "type" : "menu",
-        "label" : "File",
-        "items" : [
-            {"label" : "Close", "type" : "action", "action" : "close"},
-            {"label" : "anothermenu", "type" : "menu", "items" : [{"label" : "Close", "type" : "action", "action" : "close"}, {"label" : "Close", "type" : "action", "action" : "close"}]}
-        ]
-    },
-    {"label" : "anothermenu", "type" : "menu", "items" : [{"label" : "Close", "type" : "action", "action" : "close"}, {"label" : "Close", "type" : "action", "action" : "close"}]}
-]
-
-menubar = Gtk.MenuBar()
-menubar.show()
-
-file_menu = Gtk.Menu()
-file_menu.show()
-
-def add_items_to_menu(menu, *items):
-    for item in items:
-        menu.append(item)
-
-def make_menu(menu):
-    items = []
-    for i in menu:
-        item = Gtk.MenuItem()
-        item.show()
-        item.set_label(i["label"])
-        if i["type"] == "menu":
-            submenu = Gtk.Menu()
-            submenu.show()
-            add_items_to_menu(submenu, *make_menu(i["items"]))
-            item.set_submenu(submenu)
-        elif i["type"] == "action":
-            item.connect("activate", actions[i["action"]])
-        items.append(item)
-    return items
-
-add_items_to_menu(menubar, *make_menu(menu))
-
-container.pack_start(menubar, False, False, 0)
+container.pack_start(menu, False, False, 0)
 
 scroll = Gtk.ScrolledWindow()
 scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
