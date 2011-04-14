@@ -128,6 +128,9 @@ couch.CouchBase.prototype = {
         else {
             this.req.send();
         }
+        if (!this.req.status) {
+            throw 'RequestError';
+        }
         if (this.req.status >= 500) {
             throw 'ServerError';
         }

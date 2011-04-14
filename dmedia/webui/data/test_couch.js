@@ -318,6 +318,24 @@ py.test_request = function() {
 
     //////////////////////////
     // Test exception throwing
+    var inst = new couch.CouchBase('/', dummy_request(null));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'RequestError');
+    }
+
+    var inst = new couch.CouchBase('/', dummy_request(0));
+    try {
+        inst.request('GET');
+        py.assertTrue(false);
+    }
+    catch (e) {
+        py.assertEqual(e, 'RequestError');
+    }
+
     var inst = new couch.CouchBase('/', dummy_request(400));
     try {
         inst.request('GET');
