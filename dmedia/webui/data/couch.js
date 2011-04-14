@@ -93,6 +93,9 @@ couch.CouchBase.prototype = {
             for (key in options) {
                 keys.push(key);
             }
+            if (keys.length == 0) {
+                return url;
+            }
             keys.sort();
             var query = [];
             keys.forEach(function(key) {

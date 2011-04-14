@@ -98,6 +98,25 @@ py.test_path = function() {
     py.assertEqual(inst.path('bar/baz'), '/foo/bar/baz');
     py.assertEqual(inst.path(['bar', 'baz']), '/foo/bar/baz');
 
+    // Test with empty options
+    py.assertEqual(
+        inst.path(null, {}),
+        '/foo/'
+    );
+    py.assertEqual(
+        inst.path('bar', {}),
+        '/foo/bar'
+    );
+    py.assertEqual(
+        inst.path(['bar'], {}),
+        '/foo/bar'
+    );
+    py.assertEqual(
+        inst.path(['bar', 'baz'], {}),
+        '/foo/bar/baz'
+    );
+
+    // Test with options
     var options = {rev: '1-3e81', ok: true}
     py.assertEqual(
         inst.path(null, options),
@@ -120,7 +139,7 @@ py.test_path = function() {
         '/foo/bar/baz?ok=true&rev=1-3e81'
     );
 
-    // In different order to make sure keys are sorted
+    // Test with options in different order to make sure keys are sorted
     var options = {ok: true, rev: '1-3e81'}
     py.assertEqual(
         inst.path(null, options),
