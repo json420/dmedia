@@ -80,24 +80,50 @@ window.connect('destroy', Gtk.main_quit)
 container = Gtk.VBox()
 container.show()
 
+#TODO: move menus into separate file(s) to make them easier to edit
+
+actions = {"close" : Gtk.main_quit}
+
+menu = [
+    {
+        "type" : "menu",
+        "label" : "File",
+        "items" : [
+            {"label" : "Close", "type" : "action", "action" : "close"},
+            {"label" : "anothermenu", "type" : "menu", "items" : [{"label" : "Close", "type" : "action", "action" : "close"}, {"label" : "Close", "type" : "action", "action" : "close"}]}
+        ]
+    },
+    {"label" : "anothermenu", "type" : "menu", "items" : [{"label" : "Close", "type" : "action", "action" : "close"}, {"label" : "Close", "type" : "action", "action" : "close"}]}
+]
+
 menubar = Gtk.MenuBar()
 menubar.show()
 
 file_menu = Gtk.Menu()
 file_menu.show()
 
-file_menu_item = Gtk.MenuItem()
-file_menu_item.show()
-file_menu_item.set_label("File")
-file_menu_item.set_submenu(file_menu)
+def add_items_to_menu(menu, *items):
+    for item in items:
+        menu.append(item)
 
-close_menu_item = Gtk.MenuItem()
-close_menu_item.show()
-close_menu_item.set_label("Close") #http://design.canonical.com/2011/03/quit/
-close_menu_item.connect("activate", Gtk.main_quit)
-file_menu.append(close_menu_item)
+def make_menu(menu):
+    items = []
+    for i in menu:
+        item = Gtk.MenuItem()
+        item.show()
+        item.set_label(i["label"])
+        if i["type"] == "menu":
+            submenu = Gtk.Menu()
+            submenu.show()
+            add_items_to_menu(submenu, *make_menu(i["items"]))
+            item.set_submenu(submenu)
+        elif i["type"] == "action":
+            item.connect("activate", actions[i["action"]])
+        items.append(item)
+    return items
 
-menubar.append(file_menu_item)
+add_items_to_menu(menubar, *make_menu(menu))
+
 container.pack_start(menubar, False, False, 0)
 
 scroll = Gtk.ScrolledWindow()
