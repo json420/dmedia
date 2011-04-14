@@ -159,12 +159,54 @@ class CouchView(WebKit.WebView):
 
 
 class BrowserMenu(Gtk.MenuBar):
+    """
+    The BrowserMenu class creates a menubar for dmedia-gtk, the dmedia
+    media browser.
+
+    The menu argument specifies the layout of the menu as a list of menubar
+    items. Each item is a dictionary. There are 2 types of item: action and
+    menu.
+
+    Actions are menu items that do something when clicked. The dictionary
+    for an action looks like this:
+        {
+            "label" : "text to display",
+            "type" : "action",
+            "action" : "action id"
+        }
+    The label is the text to display (eg. "Close"). The type tells BrowserMenu
+    that this item is an action not a menu. The action is a string that is looked
+    up in the actions dictionary and refers to a callback function that is executed
+    when this menu item is clicked.
+
+    Menus are submenus of the menubar. These can hold other menus and actions.
+    The dictionary for a menu looks like this:
+        {
+            "label" : "text to display",
+            "type" : "menu",
+            "items" : [item_1, item_2 ... item_n]
+        }
+    The label is the text to display (eg. "File"). The type tells BrowserMenu
+    that this item is a menu not an action. "items" is a list of other items
+    that appear in this menu.
+
+    The actions argument is a dictionary of action IDs (strings) and callback
+    functions.
+        {
+            "action1" : lambda *a: ... ,
+            "action2" : my_object.method,
+            "action3" : some_function
+        }
+
+    If menu or actions are not specified the default will be MENU and
+    ACTIONS repectively which are defined in menu.py.
+    """
     def __init__(self, menu=MENU, actions=ACTIONS):
         super(BrowserMenu, self).__init__()
         self.show()
         self.menu = menu
         self.actions = actions
-        self.reset()
+        self.add_items_to_menu(self, *self.make_menu(self.menu))
 
     def add_items_to_menu(self, menu, *items):
         for item in items:
@@ -185,8 +227,5 @@ class BrowserMenu(Gtk.MenuBar):
                 item.connect("activate", self.actions[i["action"]])
             items.append(item)
         return items
-
-    def reset(self):
-        self.add_items_to_menu(self, *self.make_menu(self.menu))
 
 
