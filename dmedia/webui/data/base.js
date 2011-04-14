@@ -45,7 +45,13 @@ function $el(tag, attributes) {
     if (attributes) {
         var key;
         for (key in attributes) {
-            el.setAttribute(key, attributes[key]);
+            var value = attributes[key];
+            if (key == 'textContent') {
+                el.textContent = value;
+            }
+            else {
+                el.setAttribute(key, value);
+            }
         }
     }
     return el;
@@ -74,6 +80,18 @@ function $show(el) {
 function $appendEach(parent, viewresult, func) {
     viewresult.rows.forEach(function(row) {
         parent.appendChild(func(row.doc));
+    });
+}
+
+function $appendMeta(parent, labels, meta, func) {
+    if (!meta) {
+        return;
+    }
+    labels.forEach(function(d) {
+        var value = meta[d.name];
+        if (value) {
+            parent.appendChild(func(d.label, value));
+        }
     });
 }
 

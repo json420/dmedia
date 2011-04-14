@@ -17,6 +17,11 @@
     type="text/css"
 />
 <script
+    py:if="inline_data"
+    py:content="inline_data"
+    type="text/javascript"
+/>
+<script
     py:for="link in js"
     src="${link}"
     type="text/javascript"

@@ -48,6 +48,8 @@ def render_var(name, obj, indent=None):
     'dmedia.data = {"foo": "bar", "hello": "world"};'
 
     """
+    if not obj:
+        return None
     t = ('{} = {};' if '.' in name else 'var {} = {};')
     return t.format(name, json.dumps(obj, sort_keys=True, indent=indent))
 

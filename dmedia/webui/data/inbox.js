@@ -7,12 +7,17 @@ var dmedia = {
         var result = dmedia.db.view('user', 'inbox', {
             include_docs: true,
             reduce: false,
-            limit: 50,
+            limit: 10,
         });
         var inbox = $el('div', {'id': 'inbox'});
         $appendEach(inbox, result, function(doc) {
             var box = $el('div', {'class': 'item'});
-            box.textContent = doc.name;
+            $appendMeta(box, data.meta, doc.meta, function(label, value) {
+                var p = $el('p');
+                p.appendChild($el('strong', {textContent: label + ': '}));
+                p.appendChild($el('span', {textContent: value}));
+                return p;
+            });
             return box;
         });
         $replace('inbox', inbox);
