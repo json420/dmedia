@@ -2,6 +2,7 @@
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
@@ -76,9 +77,34 @@ window.set_title(_('Media Browser'))
 window.set_default_size(960, 540)
 window.connect('destroy', Gtk.main_quit)
 
+container = Gtk.VBox()
+container.show()
+
+menubar = Gtk.MenuBar()
+menubar.show()
+
+file_menu = Gtk.Menu()
+file_menu.show()
+
+file_menu_item = Gtk.MenuItem()
+file_menu_item.show()
+file_menu_item.set_label("File")
+file_menu_item.set_submenu(file_menu)
+
+close_menu_item = Gtk.MenuItem()
+close_menu_item.show()
+close_menu_item.set_label("Close") #http://design.canonical.com/2011/03/quit/
+close_menu_item.connect("activate", Gtk.main_quit)
+file_menu.append(close_menu_item)
+
+menubar.append(file_menu_item)
+container.pack_start(menubar, False, False, 0)
+
 scroll = Gtk.ScrolledWindow()
 scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-window.add(scroll)
+container.add(scroll)
+
+window.add(container)
 
 view = CouchView(env['url'], env.get('oauth'))
 scroll.add(view)
