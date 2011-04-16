@@ -165,7 +165,7 @@ class BrowserMenu(Gtk.MenuBar):
     media browser.
 
     The menu argument specifies the layout of the menu as a list of menubar
-    items. Each item is a dictionary. There are 2 types of item: action and
+    items. Each item is a dictionary. There are 2 main types of item: action and
     menu.
 
     Actions are menu items that do something when clicked. The dictionary
@@ -201,6 +201,16 @@ class BrowserMenu(Gtk.MenuBar):
 
     If menu or actions are not specified the default will be MENU and
     ACTIONS repectively which are defined in menu.py.
+
+    In addition to the main 2 types of menu item, there is a "custom"
+    item that allows for any gtk widget to be put in the menu as long
+    as gtk itself allows for this.
+
+    The dictionary for a custom item looks like this:
+        {
+            "type" : "custom",
+            "widget" : gtk_widget
+        }
     """
     def __init__(self, menu=MENU, actions=ACTIONS):
         super(BrowserMenu, self).__init__()
