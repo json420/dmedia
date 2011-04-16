@@ -216,18 +216,21 @@ class BrowserMenu(Gtk.MenuBar):
     def make_menu(self, menu):
         items = []
         for i in menu:
-            item = Gtk.MenuItem()
-            item.show()
-            item.set_property("use-underline", True) #allow keyboard nav
-            item.set_label(_(i["label"]))
-            if i["type"] == "menu":
-                submenu = Gtk.Menu()
-                submenu.show()
-                self.add_items_to_menu(submenu, *self.make_menu(i["items"]))
-                item.set_submenu(submenu)
-            elif i["type"] == "action":
-                item.connect("activate", self.actions[i["action"]])
-            items.append(item)
+            if i["type"] == "custom":
+                items.append(i["widget"]) #allows for custom widgets, eg. separators
+            else:
+                item = Gtk.MenuItem()
+                item.show()
+                item.set_property("use-underline", True) #allow keyboard nav
+                item.set_label(_(i["label"]))
+                if i["type"] == "menu":
+                    submenu = Gtk.Menu()
+                    submenu.show()
+                    self.add_items_to_menu(submenu, *self.make_menu(i["items"]))
+                    item.set_submenu(submenu)
+                elif i["type"] == "action":
+                    item.connect("activate", self.actions[i["action"]])
+                items.append(item)
         return items
 
 
