@@ -30,6 +30,7 @@ from oauth import oauth
 from gi.repository import GObject, WebKit, Gtk
 
 from .menu import MENU, ACTIONS
+from gettext import gettext as _
 
 
 class CouchView(WebKit.WebView):
@@ -217,7 +218,8 @@ class BrowserMenu(Gtk.MenuBar):
         for i in menu:
             item = Gtk.MenuItem()
             item.show()
-            item.set_label(i["label"])
+            item.set_property("use-underline", True) #allow keyboard nav
+            item.set_label(_(i["label"]))
             if i["type"] == "menu":
                 submenu = Gtk.Menu()
                 submenu.show()

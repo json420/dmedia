@@ -19,21 +19,23 @@
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
+#TODO: separators, keyboard acceleration
+
 from gi.repository import Gtk
-from gettext import gettext as _
 
 ACTIONS = {
     "close" : Gtk.main_quit
 }
 
 
+#this could potentially be put into a .json file
 MENU = [
     {
-        "label" : _("File"),
+        "label" : "_File",
         "type" : "menu",
         "items" : [
             {
-                "label" : _("Close"),
+                "label" : "_Close",
                 "type" : "action",
                 "action" : "close"
             }
