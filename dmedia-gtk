@@ -82,6 +82,10 @@ container.show()
 
 menu = BrowserMenu()
 
+##menu demo
+#from dmedia.gtkui.menu import TEST_MENU
+#menu = BrowserMenu(menu=TEST_MENU)
+
 container.pack_start(menu, False, False, 0)
 
 scroll = Gtk.ScrolledWindow()

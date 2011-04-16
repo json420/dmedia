@@ -42,3 +42,362 @@ MENU = [
         ]
     }
 ]
+
+#A menu for testing and demonstration
+TEST_MENU = [
+{
+        "label" : "_File",
+        "type" : "menu",
+        "items" : [
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }
+        ]
+    },
+    {
+        "label" : "_Edit",
+        "type" : "menu",
+        "items" : [
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }
+        ]
+    },
+    {
+        "label" : "_View",
+        "type" : "menu",
+        "items" : [
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }
+        ]
+    },
+    {
+        "label" : "_Tools",
+        "type" : "menu",
+        "items" : [
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }
+        ]
+    },
+    {
+        "label" : "Et_c",
+        "type" : "menu",
+        "items" : [
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "menu",
+                "items" : [{
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            },
+            {
+                "type" : "custom",
+                "widget" : Gtk.SeparatorMenuItem()
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }]
+            },
+            {
+                "label" : "_Close",
+                "type" : "action",
+                "action" : "close"
+            }
+        ]
+    }
+]
