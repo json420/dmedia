@@ -249,7 +249,7 @@ py.TestCouchBase = {
             responseObj
         );
         py.assertEqual(
-            inst.req.calls,
+            inst.req.req.calls,
             [
                 ['open', 'GET', '/mydb', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -260,7 +260,7 @@ py.TestCouchBase = {
 
         inst.request('GET', null, ['mydb', 'mydoc']);
         py.assertEqual(
-            inst.req.calls,
+            inst.req.req.calls,
             [
                 ['open', 'GET', '/mydb/mydoc', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -271,7 +271,7 @@ py.TestCouchBase = {
 
         inst.request('GET', null, ['mydb', 'mydoc'], {'rev': '1-foo'});
         py.assertEqual(
-            inst.req.calls,
+            inst.req.req.calls,
             [
                 ['open', 'GET', '/mydb/mydoc?rev=1-foo', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -282,7 +282,7 @@ py.TestCouchBase = {
 
         inst.request('POST', null, ['mydb', '_compact']);
         py.assertEqual(
-            inst.req.calls,
+            inst.req.req.calls,
             [
                 ['open', 'POST', '/mydb/_compact', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -294,7 +294,7 @@ py.TestCouchBase = {
 
         inst.request('PUT', null, 'mydb');
         py.assertEqual(
-            inst.req.calls,
+            inst.req.req.calls,
             [
                 ['open', 'PUT', '/mydb', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -307,7 +307,7 @@ py.TestCouchBase = {
         var doc = {'foo': 'bar', 'ok': 17};
         inst.request('PUT', doc, ['mydb', 'mydoc']);
         py.assertEqual(
-            inst.req.calls,
+            inst.req.req.calls,
             [
                 ['open', 'PUT', '/mydb/mydoc', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -497,7 +497,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    server.req.calls,
+                    server.req.req.calls,
                     [
                         ['open', 'POST', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -513,7 +513,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    server.req.calls,
+                    server.req.req.calls,
                     [
                         ['open', 'POST', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -533,7 +533,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    database.req.calls,
+                    database.req.req.calls,
                     [
                         ['open', 'POST', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -549,7 +549,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    database.req.calls,
+                    database.req.req.calls,
                     [
                         ['open', 'POST', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -587,7 +587,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    server.req.calls,
+                    server.req.req.calls,
                     [
                         ['open', 'PUT', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -603,7 +603,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    server.req.calls,
+                    server.req.req.calls,
                     [
                         ['open', 'PUT', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -623,7 +623,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    database.req.calls,
+                    database.req.req.calls,
                     [
                         ['open', 'PUT', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -639,7 +639,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    database.req.calls,
+                    database.req.req.calls,
                     [
                         ['open', 'PUT', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -675,7 +675,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    server.req.calls,
+                    server.req.req.calls,
                     [
                         ['open', 'GET', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -692,7 +692,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    database.req.calls,
+                    database.req.req.calls,
                     [
                         ['open', 'GET', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -727,7 +727,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    server.req.calls,
+                    server.req.req.calls,
                     [
                         ['open', 'DELETE', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -744,7 +744,7 @@ py.TestCouchBase = {
                     responseObj
                 );
                 py.assertEqual(
-                    database.req.calls,
+                    database.req.req.calls,
                     [
                         ['open', 'DELETE', url, false],
                         ['setRequestHeader', 'Accept', 'application/json'],
@@ -792,7 +792,7 @@ py.TestDatabase = {
             {'ok': true, 'id': 'woot', 'rev': '1-blah'}
         );
         py.assertEqual(
-            db.req.calls,
+            db.req.req.calls,
             [
                 ['open', 'POST', '/mydb/', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -827,7 +827,7 @@ py.TestDatabase = {
             responseObj
         );
         py.assertEqual(
-            db.req.calls,
+            db.req.req.calls,
             [
                 ['open', 'POST', '/mydb/_bulk_docs', false],
                 ['setRequestHeader', 'Accept', 'application/json'],
@@ -856,7 +856,7 @@ py.TestDatabase = {
             responseObj
         );
         py.assertEqual(
-            db.req.calls,
+            db.req.req.calls,
             [
                 ['open', 'GET', '/dmedia/_design/file/_view/ext', false],
                 ['setRequestHeader', 'Accept', 'application/json'],

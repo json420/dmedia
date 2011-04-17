@@ -113,7 +113,6 @@ couch.CouchRequest.prototype = {
 }
 
 
-
 // microfiber.CouchBase
 couch.CouchBase = function(url, Request) {
     this.url = url || '/';
@@ -179,35 +178,9 @@ couch.CouchBase.prototype = {
 
     request: function(method, obj, parts, options) {
         var url = this.path(parts, options);
-        this.req = new this.Request();
-        this.req.open(method, url, false);
-        this.req.setRequestHeader('Accept', 'application/json');
-        if (method == 'POST' || method == 'PUT') {
-            this.req.setRequestHeader('Content-Type', 'application/json');
-        }
-        if (obj) {
-            this.req.send(JSON.stringify(obj));
-        }
-        else {
-            this.req.send();
-        }
-        if (!this.req.status) {
-            throw 'RequestError';
-        }
-        if (this.req.status >= 500) {
-            throw 'ServerError';
-        }
-        if (this.req.status >= 400) {
-            var error = couch.errors[this.req.status];
-            if (error) {
-                throw error;
-            }
-            throw 'ClientError';
-        }
-        var mime = this.req.getResponseHeader('Content-Type');
-        if (mime == 'application/json') {
-            return JSON.parse(this.req.responseText);
-        }
+        this.req = new couch.CouchRequest(this.Request);
+        this.req.request(method, obj, url);
+        return this.req.read();
     },
 
     post: function(obj, parts, options) {
