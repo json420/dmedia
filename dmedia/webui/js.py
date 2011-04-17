@@ -425,13 +425,24 @@ class JSTestCase(TestCase):
         run: function() {
             try {
                 py.init();
-                var name = py.data.methodName;
-                var method = py[name];
-                if (!method) {
-                    py.post('/error', 'Missing function py.' + name);
+                var className = py.data.className;
+                var obj = py[className];
+                if (!obj) {
+                    py.post('/error',
+                        'Missing class ' + ['py', className].join('.')
+                    );
                 }
                 else {
-                    method();
+                    var methodName = py.data.methodName;
+                    var method = obj[methodName];
+                    if (!method) {
+                        py.post('/error',
+                            'Missing method ' + ['py', className, methodName].join('.')
+                        );
+                    }
+                    else {
+                        method();
+                    }
                 }
             }
             catch (e) {

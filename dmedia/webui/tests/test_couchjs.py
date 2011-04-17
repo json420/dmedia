@@ -26,13 +26,16 @@ Test the couch.js JavaScript.
 from dmedia.webui.js import JSTestCase
 from dmedia.webui.util import datafile
 
-class TestCouch(JSTestCase):
+class TestCouchBase(JSTestCase):
     js_files = (
         datafile('couch.js'),
         datafile('test_couch.js'),
     )
 
     def test_init(self):
+        self.run_js()
+
+    def test_path(self):
         self.run_js()
 
     def test_post(self):
@@ -47,14 +50,25 @@ class TestCouch(JSTestCase):
     def test_delete(self):
         self.run_js()
 
-    def test_path(self):
-        self.run_js()
-
     def test_request(self):
         self.run_js()
 
+
+class TestServer(JSTestCase):
+    js_files = (
+        datafile('couch.js'),
+        datafile('test_couch.js'),
+    )
+
     def test_database(self):
         self.run_js()
+
+
+class TestDatabase(JSTestCase):
+    js_files = (
+        datafile('couch.js'),
+        datafile('test_couch.js'),
+    )
 
     def test_save(self):
         self.run_js()
