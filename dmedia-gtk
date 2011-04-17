@@ -2,6 +2,7 @@
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
@@ -68,7 +69,7 @@ if args.browser:
 
 env = dm.get_env()
 
-from dmedia.gtkui.widgets import CouchView
+from dmedia.gtkui.widgets import CouchView, BrowserMenu
 from gi.repository import Gtk, GObject
 
 window = Gtk.Window()
@@ -76,9 +77,22 @@ window.set_title(_('Media Browser'))
 window.set_default_size(960, 540)
 window.connect('destroy', Gtk.main_quit)
 
+container = Gtk.VBox()
+container.show()
+
+menu = BrowserMenu()
+
+##menu demo
+#from dmedia.gtkui.menu import TEST_MENU
+#menu = BrowserMenu(menu=TEST_MENU)
+
+container.pack_start(menu, False, False, 0)
+
 scroll = Gtk.ScrolledWindow()
 scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-window.add(scroll)
+container.add(scroll)
+
+window.add(container)
 
 view = CouchView(env['url'], env.get('oauth'))
 scroll.add(view)
