@@ -21,6 +21,11 @@
 
 #TODO: separators, keyboard acceleration
 
+"""
+Menu declaration.
+"""
+
+
 from gi.repository import Gtk
 
 ACTIONS = {
