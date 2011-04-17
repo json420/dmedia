@@ -346,6 +346,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.build_data(),
             {
+                'className': 'test_JSTestCase',
                 'methodName': 'test_build_data',
                 'assertMethods': js.METHODS,
             }
@@ -353,6 +354,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.build_data(foo='bar', stuff=17),
             {
+                'className': 'test_JSTestCase',
                 'methodName': 'test_build_data',
                 'assertMethods': js.METHODS,
                 'foo': 'bar',
@@ -363,6 +365,7 @@ class test_JSTestCase(js.JSTestCase):
     def test_build_js_inline(self):
         self.assertEqual(self.title, 'test_JSTestCase.test_build_js_inline')
         data = {
+            'className': 'test_JSTestCase',
             'methodName': 'test_build_js_inline',
             'assertMethods': js.METHODS,
         }

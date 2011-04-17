@@ -475,6 +475,7 @@ class JSTestCase(TestCase):
 
     def build_data(self, **extra):
         data = {
+            'className': self.__class__.__name__,
             'methodName': self._testMethodName,
             'assertMethods': METHODS,
         }
