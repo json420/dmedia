@@ -5,3 +5,15 @@ body {
 .hide {
     display: none !important;
 }
+
+.selected {
+    background-color: #ddd !important;
+}
+
+.keep {
+    background-color: #cfc;
+}
+
+.reject {
+    background-color: #fcc;
+}
