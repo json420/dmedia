@@ -51,6 +51,69 @@ couch.errors = {
     417: 'ExpectationFailed',
 }
 
+
+couch.CouchRequest = function(Request) {
+    var Request = Request || XMLHttpRequest;
+    this.req = new Request();
+}
+couch.CouchRequest.prototype = {
+
+    on_readystatechange: function() {
+        if (this.readyState == 4) {
+            this.callback(this);
+        }
+    },
+
+    request: function(method, obj, url) {
+        this.do_request(false, method, obj, url);
+    },
+
+    async_request: function(callback, method, obj, url) {
+        this.callback = callback;
+        var self = this;
+        this.req.onreadystatechange = function() {
+            self.on_readystatechange();
+        }
+        this.do_request(true, method, obj, url);
+    },
+
+    do_request: function(async, method, obj, url) {
+        this.req.open(method, url, async);
+        this.req.setRequestHeader('Accept', 'application/json');
+        if (method == 'POST' || method == 'PUT') {
+            this.req.setRequestHeader('Content-Type', 'application/json');
+        }
+        if (obj) {
+            this.req.send(JSON.stringify(obj));
+        }
+        else {
+            this.req.send();
+        }
+    },
+
+    read: function() {
+        if (!this.req.status) {
+            throw 'RequestError';
+        }
+        if (this.req.status >= 500) {
+            throw 'ServerError';
+        }
+        if (this.req.status >= 400) {
+            var error = couch.errors[this.req.status];
+            if (error) {
+                throw error;
+            }
+            throw 'ClientError';
+        }
+        if (this.req.getResponseHeader('Content-Type') == 'application/json') {
+            return JSON.parse(this.req.responseText);
+        }
+        return this.req.responseText;
+    },
+}
+
+
+
 // microfiber.CouchBase
 couch.CouchBase = function(url, Request) {
     this.url = url || '/';
