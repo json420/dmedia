@@ -26,7 +26,7 @@ Test the base.js JavaScript.
 from dmedia.webui.js import JSTestCase
 from dmedia.webui.util import datafile
 
-class TestCouch(JSTestCase):
+class TestFunctions(JSTestCase):
     js_files = (
         datafile('base.js'),
         datafile('test_base.js'),
