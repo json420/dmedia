@@ -320,6 +320,34 @@ class test_Manager(TestCase):
         self.assertTrue(isinstance(inst._q, multiprocessing.queues.Queue))
         self.assertTrue(inst._thread is None)
 
+    def test_start_signal_thread(self):
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
+
+        inst._workers['foo'] = None
+        self.assertIsNone(inst._start_signal_thread())
+        self.assertIs(inst._running, True)
+        self.assertIsInstance(inst._thread, threading.Thread)
+        self.assertIs(inst._thread.daemon, True)
+        self.assertIs(inst._thread.is_alive(), True)
+
+        # Shutdown thread:
+        inst._running = False
+        inst._thread.join()
+
+    def test_kill_signal_thread(self):
+        env = {'foo': 'bar'}
+        inst = self.klass(env)
+
+        inst._running = True
+        inst._thread = threading.Thread(target=inst._signal_thread)
+        inst._thread.daemon = True
+        inst._thread.start()
+
+        self.assertIsNone(inst._kill_signal_thread())
+        self.assertIs(inst._running, False)
+        self.assertIsNone(inst._thread)
+
     def test_process_message(self):
         class Example(self.klass):
             _call = None

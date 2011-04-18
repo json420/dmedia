@@ -171,17 +171,36 @@ class Manager(object):
             )
         self.env = env
         self._callback = callback
-        self._running = False
         self._workers = {}
         self._q = multiprocessing.Queue()
         self._lock = Lock()
+        self._running = False
         self._thread = None
         self.name = self.__class__.__name__
+
+    def _start_signal_thread(self):
+        assert self._running is False
+        assert self._thread is None
+        assert len(self._workers) > 0
+        self._running = True
+        self._thread = Thread(target=self._signal_thread)
+        self._thread.daemon = True
+        self._thread.start()
+
+    def _kill_signal_thread(self):
+        assert self._running is True
+        assert self._thread is not None
+        assert self._thread.is_alive()
+        assert len(self._workers) == 0
+        self._running = False
+        self._thread.join()  # Cleanly shutdown _signal_thread
+        assert not self._thread.is_alive()
+        self._thread = None
 
     def _signal_thread(self):
         while self._running:
             try:
-                self._process_message(self._q.get(timeout=1))
+                self._process_message(self._q.get(timeout=0.5))
             except Empty:
                 pass
 
