@@ -64,27 +64,30 @@ couch.CouchRequest.prototype = {
         }
     },
 
-    request: function(method, obj, url) {
-        this.do_request(false, method, obj, url);
+    request: function(method, url, obj) {
+        this.do_request(false, method, url, obj);
     },
 
-    async_request: function(callback, method, obj, url) {
+    async_request: function(callback, method, url, obj) {
         this.callback = callback;
         var self = this;
         this.req.onreadystatechange = function() {
             self.on_readystatechange();
         }
-        this.do_request(true, method, obj, url);
+        this.do_request(true, method, url, obj);
     },
 
-    do_request: function(async, method, obj, url) {
+    do_request: function(async, method, url, obj) {
         this.req.open(method, url, async);
         this.req.setRequestHeader('Accept', 'application/json');
         if (method == 'POST' || method == 'PUT') {
             this.req.setRequestHeader('Content-Type', 'application/json');
-        }
-        if (obj) {
-            this.req.send(JSON.stringify(obj));
+            if (obj) {
+                this.req.send(JSON.stringify(obj));
+            }
+            else {
+                this.req.send();
+            }
         }
         else {
             this.req.send();
@@ -179,7 +182,7 @@ couch.CouchBase.prototype = {
     request: function(method, obj, parts, options) {
         var url = this.path(parts, options);
         this.req = new couch.CouchRequest(this.Request);
-        this.req.request(method, obj, url);
+        this.req.request(method, url, obj);
         return this.req.read();
     },
 

@@ -80,7 +80,7 @@ py.TestCouchRequest = {
         // PUT
         var r = new couch.CouchRequest(DummyRequest);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.request('PUT', doc, url));
+        py.assertIsNone(r.request('PUT', url, doc));
         py.assertEqual(
             r.req.calls,
             [
@@ -92,7 +92,7 @@ py.TestCouchRequest = {
         );
         var r = new couch.CouchRequest(DummyRequest);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.request('PUT', null, url));
+        py.assertIsNone(r.request('PUT', url, null));
         py.assertEqual(
             r.req.calls,
             [
@@ -106,7 +106,7 @@ py.TestCouchRequest = {
         // POST
         var r = new couch.CouchRequest(DummyRequest);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.request('POST', doc, url));
+        py.assertIsNone(r.request('POST', url, doc));
         py.assertEqual(
             r.req.calls,
             [
@@ -118,7 +118,7 @@ py.TestCouchRequest = {
         );
         var r = new couch.CouchRequest(DummyRequest);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.request('POST', null, url));
+        py.assertIsNone(r.request('POST', url, null));
         py.assertEqual(
             r.req.calls,
             [
@@ -132,7 +132,7 @@ py.TestCouchRequest = {
         // GET
         var r = new couch.CouchRequest(DummyRequest);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.request('GET', null, url));
+        py.assertIsNone(r.request('GET', url));
         py.assertEqual(
             r.req.calls,
             [
@@ -145,7 +145,7 @@ py.TestCouchRequest = {
         // DELETE
         var r = new couch.CouchRequest(DummyRequest);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.request('DELETE', null, url));
+        py.assertIsNone(r.request('DELETE', url));
         py.assertEqual(
             r.req.calls,
             [
@@ -156,6 +156,7 @@ py.TestCouchRequest = {
         );
 
     },
+
 
     // couch.CouchRequest.request()
     test_async_request: function() {
@@ -171,7 +172,7 @@ py.TestCouchRequest = {
         py.assertIsNone(r.callback);
         py.assertIsNone(r.req.onreadystatechange);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.async_request(callback, 'PUT', doc, url));
+        py.assertIsNone(r.async_request(callback, 'PUT', url, doc));
         py.assertTrue(r.callback == callback);
         py.assertTrue(r.req.onreadystatechange instanceof Function);
         py.assertEqual(
@@ -189,7 +190,7 @@ py.TestCouchRequest = {
         py.assertIsNone(r.callback);
         py.assertIsNone(r.req.onreadystatechange);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.async_request(callback, 'PUT', null, url));
+        py.assertIsNone(r.async_request(callback, 'PUT', url, null));
         py.assertTrue(r.callback == callback);
         py.assertTrue(r.req.onreadystatechange instanceof Function);
         py.assertEqual(
@@ -207,7 +208,7 @@ py.TestCouchRequest = {
         py.assertIsNone(r.callback);
         py.assertIsNone(r.req.onreadystatechange);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.async_request(callback, 'POST', doc, url));
+        py.assertIsNone(r.async_request(callback, 'POST', url, doc));
         py.assertTrue(r.callback == callback);
         py.assertTrue(r.req.onreadystatechange instanceof Function);
         py.assertEqual(
@@ -225,7 +226,7 @@ py.TestCouchRequest = {
         py.assertIsNone(r.callback);
         py.assertIsNone(r.req.onreadystatechange);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.async_request(callback, 'POST', null, url));
+        py.assertIsNone(r.async_request(callback, 'POST', url, null));
         py.assertTrue(r.callback == callback);
         py.assertTrue(r.req.onreadystatechange instanceof Function);
         py.assertEqual(
@@ -243,7 +244,7 @@ py.TestCouchRequest = {
         py.assertIsNone(r.callback);
         py.assertIsNone(r.req.onreadystatechange);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.async_request(callback, 'GET', null, url));
+        py.assertIsNone(r.async_request(callback, 'GET', url));
         py.assertTrue(r.callback == callback);
         py.assertTrue(r.req.onreadystatechange instanceof Function);
         py.assertEqual(
@@ -260,7 +261,7 @@ py.TestCouchRequest = {
         py.assertIsNone(r.callback);
         py.assertIsNone(r.req.onreadystatechange);
         py.assertEqual(r.req.calls, []);
-        py.assertIsNone(r.async_request(callback, 'DELETE', null, url));
+        py.assertIsNone(r.async_request(callback, 'DELETE', url));
         py.assertTrue(r.callback == callback);
         py.assertTrue(r.req.onreadystatechange instanceof Function);
         py.assertEqual(
