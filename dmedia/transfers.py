@@ -23,6 +23,13 @@
 Upload to and download from remote systems.
 """
 
+import logging
+
+
+log = logging.getLogger()
+_uploaders = {}
+_downloaders = {}
+
 
 def download_key(file_id, store_id):
     """
@@ -61,3 +68,47 @@ def upload_key(file_id, store_id):
     an internal implementation detail.
     """
     return ('upload', file_id, store_id)
+
+
+def register_uploader(name, backend):
+    if not issubclass(backend, TransferBackend):
+        raise TypeError(
+            'backend must be {!r} subclass; got {!r}'.format(
+                TransferBackend, backend
+            )
+        )
+    if name in _uploaders:
+        raise ValueError(
+            'uploader {!r} exists, cannot register {!r}'.format(name, backend)
+        )
+    _uploaders[name] = backend
+
+
+def register_downloader(name, backend):
+    if not issubclass(backend, TransferBackend):
+        raise TypeError(
+            'backend must be {!r} subclass; got {!r}'.format(
+                TransferBackend, backend
+            )
+        )
+    if name in _downloaders:
+        raise ValueError(
+            'downloader {!r} exists, cannot register {!r}'.format(name, backend)
+        )
+    _downloaders[name] = backend
+
+
+class TransferBackend(object):
+    def __init__(self, doc, progress_callback=None):
+        self.doc = doc
+        self.progress_callback = progress_callback
+
+    def download(self, doc, fs):
+        raise NotImplementedError(
+            '{}.download()'.format(self.__class__.__name__)
+        )
+
+    def upload(self, doc, fs):
+        raise NotImplementedError(
+            '{}.upload()'.format(self.__class__.__name__)
+        )
