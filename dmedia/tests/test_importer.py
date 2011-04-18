@@ -720,19 +720,19 @@ class test_ImportManager(CouchCase):
         return self.klass(self.env, callback)
 
 
-    def test_start_batch(self):
+    def test_first_worker_starting(self):
         callback = DummyCallback()
         inst = self.new(callback)
 
         # Test that batch cannot be started when there are active workers:
         inst._workers['foo'] = 'bar'
-        self.assertRaises(AssertionError, inst._start_batch)
+        self.assertRaises(AssertionError, inst.first_worker_starting)
         inst._workers.clear()
 
         # Test under normal conditions
         inst._completed = 17
         inst._total = 18
-        inst._start_batch()
+        inst.first_worker_starting()
         self.assertEqual(inst._completed, 0)
         self.assertEqual(inst._total, 0)
         batch = inst.doc
@@ -763,9 +763,9 @@ class test_ImportManager(CouchCase):
         )
 
         # Test that batch cannot be re-started without first finishing
-        self.assertRaises(AssertionError, inst._start_batch)
+        self.assertRaises(AssertionError, inst.first_worker_starting)
 
-    def test_finish_batch(self):
+    def test_last_worker_finished(self):
         callback = DummyCallback()
         inst = self.new(callback)
         batch_id = random_id()
@@ -779,12 +779,12 @@ class test_ImportManager(CouchCase):
 
         # Make sure it checks that workers is empty
         inst._workers['foo'] = 'bar'
-        self.assertRaises(AssertionError, inst._finish_batch)
+        self.assertRaises(AssertionError, inst.last_worker_finished)
         self.assertEqual(callback.messages, [])
 
         # Check that it fires signal correctly
         inst._workers.clear()
-        inst._finish_batch()
+        inst.last_worker_finished()
         self.assertEqual(inst.doc, None)
         stats = dict(
             imported=17,
@@ -820,7 +820,7 @@ class test_ImportManager(CouchCase):
         self.assertEqual(inst.doc, None)
 
         # Test normally:
-        inst._start_batch()
+        inst.first_worker_starting()
         self.assertEqual(inst.doc['errors'], [])
         inst.on_error('foo', 'IOError', 'nope')
         doc = inst.db[inst.doc['_id']]
@@ -856,7 +856,7 @@ class test_ImportManager(CouchCase):
         callback = DummyCallback()
         inst = self.new(callback)
         self.assertEqual(callback.messages, [])
-        inst._start_batch()
+        inst.first_worker_starting()
         batch_id = inst.doc['_id']
         self.assertEqual(inst.db[batch_id]['imports'], [])
         self.assertEqual(
@@ -1074,7 +1074,6 @@ class test_ImportManager(CouchCase):
     def test_start_import(self):
         callback = DummyCallback()
         inst = self.new(callback)
-        self.assertTrue(inst.start())
 
         tmp = TempDir()
         (src1, src2, dup1) = prep_import_source(tmp)

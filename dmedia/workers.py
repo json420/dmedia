@@ -183,8 +183,6 @@ class Manager(object):
         assert len(self._workers) > 0
         if self._thread is not None:
             self._thread.join()
-            self._thread = None
-        assert self._thread is None
         self._running = True
         self._thread = Thread(target=self._signal_thread)
         self._thread.daemon = True
@@ -192,7 +190,6 @@ class Manager(object):
 
     def _kill_signal_thread(self):
         assert self._running is True
-        assert self._thread is not None
         assert self._thread.is_alive()
         assert len(self._workers) == 0
         self._running = False
