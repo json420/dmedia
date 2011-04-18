@@ -35,6 +35,14 @@ def random_id(blocks=3):
     return b32encode(urandom(5 * blocks))
 
 
+class DummyProgress(object):
+    def __init__(self):
+        self._calls = []
+
+    def __call__(self, completed):
+        self._calls.append(completed)
+
+
 class TestFunctions(TestCase):
     def setUp(self):
         transfers._uploaders.clear()
@@ -122,10 +130,83 @@ class TestFunctions(TestCase):
         self.assertEqual(set(transfers._downloaders), set(['foo', 'bar']))
         self.assertIs(transfers._downloaders['bar'], Okay)
 
+    def test_get_uploader(self):
+        f = transfers.get_uploader
+        doc = {'_id': random_id(), 'plugin': 'foo'}
+        cb = DummyProgress()
+
+        class Example(transfers.TransferBackend):
+            pass
+        transfers._uploaders['foo'] =  Example
+
+        foo = f(doc, cb)
+        self.assertIsInstance(foo, Example)
+        self.assertIs(foo.doc, doc)
+        self.assertIs(foo.callback, cb)
+
+        foo = f(doc)
+        self.assertIsInstance(foo, Example)
+        self.assertIs(foo.doc, doc)
+        self.assertIsNone(foo.callback)
+
+    def test_get_downloader(self):
+        f = transfers.get_downloader
+        doc = {'_id': random_id(), 'plugin': 'foo'}
+        cb = DummyProgress()
+
+        class Example(transfers.TransferBackend):
+            pass
+        transfers._downloaders['foo'] =  Example
+
+        foo = f(doc, cb)
+        self.assertIsInstance(foo, Example)
+        self.assertIs(foo.doc, doc)
+        self.assertIs(foo.callback, cb)
+
+        foo = f(doc)
+        self.assertIsInstance(foo, Example)
+        self.assertIs(foo.doc, doc)
+        self.assertIsNone(foo.callback)
 
 
 class TestTransferBackend(TestCase):
     klass = transfers.TransferBackend
+
+    def test_init(self):
+        doc = {'type': 'dmedia/store'}
+        cb = DummyProgress()
+
+        inst = self.klass(doc)
+        self.assertIs(inst.doc, doc)
+        self.assertEqual(inst.doc, {'type': 'dmedia/store'})
+        self.assertIsNone(inst.callback)
+
+        inst = self.klass(doc, callback=cb)
+        self.assertIs(inst.doc, doc)
+        self.assertEqual(inst.doc, {'type': 'dmedia/store'})
+        self.assertIs(inst.callback, cb)
+
+        with self.assertRaises(TypeError) as cm:
+            inst = self.klass(doc, 17)
+        self.assertEqual(
+            str(cm.exception),
+            'callback must be a callable; got {!r}'.format(17)
+        )
+
+    def test_progress(self):
+        # Test with a callback
+        callback = DummyProgress()
+        inst = self.klass({}, callback)
+        self.assertEqual(callback._calls, [])
+        self.assertIsNone(inst.progress(17))
+        self.assertEqual(callback._calls, [17])
+        self.assertIsNone(inst.progress(18))
+        self.assertEqual(callback._calls, [17, 18])
+
+        # Test without a callback
+        inst = self.klass({})
+        self.assertIsNone(inst.progress(17))
+        self.assertIsNone(inst.progress(18))
 
     def test_download(self):
         inst = self.klass({})

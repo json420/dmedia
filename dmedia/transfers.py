@@ -98,10 +98,30 @@ def register_downloader(name, backend):
     _downloaders[name] = backend
 
 
+def get_uploader(doc, callback=None):
+    name = doc['plugin']
+    klass = _uploaders[name]
+    return klass(doc, callback)
+
+
+def get_downloader(doc, callback=None):
+    name = doc['plugin']
+    klass = _downloaders[name]
+    return klass(doc, callback)
+
+
 class TransferBackend(object):
-    def __init__(self, doc, progress_callback=None):
+    def __init__(self, doc, callback=None):
+        if not (callback is None or callable(callback)):
+            raise TypeError(
+                'callback must be a callable; got {!r}'.format(callback)
+            )
         self.doc = doc
-        self.progress_callback = progress_callback
+        self.callback = callback
+
+    def progress(self, completed):
+        if self.callback is not None:
+            self.callback(completed)
 
     def download(self, doc, fs):
         raise NotImplementedError(
