@@ -171,17 +171,20 @@ class Manager(object):
             )
         self.env = env
         self._callback = callback
-        self._workers = {}
         self._q = multiprocessing.Queue()
         self._lock = Lock()
+        self._workers = {}
         self._running = False
         self._thread = None
         self.name = self.__class__.__name__
 
     def _start_signal_thread(self):
         assert self._running is False
-        assert self._thread is None
         assert len(self._workers) > 0
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
+        assert self._thread is None
         self._running = True
         self._thread = Thread(target=self._signal_thread)
         self._thread.daemon = True
@@ -193,9 +196,6 @@ class Manager(object):
         assert self._thread.is_alive()
         assert len(self._workers) == 0
         self._running = False
-        self._thread.join()  # Cleanly shutdown _signal_thread
-        assert not self._thread.is_alive()
-        self._thread = None
 
     def _signal_thread(self):
         while self._running:
@@ -212,23 +212,21 @@ class Manager(object):
             handler = getattr(self, 'on_' + signal)
             handler(*args)
 
+    def first_worker_starting(self):
+        pass
+
+    def last_worker_finished(self):
+        pass
+
     def on_terminate(self, key):
         p = self._workers.pop(key)
         p.join()
+        if len(self._workers) == 0:
+            self._kill_signal_thread()
+            self.last_worker_finished()
 
     def on_error(self, key, exception, message):
         log.error('%s %s: %s: %s', self.name, key, exception, message)
-
-    def start(self):
-        with self._lock:
-            if self._running:
-                return False
-            log.info('Starting %s', self.name)
-            self._running = True
-            self._thread = Thread(target=self._signal_thread)
-            self._thread.daemon = True
-            self._thread.start()
-            return True
 
     def kill(self):
         if not self._running:
@@ -255,17 +253,22 @@ class Manager(object):
             controlled by this `Manager`
         :param args: arguments to be passed to `Worker.run()`
         """
-        if key in self._workers:
-            return False
-        env = self.get_worker_env(worker, key, args)
-        p = multiprocessing.Process(
-            target=dispatch,
-            args=(worker, env, self._q, key, args),
-        )
-        p.daemon = True
-        self._workers[key] = p
-        p.start()
-        return True
+        with self._lock:
+            if key in self._workers:
+                return False
+            if len(self._workers) == 0:
+                self.first_worker_starting()
+            env = self.get_worker_env(worker, key, args)
+            p = multiprocessing.Process(
+                target=dispatch,
+                args=(worker, env, self._q, key, args),
+            )
+            p.daemon = True
+            self._workers[key] = p
+            p.start()
+            if len(self._workers) == 1:
+                self._start_signal_thread()
+            return True
 
     def kill_job(self, key):
         with self._lock:

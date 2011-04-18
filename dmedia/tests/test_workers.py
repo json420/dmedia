@@ -346,7 +346,8 @@ class test_Manager(TestCase):
 
         self.assertIsNone(inst._kill_signal_thread())
         self.assertIs(inst._running, False)
-        self.assertIsNone(inst._thread)
+        inst._thread.join()
+        self.assertIs(inst._thread.is_alive(), False)
 
     def test_process_message(self):
         class Example(self.klass):
@@ -368,36 +369,19 @@ class test_Manager(TestCase):
     def test_on_terminate(self):
         env = {'foo': 'bar'}
         inst = self.klass(env)
+
         e = raises(KeyError, inst.on_terminate, 'foo')
+
         p = multiprocessing.Process(target=time.sleep, args=(1,))
         p.daemon = True
         inst._workers['foo'] = p
         p.start()
+        inst._start_signal_thread()
+
         self.assertTrue(p.is_alive() is True)
         inst.on_terminate('foo')
         self.assertTrue(p.is_alive() is False)
         self.assertEqual(inst._workers, {})
-
-    def test_start(self):
-        env = {'foo': 'bar'}
-        inst = self.klass(env)
-
-        # Test that start() returns False when already running:
-        inst._running = True
-        self.assertTrue(inst.start() is False)
-        self.assertTrue(inst._thread is None)
-
-        # Start the Manager:
-        inst._running = False
-        self.assertTrue(inst.start() is True)
-        self.assertTrue(inst._running is True)
-        self.assertTrue(isinstance(inst._thread, threading.Thread))
-        self.assertTrue(inst._thread.daemon is True)
-        self.assertTrue(inst._thread.is_alive() is True)
-
-        # Shutdown thread:
-        inst._running = False
-        inst._thread.join()
 
     def test_kill(self):
         env = {'foo': 'bar'}
@@ -411,7 +395,7 @@ class test_Manager(TestCase):
         bar = infinite_process()
         baz = infinite_process()
         inst._workers.update(dict(foo=foo, bar=bar, baz=baz))
-        self.assertTrue(inst.start() is True)
+        self.assertIsNone(inst._start_signal_thread())
         self.assertTrue(inst._thread.is_alive())
 
         self.assertTrue(inst.kill() is True)
