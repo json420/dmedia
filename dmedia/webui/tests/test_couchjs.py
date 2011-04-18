@@ -52,6 +52,12 @@ class TestCouchBase(JSTestCase):
     def test_path(self):
         self.run_js()
 
+    def test_request(self):
+        self.run_js()
+
+    def test_async_request(self):
+        self.run_js()
+
     def test_post(self):
         self.run_js()
 
@@ -62,9 +68,6 @@ class TestCouchBase(JSTestCase):
         self.run_js()
 
     def test_delete(self):
-        self.run_js()
-
-    def test_request(self):
         self.run_js()
 
 

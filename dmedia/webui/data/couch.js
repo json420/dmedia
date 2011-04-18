@@ -186,6 +186,13 @@ couch.CouchBase.prototype = {
         return this.req.read();
     },
 
+    async_request: function(callback, method, obj, parts, options) {
+        var url = this.path(parts, options);
+        var req = new couch.CouchRequest(this.Request);
+        req.async_request(callback, method, url, obj);
+        return req;
+    },
+
     put: function(obj, parts, options) {
         /*
         Do a PUT request.
