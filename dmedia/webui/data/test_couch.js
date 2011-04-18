@@ -69,6 +69,214 @@ var responseObj = {ok: true, id: 'woot', rev: '1-blah'};
 var DummyRequest = dummy_request(201, responseObj);
 
 
+// couch.CouchRequst:
+py.TestCouchRequest = {
+
+    // couch.CouchRequest.request()
+    test_request: function() {
+        var doc = {'foo': 'bar', 'ok': 17};
+        var url = '/foo/bar/baz?ok=true&rev=1-3e81';
+
+        // PUT
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.request('PUT', doc, url));
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'PUT', url, false],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send', JSON.stringify(doc)],
+            ]
+        );
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.request('PUT', null, url));
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'PUT', url, false],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send'],
+            ]
+        );
+
+        // POST
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.request('POST', doc, url));
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'POST', url, false],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send', JSON.stringify(doc)],
+            ]
+        );
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.request('POST', null, url));
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'POST', url, false],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send'],
+            ]
+        );
+
+        // GET
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.request('GET', null, url));
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'GET', url, false],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['send'],
+            ]
+        );
+
+        // DELETE
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.request('DELETE', null, url));
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'DELETE', url, false],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['send'],
+            ]
+        );
+
+    },
+
+    // couch.CouchRequest.request()
+    test_async_request: function() {
+        var doc = {'foo': 'bar', 'ok': 17};
+        var url = '/foo/bar/baz?ok=true&rev=1-3e81';
+
+        var callback = function(req) {
+            req.read();
+        }
+
+        // PUT doc
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertIsNone(r.callback);
+        py.assertIsNone(r.req.onreadystatechange);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.async_request(callback, 'PUT', doc, url));
+        py.assertTrue(r.callback == callback);
+        py.assertTrue(r.req.onreadystatechange instanceof Function);
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'PUT', url, true],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send', JSON.stringify(doc)],
+            ]
+        );
+
+        // PUT null
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertIsNone(r.callback);
+        py.assertIsNone(r.req.onreadystatechange);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.async_request(callback, 'PUT', null, url));
+        py.assertTrue(r.callback == callback);
+        py.assertTrue(r.req.onreadystatechange instanceof Function);
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'PUT', url, true],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send'],
+            ]
+        );
+
+        // POST doc
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertIsNone(r.callback);
+        py.assertIsNone(r.req.onreadystatechange);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.async_request(callback, 'POST', doc, url));
+        py.assertTrue(r.callback == callback);
+        py.assertTrue(r.req.onreadystatechange instanceof Function);
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'POST', url, true],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send', JSON.stringify(doc)],
+            ]
+        );
+
+        // POST null
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertIsNone(r.callback);
+        py.assertIsNone(r.req.onreadystatechange);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.async_request(callback, 'POST', null, url));
+        py.assertTrue(r.callback == callback);
+        py.assertTrue(r.req.onreadystatechange instanceof Function);
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'POST', url, true],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['setRequestHeader', 'Content-Type', 'application/json'],
+                ['send'],
+            ]
+        );
+
+        // GET
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertIsNone(r.callback);
+        py.assertIsNone(r.req.onreadystatechange);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.async_request(callback, 'GET', null, url));
+        py.assertTrue(r.callback == callback);
+        py.assertTrue(r.req.onreadystatechange instanceof Function);
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'GET', url, true],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['send'],
+            ]
+        );
+
+        // DELETE
+        var r = new couch.CouchRequest(DummyRequest);
+        py.assertIsNone(r.callback);
+        py.assertIsNone(r.req.onreadystatechange);
+        py.assertEqual(r.req.calls, []);
+        py.assertIsNone(r.async_request(callback, 'DELETE', null, url));
+        py.assertTrue(r.callback == callback);
+        py.assertTrue(r.req.onreadystatechange instanceof Function);
+        py.assertEqual(
+            r.req.calls,
+            [
+                ['open', 'DELETE', url, true],
+                ['setRequestHeader', 'Accept', 'application/json'],
+                ['send'],
+            ]
+        );
+
+    },
+
+}
+
+
 // couch.CouchBase:
 py.TestCouchBase = {
 

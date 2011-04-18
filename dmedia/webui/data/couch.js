@@ -59,7 +59,7 @@ couch.CouchRequest = function(Request) {
 couch.CouchRequest.prototype = {
 
     on_readystatechange: function() {
-        if (this.readyState == 4) {
+        if (this.req.readyState == 4) {
             this.callback(this);
         }
     },
@@ -183,21 +183,6 @@ couch.CouchBase.prototype = {
         return this.req.read();
     },
 
-    post: function(obj, parts, options) {
-        /*
-        Do a POST request.
-
-        Examples:
-
-        var cb = new couch.CouchBase('/');
-        cb.post(null, ['foo', '_compact']);  # compact db /foo
-        cb.post({_id: 'bar'}, 'foo');  # create doc /foo/bar
-        cb.post({_id: 'baz'}, 'foo', {batch: true});  # with query option
-
-        */
-        return this.request('POST', obj, parts, options);
-    },
-
     put: function(obj, parts, options) {
         /*
         Do a PUT request.
@@ -211,6 +196,21 @@ couch.CouchBase.prototype = {
 
         */
         return this.request('PUT', obj, parts, options);
+    },
+
+    post: function(obj, parts, options) {
+        /*
+        Do a POST request.
+
+        Examples:
+
+        var cb = new couch.CouchBase('/');
+        cb.post(null, ['foo', '_compact']);  # compact db /foo
+        cb.post({_id: 'bar'}, 'foo');  # create doc /foo/bar
+        cb.post({_id: 'baz'}, 'foo', {batch: true});  # with query option
+
+        */
+        return this.request('POST', obj, parts, options);
     },
 
     get: function(parts, options) {

@@ -26,6 +26,20 @@ Test the couch.js JavaScript.
 from dmedia.webui.js import JSTestCase
 from dmedia.webui.util import datafile
 
+
+class TestCouchRequest(JSTestCase):
+    js_files = (
+        datafile('couch.js'),
+        datafile('test_couch.js'),
+    )
+
+    def test_request(self):
+        self.run_js()
+
+    def test_async_request(self):
+        self.run_js()
+
+
 class TestCouchBase(JSTestCase):
     js_files = (
         datafile('couch.js'),
