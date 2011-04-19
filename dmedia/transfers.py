@@ -25,6 +25,9 @@ Upload to and download from remote systems.
 
 import logging
 
+from .workers import CouchWorker, Manager
+from .filestore import FileStore
+
 
 log = logging.getLogger()
 _uploaders = {}
@@ -132,3 +135,37 @@ class TransferBackend(object):
         raise NotImplementedError(
             '{}.upload()'.format(self.__class__.__name__)
         )
+
+
+class TransferWorker(CouchWorker):
+    def __init__(self, env, q, key, args):
+        super(TransferWorker, self).__init__(env, q, key, args)
+        self.filestore = FileStore(self.env['filestore']['path'])
+        self.filestore_id = self.env['filestore']['_id']
+
+    def on_progress(self, completed):
+        self.emit('progress', completed, self.file_size)
+
+    def init_file(self, file_id):
+        self.file_id = file_id
+        self.file = self.db.get(file_id, attachments=True)
+        self.file_size = self.file['bytes']
+
+    def init_remote(self, remote_id):
+        self.remote_id = remote_id
+        self.remote = self.db[remote_id]
+
+    def execute(self, file_id, remote_id):
+        self.init_file(file_id)
+        self.init_remote(remote_id)
+
+
+
+class TransferManager(Manager):
+    def download(self, file_id, store_id):
+        key = download_key(file_id, store_id)
+        return self.start_job('DownloadWorker', key, file_id, store_id)
+
+    def upload(self, file_id, store_id):
+        key = upload_key(file_id, store_id)
+        return self.start_job('UploadWorker', key, file_id, store_id)

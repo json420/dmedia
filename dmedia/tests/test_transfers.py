@@ -26,8 +26,13 @@ Unit tests for `dmedia.transfers` module.
 from unittest import TestCase
 from os import urandom
 from base64 import b32encode
+from multiprocessing import current_process
+import time
 
-from dmedia import transfers
+from dmedia import transfers, schema, filestore
+
+from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves
+from .couch import CouchCase
 
 
 
@@ -225,3 +230,53 @@ class TestTransferBackend(TestCase):
             str(cm.exception),
             'TransferBackend.upload()'
         )
+
+
+class TestTransferWorker(CouchCase):
+    klass = transfers.TransferWorker
+
+    def setUp(self):
+        super(TestTransferWorker, self).setUp()
+        self.q = DummyQueue()
+        self.pid = current_process().pid
+
+    def new(self):
+        self.store_id = schema.random_id()
+        key = ('upload', mov_hash, self.store_id)
+        return self.klass(self.env, self.q, key, (mov_hash, self.store_id))
+
+    def test_init(self):
+        inst = self.new()
+        self.assertIsInstance(inst.filestore, filestore.FileStore)
+        self.assertEqual(inst.filestore.parent, self.env['filestore']['path'])
+        self.assertEqual(inst.filestore_id, self.env['filestore']['_id'])
+
+    def test_init_file(self):
+        inst = self.new()
+        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        self.assertEqual(doc['_id'], mov_hash)
+        inst.db.save(doc)
+        self.assertIsNone(inst.init_file(mov_hash))
+        self.assertEqual(inst.file_id, mov_hash)
+        self.assertEqual(
+            inst.file.pop('_attachments')['leaves']['data'],
+            doc.pop('_attachments')['leaves']['data']
+        )
+        self.assertEqual(inst.file, doc)
+        self.assertEqual(inst.file_size, mov_size)
+
+    def test_init_remote(self):
+        inst = self.new()
+        doc = {
+            '_id': self.store_id,
+            'ver': 0,
+            'type': 'dmedia/store',
+            'time': time.time(),
+            'plugin': 's3',
+            'copies': 3,
+            'bucket': 'stuff',
+        }
+        inst.db.save(doc)
+        self.assertIsNone(inst.init_remote(self.store_id))
+        self.assertEqual(inst.remote_id, self.store_id)
+        self.assertEqual(inst.remote, doc)
