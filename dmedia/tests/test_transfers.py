@@ -216,7 +216,7 @@ class TestTransferBackend(TestCase):
     def test_download(self):
         inst = self.klass({})
         with self.assertRaises(NotImplementedError) as cm:
-            inst.download('file doc', 'filestore')
+            inst.download('file doc', 'filestore', 'leaves')
         self.assertEqual(
             str(cm.exception),
             'TransferBackend.download()'
@@ -225,7 +225,7 @@ class TestTransferBackend(TestCase):
     def test_upload(self):
         inst = self.klass({})
         with self.assertRaises(NotImplementedError) as cm:
-            inst.upload('file doc', 'filestore')
+            inst.upload('file doc', 'filestore', 'leaves')
         self.assertEqual(
             str(cm.exception),
             'TransferBackend.upload()'
@@ -294,6 +294,7 @@ class TestTransferWorker(CouchCase):
         )
         self.assertEqual(inst.file, doc)
         self.assertEqual(inst.file_size, mov_size)
+        self.assertEqual(inst.leaves, mov_leaves)
 
     def test_init_file_bad(self):
         """
@@ -313,8 +314,7 @@ class TestTransferWorker(CouchCase):
         self.assertEqual(e.expected, mov_hash)
         self.assertEqual(e.size, mov_size + 1)
 
-
-    def test_init_execute(self):
+    def test_execute(self):
         inst = self.new()
 
         doc = schema.create_file(mov_size, mov_leaves, self.store_id)
@@ -346,6 +346,7 @@ class TestTransferWorker(CouchCase):
         )
         self.assertEqual(inst.file, doc)
         self.assertEqual(inst.file_size, mov_size)
+        self.assertEqual(inst.leaves, mov_leaves)
 
         self.assertEqual(
             self.q.messages,
@@ -430,6 +431,10 @@ class TestDownloadWorker(CouchCase):
         self.assertIsInstance(inst.backend, self.Backend)
         self.assertEqual(inst.backend.store, self.remote)
         self.assertEqual(inst.backend.callback, inst.on_progress)
+        self.assertEqual(
+            inst.backend._args,
+            (inst.file, inst.leaves, inst.filestore)
+        )
 
         self.assertEqual(
             self.q.messages,
@@ -495,6 +500,10 @@ class TestUploadWorker(CouchCase):
         self.assertIsInstance(inst.backend, self.Backend)
         self.assertEqual(inst.backend.store, self.remote)
         self.assertEqual(inst.backend.callback, inst.on_progress)
+        self.assertEqual(
+            inst.backend._args,
+            (inst.file, inst.leaves, inst.filestore)
+        )
 
         self.assertEqual(
             self.q.messages,

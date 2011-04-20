@@ -132,12 +132,12 @@ class TransferBackend(object):
         if self.callback is not None:
             self.callback(completed)
 
-    def download(self, doc, filestore):
+    def download(self, doc, leaves, filestore):
         raise NotImplementedError(
             '{}.download()'.format(self.__class__.__name__)
         )
 
-    def upload(self, doc, filestore):
+    def upload(self, doc, leaves, filestore):
         raise NotImplementedError(
             '{}.upload()'.format(self.__class__.__name__)
         )
@@ -156,14 +156,15 @@ class TransferWorker(CouchWorker):
         self.file_id = file_id
         self.file = self.db.get(file_id, attachments=True)
         self.file_size = self.file['bytes']
-        self.packed = b64decode(self.file['_attachments']['leaves']['data'])
+        packed = b64decode(self.file['_attachments']['leaves']['data'])
         h = tophash(self.file_size)
-        h.update(self.packed)
+        h.update(packed)
         got = b32encode(h.digest())
         if got != self.file_id:
             raise TopHashError(
                 got=got, expected=self.file_id, size=self.file_size
             )
+        self.leaves = unpack_leaves(packed)
 
     def init_remote(self, remote_id):
         self.remote_id = remote_id
@@ -185,13 +186,13 @@ class TransferWorker(CouchWorker):
 class DownloadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_downloader(self.remote, self.on_progress)
-        self.backend.download(self.file, self.filestore)
+        self.backend.download(self.file, self.leaves, self.filestore)
 
 
 class UploadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_uploader(self.remote, self.on_progress)
-        self.backend.upload(self.file, self.filestore)
+        self.backend.upload(self.file, self.leaves, self.filestore)
 
 
 class TransferManager(Manager):
