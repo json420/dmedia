@@ -47,6 +47,7 @@ class S3Backend(transfers.TransferBackend):
     """
     def setup(self):
         self.bucketname = self.store['bucket']
+        self.copies = self.store.get('copies', 2)
         self.include_ext = self.store.get('include_ext', False)
         self.keyid = os.environ['s3_keyid']  # FIXME
         self.secret = os.environ['s3_secret']  # FIXME
@@ -95,6 +96,7 @@ class S3Backend(transfers.TransferBackend):
             policy='public-read',
         )
         log.info('Uploaded %r to S3 bucket %r', key, self.bucketname)
+        return {'copies': self.copies, 'policy': 'public-read'}
 
     def download(self, doc, leaves, fs):
         """
@@ -109,13 +111,14 @@ class S3Backend(transfers.TransferBackend):
         log.info('Downloading %r from S3 bucket %r...', key, self.bucketname)
 
         k = self.bucket.get_key(self.key(chash, ext))
-        tmp_fp = fs.allocate_for_transfer(doc['size'], chash, ext)
+        tmp_fp = fs.allocate_for_transfer(doc['bytes'], chash, ext)
         k.get_file(tmp_fp,
-            cb=S3Progress(key, self.bucketname, 'Downloaded'),
+            cb=self.boto_callback,
+            num_cb=max(5, doc['bytes'] / LEAF_SIZE),
         )
         tmp_fp.close()
-        fs.tmp_verify_move(chash, ext)
         log.info('Downloaded %r from S3 bucket %r', key, self.bucketname)
+        return True
 
 
 transfers.register_uploader('s3', S3Backend)

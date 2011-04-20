@@ -25,6 +25,7 @@ Upload to and download from remote systems.
 
 import logging
 from base64 import b64decode, b32encode
+import time
 
 from . import workers
 from .workers import CouchWorker, Manager
@@ -206,13 +207,26 @@ class TransferWorker(CouchWorker):
 class DownloadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_downloader(self.remote, self.on_progress)
-        self.backend.download(self.file, self.leaves, self.filestore)
+        if self.backend.download(self.file, self.leaves, self.filestore):
+            self.filestore.tmp_verify_move(self.file_id, self.file.get('ext'))
+            self.file['stored'][self.filestore_id] = {
+                'copies': 1,
+                'time': time.time(),
+            }
+            self.db.save(self.file)
+
 
 
 class UploadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_uploader(self.remote, self.on_progress)
-        self.backend.upload(self.file, self.leaves, self.filestore)
+        d = self.backend.upload(self.file, self.leaves, self.filestore)
+        if d:
+            d['time'] = time.time()
+            if 'copies' not in d:
+                d['copies'] = 0
+            self.file['stored'][self.remote_id] = d
+            self.db.save(self.file)
 
 
 class TransferManager(Manager):
