@@ -146,12 +146,12 @@ class TestFunctions(TestCase):
 
         foo = f(doc, cb)
         self.assertIsInstance(foo, Example)
-        self.assertIs(foo.doc, doc)
+        self.assertIs(foo.store, doc)
         self.assertIs(foo.callback, cb)
 
         foo = f(doc)
         self.assertIsInstance(foo, Example)
-        self.assertIs(foo.doc, doc)
+        self.assertIs(foo.store, doc)
         self.assertIsNone(foo.callback)
 
     def test_get_downloader(self):
@@ -165,12 +165,12 @@ class TestFunctions(TestCase):
 
         foo = f(doc, cb)
         self.assertIsInstance(foo, Example)
-        self.assertIs(foo.doc, doc)
+        self.assertIs(foo.store, doc)
         self.assertIs(foo.callback, cb)
 
         foo = f(doc)
         self.assertIsInstance(foo, Example)
-        self.assertIs(foo.doc, doc)
+        self.assertIs(foo.store, doc)
         self.assertIsNone(foo.callback)
 
 
@@ -182,13 +182,13 @@ class TestTransferBackend(TestCase):
         cb = DummyProgress()
 
         inst = self.klass(doc)
-        self.assertIs(inst.doc, doc)
-        self.assertEqual(inst.doc, {'type': 'dmedia/store'})
+        self.assertIs(inst.store, doc)
+        self.assertEqual(inst.store, {'type': 'dmedia/store'})
         self.assertIsNone(inst.callback)
 
         inst = self.klass(doc, callback=cb)
-        self.assertIs(inst.doc, doc)
-        self.assertEqual(inst.doc, {'type': 'dmedia/store'})
+        self.assertIs(inst.store, doc)
+        self.assertEqual(inst.store, {'type': 'dmedia/store'})
         self.assertIs(inst.callback, cb)
 
         with self.assertRaises(TypeError) as cm:
@@ -313,6 +313,7 @@ class TestTransferWorker(CouchCase):
         inst.db.save(remote)
 
         self.assertFalse(hasattr(inst, 'transfer_called'))
+        self.assertEqual(self.q.messages, [])
         self.assertIsNone(inst.execute(mov_hash, self.store_id))
         self.assertTrue(inst.transfer_called)
 
@@ -327,6 +328,36 @@ class TestTransferWorker(CouchCase):
         self.assertEqual(inst.file, doc)
         self.assertEqual(inst.file_size, mov_size)
 
+        self.assertEqual(
+            self.q.messages,
+            [
+                dict(
+                    signal='started',
+                    args=(self.key,),
+                    worker='TransferWorker',
+                    pid=self.pid,
+                ),
+                dict(
+                    signal='progress',
+                    args=(self.key, 0, mov_size),
+                    worker='TransferWorker',
+                    pid=self.pid,
+                ),
+                dict(
+                    signal='progress',
+                    args=(self.key, mov_size, mov_size),
+                    worker='TransferWorker',
+                    pid=self.pid,
+                ),
+                dict(
+                    signal='finished',
+                    args=(self.key,),
+                    worker='TransferWorker',
+                    pid=self.pid,
+                ),
+            ]
+        )
+
 
 class TestDownloadWorker(CouchCase):
     klass = transfers.DownloadWorker
@@ -339,7 +370,10 @@ class TestDownloadWorker(CouchCase):
         transfers._downloaders.clear()
 
         class S3(transfers.TransferBackend):
-            pass
+            def download(self, *args):
+                self._args = args
+                self.callback(333)
+
 
         transfers.register_downloader('s3', S3)
         self.Backend = S3
@@ -375,22 +409,81 @@ class TestDownloadWorker(CouchCase):
 
         self.assertIsNone(inst.transfer())
         self.assertIsInstance(inst.backend, self.Backend)
-        self.assertEqual(inst.backend.doc, self.remote)
+        self.assertEqual(inst.backend.store, self.remote)
         self.assertEqual(inst.backend.callback, inst.on_progress)
 
         self.assertEqual(
             self.q.messages,
             [
                 dict(
-                    signal='started',
-                    args=(self.key,),
+                    signal='progress',
+                    args=(self.key, 333, mov_size),
                     worker='DownloadWorker',
                     pid=self.pid,
                 ),
+            ]
+        )
+
+
+class TestUploadWorker(CouchCase):
+    klass = transfers.UploadWorker
+
+    def setUp(self):
+        super(TestUploadWorker, self).setUp()
+        self.q = DummyQueue()
+        self.pid = current_process().pid
+        transfers._uploaders.clear()
+        transfers._downloaders.clear()
+
+        class S3(transfers.TransferBackend):
+            def upload(self, *args):
+                self._args = args
+                self.callback(444)
+
+        transfers.register_uploader('s3', S3)
+        self.Backend = S3
+
+    def new(self):
+        self.store_id = schema.random_id()
+
+        self.key = ('uploads', mov_hash)
+        inst = self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
+
+        self.file = schema.create_file(mov_size, mov_leaves, self.store_id)
+        inst.db.save(self.file)
+
+        self.remote = {
+            '_id': self.store_id,
+            'ver': 0,
+            'type': 'dmedia/store',
+            'time': time.time(),
+            'plugin': 's3',
+            'copies': 3,
+            'bucket': 'stuff',
+        }
+        inst.db.save(self.remote)
+
+        return inst
+
+    def test_transfer(self):
+        inst = self.new()
+        inst.init_file(mov_hash)
+        inst.init_remote(self.store_id)
+        self.assertEqual(self.q.messages, [])
+        self.assertFalse(hasattr(inst, 'backend'))
+
+        self.assertIsNone(inst.transfer())
+        self.assertIsInstance(inst.backend, self.Backend)
+        self.assertEqual(inst.backend.store, self.remote)
+        self.assertEqual(inst.backend.callback, inst.on_progress)
+
+        self.assertEqual(
+            self.q.messages,
+            [
                 dict(
                     signal='progress',
-                    args=(self.key, 0, mov_size),
-                    worker='DownloadWorker',
+                    args=(self.key, 444, mov_size),
+                    worker='UploadWorker',
                     pid=self.pid,
                 ),
             ]

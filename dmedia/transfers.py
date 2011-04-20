@@ -118,24 +118,24 @@ def get_downloader(doc, callback=None):
 
 
 class TransferBackend(object):
-    def __init__(self, doc, callback=None):
+    def __init__(self, store, callback=None):
         if not (callback is None or callable(callback)):
             raise TypeError(
                 'callback must be a callable; got {!r}'.format(callback)
             )
-        self.doc = doc
+        self.store = store
         self.callback = callback
 
     def progress(self, completed):
         if self.callback is not None:
             self.callback(completed)
 
-    def download(self, doc, fs):
+    def download(self, doc, filestore):
         raise NotImplementedError(
             '{}.download()'.format(self.__class__.__name__)
         )
 
-    def upload(self, doc, fs):
+    def upload(self, doc, filestore):
         raise NotImplementedError(
             '{}.upload()'.format(self.__class__.__name__)
         )
@@ -162,7 +162,11 @@ class TransferWorker(CouchWorker):
     def execute(self, file_id, remote_id):
         self.init_file(file_id)
         self.init_remote(remote_id)
+        self.emit('started')
+        self.emit('progress', 0, self.file_size)
         self.transfer()
+        self.emit('progress', self.file_size, self.file_size)
+        self.emit('finished')
 
     def transfer(self):
         self.transfer_called = True
@@ -171,15 +175,13 @@ class TransferWorker(CouchWorker):
 class DownloadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_downloader(self.remote, self.on_progress)
-        self.emit('started')
-        self.emit('progress', 0, self.file_size)
+        self.backend.download(self.file, self.filestore)
 
 
 class UploadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_uploader(self.remote, self.on_progress)
-        self.emit('started')
-
+        self.backend.upload(self.file, self.filestore)
 
 
 class TransferManager(Manager):
