@@ -29,7 +29,7 @@ from base64 import b32encode
 from multiprocessing import current_process
 import time
 
-from dmedia import transfers, schema, filestore
+from dmedia import transfers, schema, filestore, errors
 
 from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves
 from .couch import CouchCase
@@ -294,6 +294,25 @@ class TestTransferWorker(CouchCase):
         )
         self.assertEqual(inst.file, doc)
         self.assertEqual(inst.file_size, mov_size)
+
+    def test_init_file_bad(self):
+        """
+        Test with bad tophash = hash(bytes+leaf_hashes) relationship.
+        """
+        inst = self.new()
+        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        self.assertEqual(doc['_id'], mov_hash)
+        doc['bytes'] += 1
+        inst.db.save(doc)
+
+        with self.assertRaises(errors.TopHashError) as cm:
+            inst.init_file(mov_hash)
+
+        e = cm.exception
+        self.assertEqual(e.got, 'FWC4JXINQR2ZKVL3GYA3E5VQUWXLSOFK')
+        self.assertEqual(e.expected, mov_hash)
+        self.assertEqual(e.size, mov_size + 1)
+
 
     def test_init_execute(self):
         inst = self.new()

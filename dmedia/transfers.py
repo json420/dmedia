@@ -24,9 +24,11 @@ Upload to and download from remote systems.
 """
 
 import logging
+from base64 import b64decode, b32encode
 
 from .workers import CouchWorker, Manager
-from .filestore import FileStore
+from .filestore import FileStore, tophash, unpack_leaves
+from .errors import TopHashError
 
 
 log = logging.getLogger()
@@ -154,6 +156,14 @@ class TransferWorker(CouchWorker):
         self.file_id = file_id
         self.file = self.db.get(file_id, attachments=True)
         self.file_size = self.file['bytes']
+        self.packed = b64decode(self.file['_attachments']['leaves']['data'])
+        h = tophash(self.file_size)
+        h.update(self.packed)
+        got = b32encode(h.digest())
+        if got != self.file_id:
+            raise TopHashError(
+                got=got, expected=self.file_id, size=self.file_size
+            )
 
     def init_remote(self, remote_id):
         self.remote_id = remote_id

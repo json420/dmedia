@@ -68,3 +68,7 @@ class DownloadFailure(DmediaError):
 
 class IntegrityError(DmediaError):
     _format = 'got chash %(got)r; expected %(expected)r for %(filename)r'
+
+
+class TopHashError(DmediaError):
+    _format = 'got tophash %(got)r; expected %(expected)r (size: %(size)r bytes)'
