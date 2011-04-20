@@ -26,9 +26,11 @@ Upload to and download from remote systems.
 import logging
 from base64 import b64decode, b32encode
 
+from . import workers
 from .workers import CouchWorker, Manager
 from .filestore import FileStore, tophash, unpack_leaves
 from .errors import TopHashError
+
 
 
 log = logging.getLogger()
@@ -90,6 +92,7 @@ def register_uploader(name, backend):
         raise ValueError(
             'uploader {!r} exists, cannot register {!r}'.format(name, backend)
         )
+    log.info('Registering %r upload backend: %r', name, backend)
     _uploaders[name] = backend
 
 
@@ -104,18 +107,27 @@ def register_downloader(name, backend):
         raise ValueError(
             'downloader {!r} exists, cannot register {!r}'.format(name, backend)
         )
+    log.info('Registering %r download backend: %r', name, backend)
     _downloaders[name] = backend
 
 
 def get_uploader(doc, callback=None):
     name = doc['plugin']
-    klass = _uploaders[name]
+    try:
+        klass = _uploaders[name]
+    except KeyError as e:
+        log.error('no uploader backend for %r', name)
+        raise e
     return klass(doc, callback)
 
 
 def get_downloader(doc, callback=None):
     name = doc['plugin']
-    klass = _downloaders[name]
+    try:
+        klass = _downloaders[name]
+    except KeyError as e:
+        log.error('no downloader backend for %r', name)
+        raise e
     return klass(doc, callback)
 
 
@@ -127,6 +139,10 @@ class TransferBackend(object):
             )
         self.store = store
         self.callback = callback
+        self.setup()
+
+    def setup(self):
+        pass
 
     def progress(self, completed):
         if self.callback is not None:
@@ -141,6 +157,10 @@ class TransferBackend(object):
         raise NotImplementedError(
             '{}.upload()'.format(self.__class__.__name__)
         )
+
+
+class HTTPBackend(object):
+    pass
 
 
 class TransferWorker(CouchWorker):
@@ -196,6 +216,12 @@ class UploadWorker(TransferWorker):
 
 
 class TransferManager(Manager):
+    def __init__(self, env, callback=None):
+        super(TransferManager, self).__init__(env, callback)
+        for klass in (DownloadWorker, UploadWorker):
+            if not workers.isregistered(klass):
+                workers.register(klass)
+
     def download(self, file_id, store_id):
         key = download_key(file_id, store_id)
         return self.start_job('DownloadWorker', key, file_id, store_id)
@@ -203,3 +229,12 @@ class TransferManager(Manager):
     def upload(self, file_id, store_id):
         key = upload_key(file_id, store_id)
         return self.start_job('UploadWorker', key, file_id, store_id)
+
+    def on_started(self, key):
+        print('started: {!r}'.format(key))
+
+    def on_finished(self, key):
+        print('finished: {!r}'.format(key))
+
+    def on_progress(self, key, completed, total):
+        print('progress: {!r}, {!r}, {!r}'.format(key, completed, total))

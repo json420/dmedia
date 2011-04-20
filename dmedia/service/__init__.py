@@ -92,3 +92,11 @@ class DMedia(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def HasApp(self):
         return self._core.has_app()
+
+    @dbus.service.method(IFACE, in_signature='ss', out_signature='b')
+    def Upload(self, file_id, store_id):
+        return self._core.upload(str(file_id), str(store_id))
+
+    @dbus.service.method(IFACE, in_signature='ss', out_signature='b')
+    def Download(self, file_id, store_id):
+        return self._core.download(str(file_id), str(store_id))
