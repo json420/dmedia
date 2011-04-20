@@ -58,7 +58,7 @@ class TestFunctions(TestCase):
         store_id = random_id()
         self.assertEqual(
             transfers.download_key(file_id, store_id),
-            ('download', file_id)
+            ('downloads', file_id)
         )
 
     def test_upload_key(self):
@@ -66,7 +66,7 @@ class TestFunctions(TestCase):
         store_id = random_id()
         self.assertEqual(
             transfers.upload_key(file_id, store_id),
-            ('upload', file_id, store_id)
+            ('uploads', file_id, store_id)
         )
 
     def test_register_uploader(self):
@@ -242,8 +242,8 @@ class TestTransferWorker(CouchCase):
 
     def new(self):
         self.store_id = schema.random_id()
-        key = ('upload', mov_hash, self.store_id)
-        return self.klass(self.env, self.q, key, (mov_hash, self.store_id))
+        self.key = ('uploads', mov_hash, self.store_id)
+        return self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
 
     def test_init(self):
         inst = self.new()
@@ -280,3 +280,118 @@ class TestTransferWorker(CouchCase):
         self.assertIsNone(inst.init_remote(self.store_id))
         self.assertEqual(inst.remote_id, self.store_id)
         self.assertEqual(inst.remote, doc)
+
+    def test_init_file(self):
+        inst = self.new()
+        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        self.assertEqual(doc['_id'], mov_hash)
+        inst.db.save(doc)
+        self.assertIsNone(inst.init_file(mov_hash))
+        self.assertEqual(inst.file_id, mov_hash)
+        self.assertEqual(
+            inst.file.pop('_attachments')['leaves']['data'],
+            doc.pop('_attachments')['leaves']['data']
+        )
+        self.assertEqual(inst.file, doc)
+        self.assertEqual(inst.file_size, mov_size)
+
+    def test_init_execute(self):
+        inst = self.new()
+
+        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        inst.db.save(doc)
+
+        remote = {
+            '_id': self.store_id,
+            'ver': 0,
+            'type': 'dmedia/store',
+            'time': time.time(),
+            'plugin': 's3',
+            'copies': 3,
+            'bucket': 'stuff',
+        }
+        inst.db.save(remote)
+
+        self.assertFalse(hasattr(inst, 'transfer_called'))
+        self.assertIsNone(inst.execute(mov_hash, self.store_id))
+        self.assertTrue(inst.transfer_called)
+
+        self.assertEqual(inst.remote_id, self.store_id)
+        self.assertEqual(inst.remote, remote)
+
+        self.assertEqual(inst.file_id, mov_hash)
+        self.assertEqual(
+            inst.file.pop('_attachments')['leaves']['data'],
+            doc.pop('_attachments')['leaves']['data']
+        )
+        self.assertEqual(inst.file, doc)
+        self.assertEqual(inst.file_size, mov_size)
+
+
+class TestDownloadWorker(CouchCase):
+    klass = transfers.DownloadWorker
+
+    def setUp(self):
+        super(TestDownloadWorker, self).setUp()
+        self.q = DummyQueue()
+        self.pid = current_process().pid
+        transfers._uploaders.clear()
+        transfers._downloaders.clear()
+
+        class S3(transfers.TransferBackend):
+            pass
+
+        transfers.register_downloader('s3', S3)
+        self.Backend = S3
+
+    def new(self):
+        self.store_id = schema.random_id()
+
+        self.key = ('downloads', mov_hash)
+        inst = self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
+
+        self.file = schema.create_file(mov_size, mov_leaves, self.store_id)
+        inst.db.save(self.file)
+
+        self.remote = {
+            '_id': self.store_id,
+            'ver': 0,
+            'type': 'dmedia/store',
+            'time': time.time(),
+            'plugin': 's3',
+            'copies': 3,
+            'bucket': 'stuff',
+        }
+        inst.db.save(self.remote)
+
+        return inst
+
+    def test_transfer(self):
+        inst = self.new()
+        inst.init_file(mov_hash)
+        inst.init_remote(self.store_id)
+        self.assertEqual(self.q.messages, [])
+        self.assertFalse(hasattr(inst, 'backend'))
+
+        self.assertIsNone(inst.transfer())
+        self.assertIsInstance(inst.backend, self.Backend)
+        self.assertEqual(inst.backend.doc, self.remote)
+        self.assertEqual(inst.backend.callback, inst.on_progress)
+
+        self.assertEqual(
+            self.q.messages,
+            [
+                dict(
+                    signal='started',
+                    args=(self.key,),
+                    worker='DownloadWorker',
+                    pid=self.pid,
+                ),
+                dict(
+                    signal='progress',
+                    args=(self.key, 0, mov_size),
+                    worker='DownloadWorker',
+                    pid=self.pid,
+                ),
+            ]
+        )

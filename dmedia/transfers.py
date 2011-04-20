@@ -33,6 +33,8 @@ log = logging.getLogger()
 _uploaders = {}
 _downloaders = {}
 
+# Note: should probably export each download on the org.freedesktop.DMedia bus
+# at the object path /downloads/FILE_ID
 
 def download_key(file_id, store_id):
     """
@@ -41,7 +43,7 @@ def download_key(file_id, store_id):
     For example:
 
     >>> download_key('my_file_id', 'my_remote_store_id')
-    ('download', 'my_file_id')
+    ('downloads', 'my_file_id')
 
     Notice that the *store_id* isn't used in the single instance key.  This is
     because, for now, we only allow a file to be downloaded from one location at
@@ -51,8 +53,10 @@ def download_key(file_id, store_id):
     Note that this value isn't used in the dmedia schema or protocol, is only
     an internal implementation detail.
     """
-    return ('download', file_id)
+    return ('downloads', file_id)
 
+# Note: should probably export each upload on the org.freedesktop.DMedia bus
+# at the object path /uploads/FILE_ID/REMOTE_ID
 
 def upload_key(file_id, store_id):
     """
@@ -61,7 +65,7 @@ def upload_key(file_id, store_id):
     For example:
 
     >>> upload_key('my_file_id', 'my_remote_store_id')
-    ('upload', 'my_file_id', 'my_remote_store_id')
+    ('uploads', 'my_file_id', 'my_remote_store_id')
 
     Notice that both *file_id* and *store_id* are used in the single instance
     key.  This is because we allow a file to be uploading to multiple remote
@@ -70,7 +74,7 @@ def upload_key(file_id, store_id):
     Note that this value isn't used in the dmedia schema or protocol, is only
     an internal implementation detail.
     """
-    return ('upload', file_id, store_id)
+    return ('uploads', file_id, store_id)
 
 
 def register_uploader(name, backend):
@@ -158,6 +162,23 @@ class TransferWorker(CouchWorker):
     def execute(self, file_id, remote_id):
         self.init_file(file_id)
         self.init_remote(remote_id)
+        self.transfer()
+
+    def transfer(self):
+        self.transfer_called = True
+
+
+class DownloadWorker(TransferWorker):
+    def transfer(self):
+        self.backend = get_downloader(self.remote, self.on_progress)
+        self.emit('started')
+        self.emit('progress', 0, self.file_size)
+
+
+class UploadWorker(TransferWorker):
+    def transfer(self):
+        self.backend = get_uploader(self.remote, self.on_progress)
+        self.emit('started')
 
 
 
