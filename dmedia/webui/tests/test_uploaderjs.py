@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Test JavaScript included in dmedia.
+Test uploader.js JavaScript.
 """
 
 from base64 import b16encode, b32encode, b64encode

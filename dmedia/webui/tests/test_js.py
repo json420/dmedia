@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Unit tests for `dmedia.js` module.
+Unit tests for `base.js` module.
 """
 
 from unittest import TestCase
@@ -61,7 +61,7 @@ class test_ResultsApp(TestCase):
         q = DummyQueue()
         scripts = {
             'mootools.js': 'here be mootools',
-            'dmedia.js': 'here be dmedia',
+            'base.js': 'here be dmedia',
         }
         index = 'foo'
         inst = self.klass(q, scripts, index)
@@ -80,7 +80,7 @@ class test_ResultsApp(TestCase):
         q = DummyQueue()
         scripts = {
             'mootools.js': 'here be mootools',
-            'dmedia.js': 'here be dmedia',
+            'base.js': 'here be dmedia',
         }
         index = 'foo bar'
         inst = self.klass(q, scripts, index)
@@ -222,10 +222,10 @@ class test_ResultsApp(TestCase):
         )
         self.assertEqual(inst.q.messages, [('get', '/scripts/mootools.js')])
 
-        # /scripts/dmedia.js
+        # /scripts/base.js
         env = {
             'REQUEST_METHOD': 'GET',
-            'PATH_INFO': '/scripts/dmedia.js',
+            'PATH_INFO': '/scripts/base.js',
         }
         sr = StartResponse()
         self.assertEqual(inst(env, sr), 'here be dmedia')
@@ -241,7 +241,7 @@ class test_ResultsApp(TestCase):
             inst.q.messages,
             [
                 ('get', '/scripts/mootools.js'),
-                ('get', '/scripts/dmedia.js'),
+                ('get', '/scripts/base.js'),
             ]
         )
 
@@ -258,7 +258,7 @@ class test_ResultsApp(TestCase):
             inst.q.messages,
             [
                 ('get', '/scripts/mootools.js'),
-                ('get', '/scripts/dmedia.js'),
+                ('get', '/scripts/base.js'),
                 ('not_found', '/scripts/foo.js'),
             ]
         )
@@ -276,7 +276,7 @@ class test_ResultsApp(TestCase):
             inst.q.messages,
             [
                 ('get', '/scripts/mootools.js'),
-                ('get', '/scripts/dmedia.js'),
+                ('get', '/scripts/base.js'),
                 ('not_found', '/scripts/foo.js'),
                 ('not_found', '/mootools.js'),
             ]
@@ -289,7 +289,7 @@ expected = """
 <head>
 <title>Hello Naughty Nurse!</title>
 <script type="text/javascript">var foo = "bar";</script>
-<script type="text/javascript" src="/scripts/dmedia.js"></script>
+<script type="text/javascript" src="/scripts/base.js"></script>
 </head>
 <body onload="py.run()">
 <div id="example"></div>
@@ -305,13 +305,13 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(list(klass.load_scripts()), [])
         klass.js_files = (
             datafile('browser.js'),
-            datafile('dmedia.js'),
+            datafile('base.js'),
         )
         self.assertEqual(
             list(klass.load_scripts()),
             [
                 ('browser.js', load_data(datafile('browser.js'))),
-                ('dmedia.js', load_data(datafile('dmedia.js'))),
+                ('base.js', load_data(datafile('base.js'))),
             ]
         )
 
@@ -346,6 +346,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.build_data(),
             {
+                'className': 'test_JSTestCase',
                 'methodName': 'test_build_data',
                 'assertMethods': js.METHODS,
             }
@@ -353,6 +354,7 @@ class test_JSTestCase(js.JSTestCase):
         self.assertEqual(
             self.build_data(foo='bar', stuff=17),
             {
+                'className': 'test_JSTestCase',
                 'methodName': 'test_build_data',
                 'assertMethods': js.METHODS,
                 'foo': 'bar',
@@ -363,6 +365,7 @@ class test_JSTestCase(js.JSTestCase):
     def test_build_js_inline(self):
         self.assertEqual(self.title, 'test_JSTestCase.test_build_js_inline')
         data = {
+            'className': 'test_JSTestCase',
             'methodName': 'test_build_js_inline',
             'assertMethods': js.METHODS,
         }
@@ -378,7 +381,7 @@ class test_JSTestCase(js.JSTestCase):
         kw = dict(
             title='Hello Naughty Nurse!',
             js_inline='var foo = "bar";',
-            js_links=['/scripts/dmedia.js'],
+            js_links=['/scripts/base.js'],
         )
         self.assertMultiLineEqual(self.render(**kw), expected)
 

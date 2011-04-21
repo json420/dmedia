@@ -51,6 +51,71 @@ couch.errors = {
     417: 'ExpectationFailed',
 }
 
+
+couch.CouchRequest = function(Request) {
+    var Request = Request || XMLHttpRequest;
+    this.req = new Request();
+}
+couch.CouchRequest.prototype = {
+
+    on_readystatechange: function() {
+        if (this.req.readyState == 4) {
+            this.callback(this);
+        }
+    },
+
+    request: function(method, url, obj) {
+        this.do_request(false, method, url, obj);
+    },
+
+    async_request: function(callback, method, url, obj) {
+        this.callback = callback;
+        var self = this;
+        this.req.onreadystatechange = function() {
+            self.on_readystatechange();
+        }
+        this.do_request(true, method, url, obj);
+    },
+
+    do_request: function(async, method, url, obj) {
+        this.req.open(method, url, async);
+        this.req.setRequestHeader('Accept', 'application/json');
+        if (method == 'POST' || method == 'PUT') {
+            this.req.setRequestHeader('Content-Type', 'application/json');
+            if (obj) {
+                this.req.send(JSON.stringify(obj));
+            }
+            else {
+                this.req.send();
+            }
+        }
+        else {
+            this.req.send();
+        }
+    },
+
+    read: function() {
+        if (!this.req.status) {
+            throw 'RequestError';
+        }
+        if (this.req.status >= 500) {
+            throw 'ServerError';
+        }
+        if (this.req.status >= 400) {
+            var error = couch.errors[this.req.status];
+            if (error) {
+                throw error;
+            }
+            throw 'ClientError';
+        }
+        if (this.req.getResponseHeader('Content-Type') == 'application/json') {
+            return JSON.parse(this.req.responseText);
+        }
+        return this.req.responseText;
+    },
+}
+
+
 // microfiber.CouchBase
 couch.CouchBase = function(url, Request) {
     this.url = url || '/';
@@ -93,6 +158,9 @@ couch.CouchBase.prototype = {
             for (key in options) {
                 keys.push(key);
             }
+            if (keys.length == 0) {
+                return url;
+            }
             keys.sort();
             var query = [];
             keys.forEach(function(key) {
@@ -113,47 +181,16 @@ couch.CouchBase.prototype = {
 
     request: function(method, obj, parts, options) {
         var url = this.path(parts, options);
-        this.req = new this.Request();
-        this.req.open(method, url, false);
-        this.req.setRequestHeader('Accept', 'application/json');
-        if (method == 'POST' || method == 'PUT') {
-            this.req.setRequestHeader('Content-Type', 'application/json');
-        }
-        if (obj) {
-            this.req.send(JSON.stringify(obj));
-        }
-        else {
-            this.req.send();
-        }
-        if (this.req.status >= 500) {
-            throw 'ServerError';
-        }
-        if (this.req.status >= 400) {
-            var error = couch.errors[this.req.status];
-            if (error) {
-                throw error;
-            }
-            throw 'ClientError';
-        }
-        var mime = this.req.getResponseHeader('Content-Type');
-        if (mime == 'application/json') {
-            return JSON.parse(this.req.responseText);
-        }
+        this.req = new couch.CouchRequest(this.Request);
+        this.req.request(method, url, obj);
+        return this.req.read();
     },
 
-    post: function(obj, parts, options) {
-        /*
-        Do a POST request.
-
-        Examples:
-
-        var cb = new couch.CouchBase('/');
-        cb.post(null, ['foo', '_compact']);  # compact db /foo
-        cb.post({_id: 'bar'}, 'foo');  # create doc /foo/bar
-        cb.post({_id: 'baz'}, 'foo', {batch: true});  # with query option
-
-        */
-        return this.request('POST', obj, parts, options);
+    async_request: function(callback, method, obj, parts, options) {
+        var url = this.path(parts, options);
+        var req = new couch.CouchRequest(this.Request);
+        req.async_request(callback, method, url, obj);
+        return req;
     },
 
     put: function(obj, parts, options) {
@@ -169,6 +206,21 @@ couch.CouchBase.prototype = {
 
         */
         return this.request('PUT', obj, parts, options);
+    },
+
+    post: function(obj, parts, options) {
+        /*
+        Do a POST request.
+
+        Examples:
+
+        var cb = new couch.CouchBase('/');
+        cb.post(null, ['foo', '_compact']);  # compact db /foo
+        cb.post({_id: 'bar'}, 'foo');  # create doc /foo/bar
+        cb.post({_id: 'baz'}, 'foo', {batch: true});  # with query option
+
+        */
+        return this.request('POST', obj, parts, options);
     },
 
     get: function(parts, options) {

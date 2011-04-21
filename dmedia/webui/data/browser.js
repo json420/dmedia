@@ -1,50 +1,5 @@
 "use strict";
 
-function $(id) {
-    /*
-    Return the element with id="id".
-
-    If id is an Element, it is returned unchanged.
-
-    Examples:
-
-    >>> $('browser');
-    <div id="browser" class="box">
-    >>> var el = $('browser');
-    undefined
-    >>> $(el);
-    <div id="browser" class="box">
-
-    */
-    if (id instanceof Element) {
-        return id;
-    }
-    return document.getElementById(id);
-}
-
-
-function $el(tag, attributes) {
-    /*
-    Convenience function to create a new DOM element and set its attributes.
-
-    Examples:
-
-    >>> $el('img');
-    <img>
-    >>> $el('img', {'class': 'thumbnail', 'src': 'foo.png'});
-    <img class="thumbnail" src="foo.png">
-
-    */
-    var el = document.createElement(tag);
-    if (attributes) {
-        var key;
-        for (key in attributes) {
-            el.setAttribute(key, attributes[key]);
-        }
-    }
-    return el;
-}
-
 
 function Browser(id, db) {
     this.el = $(id);

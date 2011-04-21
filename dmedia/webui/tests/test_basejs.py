@@ -20,19 +20,50 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Test the browser.js JavaScript.
+Test the base.js JavaScript.
 """
 
 from dmedia.webui.js import JSTestCase
 from dmedia.webui.util import datafile
 
-class TestBrowser(JSTestCase):
+class TestFunctions(JSTestCase):
     js_files = (
-        datafile('couch.js'),
         datafile('base.js'),
-        datafile('browser.js'),
-        datafile('test_browser.js'),
+        datafile('test_base.js'),
     )
 
-    def test_init(self):
+    def test_dollar(self):
+        """
+        Test the $() JavaScript function.
+        """
+        self.run_js()
+
+    def test_dollar_el(self):
+        """
+        Test the $el() JavaScript function.
+        """
+        self.run_js()
+
+    def test_dollar_replace(self):
+        """
+        Test the $replace() JavaScript function.
+        """
+        self.run_js()
+
+    def test_dollar_hide(self):
+        """
+        Test the $hide() JavaScript function.
+        """
+        self.run_js()
+
+    def test_dollar_show(self):
+        """
+        Test the $show() JavaScript function.
+        """
+        self.run_js()
+
+    def test_minsec(self):
+        self.run_js()
+
+    def test_todata(self):
         self.run_js()
