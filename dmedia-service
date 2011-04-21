@@ -36,6 +36,11 @@ parser = argparse.ArgumentParser(
     description='DBus service @{}'.format(BUS),
 )
 parser.add_argument('--version', action='version', version=dmedia.__version__)
+parser.add_argument('--app',
+    action='store_true',
+    default=False,
+    help='prepare webUI files immediately (in-tree testing)',
+)
 parser.add_argument('--no-dc',
     action='store_true',
     default=False,
@@ -69,4 +74,6 @@ from dmedia.service import DMedia
 mainloop = GObject.MainLoop()
 couchargs = (args.dbname, args.no_dc, args.env)
 obj = DMedia(couchargs, args.bus, mainloop.quit, start=time.time())
+if args.app:
+    print('HasApp(): {!r}'.format(obj.HasApp()))
 mainloop.run()

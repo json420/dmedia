@@ -56,10 +56,12 @@ something like this:
 
     ::
 
-        py.test_bar = function() {
-            py.assertEqual(bar(), 'My JS unit testing is awesome');
-            py.assertNotEqual(bar(), 'My JS unit testing is lame');
-        };
+        py.TestFoo = {
+            test_bar: function() {
+                py.assertEqual(bar(), 'My JS unit testing is awesome');
+                py.assertNotEqual(bar(), 'My JS unit testing is lame');
+            },
+        }
 
 
 When you call, say, ``py.assertEqual()`` from your JavaScript test, the test
@@ -160,13 +162,7 @@ When you call `JSTestCase.run_js()`, the following happens:
 
 FIXME:
 
-    1. So that tests can be better organized and mirror how the Python tests are
-       arranged, we should call by class name and method name, ie self.run_js()
-       calls the JavaScript function:
-
-       ``py.ClassName.method_name()``
-
-    2. Need to be able to supply arbitrary files to ResultsApp so tests can GET
+    1. Need to be able to supply arbitrary files to ResultsApp so tests can GET
        these files... this is especially important for testing on binary data,
        which we can't directly make available to JavaScript.  We can borrow code
        from test-server.py, which already makes this totally generic.
@@ -425,8 +421,25 @@ class JSTestCase(TestCase):
         run: function() {
             try {
                 py.init();
-                var method = py[py.data.methodName];
-                method();
+                var className = py.data.className;
+                var obj = py[className];
+                if (!obj) {
+                    py.post('/error',
+                        'Missing class ' + ['py', className].join('.')
+                    );
+                }
+                else {
+                    var methodName = py.data.methodName;
+                    var method = obj[methodName];
+                    if (!method) {
+                        py.post('/error',
+                            'Missing method ' + ['py', className, methodName].join('.')
+                        );
+                    }
+                    else {
+                        method();
+                    }
+                }
             }
             catch (e) {
                 py.post('/error', e);
@@ -469,6 +482,7 @@ class JSTestCase(TestCase):
 
     def build_data(self, **extra):
         data = {
+            'className': self.__class__.__name__,
             'methodName': self._testMethodName,
             'assertMethods': METHODS,
         }

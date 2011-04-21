@@ -28,6 +28,35 @@ from gettext import gettext as _
 from . import base
 
 
+class Inbox(base.Page):
+    title = _('Imports Inbox')
+    body = ('inbox.xml', None)
+
+    css = (
+        ('base.css', None),
+    )
+
+    js = (
+        ('couch.js', None),
+        ('base.js', None),
+        ('inbox.js', None),
+    )
+
+    def get_inline_data(self):
+        return {
+            'meta': [
+                dict(label=_('File Name'), name='name'),
+                dict(label=_('ISO'), name='iso'),
+                dict(label=_('Aperture'), name='aperture'),
+                dict(label=_('Shutter'), name='shutter'),
+                dict(label=_('Focal Length'), name='focal_length'),
+                dict(label=_('Lens'), name='lens'),
+                dict(label=_('Camera'), name='camera'),
+            ],
+        }
+
+
+
 class Browser(base.Page):
     title = 'DMedia Browser'
     body = ('browser.xml', None)
@@ -38,6 +67,7 @@ class Browser(base.Page):
 
     js = (
         ('couch.js', None),
+        ('base.js', None),
         ('browser.js', None),
     )
 
@@ -59,5 +89,6 @@ class Browser(base.Page):
             ],
         }
 
+
 class App(base.App):
-    pages = [Browser]
+    pages = [Browser, Inbox]

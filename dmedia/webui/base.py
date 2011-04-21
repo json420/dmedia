@@ -25,7 +25,7 @@ Base class for Pages and Apps.
 
 from base64 import b64encode
 
-from util import datafile, load_data, load_template
+from util import datafile, load_data, load_template, render_var
 
 typemap = {
     'js': 'application/javascript; charset=UTF-8',
@@ -131,7 +131,7 @@ class Page(object):
 
     # JavaScript:
     js = (
-        ('dmedia.js', None),
+        ('couch.js', None),
     )
     inline_js = None
 
@@ -145,6 +145,7 @@ class Page(object):
             title=self.title,
             css=self.get_css(),
             inline_css=self.get_inline_css(),
+            inline_data=render_var('data', self.get_inline_data(), indent=4),
             js=self.get_js(),
             inline_js=self.get_inline_js(),
             body=body.generate(**self.get_body_vars()),
@@ -173,6 +174,9 @@ class Page(object):
 
     def get_inline_js(self):
         return self.inline_js
+
+    def get_inline_data(self):
+        return {}
 
     def get_body_vars(self):
         return {}

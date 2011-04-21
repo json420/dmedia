@@ -184,6 +184,36 @@ function(doc) {
 }
 """
 
+user_inbox = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.status == null) {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
+user_reject = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.status == 'reject') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
+user_keep = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.status == 'keep') {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
 
 designs = (
     ('type', (
@@ -215,6 +245,11 @@ designs = (
         ('video', user_video, None),
         ('image', user_image, None),
         ('audio', user_audio, None),
+
+        # Inbox workflow
+        ('inbox', user_inbox, _count),
+        ('reject', user_reject, _count),
+        ('keep', user_keep, _count),
     )),
 )
 
