@@ -47,10 +47,8 @@ class S3Backend(transfers.TransferBackend):
     """
     def setup(self):
         self.bucketname = self.store['bucket']
-        self.copies = self.store.get('copies', 2)
-        self.include_ext = self.store.get('include_ext', False)
-        self.keyid = os.environ['s3_keyid']  # FIXME
-        self.secret = os.environ['s3_secret']  # FIXME
+        self.keyid = os.environ.get('s3_keyid')  # FIXME
+        self.secret = os.environ.get('s3_secret')  # FIXME
         self._bucket = None
 
     def key(self, chash, ext=None):

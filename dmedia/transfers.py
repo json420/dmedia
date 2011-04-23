@@ -139,8 +139,14 @@ class TransferBackend(object):
                 'callback must be a callable; got {!r}'.format(callback)
             )
         self.store = store
+        self.store_id = store.get('_id')
+        self.copies = store.get('copies', 0)
+        self.include_ext = store.get('include_ext', False)
         self.callback = callback
         self.setup()
+
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.store_id)
 
     def setup(self):
         pass

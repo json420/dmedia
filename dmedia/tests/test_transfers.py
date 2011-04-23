@@ -178,17 +178,19 @@ class TestTransferBackend(TestCase):
     klass = transfers.TransferBackend
 
     def test_init(self):
-        doc = {'type': 'dmedia/store'}
+        doc = {'_id': 'foo', 'type': 'dmedia/store'}
         cb = DummyProgress()
 
         inst = self.klass(doc)
         self.assertIs(inst.store, doc)
-        self.assertEqual(inst.store, {'type': 'dmedia/store'})
+        self.assertEqual(inst.store, {'_id': 'foo', 'type': 'dmedia/store'})
+        self.assertEqual(inst.store_id, 'foo')
         self.assertIsNone(inst.callback)
 
         inst = self.klass(doc, callback=cb)
         self.assertIs(inst.store, doc)
-        self.assertEqual(inst.store, {'type': 'dmedia/store'})
+        self.assertEqual(inst.store, {'_id': 'foo', 'type': 'dmedia/store'})
+        self.assertEqual(inst.store_id, 'foo')
         self.assertIs(inst.callback, cb)
 
         with self.assertRaises(TypeError) as cm:
@@ -197,6 +199,28 @@ class TestTransferBackend(TestCase):
             str(cm.exception),
             'callback must be a callable; got {!r}'.format(17)
         )
+
+        # Test defaults:
+        inst = self.klass({})
+        self.assertIsNone(inst.store_id)
+        self.assertEqual(inst.copies, 0)
+        self.assertIs(inst.include_ext, False)
+
+        # Test provided values:
+        inst = self.klass({'_id': 'bar', 'copies': 2, 'include_ext': True})
+        self.assertEqual(inst.store_id, 'bar')
+        self.assertEqual(inst.copies, 2)
+        self.assertIs(inst.include_ext, True)
+
+    def test_repr(self):
+        inst = self.klass({'_id': 'foobar'})
+        self.assertEqual(repr(inst), "TransferBackend('foobar')")
+
+        class ExampleBackend(self.klass):
+            pass
+
+        inst = ExampleBackend({'_id': 'hellonaughtynurse'})
+        self.assertEqual(repr(inst), "ExampleBackend('hellonaughtynurse')")
 
     def test_progress(self):
         # Test with a callback
