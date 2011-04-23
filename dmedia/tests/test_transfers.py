@@ -24,12 +24,15 @@ Unit tests for `dmedia.transfers` module.
 """
 
 from unittest import TestCase
+from hashlib import sha1
 from os import urandom
 from base64 import b32encode
 from multiprocessing import current_process
 import time
+import httplib
 
 from dmedia import transfers, schema, filestore, errors
+from dmedia.errors import DownloadFailure, DuplicateFile, IntegrityError
 
 from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves, raises
 from .couch import CouchCase
@@ -40,12 +43,25 @@ def random_id(blocks=3):
     return b32encode(urandom(5 * blocks))
 
 
+def b32hash(chunk):
+    return b32encode(sha1(chunk).digest())
+
+
 class DummyProgress(object):
     def __init__(self):
         self._calls = []
 
     def __call__(self, completed):
         self._calls.append(completed)
+
+
+class DummyFP(object):
+    _chunk = None
+
+    def write(self, chunk):
+        assert chunk is not None
+        assert self._chunk is None
+        self._chunk = chunk
 
 
 class TestFunctions(TestCase):
@@ -329,6 +345,92 @@ class TestTransferBackend(TestCase):
             str(cm.exception),
             'TransferBackend.upload()'
         )
+
+
+class TestHTTPBackend(TestCase):
+    """
+    Test the `dmedia.transfers.TransferBackend` class.
+    """
+    klass = transfers.HTTPBackend
+
+    def test_init(self):
+        url = 'https://foo.s3.amazonaws.com/'
+        inst = self.klass({'url': url})
+        self.assertEqual(inst.url, url)
+        self.assertEqual(inst.basepath, '/')
+        self.assertEqual(
+            inst.t,
+            ('https', 'foo.s3.amazonaws.com', '/', '', '', '')
+        )
+
+        url = 'http://example.com/bar'
+        inst = self.klass({'url': url})
+        self.assertEqual(inst.url, url)
+        self.assertEqual(inst.basepath, '/bar/')
+        self.assertEqual(
+            inst.t,
+            ('http', 'example.com', '/bar', '', '', '')
+        )
+
+        with self.assertRaises(ValueError) as cm:
+            inst = self.klass({'url': 'ftp://example.com/'})
+        self.assertEqual(
+            str(cm.exception),
+            "url scheme must be http or https; got 'ftp://example.com/'"
+        )
+
+        with self.assertRaises(ValueError) as cm:
+            inst = self.klass({'url': 'http:example.com/bar'})
+        self.assertEqual(
+            str(cm.exception),
+            "bad url: 'http:example.com/bar'"
+        )
+
+    def test_conn(self):
+        inst = self.klass({'url': 'http://foo.com/bar'})
+        conn = inst.conn()
+        self.assertIsInstance(conn, httplib.HTTPConnection)
+        self.assertNotIsInstance(conn, httplib.HTTPSConnection)
+
+        inst = self.klass({'url': 'https://foo.com/bar'})
+        conn = inst.conn()
+        self.assertIsInstance(conn, httplib.HTTPSConnection)
+
+    def test_process_leaf(self):
+        a = 'a' * 1024
+        b = 'b' * 1024
+        a_hash = b32hash(a)
+        b_hash = b32hash(b)
+
+        class Example(self.klass):
+            def __init__(self, *chunks):
+                self._chunks = chunks
+                self._i = 0
+                self.dst_fp = DummyFP()
+
+            def download_leaf(self, i):
+                assert i == 7
+                chunk = self._chunks[self._i]
+                self._i += 1
+                return chunk
+
+        # Test that DownloadFailure is raised after 3 attempts
+        inst = Example(b, b, b, a)
+        e = raises(DownloadFailure, inst.process_leaf, 7, a_hash)
+        self.assertEqual(e.leaf, 7)
+        self.assertEqual(e.expected, a_hash)
+        self.assertEqual(e.got, b_hash)
+
+        # Test that it will try 3 times:
+        inst = Example(b, b, a)
+        self.assertEqual(inst.process_leaf(7, a_hash), a)
+        self.assertEqual(inst.dst_fp._chunk, a)
+
+        # Test that it will return first correct response:
+        inst = Example(a, b, b)
+        self.assertEqual(inst.process_leaf(7, a_hash), a)
+        self.assertEqual(inst.dst_fp._chunk, a)
+
 
 
 class TestTransferWorker(CouchCase):

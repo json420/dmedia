@@ -25,15 +25,21 @@ Upload to and download from remote systems.
 
 import logging
 from base64 import b64decode, b32encode
+from hashlib import sha1
 import time
+from urlparse import urlparse
+from httplib import HTTPConnection, HTTPSConnection
 
+from . import __version__
 from . import workers
 from .workers import CouchWorker, Manager
+from .errors import DownloadFailure
+from .constants import LEAF_SIZE
 from .filestore import FileStore, tophash, unpack_leaves
 from .errors import TopHashError
 
 
-
+USER_AGENT = 'dmedia %s' % __version__
 log = logging.getLogger()
 _uploaders = {}
 _downloaders = {}
@@ -208,7 +214,6 @@ def range_request(i, leaf_size, file_size):
     return bytes_range(start, stop)
 
 
-
 class TransferBackend(object):
     def __init__(self, store, callback=None):
         if not (callback is None or callable(callback)):
@@ -279,23 +284,28 @@ class TransferBackend(object):
 
 
 class HTTPBackend(TransferBackend):
-    def __init__(self, dst_fp, url, leaves, leaf_size, file_size):
-        self.dst_fp = dst_fp
-        self.url = url
-        self.c = urlparse(url)
-        if self.c.scheme not in ('http', 'https'):
-            raise ValueError('url scheme must be http or https; got %r' % url)
-        self.leaves = leaves
-        self.leaf_size = leaf_size
-        self.file_size = file_size
+    """
+    Backend for downloading using HTTP.
+    """
+
+    def setup(self):
+        self.url = self.store['url']
+        t = urlparse(self.url)
+        if t.scheme not in ('http', 'https'):
+            raise ValueError(
+                'url scheme must be http or https; got {!r}'.format(self.url)
+            )
+        if not t.netloc:
+            raise ValueError('bad url: {!r}'.format(self.url))
+        self.basepath = (t.path if t.path.endswith('/') else t.path + '/')
+        self.t = t
 
     def conn(self):
         """
         Return new connection instance.
         """
-        klass = (HTTPConnection if self.c.scheme == 'http' else HTTPSConnection)
-        conn = klass(self.c.netloc, strict=True)
-        conn.set_debuglevel(1)
+        klass = (HTTPConnection if self.t.scheme == 'http' else HTTPSConnection)
+        conn = klass(self.t.netloc, strict=True)
         return conn
 
     def download_leaf(self, i):
