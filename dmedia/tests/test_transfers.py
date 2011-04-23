@@ -231,13 +231,19 @@ class TestTransferBackend(TestCase):
         inst = self.klass({})
         self.assertIsNone(inst.store_id)
         self.assertEqual(inst.copies, 0)
-        self.assertIs(inst.include_ext, False)
+        self.assertIs(inst.use_ext, False)
+        self.assertIs(inst.use_subdir, False)
 
         # Test provided values:
-        inst = self.klass({'_id': 'bar', 'copies': 2, 'include_ext': True})
+        inst = self.klass({'_id': 'bar', 'copies': 2,
+                'use_ext': True,
+                'use_subdir': True,
+            }
+        )
         self.assertEqual(inst.store_id, 'bar')
         self.assertEqual(inst.copies, 2)
-        self.assertIs(inst.include_ext, True)
+        self.assertIs(inst.use_ext, True)
+        self.assertIs(inst.use_subdir, True)
 
     def test_repr(self):
         inst = self.klass({'_id': 'foobar'})
@@ -248,6 +254,48 @@ class TestTransferBackend(TestCase):
 
         inst = ExampleBackend({'_id': 'hellonaughtynurse'})
         self.assertEqual(repr(inst), "ExampleBackend('hellonaughtynurse')")
+
+    def test_key(self):
+
+        inst = self.klass({})
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
+            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov'),
+            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+
+        inst = self.klass({'use_ext': True})
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
+            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov'),
+            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+        )
+
+        inst = self.klass({'use_subdir': True})
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
+            'ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov'),
+            'ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+
+        inst = self.klass({'use_subdir': True, 'use_ext': True})
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
+            'ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O'
+        )
+        self.assertEqual(
+            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', 'mov'),
+            'ZR/765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
+        )
 
     def test_progress(self):
         # Test with a callback

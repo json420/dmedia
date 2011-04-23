@@ -40,37 +40,6 @@ class TestS3Backend(TestCase):
         inst = self.klass({'_id': 'foo', 'bucket': 'bar'})
         self.assertEqual(repr(inst), "S3Backend('foo')")
 
-    def test_key(self):
-        # Test with include_ext = False
-        inst = self.klass({'_id': 'foo', 'bucket': 'bar'})
-        self.assertEqual(
-            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
-            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
-        )
-        self.assertEqual(
-            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext=None),
-            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
-        )
-        self.assertEqual(
-            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext='mov'),
-            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
-        )
-
-        # Test with include_ext = True
-        inst = self.klass({'_id': 'foo', 'bucket': 'bar', 'include_ext': True})
-        self.assertEqual(
-            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'),
-            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
-        )
-        self.assertEqual(
-            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext=None),
-            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
-        )
-        self.assertEqual(
-            inst.key('ZR765XWSF6S7JQHLUI4GCG5BHGPE252O', ext='mov'),
-            'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O.mov'
-        )
-
     def test_bucket(self):
         inst = self.klass({'_id': 'foo', 'bucket': 'bar'})
         inst._bucket = 'whatever'

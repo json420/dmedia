@@ -218,7 +218,8 @@ class TransferBackend(object):
         self.store = store
         self.store_id = store.get('_id')
         self.copies = store.get('copies', 0)
-        self.include_ext = store.get('include_ext', False)
+        self.use_ext = store.get('use_ext', False)
+        self.use_subdir = store.get('use_subdir', False)
         self.callback = callback
         self.setup()
 
@@ -227,6 +228,40 @@ class TransferBackend(object):
 
     def setup(self):
         pass
+
+    def key(self, chash, ext=None):
+        """
+        Return key or relative URL for file with *chash* and *ext*.
+
+        By default, *chash* is returned:
+
+        >>> b = TransferBackend({})
+        >>> b.key('XT42VK43OILRGUOY3BKJZTIG7HP4ZBJY', ext='mov')
+        'XT42VK43OILRGUOY3BKJZTIG7HP4ZBJY'
+
+        Optionally, a store can be configured to include the file extension:
+
+        >>> b = TransferBackend({'use_ext': True})
+        >>> b.key('XT42VK43OILRGUOY3BKJZTIG7HP4ZBJY', ext='mov')
+        'XT42VK43OILRGUOY3BKJZTIG7HP4ZBJY.mov'
+
+        Or configured to use a subdirectory layout like `FileStore`:
+
+        >>> b = TransferBackend({'use_subdir': True})
+        >>> b.key('XT42VK43OILRGUOY3BKJZTIG7HP4ZBJY', ext='mov')
+        'XT/42VK43OILRGUOY3BKJZTIG7HP4ZBJY'
+
+        Or configured both to have subdirectory and include extension:
+
+        >>> b = TransferBackend({'use_subdir': True, 'use_ext': True})
+        >>> b.key('XT42VK43OILRGUOY3BKJZTIG7HP4ZBJY', ext='mov')
+        'XT/42VK43OILRGUOY3BKJZTIG7HP4ZBJY.mov'
+
+        """
+        key = ('/'.join([chash[:2], chash[2:]]) if self.use_subdir else chash)
+        if ext and self.use_ext:
+            return '.'.join([key, ext])
+        return key
 
     def progress(self, completed):
         if self.callback is not None:
@@ -243,8 +278,49 @@ class TransferBackend(object):
         )
 
 
-class HTTPBackend(object):
-    pass
+class HTTPBackend(TransferBackend):
+    def __init__(self, dst_fp, url, leaves, leaf_size, file_size):
+        self.dst_fp = dst_fp
+        self.url = url
+        self.c = urlparse(url)
+        if self.c.scheme not in ('http', 'https'):
+            raise ValueError('url scheme must be http or https; got %r' % url)
+        self.leaves = leaves
+        self.leaf_size = leaf_size
+        self.file_size = file_size
+
+    def conn(self):
+        """
+        Return new connection instance.
+        """
+        klass = (HTTPConnection if self.c.scheme == 'http' else HTTPSConnection)
+        conn = klass(self.c.netloc, strict=True)
+        conn.set_debuglevel(1)
+        return conn
+
+    def download_leaf(self, i):
+        conn = self.conn()
+        headers = {
+            'User-Agent': USER_AGENT,
+            'Range': range_request(i, self.leaf_size, self.file_size),
+        }
+        conn.request('GET', self.url, headers=headers)
+        response = conn.getresponse()
+        return response.read()
+
+    def process_leaf(self, i, expected):
+        for r in xrange(3):
+            chunk = self.download_leaf(i)
+            got = b32encode(sha1(chunk).digest())
+            if got == expected:
+                self.dst_fp.write(chunk)
+                return chunk
+            log.warning('leaf %d expected %r; got %r', i, expected, got)
+        raise DownloadFailure(leaf=i, expected=expected, got=got)
+
+    def run(self):
+        for (i, chash) in enumerate(self.leaves):
+            self.process_leaf(i, chash)
 
 
 class TransferWorker(CouchWorker):

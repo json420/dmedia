@@ -51,11 +51,6 @@ class S3Backend(transfers.TransferBackend):
         self.secret = os.environ.get('s3_secret')  # FIXME
         self._bucket = None
 
-    def key(self, chash, ext=None):
-        if ext and self.include_ext:
-            return '.'.join([chash, ext])
-        return chash
-
     @property
     def bucket(self):
         """
