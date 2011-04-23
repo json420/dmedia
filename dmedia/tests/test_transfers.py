@@ -31,7 +31,7 @@ import time
 
 from dmedia import transfers, schema, filestore, errors
 
-from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves
+from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves, raises
 from .couch import CouchCase
 
 
@@ -172,6 +172,33 @@ class TestFunctions(TestCase):
         self.assertIsInstance(foo, Example)
         self.assertIs(foo.store, doc)
         self.assertIsNone(foo.callback)
+
+    def test_bytes_range(self):
+        f = transfers.bytes_range
+        self.assertEqual(f(0, 500), 'bytes=0-499')
+        self.assertEqual(f(500, 1000), 'bytes=500-999')
+        self.assertEqual(f(-500), 'bytes=-500')
+        self.assertEqual(f(9500), 'bytes=9500-')
+
+    def test_range_request(self):
+        f = transfers.range_request
+
+        e = raises(ValueError, f, -2, 1024, 3001)
+        self.assertEqual(str(e), 'i must be >=0; got -2')
+        e = raises(ValueError, f, 0, 500, 3001)
+        self.assertEqual(str(e), 'leaf_size must be >=1024; got 500')
+        e = raises(ValueError, f, 0, 1024, 0)
+        self.assertEqual(str(e), 'file_size must be >=1; got 0')
+
+        self.assertEqual(f(0, 1024, 3001), 'bytes=0-1023')
+        self.assertEqual(f(1, 1024, 3001), 'bytes=1024-2047')
+        self.assertEqual(f(2, 1024, 3001), 'bytes=2048-3000')
+
+        e = raises(ValueError, f, 3, 1024, 3001)
+        self.assertEqual(
+            str(e),
+            'past end of file: i=3, leaf_size=1024, file_size=3001'
+        )
 
 
 class TestTransferBackend(TestCase):
