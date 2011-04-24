@@ -44,7 +44,7 @@ def random_id(blocks=3):
 
 
 def b32hash(chunk):
-    return b32encode(sha1(chunk).digest())
+    return sha1(chunk).digest()
 
 
 class DummyProgress(object):
@@ -392,6 +392,7 @@ class TestHTTPBackend(TestCase):
             inst.t,
             ('https', 'foo.s3.amazonaws.com', '/', '', '', '')
         )
+        self.assertIsInstance(inst.conn, httplib.HTTPSConnection)
 
         url = 'http://example.com/bar'
         inst = self.klass({'url': url})
@@ -401,6 +402,8 @@ class TestHTTPBackend(TestCase):
             inst.t,
             ('http', 'example.com', '/bar', '', '', '')
         )
+        self.assertIsInstance(inst.conn, httplib.HTTPConnection)
+        self.assertNotIsInstance(inst.conn, httplib.HTTPSConnection)
 
         with self.assertRaises(ValueError) as cm:
             inst = self.klass({'url': 'ftp://example.com/'})
@@ -415,16 +418,6 @@ class TestHTTPBackend(TestCase):
             str(cm.exception),
             "bad url: 'http:example.com/bar'"
         )
-
-    def test_conn(self):
-        inst = self.klass({'url': 'http://foo.com/bar'})
-        conn = inst.conn()
-        self.assertIsInstance(conn, httplib.HTTPConnection)
-        self.assertNotIsInstance(conn, httplib.HTTPSConnection)
-
-        inst = self.klass({'url': 'https://foo.com/bar'})
-        conn = inst.conn()
-        self.assertIsInstance(conn, httplib.HTTPSConnection)
 
     def test_process_leaf(self):
         a = 'a' * 1024
@@ -454,12 +447,10 @@ class TestHTTPBackend(TestCase):
         # Test that it will try 3 times:
         inst = Example(b, b, a)
         self.assertEqual(inst.process_leaf(7, a_hash), a)
-        self.assertEqual(inst.dst_fp._chunk, a)
 
         # Test that it will return first correct response:
         inst = Example(a, b, b)
         self.assertEqual(inst.process_leaf(7, a_hash), a)
-        self.assertEqual(inst.dst_fp._chunk, a)
 
 
 

@@ -316,52 +316,40 @@ class HTTPBackend(TransferBackend):
 
     def setup(self):
         self.url = self.store['url']
-        t = urlparse(self.url)
-        if t.scheme not in ('http', 'https'):
-            raise ValueError(
-                'url scheme must be http or https; got {!r}'.format(self.url)
-            )
-        if not t.netloc:
-            raise ValueError('bad url: {!r}'.format(self.url))
+        (self.conn, t) = http_conn(self.url)
+        #self.conn.set_debuglevel(1)
         self.basepath = (t.path if t.path.endswith('/') else t.path + '/')
         self.t = t
 
-    def conn(self):
-        """
-        Return new connection instance.
-        """
-        klass = (HTTPConnection if self.t.scheme == 'http' else HTTPSConnection)
-        conn = klass(self.t.netloc, strict=True)
-        return conn
-
     def download_leaf(self, i):
-        conn = self.conn()
         headers = {
             'User-Agent': USER_AGENT,
             'Range': range_request(i, LEAF_SIZE, self.file_size),
         }
-        conn.request('GET', self.url, headers=headers)
-        response = conn.getresponse()
+        self.conn.request('GET', self.path, headers=headers)
+        response = self.conn.getresponse()
         return response.read()
 
     def process_leaf(self, i, expected):
         for r in xrange(3):
             chunk = self.download_leaf(i)
-            got = b32encode(sha1(chunk).digest())
+            got = sha1(chunk).digest()
             if got == expected:
-                self.dst_fp.write(chunk)
                 return chunk
             log.warning('leaf %d expected %r; got %r', i, expected, got)
         raise DownloadFailure(leaf=i, expected=expected, got=got)
 
-
     def download(self, doc, leaves, fs):
         chash = doc['_id']
         ext = doc.get('ext')
-        path = self.basepath + self.key(chash, ext)
-        url = ''.join([self.t.scheme, '://', self.t.netloc, path])
+        self.path = self.basepath + self.key(chash, ext)
+        url = ''.join([self.t.scheme, '://', self.t.netloc, self.path])
         log.info('Downloading %r...', url)
-        tmp_fp = fs.allocate_for_transfer(doc['bytes'], chash, ext)
+        self.file_size = doc['bytes']
+        tmp_fp = fs.allocate_for_transfer(self.file_size, chash, ext)
+        for (i, leaf) in enumerate(leaves):
+            chunk = self.process_leaf(i, leaf)
+            tmp_fp.write(chunk)
         tmp_fp.close()
         log.info('Successfully downloaded %r', url)
         return True
