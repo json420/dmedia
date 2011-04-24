@@ -312,7 +312,7 @@ class HTTPBackend(TransferBackend):
         conn = self.conn()
         headers = {
             'User-Agent': USER_AGENT,
-            'Range': range_request(i, self.leaf_size, self.file_size),
+            'Range': range_request(i, LEAF_SIZE, self.file_size),
         }
         conn.request('GET', self.url, headers=headers)
         response = conn.getresponse()
@@ -328,9 +328,17 @@ class HTTPBackend(TransferBackend):
             log.warning('leaf %d expected %r; got %r', i, expected, got)
         raise DownloadFailure(leaf=i, expected=expected, got=got)
 
-    def run(self):
-        for (i, chash) in enumerate(self.leaves):
-            self.process_leaf(i, chash)
+
+    def download(self, doc, leaves, fs):
+        chash = doc['_id']
+        ext = doc.get('ext')
+        path = self.basepath + self.key(chash, ext)
+        url = ''.join([self.t.scheme, '://', self.t.netloc, path])
+        log.info('Downloading %r...', url)
+        tmp_fp = fs.allocate_for_transfer(doc['bytes'], chash, ext)
+        tmp_fp.close()
+        log.info('Successfully downloaded %r', url)
+        return True
 
 
 class TransferWorker(CouchWorker):
