@@ -214,6 +214,32 @@ def range_request(i, leaf_size, file_size):
     return bytes_range(start, stop)
 
 
+def http_conn(url, **options):
+    """
+    Return (connection, parsed) tuple.
+
+    For example:
+
+    >>> (conn, p) = http_conn('http://foo.s3.amazonaws.com/')
+
+    The returned connection will be either an ``HTTPConnection`` or
+    ``HTTPSConnection`` instance based on the *url* scheme.
+
+    The 2nd item in the returned tuple will be *url* parsed with ``urlparse()``.
+    """
+    t = urlparse(url)
+    if t.scheme not in ('http', 'https'):
+        raise ValueError(
+            'url scheme must be http or https; got {!r}'.format(url)
+        )
+    if not t.netloc:
+        raise ValueError('bad url: {!r}'.format(url))
+    klass = (HTTPConnection if t.scheme == 'http' else HTTPSConnection)
+    options['strict'] = True
+    conn = klass(t.netloc, **options)
+    return (conn, t)
+
+
 class TransferBackend(object):
     def __init__(self, store, callback=None):
         if not (callback is None or callable(callback)):

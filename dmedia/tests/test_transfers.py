@@ -216,6 +216,36 @@ class TestFunctions(TestCase):
             'past end of file: i=3, leaf_size=1024, file_size=3001'
         )
 
+    def test_http_conn(self):
+        f = transfers.http_conn
+
+        # Test with bad scheme
+        with self.assertRaises(ValueError) as cm:
+            (conn, t) = f('ftp://foo.s3.amazonaws.com/')
+        self.assertEqual(
+            str(cm.exception),
+            "url scheme must be http or https; got 'ftp://foo.s3.amazonaws.com/'"
+        )
+
+        # Test with bad url
+        with self.assertRaises(ValueError) as cm:
+            (inst, t) = f('http:foo.s3.amazonaws.com/')
+        self.assertEqual(
+            str(cm.exception),
+            "bad url: 'http:foo.s3.amazonaws.com/'"
+        )
+
+        # Test with HTTP
+        (conn, t) = f('http://foo.s3.amazonaws.com/')
+        self.assertIsInstance(conn, httplib.HTTPConnection)
+        self.assertNotIsInstance(conn, httplib.HTTPSConnection)
+        self.assertEqual(t, ('http', 'foo.s3.amazonaws.com', '/', '', '', ''))
+
+        # Test with HTTPS
+        (conn, t) = f('https://foo.s3.amazonaws.com/')
+        self.assertIsInstance(conn, httplib.HTTPSConnection)
+        self.assertEqual(t, ('https', 'foo.s3.amazonaws.com', '/', '', '', ''))
+
 
 class TestTransferBackend(TestCase):
     klass = transfers.TransferBackend
