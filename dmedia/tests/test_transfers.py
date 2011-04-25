@@ -34,7 +34,7 @@ import httplib
 from dmedia import transfers, schema, filestore, errors
 from dmedia.errors import DownloadFailure, DuplicateFile, IntegrityError
 
-from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves, raises
+from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves, raises, sample_mov
 from .couch import CouchCase
 
 
@@ -430,6 +430,10 @@ class TestHTTPBackend(TestCase):
                 self._chunks = chunks
                 self._i = 0
                 self.dst_fp = DummyFP()
+                self._signals = []
+
+            def callback(self, *args):
+                self._signals.append(args)
 
             def download_leaf(self, i):
                 assert i == 7
@@ -612,10 +616,15 @@ class TestDownloadWorker(CouchCase):
         transfers._downloaders.clear()
 
         class S3(transfers.TransferBackend):
-            def download(self, *args):
-                self._args = args
+            def download(self, doc, leaves, fs):
+                self._args = (doc, leaves, fs)
                 self.callback(333)
-
+                size = doc['bytes']
+                chash = doc['_id']
+                ext = doc.get('ext')
+                tmp_fp = fs.allocate_for_transfer(size, chash, ext)
+                tmp_fp.write(open(sample_mov, 'rb').read())
+                tmp_fp.close()
 
         transfers.register_downloader('s3', S3)
         self.Backend = S3

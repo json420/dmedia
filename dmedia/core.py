@@ -133,7 +133,7 @@ novacut = {
 
 
 class Core(object):
-    def __init__(self, dbname=DBNAME, no_dc=False, env_s=None):
+    def __init__(self, dbname=DBNAME, no_dc=False, env_s=None, callback=None):
         if env_s:
             self.env = load_env(env_s)
         else:
@@ -144,7 +144,7 @@ class Core(object):
         self.server = get_server(self.env)
         self.db = get_db(self.env, self.server)
         self._has_app = None
-        self.transfermanager = TransferManager(self.env)
+        self.transfermanager = TransferManager(self.env, callback)
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()

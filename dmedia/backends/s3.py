@@ -111,7 +111,6 @@ class S3Backend(transfers.TransferBackend):
         )
         tmp_fp.close()
         log.info('Downloaded %r from S3 bucket %r', key, self.bucketname)
-        return True
 
 
 transfers.register_uploader('s3', S3Backend)

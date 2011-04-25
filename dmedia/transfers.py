@@ -331,6 +331,7 @@ class HTTPBackend(TransferBackend):
         return response.read()
 
     def process_leaf(self, i, expected):
+        self.progress(i * LEAF_SIZE)
         for r in xrange(3):
             chunk = self.download_leaf(i)
             got = sha1(chunk).digest()
@@ -352,7 +353,9 @@ class HTTPBackend(TransferBackend):
             tmp_fp.write(chunk)
         tmp_fp.close()
         log.info('Successfully downloaded %r', url)
-        return True
+
+
+register_downloader('http', HTTPBackend)
 
 
 class TransferWorker(CouchWorker):
@@ -398,13 +401,13 @@ class TransferWorker(CouchWorker):
 class DownloadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_downloader(self.remote, self.on_progress)
-        if self.backend.download(self.file, self.leaves, self.filestore):
-            self.filestore.tmp_verify_move(self.file_id, self.file.get('ext'))
-            self.file['stored'][self.filestore_id] = {
-                'copies': 1,
-                'time': time.time(),
-            }
-            self.db.save(self.file)
+        self.backend.download(self.file, self.leaves, self.filestore)
+        self.filestore.tmp_verify_move(self.file_id, self.file.get('ext'))
+        self.file['stored'][self.filestore_id] = {
+            'copies': 1,
+            'time': time.time(),
+        }
+        self.db.save(self.file)
 
 
 
