@@ -148,7 +148,7 @@ class Core(object):
         self.server = get_server(self.env)
         self.db = get_db(self.env, self.server)
         self._has_app = None
-        self.transfermanager = TransferManager(self.env, callback)
+        self.manager = TransferManager(self.env, callback)
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()
@@ -213,7 +213,7 @@ class Core(object):
         return self._has_app
 
     def upload(self, file_id, store_id):
-        return self.transfermanager.upload(file_id, store_id)
+        return self.manager.upload(file_id, store_id)
 
     def download(self, file_id, store_id):
-        return self.transfermanager.download(file_id, store_id)
+        return self.manager.download(file_id, store_id)

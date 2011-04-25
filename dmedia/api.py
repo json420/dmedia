@@ -86,6 +86,9 @@ class DMedia(object):
     def download(self, file_id, store_id):
         return self.proxy.Download(file_id, store_id)
 
+    def list_transfers(self):
+        return self.proxy.ListTransfers()
+
 
 class DMediaImporter(object):
     """

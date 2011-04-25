@@ -119,9 +119,16 @@ p_download.add_argument('store_id',
     help="A dmedia/store ID like 'PKME2PIIZFXVNJEG6OQ3IFON'"
 )
 
+p_list_transfers = subparsers.add_parser('list-transfers',
+    help='list uploads and downloads in progress',
+)
+def do_list_transfers(dm, args):
+    for t in dm.list_transfers():
+        print(t)
+p_list_transfers.set_defaults(func=do_list_transfers)
+
 
 args = parser.parse_args()
-print(args)
 from dmedia.api import DMedia
 dm = DMedia(args.bus)
 args.func(dm, args)
