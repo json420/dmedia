@@ -24,6 +24,7 @@ Unit tests for the `dmedia.backends.torrent` module.
 """
 
 from unittest import TestCase
+import httplib
 
 from dmedia.backends import torrent
 
@@ -32,4 +33,37 @@ class TestTorrentBackend(TestCase):
     klass = torrent.TorrentBackend
 
     def test_init(self):
-        inst = self.klass({'_id': 'foo'})
+        url = 'https://foo.s3.amazonaws.com/'
+        inst = self.klass({'url': url})
+        self.assertEqual(inst.url, url)
+        self.assertEqual(inst.basepath, '/')
+        self.assertEqual(
+            inst.t,
+            ('https', 'foo.s3.amazonaws.com', '/', '', '', '')
+        )
+        self.assertIsInstance(inst.conn, httplib.HTTPSConnection)
+
+        url = 'http://example.com/bar'
+        inst = self.klass({'url': url})
+        self.assertEqual(inst.url, url)
+        self.assertEqual(inst.basepath, '/bar/')
+        self.assertEqual(
+            inst.t,
+            ('http', 'example.com', '/bar', '', '', '')
+        )
+        self.assertIsInstance(inst.conn, httplib.HTTPConnection)
+        self.assertNotIsInstance(inst.conn, httplib.HTTPSConnection)
+
+        with self.assertRaises(ValueError) as cm:
+            inst = self.klass({'url': 'ftp://example.com/'})
+        self.assertEqual(
+            str(cm.exception),
+            "url scheme must be http or https; got 'ftp://example.com/'"
+        )
+
+        with self.assertRaises(ValueError) as cm:
+            inst = self.klass({'url': 'http:example.com/bar'})
+        self.assertEqual(
+            str(cm.exception),
+            "bad url: 'http:example.com/bar'"
+        )

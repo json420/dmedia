@@ -22,3 +22,13 @@
 """
 Plugins for transfer backends for uploading and downloading files.
 """
+
+try:
+    from . import s3
+except ImportError:
+    pass
+
+try:
+    from . import torrent
+except ImportError:
+    pass

@@ -24,38 +24,34 @@ Download with BitTorrent.
 """
 
 import logging
+import time
+from os import path
+
+import libtorrent
 
 from dmedia.constants import LEAF_SIZE
-from dmedia import transfers
+from dmedia.transfers import HTTPBaseBackend, register_downloader, http_conn
 
 
 log = logging.getLogger()
 
 
-class TorrentBackend(transfers.TransferBackend):
+class TorrentBackend(HTTPBaseBackend):
     """
     Backend for BitTorrent downloads using `libtorrent`.
     """
 
-    def get_tmp(self):
-        tmp = self.fs.tmp(self.chash, self.ext, create=True)
-        log.debug('Writting file to %r', tmp)
-        return tmp
+    def download(self, doc, leaves, fs):
+        chash = doc['_id']
+        ext = doc.get('ext')
+        url = self.basepath + self.key(chash, ext) + '?torrent'
+        data = self.get(url)
 
-    def finalize(self):
-        dst = self.fs.tmp_verify_move(self.chash, self.ext)
-        log.debug('Canonical name is %r', dst)
-        return dst
-
-    def run(self):
-        log.info('Downloading torrent %r %r', self.chash, self.ext)
-        tmp = self.get_tmp()
+        tmp = fs.tmp(chash, ext, create=True)
         session = libtorrent.session()
         session.listen_on(6881, 6891)
 
-        info = libtorrent.torrent_info(
-            libtorrent.bdecode(self.torrent)
-        )
+        info = libtorrent.torrent_info(libtorrent.bdecode(data))
 
         torrent = session.add_torrent({
             'ti': info,
@@ -64,13 +60,11 @@ class TorrentBackend(transfers.TransferBackend):
 
         while not torrent.is_seed():
             s = torrent.status()
-            log.debug('Downloaded %d%%', s.progress * 100)
+            self.progress(s.total_payload_download)
             time.sleep(2)
 
         session.remove_torrent(torrent)
-        time.sleep(1)
-
-        return self.finalize()
+        time.sleep(2)
 
 
-transfers.register_downloader('torrent', TorrentBackend)
+register_downloader('torrent', TorrentBackend)

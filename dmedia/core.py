@@ -72,7 +72,11 @@ from .transfers import TransferManager
 from .abstractcouch import get_server, get_db, load_env
 from .schema import random_id, create_machine, create_store
 from .views import init_views
-from .backends import s3
+
+try:
+    from . import backends
+except ImportError:
+    pass
 
 
 log = logging.getLogger()

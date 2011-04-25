@@ -309,6 +309,27 @@ class TransferBackend(object):
         )
 
 
+class HTTPBaseBackend(TransferBackend):
+    """
+    Backend for downloading using HTTP.
+    """
+
+    def setup(self):
+        self.url = self.store['url']
+        (self.conn, t) = http_conn(self.url)
+        self.conn.set_debuglevel(1)
+        self.basepath = (t.path if t.path.endswith('/') else t.path + '/')
+        self.t = t
+
+    def get(self, urlpath, extra=None):
+        headers = {'User-Agent': USER_AGENT}
+        if extra:
+            headers.update(extra)
+        self.conn.request('GET', urlpath, headers=headers)
+        response = self.conn.getresponse()
+        return response.read()
+
+
 class HTTPBackend(TransferBackend):
     """
     Backend for downloading using HTTP.
