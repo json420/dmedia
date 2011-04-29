@@ -125,17 +125,6 @@ class LocalStores(object):
         pass
 
 
-novacut = {
-    '_id': 'PKME2PIIZFXVNJEG6OQ3IFON',
-    'ver': 0,
-    'type': 'dmedia/store',
-    'time': 1303293045.245077,
-    'plugin': 's3',
-    'copies': 2,
-    'bucket': 'novacut',
-}
-
-
 class Core(object):
     def __init__(self, dbname=DBNAME, no_dc=False, env_s=None, callback=None):
         if env_s:
