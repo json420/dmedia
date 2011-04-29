@@ -3,7 +3,10 @@ JavaScript port of Python3 `microfiber` CouchDB adapter:
 
     https://launchpad.net/microfiber
 
-    http://bazaar.launchpad.net/~microfiber/microfiber/trunk/view/head:/microfiber.py
+This takes inpiration from the CoffeeScript port by Richard Lyon (aka
+"richthegeek"):
+
+  http://bazaar.launchpad.net/~dmedia/dmedia/trunk/view/head:/dmedia/webui/data/microfiber.coffee
 
 Rather than inventing an API, this is a simple adapter for calling a REST JSON
 API like CouchDB.  The goal is to make something that doesn't need constant
