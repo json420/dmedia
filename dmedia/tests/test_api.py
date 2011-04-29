@@ -117,6 +117,9 @@ class TestDMedia(CouchCase):
         self.assertTrue(inst.has_app())
         self.assertTrue(db['app']['_rev'].startswith('1-'))
 
+        # DMedia.ListTransfers()
+        self.assertEqual(inst.list_transfers(), [])
+
         # DMedia.Kill()
         self.assertIsNone(self.service.poll(), None)
         inst.kill()

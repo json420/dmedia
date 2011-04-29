@@ -80,6 +80,15 @@ class DMedia(object):
     def has_app(self):
         return self.proxy.HasApp()
 
+    def upload(self, file_id, store_id):
+        return self.proxy.Upload(file_id, store_id)
+
+    def download(self, file_id, store_id):
+        return self.proxy.Download(file_id, store_id)
+
+    def list_transfers(self):
+        return self.proxy.ListTransfers()
+
 
 class DMediaImporter(object):
     """

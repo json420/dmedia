@@ -58,6 +58,17 @@ function(doc) {
 }
 """
 
+
+# views in the 'store' design only index docs where doc.type == 'dmedia/store'
+store_plugin = """
+function(doc) {
+    if (doc.type == 'dmedia/store') {
+        emit(doc.plugin, null);
+    }
+}
+"""
+
+
 # views in the 'file' design only index docs for which doc.type == 'dmedia/file'
 file_stored = """
 // Get list of all files on a given store, total bytes on that store
@@ -226,6 +237,10 @@ designs = (
 
     ('import', (
         ('time', import_time, None),
+    )),
+
+    ('store', (
+        ('plugin', store_plugin, _count),
     )),
 
     ('file', (
