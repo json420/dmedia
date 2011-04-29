@@ -25,6 +25,8 @@ Unit tests for `dmedia.core` module.
 
 from unittest import TestCase
 import json
+import os
+from os import path
 
 import couchdb
 import desktopcouch
@@ -32,9 +34,10 @@ from desktopcouch.application.platform import find_port
 from desktopcouch.application.local_files import get_oauth_tokens
 
 from dmedia.webui.app import App
-from dmedia.schema import random_id
+from dmedia.schema import random_id, check_dmedia_store
 from dmedia import core
 
+from .helpers import TempDir
 from .couch import CouchCase
 
 
@@ -253,6 +256,50 @@ class TestCore(CouchCase):
 
         # Try again when docs already exist:
         self.assertEqual(inst.init_filestores(), lstore)
+
+    def test_add_filestores(self):
+        inst = self.klass(self.dbname)
+        inst.machine_id = random_id()
+        inst.local = {
+            '_id': '_local/dmedia',
+            'filestores': {},
+        }
+        tmp = TempDir()
+
+        # Test when parentdir does not exist:
+        nope = tmp.join('nope')
+        with self.assertRaises(ValueError) as cm:
+            store = inst.add_filestore(nope)
+        self.assertEqual(
+            str(cm.exception),
+            'Not a directory: {!r}'.format(nope)
+        )
+
+        # Test when parentdir is a file:
+        a_file = tmp.touch('a_file')
+        with self.assertRaises(ValueError) as cm:
+            store = inst.add_filestore(a_file)
+        self.assertEqual(
+            str(cm.exception),
+            'Not a directory: {!r}'.format(a_file)
+        )
+
+        # Test when parentdir is okay:
+        okay = tmp.makedirs('okay')
+        store = inst.add_filestore(okay)
+        check_dmedia_store(store)
+        self.assertEqual(inst.db[store['_id']], store)
+        self.assertEqual(store['path'], okay)
+        self.assertTrue(store.pop('_rev').startswith('1-'))
+        self.assertEqual(list(inst.local['filestores']), [okay])
+        self.assertEqual(inst.local['filestores'][okay], store)
+        self.assertEqual(inst.db['_local/dmedia'], inst.local)
+        self.assertEqual(inst.db['_local/dmedia']['_rev'], '0-1')
+
+        # Test when store already initialized:
+        self.assertEqual(inst.add_filestore(okay), store)
+        self.assertTrue(inst.db[store['_id']]['_rev'].startswith('1-'))
+        self.assertEqual(inst.db['_local/dmedia']['_rev'], '0-1')
 
     def test_init_app(self):
         inst = self.klass(self.dbname)

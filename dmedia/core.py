@@ -79,6 +79,9 @@ except ImportError:
     pass
 
 
+LOCAL_ID = '_local/dmedia'
+
+
 log = logging.getLogger()
 
 
@@ -151,13 +154,12 @@ class Core(object):
         """
         Get the /dmedia/_local/dmedia document, creating it if needed.
         """
-        local_id = '_local/dmedia'
         try:
-            local = self.db[local_id]
+            local = self.db[LOCAL_ID]
         except ResourceNotFound:
             machine = create_machine()
             local = {
-                '_id': local_id,
+                '_id': LOCAL_ID,
                 'machine': deepcopy(machine),
                 'filestores': {},
             }
@@ -179,6 +181,20 @@ class Core(object):
             self.db.save(self.local)
             self.db.save(store)
         return self.local['filestores'][self.local['default_filestore']]
+
+    def add_filestore(self, parentdir):
+        parentdir = path.abspath(parentdir)
+        if not path.isdir(parentdir):
+            raise ValueError('Not a directory: {!r}'.format(parentdir))
+        try:
+            return self.local['filestores'][parentdir]
+        except KeyError:
+            pass
+        store = create_store(parentdir, self.machine_id)
+        self.local['filestores'][parentdir] = deepcopy(store)
+        self.db.save(self.local)
+        self.db.save(store)
+        return store
 
     def init_app(self):
         if App is None:
