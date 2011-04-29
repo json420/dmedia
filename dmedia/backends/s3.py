@@ -30,6 +30,7 @@ For documentation on ``boto``, see:
 import os
 import logging
 
+import gnomekeyring
 from boto.s3.connection import S3Connection
 from boto.s3.bucket import Bucket
 from boto.s3.key import Key
@@ -41,14 +42,68 @@ from dmedia import transfers
 log = logging.getLogger()
 
 
+def keyring_name(bucket):
+    """
+    Keyring name (description) in which to store S3 credentials.
+
+    For example:
+
+    >>> keyring_name('novacut')
+    'dmedia/s3/novacut'
+
+    """
+    return 'dmedia/s3/' + bucket
+
+
+def keyring_attrs(bucket):
+    """
+    Keyring attributes for item storing S3 credentials.
+
+    For example:
+
+    >>> keyring_attrs('novacut')
+    {'bucket': 'novacut', 'dmedia': 's3'}
+
+    """
+    return {
+        'dmedia': 's3',
+        'bucket': bucket,
+    }
+
+
+def save_credentials(bucket, keyid, secret, keyring=gnomekeyring):
+    keyring.item_create_sync(
+        None,
+        gnomekeyring.ITEM_GENERIC_SECRET,
+        keyring_name(bucket),
+        keyring_attrs(bucket),
+        ':'.join([keyid, secret]),
+        True,
+    )
+
+
+def load_credentials(bucket, keyring=gnomekeyring):
+    try:
+        items = keyring.find_items_sync(
+            gnomekeyring.ITEM_GENERIC_SECRET,
+            keyring_attrs(bucket),
+        )
+        (keyid, secret) =  items[0].secret.split(':')
+        return (keyid, secret)
+    except gnomekeyring.NoMatchError:
+        raise KeyError
+
+
 class S3Backend(transfers.TransferBackend):
     """
     Backend for uploading to and downloading from Amazon S3 using ``boto``.
     """
     def setup(self):
         self.bucketname = self.store['bucket']
-        self.keyid = os.environ.get('s3_keyid')  # FIXME
-        self.secret = os.environ.get('s3_secret')  # FIXME
+        try:
+            (self.keyid, self.secret) = load_credentials(self.bucketname)
+        except KeyError:
+            pass
         self._bucket = None
 
     @property
