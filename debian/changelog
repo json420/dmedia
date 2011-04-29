@@ -1,5 +1,5 @@
-dmedia (0.6.0-0~natty) natty; urgency=low
+dmedia (0.7.0-0~natty) natty; urgency=low
 
-  * Upstream 0.6.0 pre-release
+  * Upstream 0.7.0 pre-release
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Fri, 01 Apr 2011 01:27:05 +0000
+ -- Jason Gerard DeRose <jderose@novacut.com>  Fri, 29 Apr 2011 05:36:55 +0000
