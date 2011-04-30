@@ -375,7 +375,7 @@ class ImportManager(CouchManager):
         """
         self.db.save(self.doc)
 
-    def _start_batch(self):
+    def first_worker_starting(self):
         assert self.doc is None
         assert self._workers == {}
         self._total = 0
@@ -384,12 +384,7 @@ class ImportManager(CouchManager):
         self.save()
         self.emit('BatchStarted', self.doc['_id'])
 
-    def get_worker_env(self, worker, key, args):
-        env = dict(self.env)
-        env['batch_id'] = self.doc['_id']
-        return env
-
-    def _finish_batch(self):
+    def last_worker_finished(self):
         assert self._workers == {}
         self.doc['time_end'] = time.time()
         self.save()
@@ -400,6 +395,11 @@ class ImportManager(CouchManager):
         log.info('Batch complete, compacting database...')
         self.db.compact()
 
+    def get_worker_env(self, worker, key, args):
+        env = dict(self.env)
+        env['batch_id'] = self.doc['_id']
+        return env
+
     def on_error(self, key, exception, message):
         super(ImportManager, self).on_error(key, exception, message)
         if self.doc is None:
@@ -408,11 +408,6 @@ class ImportManager(CouchManager):
             {'key': key, 'name': exception, 'msg': message}
         )
         self.save()
-
-    def on_terminate(self, key):
-        super(ImportManager, self).on_terminate(key)
-        if len(self._workers) == 0:
-            self._finish_batch()
 
     def on_started(self, key, import_id):
         self.doc['imports'].append(import_id)
@@ -440,9 +435,4 @@ class ImportManager(CouchManager):
             )
 
     def start_import(self, base, extract=True):
-        with self._lock:
-            if base in self._workers:
-                return False
-            if len(self._workers) == 0:
-                self._start_batch()
-            return self.start_job('ImportWorker', base, base, extract)
+        return self.start_job('ImportWorker', base, base, extract)

@@ -93,6 +93,41 @@ def do_has_app(dm, args):
 p_has_app.set_defaults(func=do_has_app)
 
 
+p_upload = subparsers.add_parser('upload',
+    help='upload a file to a remote store',
+)
+def do_upload(dm, args):
+    print(bool(dm.upload(args.file_id, args.store_id)))
+p_upload.set_defaults(func=do_upload)
+p_upload.add_argument('file_id',
+    help="A dmedia/file ID like 'MIKQR5URC4YMW7MJGVIVJR3AZODIC5WN'"
+)
+p_upload.add_argument('store_id',
+    help="A dmedia/store ID like 'PKME2PIIZFXVNJEG6OQ3IFON'"
+)
+
+p_download = subparsers.add_parser('download',
+    help='download a file not available locally',
+)
+def do_download(dm, args):
+    print(bool(dm.download(args.file_id, args.store_id)))
+p_download.set_defaults(func=do_download)
+p_download.add_argument('file_id',
+    help="A dmedia/file ID like 'MIKQR5URC4YMW7MJGVIVJR3AZODIC5WN'"
+)
+p_download.add_argument('store_id',
+    help="A dmedia/store ID like 'PKME2PIIZFXVNJEG6OQ3IFON'"
+)
+
+p_list_transfers = subparsers.add_parser('list-transfers',
+    help='list uploads and downloads in progress',
+)
+def do_list_transfers(dm, args):
+    for t in dm.list_transfers():
+        print(t)
+p_list_transfers.set_defaults(func=do_list_transfers)
+
+
 args = parser.parse_args()
 from dmedia.api import DMedia
 dm = DMedia(args.bus)

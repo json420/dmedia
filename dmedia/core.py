@@ -68,9 +68,15 @@ except ImportError:
     App = None
 
 from .constants import DBNAME
+from .transfers import TransferManager
 from .abstractcouch import get_server, get_db, load_env
 from .schema import random_id, create_machine, create_store
 from .views import init_views
+
+try:
+    from . import backends
+except ImportError:
+    pass
 
 
 log = logging.getLogger()
@@ -120,7 +126,7 @@ class LocalStores(object):
 
 
 class Core(object):
-    def __init__(self, dbname=DBNAME, no_dc=False, env_s=None):
+    def __init__(self, dbname=DBNAME, no_dc=False, env_s=None, callback=None):
         if env_s:
             self.env = load_env(env_s)
         else:
@@ -131,6 +137,7 @@ class Core(object):
         self.server = get_server(self.env)
         self.db = get_db(self.env, self.server)
         self._has_app = None
+        self.manager = TransferManager(self.env, callback)
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()
@@ -193,3 +200,9 @@ class Core(object):
         if self._has_app is None:
             self._has_app = self.init_app()
         return self._has_app
+
+    def upload(self, file_id, store_id):
+        return self.manager.upload(file_id, store_id)
+
+    def download(self, file_id, store_id):
+        return self.manager.download(file_id, store_id)

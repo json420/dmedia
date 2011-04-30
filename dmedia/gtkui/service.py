@@ -130,7 +130,6 @@ class DMedia(dbus.service.Object):
     def manager(self):
         if self._manager is None:
             self._manager = ImportManager(self._env, self._on_signal)
-            self._manager.start()
         return self._manager
 
     def _on_signal(self, signal, args):
