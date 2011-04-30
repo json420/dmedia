@@ -98,8 +98,12 @@ class DMedia(dbus.service.Object):
         return self._core.has_app()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def GetDoc(self, _id):
-        return dumps(self._core.db.get(_id, attachments=True))
+    def GetDoc(self, doc_id):
+        return dumps(self._core.db.get(doc_id, attachments=True))
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def GetFile(self, file_id):
+        return self._core.get_file(file_id)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AddFileStore(self, parentdir):

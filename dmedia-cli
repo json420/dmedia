@@ -54,20 +54,19 @@ sub = parser.add_subparsers(
 )
 
 
+# DMedia.Version()
+sub.add_parser('Version',
+    help='version of running `dmedia-service`',
+)
+
+
+# DMedia.Kill()
 sub.add_parser('Kill',
     help='shutdown `dmedia-service`',
 )
 
-p = sub.add_parser('GetDoc',
-    help='get document from CouchDB',
-)
-p.add_argument('docid',
-    help='the _id of document',
-)
-def GetDoc(method, args):
-    print(method(args.docid))
-p.set_defaults(func=GetDoc)
 
+# DMedia.AddFileStore()
 p = sub.add_parser('AddFileStore',
     help='add a new FileStore',
 )
@@ -77,6 +76,31 @@ p.add_argument('parentdir',
 def AddFileStore(method, args):
     print(method(args.parentdir))
 p.set_defaults(func=AddFileStore)
+
+
+# DMedia.GetDoc()
+p = sub.add_parser('GetDoc',
+    help='get document from CouchDB by doc_id',
+)
+p.add_argument('doc_id',
+    help='the _id of document',
+)
+def GetDoc(method, args):
+    print(method(args.doc_id))
+p.set_defaults(func=GetDoc)
+
+
+# DMedia.GetFile()
+p = sub.add_parser('GetFile',
+    help='get full path of file by file_id',
+)
+p.add_argument('file_id',
+    help='the _id of file',
+)
+def GetFile(method, args):
+    print(method(args.file_id))
+p.set_defaults(func=GetFile)
+
 
 
 def default_func(method, args):

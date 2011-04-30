@@ -35,9 +35,10 @@ from desktopcouch.application.local_files import get_oauth_tokens
 
 from dmedia.webui.app import App
 from dmedia.schema import random_id, check_dmedia_store
+from dmedia.filestore import FileStore
 from dmedia import core
 
-from .helpers import TempDir
+from .helpers import TempDir, mov_hash, sample_mov
 from .couch import CouchCase
 
 
@@ -287,7 +288,16 @@ class TestCore(CouchCase):
 
         # Test when parentdir is okay:
         okay = tmp.makedirs('okay')
+        self.assertEqual(inst._filestores, {})
         store = inst.add_filestore(okay)
+
+        # Test the FileStore
+        self.assertEqual(set(inst._filestores), set([okay]))
+        fs = inst._filestores[okay]
+        self.assertIsInstance(fs, FileStore)
+        self.assertEqual(fs.parent, okay)
+
+        # Test the doc
         check_dmedia_store(store)
         self.assertEqual(inst.db[store['_id']], store)
         self.assertEqual(store['path'], okay)
@@ -383,3 +393,28 @@ class TestCore(CouchCase):
         rev2 = inst.db['app']['_rev']
         self.assertNotEqual(rev2, rev)
         self.assertTrue(rev2.startswith('2-'))
+
+    def test_get_file(self):
+        inst = self.klass(self.dbname)
+        doc = {
+            '_id': mov_hash,
+            'ext': 'mov',
+        }
+        inst.db.save(doc)
+        self.assertIsNone(inst.get_file(mov_hash))
+
+        tmp1 = TempDir()
+        tmp2 = TempDir()
+        fs1 = FileStore(tmp1.path)
+        fs2 = FileStore(tmp2.path)
+        inst._filestores[tmp1.path] = fs1
+        inst._filestores[tmp2.path] = fs2
+        self.assertIsNone(inst.get_file(mov_hash))
+
+        src_fp = open(sample_mov, 'rb')
+        fs1.import_file(src_fp)
+        self.assertIsNone(inst.get_file(mov_hash))
+
+        src_fp = open(sample_mov, 'rb')
+        fs2.import_file(src_fp, 'mov')
+        self.assertEqual(inst.get_file(mov_hash), fs2.path(mov_hash, 'mov'))
