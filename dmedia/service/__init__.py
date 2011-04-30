@@ -39,6 +39,10 @@ from dmedia.core import Core
 log = logging.getLogger()
 
 
+def dumps(obj):
+    return json.dumps(obj, sort_keys=True, separators=(',',': '), indent=4)
+
+
 class DMedia(dbus.service.Object):
     def __init__(self, couchargs, bus, killfunc, start=None):
         self._bus = bus
@@ -92,6 +96,10 @@ class DMedia(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def HasApp(self):
         return self._core.has_app()
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def AddFileStore(self, parentdir):
+        return dumps(self._core.add_filestore(parentdir))
 
     @dbus.service.method(IFACE, in_signature='ss', out_signature='b')
     def Upload(self, file_id, store_id):
