@@ -48,18 +48,28 @@ parser.add_argument('--bus',
 )
 
 
-subparsers = parser.add_subparsers(
+sub = parser.add_subparsers(
     dest='cmd',
-    title='Commands from {!r}'.format(BUS)
+    title='Methods on {}'.format(BUS)
 )
 
 
-subparsers.add_parser('Kill',
+sub.add_parser('Kill',
     help='shutdown `dmedia-service`',
 )
 
-p = subparsers.add_parser('AddFileStore',
-    help='shutdown `dmedia-service`',
+p = sub.add_parser('GetDoc',
+    help='get document from CouchDB',
+)
+p.add_argument('docid',
+    help='the _id of document',
+)
+def GetDoc(method, args):
+    print(method(args.docid))
+p.set_defaults(func=GetDoc)
+
+p = sub.add_parser('AddFileStore',
+    help='add a new FileStore',
 )
 p.add_argument('parentdir',
     help="parent directory, like '/home/username'"

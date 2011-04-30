@@ -190,6 +190,7 @@ class Core(object):
             return self.local['filestores'][parentdir]
         except KeyError:
             pass
+        log.info('Added filestore at %r', parentdir)
         store = create_store(parentdir, self.machine_id)
         self.local['filestores'][parentdir] = deepcopy(store)
         self.db.save(self.local)
