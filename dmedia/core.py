@@ -180,7 +180,7 @@ class Core(object):
         else:
             for (parentdir, store) in self.local['filestores'].iteritems():
                 assert store['path'] == parentdir
-                self._filestores[store['path']] = FileStore(store['path'])
+                self.init_filestore(store)
                 try:
                     self.db.save(deepcopy(store))
                 except ResourceConflict:
@@ -189,8 +189,8 @@ class Core(object):
                 self.local['default_filestore'] = store['path']
         return self.local['filestores'][self.local['default_filestore']]
 
-    def init_filestore(self, parentdir):
-        assert parentdir not in self._filestores
+    def init_filestore(self, store):
+        parentdir = store['path']
         self._filestores[parentdir] = FileStore(parentdir)
 
     def add_filestore(self, parentdir):
@@ -203,7 +203,7 @@ class Core(object):
             pass
         log.info('Added filestore at %r', parentdir)
         store = create_store(parentdir, self.machine_id)
-        self._filestores[store['path']] = FileStore(store['path'])
+        self.init_filestore(store)
         self.local['filestores'][parentdir] = deepcopy(store)
         self.local['default_filestore'] = store['path']
         self.db.save(self.local)
