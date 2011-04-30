@@ -227,8 +227,9 @@ class TestCore(CouchCase):
         lstore = inst.init_filestores()
         self.assertEqual(inst.local, inst.db['_local/dmedia'])
         self.assertEqual(len(inst.local['filestores']), 1)
-        _id = inst.local['default_filestore']
-        self.assertEqual(inst.local['filestores'][_id], lstore)
+        parentdir = inst.local['default_filestore']
+        _id = lstore['_id']
+        self.assertEqual(inst.local['filestores'][parentdir], lstore)
         self.assertEqual(
             set(lstore),
             set([
@@ -293,6 +294,7 @@ class TestCore(CouchCase):
         self.assertTrue(store.pop('_rev').startswith('1-'))
         self.assertEqual(list(inst.local['filestores']), [okay])
         self.assertEqual(inst.local['filestores'][okay], store)
+        self.assertEqual(inst.local['default_filestore'], okay)
         self.assertEqual(inst.db['_local/dmedia'], inst.local)
         self.assertEqual(inst.db['_local/dmedia']['_rev'], '0-1')
 

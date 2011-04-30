@@ -146,8 +146,7 @@ class Core(object):
         (self.local, self.machine) = self.init_local()
         self.machine_id = self.machine['_id']
         self.env['machine_id'] = self.machine_id
-        store = self.init_filestores()
-        self.env['filestore'] = {'_id': store['_id'], 'path': store['path']}
+        self.env['filestore'] = self.init_filestores()
         init_views(self.db)
 
     def init_local(self):
@@ -175,11 +174,7 @@ class Core(object):
 
     def init_filestores(self):
         if not self.local['filestores']:
-            store = create_store(self.home, self.machine_id)
-            self.local['filestores'][store['_id']] = deepcopy(store)
-            self.local['default_filestore'] = store['_id']
-            self.db.save(self.local)
-            self.db.save(store)
+            self.add_filestore(self.home)
         return self.local['filestores'][self.local['default_filestore']]
 
     def add_filestore(self, parentdir):
@@ -193,6 +188,7 @@ class Core(object):
         log.info('Added filestore at %r', parentdir)
         store = create_store(parentdir, self.machine_id)
         self.local['filestores'][parentdir] = deepcopy(store)
+        self.local['default_filestore'] = store['path']
         self.db.save(self.local)
         self.db.save(store)
         return store
