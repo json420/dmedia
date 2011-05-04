@@ -54,7 +54,7 @@ from copy import deepcopy
 import os
 from os import path
 
-from couchdb import ResourceNotFound
+from couchdb import ResourceNotFound, ResourceConflict
 try:
     import desktopcouch
     from desktopcouch.application.platform import find_port
@@ -67,6 +67,7 @@ try:
 except ImportError:
     App = None
 
+from .filestore import FileStore
 from .constants import DBNAME
 from .transfers import TransferManager
 from .abstractcouch import get_server, get_db, load_env
@@ -77,6 +78,9 @@ try:
     from . import backends
 except ImportError:
     pass
+
+
+LOCAL_ID = '_local/dmedia'
 
 
 log = logging.getLogger()
@@ -138,26 +142,25 @@ class Core(object):
         self.db = get_db(self.env, self.server)
         self._has_app = None
         self.manager = TransferManager(self.env, callback)
+        self._filestores = {}
 
     def bootstrap(self):
         (self.local, self.machine) = self.init_local()
         self.machine_id = self.machine['_id']
         self.env['machine_id'] = self.machine_id
-        store = self.init_filestores()
-        self.env['filestore'] = {'_id': store['_id'], 'path': store['path']}
+        self.env['filestore'] = self.init_filestores()
         init_views(self.db)
 
     def init_local(self):
         """
         Get the /dmedia/_local/dmedia document, creating it if needed.
         """
-        local_id = '_local/dmedia'
         try:
-            local = self.db[local_id]
+            local = self.db[LOCAL_ID]
         except ResourceNotFound:
             machine = create_machine()
             local = {
-                '_id': local_id,
+                '_id': LOCAL_ID,
                 'machine': deepcopy(machine),
                 'filestores': {},
             }
@@ -173,12 +176,39 @@ class Core(object):
 
     def init_filestores(self):
         if not self.local['filestores']:
-            store = create_store(self.home, self.machine_id)
-            self.local['filestores'][store['_id']] = deepcopy(store)
-            self.local['default_filestore'] = store['_id']
-            self.db.save(self.local)
-            self.db.save(store)
+            self.add_filestore(self.home)
+        else:
+            for (parentdir, store) in self.local['filestores'].iteritems():
+                assert store['path'] == parentdir
+                self.init_filestore(store)
+                try:
+                    self.db.save(deepcopy(store))
+                except ResourceConflict:
+                    pass
+            if self.local.get('default_filestore') not in self.local['filestores']:
+                self.local['default_filestore'] = store['path']
         return self.local['filestores'][self.local['default_filestore']]
+
+    def init_filestore(self, store):
+        parentdir = store['path']
+        self._filestores[parentdir] = FileStore(parentdir)
+
+    def add_filestore(self, parentdir):
+        parentdir = path.abspath(parentdir)
+        if not path.isdir(parentdir):
+            raise ValueError('Not a directory: {!r}'.format(parentdir))
+        try:
+            return self.local['filestores'][parentdir]
+        except KeyError:
+            pass
+        log.info('Added filestore at %r', parentdir)
+        store = create_store(parentdir, self.machine_id)
+        self.init_filestore(store)
+        self.local['filestores'][parentdir] = deepcopy(store)
+        self.local['default_filestore'] = store['path']
+        self.db.save(self.local)
+        self.db.save(store)
+        return store
 
     def init_app(self):
         if App is None:
@@ -200,6 +230,14 @@ class Core(object):
         if self._has_app is None:
             self._has_app = self.init_app()
         return self._has_app
+
+    def get_file(self, file_id):
+        doc = self.db[file_id]
+        ext = doc.get('ext')
+        for fs in self._filestores.itervalues():
+            filename = fs.path(file_id, ext)
+            if path.isfile(filename):
+                return filename
 
     def upload(self, file_id, store_id):
         return self.manager.upload(file_id, store_id)

@@ -25,6 +25,8 @@ Unit tests for `dmedia.core` module.
 
 from unittest import TestCase
 import json
+import os
+from os import path
 
 import couchdb
 import desktopcouch
@@ -32,9 +34,11 @@ from desktopcouch.application.platform import find_port
 from desktopcouch.application.local_files import get_oauth_tokens
 
 from dmedia.webui.app import App
-from dmedia.schema import random_id
+from dmedia.schema import random_id, check_dmedia_store
+from dmedia.filestore import FileStore
 from dmedia import core
 
+from .helpers import TempDir, mov_hash, sample_mov
 from .couch import CouchCase
 
 
@@ -224,8 +228,9 @@ class TestCore(CouchCase):
         lstore = inst.init_filestores()
         self.assertEqual(inst.local, inst.db['_local/dmedia'])
         self.assertEqual(len(inst.local['filestores']), 1)
-        _id = inst.local['default_filestore']
-        self.assertEqual(inst.local['filestores'][_id], lstore)
+        parentdir = inst.local['default_filestore']
+        _id = lstore['_id']
+        self.assertEqual(inst.local['filestores'][parentdir], lstore)
         self.assertEqual(
             set(lstore),
             set([
@@ -253,6 +258,60 @@ class TestCore(CouchCase):
 
         # Try again when docs already exist:
         self.assertEqual(inst.init_filestores(), lstore)
+
+    def test_add_filestores(self):
+        inst = self.klass(self.dbname)
+        inst.machine_id = random_id()
+        inst.local = {
+            '_id': '_local/dmedia',
+            'filestores': {},
+        }
+        tmp = TempDir()
+
+        # Test when parentdir does not exist:
+        nope = tmp.join('nope')
+        with self.assertRaises(ValueError) as cm:
+            store = inst.add_filestore(nope)
+        self.assertEqual(
+            str(cm.exception),
+            'Not a directory: {!r}'.format(nope)
+        )
+
+        # Test when parentdir is a file:
+        a_file = tmp.touch('a_file')
+        with self.assertRaises(ValueError) as cm:
+            store = inst.add_filestore(a_file)
+        self.assertEqual(
+            str(cm.exception),
+            'Not a directory: {!r}'.format(a_file)
+        )
+
+        # Test when parentdir is okay:
+        okay = tmp.makedirs('okay')
+        self.assertEqual(inst._filestores, {})
+        store = inst.add_filestore(okay)
+
+        # Test the FileStore
+        self.assertEqual(set(inst._filestores), set([okay]))
+        fs = inst._filestores[okay]
+        self.assertIsInstance(fs, FileStore)
+        self.assertEqual(fs.parent, okay)
+
+        # Test the doc
+        check_dmedia_store(store)
+        self.assertEqual(inst.db[store['_id']], store)
+        self.assertEqual(store['path'], okay)
+        self.assertTrue(store.pop('_rev').startswith('1-'))
+        self.assertEqual(list(inst.local['filestores']), [okay])
+        self.assertEqual(inst.local['filestores'][okay], store)
+        self.assertEqual(inst.local['default_filestore'], okay)
+        self.assertEqual(inst.db['_local/dmedia'], inst.local)
+        self.assertEqual(inst.db['_local/dmedia']['_rev'], '0-1')
+
+        # Test when store already initialized:
+        self.assertEqual(inst.add_filestore(okay), store)
+        self.assertTrue(inst.db[store['_id']]['_rev'].startswith('1-'))
+        self.assertEqual(inst.db['_local/dmedia']['_rev'], '0-1')
 
     def test_init_app(self):
         inst = self.klass(self.dbname)
@@ -334,3 +393,28 @@ class TestCore(CouchCase):
         rev2 = inst.db['app']['_rev']
         self.assertNotEqual(rev2, rev)
         self.assertTrue(rev2.startswith('2-'))
+
+    def test_get_file(self):
+        inst = self.klass(self.dbname)
+        doc = {
+            '_id': mov_hash,
+            'ext': 'mov',
+        }
+        inst.db.save(doc)
+        self.assertIsNone(inst.get_file(mov_hash))
+
+        tmp1 = TempDir()
+        tmp2 = TempDir()
+        fs1 = FileStore(tmp1.path)
+        fs2 = FileStore(tmp2.path)
+        inst._filestores[tmp1.path] = fs1
+        inst._filestores[tmp2.path] = fs2
+        self.assertIsNone(inst.get_file(mov_hash))
+
+        src_fp = open(sample_mov, 'rb')
+        fs1.import_file(src_fp)
+        self.assertIsNone(inst.get_file(mov_hash))
+
+        src_fp = open(sample_mov, 'rb')
+        fs2.import_file(src_fp, 'mov')
+        self.assertEqual(inst.get_file(mov_hash), fs2.path(mov_hash, 'mov'))
