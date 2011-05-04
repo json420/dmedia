@@ -40,7 +40,11 @@ Browser.prototype = {
     },
 
     get_data: function(doc) {
-        var names = ['name', 'iso', 'aperture', 'shutter', 'focal_length',
+        var el = $('meta.name');
+        if (el) {
+            el.textContent = doc.name;
+        }
+        var names = ['iso', 'aperture', 'shutter', 'focal_length',
             'lens', 'camera'];
         names.forEach(function(n) {
             var el = $('meta.' + n);
