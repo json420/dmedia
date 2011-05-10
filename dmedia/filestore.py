@@ -1039,7 +1039,10 @@ class FileStore(object):
 
         # Set file to read-only (0444) and move into canonical location
         log.info('Moving file %r to %r', tmp_fp.name, dst)
-        os.fchmod(tmp_fp.fileno(), stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        fileno = tmp_fp.fileno()
+        tmp_fp.flush()
+        os.fsync(fileno)
+        os.fchmod(fileno, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         os.rename(tmp_fp.name, dst)
         tmp_fp.close()
 
