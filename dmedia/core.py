@@ -180,7 +180,10 @@ class Core(object):
         else:
             for (parentdir, store) in self.local['filestores'].iteritems():
                 assert store['path'] == parentdir
-                self.init_filestore(store)
+                try:
+                    self.init_filestore(store)
+                except Exception:
+                    pass
                 try:
                     self.db.save(deepcopy(store))
                 except ResourceConflict:
