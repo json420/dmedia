@@ -281,7 +281,7 @@ class ImportWorker(CouchWorker):
             dir=path.relpath(path.dirname(src), self.base),
         )
         if ext:
-            doc['mime'] = mimetypes.types_map.get('.' + ext)
+            doc['content_type'] = mimetypes.types_map.get('.' + ext)
             doc['media'] = MEDIA_MAP.get(ext)
         if self.extract:
             merge_metadata(src, doc)
