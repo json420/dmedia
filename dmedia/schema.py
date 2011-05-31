@@ -1105,8 +1105,8 @@ def check_dmedia_file_optional(doc):
     """
     _check_dict(doc, 'doc')
 
-    # 'mime' like 'video/quicktime'
-    _check_if_exists(doc, ['mime'],
+    # 'content_type' like 'video/quicktime'
+    _check_if_exists(doc, ['content_type'],
         _can_be_none,
         _check_str,
     )

@@ -537,11 +537,11 @@ class test_functions(TestCase):
         f({})
 
         # mime
-        self.assertIsNone(f({'mime': 'video/quicktime'}))
-        e = raises(TypeError, f, {'mime': 42})
+        self.assertIsNone(f({'content_type': 'video/quicktime'}))
+        e = raises(TypeError, f, {'content_type': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['mime']", basestring, int, 42)
+            TYPE_ERROR % ("doc['content_type']", basestring, int, 42)
         )
 
         # media
