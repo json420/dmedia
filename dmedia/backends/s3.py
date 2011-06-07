@@ -134,8 +134,8 @@ class S3Backend(transfers.TransferBackend):
         k = Key(self.bucket)
         k.key = key
         headers = {}
-        if doc.get('mime'):
-            headers['Content-Type'] = doc['mime']
+        if doc.get('content_type'):
+            headers['Content-Type'] = doc['content_type']
         fp = fs.open(chash, ext)
         k.set_contents_from_file(fp,
             headers=headers,

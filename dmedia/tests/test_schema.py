@@ -536,12 +536,27 @@ class test_functions(TestCase):
         f = schema.check_dmedia_file_optional
         f({})
 
-        # mime
-        self.assertIsNone(f({'mime': 'video/quicktime'}))
-        e = raises(TypeError, f, {'mime': 42})
+        # content_type
+        self.assertIsNone(f({'content_type': 'video/quicktime'}))
+        e = raises(TypeError, f, {'content_type': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['mime']", basestring, int, 42)
+            TYPE_ERROR % ("doc['content_type']", basestring, int, 42)
+        )
+
+        # content_encoding
+        self.assertIsNone(f({'content_encoding': None}))
+        self.assertIsNone(f({'content_encoding': 'gzip'}))
+        self.assertIsNone(f({'content_encoding': 'deflate'}))
+        e = raises(TypeError, f, {'content_encoding': 42})
+        self.assertEqual(
+            str(e),
+            TYPE_ERROR % ("doc['content_encoding']", basestring, int, 42)
+        )
+        e = raises(ValueError, f, {'content_encoding': 'stuff'})
+        self.assertEqual(
+            str(e),
+            "doc['content_encoding'] value 'stuff' not in ('gzip', 'deflate')"
         )
 
         # media
