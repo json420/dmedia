@@ -117,7 +117,7 @@ class VideoTranscoder(TranscodeBin):
         super(VideoTranscoder, self).__init__(d)
 
         # Create processing elements:
-        self._scale = self._make('videoscale', {'method': 2})
+        self._scale = self._make('ffvideoscale', {'method': 10})
         self._q = self._make('queue')
 
         # Link elements:
@@ -152,7 +152,7 @@ class Transcoder(object):
         self.fs = fs
 
         src = job['src']
-        self.src_fp = self.fs.open(src['id'], src.get('ext'))
+        src_filename = self.fs.path(src['id'], src.get('ext'))
         self.dst_fp = self.fs.allocate_for_write(job.get('ext'))
 
         self.mainloop = GObject.MainLoop()
@@ -165,13 +165,13 @@ class Transcoder(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = gst.element_factory_make('fdsrc')
+        self.src = gst.element_factory_make('filesrc')
         self.dec = gst.element_factory_make('decodebin2')
         self.mux = gst.element_factory_make(job['mux'])
         self.sink = gst.element_factory_make('fdsink')
 
         # Set properties
-        self.src.set_property('fd', self.src_fp.fileno())
+        self.src.set_property('location', src_filename)
         self.sink.set_property('fd', self.dst_fp.fileno())
 
         # Connect handler for 'new-decoded-pad' signal

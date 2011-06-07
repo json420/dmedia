@@ -220,13 +220,6 @@ class test_Transcoder(TestCase):
         self.assertTrue(inst.job is job)
         self.assertTrue(inst.fs is self.fs)
 
-        self.assertTrue(isinstance(inst.src_fp, file))
-        self.assertEqual(inst.src_fp.mode, 'rb')
-        self.assertEqual(
-            inst.src_fp.name,
-            self.tmp.join('.dmedia', mov_hash[:2], mov_hash[2:] + '.mov')
-        )
-
         self.assertTrue(isinstance(inst.dst_fp, file))
         self.assertEqual(inst.dst_fp.mode, 'r+b')
         self.assertTrue(
@@ -236,8 +229,11 @@ class test_Transcoder(TestCase):
 
         self.assertTrue(isinstance(inst.src, gst.Element))
         self.assertTrue(inst.src.get_parent() is inst.pipeline)
-        self.assertEqual(inst.src.get_factory().get_name(), 'fdsrc')
-        self.assertEqual(inst.src.get_property('fd'), inst.src_fp.fileno())
+        self.assertEqual(inst.src.get_factory().get_name(), 'filesrc')
+        self.assertEqual(
+            inst.src.get_property('location'),
+            self.fs.path(mov_hash, 'mov')
+        )
 
         self.assertTrue(isinstance(inst.dec, gst.Element))
         self.assertTrue(inst.dec.get_parent() is inst.pipeline)

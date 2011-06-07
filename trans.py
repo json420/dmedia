@@ -13,35 +13,47 @@ c = Core()
 c.bootstrap()
 
 
-src = c._filestores['/home']
-src_id = c.local['filestores']['/home']['_id']
+d = '/media/dmedia1'
+src = c._filestores[d]
+src_id = c.local['filestores'][d]['_id']
 
 i = 0
-for row in c.db.view('user/video', include_docs=True, descending=True):
+for row in c.db.view('user/video', include_docs=True):
+    i += 1
     doc = dict(row.doc)
     if 'proxy' in doc:
         print 'skipping {!r}'.format(doc['_id'])
+        #del doc['proxy']
+        #c.db.save(doc)
         continue
     job = {
         'src': {'id': doc['_id'], 'ext': doc['ext']},
-        'mux': 'oggmux',
+        'mux': 'webmmux',
         'video': {
-            'enc': 'theoraenc',
-            'props': {'quality': 40},
-            'caps': {'width': 960, 'height': 540},
+            'enc': 'vp8enc',
+            'props': {'quality': 7, 'threads': 3},
+            'caps': {'width': 640, 'height': 360},
         },
         'audio': {
             'enc': 'vorbisenc',
             'props': {'quality': 0.3},
+            'caps': {'channels': 1},
         },
-        'ext': 'ogv',
+        'ext': 'webm',
     }
     print job
     t = Transcoder(job, src)
-    (_id, leaves) = t.run()
-    f = src.path(_id, 'ogv')
+    tup = t.run()
+    if tup is None:
+        print 'Failed: {}'.format(doc['_id'])
+        doc['fail'] = True
+        c.db.save(doc)
+        continue
+
+    (_id, leaves) = tup
+    f = src.path(_id, job['ext'])
     proxy = create_file(path.getsize(f), leaves, src_id,
-        ext='ogv',
+        ext=job['ext'],
         origin='proxy',
     )
     proxy['proxyof'] = doc['_id']
@@ -49,7 +61,4 @@ for row in c.db.view('user/video', include_docs=True, descending=True):
     doc['proxy'] = _id
     c.db.save(doc)
     c.db.save(proxy)
-    os.symlink(f, '/home/jderose/Videos/uds/%03d.ogv' % i)
-    i += 1
-
-    
+    os.symlink(f, path.join(d, 'proxy', '%04d.ogv' % i))
