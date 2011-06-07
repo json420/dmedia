@@ -1325,6 +1325,22 @@ def create_store(parentdir, machine_id, copies=1):
     }
 
 
+def create_s3_store(bucket, copies=2, use_ext=True):
+    """
+    Create a 'dmedia/store' document.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/store',
+        'time': time.time(),
+        'plugin': 's3',
+        'bucket': bucket,
+        'copies': copies,
+        'use_ext': use_ext,
+    }
+
+
 def create_batch(machine_id=None):
     """
     Create initial 'dmedia/batch' accounting document.

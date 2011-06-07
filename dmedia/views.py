@@ -226,6 +226,15 @@ function(doc) {
 """
 
 
+store_plugin = """
+function(doc) {
+    if (doc.type == 'dmedia/store') {
+        emit(doc.plugin, null);
+    }
+}
+"""
+
+
 designs = (
     ('type', (
         ('type', type_type, _count),
@@ -265,6 +274,10 @@ designs = (
         ('inbox', user_inbox, _count),
         ('reject', user_reject, _count),
         ('keep', user_keep, _count),
+    )),
+
+    ('store', (
+        ('plugin', store_plugin, _count),
     )),
 )
 
