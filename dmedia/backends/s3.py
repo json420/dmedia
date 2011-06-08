@@ -136,6 +136,15 @@ class S3Backend(transfers.TransferBackend):
         headers = {}
         if doc.get('content_type'):
             headers['Content-Type'] = doc['content_type']
+        if doc.get('name'):
+            headers['Content-Disposition'] = (
+                'attachment; filename="{}"'.format(doc['name'])
+            )
+
+        if doc.get('content_type') in ('video/ogg', 'audio/ogg'):
+            dur = doc.get('meta', {}).get('duration')
+            if isinstance(dur, int) and dur >= 0:
+                headers['x-amz-meta-content-duration'] = str(dur)
         fp = fs.open(chash, ext)
         k.set_contents_from_file(fp,
             headers=headers,
