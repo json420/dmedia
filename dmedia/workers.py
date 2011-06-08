@@ -206,6 +206,13 @@ class Manager(object):
         with self._lock:
             signal = msg['signal']
             args = msg['args']
+            # FIXME:
+            # 1. Should not require a class handler for every signal
+            # 2. Should always emit signal to higher level code, whether or not
+            #    there is a class handler
+            # 3. ie, all signals from workers get emitted to higher code, plus
+            #    class may emit additional signals to higher code (like
+            #    'batch_finished')
             handler = getattr(self, 'on_' + signal)
             handler(*args)
 
