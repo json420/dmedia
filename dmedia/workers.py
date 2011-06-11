@@ -46,7 +46,7 @@ Other workers (like `ImportWorker`) will simply start over from the beginning.
 But either way, the status of the job itself must be atomic: it's finished, or
 it's not, with no gray area.
 
-A Worker sends signals to the `Manager` over the queue.  These signals are
+A `Worker` sends signals to the `Manager` over the queue.  These signals are
 largely used to provide UI status updates (stuff like a progress bar for a
 specific file being downloaded).  Typically these signals will be emitted over
 DBus, which is how apps built on dmedia will show progress, status, etc to their
