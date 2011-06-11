@@ -458,12 +458,3 @@ class TransferManager(Manager):
     def upload(self, file_id, store_id):
         key = upload_key(file_id, store_id)
         return self.start_job('UploadWorker', key, file_id, store_id)
-
-    def on_started(self, key):
-        print('started: {!r}'.format(key))
-
-    def on_finished(self, key):
-        print('finished: {!r}'.format(key))
-
-    def on_progress(self, key, completed, total):
-        print('progress: {!r}, {!r}, {!r}'.format(key, completed, total))
