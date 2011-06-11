@@ -364,12 +364,7 @@ class test_Manager(TestCase):
         msg = dict(signal='stuff', args=('foo', 'bar'))
         inst._process_message(msg)
         self.assertEqual(inst._call, 'foobar')
-        self.assertEqual(
-            callback.messages,
-            [
-                ('stuff', ('foo', 'bar')),
-            ]
-        )
+        self.assertEqual(callback.messages, [])
 
         # Test when there is *not* a signal handler
         msg = dict(signal='nope', args=('bar', 'baz'))
@@ -377,8 +372,17 @@ class test_Manager(TestCase):
         self.assertEqual(
             callback.messages,
             [
-                ('stuff', ('foo', 'bar')),
                 ('nope', ('bar', 'baz')),
+            ]
+        )
+
+        msg = dict(signal='crazy', args=tuple())
+        self.assertIsNone(inst._process_message(msg))
+        self.assertEqual(
+            callback.messages,
+            [
+                ('nope', ('bar', 'baz')),
+                ('crazy', tuple()),
             ]
         )
 

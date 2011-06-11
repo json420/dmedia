@@ -206,10 +206,11 @@ class Manager(object):
         with self._lock:
             signal = msg['signal']
             args = msg['args']
-            self.emit(signal, *args)
             handler = getattr(self, 'on_' + signal, None)
             if callable(handler):
                 handler(*args)
+            else:
+                self.emit(signal, *args)
 
     def first_worker_starting(self):
         pass
