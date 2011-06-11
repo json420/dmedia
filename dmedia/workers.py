@@ -21,6 +21,39 @@
 
 """
 Multi-process workers.
+
+This module implements the `Manager` and `Worker` classes that add some
+conveniences on top of the Python multiprocessing module.
+
+Any heavy lifting dmedia does (importing, downloading, uploading, verifying,
+etc) is done in a subprocess created with multiprocessing.Process().  This
+allows us to fully utilize multicore processors, plus makes dmedia more robust
+as things can go horribly wrong in a Worker without crashing the main process.
+It also keeps the memory footprint of the main process smaller and more stable
+over time, which is important as dmedia is a long running process (whether as a
+DBus service or a pure server).
+
+To start a new `Worker`, a `Manager` launches a new process and passes that
+process a description of the job, plus a queue that the `Worker` uses to send
+signals to the `Manager`.  The communication is one-way: once the `Worker` is
+started, the `Manager` has no way to signal the `Worker`, the only thing it can
+do is kill the `Worker`.
+
+Workers need to be atomic, must be able to be killed at any time without leaving
+the job in an undefined state.  Some workers (like `DownloadWorker`) will
+themselves intelligently resume a job where they left off (resume the download).
+Other workers (like `ImportWorker`) will simply start over from the beginning.
+But either way, the status of the job itself must be atomic: it's finished, or
+it's not, with no gray area.
+
+A Worker sends signals to the `Manager` over the queue.  These signals are
+largely used to provide UI status updates (stuff like a progress bar for a
+specific file being downloaded).  Typically these signals will be emitted over
+DBus, which is how apps built on dmedia will show progress, status, etc to their
+users.  But as the core dmedia bits also need to run on headless servers, the
+`Manager` is kept away from the details, instead is created with an optional
+callback that is called to pass a signal to "higher level code", whatever that
+happens to be.
 """
 
 import multiprocessing
@@ -189,9 +222,6 @@ class Manager(object):
         self._thread.start()
 
     def _kill_signal_thread(self):
-        assert self._running is True
-        assert self._thread.is_alive()
-        assert len(self._workers) == 0
         self._running = False
 
     def _signal_thread(self):
@@ -213,10 +243,35 @@ class Manager(object):
                 self.emit(signal, *args)
 
     def first_worker_starting(self):
-        pass
+        """
+        Called before starting the first worker.
+
+        This method can be overridden by subclasses.  It is called when the
+        manager goes from a state of having no active workers to a state of
+        having at least one active worker, just prior to starting the new
+        worker.
+
+        For example, `ImportManager` overrides this method to fire the
+        "BatchStarted" signal.
+
+        Also see `Manager.last_worker_finished()`.
+        """
 
     def last_worker_finished(self):
-        pass
+        """
+        Called after last worker has finished.
+
+        This method can be overridden by subclasses.  It is called when the
+        manager goes from a state of having at least one active worker to a
+        state of having no active workers, just after the worker's "terminate"
+        signal has been handled and the worker removed from the ``_workers``
+        dictionary.
+
+        For example, `ImportManager` overrides this method to fire the
+        "BatchFinished" signal.
+
+        Also see `Manager.first_worker_starting()`.
+        """
 
     def on_terminate(self, key):
         p = self._workers.pop(key)
@@ -247,6 +302,14 @@ class Manager(object):
     def start_job(self, worker, key, *args):
         """
         Start a process identified by *key*, using worker class *name*.
+
+        If the job identified by *key* is already running, ``False`` is
+        returned, without any further action.
+
+        Otherwise the job is dispatched to a new worker process, and ``True`` is
+        returned.
+
+        Note that this method is asynchronous and will return immediately.
 
         :param worker: name of worker class, eg ``'ImportWorker'``
         :param key: a key to uniquely identify new `Worker` among active workers
