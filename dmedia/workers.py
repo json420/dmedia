@@ -118,6 +118,16 @@ def dispatch(worker, env, q, key, args):
     """
     Dispatch a worker in this proccess.
 
+    This function will create an instance of the appropriate `Worker` subclass
+    and call its run() method.
+
+    If this function catches an exception, it will be logged and then forwarded
+    to the `Manager` through the queue via the "error" signal.
+
+    Unless something goes spectacularly wrong, this function will always send
+    a "terminate" signal to the `Manager`, even if the worker crashes or a
+    `Worker` subclass named *worker* isn't registered.
+
     :param worker: name of worker class, eg ``'ImportWorker'``
     :param env: a ``dict`` containing run-time information like the CouchDB URL
     :param q: a ``multiprocessing.Queue`` or similar
@@ -151,6 +161,43 @@ def dispatch(worker, env, q, key, args):
 
 
 class Worker(object):
+    """
+    Just a workin' class class.
+
+    To create a worker, just subclass like this and override the
+    `Worker.execute()` method:
+
+    >>> class MyWorker(Worker):
+    ...     def execute(self, junk):
+    ...         self.emit('my_signal', 'doing stuff with junk')
+    ...
+
+    You must be explicitly registered your worker with `register()` for
+    `dispatch()` to be able to create instances of your worker in a sub process.
+    It's best to first check if your worker is registered, like this:
+
+    >>> if not isregistered(MyWorker):
+    ...     register(MyWorker)
+    ...
+
+    Ideally, the corresponding `Manager` subclass should insure all its workers
+    are registered, typically in its __init__() method, like this:
+
+    >>> class MyManager(Manager):
+    ...     def __init__(self, env, callback=None):
+    ...         super(MyManager, self).__init__(env, callback)
+    ...         for klass in [MyWorker]:
+    ...             if not isregistered(klass):
+    ...                 register(klass)
+    ...
+    >>> manager = MyManager({})
+
+    :param env: a ``dict`` containing run-time information like the CouchDB URL
+    :param q: a ``multiprocessing.Queue`` or similar
+    :param key: a key to uniquely identify this worker among active workers
+        controlled by the `Manager` that launched this worker
+    :param args: arguments to be passed to `Worker.run()`
+    """
     def __init__(self, env, q, key, args):
         self.env = env
         self.q = q
