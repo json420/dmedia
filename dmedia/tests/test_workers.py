@@ -356,15 +356,35 @@ class test_Manager(TestCase):
                 assert self._call is None
                 self._call = arg1 + arg2
 
+        callback = DummyCallback()
         env = {'foo': 'bar'}
-        inst = Example(env = {'foo': 'bar'})
+        inst = Example({'foo': 'bar'}, callback)
+
+        # Test when there is a signal handler
         msg = dict(signal='stuff', args=('foo', 'bar'))
         inst._process_message(msg)
         self.assertEqual(inst._call, 'foobar')
+        self.assertEqual(callback.messages, [])
 
-        msg = dict(signal='nope', args=('foo', 'bar'))
-        e = raises(AttributeError, inst._process_message, msg)
-        self.assertEqual(str(e), "'Example' object has no attribute 'on_nope'")
+        # Test when there is *not* a signal handler
+        msg = dict(signal='nope', args=('bar', 'baz'))
+        self.assertIsNone(inst._process_message(msg))
+        self.assertEqual(
+            callback.messages,
+            [
+                ('nope', ('bar', 'baz')),
+            ]
+        )
+
+        msg = dict(signal='crazy', args=tuple())
+        self.assertIsNone(inst._process_message(msg))
+        self.assertEqual(
+            callback.messages,
+            [
+                ('nope', ('bar', 'baz')),
+                ('crazy', tuple()),
+            ]
+        )
 
     def test_on_terminate(self):
         env = {'foo': 'bar'}
