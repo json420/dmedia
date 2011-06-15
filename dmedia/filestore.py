@@ -840,6 +840,14 @@ class FileStore(object):
             return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
         return (TRANSFERS_DIR, chash)
 
+    @staticmethod
+    def reltmp2(state, chash, ext=None):
+        assert state in ('transfers', 'corrupted')
+        chash = safe_b32(chash)
+        if ext:
+            return (state, '.'.join([chash, safe_ext(ext)]))
+        return (state, chash)
+
     def tmp(self, chash, ext=None, create=False):
         """
         Returns path of temporary file with *chash*, ending with *ext*.

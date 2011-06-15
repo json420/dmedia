@@ -901,6 +901,51 @@ class test_FileStore(TestCase):
             'ext %r does not match pattern %r' % (bad, EXT_PAT)
         )
 
+    def test_reltmp2(self):
+        _id = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+
+        # state='transfers'
+        self.assertEqual(
+            self.klass.reltmp2('transfers', _id),
+            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            self.klass.reltmp2('transfers', _id, ext='ogv'),
+            ('transfers', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+
+        # state='corrupted'
+        self.assertEqual(
+            self.klass.reltmp2('corrupted', _id),
+            ('corrupted', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW')
+        )
+        self.assertEqual(
+            self.klass.reltmp2('corrupted', _id, ext='ogv'),
+            ('corrupted', 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW.ogv')
+        )
+
+        # Test to make sure hashes are getting checked with safe_b32():
+        bad = 'NWBNVXVK5..GIOW7MYR4K3KA5K22W7NW'
+        e = raises(ValueError, self.klass.reltmp2, 'transfers', bad)
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+        e = raises(ValueError, self.klass.reltmp2, 'transfers', bad, ext='ogv')
+        self.assertEqual(
+            str(e),
+            'b32: cannot b32decode %r: Non-base32 digit found' % bad
+        )
+
+        # Test to make sure ext is getting checked with safe_ext():
+        chash = 'NWBNVXVK5DQGIOW7MYR4K3KA5K22W7NW'
+        bad = '/../../../.ssh/id_pub'
+        e = raises(ValueError, self.klass.reltmp2, 'transfers', chash, bad)
+        self.assertEqual(
+            str(e),
+            'ext %r does not match pattern %r' % (bad, EXT_PAT)
+        )
+
     def test_tmp(self):
         tmp = TempDir()
         inst = self.klass(tmp.path)
