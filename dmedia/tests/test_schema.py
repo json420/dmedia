@@ -33,7 +33,7 @@ from dmedia.schema import random_id
 from dmedia import schema
 
 
-class test_functions(TestCase):
+class TestFunctions(TestCase):
     def test_check_dmedia(self):
         f = schema.check_dmedia
 
@@ -152,9 +152,10 @@ class test_functions(TestCase):
         for key in ['_id', 'ver', 'type', 'time']:
             bad = deepcopy(good)
             del bad[key]
-            e = raises(ValueError, f, bad)
+            with self.assertRaises(ValueError) as cm:
+                f(bad)
             self.assertEqual(
-                str(e),
+                str(cm.exception),
                 'doc[{!r}] does not exist'.format(key)
             )
 
@@ -180,89 +181,110 @@ class test_functions(TestCase):
         g = deepcopy(good)
         self.assertEqual(f(g), None)
 
-        # Test with wrong record type:
-        bad = deepcopy(good)
-        bad['type'] = 'dmedia/files'
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            "doc['type'] must equal 'dmedia/file'; got 'dmedia/files'"
-        )
-
         # Test with missing attributes:
         for key in ['bytes', 'ext', 'origin', 'stored']:
             bad = deepcopy(good)
             del bad[key]
-            e = raises(ValueError, f, bad)
+            with self.assertRaises(ValueError) as cm:
+                f(bad)
             self.assertEqual(
-                str(e),
+                str(cm.exception),
                 "doc[{!r}] does not exist".format(key)
             )
+
+        # Test with wrong "type":
+        bad = deepcopy(good)
+        bad['type'] = 'dmedia/files'
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['type'] must equal 'dmedia/file'; got 'dmedia/files'"
+        )
 
         # Test with bytes wrong type:
         bad = deepcopy(good)
         bad['bytes'] *= 1.0
-        e = raises(TypeError, f, bad)
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
         )
 
-        # Test with bytes < 1:
+        # Test with bytes == 0:
         bad = deepcopy(good)
         bad['bytes'] = 0
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['bytes'] must be >= 1; got 0"
         )
+
+        # Test with bytes == -1:
         bad = deepcopy(good)
         bad['bytes'] = -1
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['bytes'] must be >= 1; got -1"
         )
 
         # Test with bytes=1
         g = deepcopy(good)
         g['bytes'] = 1
-        self.assertEqual(f(g), None)
+        self.assertIsNone(f(g))
 
         # Test with invalid ext
         bad = deepcopy(good)
         bad['ext'] = '.mov'
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
         )
 
-        # Test with invalid origin
+        # Test with upercase origin
         bad = deepcopy(good)
         bad['origin'] = 'USER'
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['origin'] must be lowercase; got 'USER'"
         )
 
-        # Make sure origin is checked with strict=True
+        # Test with invalid "origin":
         bad = deepcopy(good)
         bad['origin'] = 'foo'
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['origin'] value 'foo' not in ('user', 'download', 'paid', 'proxy', 'cache', 'render')"
         )
 
-        # Test with invalid stored
+        # Test with invalid stored "copies":
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -1
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
+        )
+
+        # Test with invalid stored "time":
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time'] = -1
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time'] must be >= 0; got -1"
         )
 
 
