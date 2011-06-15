@@ -797,7 +797,11 @@ class FileStore(object):
         h = HashList(src_fp)
         got = h.run()
         if got != chash:
-            raise IntegrityError(got=got, expected=chash, filename=src_fp.name)
+            corrupted = self.join(*self.reltmp2('corrupted', chash, ext))
+            self.create_parent(corrupted)
+            os.rename(src_fp.name, corrupted)
+            src_fp.close()
+            raise IntegrityError(got=got, expected=chash, filename=corrupted)
         src_fp.seek(0)
         return src_fp
 

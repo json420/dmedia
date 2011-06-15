@@ -845,12 +845,21 @@ class test_FileStore(TestCase):
         self.assertEqual(fp.name, canonical)
 
         # File has wrong content-hash
+        corrupted = inst.join(*inst.reltmp2('corrupted', mov_hash, 'mov'))
         os.remove(canonical)
         shutil.copy2(sample_thm, canonical)
+        self.assertTrue(path.isfile(canonical))
+        self.assertFalse(path.exists(corrupted))
         e = raises(IntegrityError, inst.verify, mov_hash, 'mov')
         self.assertEqual(e.got, thm_hash)
         self.assertEqual(e.expected, mov_hash)
-        self.assertEqual(e.filename, canonical)
+        self.assertEqual(e.filename, corrupted)
+        self.assertFalse(path.exists(canonical))
+        self.assertTrue(path.isfile(corrupted))
+        self.assertEqual(
+            open(sample_thm, 'rb').read(),
+            open(corrupted, 'rb').read()
+        )
 
     def test_remove(self):
         tmp = TempDir()
