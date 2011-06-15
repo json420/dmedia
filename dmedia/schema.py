@@ -678,7 +678,6 @@ def _check_required(d, required, label='doc'):
             '%s missing keys: %r' % (label, missing)
         )
 
-
 def _check_in(value, label, *possible):
     """
     Check that *value* is one of *possible*.
@@ -696,6 +695,22 @@ def _check_in(value, label, *possible):
             '{} value {!r} not in {!r}'.format(label, value, possible)
         )
 
+def _equals(value, label, expected):
+    """
+    Check that *value* equals *expected*.
+
+    For example:
+
+    >>> _equals('file', "doc['type']", 'dmedia/file')
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['type'] value is 'file', expected 'dmedia/file'
+
+    """
+    if value != expected:
+        raise ValueError(
+            '{} value is {!r}, expected {!r}'.format(label, value, expected)
+        )
 
 
 # The schema defining functions:
@@ -855,73 +870,6 @@ def check_dmedia(doc):
     check_type(doc['type'])
     check_time(doc['time'])
 
-
-def check_stored(stored, label='stored'):
-    """
-    Verify that *stored* is valid for a 'dmedia/file' record.
-
-    To be valid, *stored* must:
-
-        1. be a non-empty ``dict``
-
-        2. have keys that are document IDs according to `check_base32()`
-
-        3. have values that are themselves ``dict`` instances
-
-        4. values must have 'copies' that is an ``int`` >= 0
-
-        5. values must have 'time' that conforms with `check_time()`
-
-    For example, a conforming value:
-
-    >>> stored = {
-    ...     'MZZG2ZDSOQVSW2TEMVZG643F': {
-    ...         'copies': 2,
-    ...         'time': 1234567890,
-    ...     },
-    ... }
-    ...
-    >>> check_stored(stored)
-
-
-    And an invalid value:
-
-    >>> stored = {
-    ...     'MZZG2ZDSOQVSW2TEMVZG643F': {
-    ...         'number': 2,
-    ...         'time': 1234567890,
-    ...     },
-    ... }
-    ...
-    >>> check_stored(stored)
-    Traceback (most recent call last):
-      ...
-    ValueError: stored['MZZG2ZDSOQVSW2TEMVZG643F'] missing keys: ['copies']
-
-
-    Also see `check_dmedia_file()`.
-    """
-
-    _check_dict(stored, label)
-    _check_nonempty(stored, label)
-
-    for (key, value) in stored.iteritems():
-        check_base32(key, '<key in %s>' % label)
-
-        l2 = '%s[%r]' % (label, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
-
-        _check_required(value, ['copies', 'time'], l2)
-
-        # Check 'copies':
-        copies = value['copies']
-        l3 = l2 + "['copies']"
-        _check_int(copies, l3)
-        _check_at_least(copies, l3, 0)
-
-        # Check 'time':
-        check_time(value['time'], l2 + "['time']")
-
-
 def check_ext(value, label='ext'):
     """
     Verify that *value* is a file extension suitable for 'dmedia/file' records.
@@ -1014,20 +962,6 @@ def check_dmedia_file(doc):
     """
     Verify that *doc* is a valid 'dmedia/file' record type.
 
-    To be a valid 'dmedia/file' record, *doc* must:
-
-        1. conform with `check_dmedia()`
-
-        2. have 'type' equal to 'dmedia/file'
-
-        3. have 'bytes' that is an ``int`` >= 1
-
-        4. have 'ext' that conforms with `check_ext()`
-
-        5. have 'origin' that conforms with `check_origin()` with strict=True
-
-        6. have 'stored' that is a ``dict`` conforming with `check_stored()`
-
     For example, a conforming value:
 
     >>> doc = {
@@ -1070,7 +1004,7 @@ def check_dmedia_file(doc):
     >>> check_dmedia_file(doc)
     Traceback (most recent call last):
       ...
-    ValueError: stored['MZZG2ZDSOQVSW2TEMVZG643F'] missing keys: ['copies']
+    ValueError: doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exists
 
     """
     check_dmedia(doc)
@@ -1094,7 +1028,22 @@ def check_dmedia_file(doc):
     check_origin(doc['origin'], strict=True)
 
     # Check 'stored'
-    check_stored(doc['stored'])
+    #check_stored(doc['stored'])
+
+    _check(doc, ['stored'],
+        _check_dict,
+        _check_nonempty,
+    )
+    for store in doc['stored']:
+        _check(doc, ['stored', store, 'copies'],
+            _check_int,
+            _check_at_least,
+        )
+        _check(doc, ['stored', store, 'time'],
+            _check_int_float,
+            _check_at_least,
+        )
+
 
     check_dmedia_file_optional(doc)
 

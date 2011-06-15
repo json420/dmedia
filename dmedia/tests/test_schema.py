@@ -204,112 +204,6 @@ class test_functions(TestCase):
             'doc missing keys: %r' % ['_id', 'time', 'type', 'ver']
         )
 
-    def test_check_stored(self):
-        f = schema.check_stored
-
-        good = {
-            'MZZG2ZDSOQVSW2TEMVZG643F': {
-                'copies': 2,
-                'time': 1234567890,
-            },
-            'NZXXMYLDOV2F6ZTUO5PWM5DX': {
-                'copies': 1,
-                'time': 1234666890,
-            },
-        }
-
-        g = deepcopy(good)
-        self.assertEqual(f(g), None)
-
-        # Test with wrong type:
-        bad = [
-            (
-                'MZZG2ZDSOQVSW2TEMVZG643F',
-                {
-                    'copies': 2,
-                    'time': 1234567890,
-                }
-            )
-        ]
-        e = raises(TypeError, f, bad)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('stored', dict, list, bad)
-        )
-
-        # Test with empty value:
-        e = raises(ValueError, f, {})
-        self.assertEqual(str(e), 'stored cannot be empty; got {}')
-
-        # Test with bad key
-        bad = deepcopy(good)
-        bad['MFQWCYLBMFQWCYI='] =  {'copies': 2, 'time': 1234567890}
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            "len(b32decode(<key in stored>)) not multiple of 5: 'MFQWCYLBMFQWCYI='"
-        )
-
-        # Test with wrong value Type
-        bad = deepcopy(good)
-        v = (2, 1234567890)
-        bad['OVRHK3TUOUQCWIDMNFXGC4TP'] = v
-        e = raises(TypeError, f, bad)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("stored['OVRHK3TUOUQCWIDMNFXGC4TP']", dict, tuple, v)
-        )
-
-        # Test with misisng value keys
-        bad = deepcopy(good)
-        bad['OVRHK3TUOUQCWIDMNFXGC4TP'] = {'number': 2, 'time': 1234567890}
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            "stored['OVRHK3TUOUQCWIDMNFXGC4TP'] missing keys: ['copies']"
-        )
-        bad = deepcopy(good)
-        bad['OVRHK3TUOUQCWIDMNFXGC4TP'] = {'number': 2, 'added': 1234567890}
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            "stored['OVRHK3TUOUQCWIDMNFXGC4TP'] missing keys: ['copies', 'time']"
-        )
-
-        # Test with bad 'copies' type/value:
-        label = "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies']"
-        bad = deepcopy(good)
-        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = 2.0
-        e = raises(TypeError, f, bad)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % (label, int, float, 2.0)
-        )
-        bad = deepcopy(good)
-        bad['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -2
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            '%s must be >= 0; got -2' % label
-        )
-
-        # Test with bad 'time' type/value:
-        label = "stored['MZZG2ZDSOQVSW2TEMVZG643F']['time']"
-        bad = deepcopy(good)
-        bad['MZZG2ZDSOQVSW2TEMVZG643F']['time'] = '1234567890'
-        e = raises(TypeError, f, bad)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % (label, (int, float), str, '1234567890')
-        )
-        bad = deepcopy(good)
-        bad['MZZG2ZDSOQVSW2TEMVZG643F']['time'] = -1
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            '%s must be >= 0; got -1' % label
-        )
-
     def test_check_ext(self):
         f = schema.check_ext
 
@@ -424,7 +318,6 @@ class test_functions(TestCase):
         self.assertEqual(f('cache', strict=True), None)
         self.assertEqual(f('render', strict=True), None)
 
-
     def test_check_dmedia_file(self):
         f = schema.check_dmedia_file
 
@@ -529,7 +422,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "stored['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
         )
 
     def test_check_dmedia_file_optional(self):
