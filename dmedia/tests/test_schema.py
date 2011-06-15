@@ -34,6 +34,14 @@ from dmedia import schema
 
 
 class TestFunctions(TestCase):
+    def test_random_id(self):
+        f = schema.random_id
+        _id = f()
+        self.assertEqual(len(_id), 24)
+        binary = b32decode(_id)
+        self.assertEqual(len(binary), 15)
+        self.assertEqual(b32encode(binary), _id)
+
     def test_check_dmedia(self):
         f = schema.check_dmedia
 
@@ -499,19 +507,13 @@ class TestFunctions(TestCase):
             "doc['copies'] must be >= 0; got -2"
         )
 
-    def test_random_id(self):
-        f = schema.random_id
-        _id = f()
-        self.assertEqual(len(_id), 24)
-        binary = b32decode(_id)
-        self.assertEqual(len(binary), 15)
-        self.assertEqual(b32encode(binary), _id)
-
     def test_create_file(self):
         f = schema.create_file
+        leaf_hashes = b''.join(mov_leaves)
+
         store = schema.random_id()
 
-        d = f(mov_size, mov_leaves, store)
+        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}})
         schema.check_file(d)
         self.assertEqual(
             set(d),
@@ -531,8 +533,8 @@ class TestFunctions(TestCase):
         self.assertEqual(
             d['_attachments'],
             {
-                'leaves': {
-                    'data': b64encode(b''.join(mov_leaves)),
+                'leaf_hashes': {
+                    'data': b64encode(leaf_hashes),
                     'content_type': 'application/octet-stream',
                 }
             }
@@ -548,19 +550,18 @@ class TestFunctions(TestCase):
         self.assertIsInstance(s, dict)
         self.assertEqual(list(s), [store])
         self.assertEqual(set(s[store]), set(['copies', 'time']))
-        self.assertEqual(s[store]['copies'], 0)
+        self.assertEqual(s[store]['copies'], 2)
         self.assertEqual(s[store]['time'], d['time'])
 
-        # Test overriding default kwarg values:
-        d = f(mov_size, mov_leaves, store, copies=2)
-        schema.check_file(d)
-        self.assertEqual(d['stored'][store]['copies'], 2)
-
-        d = f(mov_size, mov_leaves, store, ext='mov')
+        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}},
+            ext='mov'
+        )
         schema.check_file(d)
         self.assertEqual(d['ext'], 'mov')
 
-        d = f(mov_size, mov_leaves, store, origin='proxy')
+        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}},
+            origin='proxy'
+        )
         schema.check_file(d)
         self.assertEqual(d['origin'], 'proxy')
 

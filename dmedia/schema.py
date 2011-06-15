@@ -309,8 +309,7 @@ When the job is completed, the document is updated like this:
 
 from __future__ import print_function
 
-import os
-from hashlib import sha1
+from os import urandom
 from base64 import b32encode, b32decode, b64encode
 import re
 import time
@@ -318,6 +317,20 @@ import socket
 import platform
 
 from .constants import TYPE_ERROR, EXT_PAT
+
+
+def random_id():
+    """
+    Returns a 120-bit base32-encoded random ID.
+
+    The ID will be 24-characters long, URL and filesystem safe.  For example:
+
+    >>> random_id()  #doctest: +SKIP
+    'OVRHK3TUOUQCWIDMNFXGC4TP'
+
+    """
+    return b32encode(urandom(15))
+
 
 # Some private helper functions that don't directly define any schema.
 #
@@ -330,7 +343,6 @@ from .constants import TYPE_ERROR, EXT_PAT
 #      with the schema
 #
 # That is all.
-
 
 def _label(path):
     """
@@ -690,8 +702,8 @@ def _content_id(value, label):
         )
 
 
-################################
-# The schema defining functions:
+##################################
+# The schema validation functions:
 
 def check_dmedia(doc):
     """
@@ -828,6 +840,7 @@ def check_file(doc):
         _nonempty,
     )
     for store in doc['stored']:
+        _check(doc, ['stored', store], dict)
         _check(doc, ['stored', store, 'copies'], int,
             (_at_least, 0),
         )
@@ -941,65 +954,31 @@ def check_store(doc):
     )
 
 
-def random_id(random=None):
-    """
-    Returns a 120-bit base32-encoded random ID.
+#######################################################
+# Functions for creating specific types of dmedia docs:
 
-    The ID will be 24-characters long, URL and filesystem safe.  For example:
-
-    >>> random_id()  #doctest: +SKIP
-    'OVRHK3TUOUQCWIDMNFXGC4TP'
-
-    Optionally you can provide the 15-byte random seed yourself:
-
-    >>> random_id(random='abcdefghijklmno'.encode('utf-8'))
-    'MFRGGZDFMZTWQ2LKNNWG23TP'
-
-    :param random: optionally provide 15-byte random seed; when not provided,
-        seed is created by calling ``os.urandom(15)``
-    """
-    random = (os.urandom(15) if random is None else random)
-    assert len(random) % 5 == 0
-    return b32encode(random)
-
-
-# FIXME: There is current a recursize import issue with filestore, but FileStore
-# shouldn't deal with the store.json file anyway, should not import
-# `schema.create_store()`
-def tophash_personalization(file_size):
-    return ' '.join(['dmedia/tophash', str(file_size)]).encode('utf-8')
-
-
-def tophash(file_size, leaves):
-    """
-    Initialize hash for a file that is *file_size* bytes.
-    """
-    h = sha1(tophash_personalization(file_size))
-    h.update(leaves)
-    return b32encode(h.digest())
-
-
-def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
+def create_file(_id, file_size, leaf_hashes, stored, ext=None, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
 
+    :param _id: the content hash, eg ``'JK47OD6N5JYFGEIFB53LX7XPUSYCWDUM'``
     :param file_size: an ``int``, the file size in bytes, eg ``20202333``
-    :param leaves: a ``list`` containing the content hash of each leaf
-    :param store: the ID of the store where this file is initially stored, eg
+    :param leaf_hashes: a ``bytes`` instance containing the concatenated content
+        hashes of the leaves
+    :param stored: a ``dict`` containing locations this file is stored
         ``'Y4J3WQCMKV5GHATOCZZBHF4Y'``
-    :param copies: an ``int`` to represent the durability of the file on this
-        store; default is ``0``
     :param ext: the file extension, eg ``'mov'``; default is ``None``
     :param origin: the file's origin (for durability/reclamation purposes);
         default is ``'user'``
     """
     ts = time.time()
-    packed = b''.join(leaves)
+    for value in stored.values():
+        value['time'] = ts
     return {
-        '_id': tophash(file_size, packed),
+        '_id': _id,
         '_attachments': {
-            'leaves': {
-                'data': b64encode(packed),
+            'leaf_hashes': {
+                'data': b64encode(leaf_hashes),
                 'content_type': 'application/octet-stream',
             }
         },
@@ -1009,12 +988,7 @@ def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
         'bytes': file_size,
         'ext': ext,
         'origin': origin,
-            'stored': {
-            store: {
-                'copies': copies,
-                'time': ts,
-            }
-        }
+        'stored': stored,
     }
 
 
