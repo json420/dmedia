@@ -695,6 +695,23 @@ def _check_in(value, label, *possible):
             '{} value {!r} not in {!r}'.format(label, value, possible)
         )
 
+def _is_in(value, label, *possible):
+    """
+    Check that *value* is one of *possible*.
+
+    For example:
+
+    >>> _is_in('foo', "doc['media']", 'video', 'audio', 'image')
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['media'] value 'foo' not in ('video', 'audio', 'image')
+
+    """
+    if value not in possible:
+        raise ValueError(
+            '{} value {!r} not in {!r}'.format(label, value, possible)
+        )
+
 def _equals(value, label, expected):
     """
     Check that *value* equals *expected*.
