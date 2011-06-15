@@ -834,6 +834,12 @@ def check_file(doc):
         _check(doc, ['stored', store, 'time'], (int, float),
             (_at_least, 0),
         )
+        _check_if_exists(doc, ['stored', store, 'verified'], (int, float),
+            (_at_least, 0),
+        )
+        _check_if_exists(doc, ['stored', store, 'status'], basestring,
+            (_is_in, 'partial', 'corrupted'),
+        )
 
     check_file_optional(doc)
 

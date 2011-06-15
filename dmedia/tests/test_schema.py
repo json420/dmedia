@@ -267,6 +267,26 @@ class TestFunctions(TestCase):
             "doc['origin'] value 'foo' not in ('user', 'download', 'paid', 'proxy', 'cache', 'render')"
         )
 
+        # Test with missing stored "copies":
+        bad = deepcopy(good)
+        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies']
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exist"
+        )
+
+        # Test with missing stored "time"
+        bad = deepcopy(good)
+        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time']
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time'] does not exist"
+        )
+
         # Test with invalid stored "copies":
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -1
@@ -285,6 +305,26 @@ class TestFunctions(TestCase):
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time'] must be >= 0; got -1"
+        )
+
+        # Test with invalid stored "verified":
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] = -1
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
+        )
+
+        # Test with invalid stored "status":
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['status'] = 'broken'
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['status'] value 'broken' not in ('partial', 'corrupted')"
         )
 
 
