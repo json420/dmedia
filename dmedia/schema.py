@@ -481,6 +481,66 @@ def _check(doc, path, *checks):
             break
 
 
+def _isinstance(value, label, allowed):
+    """
+    Verify that *value* is an instance of *allowed*.
+
+    For example:
+
+    >>> _isinstance('18', "doc['bytes']", int)
+    Traceback (most recent call last):
+      ...
+    TypeError: doc['bytes']: need a <type 'int'>; got a <type 'str'>: '18'
+
+    """
+    if not isinstance(value, allowed):
+        raise TypeError('{}: need a {!r}; got a {!r}: {!r}'.format(
+                label, allowed, type(value), value
+            )
+        )
+
+def _check2(doc, path, allowed, *checks):
+    """
+    Run a series of *checks* on the value in *doc* addressed by *path*.
+
+    For example:
+
+    >>> doc = {'foo': [None, {'bar': 'aye'}, None]}
+    >>> _check2(doc, ['foo', 1, 'bar'], str,
+    ...     (_is_in, 'bee', 'sea'),
+    ... )
+    ...
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['foo'][1]['bar'] value 'aye' not in ('bee', 'sea')
+
+
+    Or if a value is missing:
+
+    >>> _check(doc, ['foo', 3],
+    ...     _can_be_none,
+    ... )
+    ...
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['foo'][3] does not exists
+
+
+    See also `_check_if_exists()`.
+    """
+    value = _value(doc, path)
+    label = _label(path)
+    _isinstance(value, label, allowed)
+    for c in checks:
+        if isinstance(c, tuple):
+            (c, args) = (c[0], c[1:])
+        else:
+            args = tuple()
+        if c(value, label, *args) is True:
+            break
+
+
+
 def _check_if_exists(doc, path, *checks):
     """
     Run *checks* only if value at *path* exists.
