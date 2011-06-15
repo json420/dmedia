@@ -95,9 +95,8 @@ dmedia *is* a distributed filesystem, but a quite simple one in that it only
 stores intrinsically-named, read-only files.
 
 The content-hash is computed as a hash-list (a 1 deep tree-hash).  Currently
-this is done using the sha1 hash function with an 8 MiB leaf size, but both the
-hash function and leaf size are designed to be configurable to allow for future
-migration.
+this is done using the sha1 hash function with an 8 MiB leaf size, but dmedia
+is moving to Skein for the final hashing protocol.
 
 The content-hashes of the individual leaves are stored in the "leaves"
 attachment in the CouchDB document.  This allows for file integrity checks with
