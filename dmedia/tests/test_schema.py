@@ -34,119 +34,6 @@ from dmedia import schema
 
 
 class test_functions(TestCase):
-    def test_check_base32(self):
-        f = schema.check_base32
-
-        e = raises(TypeError, f, 17)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('_id', basestring, int, 17)
-        )
-        e = raises(TypeError, f, True, label='import_id')
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('import_id', basestring, bool, True)
-        )
-
-        # Test with invalid base32 encoding:
-        bad = 'MZzG2ZDSOQVSW2TEMVZG643F'
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            '_id: invalid base32: Non-base32 digit found; got %r' % bad
-        )
-        bad = 'MZZG2ZDSOQVSW2TEMVZG643F='
-        e = raises(ValueError, f, bad, label='import_id')
-        self.assertEqual(
-            str(e),
-            'import_id: invalid base32: Incorrect padding; got %r' % bad
-        )
-
-        for n in xrange(5, 26):
-            b32 = b32encode('a' * n)
-            if n % 5 == 0:
-                self.assertEqual(f(b32), None)
-            else:
-                e = raises(ValueError, f, b32, label='foo')
-                self.assertEqual(
-                    str(e),
-                    'len(b32decode(foo)) not multiple of 5: %r' % b32
-                )
-
-        self.assertEqual(f('MZZG2ZDSOQVSW2TEMVZG643F'), None)
-
-    def test_check_type(self):
-        f = schema.check_type
-
-        # Test with wrong type
-        e = raises(TypeError, f, 17)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('type', basestring, int, 17)
-        )
-
-        # Test with wrong case
-        e = raises(ValueError, f, 'Dmedia/Foo')
-        self.assertEqual(
-            str(e),
-             "type must be lowercase; got 'Dmedia/Foo'"
-        )
-
-        # Test with wrong prefix
-        e = raises(ValueError, f, 'foo/bar')
-        self.assertEqual(
-            str(e),
-             "type must start with 'dmedia/'; got 'foo/bar'"
-        )
-
-        # Test with multiple slashes
-        e = raises(ValueError, f, 'dmedia/foo/bar')
-        self.assertEqual(
-            str(e),
-             "type must contain only one '/'; got 'dmedia/foo/bar'"
-        )
-
-        # Test with good values
-        self.assertEqual(f('dmedia/foo'), None)
-        self.assertEqual(f('dmedia/machine'), None)
-
-    def test_check_time(self):
-        f = schema.check_time
-
-        # Test with wrong type
-        bad = '123456789'
-        e = raises(TypeError, f, bad)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('time', (int, float), str, bad)
-        )
-        bad = u'123456789.18'
-        e = raises(TypeError, f, bad, label='time_end')
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('time_end', (int, float), unicode, bad)
-        )
-
-        # Test with negative value
-        bad = -1234567890
-        e = raises(ValueError, f, bad, label='mtime')
-        self.assertEqual(
-            str(e),
-            'mtime must be >= 0; got %r' % bad
-        )
-        bad = -1234567890.18
-        e = raises(ValueError, f, bad, label='foo')
-        self.assertEqual(
-            str(e),
-            'foo must be >= 0; got %r' % bad
-        )
-
-        # Test with good values
-        self.assertEqual(f(1234567890), None)
-        self.assertEqual(f(1234567890.18), None)
-        self.assertEqual(f(0), None)
-        self.assertEqual(f(0.0), None)
-
     def test_check_dmedia(self):
         f = schema.check_dmedia
 
@@ -175,10 +62,10 @@ class test_functions(TestCase):
         bad = deepcopy(good)
         bad['ver'] = 0.0
         e = raises(TypeError, f, bad)
-        self.assertEqual(str(e), TYPE_ERROR % ('ver', int, float, 0.0))
+        self.assertEqual(str(e), TYPE_ERROR % ("doc['ver']", int, float, 0.0))
         bad['ver'] = 1
         e = raises(ValueError, f, bad)
-        self.assertEqual(str(e), "doc['ver'] must be 0; got 1")
+        self.assertEqual(str(e), "doc['ver'] must equal 0; got 1")
 
         for key in ['_id', 'ver', 'type', 'time']:
             bad = deepcopy(good)
@@ -186,140 +73,11 @@ class test_functions(TestCase):
             e = raises(ValueError, f, bad)
             self.assertEqual(
                 str(e),
-                'doc missing keys: %r' % [key]
+                'doc[{!r}] does not exist'.format(key)
             )
-        for keys in (['_id', 'type'], ['_id', 'time'], ['time', 'type']):
-            bad = deepcopy(good)
-            for key in keys:
-                del bad[key]
-            e = raises(ValueError, f, bad)
-            self.assertEqual(
-                str(e),
-                'doc missing keys: %r' % keys
-            )
-        bad = {'foo': 'bar'}
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            'doc missing keys: %r' % ['_id', 'time', 'type', 'ver']
-        )
 
-    def test_check_ext(self):
-        f = schema.check_ext
-
-        # Test wrong type:
-        e = raises(TypeError, f, 17)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('ext', basestring, int, 17)
-        )
-
-        # Test empty strings:
-        e = raises(ValueError, f, '')
-        self.assertEqual(str(e), "ext cannot be empty; got ''")
-        e = raises(ValueError, f, u'', 'foo')
-        self.assertEqual(str(e), "foo cannot be empty; got u''")
-
-        # Test with upper/mixed case:
-        e = raises(ValueError, f, u'Mov')
-        self.assertEqual(str(e), "ext must be lowercase; got u'Mov'")
-        e = raises(ValueError, f, 'TAR.GZ', 'bar')
-        self.assertEqual(str(e), "bar must be lowercase; got 'TAR.GZ'")
-
-        # Test with leading/ending period:
-        e = raises(ValueError, f, '.tar.gz')
-        self.assertEqual(str(e), "ext cannot start with a period; got '.tar.gz'")
-        e = raises(ValueError, f, 'tar.gz.')
-        self.assertEqual(str(e), "ext cannot end with a period; got 'tar.gz.'")
-
-        # Test with values that don't batch regex:
-        e = raises(ValueError, f, 'tar/gz')
-        self.assertEqual(
-            str(e),
-            r"ext: 'tar/gz' does not match '^[a-z0-9]+(\\.[a-z0-9]+)?$'"
-        )
-        e = raises(ValueError, f, 'tar..gz')
-        self.assertEqual(
-            str(e),
-            r"ext: 'tar..gz' does not match '^[a-z0-9]+(\\.[a-z0-9]+)?$'"
-        )
-        e = raises(ValueError, f, 'og*')
-        self.assertEqual(
-            str(e),
-            r"ext: 'og*' does not match '^[a-z0-9]+(\\.[a-z0-9]+)?$'"
-        )
-
-        # Test with good values:
-        self.assertEqual(f(None), None)
-        self.assertEqual(f('mov'), None)
-        self.assertEqual(f('tar.gz'), None)
-
-    def test_check_origin(self):
-        f = schema.check_origin
-
-        # Test with wrong type
-        e = raises(TypeError, f, 17)
-        self.assertEqual(
-            str(e),
-            TYPE_ERROR % ('origin', basestring, int, 17)
-        )
-
-        # Test when empty
-        e = raises(ValueError, f, '')
-        self.assertEqual(
-            str(e),
-            "origin cannot be empty; got ''"
-        )
-
-        # Test when not lowercase
-        e = raises(ValueError, f, 'useR')
-        self.assertEqual(
-            str(e),
-            "origin must be lowercase; got 'useR'"
-        )
-
-        # Test when not valid identifier:
-        e = raises(ValueError, f, '9lives')
-        self.assertEqual(
-            str(e),
-            "origin: '9lives' does not match '^[a-z][_a-z0-9]*$'"
-        )
-        e = raises(ValueError, f, '_foo')
-        self.assertEqual(
-            str(e),
-            "origin: '_foo' does not match '^[a-z][_a-z0-9]*$'"
-        )
-        e = raises(ValueError, f, 'hello-world')
-        self.assertEqual(
-            str(e),
-            "origin: 'hello-world' does not match '^[a-z][_a-z0-9]*$'"
-        )
-
-        # Test some good values:
-        self.assertEqual(f('foo'), None)
-        self.assertEqual(f('foo_'), None)
-        self.assertEqual(f('lives9'), None)
-        self.assertEqual(f('foo_lives9'), None)
-        self.assertEqual(f('lives9foo_'), None)
-        self.assertEqual(f('hello_world'), None)
-
-        # Test with strict=True
-        e = raises(ValueError, f, 'foo', strict=True)
-        self.assertEqual(
-            str(e),
-            "origin: 'foo' not in ['user', 'download', 'paid', 'proxy', 'cache', 'render']"
-        )
-
-        # Test all good strict=True values
-        self.assertEqual(f('user', strict=True), None)
-        self.assertEqual(f('download', strict=True), None)
-        self.assertEqual(f('paid', strict=True), None)
-        self.assertEqual(f('proxy', strict=True), None)
-        self.assertEqual(f('cache', strict=True), None)
-        self.assertEqual(f('render', strict=True), None)
-
-    def test_check_dmedia_file(self):
-        f = schema.check_dmedia_file
+    def test_check_file(self):
+        f = schema.check_file
 
         # Test with good doc:
         good = {
@@ -346,7 +104,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "doc['type'] must be 'dmedia/file'; got 'dmedia/files'"
+            "doc['type'] must equal 'dmedia/file'; got 'dmedia/files'"
         )
 
         # Test with missing attributes:
@@ -356,7 +114,7 @@ class test_functions(TestCase):
             e = raises(ValueError, f, bad)
             self.assertEqual(
                 str(e),
-                'doc missing keys: %r' % [key]
+                "doc[{!r}] does not exist".format(key)
             )
 
         # Test with bytes wrong type:
@@ -365,7 +123,7 @@ class test_functions(TestCase):
         e = raises(TypeError, f, bad)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('bytes', int, float, bad['bytes'])
+            TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
         )
 
         # Test with bytes < 1:
@@ -374,14 +132,14 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'bytes must be >= 1; got 0'
+            "doc['bytes'] must be >= 1; got 0"
         )
         bad = deepcopy(good)
         bad['bytes'] = -1
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'bytes must be >= 1; got -1'
+            "doc['bytes'] must be >= 1; got -1"
         )
 
         # Test with bytes=1
@@ -395,7 +153,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "ext cannot start with a period; got '.mov'"
+            "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
         )
 
         # Test with invalid origin
@@ -404,7 +162,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "origin must be lowercase; got 'USER'"
+            "doc['origin'] must be lowercase; got 'USER'"
         )
 
         # Make sure origin is checked with strict=True
@@ -413,7 +171,7 @@ class test_functions(TestCase):
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            "origin: 'foo' not in ['user', 'download', 'paid', 'proxy', 'cache', 'render']"
+            "doc['origin'] value 'foo' not in ('user', 'download', 'paid', 'proxy', 'cache', 'render')"
         )
 
         # Test with invalid stored
@@ -425,8 +183,10 @@ class test_functions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
         )
 
-    def test_check_dmedia_file_optional(self):
-        f = schema.check_dmedia_file_optional
+
+    def test_file_optional(self):
+
+        f = schema.check_file_optional
         f({})
 
         # content_type
@@ -438,7 +198,6 @@ class test_functions(TestCase):
         )
 
         # content_encoding
-        self.assertIsNone(f({'content_encoding': None}))
         self.assertIsNone(f({'content_encoding': 'gzip'}))
         self.assertIsNone(f({'content_encoding': 'deflate'}))
         e = raises(TypeError, f, {'content_encoding': 42})
@@ -453,7 +212,6 @@ class test_functions(TestCase):
         )
 
         # media
-        self.assertIsNone(f({'media': None}))
         self.assertIsNone(f({'media': 'video'}))
         self.assertIsNone(f({'media': 'audio'}))
         self.assertIsNone(f({'media': 'image'}))
@@ -537,8 +295,8 @@ class test_functions(TestCase):
         )
 
 
-    def test_check_dmedia_store(self):
-        f = schema.check_dmedia_store
+    def test_check_store(self):
+        f = schema.check_store
 
         # Test with good doc:
         good = {
@@ -559,7 +317,7 @@ class test_functions(TestCase):
             e = raises(ValueError, f, bad)
             self.assertEqual(
                 str(e),
-                'doc missing keys: %r' % [key]
+                'doc[{!r}] does not exist'.format(key)
             )
 
         # Test with wrong plugin type/value:
@@ -568,15 +326,15 @@ class test_functions(TestCase):
         e = raises(TypeError, f, bad)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('plugin', basestring, int, 18)
+            TYPE_ERROR % ("doc['plugin']", basestring, int, 18)
         )
         bad = deepcopy(good)
         bad['plugin'] = 'foo'
         e = raises(ValueError, f, bad)
-        plugins = ['filestore', 'removable_filestore', 'ubuntuone', 's3']
+        plugins = ('filestore', 'removable_filestore', 'ubuntuone', 's3')
         self.assertEqual(
             str(e),
-            'plugin %r not in %r' % ('foo', plugins)
+            "doc['plugin'] value %r not in %r" % ('foo', plugins)
         )
 
         # Test with wrong copies type/value:
@@ -585,21 +343,16 @@ class test_functions(TestCase):
         e = raises(TypeError, f, bad)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ('copies', int, float, 2.0)
+            TYPE_ERROR % ("doc['copies']", int, float, 2.0)
         )
         bad = deepcopy(good)
         bad['copies'] = 0
-        e = raises(ValueError, f, bad)
-        self.assertEqual(
-            str(e),
-            'copies must be >= 1; got 0'
-        )
         bad = deepcopy(good)
         bad['copies'] = -2
         e = raises(ValueError, f, bad)
         self.assertEqual(
             str(e),
-            'copies must be >= 1; got -2'
+            "doc['copies'] must be >= 0; got -2"
         )
 
     def test_random_id(self):
@@ -615,7 +368,7 @@ class test_functions(TestCase):
         store = schema.random_id()
 
         d = f(mov_size, mov_leaves, store)
-        schema.check_dmedia_file(d)
+        schema.check_file(d)
         self.assertEqual(
             set(d),
             set([
@@ -656,15 +409,15 @@ class test_functions(TestCase):
 
         # Test overriding default kwarg values:
         d = f(mov_size, mov_leaves, store, copies=2)
-        schema.check_dmedia_file(d)
+        schema.check_file(d)
         self.assertEqual(d['stored'][store]['copies'], 2)
 
         d = f(mov_size, mov_leaves, store, ext='mov')
-        schema.check_dmedia_file(d)
+        schema.check_file(d)
         self.assertEqual(d['ext'], 'mov')
 
         d = f(mov_size, mov_leaves, store, origin='proxy')
-        schema.check_dmedia_file(d)
+        schema.check_file(d)
         self.assertEqual(d['origin'], 'proxy')
 
 
@@ -675,7 +428,7 @@ class test_functions(TestCase):
         machine_id = random_id()
 
         doc = f(base, machine_id)
-        self.assertEqual(schema.check_dmedia_store(doc), None)
+        self.assertEqual(schema.check_store(doc), None)
         self.assertEqual(
             set(doc),
             set([
@@ -696,7 +449,7 @@ class test_functions(TestCase):
         self.assertEqual(doc['path'], base)
 
         doc = f(base, machine_id, copies=3)
-        self.assertEqual(schema.check_dmedia_store(doc), None)
+        self.assertEqual(schema.check_store(doc), None)
         self.assertEqual(
             set(doc),
             set([
