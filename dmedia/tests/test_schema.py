@@ -42,9 +42,10 @@ class test_functions(TestCase):
             ('type', 'dmedia/foo'),
             ('time', 1234567890),
         ]
-        e = raises(TypeError, f, bad)
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR % ('doc', dict, list, bad)
         )
 
@@ -56,17 +57,98 @@ class test_functions(TestCase):
             'foo': 'bar',
         }
         g = deepcopy(good)
-        self.assertEqual(f(g), None)
+        self.assertIsNone(f(g))
 
-        # check with bad ver:
+        # Check with bad "_id" type:
+        bad = deepcopy(good)
+        bad['_id'] = 17
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR % ("doc['_id']", basestring, int, 17)
+        )
+
+        # Check with invalid "_id" base32-encoding:
+        bad = deepcopy(good)
+        bad['_id'] = 'MZZG2ZDS0QVSW2TEMVZG643F'  # Replaced "O" with "0"
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['_id']: Non-base32 digit found: 'MZZG2ZDS0QVSW2TEMVZG643F'"
+        )
+
+        # Check with bad "_id" length:
+        bad = deepcopy(good)
+        bad['_id'] = '2HOFUVDSAYHM74JKVKP4AKQ='
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "len(b32decode(doc['_id'])) not multiple of 5: '2HOFUVDSAYHM74JKVKP4AKQ='"
+        )
+
+        # Check with bad "ver" type:
         bad = deepcopy(good)
         bad['ver'] = 0.0
-        e = raises(TypeError, f, bad)
-        self.assertEqual(str(e), TYPE_ERROR % ("doc['ver']", int, float, 0.0))
-        bad['ver'] = 1
-        e = raises(ValueError, f, bad)
-        self.assertEqual(str(e), "doc['ver'] must equal 0; got 1")
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR % ("doc['ver']", int, float, 0.0)
+        )
 
+        # Check with bad "ver" value
+        bad['ver'] = 1
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['ver'] must equal 0; got 1"
+        )
+
+        # Check with bad "type" type:
+        bad = deepcopy(good)
+        bad['type'] = 18
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR % ("doc['type']", basestring, int, 18)
+        )
+
+        # Check with bad "type" value
+        bad = deepcopy(good)
+        bad['type'] = 'foo/bar'
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['type']: 'foo/bar' does not match 'dmedia/[a-z]+$'"
+        )
+
+        # Check with bad "time" type
+        bad = deepcopy(good)
+        bad['time'] = '1234567890'
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR % ("doc['time']", (int, float), str, '1234567890')
+        )
+
+        # Check with bad "time" value
+        bad = deepcopy(good)
+        bad['time'] = -1.7
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['time'] must be >= 0; got -1.7"
+        )
+
+        # Check with a missing key:
         for key in ['_id', 'ver', 'type', 'time']:
             bad = deepcopy(good)
             del bad[key]
