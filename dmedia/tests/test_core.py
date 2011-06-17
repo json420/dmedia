@@ -34,7 +34,7 @@ from desktopcouch.application.platform import find_port
 from desktopcouch.application.local_files import get_oauth_tokens
 
 from dmedia.webui.app import App
-from dmedia.schema import random_id, check_dmedia_store
+from dmedia.schema import random_id, check_store
 from dmedia.filestore import FileStore
 from dmedia import core
 
@@ -298,7 +298,7 @@ class TestCore(CouchCase):
         self.assertEqual(fs.parent, okay)
 
         # Test the doc
-        check_dmedia_store(store)
+        check_store(store)
         self.assertEqual(inst.db[store['_id']], store)
         self.assertEqual(store['path'], okay)
         self.assertTrue(store.pop('_rev').startswith('1-'))

@@ -247,3 +247,6 @@ class Core(object):
 
     def download(self, file_id, store_id):
         return self.manager.download(file_id, store_id)
+
+    def verify(self, file_id, store_id):
+        pass
