@@ -335,6 +335,16 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['status'] value 'broken' not in ('partial', 'corrupt')"
         )
 
+        # Test with invalid stored "corrupted":
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corruped'] = -1
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corrupted'] must be >= 0; got -1"
+        )
+
 
     def test_file_optional(self):
 
@@ -445,7 +455,6 @@ class TestFunctions(TestCase):
             str(e),
             TYPE_ERROR % ("doc['tags']", dict, int, 42)
         )
-
 
     def test_check_store(self):
         f = schema.check_store
@@ -564,7 +573,6 @@ class TestFunctions(TestCase):
         )
         schema.check_file(d)
         self.assertEqual(d['origin'], 'proxy')
-
 
     def test_create_store(self):
         f = schema.create_store
