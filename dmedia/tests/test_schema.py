@@ -332,7 +332,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['status'] value 'broken' not in ('partial', 'corrupted')"
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['status'] value 'broken' not in ('partial', 'corrupt')"
         )
 
 
