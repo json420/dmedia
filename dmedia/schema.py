@@ -977,7 +977,7 @@ def create_file(_id, file_size, leaf_hashes, stored, ext=None, origin='user'):
     return {
         '_id': _id,
         '_attachments': {
-            'leaf_hashes': {
+            'leaves': {
                 'data': b64encode(leaf_hashes),
                 'content_type': 'application/octet-stream',
             }

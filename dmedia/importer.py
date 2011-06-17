@@ -270,9 +270,13 @@ class ImportWorker(CouchWorker):
         except couchdb.ResourceNotFound as e:
             pass
 
-        doc = create_file(stat.st_size, leaves, self.filestore_id,
-            copies=1, ext=ext
-        )
+        leaf_hashes = b''.join(leaves)
+        stored = {
+            self.filestore_id: {
+                'copies': 1,
+            }
+        }
+        doc = create_file(chash, stat.st_size, leaf_hashes, stored, ext=ext)
         assert doc['_id'] == chash
         doc.update(
             import_id=self._id,
