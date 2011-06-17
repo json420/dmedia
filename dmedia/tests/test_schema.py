@@ -337,7 +337,7 @@ class TestFunctions(TestCase):
 
         # Test with invalid stored "corrupted":
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corruped'] = -1
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corrupted'] = -1
         with self.assertRaises(ValueError) as cm:
             f(bad)
         self.assertEqual(
