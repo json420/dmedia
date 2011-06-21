@@ -797,7 +797,11 @@ class FileStore(object):
         h = HashList(src_fp)
         got = h.run()
         if got != chash:
-            raise IntegrityError(got=got, expected=chash, filename=src_fp.name)
+            corrupted = self.join(*self.reltmp2('corrupted', chash, ext))
+            self.create_parent(corrupted)
+            os.rename(src_fp.name, corrupted)
+            src_fp.close()
+            raise IntegrityError(got=got, expected=chash, filename=corrupted)
         src_fp.seek(0)
         return src_fp
 
@@ -839,6 +843,14 @@ class FileStore(object):
         if ext:
             return (TRANSFERS_DIR, '.'.join([chash, safe_ext(ext)]))
         return (TRANSFERS_DIR, chash)
+
+    @staticmethod
+    def reltmp2(state, chash, ext=None):
+        assert state in ('transfers', 'corrupted')
+        chash = safe_b32(chash)
+        if ext:
+            return (state, '.'.join([chash, safe_ext(ext)]))
+        return (state, chash)
 
     def tmp(self, chash, ext=None, create=False):
         """

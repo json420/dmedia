@@ -427,7 +427,7 @@ class test_ImportWorker(CouchCase):
                 'media',
             ])
         )
-        self.assertEqual(schema.check_dmedia_file(doc), None)
+        self.assertEqual(schema.check_file(doc), None)
 
         self.assertEqual(doc['_id'], mov_hash)
         self.assertEqual(doc['_attachments'], {'leaves': mov_att})

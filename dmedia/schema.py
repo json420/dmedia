@@ -42,14 +42,14 @@ For example:
 >>> bad = {
 ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
 ...     'ver': 0,
-...     'kind': 'dmedia/foo',
-...     'timestamp': 1234567890,
+...     'kind': 'dmedia/foo',  # Changed!
+...     'time': 1234567890,
 ... }
 ...
 >>> check_dmedia(bad)
 Traceback (most recent call last):
   ...
-ValueError: doc missing keys: ['time', 'type']
+ValueError: doc['type'] does not exist
 
 
 These test functions are used in the dmedia test suite, and 3rd-party apps would
@@ -95,9 +95,8 @@ dmedia *is* a distributed filesystem, but a quite simple one in that it only
 stores intrinsically-named, read-only files.
 
 The content-hash is computed as a hash-list (a 1 deep tree-hash).  Currently
-this is done using the sha1 hash function with an 8 MiB leaf size, but both the
-hash function and leaf size are designed to be configurable to allow for future
-migration.
+this is done using the sha1 hash function with an 8 MiB leaf size, but dmedia
+is moving to Skein for the final hashing protocol.
 
 The content-hashes of the individual leaves are stored in the "leaves"
 attachment in the CouchDB document.  This allows for file integrity checks with
@@ -310,8 +309,7 @@ When the job is completed, the document is updated like this:
 
 from __future__ import print_function
 
-import os
-from hashlib import sha1
+from os import urandom
 from base64 import b32encode, b32decode, b64encode
 import re
 import time
@@ -319,6 +317,20 @@ import socket
 import platform
 
 from .constants import TYPE_ERROR, EXT_PAT
+
+
+def random_id():
+    """
+    Returns a 120-bit base32-encoded random ID.
+
+    The ID will be 24-characters long, URL and filesystem safe.  For example:
+
+    >>> random_id()  #doctest: +SKIP
+    'OVRHK3TUOUQCWIDMNFXGC4TP'
+
+    """
+    return b32encode(urandom(15))
+
 
 # Some private helper functions that don't directly define any schema.
 #
@@ -332,11 +344,6 @@ from .constants import TYPE_ERROR, EXT_PAT
 #
 # That is all.
 
-
-# FIXME: These functions are a step toward making the checks more concise and
-# the error messages consistent and even more helpful.  However, these functions
-# aren't used much yet... but all the schema checks should be ported to these
-# functions eventually.
 def _label(path):
     """
     Create a helpful debugging label to indicate the attribute in question.
@@ -349,7 +356,6 @@ def _label(path):
     "doc['log']"
     >>> _label(['log', 'considered', 2, 'src'])
     "doc['log']['considered'][2]['src']"
-
 
     See also `_value()`.
     """
@@ -370,22 +376,19 @@ def _value(doc, path):
     >>> _value(doc, ['log', 'considered', 2, 'src'])
     'hello'
 
-
     Or if you try to retrieve something that doesn't exist:
 
     >>> _value(doc, ['log', 'considered', 7])
     Traceback (most recent call last):
       ...
-    ValueError: doc['log']['considered'][7] does not exists
-
+    ValueError: doc['log']['considered'][7] does not exist
 
     Or if a key/index is missing higher up in the path:
 
     >>> _value(doc, ['dog', 'considered', 7])
     Traceback (most recent call last):
       ...
-    ValueError: doc['dog'] does not exists
-
+    ValueError: doc['dog'] does not exist
 
     See also `_label()`.
     """
@@ -397,7 +400,7 @@ def _value(doc, path):
             value = value[key]
         except (KeyError, IndexError):
             raise ValueError(
-                '{} does not exists'.format(_label(p))
+                '{} does not exist'.format(_label(p))
             )
     return value
 
@@ -418,14 +421,12 @@ def _exists(doc, path):
     >>> _exists(doc, ['bar', 3])
     False
 
-
     Or if a key/index is missing higher up the path:
 
     >>> _exists(doc, ['stuff', 'junk'])
     Traceback (most recent call last):
       ...
-    ValueError: doc['stuff'] does not exists
-
+    ValueError: doc['stuff'] does not exist
 
     See also `_check_if_exists()`.
     """
@@ -440,165 +441,95 @@ def _exists(doc, path):
         return False
 
 
-def _check(doc, path, *checks):
+def _isinstance(value, label, allowed):
+    """
+    Verify that *value* is an instance of *allowed*.
+
+    For example:
+
+    >>> _isinstance('18', "doc['bytes']", int)
+    Traceback (most recent call last):
+      ...
+    TypeError: doc['bytes']: need a <type 'int'>; got a <type 'str'>: '18'
+
+    """
+    if not isinstance(value, allowed):
+        raise TypeError('{}: need a {!r}; got a {!r}: {!r}'.format(
+                label, allowed, type(value), value
+            )
+        )
+
+
+def _check(doc, path, allowed, *checks):
     """
     Run a series of *checks* on the value in *doc* addressed by *path*.
 
     For example:
 
     >>> doc = {'foo': [None, {'bar': 'aye'}, None]}
-    >>> _check(doc, ['foo', 1, 'bar'],
-    ...     _check_str,
-    ...     (_check_in, 'bee', 'sea'),
+    >>> _check(doc, ['foo', 1, 'bar'], str,
+    ...     (_is_in, 'bee', 'sea'),
     ... )
     ...
     Traceback (most recent call last):
       ...
     ValueError: doc['foo'][1]['bar'] value 'aye' not in ('bee', 'sea')
 
-
     Or if a value is missing:
 
-    >>> _check(doc, ['foo', 3],
-    ...     _can_be_none,
+    >>> _check(doc, ['foo', 3], str,
+    ...     (_equals, 'hello'),
     ... )
     ...
     Traceback (most recent call last):
       ...
-    ValueError: doc['foo'][3] does not exists
-
+    ValueError: doc['foo'][3] does not exist
 
     See also `_check_if_exists()`.
     """
     value = _value(doc, path)
     label = _label(path)
+    _isinstance(value, label, allowed)
+    if value is None:
+        return
     for c in checks:
         if isinstance(c, tuple):
             (c, args) = (c[0], c[1:])
         else:
             args = tuple()
-        if c(value, label, *args) is True:
-            break
+        c(value, label, *args)
 
 
-def _check_if_exists(doc, path, *checks):
+def _check_if_exists(doc, path, allowed, *checks):
     """
     Run *checks* only if value at *path* exists.
 
     For example:
 
     >>> doc = {'name': 17}
-    >>> _check_if_exists(doc, ['dir'], _check_str)
-    >>> _check_if_exists(doc, ['name'], _check_str)
+    >>> _check_if_exists(doc, ['dir'], str)
+    >>> _check_if_exists(doc, ['name'], str)
     Traceback (most recent call last):
       ...
-    TypeError: doc['name']: need a <type 'basestring'>; got a <type 'int'>: 17
+    TypeError: doc['name']: need a <type 'str'>; got a <type 'int'>: 17
 
 
     See also `_check()` and `_exists()`.
     """
     if _exists(doc, path):
-        _check(doc, path, *checks)
+        _check(doc, path, allowed, *checks)
 
 
-def _can_be_none(value, label):
-    """
-    Stop execution of check if *value* is ``None``.
-
-    `_check()` will abort upon a check function returning ``True``.
-
-    For example, here a ``TypeError`` is raised:
-
-    >>> doc = {'ext': None}
-    >>> _check(doc, ['ext'], _check_str)
-    Traceback (most recent call last):
-      ...
-    TypeError: doc['ext']: need a <type 'basestring'>; got a <type 'NoneType'>: None
-
-
-    But here it is not:
-
-    >>> _check(doc, ['ext'], _can_be_none, _check_str)
-
-    """
-    if value is None:
-        return True
-
-# /FIXME new helper functions
-
-
-def _check_dict(value, label):
-    """
-    Verify that *value* is a ``dict`` instance.
-
-    For example:
-
-    >>> _check_dict(['foo', 'bar'], 'doc')
-    Traceback (most recent call last):
-      ...
-    TypeError: doc: need a <type 'dict'>; got a <type 'list'>: ['foo', 'bar']
-
-    """
-    if not isinstance(value, dict):
-        raise TypeError(TYPE_ERROR % (label, dict, type(value), value))
-
-def _check_str(value, label):
-    """
-    Verify that *value* is a ``basestring`` instance.
-
-    Or a ``str`` instance one dmedia is running under Python3.
-
-    For example:
-
-    >>> _check_str(17, 'import_id')
-    Traceback (most recent call last):
-      ...
-    TypeError: import_id: need a <type 'basestring'>; got a <type 'int'>: 17
-
-    """
-    if not isinstance(value, basestring):
-        raise TypeError(TYPE_ERROR % (label, basestring, type(value), value))
-
-def _check_int(value, label):
-    """
-    Verify that *value* is an ``int`` instance.
-
-    For example:
-
-    >>> _check_int(18.0, 'bytes')
-    Traceback (most recent call last):
-      ...
-    TypeError: bytes: need a <type 'int'>; got a <type 'float'>: 18.0
-
-    """
-    if not isinstance(value, int):
-        raise TypeError(TYPE_ERROR % (label, int, type(value), value))
-
-def _check_int_float(value, label):
-    """
-    Verify that *value* is an ``int`` or ``float`` instance.
-
-    For example:
-
-    >>> _check_int_float('18', 'time')
-    Traceback (most recent call last):
-      ...
-    TypeError: time: need a (<type 'int'>, <type 'float'>); got a <type 'str'>: '18'
-
-    """
-    if not isinstance(value, (int, float)):
-        raise TypeError(TYPE_ERROR % (label, (int, float), type(value), value))
-
-def _check_at_least(value, label, minvalue=0):
+def _at_least(value, label, minvalue):
     """
     Verify that *value* is greater than or equal to *minvalue*.
 
     For example:
 
-    >>> _check_at_least(0, 'bytes', 1)
+    >>> _at_least(0, "doc['bytes']", 1)
     Traceback (most recent call last):
       ...
-    ValueError: bytes must be >= 1; got 0
+    ValueError: doc['bytes'] must be >= 1; got 0
 
     """
     if value < minvalue:
@@ -606,49 +537,51 @@ def _check_at_least(value, label, minvalue=0):
             '%s must be >= %r; got %r' % (label, minvalue, value)
         )
 
-def _check_lowercase(value, label):
+
+def _lowercase(value, label):
     """
     Verify that *value* is lowercase.
 
     For example:
 
-    >>> _check_lowercase('MOV', 'ext')
+    >>> _lowercase('MOV', "doc['ext']")
     Traceback (most recent call last):
       ...
-    ValueError: ext must be lowercase; got 'MOV'
+    ValueError: doc['ext'] must be lowercase; got 'MOV'
 
     """
     if not value.islower():
         raise ValueError(
-            "%s must be lowercase; got %r" % (label, value)
+            "{} must be lowercase; got {!r}".format(label, value)
         )
 
-def _check_identifier(value, label):
+
+def _matches(value, label, pattern):
     """
-    Verify that *value* is a lowercase Python identifier not starting with "_"
+    Verify that *value* matches regex *pattern*.
 
     For example:
 
-    >>> _check_identifier('hello_world', 'msg')
-    >>> _check_identifier('hello-world', 'msg')
+    >>> _matches('hello_world', "doc['plugin']", '^[a-z][_a-z0-9]*$')
+    >>> _matches('hello-world', "doc['plugin']", '^[a-z][_a-z0-9]*$')
     Traceback (most recent call last):
       ...
-    ValueError: msg: 'hello-world' does not match '^[a-z][_a-z0-9]*$'
+    ValueError: doc['plugin']: 'hello-world' does not match '^[a-z][_a-z0-9]*$'
 
     """
-    pat = '^[a-z][_a-z0-9]*$'
-    if not re.match(pat, value):
+    if not re.match(pattern, value):
         raise ValueError(
-            '%s: %r does not match %r' % (label, value, pat)
+            '{}: {!r} does not match {!r}'.format(label, value, pattern)
         )
 
-def _check_nonempty(value, label):
+
+def _nonempty(value, label):
     """
     Verify that *value* is not empty (ie len() > 0).
 
     For example:
 
-    >>> _check_nonempty({}, 'stored')
+    >>> _nonempty({}, 'stored')
     Traceback (most recent call last):
       ...
     ValueError: stored cannot be empty; got {}
@@ -657,35 +590,14 @@ def _check_nonempty(value, label):
     if len(value) == 0:
         raise ValueError('%s cannot be empty; got %r' % (label, value))
 
-def _check_required(d, required, label='doc'):
-    """
-    Check that dictionary *d* contains all the keys in *required*.
 
-    For example:
-
-    >>> _check_required(dict(foo=1, bar=2, baz=3), ['foo', 'bar'], 'var_name')
-    >>> _check_required(dict(foo=1, car=2, baz=3), ['foo', 'bar'], 'var_name')
-    Traceback (most recent call last):
-      ...
-    ValueError: var_name missing keys: ['bar']
-
-    """
-    _check_dict(d, label)
-    required = frozenset(required)
-    if not required.issubset(d):
-        missing = sorted(required - set(d))
-        raise ValueError(
-            '%s missing keys: %r' % (label, missing)
-        )
-
-
-def _check_in(value, label, *possible):
+def _is_in(value, label, *possible):
     """
     Check that *value* is one of *possible*.
 
     For example:
 
-    >>> _check_in('foo', "doc['media']", 'video', 'audio', 'image')
+    >>> _is_in('foo', "doc['media']", 'video', 'audio', 'image')
     Traceback (most recent call last):
       ...
     ValueError: doc['media'] value 'foo' not in ('video', 'audio', 'image')
@@ -697,111 +609,101 @@ def _check_in(value, label, *possible):
         )
 
 
-
-# The schema defining functions:
-
-def check_base32(value, label='_id'):
+def _equals(value, label, expected):
     """
-    Verify that *value* is a valid dmedia document ID.
+    Check that *value* equals *expected*.
+
+    For example:
+
+    >>> _equals('file', "doc['type']", 'dmedia/file')
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['type'] must equal 'dmedia/file'; got 'file'
+
+    """
+    if value != expected:
+        raise ValueError(
+            '{} must equal {!r}; got {!r}'.format(label, expected, value)
+        )
+
+
+def _base32(value, label):
+    """
+    Verify that *value* is a valid base32 encoded document ID.
 
     Document IDs must:
 
-        1. be ``str`` or ``unicode`` instances
+        1. be valid base32 encoding
 
-        2. be valid base32 encoding
+        2. decode to data that is a multiple of 5-bytes (40-bits ) in length
 
-        3. decode to data that is a multiple of 5-bytes (40-bits ) in length
+    For example, invalid encoding:
 
-    For example, a conforming value:
-
-    >>> check_base32('MZZG2ZDSOQVSW2TEMVZG643F')
-
+    >>> _base32('MZZG2ZDS0QVSW2TEMVZG643F', "doc['_id']")
+    Traceback (most recent call last):
+      ...
+    ValueError: doc['_id']: Non-base32 digit found: 'MZZG2ZDS0QVSW2TEMVZG643F'
 
     And an invalid value:
 
-    >>> check_base32('MFQWCYLBMFQWCYI=')
+    >>> _base32('MFQWCYLBMFQWCYI=', "doc['_id']")
     Traceback (most recent call last):
       ...
-    ValueError: len(b32decode(_id)) not multiple of 5: 'MFQWCYLBMFQWCYI='
+    ValueError: len(b32decode(doc['_id'])) not multiple of 5: 'MFQWCYLBMFQWCYI='
 
     """
-    _check_str(value, label)
     try:
         decoded = b32decode(value)
     except TypeError as e:
-        raise ValueError('%s: invalid base32: %s; got %r' % (label, e, value))
+        raise ValueError(
+            '{}: {}: {!r}'.format(label, e, value)
+        )
     if len(decoded) % 5 != 0:
         raise ValueError(
-            'len(b32decode(%s)) not multiple of 5: %r' % (label, value)
+            'len(b32decode({})) not multiple of 5: {!r}'.format(label, value)
         )
 
 
-def check_type(value, label='type'):
+def _random_id(value, label):
     """
-    Verify that *doc* has a valid dmedia record type.
+    Verify that *value* is a 120-bit base32 encoded random ID.
 
-    Record types must:
+    For example:
 
-        1. be ``str`` or ``unicode`` instances
-
-        2. be lowercase
-
-        3. start with 'dmedia/'
-
-        4. be of the form 'dmedia/foo', where *foo* is a valid Python identifier
-
-    For example, a conforming value:
-
-    >>> check_type('dmedia/file')
-
-
-    And an invalid value:
-
-    >>> check_type('dmedia/foo/bar')
+    >>> _random_id('EIJ5EVPOJSO5ZBDY', "doc['_id']")
     Traceback (most recent call last):
       ...
-    ValueError: type must contain only one '/'; got 'dmedia/foo/bar'
+    ValueError: doc['_id']: random ID must be 24 characters; got 'EIJ5EVPOJSO5ZBDY'
 
     """
-    _check_str(value, label)
-    _check_lowercase(value, label)
-    if not value.startswith('dmedia/'):
+    _base32(value, label)
+    if len(value) != 24:
         raise ValueError(
-            "%s must start with 'dmedia/'; got %r" % (label, value)
-        )
-    parts = value.split('/')
-    if len(parts) != 2:
-        raise ValueError(
-            "%s must contain only one '/'; got %r" % (label, value)
+            '{}: random ID must be 24 characters; got {!r}'.format(label, value)
         )
 
 
-def check_time(value, label='time'):
+def _content_id(value, label):
     """
-    Verify that *value* is a Unix timestamp.
+    Verify that *value* is a 160-bit base32 encoded content hash.
 
-    Timestamps must:
+    For example:
 
-        1. be ``int`` or ``float`` instances
-
-        2. be non-negative (must be >= 0)
-
-    For example, a conforming value:
-
-    >>> check_time(1234567890, label='time_end')
-
-
-    And an invalid value:
-
-    >>> check_time(-1234567890, label='time_end')
+    >>> _content_id('EIJ5EVPOJSO5ZBDY', "doc['_id']")
     Traceback (most recent call last):
       ...
-    ValueError: time_end must be >= 0; got -1234567890
+    ValueError: doc['_id']: content ID must be 32 characters; got 'EIJ5EVPOJSO5ZBDY'
 
     """
-    _check_int_float(value, label)
-    _check_at_least(value, label, 0)
+    _base32(value, label)
+    if len(value) != 32:
+        raise ValueError(
+            '{}: content ID must be 32 characters; got {!r}'.format(label, value)
+        )
 
+
+##################################
+# The schema validation functions:
 
 def check_dmedia(doc):
     """
@@ -810,13 +712,15 @@ def check_dmedia(doc):
     This verifies that *doc* has the common schema requirements that all dmedia
     documents should have.  The *doc* must:
 
-        1. have '_id' that passes `check_base32()`
+        1. Have "_id" that is base32-encoded and when decoded is a multiple
+           of 40-bits (5 bytes)
 
-        2. have a 'ver' equal to ``0``
+        2. Have "ver" equal to ``0``
 
-        3. have 'type' that passes `check_type()`
+        3. Have "type" that matches ``'dmedia/[a-z]+$'``
 
-        4. have 'time' that passes `check_time()`
+        4. Have "time" that is a ``float`` or ``int`` greater than or equal to
+           zero
 
     For example, a conforming value:
 
@@ -835,198 +739,38 @@ def check_dmedia(doc):
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
     ...     'ver': 0,
-    ...     'kind': 'dmedia/file',
-    ...     'timestamp': 1234567890,
+    ...     'kind': 'dmedia/file',  # Changed!
+    ...     'time': 1234567890,
     ... }
     ...
     >>> check_dmedia(doc)
     Traceback (most recent call last):
       ...
-    ValueError: doc missing keys: ['time', 'type']
+    ValueError: doc['type'] does not exist
 
     """
-    _check_required(doc, ['_id', 'ver', 'type', 'time'])
-    check_base32(doc['_id'])
-    _check_int(doc['ver'], 'ver')
-    if doc['ver'] != 0:
-        raise ValueError(
-            "doc['ver'] must be 0; got {!r}".format(doc['ver'])
-        )
-    check_type(doc['type'])
-    check_time(doc['time'])
+    _check(doc, [], dict)
+
+    _check(doc, ['_id'], basestring,
+        _base32,
+    )
+
+    _check(doc, ['ver'], int,
+        (_equals, 0),
+    )
+
+    _check(doc, ['type'], basestring,
+        (_matches, 'dmedia/[a-z]+$'),
+    )
+
+    _check(doc, ['time'], (int, float),
+        (_at_least, 0),
+    )
 
 
-def check_stored(stored, label='stored'):
+def check_file(doc):
     """
-    Verify that *stored* is valid for a 'dmedia/file' record.
-
-    To be valid, *stored* must:
-
-        1. be a non-empty ``dict``
-
-        2. have keys that are document IDs according to `check_base32()`
-
-        3. have values that are themselves ``dict`` instances
-
-        4. values must have 'copies' that is an ``int`` >= 0
-
-        5. values must have 'time' that conforms with `check_time()`
-
-    For example, a conforming value:
-
-    >>> stored = {
-    ...     'MZZG2ZDSOQVSW2TEMVZG643F': {
-    ...         'copies': 2,
-    ...         'time': 1234567890,
-    ...     },
-    ... }
-    ...
-    >>> check_stored(stored)
-
-
-    And an invalid value:
-
-    >>> stored = {
-    ...     'MZZG2ZDSOQVSW2TEMVZG643F': {
-    ...         'number': 2,
-    ...         'time': 1234567890,
-    ...     },
-    ... }
-    ...
-    >>> check_stored(stored)
-    Traceback (most recent call last):
-      ...
-    ValueError: stored['MZZG2ZDSOQVSW2TEMVZG643F'] missing keys: ['copies']
-
-
-    Also see `check_dmedia_file()`.
-    """
-
-    _check_dict(stored, label)
-    _check_nonempty(stored, label)
-
-    for (key, value) in stored.iteritems():
-        check_base32(key, '<key in %s>' % label)
-
-        l2 = '%s[%r]' % (label, key)  # eg "stored['OVRHK3TUOUQCWIDMNFXGC4TP']"
-
-        _check_required(value, ['copies', 'time'], l2)
-
-        # Check 'copies':
-        copies = value['copies']
-        l3 = l2 + "['copies']"
-        _check_int(copies, l3)
-        _check_at_least(copies, l3, 0)
-
-        # Check 'time':
-        check_time(value['time'], l2 + "['time']")
-
-
-def check_ext(value, label='ext'):
-    """
-    Verify that *value* is a file extension suitable for 'dmedia/file' records.
-
-    The extension *value* can be ``None``, or otherwise *value* must:
-
-        1. be a non-empty ``str`` or ``unicode`` instance
-
-        2. be lowercase
-
-        3. neither start nor end with a period
-
-        4. contain only letters, numbers, and at most on internal period
-
-    For example, some conforming values:
-
-    >>> check_ext(None)
-    >>> check_ext('mov')
-    >>> check_ext('tar.gz')
-
-
-    And an invalid value:
-
-    >>> check_ext('.mov')
-    Traceback (most recent call last):
-      ...
-    ValueError: ext cannot start with a period; got '.mov'
-
-    """
-    if value is None:
-        return
-    _check_str(value, label)
-    _check_nonempty(value, label)
-    _check_lowercase(value, label)
-    if value.startswith('.'):
-        raise ValueError(
-            '%s cannot start with a period; got %r' % (label, value)
-        )
-    if value.endswith('.'):
-        raise ValueError(
-            '%s cannot end with a period; got %r' % (label, value)
-        )
-    if not re.match(EXT_PAT, value):
-        raise ValueError(
-            '%s: %r does not match %r' % (label, value, EXT_PAT)
-        )
-
-
-def check_origin(value, label='origin', strict=False):
-    """
-    Verify that *value* is an 'origin' suitable for 'dmedia/file' records.
-
-    To be a valid origin, *value* must:
-
-        1. be a non-empty ``str`` or ``unicode`` instance
-
-        2. be lowercase
-
-        3. be a valid Python identifier not starting with "_"
-
-        4. if called with strict=True, must be either 'user', 'download',
-           'paid', 'proxy', 'cache', or 'render'
-
-    For example, some conforming values:
-
-    >>> check_origin('hello_world2')
-    >>> check_origin('user')
-
-
-    And an invalid value:
-
-    >>> check_origin('User')
-    Traceback (most recent call last):
-      ...
-    ValueError: origin must be lowercase; got 'User'
-
-    """
-    _check_str(value, label)
-    _check_nonempty(value, label)
-    _check_lowercase(value, label)
-    _check_identifier(value, label)
-    if not strict:
-        return
-    allowed = ['user', 'download', 'paid', 'proxy', 'cache', 'render']
-    if value not in allowed:
-        raise ValueError('%s: %r not in %r' % (label, value, allowed))
-
-
-def check_dmedia_file(doc):
-    """
-    Verify that *doc* is a valid 'dmedia/file' record type.
-
-    To be a valid 'dmedia/file' record, *doc* must:
-
-        1. conform with `check_dmedia()`
-
-        2. have 'type' equal to 'dmedia/file'
-
-        3. have 'bytes' that is an ``int`` >= 1
-
-        4. have 'ext' that conforms with `check_ext()`
-
-        5. have 'origin' that conforms with `check_origin()` with strict=True
-
-        6. have 'stored' that is a ``dict`` conforming with `check_stored()`
+    Verify that *doc* is a valid "dmedia/file" document.
 
     For example, a conforming value:
 
@@ -1046,7 +790,7 @@ def check_dmedia_file(doc):
     ...     },
     ... }
     ...
-    >>> check_dmedia_file(doc)
+    >>> check_file(doc)
 
 
     And an invalid value:
@@ -1067,103 +811,100 @@ def check_dmedia_file(doc):
     ...     },
     ... }
     ...
-    >>> check_dmedia_file(doc)
+    >>> check_file(doc)
     Traceback (most recent call last):
       ...
-    ValueError: stored['MZZG2ZDSOQVSW2TEMVZG643F'] missing keys: ['copies']
+    ValueError: doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exist
 
     """
     check_dmedia(doc)
-    _check_required(doc, ['bytes', 'ext', 'origin', 'stored'])
 
-    # Check type:
-    if doc['type'] != 'dmedia/file':
-        raise ValueError(
-            "doc['type'] must be 'dmedia/file'; got %(type)r" % doc
-        )
-
-    # Check 'bytes':
-    b = doc['bytes']
-    _check_int(b, 'bytes')
-    _check_at_least(b, 'bytes', 1)
-
-    # Check 'ext':
-    check_ext(doc['ext'])
-
-    # Check 'origin':
-    check_origin(doc['origin'], strict=True)
-
-    # Check 'stored'
-    check_stored(doc['stored'])
-
-    check_dmedia_file_optional(doc)
-
-
-def check_dmedia_file_optional(doc):
-    """
-    Check the optional attributes in a 'dmedia/file' document.
-    """
-    _check_dict(doc, 'doc')
-
-    # 'content_type' like 'video/quicktime'
-    _check_if_exists(doc, ['content_type'],
-        _can_be_none,
-        _check_str,
+    _check(doc, ['type'], basestring,
+        (_equals, 'dmedia/file'),
     )
 
+    _check(doc, ['bytes'], int,
+        (_at_least, 1),
+    )
+
+    _check(doc, ['ext'], (type(None), basestring),
+        (_matches, EXT_PAT),
+    )
+
+    _check(doc, ['origin'], basestring,
+        _lowercase,
+        (_is_in, 'user', 'download', 'paid', 'proxy', 'cache', 'render'),
+    )
+
+    _check(doc, ['stored'], dict,
+        _nonempty,
+    )
+    for store in doc['stored']:
+        _check(doc, ['stored', store], dict)
+        _check(doc, ['stored', store, 'copies'], int,
+            (_at_least, 0),
+        )
+        _check(doc, ['stored', store, 'time'], (int, float),
+            (_at_least, 0),
+        )
+        _check_if_exists(doc, ['stored', store, 'verified'], (int, float),
+            (_at_least, 0),
+        )
+        _check_if_exists(doc, ['stored', store, 'status'], basestring,
+            (_is_in, 'partial', 'corrupt'),
+        )
+        _check_if_exists(doc, ['stored', store, 'corrupted'], (int, float),
+            (_at_least, 0),
+        )
+
+    check_file_optional(doc)
+
+
+def check_file_optional(doc):
+
+    # 'content_type' like 'video/quicktime'
+    _check_if_exists(doc, ['content_type'], basestring)
+
     # 'content_encoding' like 'gzip'
-    _check_if_exists(doc, ['content_encoding'],
-        _can_be_none,
-        _check_str,
-        (_check_in, 'gzip', 'deflate'),
+    _check_if_exists(doc, ['content_encoding'], basestring,
+        (_is_in, 'gzip', 'deflate'),
     )
 
     # 'media' like 'video'
-    _check_if_exists(doc, ['media'],
-        _can_be_none,
-        _check_str,
-        (_check_in, 'video', 'audio', 'image'),
+    _check_if_exists(doc, ['media'], basestring,
+        (_is_in, 'video', 'audio', 'image'),
     )
 
     # 'mtime' like 1234567890
-    _check_if_exists(doc, ['mtime'],
-        check_time
+    _check_if_exists(doc, ['mtime'], (int, float),
+        (_at_least, 0),
     )
 
     # 'atime' like 1234567890
-    _check_if_exists(doc, ['atime'],
-        check_time
+    _check_if_exists(doc, ['atime'], (int, float),
+        (_at_least, 0),
     )
 
     # name like 'MVI_5899.MOV'
-    _check_if_exists(doc, ['name'],
-        _check_str,
-    )
+    _check_if_exists(doc, ['name'], basestring)
 
     # dir like 'DCIM/100EOS5D2'
-    _check_if_exists(doc, ['dir'],
-        _check_str,
-    )
+    # FIXME: Should save this as a list so path is portable
+    _check_if_exists(doc, ['dir'], basestring)
 
     # 'meta' like {'iso': 800}
-    _check_if_exists(doc, ['meta'],
-        _check_dict
-    )
+    _check_if_exists(doc, ['meta'], dict)
 
     # 'user' like {'title': 'cool sunset'}
-    _check_if_exists(doc, ['user'],
-        _check_dict
-    )
+    _check_if_exists(doc, ['user'], dict)
 
     # 'tags' like {'burp': {'start': 6, 'end': 73}}
-    _check_if_exists(doc, ['tags'],
-        _check_dict
-    )
+    _check_if_exists(doc, ['tags'], dict)
 
 
-def check_dmedia_store(doc):
+def check_store(doc):
     """
-    Verify that *doc* is a valid 'dmedia/store' type document.
+    Verify that *doc* is a valid "dmedia/store" document.
 
     To be a valid 'dmedia/store' record, *doc* must:
 
@@ -1185,7 +926,7 @@ def check_dmedia_store(doc):
     ...     'copies': 2,
     ... }
     ...
-    >>> check_dmedia_store(doc)
+    >>> check_store(doc)
 
 
     And an invalid value:
@@ -1199,91 +940,48 @@ def check_dmedia_store(doc):
     ...     'copies': 2,
     ... }
     ...
-    >>> check_dmedia_store(doc)
+    >>> check_store(doc)
     Traceback (most recent call last):
       ...
-    ValueError: doc missing keys: ['plugin']
+    ValueError: doc['plugin'] does not exist
 
     """
     check_dmedia(doc)
-    _check_required(doc, ['plugin', 'copies'])
 
-    # Test plugin
-    key = 'plugin'
-    p = doc[key]
-    _check_str(p, key)
-    plugins = ['filestore', 'removable_filestore', 'ubuntuone', 's3']
-    if p not in plugins:
-        raise ValueError(
-            '%s %r not in %r' % (key, p, plugins)
-        )
+    _check(doc, ['plugin'], basestring,
+        (_is_in, 'filestore', 'removable_filestore', 'ubuntuone', 's3'),
+    )
 
-    # Test copies
-    key = 'copies'
-    dc = doc[key]
-    _check_int(dc, key)
-    _check_at_least(dc, key, 1)
+    _check(doc, ['copies'], int,
+        (_at_least, 0),
+    )
 
 
-def random_id(random=None):
-    """
-    Returns a 120-bit base32-encoded random ID.
+#######################################################
+# Functions for creating specific types of dmedia docs:
 
-    The ID will be 24-characters long, URL and filesystem safe.  For example:
-
-    >>> random_id()  #doctest: +SKIP
-    'OVRHK3TUOUQCWIDMNFXGC4TP'
-
-    Optionally you can provide the 15-byte random seed yourself:
-
-    >>> random_id(random='abcdefghijklmno'.encode('utf-8'))
-    'MFRGGZDFMZTWQ2LKNNWG23TP'
-
-    :param random: optionally provide 15-byte random seed; when not provided,
-        seed is created by calling ``os.urandom(15)``
-    """
-    random = (os.urandom(15) if random is None else random)
-    assert len(random) % 5 == 0
-    return b32encode(random)
-
-
-# FIXME: There is current a recursize import issue with filestore, but FileStore
-# shouldn't deal with the store.json file anyway, should not import
-# `schema.create_store()`
-def tophash_personalization(file_size):
-    return ' '.join(['dmedia/tophash', str(file_size)]).encode('utf-8')
-
-
-def tophash(file_size, leaves):
-    """
-    Initialize hash for a file that is *file_size* bytes.
-    """
-    h = sha1(tophash_personalization(file_size))
-    h.update(leaves)
-    return b32encode(h.digest())
-
-
-def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
+def create_file(_id, file_size, leaf_hashes, stored, ext=None, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
 
+    :param _id: the content hash, eg ``'JK47OD6N5JYFGEIFB53LX7XPUSYCWDUM'``
     :param file_size: an ``int``, the file size in bytes, eg ``20202333``
-    :param leaves: a ``list`` containing the content hash of each leaf
-    :param store: the ID of the store where this file is initially stored, eg
+    :param leaf_hashes: a ``bytes`` instance containing the concatenated content
+        hashes of the leaves
+    :param stored: a ``dict`` containing locations this file is stored
         ``'Y4J3WQCMKV5GHATOCZZBHF4Y'``
-    :param copies: an ``int`` to represent the durability of the file on this
-        store; default is ``0``
     :param ext: the file extension, eg ``'mov'``; default is ``None``
     :param origin: the file's origin (for durability/reclamation purposes);
         default is ``'user'``
     """
     ts = time.time()
-    packed = b''.join(leaves)
+    for value in stored.values():
+        value['time'] = ts
     return {
-        '_id': tophash(file_size, packed),
+        '_id': _id,
         '_attachments': {
             'leaves': {
-                'data': b64encode(packed),
+                'data': b64encode(leaf_hashes),
                 'content_type': 'application/octet-stream',
             }
         },
@@ -1293,12 +991,7 @@ def create_file(file_size, leaves, store, copies=0, ext=None, origin='user'):
         'bytes': file_size,
         'ext': ext,
         'origin': origin,
-            'stored': {
-            store: {
-                'copies': copies,
-                'time': ts,
-            }
-        }
+        'stored': stored,
     }
 
 

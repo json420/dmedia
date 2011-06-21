@@ -38,6 +38,15 @@ from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves, raises, sample_
 from .couch import CouchCase
 
 
+def create_file_doc(store_id):
+    return schema.create_file(mov_hash, mov_size, b''.join(mov_leaves),
+        {
+            store_id: {
+                'copies': 1,
+            }
+        }
+    )
+
 
 def random_id(blocks=3):
     return b32encode(urandom(5 * blocks))
@@ -479,7 +488,7 @@ class TestTransferWorker(CouchCase):
 
     def test_init_file(self):
         inst = self.new()
-        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        doc = create_file_doc(self.store_id)
         self.assertEqual(doc['_id'], mov_hash)
         inst.db.save(doc)
         self.assertIsNone(inst.init_file(mov_hash))
@@ -509,7 +518,7 @@ class TestTransferWorker(CouchCase):
 
     def test_init_file(self):
         inst = self.new()
-        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        doc = create_file_doc(self.store_id)
         self.assertEqual(doc['_id'], mov_hash)
         inst.db.save(doc)
         self.assertIsNone(inst.init_file(mov_hash))
@@ -527,7 +536,7 @@ class TestTransferWorker(CouchCase):
         Test with bad tophash = hash(bytes+leaf_hashes) relationship.
         """
         inst = self.new()
-        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        doc = create_file_doc(self.store_id)
         self.assertEqual(doc['_id'], mov_hash)
         doc['bytes'] += 1
         inst.db.save(doc)
@@ -543,7 +552,7 @@ class TestTransferWorker(CouchCase):
     def test_execute(self):
         inst = self.new()
 
-        doc = schema.create_file(mov_size, mov_leaves, self.store_id)
+        doc = create_file_doc(self.store_id)
         inst.db.save(doc)
 
         remote = {
@@ -635,7 +644,7 @@ class TestDownloadWorker(CouchCase):
         self.key = ('downloads', mov_hash)
         inst = self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
 
-        self.file = schema.create_file(mov_size, mov_leaves, self.store_id)
+        self.file = create_file_doc(self.store_id)
         inst.db.save(self.file)
 
         self.remote = {
@@ -704,7 +713,7 @@ class TestUploadWorker(CouchCase):
         self.key = ('uploads', mov_hash)
         inst = self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
 
-        self.file = schema.create_file(mov_size, mov_leaves, self.store_id)
+        self.file = create_file_doc(self.store_id)
         inst.db.save(self.file)
 
         self.remote = {
