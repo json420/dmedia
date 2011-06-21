@@ -65,6 +65,7 @@ EXIF_REMAP = {
     'aperture': ['Aperture', 'FNumber', 'ApertureValue'],
     'lens': ['LensID', 'LensType'],
     'camera': ['Model'],
+    'camera_serial': ['SerialNumber'],
     'focal_length': ['FocalLength'],
 }
 

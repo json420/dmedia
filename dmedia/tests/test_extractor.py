@@ -426,6 +426,7 @@ class test_functions(TestCase):
                     aperture=11.0,
                     lens=u'Canon EF 70-200mm f/4L IS',
                     camera=u'Canon EOS 5D Mark II',
+                    camera_serial=u'0820500998',
                     focal_length=u'138.0 mm',
                 ),
             )
@@ -445,6 +446,7 @@ class test_functions(TestCase):
                 aperture=11.0,
                 lens=u'Canon EF 70-200mm f/4L IS',
                 camera=u'Canon EOS 5D Mark II',
+                camera_serial=u'0820500998',
                 focal_length=u'138.0 mm',
                 mtime=1287520994 + 68 / 100.0,
             ),
@@ -495,6 +497,7 @@ class test_functions(TestCase):
                 aperture=11.0,
                 lens=u'Canon EF 70-200mm f/4L IS',
                 camera=u'Canon EOS 5D Mark II',
+                camera_serial=u'0820500998',
                 focal_length=u'138.0 mm',
                 mtime=1287520994 + 68 / 100.0,
             )
