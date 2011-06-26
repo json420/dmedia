@@ -384,6 +384,7 @@ class TransferWorker(CouchWorker):
         super(TransferWorker, self).__init__(env, q, key, args)
         self.filestore = FileStore(self.env['filestore']['path'])
         self.filestore_id = self.env['filestore']['_id']
+        import backends
 
     def on_progress(self, completed):
         self.emit('progress', completed, self.file_size)
