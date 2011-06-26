@@ -134,6 +134,7 @@ setup(
     ],
     packages=[
         'dmedia',
+        'dmedia.backends',
         'dmedia.service',
         'dmedia.webui',
         'dmedia.gtkui',

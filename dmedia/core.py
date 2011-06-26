@@ -74,11 +74,6 @@ from .abstractcouch import get_server, get_db, load_env
 from .schema import random_id, create_machine, create_store
 from .views import init_views
 
-try:
-    from . import backends
-except ImportError:
-    pass
-
 
 LOCAL_ID = '_local/dmedia'
 

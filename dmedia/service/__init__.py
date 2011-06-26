@@ -119,6 +119,4 @@ class DMedia(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='', out_signature='as')
     def ListTransfers(self):
-        return list(
-            '/' + '/'.join(tup) for tup in self._core.manager.list_jobs()
-        )
+        return self._core.manager.list_jobs()

@@ -83,7 +83,7 @@ class TestFunctions(TestCase):
         store_id = random_id()
         self.assertEqual(
             transfers.download_key(file_id, store_id),
-            ('downloads', file_id)
+            '/downloads/{}'.format(file_id)
         )
 
     def test_upload_key(self):
@@ -91,7 +91,7 @@ class TestFunctions(TestCase):
         store_id = random_id()
         self.assertEqual(
             transfers.upload_key(file_id, store_id),
-            ('uploads', file_id, store_id)
+            '/uploads/{}/{}'.format(file_id, store_id)
         )
 
     def test_register_uploader(self):

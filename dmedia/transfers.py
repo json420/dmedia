@@ -54,7 +54,7 @@ def download_key(file_id, store_id):
     For example:
 
     >>> download_key('my_file_id', 'my_remote_store_id')
-    ('downloads', 'my_file_id')
+    '/downloads/my_file_id'
 
     Notice that the *store_id* isn't used in the single instance key.  This is
     because, for now, we only allow a file to be downloaded from one location at
@@ -64,7 +64,7 @@ def download_key(file_id, store_id):
     Note that this value isn't used in the dmedia schema or protocol, is only
     an internal implementation detail.
     """
-    return ('downloads', file_id)
+    return '/downloads/' + file_id
 
 # Note: should probably export each upload on the org.freedesktop.DMedia bus
 # at the object path /uploads/FILE_ID/REMOTE_ID
@@ -76,7 +76,7 @@ def upload_key(file_id, store_id):
     For example:
 
     >>> upload_key('my_file_id', 'my_remote_store_id')
-    ('uploads', 'my_file_id', 'my_remote_store_id')
+    '/uploads/my_file_id/my_remote_store_id'
 
     Notice that both *file_id* and *store_id* are used in the single instance
     key.  This is because we allow a file to be uploading to multiple remote
@@ -85,7 +85,7 @@ def upload_key(file_id, store_id):
     Note that this value isn't used in the dmedia schema or protocol, is only
     an internal implementation detail.
     """
-    return ('uploads', file_id, store_id)
+    return '/'.join(['/uploads', file_id, store_id])
 
 
 def register_uploader(name, backend):
@@ -384,7 +384,10 @@ class TransferWorker(CouchWorker):
         super(TransferWorker, self).__init__(env, q, key, args)
         self.filestore = FileStore(self.env['filestore']['path'])
         self.filestore_id = self.env['filestore']['_id']
-        import backends
+        try:
+            from . import backends
+        except ImportError:
+            pass
 
     def on_progress(self, completed):
         self.emit('progress', completed, self.file_size)
