@@ -284,4 +284,4 @@ def merge_video_info(src, attachments):
                 continue
             yield (key, value)
 
-register(merge_video_info, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga')
+register(merge_video_info, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga', 'mts')

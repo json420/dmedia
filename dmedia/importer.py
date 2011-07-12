@@ -52,6 +52,7 @@ MEDIA_MAP = {
     'ogv': 'video',
     'mov': 'video',
     'avi': 'video',
+    'mts': 'video',
 
     'oga': 'audio',
     'flac': 'audio',
