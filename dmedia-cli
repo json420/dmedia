@@ -66,6 +66,8 @@ for a list of available actions.
 """ % (self._exec, self._exec, self._exec)
 
     def get_help(self, *names):
+        if len(names) == 0:
+            names = self.get_actions()
         return "\n".join(map(
             lambda name: "Action `%s`. Usage:\n\t%s %s %s\n%s\n" % (
                 (name, self._exec, name) + self._action_help[name]
@@ -74,7 +76,7 @@ for a list of available actions.
         ))
 
     def get_actions(self):
-        return list(self._action_methods)
+        return tuple(self._action_methods)
 
     def show_usage(self):
         print(self.get_usage())
@@ -131,8 +133,8 @@ for a list of available actions.
         self.add_action(
             "help",
             self.show_help,
-            "ACTION_1 [ACTION_2] ... [ACTION_N]",
-            "Display help information for each of the listed actions."
+            "[ACTION_1] [ACTION_2] ... [ACTION_N]",
+            "Display help information for each of the listed actions. If no actions are listed, help will be displayed for all available actions."
         )
         #usage
         self.add_action(
@@ -156,16 +158,28 @@ for a list of available actions.
             "Run an action using the dbus bus `BUS_NAME` for any dbus interaction."
         )
 
+    def main(self, *args):
+        args = list(args)
+        if len(args) < 1:
+            self.run_action("usage")
+        else:
+            self.run_action(args.pop(0), *args)
+
 dmedia_cli = DBusCLI("dmedia-cli", dmedia.__version__, BUS, '/', IFACE)
 
 dmedia_cli.add_dbus_action("Version", "", "Display the version of running `dmedia-service`.")
+dmedia_cli.add_dbus_action("Kill", "", "Shutdown `dmedia-service`.")
+dmedia_cli.add_dbus_action("AddFileStore", "PARENT_DIR", "Add a new dmedia file store. Create it in the `PARENT_DIR` directory (eg. /home/username).")
+dmedia_cli.add_dbus_action("GetDoc", "DOC_ID", "Get a document from CouchDB. `DOC_ID` is the _id of the document.")
+dmedia_cli.add_dbus_action("Upload", "FILE_ID STORE_ID", "Upload the file with id `FILE_ID` to the remote store with id `STORE_ID`.")
+dmedia_cli.add_dbus_action("Download", "FILE_ID STORE_ID", "Download the file with id `FILE_ID` from the remote store with id `STORE_ID`.")
+dmedia_cli.add_dbus_action("ListTransfers", "", "List active uploads and downloads.")
+dmedia_cli.add_dbus_action("GetEnv", "", "Display dmedia env as JSON.")
+dmedia_cli.add_dbus_action("GetAuthURL", "", "Get URL with basic auth user and password.")
+dmedia_cli.add_dbus_action("HasApp", "", "")
 
-if len(argv) < 2:
-    dmedia_cli.run_action("usage")
-else:
-    args = argv[1:]
-    action = args.pop(0)
-    dmedia_cli.run_action(action, *args)
+if __name__ == '__main__':
+    dmedia_cli.main(*argv[1:])
 
 
 
