@@ -111,5 +111,22 @@ class Device(object):
         """
         return self._d and True
 
+    def is_partition(self):
+        """
+        Return True if the device is a partition, False otherwise.
+        """
+        return self["DeviceIsPartition"]
+
+    def get_device(self):
+        """
+        Return the physical device for this device.
+        """
+        if self.is_partition():
+            return self.__class__(
+                dev=str(self["DeviceFile"]).rstrip('0123456789')
+            )
+        else:
+            return self
+
     def __getitem__(self, prop):
         return self._d.Get("org.freedesktop.UDisks.Device", prop)
