@@ -33,7 +33,34 @@ from dmedia.constants import BUS, IFACE
 import dbus
 
 class DBusCLI (object):
+    """
+    DBusCLI allows you to easily create command line interfaces from
+    DBus APIs.
+
+    Example usage:
+        my_cli = DBusCLI(
+            'mycli', '1.0', 'org.freedesktop.My',
+            '/', 'org.freedesktop.My'
+        )
+        my_cli.add_action("name1", function1, "usage of name1", "description of name1")
+        my_cli.add_dbus_action("MethodName", "usage of MethodName", "description of MethodName")
+        if __name__ == '__main__':
+            my_cli.main(*sys.argv[1:])
+    """
     def __init__(self, exec_name, version, dbus_bus, dbus_object, dbus_iface):
+        """
+        `exec_name` is the name of the executable of the command line
+        program. It should be what the user needs to run to use the
+        program.
+
+        `version` is the version string of the command line program.
+
+        `dbus_bus` is the dbus bus name of the dbus API.
+
+        `dbus_object` is the dbus object of the dbus API.
+
+        `dbus_iface` is the dbus interface of the dbus API.
+        """
         self._exec = exec_name
         self._version = version
         self._default_bus = dbus_bus
@@ -46,13 +73,23 @@ class DBusCLI (object):
         self._add_default_actions()
 
     def has_action(self, name):
+        """
+        Return true if the action `name` exists,
+        false otherwise.
+        """
         return (self._action_methods.has_key(name) and
             self._action_help.has_key(name))
 
     def get_action_method(self, name):
+        """
+        Return the function for action `name`.
+        """
         return self._action_methods[name]
 
     def get_usage(self):
+        """
+        Return the usage string for this program.
+        """
         return """Usage:
 \t%s ACTION [ARGUMENTS]
 
@@ -66,6 +103,11 @@ for a list of available actions.
 """ % (self._exec, self._exec, self._exec)
 
     def get_help(self, *names):
+        """
+        Return the help string for action(s) `names`.
+        If no names are specified, the help string will show
+        help for all available actions.
+        """
         if len(names) == 0:
             names = self.get_actions()
         return "\n".join(map(
@@ -76,21 +118,40 @@ for a list of available actions.
         ))
 
     def get_actions(self):
+        """
+        Return all available actions as a tuple.
+        """
         return tuple(self._action_methods)
 
     def show_usage(self):
+        """
+        Display the usage string for this program.
+        """
         print(self.get_usage())
 
     def show_help(self, *names):
+        """
+        Display the help string for `names`. See `get_help`.
+        """
         print(self.get_help(*names))
 
     def show_actions(self):
+        """
+        Display all available actions, each on a separate line.
+        """
         print("\n".join(self.get_actions()))
 
     def show_version(self):
+        """
+        Display the version of this program.
+        """
         print(self._version)
 
     def dbus_run(self, name, *args):
+        """
+        Run the dbus method `name` with arguments `args`.
+        Catch any errors and print them to stderr.
+        """
         proxy = self._conn.get_object(self._bus, self._obj)
         method = proxy.get_dbus_method(name, dbus_interface=self._iface)
         try:
@@ -99,21 +160,41 @@ for a list of available actions.
             stderr.write("Error: %s\n"%e.message)
 
     def run_action(self, name, *args):
+        """
+        Run the action `name` with arguments `args`.
+        """
         if self.has_action(name):
             self.get_action_method(name)(*args)
         else:
-            print("No such action `%s`" % name)
+            stderr.write("No such action `%s`\n" % name)
             print(self.get_usage())
 
     def run_action_with_bus(self, bus, name, *args):
+        """
+        Run the action `name` with arguments `args`.
+        Use a custom dbus bus name `bus`.
+        """
         self._bus = bus
         self.run_action(name, *args)
 
     def add_action(self, name, function=lambda *a:None, usage="", description=""):
+        """
+        Add an action to the command line program.
+        `name` is the name of the action.
+        `function` is the function to be called for this action.
+        `usage` is a string describing the arguments of the action to the user.
+        `description` is a string describing what the action does.
+        """
         self._action_methods[name] = function
         self._action_help[name] = (usage, description)
 
     def add_dbus_action(self, name, usage="", description=""):
+        """
+        Add an action to the command line program based upon a dbus method.
+        `name` is the name of the action and the name of the dbus method.
+        `usage` is a string describing the arguments of the action to the user.
+        `description` is a string describing what the action does.
+        """
         self.add_action(
             name,
             lambda *args:self.dbus_run(name, *args),
@@ -159,6 +240,9 @@ for a list of available actions.
         )
 
     def main(self, *args):
+        """
+        Run the command line program with the specified arguments.
+        """
         args = list(args)
         if len(args) < 1:
             self.run_action("usage")
@@ -180,131 +264,3 @@ dmedia_cli.add_dbus_action("HasApp", "", "")
 
 if __name__ == '__main__':
     dmedia_cli.main(*argv[1:])
-
-
-
-#~ from __future__ import print_function
-#~
-#~ import argparse
-#~ import json
-#~
-#~ import dbus
-#~
-#~ import dmedia
-#~ from dmedia.constants import BUS, IFACE
-#~
-#~
-#~ parser = argparse.ArgumentParser(
-    #~ description='Execute methods on dmedia DBus services',
-#~ )
-#~ parser.add_argument('--version', action='version', version=dmedia.__version__)
-#~ parser.add_argument('--bus',
-    #~ help='DBus bus name; default is %(default)r',
-    #~ default=BUS,
-#~ )
-#~
-#~
-#~ sub = parser.add_subparsers(
-    #~ dest='cmd',
-    #~ title='Methods on {}'.format(BUS)
-#~ )
-#~
-#~
-#~ # DMedia.Version()
-#~ sub.add_parser('Version',
-    #~ help='version of running `dmedia-service`',
-#~ )
-#~
-#~
-#~ # DMedia.Kill()
-#~ sub.add_parser('Kill',
-    #~ help='shutdown `dmedia-service`',
-#~ )
-#~
-#~
-#~ # DMedia.AddFileStore()
-#~ p = sub.add_parser('AddFileStore',
-    #~ help='add a new FileStore',
-#~ )
-#~ p.add_argument('parentdir',
-    #~ help="parent directory, like '/home/username'"
-#~ )
-#~ def AddFileStore(method, args):
-    #~ print(method(args.parentdir))
-#~ p.set_defaults(func=AddFileStore)
-#~
-#~
-#~ # DMedia.GetDoc()
-#~ p = sub.add_parser('GetDoc',
-    #~ help='get document from CouchDB by doc_id',
-#~ )
-#~ p.add_argument('doc_id',
-    #~ help='the _id of document',
-#~ )
-#~ def GetDoc(method, args):
-    #~ print(method(args.doc_id))
-#~ p.set_defaults(func=GetDoc)
-#~
-#~
-#~ # DMedia.GetFile()
-#~ p = sub.add_parser('GetFile',
-    #~ help='get full path of file by file_id',
-#~ )
-#~ p.add_argument('file_id',
-    #~ help='the _id of file',
-#~ )
-#~ def GetFile(method, args):
-    #~ print(method(args.file_id))
-#~ p.set_defaults(func=GetFile)
-#~
-#~
-#~ # DMedia.Upload()
-#~ p = sub.add_parser('Upload',
-    #~ help='upload file to specified remote store',
-#~ )
-#~ p.add_argument('file_id',
-    #~ help="ID of file"
-#~ )
-#~ p.add_argument('store_id',
-    #~ help="ID of remote store"
-#~ )
-#~ def Upload(method, args):
-    #~ print(method(args.file_id, args.store_id))
-#~ p.set_defaults(func=Upload)
-#~
-#~
-#~ # DMedia.Download()
-#~ p = sub.add_parser('Download',
-    #~ help='download file from specified remote store',
-#~ )
-#~ p.add_argument('file_id',
-    #~ help="ID of file"
-#~ )
-#~ p.add_argument('store_id',
-    #~ help="ID of remote store"
-#~ )
-#~ def Download(method, args):
-    #~ print(method(args.file_id, args.store_id))
-#~ p.set_defaults(func=Download)
-#~
-#~
-#~ # DMedia.ListTransferes()
-#~ p = sub.add_parser('ListTransfers',
-    #~ help='list active uploads and downloads',
-#~ )
-#~ def ListTransfers(method, args):
-    #~ for t in method():
-        #~ print(t)
-#~ p.set_defaults(func=ListTransfers)
-#~
-#~
-#~
-#~ def default_func(method, args):
-    #~ print(method())
-#~
-#~ args = parser.parse_args()
-#~ func = getattr(args, 'func', default_func)
-#~ conn = dbus.SessionBus()
-#~ proxy = conn.get_object(args.bus, '/')
-#~ method = proxy.get_dbus_method(args.cmd, dbus_interface=IFACE)
-#~ func(method, args)
