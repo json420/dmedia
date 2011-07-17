@@ -27,128 +27,270 @@
 Command line tool for talking to dmedia DBus services.
 """
 
-from __future__ import print_function
-
-import argparse
-import json
-
-import dbus
-
+from sys import argv, stderr
 import dmedia
 from dmedia.constants import BUS, IFACE
+import dbus
+
+class DBusCLI (object):
+    def __init__(self, exec_name, version, dbus_bus, dbus_object, dbus_iface):
+        self._exec = exec_name
+        self._version = version
+        self._default_bus = dbus_bus
+        self._bus = self._default_bus
+        self._obj = dbus_object
+        self._iface = dbus_iface
+        self._action_methods = {}
+        self._action_help = {}
+        self._conn = dbus.SessionBus()
+        self._add_default_actions()
+
+    def has_action(self, name):
+        return (self._action_methods.has_key(name) and
+            self._action_help.has_key(name))
+
+    def get_action_method(self, name):
+        return self._action_methods[name]
+
+    def get_usage(self):
+        return """Usage:
+\t%s ACTION [ARGUMENTS]
+
+Run:
+\t%s help ACTION
+for help with a specific action.
+
+Run:
+\t%s actions
+for a list of available actions.
+""" % (self._exec, self._exec, self._exec)
+
+    def get_help(self, *names):
+        return "\n".join(map(
+            lambda name: "Action `%s`. Usage:\n\t%s %s %s\n%s\n" % (
+                (name, self._exec, name) + self._action_help[name]
+            ),
+            names
+        ))
+
+    def get_actions(self):
+        return list(self._action_methods)
+
+    def show_usage(self):
+        print(self.get_usage())
+
+    def show_help(self, *names):
+        print(self.get_help(*names))
+
+    def show_actions(self):
+        print("\n".join(self.get_actions()))
+
+    def show_version(self):
+        print(self._version)
+
+    def dbus_run(self, name, *args):
+        proxy = self._conn.get_object(self._bus, self._obj)
+        method = proxy.get_dbus_method(name, dbus_interface=self._iface)
+        try:
+            print(str(method(*args)))
+        except Exception, e:
+            stderr.write("Error: %s\n"%e.message)
+
+    def run_action(self, name, *args):
+        if self.has_action(name):
+            self.get_action_method(name)(*args)
+        else:
+            print("No such action `%s`" % name)
+            print(self.get_usage())
+
+    def run_action_with_bus(self, bus, name, *args):
+        self._bus = bus
+        self.run_action(name, *args)
+
+    def add_action(self, name, function=lambda *a:None, usage="", description=""):
+        self._action_methods[name] = function
+        self._action_help[name] = (usage, description)
+
+    def add_dbus_action(self, name, usage="", description=""):
+        self.add_action(
+            name,
+            lambda *args:self.dbus_run(name, *args),
+            usage,
+            description
+        )
+
+    def _add_default_actions(self):
+        #version
+        self.add_action(
+            "version",
+            self.show_version,
+            "",
+            "Display the version of this program."
+        )
+        #help
+        self.add_action(
+            "help",
+            self.show_help,
+            "ACTION_1 [ACTION_2] ... [ACTION_N]",
+            "Display help information for each of the listed actions."
+        )
+        #usage
+        self.add_action(
+            "usage",
+            self.show_usage,
+            "",
+            "Display a usage message."
+        )
+        #actions
+        self.add_action(
+            "actions",
+            self.show_actions,
+            "",
+            "Display the list of available actions."
+        )
+        #bus
+        self.add_action(
+            "bus",
+            self.run_action_with_bus,
+            "BUS_NAME ACTION [ARGUMENTS]",
+            "Run an action using the dbus bus `BUS_NAME` for any dbus interaction."
+        )
+
+dmedia_cli = DBusCLI("dmedia-cli", dmedia.__version__, BUS, '/', IFACE)
+
+dmedia_cli.add_dbus_action("Version", "", "Display the version of running `dmedia-service`.")
+
+if len(argv) < 2:
+    dmedia_cli.run_action("usage")
+else:
+    args = argv[1:]
+    action = args.pop(0)
+    dmedia_cli.run_action(action, *args)
 
 
-parser = argparse.ArgumentParser(
-    description='Execute methods on dmedia DBus services',
-)
-parser.add_argument('--version', action='version', version=dmedia.__version__)
-parser.add_argument('--bus',
-    help='DBus bus name; default is %(default)r',
-    default=BUS,
-)
 
-
-sub = parser.add_subparsers(
-    dest='cmd',
-    title='Methods on {}'.format(BUS)
-)
-
-
-# DMedia.Version()
-sub.add_parser('Version',
-    help='version of running `dmedia-service`',
-)
-
-
-# DMedia.Kill()
-sub.add_parser('Kill',
-    help='shutdown `dmedia-service`',
-)
-
-
-# DMedia.AddFileStore()
-p = sub.add_parser('AddFileStore',
-    help='add a new FileStore',
-)
-p.add_argument('parentdir',
-    help="parent directory, like '/home/username'"
-)
-def AddFileStore(method, args):
-    print(method(args.parentdir))
-p.set_defaults(func=AddFileStore)
-
-
-# DMedia.GetDoc()
-p = sub.add_parser('GetDoc',
-    help='get document from CouchDB by doc_id',
-)
-p.add_argument('doc_id',
-    help='the _id of document',
-)
-def GetDoc(method, args):
-    print(method(args.doc_id))
-p.set_defaults(func=GetDoc)
-
-
-# DMedia.GetFile()
-p = sub.add_parser('GetFile',
-    help='get full path of file by file_id',
-)
-p.add_argument('file_id',
-    help='the _id of file',
-)
-def GetFile(method, args):
-    print(method(args.file_id))
-p.set_defaults(func=GetFile)
-
-
-# DMedia.Upload()
-p = sub.add_parser('Upload',
-    help='upload file to specified remote store',
-)
-p.add_argument('file_id',
-    help="ID of file"
-)
-p.add_argument('store_id',
-    help="ID of remote store"
-)
-def Upload(method, args):
-    print(method(args.file_id, args.store_id))
-p.set_defaults(func=Upload)
-
-
-# DMedia.Download()
-p = sub.add_parser('Download',
-    help='download file from specified remote store',
-)
-p.add_argument('file_id',
-    help="ID of file"
-)
-p.add_argument('store_id',
-    help="ID of remote store"
-)
-def Download(method, args):
-    print(method(args.file_id, args.store_id))
-p.set_defaults(func=Download)
-
-
-# DMedia.ListTransferes()
-p = sub.add_parser('ListTransfers',
-    help='list active uploads and downloads',
-)
-def ListTransfers(method, args):
-    for t in method():
-        print(t)
-p.set_defaults(func=ListTransfers)
-
-
-
-def default_func(method, args):
-    print(method())
-
-args = parser.parse_args()
-func = getattr(args, 'func', default_func)
-conn = dbus.SessionBus()
-proxy = conn.get_object(args.bus, '/')
-method = proxy.get_dbus_method(args.cmd, dbus_interface=IFACE)
-func(method, args)
+#~ from __future__ import print_function
+#~
+#~ import argparse
+#~ import json
+#~
+#~ import dbus
+#~
+#~ import dmedia
+#~ from dmedia.constants import BUS, IFACE
+#~
+#~
+#~ parser = argparse.ArgumentParser(
+    #~ description='Execute methods on dmedia DBus services',
+#~ )
+#~ parser.add_argument('--version', action='version', version=dmedia.__version__)
+#~ parser.add_argument('--bus',
+    #~ help='DBus bus name; default is %(default)r',
+    #~ default=BUS,
+#~ )
+#~
+#~
+#~ sub = parser.add_subparsers(
+    #~ dest='cmd',
+    #~ title='Methods on {}'.format(BUS)
+#~ )
+#~
+#~
+#~ # DMedia.Version()
+#~ sub.add_parser('Version',
+    #~ help='version of running `dmedia-service`',
+#~ )
+#~
+#~
+#~ # DMedia.Kill()
+#~ sub.add_parser('Kill',
+    #~ help='shutdown `dmedia-service`',
+#~ )
+#~
+#~
+#~ # DMedia.AddFileStore()
+#~ p = sub.add_parser('AddFileStore',
+    #~ help='add a new FileStore',
+#~ )
+#~ p.add_argument('parentdir',
+    #~ help="parent directory, like '/home/username'"
+#~ )
+#~ def AddFileStore(method, args):
+    #~ print(method(args.parentdir))
+#~ p.set_defaults(func=AddFileStore)
+#~
+#~
+#~ # DMedia.GetDoc()
+#~ p = sub.add_parser('GetDoc',
+    #~ help='get document from CouchDB by doc_id',
+#~ )
+#~ p.add_argument('doc_id',
+    #~ help='the _id of document',
+#~ )
+#~ def GetDoc(method, args):
+    #~ print(method(args.doc_id))
+#~ p.set_defaults(func=GetDoc)
+#~
+#~
+#~ # DMedia.GetFile()
+#~ p = sub.add_parser('GetFile',
+    #~ help='get full path of file by file_id',
+#~ )
+#~ p.add_argument('file_id',
+    #~ help='the _id of file',
+#~ )
+#~ def GetFile(method, args):
+    #~ print(method(args.file_id))
+#~ p.set_defaults(func=GetFile)
+#~
+#~
+#~ # DMedia.Upload()
+#~ p = sub.add_parser('Upload',
+    #~ help='upload file to specified remote store',
+#~ )
+#~ p.add_argument('file_id',
+    #~ help="ID of file"
+#~ )
+#~ p.add_argument('store_id',
+    #~ help="ID of remote store"
+#~ )
+#~ def Upload(method, args):
+    #~ print(method(args.file_id, args.store_id))
+#~ p.set_defaults(func=Upload)
+#~
+#~
+#~ # DMedia.Download()
+#~ p = sub.add_parser('Download',
+    #~ help='download file from specified remote store',
+#~ )
+#~ p.add_argument('file_id',
+    #~ help="ID of file"
+#~ )
+#~ p.add_argument('store_id',
+    #~ help="ID of remote store"
+#~ )
+#~ def Download(method, args):
+    #~ print(method(args.file_id, args.store_id))
+#~ p.set_defaults(func=Download)
+#~
+#~
+#~ # DMedia.ListTransferes()
+#~ p = sub.add_parser('ListTransfers',
+    #~ help='list active uploads and downloads',
+#~ )
+#~ def ListTransfers(method, args):
+    #~ for t in method():
+        #~ print(t)
+#~ p.set_defaults(func=ListTransfers)
+#~
+#~
+#~
+#~ def default_func(method, args):
+    #~ print(method())
+#~
+#~ args = parser.parse_args()
+#~ func = getattr(args, 'func', default_func)
+#~ conn = dbus.SessionBus()
+#~ proxy = conn.get_object(args.bus, '/')
+#~ method = proxy.get_dbus_method(args.cmd, dbus_interface=IFACE)
+#~ func(method, args)
