@@ -33,13 +33,14 @@ import logging
 
 import couchdb
 
-from .schema import random_id, create_file, create_batch, create_import
+from .schema import random_id, create_file, create_batch, create_import, create_drive, create_partition
 from .errors import DuplicateFile
 from .workers import (
     CouchWorker, CouchManager, register, isregistered, exception_name
 )
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
 from .extractor import merge_metadata
+from .udisks import Device
 
 mimetypes.init()
 DOTDIR = '.dmedia'
@@ -193,23 +194,28 @@ class ImportWorker(CouchWorker):
         stats = self.finalize()
         self.emit('finished', import_id, stats)
 
-    def save(self):
+    def save(self, *docs):
         """
         Save current 'dmedia/import' record to CouchDB.
         """
         self.db.save(self.doc)
+        for doc in docs:
+            self.db.save(doc)
 
     def start(self):
         """
         Create the initial 'dmedia/import' record, return that record's ID.
         """
         assert self._id is None
+        drive = create_drive(self.base)
+        partition = create_partition(self.base)
         self.doc = create_import(self.base,
+            partition['_id'],
             batch_id=self.env.get('batch_id'),
             machine_id=self.env.get('machine_id'),
         )
         self._id = self.doc['_id']
-        self.save()
+        self.save(drive, partition)
         return self._id
 
     def scanfiles(self):
