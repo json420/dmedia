@@ -1,6 +1,7 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
-#   Akshat Jain <ssj6akshat1234@gmail.com)
+#   Akshat Jain <ssj6akshat1234@gmail.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -33,7 +34,10 @@ import logging
 
 import couchdb
 
-from .schema import random_id, create_file, create_batch, create_import, create_drive, create_partition
+from .schema import (
+    random_id, create_file, create_batch, create_import, create_drive,
+    create_partition
+)
 from .errors import DuplicateFile
 from .workers import (
     CouchWorker, CouchManager, register, isregistered, exception_name
@@ -194,13 +198,11 @@ class ImportWorker(CouchWorker):
         stats = self.finalize()
         self.emit('finished', import_id, stats)
 
-    def save(self, *docs):
+    def save(self):
         """
         Save current 'dmedia/import' record to CouchDB.
         """
         self.db.save(self.doc)
-        for doc in docs:
-            self.db.save(doc)
 
     def start(self):
         """
@@ -215,7 +217,11 @@ class ImportWorker(CouchWorker):
             machine_id=self.env.get('machine_id'),
         )
         self._id = self.doc['_id']
-        self.save(drive, partition)
+        self.save()
+        if not self.db.get(drive['_id']):
+            self.db.save(drive)
+        if not self.db.get(partition['_id']):
+            self.db.save(partition)
         return self._id
 
     def scanfiles(self):

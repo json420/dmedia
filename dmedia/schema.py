@@ -1108,6 +1108,8 @@ def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' document.
     """
+    p = Device(path=parentdir)
+    uuid = str(p['IdUuid'])
     return {
         '_id': random_id(),
         'ver': 0,
@@ -1117,9 +1119,7 @@ def create_store(parentdir, machine_id, copies=1):
         'copies': copies,
         'path': parentdir,
         'machine_id': machine_id,
-        'partition_id': b32encode(
-            sha1(str(Device(path=parentdir))).digest()
-        )
+        'partition_id': b32encode(sha1(uuid).digest())
     }
 
 

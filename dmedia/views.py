@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
@@ -234,6 +235,22 @@ function(doc) {
 }
 """
 
+partition_all = """
+function(doc) {
+    if (doc.type == 'dmedia/partition') {
+        emit(doc.uuid, null)
+    }
+}
+"""
+
+drive_all = """
+function(doc) {
+    if (doc.type == 'dmedia/drive') {
+        emit(doc.serial, null)
+    }
+}
+"""
+
 
 designs = (
     ('type', (
@@ -279,6 +296,14 @@ designs = (
     ('store', (
         ('plugin', store_plugin, _count),
     )),
+
+    ('partition', (
+        ('all', partition_all, None),
+    )),
+
+    ('drive', (
+        ('all', drive_all, None),
+    ))
 )
 
 
