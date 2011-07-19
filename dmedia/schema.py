@@ -445,6 +445,10 @@ def _exists(doc, path):
 
 
 def _check_exist(doc, *paths):
+    """
+    Verify that each of *paths* exist in *doc*.
+    Throw a ValueError if any of them don't.
+    """
     for path in paths:
         if not _exists(doc, path):
             raise(ValueError(
@@ -474,6 +478,12 @@ def _isinstance(value, label, *allowed):
 
 
 def _check_types(doc, *items):
+    """
+    An *item* is a tuple:
+        (path, *allowed)
+    For each item, verify that *path* exists in *doc* and that
+    the value at *path* is one of *allowed*.
+    """
     for item in items:
         path = item[0]
         allowed = item[1:]
@@ -723,6 +733,9 @@ def _content_id(value, label):
         )
 
 def _drive_id(drive):
+    """
+    Generate the couchdb _id for a udisks.Device drive.
+    """
     return b32encode(sha1(
         "%s-%s-%s-%s-%s" % (
             drive['DriveVendor'],
