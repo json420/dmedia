@@ -1021,6 +1021,43 @@ def check_partition(doc):
 
         6. have 'drive_id' as a valid dmedia id.
 
+        For example, a conforming value:
+
+        >>> doc = {
+        ...     '_id': 'YU57NGTX4IPWFAR6GOOYGGLYRBP56JME',
+        ...     'ver': 0,
+        ...     'type': 'dmedia/partition',
+        ...     'time': 1234567890,
+        ...     'size': 1073741824,
+        ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
+        ...     'fs': 'ext4',
+        ...     'label': u'Data',
+        ...     'partition_label': u'',
+        ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
+        ... }
+        ...
+        >>> check_partition(doc)
+
+
+        And an invalid value:
+
+        >>> doc = {
+        ...     '_id': 'YU57NGTX4IPWFAR6GOOYGGLYRBP56JME',
+        ...     'ver': 0,
+        ...     'type': 'dmedia/partition',
+        ...     'time': 1234567890,
+        ...     'size': 1073741824,
+        ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
+        ...     'label': u'Data',
+        ...     'partition_label': u'',
+        ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
+        ... }
+        ...
+        >>> check_partition(doc)
+        Traceback (most recent call last):
+          ...
+        ValueError: doc['fs'] does not exist
+
     """
     check_dmedia(doc)
 
@@ -1051,6 +1088,41 @@ def check_drive(doc):
         3. have 'serial', 'wwn', 'revision' as ``str`` strings.
 
         4. have 'vendor', 'model' as ``unicode`` strings.
+
+        For example, a conforming value:
+
+        >>> doc = {
+        ...     '_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG',
+        ...     'ver': 0,
+        ...     'type': 'dmedia/drive',
+        ...     'time': 1234567890,
+        ...     'serial': 'A0000001B900',
+        ...     'wwn': '50014ee0016eb572',
+        ...     'revision': '1.95',
+        ...     'vendor': u'Canon',
+        ...     'model': u'EOS 7D'
+        ... }
+        ...
+        >>> check_drive(doc)
+
+
+        And an invalid value:
+
+        >>> doc = {
+        ...     '_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG',
+        ...     'ver': 0,
+        ...     'type': 'dmedia/drive',
+        ...     'time': 1234567890,
+        ...     'serial': 'A0000001B900',
+        ...     'wwn': '50014ee0016eb572',
+        ...     'revision': '1.95',
+        ...     'vendor': u'Canon'
+        ... }
+        ...
+        >>> check_partition(doc)
+        Traceback (most recent call last):
+          ...
+        ValueError: doc['model'] does not exist
 
     """
     check_dmedia(doc)
