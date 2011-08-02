@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -215,10 +216,16 @@ class TestFunctions(TestCase):
         bad['bytes'] *= 1.0
         with self.assertRaises(TypeError) as cm:
             f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
-        )
+        try:
+            self.assertEqual(
+                str(cm.exception),
+                TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
+            )
+        except:
+            self.assertEqual(
+                str(cm.exception),
+                TYPE_ERROR % ("doc['bytes']", long, float, bad['bytes'])
+            )
 
         # Test with bytes == 0:
         bad = deepcopy(good)

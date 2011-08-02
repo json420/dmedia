@@ -872,7 +872,7 @@ def check_file(doc):
         _check(doc, ['bytes'], int,
             (_at_least, 1),
         )
-    except:
+    except TypeError:
         _check(doc, ['bytes'], long,
             (_at_least, 1),
         )

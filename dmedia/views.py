@@ -324,6 +324,7 @@ designs = (
 
     ('store', (
         ('plugin', store_plugin, _count),
+        ('partition', store_partition, None)
     )),
 
     ('partition', (
