@@ -315,6 +315,7 @@ class test_ImportWorker(CouchCase):
                 'base',
                 'batch_id',
                 'machine_id',
+                'partition_id',
                 'log',
                 'stats',
             ])

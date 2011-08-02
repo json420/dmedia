@@ -868,9 +868,14 @@ def check_file(doc):
         (_equals, 'dmedia/file'),
     )
 
-    _check(doc, ['bytes'], int,
-        (_at_least, 1),
-    )
+    try:
+        _check(doc, ['bytes'], int,
+            (_at_least, 1),
+        )
+    except:
+        _check(doc, ['bytes'], long,
+            (_at_least, 1),
+        )
 
     _check(doc, ['ext'], (type(None), basestring),
         (_matches, EXT_PAT),
