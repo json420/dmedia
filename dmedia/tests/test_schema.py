@@ -667,6 +667,7 @@ class TestFunctions(TestCase):
         f = schema.create_import
 
         base = '/media/EOS_DIGITAL'
+        partition_id = random_id()
         batch_id = random_id()
         machine_id = random_id()
 
@@ -682,7 +683,7 @@ class TestFunctions(TestCase):
             'stats',
         ])
 
-        doc = f(base, batch_id=batch_id, machine_id=machine_id)
+        doc = f(base, partition_id, batch_id=batch_id, machine_id=machine_id)
         self.assertEqual(schema.check_dmedia(doc), None)
         self.assertTrue(isinstance(doc, dict))
         self.assertEqual(set(doc), keys)
@@ -698,7 +699,7 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['batch_id'], batch_id)
         self.assertEqual(doc['machine_id'], machine_id)
 
-        doc = f(base)
+        doc = f(base, partition_id)
         self.assertEqual(schema.check_dmedia(doc), None)
         self.assertEqual(set(doc), keys)
         self.assertEqual(doc['batch_id'], None)

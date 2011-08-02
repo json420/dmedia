@@ -310,7 +310,7 @@ When the job is completed, the document is updated like this:
 
 from __future__ import print_function
 
-from os import urandom
+from os import urandom, makedirs
 from base64 import b32encode, b32decode, b64encode
 from hashlib import sha1
 import re
@@ -1193,6 +1193,7 @@ def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' document.
     """
+    makedirs(parentdir)
     p = Device(path=parentdir)
     uuid = str(p['IdUuid'])
     return {
