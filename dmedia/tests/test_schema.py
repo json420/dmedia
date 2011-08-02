@@ -593,6 +593,7 @@ class TestFunctions(TestCase):
                 'copies',
                 'path',
                 'machine_id',
+                'partition_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
@@ -614,6 +615,7 @@ class TestFunctions(TestCase):
                 'copies',
                 'path',
                 'machine_id',
+                'partition_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
@@ -679,6 +681,7 @@ class TestFunctions(TestCase):
             'base',
             'batch_id',
             'machine_id',
+            'partition_id',
             'log',
             'stats',
         ])

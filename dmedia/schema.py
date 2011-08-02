@@ -471,7 +471,7 @@ def _isinstance(value, label, *allowed):
     for a in allowed:
         if isinstance(value, a):
             return
-    raise TypeError('{}: need a {!r}; got a {!r}: {!r}'.format(
+    raise TypeError('{}: need a {}; got a {!r}: {!r}'.format(
             label, ' or '.join(map(repr, allowed)), type(value), value
         )
     )
@@ -1119,7 +1119,7 @@ def check_drive(doc):
         ...     'vendor': u'Canon'
         ... }
         ...
-        >>> check_partition(doc)
+        >>> check_drive(doc)
         Traceback (most recent call last):
           ...
         ValueError: doc['model'] does not exist
@@ -1193,7 +1193,10 @@ def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' document.
     """
-    makedirs(parentdir)
+    try:
+        makedirs(parentdir)
+    except:
+        pass
     p = Device(path=parentdir)
     uuid = str(p['IdUuid'])
     return {
