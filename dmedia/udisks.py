@@ -27,6 +27,11 @@ devices.
 import dbus
 import os
 
+
+class DeviceNotFoundError(Exception):
+	pass
+
+
 class Device(object):
     """
     Instances of this class represent udisks devices, providing a simple
@@ -97,11 +102,19 @@ class Device(object):
         if (dev == None):
             if type(path) == str or type(path) == unicode:
                 self._d = self.__class__.get_by_path(path)
+                if self._d == None:
+                    raise(DeviceNotFoundError(
+                        "No device found for file path {!r}.".format(path)
+                    ))
             else:
                 raise(TypeError("`path` must be a string."))
         else:
             if type(dev) == str or type(dev) == unicode:
                 self._d = self.__class__.get_by_dev(dev)
+                if self._d == None:
+                    raise(DeviceNotFoundError(
+                        "Device {!r} not found.".format(dev)
+                    ))
             else:
                 raise(TypeError("`dev` must be a string."))
 
@@ -130,3 +143,4 @@ class Device(object):
 
     def __getitem__(self, prop):
         return self._d.Get("org.freedesktop.UDisks.Device", prop)
+
