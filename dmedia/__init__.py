@@ -31,7 +31,7 @@ so keep your hardhats on!  A good place to start is the `FileStore` class in the
 current code.
 """
 
-__version__ = '11.08.0'
+__version__ = '11.09.0'
 
 
 def configure_logging(namespace):
