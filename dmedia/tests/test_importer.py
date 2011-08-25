@@ -1,6 +1,7 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
-#   Akshat Jain <ssj6akshat1234@gmail.com)
+#   Akshat Jain <ssj6akshat1234@gmail.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -315,6 +316,7 @@ class test_ImportWorker(CouchCase):
                 'base',
                 'batch_id',
                 'machine_id',
+                'partition_id',
                 'log',
                 'stats',
             ])

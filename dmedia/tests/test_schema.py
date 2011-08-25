@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -215,10 +216,16 @@ class TestFunctions(TestCase):
         bad['bytes'] *= 1.0
         with self.assertRaises(TypeError) as cm:
             f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
-        )
+        try:
+            self.assertEqual(
+                str(cm.exception),
+                TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
+            )
+        except:
+            self.assertEqual(
+                str(cm.exception),
+                TYPE_ERROR % ("doc['bytes']", long, float, bad['bytes'])
+            )
 
         # Test with bytes == 0:
         bad = deepcopy(good)
@@ -593,6 +600,7 @@ class TestFunctions(TestCase):
                 'copies',
                 'path',
                 'machine_id',
+                'partition_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
@@ -614,6 +622,7 @@ class TestFunctions(TestCase):
                 'copies',
                 'path',
                 'machine_id',
+                'partition_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
@@ -667,6 +676,7 @@ class TestFunctions(TestCase):
         f = schema.create_import
 
         base = '/media/EOS_DIGITAL'
+        partition_id = random_id()
         batch_id = random_id()
         machine_id = random_id()
 
@@ -678,11 +688,12 @@ class TestFunctions(TestCase):
             'base',
             'batch_id',
             'machine_id',
+            'partition_id',
             'log',
             'stats',
         ])
 
-        doc = f(base, batch_id=batch_id, machine_id=machine_id)
+        doc = f(base, partition_id, batch_id=batch_id, machine_id=machine_id)
         self.assertEqual(schema.check_dmedia(doc), None)
         self.assertTrue(isinstance(doc, dict))
         self.assertEqual(set(doc), keys)
@@ -698,7 +709,7 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['batch_id'], batch_id)
         self.assertEqual(doc['machine_id'], machine_id)
 
-        doc = f(base)
+        doc = f(base, partition_id)
         self.assertEqual(schema.check_dmedia(doc), None)
         self.assertEqual(set(doc), keys)
         self.assertEqual(doc['batch_id'], None)

@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
@@ -58,12 +59,31 @@ function(doc) {
 }
 """
 
+import_partition = """
+function(doc) {
+    if (doc.type == 'dmedia/import') {
+        emit(doc.partition_id, null);
+    }
+}
+"""
+
+
 
 # views in the 'store' design only index docs where doc.type == 'dmedia/store'
 store_plugin = """
 function(doc) {
     if (doc.type == 'dmedia/store') {
         emit(doc.plugin, null);
+    }
+}
+"""
+
+store_partition = """
+function(doc) {
+    if (doc.type == 'dmedia/store') {
+        if (doc.plugin == 'filestore') {
+            emit(doc.partition_id, null);
+        }
     }
 }
 """
@@ -234,6 +254,30 @@ function(doc) {
 }
 """
 
+partition_uuid = """
+function(doc) {
+    if (doc.type == 'dmedia/partition') {
+        emit(doc.uuid, null)
+    }
+}
+"""
+
+partition_drive = """
+function(doc) {
+    if (doc.type == 'dmedia/partition') {
+        emit(doc.drive_id, null)
+    }
+}
+"""
+
+drive_serial = """
+function(doc) {
+    if (doc.type == 'dmedia/drive') {
+        emit(doc.serial, null)
+    }
+}
+"""
+
 
 designs = (
     ('type', (
@@ -246,10 +290,12 @@ designs = (
 
     ('import', (
         ('time', import_time, None),
+        ('partition', import_partition, None)
     )),
 
     ('store', (
         ('plugin', store_plugin, _count),
+        ('partition', store_partition, None)
     )),
 
     ('file', (
@@ -278,7 +324,17 @@ designs = (
 
     ('store', (
         ('plugin', store_plugin, _count),
+        ('partition', store_partition, None)
     )),
+
+    ('partition', (
+        ('uuid', partition_uuid, None),
+        ('drive', partition_drive, None)
+    )),
+
+    ('drive', (
+        ('serial', drive_serial, None),
+    ))
 )
 
 

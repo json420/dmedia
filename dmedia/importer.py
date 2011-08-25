@@ -1,6 +1,7 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
-#   Akshat Jain <ssj6akshat1234@gmail.com)
+#   Akshat Jain <ssj6akshat1234@gmail.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2010 Jason Gerard DeRose <jderose@novacut.com>
@@ -33,13 +34,17 @@ import logging
 
 import couchdb
 
-from .schema import random_id, create_file, create_batch, create_import
+from .schema import (
+    random_id, create_file, create_batch, create_import, create_drive,
+    create_partition
+)
 from .errors import DuplicateFile
 from .workers import (
     CouchWorker, CouchManager, register, isregistered, exception_name
 )
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
 from .extractor import merge_metadata
+from .udisks import Device
 
 mimetypes.init()
 DOTDIR = '.dmedia'
@@ -204,12 +209,19 @@ class ImportWorker(CouchWorker):
         Create the initial 'dmedia/import' record, return that record's ID.
         """
         assert self._id is None
+        drive = create_drive(self.base)
+        partition = create_partition(self.base)
         self.doc = create_import(self.base,
+            partition['_id'],
             batch_id=self.env.get('batch_id'),
             machine_id=self.env.get('machine_id'),
         )
         self._id = self.doc['_id']
         self.save()
+        if not self.db.get(drive['_id']):
+            self.db.save(drive)
+        if not self.db.get(partition['_id']):
+            self.db.save(partition)
         return self._id
 
     def scanfiles(self):

@@ -1,5 +1,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
+#   David Green <david4dev@gmail.com>
 #
 # dmedia: distributed media library
 # Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
@@ -242,6 +243,7 @@ class TestCore(CouchCase):
                 'copies',
                 'path',
                 'machine_id',
+                'partition_id',
             ])
         )
         self.assertEqual(lstore['ver'], 0)
