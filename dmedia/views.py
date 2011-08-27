@@ -26,7 +26,7 @@ Defines the dmedia CouchDB views.
 
 import logging
 
-from couchdb import ResourceNotFound
+from microfiber import NotFound
 
 
 log = logging.getLogger()
@@ -358,14 +358,14 @@ def build_design_doc(design, views):
 def update_design_doc(db, doc):
     assert '_rev' not in doc
     try:
-        old = db[doc['_id']]
+        old = db.get(doc['_id'])
         doc['_rev'] = old['_rev']
         if doc != old:
             db.save(doc)
             return 'changed'
         else:
             return 'same'
-    except ResourceNotFound:
+    except NotFound:
         db.save(doc)
         return 'new'
 

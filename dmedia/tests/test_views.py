@@ -65,34 +65,34 @@ class TestCouchFunctions(CouchCase):
             [('video', views.user_video, None)]
         )
         self.assertEqual(f(db, doc), 'new')
-        self.assertTrue(db['_design/user']['_rev'].startswith('1-'))
+        self.assertTrue(db.get('_design/user')['_rev'].startswith('1-'))
 
         # Test when design is same:
         doc = views.build_design_doc('user',
             [('video', views.user_video, None)]
         )
         self.assertEqual(f(db, doc), 'same')
-        self.assertTrue(db['_design/user']['_rev'].startswith('1-'))
+        self.assertTrue(db.get('_design/user')['_rev'].startswith('1-'))
 
         # Test when design is changed:
         doc = views.build_design_doc('user',
             [('video', views.user_audio, None)]
         )
         self.assertEqual(f(db, doc), 'changed')
-        self.assertTrue(db['_design/user']['_rev'].startswith('2-'))
+        self.assertTrue(db.get('_design/user')['_rev'].startswith('2-'))
 
         # Again test when design is same:
         doc = views.build_design_doc('user',
             [('video', views.user_audio, None)]
         )
         self.assertEqual(f(db, doc), 'same')
-        self.assertTrue(db['_design/user']['_rev'].startswith('2-'))
+        self.assertTrue(db.get('_design/user')['_rev'].startswith('2-'))
 
     def test_init_views(self):
         db = get_db(self.env)
         views.init_views(db)
         for (name, views_) in views.designs:
             doc = views.build_design_doc(name, views_)
-            saved = db[doc['_id']]
+            saved = db.get(doc['_id'])
             doc['_rev'] = saved['_rev']
             self.assertEqual(saved, doc)
