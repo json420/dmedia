@@ -2,17 +2,16 @@ Source: dmedia
 Section: python
 Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
-Build-Depends: debhelper (>= 7.4), python (>= 2.7), python-central
+Build-Depends: debhelper (>= 8.1), python (>= 2.7)
 Standards-Version: 3.9.1
 X-Python-Version: 2.7
 Homepage: https://launchpad.net/dmedia
 
 Package: dmedia
 Architecture: all
-XB-Python-Version: ${python:Versions}
-Depends: ${misc:Depends}, ${python:Depends},
- desktopcouch,
- python-couchdb (>= 0.8),
+Depends: ${misc:Depends}, python (>= 2.7),
+ abstractcouch (>= 11.09),
+ python-microfiber (>= 11.09),
  python-genshi,
  python-xdg,
  gir1.2-gtk-2.0,
