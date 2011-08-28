@@ -408,7 +408,7 @@ class TransferWorker(CouchWorker):
 
     def init_remote(self, remote_id):
         self.remote_id = remote_id
-        self.remote = self.db[remote_id]
+        self.remote = self.db.get(remote_id)
 
     def execute(self, file_id, remote_id):
         self.init_file(file_id)

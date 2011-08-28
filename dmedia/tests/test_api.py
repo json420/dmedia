@@ -29,7 +29,7 @@ from subprocess import Popen
 import json
 import time
 
-import gnomekeyring
+from microfiber import NotFound
 
 import dmedia
 from dmedia.abstractcouch import get_db
@@ -43,15 +43,6 @@ tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 assert path.isfile(path.join(tree, 'setup.py'))
 script = path.join(tree, 'dmedia-service')
 assert path.isfile(script)
-
-
-def get_auth():
-    data = gnomekeyring.find_items_sync(
-        gnomekeyring.ITEM_GENERIC_SECRET,
-        {'desktopcouch': 'basic'}
-    )
-    (user, password) = data[0].secret.split(':')
-    return (user, password)
 
 
 class TestDMedia(CouchCase):
@@ -96,26 +87,17 @@ class TestDMedia(CouchCase):
         # DMedia.GetEnv()
         env = inst.get_env()
         self.assertEqual(env['oauth'], self.env['oauth'])
-        self.assertEqual(env['port'], self.env['port'])
         self.assertEqual(env['url'], self.env['url'])
         self.assertEqual(env['dbname'], self.env['dbname'])
 
-        # DMedia.GetAuthURL()
-        (user, password) = get_auth()
-        self.assertEqual(
-            inst.get_auth_url(),
-            'http://{user}:{password}@localhost:{port}/'.format(
-                user=user, password=password, port=self.env['port']
-            )
-        )
-
         # DMedia.HasApp()
         db = get_db(self.env)
-        self.assertNotIn('app', db)
+        with self.assertRaises(NotFound) as cm:
+            db.get('app')
         self.assertTrue(inst.has_app())
-        self.assertTrue(db['app']['_rev'].startswith('1-'))
+        self.assertTrue(db.get('app')['_rev'].startswith('1-'))
         self.assertTrue(inst.has_app())
-        self.assertTrue(db['app']['_rev'].startswith('1-'))
+        self.assertTrue(db.get('app')['_rev'].startswith('1-'))
 
         # DMedia.ListTransfers()
         self.assertEqual(inst.list_transfers(), [])
