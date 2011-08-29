@@ -10,7 +10,7 @@ Homepage: https://launchpad.net/dmedia
 Package: dmedia
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7),
- abstractcouch (>= 11.09),
+ dc3 (>= 11.09),
  python-microfiber (>= 11.09),
  python-genshi,
  python-xdg,
