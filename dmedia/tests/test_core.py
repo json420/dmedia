@@ -53,7 +53,7 @@ class TestCore(CouchCase):
         self.assertNotEqual(inst.env, self.env)
         self.assertEqual(
             set(inst.env),
-            set(['url', 'dbname', 'oauth', 'basic'])
+            set(['port', 'url', 'dbname', 'oauth', 'basic'])
         )
         self.assertEqual(inst.env['dbname'], self.dbname)
         self.assertEqual(inst.env['url'], self.env['url'])
