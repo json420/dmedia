@@ -63,7 +63,7 @@ sample_thm_exif = {
     u'CanonExposureMode': u'Manual',
     u'CanonFirmwareVersion': u'Firmware Version 2.0.7',
     u'CanonFlashMode': u'Off',
-    u'CanonImageSize': u'Unknown (142)',
+    u'CanonImageSize': u'1920x1080 Movie',
     u'CanonImageType': u'MVI:Canon EOS 5D Mark II',
     u'CanonModelID': u'EOS 5D Mark II',
     u'CircleOfConfusion': u'0.031 mm',
@@ -76,14 +76,14 @@ sample_thm_exif = {
     u'Contrast': -4,
     u'ControlMode': u'Camera Local Control',
     u'Copyright': u'',
-    u'CreateDate': u'2010:10:19 20:43:14',
+    u'CreateDate': u'2010:10:19 20:43:14',    
     u'CustomRendered': u'Normal',
     u'DateTimeOriginal': u'2010:10:19 20:43:14',
     u'DialDirectionTvAv': u'Normal',
     u'DigitalGain': 0,
     u'DigitalZoom': u'None',
     #u'Directory': u'dmedia/tests/data',
-    u'DriveMode': u'Continuous shooting',
+    u'DriveMode': u'Continuous Shooting',
     u'EasyMode': u'Manual',
     u'EncodingProcess': u'Baseline DCT, Huffman coding',
     #u'ExifByteOrder': u'Little-endian (Intel, II)',
@@ -157,14 +157,14 @@ sample_thm_exif = {
     u'MirrorLockup': u'Disable',
     u'Model': u'Canon EOS 5D Mark II',
     u'ModifyDate': u'2010:10:19 20:43:14',
-    u'NDFilter': u'Unknown (-1)',
+    u'NDFilter': u'n/a',
     u'OpticalZoomCode': u'n/a',
     u'Orientation': u'Horizontal (normal)',
     u'OwnerName': u'',
     u'PictureStyle': u'User Def. 1',
     u'Quality': u'Unknown (-1)',
     u'RawJpgSize': u'Large',
-    u'RecordMode': u'Unknown (9)',
+    u'RecordMode': u'Video',
     u'RelatedImageHeight': 1080,
     u'RelatedImageWidth': 1920,
     u'ResolutionUnit': u'inches',
@@ -206,7 +206,7 @@ sample_thm_exif = {
     u'ToneCurve': u'Standard',
     u'UserComment': u'',
     u'VRDOffset': 0,
-    u'Warning': u'Invalid CanonAFInfo2 data',
+    #u'Warning': u'Invalid CanonAFInfo2 data',  Not present under Oneiric
     u'WBBracketMode': u'Off',
     u'WBBracketValueAB': 0,
     u'WBBracketValueGM': 0,
@@ -223,6 +223,35 @@ sample_thm_exif = {
     u'ZoomTargetWidth': 0,
     u'BitsPerSample': 8,
 }
+
+# These values are new running on Oneiric
+sample_thm_exif2 = {
+    u'CropLeftMargin': 24,
+    u'CropRightMargin': 24,
+    u'CropTopMargin': 16,
+    u'CropBottomMargin': 16,
+    
+    u'CroppedImageWidth': 2784,
+    u'CroppedImageHeight': 1856,
+    
+    u'VideoCodec': u'avc1',
+
+    u'AudioBitrate': u'1.54 Mbps',
+    u'CustomPictureStyleFileName': u'superflat01', 
+    u'Duration': u'3.00 s',
+    u'FrameRate': 29.97, 
+
+    u'AudioChannels': 2,
+    u'AudioSampleRate': 48000,
+    u'CameraTemperature': u'30 C',
+
+    u'AspectRatio': u'3:2',
+
+    u'FrameCount': 107,
+}
+
+sample_thm_exif.update(sample_thm_exif2)
+
 
 # Known video info from totem-video-indexer:
 sample_mov_info = {
@@ -254,6 +283,11 @@ class test_functions(TestCase):
     def test_extract_exif(self):
         f = extractor.extract_exif
         exif = f(sample_thm)
+        self.assertEqual(set(sample_thm_exif), set(exif))
+        for key in sample_thm_exif:
+            v1 = sample_thm_exif[key]
+            v2 = exif[key]
+            self.assertEqual(v1, v2, '{!r}: {!r} != {!r}'.format(key, v1, v2))
         self.assertEqual(sample_thm_exif, exif)
 
         # Test that error is returned for invalid file:
