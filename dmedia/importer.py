@@ -32,7 +32,7 @@ import time
 from base64 import b64encode
 import logging
 
-import couchdb
+import microfiber
 
 from .schema import (
     random_id, create_file, create_batch, create_import, create_drive,
@@ -218,10 +218,14 @@ class ImportWorker(CouchWorker):
         )
         self._id = self.doc['_id']
         self.save()
-        if not self.db.get(drive['_id']):
+        try:
             self.db.save(drive)
-        if not self.db.get(partition['_id']):
+        except microfiber.Conflict:
+            pass
+        try:
             self.db.save(partition)
+        except microfiber.Conflict:
+            pass
         return self._id
 
     def scanfiles(self):
@@ -272,7 +276,7 @@ class ImportWorker(CouchWorker):
             os.remove(e.tmp)
 
         try:
-            doc = self.db[chash]
+            doc = self.db.get(chash)
             if self.filestore_id not in doc['stored']:
                 doc['stored'][self.filestore_id] =  {
                     'copies': 1,
@@ -280,7 +284,7 @@ class ImportWorker(CouchWorker):
                 }
                 self.db.save(doc)
             return (action, doc)
-        except couchdb.ResourceNotFound as e:
+        except microfiber.NotFound as e:
             pass
 
         leaf_hashes = b''.join(leaves)
@@ -302,8 +306,8 @@ class ImportWorker(CouchWorker):
             doc['media'] = MEDIA_MAP.get(ext)
         if self.extract:
             merge_metadata(src, doc)
-        (_id, _rev) = self.db.save(doc)
-        assert _id == chash
+        r = self.db.save(doc)
+        assert r['id'] == chash
         return (action, doc)
 
     def import_file(self, src, size):
@@ -359,7 +363,6 @@ class ImportWorker(CouchWorker):
         return self.doc['stats']
 
 
-
 def to_dbus_stats(stats):
     return dict(
         imported=stats['imported']['count'],
@@ -410,7 +413,7 @@ class ImportManager(CouchManager):
         )
         self.doc = None
         log.info('Batch complete, compacting database...')
-        self.db.compact()
+        self.db.post(None, '_compact')
 
     def get_worker_env(self, worker, key, args):
         env = dict(self.env)

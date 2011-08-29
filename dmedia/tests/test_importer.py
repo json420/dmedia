@@ -35,7 +35,7 @@ import time
 from base64 import b32decode, b32encode, b64encode
 from multiprocessing import current_process
 
-import couchdb
+import microfiber
 
 from dmedia.errors import AmbiguousPath
 from dmedia.filestore import FileStore
@@ -201,8 +201,7 @@ class test_ImportWorker(CouchCase):
         self.assertEqual(inst.base, tmp.path)
         self.assertTrue(inst.extract is True)
 
-        self.assertTrue(isinstance(inst.server, couchdb.Server))
-        self.assertTrue(isinstance(inst.db, couchdb.Database))
+        self.assertTrue(isinstance(inst.db, microfiber.Database))
 
         self.assertTrue(isinstance(inst.filestore, FileStore))
         self.assertEqual(inst.filestore.parent, self.home.path)
@@ -304,7 +303,7 @@ class test_ImportWorker(CouchCase):
         _id = inst.start()
         self.assertEqual(len(_id), 24)
         db = get_db(self.env)
-        self.assertEqual(inst.doc, db[_id])
+        self.assertEqual(inst.doc, db.get(_id))
         self.assertEqual(
             set(inst.doc),
             set([
@@ -355,12 +354,12 @@ class test_ImportWorker(CouchCase):
         got = inst.scanfiles()
         self.assertEqual(got, tuple(files))
         self.assertEqual(
-            inst.db[inst._id]['log']['considered'],
+            inst.db.get(inst._id)['log']['considered'],
             [{'src': src, 'bytes': size, 'mtime': mtime}
             for (src, size, mtime) in files]
         )
         self.assertEqual(
-            inst.db[inst._id]['stats']['considered'],
+            inst.db.get(inst._id)['stats']['considered'],
             {
                 'count': len(files),
                 'bytes': sum(t[1] for t in files),
@@ -447,16 +446,16 @@ class test_ImportWorker(CouchCase):
         # Test with duplicate
         (action, doc) = inst._import_file(src2)
         self.assertEqual(action, 'skipped')
-        self.assertEqual(doc, inst.db[mov_hash])
+        self.assertEqual(doc, inst.db.get(mov_hash))
 
         # Test with duplicate with missing doc
-        del inst.db[mov_hash]
+        inst.db.delete(mov_hash, rev=doc['_rev'])
         (action, doc) = inst._import_file(src2)
         self.assertEqual(action, 'skipped')
-        self.assertEqual(doc['time'], inst.db[mov_hash]['time'])
+        self.assertEqual(doc['time'], inst.db.get(mov_hash)['time'])
 
         # Test with duplicate when doc is missing this filestore in store:
-        old = inst.db[mov_hash]
+        old = inst.db.get(mov_hash)
         rid = random_id()
         old['stored'] = {rid: {'copies': 2, 'time': 1234567890}}
         inst.db.save(old)
@@ -472,16 +471,16 @@ class test_ImportWorker(CouchCase):
                 fid: {'copies': 1, 'time': t},
             }
         )
-        self.assertEqual(inst.db[mov_hash]['stored'], doc['stored'])
+        self.assertEqual(inst.db.get(mov_hash)['stored'], doc['stored'])
 
         # Test with existing doc but missing file:
-        old = inst.db[mov_hash]
+        old = inst.db.get(mov_hash)
         inst.filestore.remove(mov_hash, 'mov')
         (action, doc) = inst._import_file(src2)
         self.assertEqual(action, 'imported')
         self.assertEqual(doc['_rev'], old['_rev'])
         self.assertEqual(doc['time'], old['time'])
-        self.assertEqual(inst.db[mov_hash], old)
+        self.assertEqual(inst.db.get(mov_hash), old)
 
         # Test with empty file:
         src3 = tmp.touch('DCIM', '100EOS5D2', 'foo.MOV')
@@ -756,7 +755,7 @@ class test_ImportManager(CouchCase):
         self.assertEqual(batch['type'], 'dmedia/batch')
         self.assertEqual(batch['imports'], [])
         self.assertEqual(batch['machine_id'], self.machine_id)
-        self.assertEqual(inst.db[batch['_id']], batch)
+        self.assertEqual(inst.db.get(batch['_id']), batch)
         self.assertEqual(
             callback.messages,
             [
@@ -800,7 +799,7 @@ class test_ImportManager(CouchCase):
                 ('BatchFinished', (batch_id, stats)),
             ]
         )
-        doc = inst.db[batch_id]
+        doc = inst.db.get(batch_id)
         self.assertEqual(
             set(doc),
             set([
@@ -825,7 +824,7 @@ class test_ImportManager(CouchCase):
         inst.first_worker_starting()
         self.assertEqual(inst.doc['errors'], [])
         inst.on_error('foo', 'IOError', 'nope')
-        doc = inst.db[inst.doc['_id']]
+        doc = inst.db.get(inst.doc['_id'])
         self.assertEqual(
             doc['errors'],
             [
@@ -833,7 +832,7 @@ class test_ImportManager(CouchCase):
             ]
         )
         inst.on_error('bar', 'error!', 'no way')
-        doc = inst.db[inst.doc['_id']]
+        doc = inst.db.get(inst.doc['_id'])
         self.assertEqual(
             doc['errors'],
             [
@@ -860,7 +859,7 @@ class test_ImportManager(CouchCase):
         self.assertEqual(callback.messages, [])
         inst.first_worker_starting()
         batch_id = inst.doc['_id']
-        self.assertEqual(inst.db[batch_id]['imports'], [])
+        self.assertEqual(inst.db.get(batch_id)['imports'], [])
         self.assertEqual(
             callback.messages,
             [
@@ -871,7 +870,7 @@ class test_ImportManager(CouchCase):
         one = TempDir()
         one_id = random_id()
         inst.on_started(one.path, one_id)
-        self.assertEqual(inst.db[batch_id]['imports'], [one_id])
+        self.assertEqual(inst.db.get(batch_id)['imports'], [one_id])
         self.assertEqual(
             callback.messages,
             [
@@ -883,7 +882,7 @@ class test_ImportManager(CouchCase):
         two = TempDir()
         two_id = random_id()
         inst.on_started(two.path, two_id)
-        self.assertEqual(inst.db[batch_id]['imports'], [one_id, two_id])
+        self.assertEqual(inst.db.get(batch_id)['imports'], [one_id, two_id])
         self.assertEqual(
             callback.messages,
             [
