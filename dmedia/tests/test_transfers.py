@@ -474,6 +474,8 @@ class TestTransferWorker(CouchCase):
         super(TestTransferWorker, self).setUp()
         self.q = DummyQueue()
         self.pid = current_process().pid
+        transfers._uploaders.clear()
+        transfers._downloaders.clear()
 
     def new(self):
         self.store_id = schema.random_id()

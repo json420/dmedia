@@ -29,10 +29,7 @@ import json
 import os
 from os import path
 
-import couchdb
-import desktopcouch
-from desktopcouch.application.platform import find_port
-from desktopcouch.application.local_files import get_oauth_tokens
+import microfiber
 
 from dmedia.webui.app import App
 from dmedia.schema import random_id, check_store
@@ -41,86 +38,6 @@ from dmedia import core
 
 from .helpers import TempDir, mov_hash, sample_mov
 from .couch import CouchCase
-
-
-def dc_env(dbname):
-    """
-    Create desktopcouch environment.
-    """
-    port = find_port()
-    return {
-        'dbname': dbname,
-        'port': port,
-        'url': 'http://localhost:%d/' % port,
-        'oauth': get_oauth_tokens(),
-    }
-
-
-class TestFunctions(TestCase):
-    def tearDown(self):
-        if core.desktopcouch is None:
-            core.desktopcouch = desktopcouch
-
-    def test_get_env(self):
-        f = core.get_env
-
-        # Test when desktopcouch is available
-        self.assertEqual(f(), dc_env('dmedia'))
-        self.assertEqual(f('foo'), dc_env('foo'))
-        self.assertEqual(f(dbname='bar'), dc_env('bar'))
-
-        # Test when desktopcouch is available but no_dc=True
-        self.assertEqual(
-            f(no_dc=True),
-            {
-                'dbname': 'dmedia',
-                'port': 5984,
-                'url': 'http://localhost:5984/',
-            }
-        )
-        self.assertEqual(
-            f(dbname='foo', no_dc=True),
-            {
-                'dbname': 'foo',
-                'port': 5984,
-                'url': 'http://localhost:5984/',
-            }
-        )
-        self.assertEqual(
-            f('bar', True),
-            {
-                'dbname': 'bar',
-                'port': 5984,
-                'url': 'http://localhost:5984/',
-            }
-        )
-
-        # Test when desktopcouch is *not* available
-        core.desktopcouch = None
-        self.assertEqual(
-            f(),
-            {
-                'dbname': 'dmedia',
-                'port': 5984,
-                'url': 'http://localhost:5984/',
-            }
-        )
-        self.assertEqual(
-            f('foo'),
-            {
-                'dbname': 'foo',
-                'port': 5984,
-                'url': 'http://localhost:5984/',
-            }
-        )
-        self.assertEqual(
-            f(dbname='bar'),
-            {
-                'dbname': 'bar',
-                'port': 5984,
-                'url': 'http://localhost:5984/',
-            }
-        )
 
 
 class TestCore(CouchCase):
@@ -136,14 +53,13 @@ class TestCore(CouchCase):
         self.assertNotEqual(inst.env, self.env)
         self.assertEqual(
             set(inst.env),
-            set(['port', 'url', 'dbname', 'oauth'])
+            set(['port', 'url', 'dbname', 'oauth', 'basic'])
         )
         self.assertEqual(inst.env['dbname'], self.dbname)
-        self.assertEqual(inst.env['port'], self.env['port'])
         self.assertEqual(inst.env['url'], self.env['url'])
         self.assertEqual(inst.env['oauth'], self.env['oauth'])
         self.assertEqual(inst.home, self.home.path)
-        self.assertIsInstance(inst.db, couchdb.Database)
+        self.assertIsInstance(inst.db, microfiber.Database)
 
         inst = self.klass(env_s=json.dumps(self.env))
         self.assertEqual(inst.env, self.env)
@@ -171,7 +87,7 @@ class TestCore(CouchCase):
             ])
         )
         self.assertEqual(local['filestores'], {})
-        self.assertEqual(local, inst.db['_local/dmedia'])
+        self.assertEqual(local, inst.db.get('_local/dmedia'))
 
         self.assertIsInstance(machine, dict)
         self.assertEqual(
@@ -186,10 +102,10 @@ class TestCore(CouchCase):
                 'distribution',
             ])
         )
-        self.assertEqual(machine, inst.db[local['machine']['_id']])
+        self.assertEqual(machine, inst.db.get(local['machine']['_id']))
 
         # Test when _local/machine exists but 'dmedia/machine' doc doesn't:
-        inst.db.delete(machine)
+        inst.db.delete(machine['_id'], rev=machine['_rev'])
         (local2, machine2) = inst.init_local()
         self.assertEqual(local2, local)
         self.assertTrue(machine2['_rev'].startswith('3-'))
@@ -227,7 +143,7 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local['filestores'], {})
         self.assertNotIn('default_filestore', inst.local)
         lstore = inst.init_filestores()
-        self.assertEqual(inst.local, inst.db['_local/dmedia'])
+        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
         self.assertEqual(len(inst.local['filestores']), 1)
         parentdir = inst.local['default_filestore']
         _id = lstore['_id']
@@ -253,7 +169,7 @@ class TestCore(CouchCase):
         self.assertEqual(lstore['path'], self.home.path)
         self.assertEqual(lstore['machine_id'], inst.machine_id)
 
-        store = inst.db[_id]
+        store = inst.db.get(_id)
         self.assertTrue(store['_rev'].startswith('1-'))
         store.pop('_rev')
         self.assertEqual(store, lstore)
@@ -301,27 +217,28 @@ class TestCore(CouchCase):
 
         # Test the doc
         check_store(store)
-        self.assertEqual(inst.db[store['_id']], store)
+        self.assertEqual(inst.db.get(store['_id']), store)
         self.assertEqual(store['path'], okay)
         self.assertTrue(store.pop('_rev').startswith('1-'))
         self.assertEqual(list(inst.local['filestores']), [okay])
         self.assertEqual(inst.local['filestores'][okay], store)
         self.assertEqual(inst.local['default_filestore'], okay)
-        self.assertEqual(inst.db['_local/dmedia'], inst.local)
-        self.assertEqual(inst.db['_local/dmedia']['_rev'], '0-1')
+        self.assertEqual(inst.db.get('_local/dmedia'), inst.local)
+        self.assertEqual(inst.db.get('_local/dmedia')['_rev'], '0-1')
 
         # Test when store already initialized:
         self.assertEqual(inst.add_filestore(okay), store)
-        self.assertTrue(inst.db[store['_id']]['_rev'].startswith('1-'))
-        self.assertEqual(inst.db['_local/dmedia']['_rev'], '0-1')
+        self.assertTrue(inst.db.get(store['_id'])['_rev'].startswith('1-'))
+        self.assertEqual(inst.db.get('_local/dmedia')['_rev'], '0-1')
 
     def test_init_app(self):
         inst = self.klass(self.dbname)
 
         # App is available
-        self.assertNotIn('app', inst.db)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            inst.db.get('app')
         self.assertIs(inst.init_app(), True)
-        self.assertIn('app', inst.db)
+        self.assertEqual(inst.db.get('app')['_id'], 'app')
         self.assertIs(inst.init_app(), True)
 
         # App is not available
@@ -372,27 +289,29 @@ class TestCore(CouchCase):
         inst = self.klass(self.dbname)
         self.assertIs(inst.has_app(), False)
         self.assertIs(inst._has_app, False)
-        self.assertNotIn('app', inst.db)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            inst.db.get('app')
 
 
         # Test the real thing, App available
         core.App = App
         inst = self.klass(self.dbname)
 
-        self.assertNotIn('app', inst.db)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            inst.db.get('app')
         self.assertIs(inst.has_app(), True)
         self.assertIs(inst._has_app, True)
-        rev = inst.db['app']['_rev']
+        rev = inst.db.get('app')['_rev']
         self.assertTrue(rev.startswith('1-'))
 
         self.assertIs(inst.has_app(), True)
         self.assertIs(inst._has_app, True)
-        self.assertEqual(inst.db['app']['_rev'], rev)
+        self.assertEqual(inst.db.get('app')['_rev'], rev)
 
         inst._has_app = None
         self.assertIs(inst.has_app(), True)
         self.assertIs(inst._has_app, True)
-        rev2 = inst.db['app']['_rev']
+        rev2 = inst.db.get('app')['_rev']
         self.assertNotEqual(rev2, rev)
         self.assertTrue(rev2.startswith('2-'))
 

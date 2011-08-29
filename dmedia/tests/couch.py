@@ -25,10 +25,9 @@ Base class for CouchDB tests.
 
 from unittest import TestCase
 
-import couchdb
+import microfiber
 
-from dmedia.core import get_env
-from dmedia.abstractcouch import get_server
+from dmedia.abstractcouch import get_env, get_db
 from dmedia.schema import random_id
 
 from .helpers import TempHome
@@ -51,11 +50,13 @@ class CouchCase(TestCase):
         self.home = TempHome()
         self.dbname = 'test_dmedia'
         self.env = get_env(self.dbname)
-        server = get_server(self.env)
+        db = get_db(self.env)
         try:
-            del server[self.dbname]
-        except couchdb.ResourceNotFound:
+            db.delete()
+        except microfiber.NotFound:
             pass
+        # All the tests expect the database to exist right now:
+        db.ensure()
         self.machine_id = random_id()
         self.env['machine_id'] = self.machine_id
         self.env['filestore'] = {'_id': random_id(), 'path': self.home.path}

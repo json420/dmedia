@@ -53,14 +53,9 @@ import logging
 from copy import deepcopy
 import os
 from os import path
+import json
 
-from couchdb import ResourceNotFound, ResourceConflict
-try:
-    import desktopcouch
-    from desktopcouch.application.platform import find_port
-    from desktopcouch.application.local_files import get_oauth_tokens
-except ImportError:
-    desktopcouch = None
+from microfiber import NotFound, Conflict
 
 try:
     from dmedia.webui.app import App
@@ -70,7 +65,7 @@ except ImportError:
 from .filestore import FileStore
 from .constants import DBNAME
 from .transfers import TransferManager
-from .abstractcouch import get_server, get_db, load_env
+from .abstractcouch import get_env, get_db
 from .schema import random_id, create_machine, create_store
 from .views import init_views
 
@@ -79,38 +74,6 @@ LOCAL_ID = '_local/dmedia'
 
 
 log = logging.getLogger()
-
-
-def get_env(dbname=DBNAME, no_dc=False):
-    """
-    Return default CouchDB environment.
-
-    This will return an appropriate environment based on whether desktopcouch is
-    available.  If you supply ``no_dc=True``, the environment for the default
-    system wide CouchDB will be returned, even if desktopcouch is available.
-
-    For example:
-
-    >>> get_env(no_dc=True)
-    {'url': 'http://localhost:5984/', 'dbname': 'dmedia', 'port': 5984}
-    >>> get_env(dbname='foo', no_dc=True)
-    {'url': 'http://localhost:5984/', 'dbname': 'foo', 'port': 5984}
-
-    Not a perfect solution, but works for now.
-    """
-    if desktopcouch is None or no_dc:
-        return {
-            'dbname': dbname,
-            'port': 5984,
-            'url': 'http://localhost:5984/',
-        }
-    port = find_port()
-    return {
-        'dbname': dbname,
-        'port': port,
-        'url': 'http://localhost:%d/' % port,
-        'oauth': get_oauth_tokens(),
-    }
 
 
 class LocalStores(object):
@@ -127,14 +90,13 @@ class LocalStores(object):
 class Core(object):
     def __init__(self, dbname=DBNAME, no_dc=False, env_s=None, callback=None):
         if env_s:
-            self.env = load_env(env_s)
+            self.env = json.loads(env_s)
         else:
-            self.env = get_env(dbname, no_dc)
+            self.env = get_env(dbname)
         self.home = path.abspath(os.environ['HOME'])
         if not path.isdir(self.home):
             raise ValueError('HOME is not a dir: {!}'.format(self.home))
-        self.server = get_server(self.env)
-        self.db = get_db(self.env, self.server)
+        self.db = get_db(self.env)
         self._has_app = None
         self.manager = TransferManager(self.env, callback)
         self._filestores = {}
@@ -151,8 +113,8 @@ class Core(object):
         Get the /dmedia/_local/dmedia document, creating it if needed.
         """
         try:
-            local = self.db[LOCAL_ID]
-        except ResourceNotFound:
+            local = self.db.get(LOCAL_ID)
+        except NotFound:
             machine = create_machine()
             local = {
                 '_id': LOCAL_ID,
@@ -163,8 +125,8 @@ class Core(object):
             self.db.save(machine)
         else:
             try:
-                machine = self.db[local['machine']['_id']]
-            except ResourceNotFound:
+                machine = self.db.get(local['machine']['_id'])
+            except NotFound:
                 machine = deepcopy(local['machine'])
                 self.db.save(machine)
         return (local, machine)
@@ -181,7 +143,7 @@ class Core(object):
                     pass
                 try:
                     self.db.save(deepcopy(store))
-                except ResourceConflict:
+                except Conflict:
                     pass
             if self.local.get('default_filestore') not in self.local['filestores']:
                 self.local['default_filestore'] = store['path']
@@ -217,10 +179,10 @@ class Core(object):
         _id = doc['_id']
         assert '_rev' not in doc
         try:
-            old = self.db[_id]
+            old = self.db.get(_id)
             doc['_rev'] = old['_rev']
             self.db.save(doc)
-        except ResourceNotFound:
+        except NotFound:
             self.db.save(doc)
         return True
 
@@ -230,7 +192,7 @@ class Core(object):
         return self._has_app
 
     def get_file(self, file_id):
-        doc = self.db[file_id]
+        doc = self.db.get(file_id)
         ext = doc.get('ext')
         for fs in self._filestores.itervalues():
             filename = fs.path(file_id, ext)

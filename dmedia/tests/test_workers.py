@@ -31,7 +31,7 @@ import multiprocessing.queues
 from multiprocessing import current_process
 import threading
 
-import couchdb
+import microfiber
 
 from dmedia import workers
 from .helpers import raises, DummyQueue, DummyCallback
@@ -263,11 +263,7 @@ class test_CouchWorker(CouchCase):
         self.assertTrue(inst.q is q)
         self.assertTrue(inst.key is key)
         self.assertTrue(inst.args is args)
-        self.assertTrue(isinstance(inst.server, couchdb.Server))
-        self.assertTrue(isinstance(inst.db, couchdb.Database))
-
-
-
+        self.assertTrue(isinstance(inst.db, microfiber.Database))
 
 
 def infinite():
@@ -522,13 +518,11 @@ class test_CouchManager(CouchCase):
         inst = self.klass(self.env)
         self.assertTrue(inst.env is self.env)
         self.assertTrue(inst._callback is None)
-        self.assertTrue(isinstance(inst.server, couchdb.Server))
-        self.assertTrue(isinstance(inst.db, couchdb.Database))
+        self.assertTrue(isinstance(inst.db, microfiber.Database))
 
         def func():
             pass
         inst = self.klass(self.env, func)
         self.assertTrue(inst.env is self.env)
         self.assertTrue(inst._callback, func)
-        self.assertTrue(isinstance(inst.server, couchdb.Server))
-        self.assertTrue(isinstance(inst.db, couchdb.Database))
+        self.assertTrue(isinstance(inst.db, microfiber.Database))
