@@ -57,13 +57,11 @@ def get_db(env):
     """
     dbname = env['dbname']
     log.info('CouchDB database is %r', dbname)
-    return Database(dbname, env['url'], env.get('oauth'), env.get('basic'))
+    return Database(dbname, env)
 
 
 def get_env(dbname='dmedia'):
     env_s = check_output(['/usr/bin/dc3-control', 'GetEnv'])
     env = json.loads(env_s)
-    # FIXME: oauth is broken in CouchDB on Oneiric
-    env['oauth'] = None
     env['dbname'] = dbname
     return env
