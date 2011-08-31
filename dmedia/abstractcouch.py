@@ -63,5 +63,6 @@ def get_db(env):
 def get_env(dbname='dmedia'):
     env_s = check_output(['/usr/bin/dc3-control', 'GetEnv'])
     env = json.loads(env_s)
+    env['url'] = env['url'].encode('utf-8')
     env['dbname'] = dbname
     return env

@@ -26,7 +26,7 @@ Custom dmedia GTK widgets, currently just `CouchView` and `BrowserMenu`.
 
 from urlparse import urlparse, parse_qsl
 
-from oauth import oauth
+from microfiber import _oauth_header
 from gi.repository import GObject, WebKit, Gtk
 
 from .menu import MENU, ACTIONS
@@ -80,18 +80,7 @@ class CouchView(WebKit.WebView):
         self.connect('navigation-policy-decision-requested',
             self._on_nav_policy_decision
         )
-        if oauth_tokens:
-            self._oauth = True
-            self._consumer = oauth.OAuthConsumer(
-                oauth_tokens['consumer_key'],
-                oauth_tokens['consumer_secret']
-            )
-            self._token = oauth.OAuthToken(
-                oauth_tokens['token'],
-                oauth_tokens['token_secret']
-            )
-        else:
-            self._oauth = False
+        self._oauth = oauth_tokens
 
     def _on_nav_policy_decision(self, view, frame, request, nav, policy):
         """
@@ -142,22 +131,12 @@ class CouchView(WebKit.WebView):
         # a querystring which isn't of the form foo=bar
         if u.query and not query:
             query = {u.query: ''}
-        req = oauth.OAuthRequest.from_consumer_and_token(
-            self._consumer,
-            self._token,
-            http_method=request.props.message.props.method,
-            http_url=uri,
-            parameters=query,
-        )
-        req.sign_request(
-            oauth.OAuthSignatureMethod_HMAC_SHA1(),
-            self._consumer,
-            self._token
-        )
-        request.props.message.props.request_headers.append(
-            'Authorization', req.to_header()['Authorization']
-        )
-
+        baseurl = ''.join([u.scheme, '://', u.netloc, u.path])
+        method = request.props.message.props.method
+        h = _oauth_header(self._oauth, method, baseurl, query)
+        for key in h:
+            request.props.message.props.request_headers.append(k, h[k])
+        
 
 class BrowserMenu(Gtk.MenuBar):
     """

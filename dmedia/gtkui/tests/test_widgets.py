@@ -25,7 +25,6 @@ Unit tests for `dmedia.gtkui.widgets` module.
 
 from unittest import TestCase
 
-from oauth.oauth import OAuthConsumer, OAuthToken
 
 from dmedia.schema import random_id
 from dmedia.gtkui import widgets
@@ -90,17 +89,13 @@ class TestCouchView(TestCase):
         inst = self.klass(url)
         self.assertEqual(inst._couch_url, url)
         self.assertEqual(inst._couch_netloc, netloc)
-        self.assertFalse(inst._oauth)
-        self.assertFalse(hasattr(inst, '_consumer'))
-        self.assertFalse(hasattr(inst, '_token'))
+        self.assertIsNone(inst._oauth)
 
         # Test with oauth tokens:
         inst = self.klass(url, oauth_tokens=tokens)
         self.assertEqual(inst._couch_url, url)
         self.assertEqual(inst._couch_netloc, netloc)
-        self.assertTrue(inst._oauth)
-        self.assertIsInstance(inst._consumer, OAuthConsumer)
-        self.assertIsInstance(inst._token, OAuthToken)
+        self.assertIs(inst._oauth, tokens)
 
     def test_on_nav_policy_decision(self):
         # Method signature:
