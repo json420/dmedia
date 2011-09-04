@@ -25,14 +25,14 @@ GStreamer-based transcoder.
 
 import logging
 
-from gi.repository import GObject
-import gst
+from gi.repository import GObject, Gst
 
 from .constants import TYPE_ERROR
 from .filestore import FileStore
 
 
 log = logging.getLogger()
+Gst.init(None)
 
 
 def caps_string(mime, caps):
@@ -51,7 +51,7 @@ def caps_string(mime, caps):
 
 
 
-class TranscodeBin(gst.Bin):
+class TranscodeBin(Gst.Bin):
     """
     Base class for `AudioTranscoder` and `VideoTranscoder`.
     """
@@ -63,10 +63,10 @@ class TranscodeBin(gst.Bin):
         self._q2 = self._make('queue')
         self._enc.link(self._q2)
         self.add_pad(
-            gst.GhostPad('sink', self._q1.get_pad('sink'))
+            Gst.GhostPad.new('sink', self._q1.get_pad('sink'))
         )
         self.add_pad(
-            gst.GhostPad('src', self._q2.get_pad('src'))
+            Gst.GhostPad.new('src', self._q2.get_pad('src'))
         )
 
     def __repr__(self):
@@ -76,7 +76,7 @@ class TranscodeBin(gst.Bin):
         """
         Create gst element, set properties, and add to this bin.
         """
-        element = gst.element_factory_make(name)
+        element = Gst.ElementFactory.make(name, None)
         if props:
             for (key, value) in props.iteritems():
                 element.set_property(key, value)
@@ -103,10 +103,10 @@ class AudioTranscoder(TranscodeBin):
                 mime = 'audio/x-raw-float'
             else:
                 mime = 'audio/x-raw-int'
-            caps = gst.caps_from_string(
+            caps = Gst.caps_from_string(
                 caps_string(mime, d['caps'])
             )
-            self._rsp.link(self._rate, caps)
+            self._rsp.link_filtered(self._rate, caps)
         else:
             self._rsp.link(self._rate)
         self._rate.link(self._enc)
@@ -123,10 +123,10 @@ class VideoTranscoder(TranscodeBin):
         # Link elements:
         self._q1.link(self._scale)
         if d.get('caps'):
-            caps = gst.caps_from_string(
+            caps = Gst.caps_from_string(
                 caps_string('video/x-raw-yuv', d['caps'])
             )
-            self._scale.link(self._q, caps)
+            self._scale.link_filtered(self._q, caps)
         else:
             self._scale.link(self._q)
         self._q.link(self._enc)
@@ -156,7 +156,7 @@ class Transcoder(object):
         self.dst_fp = self.fs.allocate_for_write(job.get('ext'))
 
         self.mainloop = GObject.MainLoop()
-        self.pipeline = gst.Pipeline()
+        self.pipeline = Gst.Pipeline()
 
         # Create bus and connect several handlers
         self.bus = self.pipeline.get_bus()
@@ -165,10 +165,10 @@ class Transcoder(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = gst.element_factory_make('filesrc')
-        self.dec = gst.element_factory_make('decodebin2')
-        self.mux = gst.element_factory_make(job['mux'])
-        self.sink = gst.element_factory_make('fdsink')
+        self.src = Gst.ElementFactory.make('filesrc', None)
+        self.dec = Gst.ElementFactory.make('decodebin2', None)
+        self.mux = Gst.ElementFactory.make(job['mux'], None)
+        self.sink = Gst.ElementFactory.make('fdsink', None)
 
         # Set properties
         self.src.set_property('location', src_filename)
@@ -178,7 +178,8 @@ class Transcoder(object):
         self.dec.connect('new-decoded-pad', self.on_new_decoded_pad)
 
         # Add elements to pipeline
-        self.pipeline.add(self.src, self.dec, self.mux, self.sink)
+        for el in (self.src, self.dec, self.mux, self.sink):
+            self.pipeline.add(el)
 
         # Link *some* elements
         # This is completed in self.on_new_decoded_pad()
@@ -190,12 +191,12 @@ class Transcoder(object):
         self.tup = None
 
     def run(self):
-        self.pipeline.set_state(gst.STATE_PLAYING)
+        self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
         return self.tup
 
     def kill(self):
-        self.pipeline.set_state(gst.STATE_NULL)
+        self.pipeline.set_state(Gst.State.NULL)
         self.pipeline.get_state()
         self.mainloop.quit()
 
@@ -204,17 +205,17 @@ class Transcoder(object):
             klass = {'audio': AudioTranscoder, 'video': VideoTranscoder}[key]
             el = klass(self.job[key])
         else:
-            el = gst.element_factory_make('fakesink')
+            el = Gst.ElementFactory.make('fakesink', None)
         self.pipeline.add(el)
         log.info('Linking pad %r with %r', name, el)
         pad.link(el.get_pad('sink'))
         if key in self.job:
             el.link(self.mux)
-        el.set_state(gst.STATE_PLAYING)
+        el.set_state(Gst.State.PLAYING)
         return el
 
     def on_new_decoded_pad(self, element, pad, last):
-        name = pad.get_caps()[0].get_name()
+        name = pad.get_caps().to_string()
         log.debug('new decoded pad: %r', name)
         if name.startswith('audio/'):
             assert self.audio is None

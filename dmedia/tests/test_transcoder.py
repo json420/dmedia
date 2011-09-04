@@ -25,7 +25,7 @@ Unit tests for `dmedia.transcoder` module.
 
 from unittest import TestCase
 
-import gst
+from gi.repository import Gst
 
 from dmedia import transcoder
 from dmedia.constants import TYPE_ERROR
@@ -64,16 +64,16 @@ class test_TranscodBin(TestCase):
         self.assertTrue(inst._d is d)
 
         self.assertTrue(inst._q1.get_parent() is inst)
-        self.assertTrue(isinstance(inst._q1, gst.Element))
+        self.assertTrue(isinstance(inst._q1, Gst.Element))
         self.assertEqual(inst._q1.get_factory().get_name(), 'queue')
 
         self.assertTrue(inst._enc.get_parent() is inst)
-        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertTrue(isinstance(inst._enc, Gst.Element))
         self.assertEqual(inst._enc.get_factory().get_name(), 'vorbisenc')
         self.assertEqual(inst._enc.get_property('quality'), 0.5)
 
         self.assertTrue(inst._q2.get_parent() is inst)
-        self.assertTrue(isinstance(inst._q2, gst.Element))
+        self.assertTrue(isinstance(inst._q2, Gst.Element))
         self.assertEqual(inst._q2.get_factory().get_name(), 'queue')
 
         d = {'enc': 'vorbisenc'}
@@ -81,16 +81,16 @@ class test_TranscodBin(TestCase):
         self.assertTrue(inst._d is d)
 
         self.assertTrue(inst._q1.get_parent() is inst)
-        self.assertTrue(isinstance(inst._q1, gst.Element))
+        self.assertTrue(isinstance(inst._q1, Gst.Element))
         self.assertEqual(inst._q1.get_factory().get_name(), 'queue')
 
         self.assertTrue(inst._enc.get_parent() is inst)
-        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertTrue(isinstance(inst._enc, Gst.Element))
         self.assertEqual(inst._enc.get_factory().get_name(), 'vorbisenc')
         self.assertNotEqual(inst._enc.get_property('quality'), 0.5)
 
         self.assertTrue(inst._q2.get_parent() is inst)
-        self.assertTrue(isinstance(inst._q2, gst.Element))
+        self.assertTrue(isinstance(inst._q2, Gst.Element))
         self.assertEqual(inst._q2.get_factory().get_name(), 'queue')
 
     def test_repr(self):
@@ -121,14 +121,14 @@ class test_TranscodBin(TestCase):
 
         enc = inst._make('theoraenc')
         self.assertTrue(enc.get_parent() is inst)
-        self.assertTrue(isinstance(enc, gst.Element))
+        self.assertTrue(isinstance(enc, Gst.Element))
         self.assertEqual(enc.get_factory().get_name(), 'theoraenc')
         self.assertEqual(enc.get_property('quality'), 48)
         self.assertEqual(enc.get_property('keyframe-force'), 64)
 
         enc = inst._make('theoraenc', {'quality': 50, 'keyframe-force': 32})
         self.assertTrue(enc.get_parent() is inst)
-        self.assertTrue(isinstance(enc, gst.Element))
+        self.assertTrue(isinstance(enc, Gst.Element))
         self.assertEqual(enc.get_factory().get_name(), 'theoraenc')
         self.assertEqual(enc.get_property('quality'), 50)
         self.assertEqual(enc.get_property('keyframe-force'), 32)
@@ -145,7 +145,7 @@ class test_AudioTranscoder(TestCase):
             },
         }
         inst = self.klass(d)
-        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertTrue(isinstance(inst._enc, Gst.Element))
         self.assertEqual(inst._enc.get_factory().get_name(), 'vorbisenc')
         self.assertEqual(inst._enc.get_property('quality'), 0.5)
 
@@ -155,7 +155,7 @@ class test_AudioTranscoder(TestCase):
             'props': {'quality': 0.25},
         }
         inst = self.klass(d)
-        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertTrue(isinstance(inst._enc, Gst.Element))
         self.assertEqual(inst._enc.get_factory().get_name(), 'vorbisenc')
         self.assertEqual(inst._enc.get_property('quality'), 0.25)
 
@@ -172,7 +172,7 @@ class test_VideoTranscoder(TestCase):
             },
         }
         inst = self.klass(d)
-        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertTrue(isinstance(inst._enc, Gst.Element))
         self.assertEqual(inst._enc.get_factory().get_name(), 'theoraenc')
         self.assertEqual(inst._enc.get_property('quality'), 50)
 
@@ -185,7 +185,7 @@ class test_VideoTranscoder(TestCase):
             },
         }
         inst = self.klass(d)
-        self.assertTrue(isinstance(inst._enc, gst.Element))
+        self.assertTrue(isinstance(inst._enc, Gst.Element))
         self.assertEqual(inst._enc.get_factory().get_name(), 'theoraenc')
         self.assertEqual(inst._enc.get_property('quality'), 50)
 
@@ -227,7 +227,7 @@ class test_Transcoder(TestCase):
         )
         self.assertTrue(inst.dst_fp.name.endswith('.ogv'))
 
-        self.assertTrue(isinstance(inst.src, gst.Element))
+        self.assertTrue(isinstance(inst.src, Gst.Element))
         self.assertTrue(inst.src.get_parent() is inst.pipeline)
         self.assertEqual(inst.src.get_factory().get_name(), 'filesrc')
         self.assertEqual(
@@ -235,15 +235,15 @@ class test_Transcoder(TestCase):
             self.fs.path(mov_hash, 'mov')
         )
 
-        self.assertTrue(isinstance(inst.dec, gst.Element))
+        self.assertTrue(isinstance(inst.dec, Gst.Element))
         self.assertTrue(inst.dec.get_parent() is inst.pipeline)
         self.assertEqual(inst.dec.get_factory().get_name(), 'decodebin2')
 
-        self.assertTrue(isinstance(inst.mux, gst.Element))
+        self.assertTrue(isinstance(inst.mux, Gst.Element))
         self.assertTrue(inst.mux.get_parent() is inst.pipeline)
         self.assertEqual(inst.mux.get_factory().get_name(), 'oggmux')
 
-        self.assertTrue(isinstance(inst.sink, gst.Element))
+        self.assertTrue(isinstance(inst.sink, Gst.Element))
         self.assertTrue(inst.sink.get_parent() is inst.pipeline)
         self.assertEqual(inst.sink.get_factory().get_name(), 'fdsink')
         self.assertEqual(inst.sink.get_property('fd'), inst.dst_fp.fileno())
