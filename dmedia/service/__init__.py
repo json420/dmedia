@@ -27,7 +27,6 @@ import logging
 import json
 import time
 
-import gnomekeyring
 import dbus
 import dbus.service
 
@@ -78,20 +77,6 @@ class DMedia(dbus.service.Object):
         Return dmedia env as JSON string.
         """
         return self._env_s
-
-    @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def GetAuthURL(self):
-        """
-        Get URL with basic auth user and password.
-        """
-        data = gnomekeyring.find_items_sync(
-            gnomekeyring.ITEM_GENERIC_SECRET,
-            {'desktopcouch': 'basic'}
-        )
-        (user, password) = data[0].secret.split(':')
-        return 'http://{user}:{password}@localhost:{port}/'.format(
-            user=user, password=password, port=self._core.env['port']
-        )
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def HasApp(self):

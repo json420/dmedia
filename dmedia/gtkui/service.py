@@ -52,10 +52,10 @@ except ImportError:
     Notify = None
 
 try:
-    from gi.repository import AppIndicator
+    from gi.repository import AppIndicator3
     from gi.repository import Gtk
 except ImportError:
-    AppIndicator = None
+    AppIndicator3 = None
 
 log = logging.getLogger()
 
@@ -92,12 +92,12 @@ class DMedia(dbus.service.Object):
             log.info('Using `Notify`')
             self._notify = NotifyManager()
 
-        if self._no_gui or AppIndicator is None:
+        if self._no_gui or AppIndicator3 is None:
             self._indicator = None
         else:
-            log.info('Using `AppIndicator`')
-            self._indicator = AppIndicator.Indicator.new('rendermenu', ICON,
-                AppIndicator.IndicatorCategory.APPLICATION_STATUS
+            log.info('Using `AppIndicator3`')
+            self._indicator = AppIndicator3.Indicator.new('rendermenu', ICON,
+                AppIndicator3.IndicatorCategory.APPLICATION_STATUS
             )
             self._timer = Timer(2, self._on_timer)
             self._indicator.set_attention_icon(ICON_ATT)
@@ -122,7 +122,7 @@ class DMedia(dbus.service.Object):
             self._menu.show_all()
             self._current.hide()
             self._indicator.set_menu(self._menu)
-            self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
+            self._indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
 
         self._manager = None
 
@@ -169,7 +169,7 @@ class DMedia(dbus.service.Object):
         if self._notify:
             self._batch = []
         if self._indicator:
-            self._indicator.set_status(AppIndicator.IndicatorStatus.ATTENTION)
+            self._indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
             self._current.show()
             self._current.set_label(_('Searching for files...'))
             self._indicator.set_menu(self._menu)
@@ -187,7 +187,7 @@ class DMedia(dbus.service.Object):
         be displayed when this signal is received.
         """
         if self._indicator:
-            self._indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
+            self._indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         if self._notify is None:
             return
         (summary, body) = batch_finished(stats)
