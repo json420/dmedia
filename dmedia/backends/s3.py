@@ -30,7 +30,9 @@ For documentation on ``boto``, see:
 import os
 import logging
 
-import gnomekeyring
+# FIXME: how do you use gnomekeyring from PyGI?
+#import gnomekeyring
+gnomekeyring = None
 from boto.s3.connection import S3Connection
 from boto.s3.bucket import Bucket
 from boto.s3.key import Key
@@ -83,6 +85,7 @@ def save_credentials(bucket, keyid, secret, keyring=gnomekeyring):
 
 
 def load_credentials(bucket, keyring=gnomekeyring):
+    raise KeyError  # FIXME gnomekeyring
     try:
         items = keyring.find_items_sync(
             gnomekeyring.ITEM_GENERIC_SECRET,
