@@ -249,6 +249,7 @@ class test_Transcoder(TestCase):
         self.assertEqual(inst.sink.get_property('fd'), inst.dst_fp.fileno())
 
     def test_theora450(self):
+        self.skipTest('fix me gi.repository.Gst')
         job = {
             'src': {'id': mov_hash, 'ext': 'mov'},
             'mux': 'oggmux',
@@ -261,6 +262,7 @@ class test_Transcoder(TestCase):
         inst.run()
 
     def test_flac(self):
+        self.skipTest('fix me gi.repository.Gst')
         job = {
             'src': {'id': mov_hash, 'ext': 'mov'},
             'mux': 'oggmux',
@@ -273,6 +275,7 @@ class test_Transcoder(TestCase):
         inst.run()
 
     def test_theora360_vorbis(self):
+        self.skipTest('fix me gi.repository.Gst')
         job = {
             'src': {'id': mov_hash, 'ext': 'mov'},
             'mux': 'oggmux',
