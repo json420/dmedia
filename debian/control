@@ -2,20 +2,20 @@ Source: dmedia
 Section: python
 Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
-Build-Depends: debhelper (>= 8.1), python (>= 2.7)
-Standards-Version: 3.9.1
+Build-Depends: debhelper (>= 8.9), python (>= 2.7)
+Standards-Version: 3.9.2
 X-Python-Version: 2.7
 Homepage: https://launchpad.net/dmedia
 
 Package: dmedia
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7),
- dc3 (>= 11.09),
- python-microfiber (>= 11.09),
+ dc3 (>= ${binary:Version}),
+ python-microfiber (>= ${binary:Version}),
  python-genshi,
  python-xdg,
- gir1.2-gtk-2.0,
- gir1.2-webkit-1.0,
+ gir1.2-gtk-3.0,
+ gir1.2-webkit-3.0,
  gir1.2-appindicator-0.1,
  gir1.2-notify-0.7,
  totem,
