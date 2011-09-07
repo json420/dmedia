@@ -37,8 +37,8 @@ parser.add_option('--show',
 (options, args) = parser.parse_args()
 
 import gi
-gi.require_version('Gtk', '2.0')
-gi.require_version('WebKit', '1.0')
+gi.require_version('Gtk', '3.0')
+gi.require_version('WebKit', '3.0')
 from gi.repository import Gtk, WebKit
 
 window = Gtk.Window()
