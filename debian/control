@@ -10,8 +10,8 @@ Homepage: https://launchpad.net/dmedia
 Package: dmedia
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7),
- dc3 (>= ${binary:Version}),
- python-microfiber (>= ${binary:Version}),
+ dc3 (>= 11.09),
+ python-microfiber (>= 11.09),
  python-gobject,
  gir1.2-gtk-3.0,
  gir1.2-webkit-3.0,
