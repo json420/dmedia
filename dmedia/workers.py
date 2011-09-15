@@ -62,8 +62,9 @@ from threading import Thread, Lock
 from Queue import Empty
 import logging
 
+from microfiber import Database
+
 from .constants import TYPE_ERROR
-from .abstractcouch import get_db
 
 
 log = logging.getLogger()
@@ -239,7 +240,7 @@ class Worker(object):
 class CouchWorker(Worker):
     def __init__(self, env, q, key, args):
         super(CouchWorker, self).__init__(env, q, key, args)
-        self.db = get_db(env)
+        self.db = Database('dmedia', self.env)
 
 
 class Manager(object):
@@ -403,4 +404,4 @@ class Manager(object):
 class CouchManager(Manager):
     def __init__(self, env, callback=None):
         super(CouchManager, self).__init__(env, callback)
-        self.db = get_db(env)
+        self.db = Database('dmedia', self.env)

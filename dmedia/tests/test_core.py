@@ -31,7 +31,6 @@ from os import path
 
 import microfiber
 
-from dmedia.webui.app import App
 from dmedia.schema import random_id, check_store
 from dmedia.filestore import FileStore
 from dmedia import core
@@ -43,35 +42,21 @@ from .couch import CouchCase
 class TestCore(CouchCase):
     klass = core.Core
 
-    def tearDown(self):
-        super(TestCore, self).tearDown()
-        if core.App is None:
-            core.App = App
-
     def test_init(self):
-        inst = self.klass(self.dbname)
-        self.assertNotEqual(inst.env, self.env)
-        self.assertEqual(
-            set(inst.env),
-            set(['port', 'url', 'dbname', 'oauth', 'basic'])
-        )
-        self.assertEqual(inst.env['dbname'], self.dbname)
-        self.assertEqual(inst.env['url'], self.env['url'])
-        self.assertEqual(inst.env['oauth'], self.env['oauth'])
+        inst = self.klass(self.env)
+        self.assertIs(inst.env, self.env)
         self.assertEqual(inst.home, self.home.path)
         self.assertIsInstance(inst.db, microfiber.Database)
 
-        inst = self.klass(env_s=json.dumps(self.env))
-        self.assertEqual(inst.env, self.env)
-
     def test_bootstrap(self):
-        inst = self.klass(self.dbname)
+        del self.env['machine_id']
+        inst = self.klass(self.env)
         self.assertNotIn('machine_id', inst.env)
         self.assertIsNone(inst.bootstrap())
         self.assertEqual(inst.env['machine_id'], inst.machine_id)
 
     def test_init_local(self):
-        inst = self.klass(self.dbname)
+        inst = self.klass(self.env)
 
         # Test when _local/dmedia doesn't exist:
         (local, machine) = inst.init_local()
@@ -135,7 +120,7 @@ class TestCore(CouchCase):
         self.assertEqual(machine4, machine3)
 
     def test_init_filestores(self):
-        inst = self.klass(self.dbname)
+        inst = self.klass(self.env)
         (inst.local, inst.machine) = inst.init_local()
         inst.machine_id = inst.machine['_id']
         inst.env['machine_id'] = inst.machine_id
@@ -178,7 +163,7 @@ class TestCore(CouchCase):
         self.assertEqual(inst.init_filestores(), lstore)
 
     def test_add_filestores(self):
-        inst = self.klass(self.dbname)
+        inst = self.klass(self.env)
         inst.machine_id = random_id()
         inst.local = {
             '_id': '_local/dmedia',
@@ -231,92 +216,8 @@ class TestCore(CouchCase):
         self.assertTrue(inst.db.get(store['_id'])['_rev'].startswith('1-'))
         self.assertEqual(inst.db.get('_local/dmedia')['_rev'], '0-1')
 
-    def test_init_app(self):
-        inst = self.klass(self.dbname)
-
-        # App is available
-        with self.assertRaises(microfiber.NotFound) as cm:
-            inst.db.get('app')
-        self.assertIs(inst.init_app(), True)
-        self.assertEqual(inst.db.get('app')['_id'], 'app')
-        self.assertIs(inst.init_app(), True)
-
-        # App is not available
-        core.App = None
-        self.assertIs(inst.init_app(), False)
-
-        # App is available again (make sure there is no state)
-        core.App = App
-        self.assertIs(inst.init_app(), True)
-        self.assertIs(inst.init_app(), True)
-
-    def test_has_app(self):
-        class Sub(self.klass):
-            _calls = 0
-
-            def init_app(self):
-                self._calls += 1
-                return 'A' * self._calls
-
-        inst = Sub(self.dbname)
-        self.assertIsNone(inst._has_app)
-
-        inst._has_app = 'foo'
-        self.assertEqual(inst.has_app(), 'foo')
-        self.assertEqual(inst._calls, 0)
-
-        inst._has_app = None
-        self.assertEqual(inst.has_app(), 'A')
-        self.assertEqual(inst._calls, 1)
-        self.assertEqual(inst._has_app, 'A')
-
-        self.assertEqual(inst.has_app(), 'A')
-        self.assertEqual(inst._calls, 1)
-        self.assertEqual(inst._has_app, 'A')
-
-        inst._has_app = None
-        self.assertEqual(inst.has_app(), 'AA')
-        self.assertEqual(inst._calls, 2)
-        self.assertEqual(inst._has_app, 'AA')
-
-        self.assertEqual(inst.has_app(), 'AA')
-        self.assertEqual(inst._calls, 2)
-        self.assertEqual(inst._has_app, 'AA')
-
-
-        # Test the real thing, no App
-        core.App = None
-        inst = self.klass(self.dbname)
-        self.assertIs(inst.has_app(), False)
-        self.assertIs(inst._has_app, False)
-        with self.assertRaises(microfiber.NotFound) as cm:
-            inst.db.get('app')
-
-
-        # Test the real thing, App available
-        core.App = App
-        inst = self.klass(self.dbname)
-
-        with self.assertRaises(microfiber.NotFound) as cm:
-            inst.db.get('app')
-        self.assertIs(inst.has_app(), True)
-        self.assertIs(inst._has_app, True)
-        rev = inst.db.get('app')['_rev']
-        self.assertTrue(rev.startswith('1-'))
-
-        self.assertIs(inst.has_app(), True)
-        self.assertIs(inst._has_app, True)
-        self.assertEqual(inst.db.get('app')['_rev'], rev)
-
-        inst._has_app = None
-        self.assertIs(inst.has_app(), True)
-        self.assertIs(inst._has_app, True)
-        rev2 = inst.db.get('app')['_rev']
-        self.assertNotEqual(rev2, rev)
-        self.assertTrue(rev2.startswith('2-'))
-
     def test_get_file(self):
-        inst = self.klass(self.dbname)
+        inst = self.klass(self.env)
         doc = {
             '_id': mov_hash,
             'ext': 'mov',

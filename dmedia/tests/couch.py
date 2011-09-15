@@ -36,8 +36,7 @@ import shutil
 from copy import deepcopy
 
 import microfiber
-
-from dmedia.schema import random_id
+from microfiber import random_id
 
 from .helpers import TempHome
 
@@ -241,11 +240,6 @@ class CouchCase(TestCase):
     def setUp(self):
         self.tmpcouch = TempCouch()
         self.env = self.tmpcouch.bootstrap()
-        self.dbname = 'test_dmedia'
-        # All the tests expect the database to exist right now:
-        db = microfiber.Database(self.dbname, self.env)
-        db.ensure()
-        self.env['dbname'] = self.dbname
         self.home = TempHome()
         self.machine_id = random_id()
         self.env['machine_id'] = self.machine_id
@@ -255,5 +249,4 @@ class CouchCase(TestCase):
         self.tmpcouch.kill()
         self.tmpcouch = None
         self.home = None
-        self.dbname = None
         self.env = None

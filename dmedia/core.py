@@ -55,17 +55,11 @@ import os
 from os import path
 import json
 
-from microfiber import NotFound, Conflict
-
-try:
-    from dmedia.webui.app import App
-except ImportError:
-    App = None
+from microfiber import Database, NotFound, Conflict
 
 from .filestore import FileStore
 from .constants import DBNAME
 from .transfers import TransferManager
-from .abstractcouch import get_env, get_db
 from .schema import random_id, create_machine, create_store
 from .views import init_views
 
@@ -88,16 +82,13 @@ class LocalStores(object):
 
 
 class Core(object):
-    def __init__(self, dbname=DBNAME, no_dc=False, env_s=None, callback=None):
-        if env_s:
-            self.env = json.loads(env_s)
-        else:
-            self.env = get_env(dbname)
+    def __init__(self, env, callback=None):
+        self.env = env
         self.home = path.abspath(os.environ['HOME'])
         if not path.isdir(self.home):
             raise ValueError('HOME is not a dir: {!}'.format(self.home))
-        self.db = get_db(self.env)
-        self._has_app = None
+        self.db = Database('dmedia', env)
+        self.db.ensure()
         self.manager = TransferManager(self.env, callback)
         self._filestores = {}
 
@@ -169,27 +160,6 @@ class Core(object):
         self.db.save(self.local)
         self.db.save(store)
         return store
-
-    def init_app(self):
-        if App is None:
-            log.info('init_app(): `dmedia.webui.app` not available')
-            return False
-        log.info('init_app(): creating /dmedia/app document')
-        doc = App().get_doc()
-        _id = doc['_id']
-        assert '_rev' not in doc
-        try:
-            old = self.db.get(_id)
-            doc['_rev'] = old['_rev']
-            self.db.save(doc)
-        except NotFound:
-            self.db.save(doc)
-        return True
-
-    def has_app(self):
-        if self._has_app is None:
-            self._has_app = self.init_app()
-        return self._has_app
 
     def get_file(self, file_id):
         doc = self.db.get(file_id)
