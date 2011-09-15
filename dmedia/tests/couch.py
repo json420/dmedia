@@ -233,13 +233,9 @@ class CouchCase(TestCase):
     """
     Base class for tests that talk to CouchDB.
 
-    So that a user's production data doesn't get hosed, all tests are run in the
-    ``"dmedia_test"`` database.
-
-    FIXME: This isn't the best solution, but some changes in desktopcouch in
-    Natty make it difficult for 3rd party apps to use dc-test idioms:
-
-        https://bugs.launchpad.net/desktopcouch/+bug/694909
+    So that a user's production data doesn't get hosed, a CouchDB instance is
+    is created for each test case, using temporary files, and destroyed at the
+    end of each test case.
     """
 
     def setUp(self):

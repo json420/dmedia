@@ -23,42 +23,38 @@
 Unit tests for `dmedia.abstractcouch` module.
 """
 
-from unittest import TestCase
-import json
-
 import microfiber
 
 from dmedia import abstractcouch
 
+from .couch import CouchCase
 
-class test_functions(TestCase):
-    def test_get_env(self):
-        env = abstractcouch.get_env('foo')
-        self.assertEqual(env['dbname'], 'foo')
-        self.assertTrue('url' in env)
-    
+
+class test_functions(CouchCase):
+
     def test_get_db(self):
-        env = abstractcouch.get_env('test_dmedia')
+        s = microfiber.Server(self.env)
+        s.delete(self.dbname)
 
-        db = abstractcouch.get_db(env)
+        db = abstractcouch.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)
         self.assertEqual(db.name, 'test_dmedia')
-        
+
         # Make sure database dosen't exist:
         try:
             db.delete()
         except microfiber.NotFound:
             pass
-            
+
         # Make sure database isn't created by get_db():
-        db = abstractcouch.get_db(env)
+        db = abstractcouch.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)
         self.assertEqual(db.name, 'test_dmedia')
-        
+
         with self.assertRaises(microfiber.NotFound) as cm:
             db.get()
-            
+
         # Create the database
         self.assertEqual(db.put(None), {'ok': True})
         self.assertEqual(db.get()['db_name'], 'test_dmedia')
-        
+
