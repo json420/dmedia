@@ -63,7 +63,10 @@ def pynames_iter(pkdir, pkname=None):
         elif stat.S_ISDIR(st.st_mode):
             dirs.append((fullname, name))
     for (fullname, name) in dirs:
-        for n in pynames_iter(fullname, '.'.join([pkname, name])):
+        subpkname = '.'.join([pkname, name])
+        if subpkname != 'dmedia.tests':  # FIXME: Remove after core refactor
+            continue
+        for n in pynames_iter(fullname, subpkname):
             yield n
 
 
