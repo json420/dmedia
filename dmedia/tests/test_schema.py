@@ -33,7 +33,7 @@ import time
 from filestore import TYPE_ERROR, DIGEST_BYTES
 from microfiber import random_id
 
-from .helpers import TempDir, mov_hash, mov_leaves, mov_size
+from .helpers import TempDir
 
 from dmedia import schema
 
