@@ -23,7 +23,7 @@
 Custom exceptions
 """
 
-class DmediaError(StandardError):
+class DmediaError(Exception):
     """
     Base class for all custom dmedia exceptions.
     """
@@ -32,7 +32,7 @@ class DmediaError(StandardError):
 
     def __init__(self, **kw):
         self._kw = kw
-        for (key, value) in kw.iteritems():
+        for (key, value) in kw.items():
             assert not hasattr(self, key), 'conflicting kwarg %s.%s = %r' % (
                 self.__class__.__name__, key, value,
             )
@@ -53,7 +53,7 @@ class FileStoreTraversal(DmediaError):
     >>> raise FileStoreTraversal(abspath='/foo/barNone/baz', base='/foo/bar')
     Traceback (most recent call last):
       ...
-    FileStoreTraversal: '/foo/barNone/baz' outside base '/foo/bar'
+    dmedia.errors.FileStoreTraversal: '/foo/barNone/baz' outside base '/foo/bar'
     """
     _format = '%(abspath)r outside base %(base)r'
 
