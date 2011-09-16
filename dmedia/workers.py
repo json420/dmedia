@@ -241,6 +241,7 @@ class CouchWorker(Worker):
     def __init__(self, env, q, key, args):
         super(CouchWorker, self).__init__(env, q, key, args)
         self.db = Database('dmedia', self.env)
+        self.db.ensure()
 
 
 class Manager(object):
@@ -405,3 +406,4 @@ class CouchManager(Manager):
     def __init__(self, env, callback=None):
         super(CouchManager, self).__init__(env, callback)
         self.db = Database('dmedia', self.env)
+        self.db.ensure()
