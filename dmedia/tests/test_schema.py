@@ -264,7 +264,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['origin'] value 'foo' not in ('user', 'download', 'paid', 'proxy', 'cache', 'render')"
+            "doc['origin'] value 'foo' not in ('user', 'paid', 'download', 'proxy', 'render', 'cache')"
         )
 
         # Test with missing stored "copies":
@@ -336,7 +336,6 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corrupted'] must be >= 0; got -1"
         )
-
 
     def test_file_optional(self):
 

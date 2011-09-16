@@ -785,7 +785,7 @@ def check_file(doc):
     )
     _check(doc, ['origin'], str,
         _lowercase,
-        (_is_in, 'user', 'download', 'paid', 'proxy', 'cache', 'render'),
+        (_is_in, 'user', 'paid', 'download', 'proxy', 'render', 'cache'),
     )
     _check(doc, ['stored'], dict,
         _nonempty,
