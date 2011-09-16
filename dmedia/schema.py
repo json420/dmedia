@@ -732,6 +732,12 @@ def check_file(doc):
 
     >>> doc = {
     ...     '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...     '_attachments': {
+    ...         'leaf_hashes': {
+    ...             'data': 'v7t381LIyKsBCUYhkGreXx2qKTyyMfMD2eHWWp/L',
+    ...             'content_type': 'application/octet-stream',
+    ...         },
+    ...     },
     ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
@@ -765,6 +771,12 @@ def check_file(doc):
     )
 
     # dmedia/file specific:
+    _check(doc, ['_attachments', 'leaf_hashes'], dict,
+        _nonempty,
+    )
+    _check(doc, ['_attachments', 'leaf_hashes', 'content_type'], str,
+        (_equals, 'application/octet-stream'),
+    )
     _check(doc, ['bytes'], int,
         (_at_least, 1),
     )
@@ -1038,16 +1050,6 @@ def check_drive(doc):
 def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
-
-    :param _id: the content hash, eg ``'JK47OD6N5JYFGEIFB53LX7XPUSYCWDUM'``
-    :param file_size: an ``int``, the file size in bytes, eg ``20202333``
-    :param leaf_hashes: a ``bytes`` instance containing the concatenated content
-        hashes of the leaves
-    :param stored: a ``dict`` containing locations this file is stored
-        ``'Y4J3WQCMKV5GHATOCZZBHF4Y'``
-    :param ext: the file extension, eg ``'mov'``; default is ``None``
-    :param origin: the file's origin (for durability/reclamation purposes);
-        default is ``'user'``
     """
     ts = time.time()
     for value in stored.values():

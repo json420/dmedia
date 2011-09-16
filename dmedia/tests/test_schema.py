@@ -170,6 +170,12 @@ class TestFunctions(TestCase):
         # Test with good doc:
         good = {
             '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+            '_attachments': {
+                'leaf_hashes': {
+                    'data': 'v7t381LIyKsBCUYhkGreXx2qKTyyMfMD2eHWWp/L',
+                    'content_type': 'application/octet-stream',
+                },
+            },
             'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
