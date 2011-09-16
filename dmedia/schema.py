@@ -752,7 +752,6 @@ def check_file(doc):
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'bytes': 20202333,
-    ...     'ext': 'mov',
     ...     'origin': 'user',
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
@@ -765,7 +764,6 @@ def check_file(doc):
     >>> check_file(doc)
 
     """
-    
     # Common schema:
     _check(doc, [], dict)
     _check(doc, ['_id'], None,
@@ -780,13 +778,10 @@ def check_file(doc):
     _check(doc, ['time'], (int, float),
         (_at_least, 0),
     )
-    
+
     # dmedia/file specific:
     _check(doc, ['bytes'], int,
         (_at_least, 1),
-    )
-    _check(doc, ['ext'], (type(None), str),
-        (_matches, EXT_PAT),
     )
     _check(doc, ['origin'], str,
         _lowercase,
@@ -817,6 +812,10 @@ def check_file(doc):
 
 
 def check_file_optional(doc):
+    # 'ext' like 'mov'
+    _check_if_exists(doc, ['ext'], str,
+        (_matches, EXT_PAT),
+    )
 
     # 'content_type' like 'video/quicktime'
     _check_if_exists(doc, ['content_type'], str)
@@ -1051,7 +1050,7 @@ def check_drive(doc):
 #######################################################
 # Functions for creating specific types of dmedia docs:
 
-def create_file(_id, file_size, leaf_hashes, stored, ext=None, origin='user'):
+def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
 
@@ -1080,7 +1079,6 @@ def create_file(_id, file_size, leaf_hashes, stored, ext=None, origin='user'):
         'type': 'dmedia/file',
         'time': ts,
         'bytes': file_size,
-        'ext': ext,
         'origin': origin,
         'stored': stored,
     }

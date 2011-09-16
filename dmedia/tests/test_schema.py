@@ -174,7 +174,6 @@ class TestFunctions(TestCase):
             'type': 'dmedia/file',
             'time': 1234567890,
             'bytes': 20202333,
-            'ext': 'mov',
             'origin': 'user',
             'stored': {
                 'MZZG2ZDSOQVSW2TEMVZG643F': {
@@ -187,7 +186,7 @@ class TestFunctions(TestCase):
         self.assertEqual(f(g), None)
 
         # Test with missing attributes:
-        for key in ['bytes', 'ext', 'origin', 'stored']:
+        for key in ['bytes', 'origin', 'stored']:
             bad = deepcopy(good)
             del bad[key]
             with self.assertRaises(ValueError) as cm:
@@ -247,16 +246,6 @@ class TestFunctions(TestCase):
         g = deepcopy(good)
         g['bytes'] = 1
         self.assertIsNone(f(g))
-
-        # Test with invalid ext
-        bad = deepcopy(good)
-        bad['ext'] = '.mov'
-        with self.assertRaises(ValueError) as cm:
-            f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
-        )
 
         # Test with upercase origin
         bad = deepcopy(good)
@@ -353,6 +342,21 @@ class TestFunctions(TestCase):
 
         f = schema.check_file_optional
         f({})
+        
+        # ext
+        self.assertIsNone(f({'ext': 'ogv'}))
+        with self.assertRaises(TypeError) as cm:
+            f({'ext': 42})
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format("doc['ext']", str, int, 42)
+        )
+        with self.assertRaises(ValueError) as cm:
+            f({'ext': '.mov'})
+        self.assertEqual(
+            str(cm.exception),
+            "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
+        )
 
         # content_type
         self.assertIsNone(f({'content_type': 'video/quicktime'}))
@@ -557,7 +561,6 @@ class TestFunctions(TestCase):
                 'type',
                 'time',
                 'bytes',
-                'ext',
                 'origin',
                 'stored',
             ])
@@ -576,7 +579,6 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['type'], 'dmedia/file')
         self.assertLessEqual(doc['time'], time.time())
         self.assertEqual(doc['bytes'], file_size)
-        self.assertIsNone(doc['ext'], None)
         self.assertEqual(doc['origin'], 'user')
 
         s = doc['stored']
@@ -585,12 +587,6 @@ class TestFunctions(TestCase):
         self.assertEqual(set(s[store_id]), set(['copies', 'time']))
         self.assertEqual(s[store_id]['copies'], 2)
         self.assertEqual(s[store_id]['time'], doc['time'])
-
-        doc = f(_id, file_size, leaf_hashes, {store_id: {'copies': 2}},
-            ext='mov'
-        )
-        schema.check_file(doc)
-        self.assertEqual(doc['ext'], 'mov')
 
         doc = f(_id, file_size, leaf_hashes, {store_id: {'copies': 2}},
             origin='proxy'
