@@ -30,7 +30,7 @@ from os import path
 from subprocess import Popen
 import time
 import socket
-from hashlib import sha1
+from hashlib import sha1, md5
 from base64 import b32encode
 import shutil
 from copy import deepcopy
@@ -93,7 +93,7 @@ def random_port():
 
 
 def random_key():
-    return b32encode(os.urandom(10))
+    return b32encode(os.urandom(10)).decode('utf-8')
 
 
 def random_oauth():
@@ -122,11 +122,12 @@ def random_env(port, oauth=True):
 
 
 def random_salt():
-    return os.urandom(16).encode('hex')
+    return md5(os.urandom(16)).hexdigest()
 
 
 def couch_hashed(password, salt):
-    hexdigest = sha1(password + salt).hexdigest()
+    data = (password + salt).encode('utf-8')
+    hexdigest = sha1(data).hexdigest()
     return '-hashed-{},{}'.format(hexdigest, salt)
 
 
