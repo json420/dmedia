@@ -254,13 +254,9 @@ import socket
 import platform
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
-from microfiber import random_id
+from microfiber import random_id, RANDOM_B32LEN
 
 from .constants import EXT_PAT
-
-
-RANDOM_B32LEN = 24
-
 
 
 # Some private helper functions that don't directly define any schema.
@@ -751,7 +747,7 @@ def check_file(doc):
     For example, a conforming value:
 
     >>> doc = {
-    ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+    ...     '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
     ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
@@ -768,50 +764,34 @@ def check_file(doc):
     ...
     >>> check_file(doc)
 
-
-    And an invalid value:
-
-    >>> doc = {
-    ...     '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
-    ...     'ver': 0,
-    ...     'type': 'dmedia/file',
-    ...     'time': 1234567890,
-    ...     'bytes': 20202333,
-    ...     'ext': 'mov',
-    ...     'origin': 'user',
-    ...     'stored': {
-    ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
-    ...             'number': 2,  # Changed!
-    ...             'time': 1234567890,
-    ...         },
-    ...     },
-    ... }
-    ...
-    >>> check_file(doc)
-    Traceback (most recent call last):
-      ...
-    ValueError: doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exist
-
     """
-    check_dmedia(doc)
-
+    
+    # Common schema:
+    _check(doc, [], dict)
+    _check(doc, ['_id'], None,
+        _intrinsic_id,
+    )
+    _check(doc, ['ver'], int,
+        (_equals, 0),
+    )
     _check(doc, ['type'], str,
         (_equals, 'dmedia/file'),
     )
-
+    _check(doc, ['time'], (int, float),
+        (_at_least, 0),
+    )
+    
+    # dmedia/file specific:
     _check(doc, ['bytes'], int,
         (_at_least, 1),
     )
-
     _check(doc, ['ext'], (type(None), str),
         (_matches, EXT_PAT),
     )
-
     _check(doc, ['origin'], str,
         _lowercase,
         (_is_in, 'user', 'download', 'paid', 'proxy', 'cache', 'render'),
     )
-
     _check(doc, ['stored'], dict,
         _nonempty,
     )
@@ -1092,7 +1072,7 @@ def create_file(_id, file_size, leaf_hashes, stored, ext=None, origin='user'):
         '_id': _id,
         '_attachments': {
             'leaves': {
-                'data': b64encode(leaf_hashes),
+                'data': b64encode(leaf_hashes).decode('utf-8'),
                 'content_type': 'application/octet-stream',
             }
         },

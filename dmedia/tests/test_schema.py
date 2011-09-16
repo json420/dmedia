@@ -25,15 +25,16 @@ Unit tests for `dmedia.schema` module.
 """
 
 from unittest import TestCase
+import os
 from base64 import b32encode, b32decode, b64encode
 from copy import deepcopy
 import time
 
-from filestore import TYPE_ERROR
+from filestore import TYPE_ERROR, DIGEST_BYTES
+from microfiber import random_id
 
 from .helpers import TempDir, mov_hash, mov_leaves, mov_size
 
-from dmedia.schema import random_id
 from dmedia import schema
 
 
@@ -168,7 +169,7 @@ class TestFunctions(TestCase):
 
         # Test with good doc:
         good = {
-            '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
             'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
@@ -539,14 +540,16 @@ class TestFunctions(TestCase):
 
     def test_create_file(self):
         f = schema.create_file
-        leaf_hashes = b''.join(mov_leaves)
 
-        store = schema.random_id()
+        _id = random_id(DIGEST_BYTES)
+        leaf_hashes = os.urandom(DIGEST_BYTES)
+        file_size = 31415
+        store_id = random_id()
 
-        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}})
-        schema.check_file(d)
+        doc = f(_id, file_size, leaf_hashes, {store_id: {'copies': 2}})
+        schema.check_file(doc)
         self.assertEqual(
-            set(d),
+            set(doc),
             set([
                 '_id',
                 '_attachments',
@@ -559,41 +562,41 @@ class TestFunctions(TestCase):
                 'stored',
             ])
         )
-        self.assertEqual(d['_id'], mov_hash)
+        self.assertEqual(doc['_id'], _id)
         self.assertEqual(
-            d['_attachments'],
+            doc['_attachments'],
             {
                 'leaves': {
-                    'data': b64encode(leaf_hashes),
+                    'data': b64encode(leaf_hashes).decode('utf-8'),
                     'content_type': 'application/octet-stream',
                 }
             }
         )
-        self.assertEqual(d['ver'], 0)
-        self.assertEqual(d['type'], 'dmedia/file')
-        self.assertLessEqual(d['time'], time.time())
-        self.assertEqual(d['bytes'], mov_size)
-        self.assertIsNone(d['ext'], None)
-        self.assertEqual(d['origin'], 'user')
+        self.assertEqual(doc['ver'], 0)
+        self.assertEqual(doc['type'], 'dmedia/file')
+        self.assertLessEqual(doc['time'], time.time())
+        self.assertEqual(doc['bytes'], file_size)
+        self.assertIsNone(doc['ext'], None)
+        self.assertEqual(doc['origin'], 'user')
 
-        s = d['stored']
+        s = doc['stored']
         self.assertIsInstance(s, dict)
-        self.assertEqual(list(s), [store])
-        self.assertEqual(set(s[store]), set(['copies', 'time']))
-        self.assertEqual(s[store]['copies'], 2)
-        self.assertEqual(s[store]['time'], d['time'])
+        self.assertEqual(list(s), [store_id])
+        self.assertEqual(set(s[store_id]), set(['copies', 'time']))
+        self.assertEqual(s[store_id]['copies'], 2)
+        self.assertEqual(s[store_id]['time'], doc['time'])
 
-        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}},
+        doc = f(_id, file_size, leaf_hashes, {store_id: {'copies': 2}},
             ext='mov'
         )
-        schema.check_file(d)
-        self.assertEqual(d['ext'], 'mov')
+        schema.check_file(doc)
+        self.assertEqual(doc['ext'], 'mov')
 
-        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}},
+        doc = f(_id, file_size, leaf_hashes, {store_id: {'copies': 2}},
             origin='proxy'
         )
-        schema.check_file(d)
-        self.assertEqual(d['origin'], 'proxy')
+        schema.check_file(doc)
+        self.assertEqual(doc['origin'], 'proxy')
 
     def test_create_store(self):
         f = schema.create_store
