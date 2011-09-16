@@ -566,7 +566,7 @@ class TestFunctions(TestCase):
         self.assertEqual(
             doc['_attachments'],
             {
-                'leaves': {
+                'leaf_hashes': {
                     'data': b64encode(leaf_hashes).decode('utf-8'),
                     'content_type': 'application/octet-stream',
                 }
