@@ -10,30 +10,8 @@ Homepage: https://launchpad.net/dmedia
 Package: dmedia
 Architecture: all
 Depends: ${misc:Depends}, python (>= 2.7),
- dc3 (>= 11.09),
- python-microfiber (>= 11.09),
- python-gobject,
- gir1.2-gtk-3.0,
- gir1.2-webkit-3.0,
- gir1.2-appindicator3-0.1,
- gir1.2-notify-0.7,
- gir1.2-gstreamer-0.10,
- python-genshi,
- python-xdg,
- totem,
- libimage-exiftool-perl,
- python-libtorrent,
- python-boto,
- gstreamer0.10-plugins-good
-Suggests: gstreamer0.10-ffmpeg,
- gstreamer0.10-plugins-ugly,
- gstreamer0.10-plugins-ugly-multiverse,
- gstreamer0.10-plugins-bad,
- gstreamer0.10-plugins-bad-multiverse
+    dc3 (>= 11.09),
+    python-microfiber (>= 11.09),
 Description: distributed media library
- A simple distributed media library.  Media files are given a globally unique ID
- based on their content-hash.  Meta-data is stored in CouchDB.  Meta-data for a
- large number of media files can be available locally (meta-data is small).
- Actual media files can be loaded on-demand from peers or cloud when not
- available locally (media files are big). Goals are to make synchronization
- super easy, and to lay groundwork for a distributed content creation workflow.
+ A user-experienced-focused technology aimed at making file management go away
+ for both content-creation and content-consumption.

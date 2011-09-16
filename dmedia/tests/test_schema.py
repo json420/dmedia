@@ -600,7 +600,7 @@ class TestFunctions(TestCase):
                 'copies',
                 'path',
                 'machine_id',
-                'partition_id',
+                #'partition_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
@@ -622,7 +622,7 @@ class TestFunctions(TestCase):
                 'copies',
                 'path',
                 'machine_id',
-                'partition_id',
+                #'partition_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
