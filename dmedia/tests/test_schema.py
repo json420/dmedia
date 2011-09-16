@@ -31,7 +31,7 @@ import time
 
 from filestore import TYPE_ERROR
 
-from .helpers import raises, TempDir, mov_hash, mov_leaves, mov_size
+from .helpers import TempDir, mov_hash, mov_leaves, mov_size
 
 from dmedia.schema import random_id
 from dmedia import schema
@@ -355,23 +355,26 @@ class TestFunctions(TestCase):
 
         # content_type
         self.assertIsNone(f({'content_type': 'video/quicktime'}))
-        e = raises(TypeError, f, {'content_type': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'content_type': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['content_type']", str, int, 42)
         )
 
         # content_encoding
         self.assertIsNone(f({'content_encoding': 'gzip'}))
         self.assertIsNone(f({'content_encoding': 'deflate'}))
-        e = raises(TypeError, f, {'content_encoding': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'content_encoding': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['content_encoding']", str, int, 42)
         )
-        e = raises(ValueError, f, {'content_encoding': 'stuff'})
+        with self.assertRaises(ValueError) as cm:
+            f({'content_encoding': 'stuff'})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['content_encoding'] value 'stuff' not in ('gzip', 'deflate')"
         )
 
@@ -379,82 +382,93 @@ class TestFunctions(TestCase):
         self.assertIsNone(f({'media': 'video'}))
         self.assertIsNone(f({'media': 'audio'}))
         self.assertIsNone(f({'media': 'image'}))
-        e = raises(TypeError, f, {'media': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'media': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['media']", str, int, 42)
         )
-        e = raises(ValueError, f, {'media': 'stuff'})
+        with self.assertRaises(ValueError) as cm:
+            f({'media': 'stuff'})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['media'] value 'stuff' not in ('video', 'audio', 'image')"
         )
 
         # mtime
         self.assertIsNone(f({'mtime': 1302125982.946627}))
         self.assertIsNone(f({'mtime': 1234567890}))
-        e = raises(TypeError, f, {'mtime': '1234567890'})
+        with self.assertRaises(TypeError) as cm:
+            f({'mtime': '1234567890'})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['mtime']", (int, float), str, '1234567890')
         )
-        e = raises(ValueError, f, {'mtime': -1})
+        with self.assertRaises(ValueError) as cm:
+            f({'mtime': -1})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['mtime'] must be >= 0; got -1"
         )
 
         # atime
         self.assertIsNone(f({'atime': 1302125982.946627}))
         self.assertIsNone(f({'atime': 1234567890}))
-        e = raises(TypeError, f, {'atime': '1234567890'})
+        with self.assertRaises(TypeError) as cm:
+            f({'atime': '1234567890'})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['atime']", (int, float), str, '1234567890')
         )
-        e = raises(ValueError, f, {'atime': -0.3})
+        with self.assertRaises(ValueError) as cm:
+            f({'atime': -0.3})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['atime'] must be >= 0; got -0.3"
         )
 
         # name
         self.assertIsNone(f({'name': 'MVI_5899.MOV'}))
-        e = raises(TypeError, f, {'name': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'name': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['name']", str, int, 42)
         )
 
         # dir
         self.assertIsNone(f({'dir': 'DCIM/100EOS5D2'}))
-        e = raises(TypeError, f, {'dir': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'dir': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['dir']", str, int, 42)
         )
 
         # meta
         self.assertIsNone(f({'meta': {'iso': 800}}))
-        e = raises(TypeError, f, {'meta': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'meta': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['meta']", dict, int, 42)
         )
 
         # user
         self.assertIsNone(f({'user': {'title': 'cool sunset'}}))
-        e = raises(TypeError, f, {'user': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'user': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['user']", dict, int, 42)
         )
 
         # tags
         self.assertIsNone(f({'tags': {'burp': {'start': 6, 'end': 73}}}))
-        e = raises(TypeError, f, {'tags': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'tags': 42})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['tags']", dict, int, 42)
         )
 
@@ -477,44 +491,49 @@ class TestFunctions(TestCase):
         for key in ['plugin', 'copies']:
             bad = deepcopy(good)
             del bad[key]
-            e = raises(ValueError, f, bad)
+            with self.assertRaises(ValueError) as cm:
+                f(bad)
             self.assertEqual(
-                str(e),
+                str(cm.exception),
                 'doc[{!r}] does not exist'.format(key)
             )
 
         # Test with wrong plugin type/value:
         bad = deepcopy(good)
         bad['plugin'] = 18
-        e = raises(TypeError, f, bad)
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['plugin']", str, int, 18)
         )
         bad = deepcopy(good)
         bad['plugin'] = 'foo'
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         plugins = ('filestore', 'removable_filestore', 'ubuntuone', 's3')
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['plugin'] value %r not in %r" % ('foo', plugins)
         )
 
         # Test with wrong copies type/value:
         bad = deepcopy(good)
         bad['copies'] = 2.0
-        e = raises(TypeError, f, bad)
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             TYPE_ERROR.format("doc['copies']", int, float, 2.0)
         )
         bad = deepcopy(good)
         bad['copies'] = 0
         bad = deepcopy(good)
         bad['copies'] = -2
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['copies'] must be >= 0; got -2"
         )
 
