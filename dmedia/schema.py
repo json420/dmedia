@@ -684,8 +684,8 @@ def check_dmedia(doc):
     This verifies that *doc* has the common schema requirements that all dmedia
     documents should have.  The *doc* must:
 
-        1. Have "_id" that is base32-encoded and when decoded is a multiple
-           of 40-bits (5 bytes)
+        1. Have "_id" containing only characters from B32ALPHABET and whose
+           length is a multiple of 8 characters.
 
         2. Have "ver" equal to ``0``
 
@@ -704,22 +704,6 @@ def check_dmedia(doc):
     ... }
     ...
     >>> check_dmedia(doc)
-
-
-    And an invalid value:
-
-    >>> doc = {
-    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
-    ...     'ver': 0,
-    ...     'kind': 'dmedia/file',  # Changed!
-    ...     'time': 1234567890,
-    ... }
-    ...
-    >>> check_dmedia(doc)
-    Traceback (most recent call last):
-      ...
-    ValueError: doc['type'] does not exist
-
     """
     _check(doc, [], dict)
 
@@ -764,6 +748,7 @@ def check_file(doc):
     >>> check_file(doc)
 
     """
+    
     # Common schema:
     _check(doc, [], dict)
     _check(doc, ['_id'], None,
