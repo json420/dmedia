@@ -144,7 +144,7 @@ class TestCore(CouchCase):
                 'copies',
                 'path',
                 'machine_id',
-                'partition_id',
+                #'partition_id',
             ])
         )
         self.assertEqual(lstore['ver'], 0)
