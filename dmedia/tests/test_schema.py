@@ -192,7 +192,7 @@ class TestFunctions(TestCase):
         self.assertEqual(f(g), None)
 
         # Test with missing attributes:
-        for key in ['bytes', 'origin', 'stored']:
+        for key in ['_attachments', 'bytes', 'origin', 'stored']:
             bad = deepcopy(good)
             del bad[key]
             with self.assertRaises(ValueError) as cm:

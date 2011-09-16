@@ -754,7 +754,6 @@ def check_file(doc):
     >>> check_file(doc)
 
     """
-    
     # Common schema:
     _check(doc, [], dict)
     _check(doc, ['_id'], None,
