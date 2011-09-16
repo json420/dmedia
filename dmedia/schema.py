@@ -54,8 +54,7 @@ ValueError: doc['type'] does not exist
 
 
 These test functions are used in the dmedia test suite, and 3rd-party apps would
-be well served by doing the same.  Please read on for the rationale of some key
-dmedia schema design decisions...
+be well served by doing the same.
 
 
 
@@ -75,69 +74,6 @@ and will be base32-encoded.  Base32-encoding was chosen because:
 
 At its core, dmedia is a simple layered filesystem, so being able to create a
 filename directly from a document ID is an important design consideration.
-
-
-Random IDs
-----------
-
-Random IDs are 120-bit random numbers, base32-encoded.  They're much like a
-Version 4 (random) UUID, except dmedia random IDs have no reserved bits.  For
-example:
-
->>> random_id()  #doctest: +SKIP
-'NZXXMYLDOV2F6ZTUO5PWM5DX'
-
-
-Intrinsic IDs
--------------
-
-Files in the dmedia library are uniquely identified by their content-hash.
-dmedia *is* a distributed filesystem, but a quite simple one in that it only
-stores intrinsically-named, read-only files.
-
-The content-hash is computed as a hash-list (a 1 deep tree-hash).  Currently
-this is done using the sha1 hash function with an 8 MiB leaf size, but dmedia
-is moving to Skein for the final hashing protocol.
-
-The content-hashes of the individual leaves are stored in the "leaves"
-attachment in the CouchDB document.  This allows for file integrity checks with
-8 MiB granularity, and provides the basis for cryptographically robust swarm
-upload and download.
-
-The base32-encoded sha1 hash is 32-characters long.  For example:
-
->>> from dmedia.filestore import HashList
->>> from dmedia.tests import sample_mov  # Sample .MOV file
->>> src_fp = open(sample_mov, 'rb')
->>> hashlist = HashList(src_fp)
->>> hashlist.run()
-'TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK'
-
-
-After calling `HashList.run()`, the binary digests of the leaf content-hashes
-are available via the ``leaves`` attribute (which is a ``list``):
-
->>> from base64 import b32encode
->>> for d in hashlist.leaves:
-...     print(repr(b32encode(d)))
-...
-'IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3'
-'MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4'
-'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'
-
-
-The overall file content-hash (aka the top-hash) is a hash of the leaf hashes.
-Note that this matches what was returned by `HashList.run()`:
-
->>> from hashlib import sha1
->>> b32encode(sha1(''.join(hashlist.leaves)).digest())
-'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O'
-
-
-In the near future dmedia will very likely migrate to using a 200-bit Skein-512
-hash.  See:
-
-    http://packages.python.org/pyskein/
 
 
 
@@ -310,29 +246,21 @@ When the job is completed, the document is updated like this:
 
 from __future__ import print_function
 
-from os import urandom
-from base64 import b32encode, b32decode, b64encode
+from base64 import b32encode, b64encode
 from hashlib import sha1
 import re
 import time
 import socket
 import platform
 
-from .constants import TYPE_ERROR, EXT_PAT
-#from .udisks import Device
+from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
+from microfiber import random_id
+
+from .constants import EXT_PAT
 
 
-def random_id():
-    """
-    Returns a 120-bit base32-encoded random ID.
+RANDOM_B32LEN = 24
 
-    The ID will be 24-characters long, URL and filesystem safe.  For example:
-
-    >>> random_id()  #doctest: +SKIP
-    'OVRHK3TUOUQCWIDMNFXGC4TP'
-
-    """
-    return b32encode(urandom(15))
 
 
 # Some private helper functions that don't directly define any schema.
@@ -465,7 +393,7 @@ def _isinstance(value, label, *allowed):
     >>> _isinstance('18', "doc['bytes']", int)
     Traceback (most recent call last):
       ...
-    TypeError: doc['bytes']: need a <type 'int'>; got a <type 'str'>: '18'
+    TypeError: doc['bytes']: need a <class 'int'>; got a <class 'str'>: '18'
 
     """
     for a in allowed:
@@ -520,7 +448,8 @@ def _check(doc, path, allowed, *checks):
     """
     value = _value(doc, path)
     label = _label(path)
-    _isinstance(value, label, allowed)
+    if not (allowed is None or isinstance(value, allowed)):
+        raise TypeError(TYPE_ERROR.format(label, allowed, type(value), value))
     if value is None:
         return
     for c in checks:
@@ -542,7 +471,7 @@ def _check_if_exists(doc, path, allowed, *checks):
     >>> _check_if_exists(doc, ['name'], str)
     Traceback (most recent call last):
       ...
-    TypeError: doc['name']: need a <type 'str'>; got a <type 'int'>: 17
+    TypeError: doc['name']: need a <class 'str'>; got a <class 'int'>: 17
 
 
     See also `_check()` and `_exists()`.
@@ -658,79 +587,81 @@ def _equals(value, label, expected):
         )
 
 
-def _base32(value, label):
+def _any_id(value, label):
     """
-    Verify that *value* is a valid base32 encoded document ID.
-
-    Document IDs must:
-
-        1. be valid base32 encoding
-
-        2. decode to data that is a multiple of 5-bytes (40-bits ) in length
-
-    For example, invalid encoding:
-
-    >>> _base32('MZZG2ZDS0QVSW2TEMVZG643F', "doc['_id']")
-    Traceback (most recent call last):
-      ...
-    ValueError: doc['_id']: Non-base32 digit found: 'MZZG2ZDS0QVSW2TEMVZG643F'
-
-    And an invalid value:
-
-    >>> _base32('MFQWCYLBMFQWCYI=', "doc['_id']")
-    Traceback (most recent call last):
-      ...
-    ValueError: len(b32decode(doc['_id'])) not multiple of 5: 'MFQWCYLBMFQWCYI='
-
+    Verify that *value* is a base32-encoded ID.
     """
-    try:
-        decoded = b32decode(value)
-    except TypeError as e:
-        raise ValueError(
-            '{}: {}: {!r}'.format(label, e, value)
+    if not isinstance(value, str):
+        raise TypeError(
+            TYPE_ERROR.format(label, str, type(value), value)
         )
-    if len(decoded) % 5 != 0:
+    if len(value) % 8 != 0:
         raise ValueError(
-            'len(b32decode({})) not multiple of 5: {!r}'.format(label, value)
+            '{}: length of ID ({}) not multiple of 8: {!r}'.format(
+                    label, len(value), value)
+        )
+    if not set(value).issubset(B32ALPHABET):
+        raise ValueError(
+            '{}: ID not subset of B32ALPHABET: {!r}'.format(
+                    label, value)
         )
 
 
 def _random_id(value, label):
     """
-    Verify that *value* is a 120-bit base32 encoded random ID.
+    Verify that *value* is a 120-bit base32-encoded random ID.
 
-    For example:
+    For example, the number ``'1'`` is not a valid base32 character:
 
-    >>> _random_id('EIJ5EVPOJSO5ZBDY', "doc['_id']")
+    >>> _random_id('1OTXJHVEXTKNXZHCMHDVF276', "doc['_id']")
     Traceback (most recent call last):
       ...
-    ValueError: doc['_id']: random ID must be 24 characters; got 'EIJ5EVPOJSO5ZBDY'
+    ValueError: doc['_id']: random ID not subset of B32ALPHABET: '1OTXJHVEXTKNXZHCMHDVF276'
 
     """
-    _base32(value, label)
-    if len(value) != 24:
+    if not isinstance(value, str):
+        raise TypeError(
+            TYPE_ERROR.format(label, str, type(value), value)
+        )
+    if len(value) != RANDOM_B32LEN:
         raise ValueError(
-            '{}: random ID must be 24 characters; got {!r}'.format(label, value)
+            '{}: random ID must be {} characters, got {}: {!r}'.format(
+                    label, RANDOM_B32LEN, len(value), value)
+        )
+    if not set(value).issubset(B32ALPHABET):
+        raise ValueError(
+            '{}: random ID not subset of B32ALPHABET: {!r}'.format(
+                    label, value)
         )
 
 
-def _content_id(value, label):
+def _intrinsic_id(value, label):
     """
-    Verify that *value* is a 160-bit base32 encoded content hash.
+    Verify that *value* is a 240-bit base32-encoded intrinsic ID.
 
     For example:
 
-    >>> _content_id('EIJ5EVPOJSO5ZBDY', "doc['_id']")
+    >>> _intrinsic_id('QE7POGENSF67FGKN2TD3FH4E', "doc['_id']")
     Traceback (most recent call last):
       ...
-    ValueError: doc['_id']: content ID must be 32 characters; got 'EIJ5EVPOJSO5ZBDY'
+    ValueError: doc['_id']: intrinsic ID must be 48 characters, got 24: 'QE7POGENSF67FGKN2TD3FH4E'
 
     """
-    _base32(value, label)
-    if len(value) != 32:
-        raise ValueError(
-            '{}: content ID must be 32 characters; got {!r}'.format(label, value)
+    if not isinstance(value, str):
+        raise TypeError(
+            TYPE_ERROR.format(label, str, type(value), value)
         )
+    if len(value) != DIGEST_B32LEN:
+        raise ValueError(
+            '{}: intrinsic ID must be {} characters, got {}: {!r}'.format(
+                    label, DIGEST_B32LEN, len(value), value)
+        )
+    if not set(value).issubset(B32ALPHABET):
+        raise ValueError(
+            '{}: intrinsic ID not subset of B32ALPHABET: {!r}'.format(
+                    label, value)
+        )
+
 
 def _drive_id(drive):
     """
@@ -796,15 +727,15 @@ def check_dmedia(doc):
     """
     _check(doc, [], dict)
 
-    _check(doc, ['_id'], basestring,
-        _base32,
+    _check(doc, ['_id'], None,
+        _any_id,
     )
 
     _check(doc, ['ver'], int,
         (_equals, 0),
     )
 
-    _check(doc, ['type'], basestring,
+    _check(doc, ['type'], str,
         (_matches, 'dmedia/[a-z]+$'),
     )
 
@@ -864,24 +795,19 @@ def check_file(doc):
     """
     check_dmedia(doc)
 
-    _check(doc, ['type'], basestring,
+    _check(doc, ['type'], str,
         (_equals, 'dmedia/file'),
     )
 
-    try:
-        _check(doc, ['bytes'], int,
-            (_at_least, 1),
-        )
-    except TypeError:
-        _check(doc, ['bytes'], long,
-            (_at_least, 1),
-        )
+    _check(doc, ['bytes'], int,
+        (_at_least, 1),
+    )
 
-    _check(doc, ['ext'], (type(None), basestring),
+    _check(doc, ['ext'], (type(None), str),
         (_matches, EXT_PAT),
     )
 
-    _check(doc, ['origin'], basestring,
+    _check(doc, ['origin'], str,
         _lowercase,
         (_is_in, 'user', 'download', 'paid', 'proxy', 'cache', 'render'),
     )
@@ -900,7 +826,7 @@ def check_file(doc):
         _check_if_exists(doc, ['stored', store, 'verified'], (int, float),
             (_at_least, 0),
         )
-        _check_if_exists(doc, ['stored', store, 'status'], basestring,
+        _check_if_exists(doc, ['stored', store, 'status'], str,
             (_is_in, 'partial', 'corrupt'),
         )
         _check_if_exists(doc, ['stored', store, 'corrupted'], (int, float),
@@ -913,15 +839,15 @@ def check_file(doc):
 def check_file_optional(doc):
 
     # 'content_type' like 'video/quicktime'
-    _check_if_exists(doc, ['content_type'], basestring)
+    _check_if_exists(doc, ['content_type'], str)
 
     # 'content_encoding' like 'gzip'
-    _check_if_exists(doc, ['content_encoding'], basestring,
+    _check_if_exists(doc, ['content_encoding'], str,
         (_is_in, 'gzip', 'deflate'),
     )
 
     # 'media' like 'video'
-    _check_if_exists(doc, ['media'], basestring,
+    _check_if_exists(doc, ['media'], str,
         (_is_in, 'video', 'audio', 'image'),
     )
 
@@ -936,11 +862,11 @@ def check_file_optional(doc):
     )
 
     # name like 'MVI_5899.MOV'
-    _check_if_exists(doc, ['name'], basestring)
+    _check_if_exists(doc, ['name'], str)
 
     # dir like 'DCIM/100EOS5D2'
     # FIXME: Should save this as a list so path is portable
-    _check_if_exists(doc, ['dir'], basestring)
+    _check_if_exists(doc, ['dir'], str)
 
     # 'meta' like {'iso': 800}
     _check_if_exists(doc, ['meta'], dict)
@@ -998,7 +924,7 @@ def check_store(doc):
     """
     check_dmedia(doc)
 
-    _check(doc, ['plugin'], basestring,
+    _check(doc, ['plugin'], str,
         (_is_in, 'filestore', 'removable_filestore', 'ubuntuone', 's3'),
     )
 
@@ -1020,7 +946,7 @@ def check_partition(doc):
 
         3. have 'uuid', 'fs', 'drive_id' as ``str`` strings.
 
-        4. have 'label', 'partition_label' as ``unicode`` strings.
+        4. have 'label', 'partition_label' as ``str`` strings.
 
         5. have 'size' as an ``int`` or ``long``.
 
@@ -1036,8 +962,8 @@ def check_partition(doc):
         ...     'size': 1073741824,
         ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
         ...     'fs': 'ext4',
-        ...     'label': u'Data',
-        ...     'partition_label': u'',
+        ...     'label': 'Data',
+        ...     'partition_label': '',
         ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
         ... }
         ...
@@ -1053,8 +979,8 @@ def check_partition(doc):
         ...     'time': 1234567890,
         ...     'size': 1073741824,
         ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
-        ...     'label': u'Data',
-        ...     'partition_label': u'',
+        ...     'label': 'Data',
+        ...     'partition_label': '',
         ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
         ... }
         ...
@@ -1069,14 +995,14 @@ def check_partition(doc):
     _check_types(
         doc,
         (['uuid'], str),
-        (['size'], int, long),
-        (['label'], unicode),
-        (['partition_label'], unicode),
+        (['size'], int),
+        (['label'], str),
+        (['partition_label'], str),
         (['fs'], str),
         (['drive_id'], str)
     )
 
-    _base32(doc['drive_id'], _label('drive_id'))
+    _any_id(doc['drive_id'], _label('drive_id'))
 
 
 def check_drive(doc):
@@ -1092,7 +1018,7 @@ def check_drive(doc):
 
         3. have 'serial', 'wwn', 'revision' as ``str`` strings.
 
-        4. have 'vendor', 'model' as ``unicode`` strings.
+        4. have 'vendor', 'model' as ``str`` strings.
 
         For example, a conforming value:
 
@@ -1104,8 +1030,8 @@ def check_drive(doc):
         ...     'serial': 'A0000001B900',
         ...     'wwn': '50014ee0016eb572',
         ...     'revision': '1.95',
-        ...     'vendor': u'Canon',
-        ...     'model': u'EOS 7D'
+        ...     'vendor': 'Canon',
+        ...     'model': 'EOS 7D'
         ... }
         ...
         >>> check_drive(doc)
@@ -1121,7 +1047,7 @@ def check_drive(doc):
         ...     'serial': 'A0000001B900',
         ...     'wwn': '50014ee0016eb572',
         ...     'revision': '1.95',
-        ...     'vendor': u'Canon'
+        ...     'vendor': 'Canon'
         ... }
         ...
         >>> check_drive(doc)
@@ -1136,8 +1062,8 @@ def check_drive(doc):
         doc,
         (['serial'], str),
         (['wwn'], str),
-        (['vendor'], unicode),
-        (['model'], unicode),
+        (['vendor'], str),
+        (['model'], str),
         (['revision'], str)
     )
 
@@ -1300,8 +1226,8 @@ def create_partition(base):
         'time': time.time(),
         'uuid': uuid,
         'size': int(p['DeviceSize']),
-        'label': unicode(p['IdLabel']),
-        'partition_label': unicode(p['PartitionLabel']),
+        'label': str(p['IdLabel']),
+        'partition_label': str(p['PartitionLabel']),
         'fs': str(p['IdType']),
         'drive_id': _drive_id(d)
     }
@@ -1320,7 +1246,7 @@ def create_drive(base):
         'time': time.time(),
         'serial': str(d['DriveSerial']),
         'wwn': str(d['DriveWwn']),
-        'vendor': unicode(d['DriveVendor']),
-        'model': unicode(d['DriveModel']),
+        'vendor': str(d['DriveVendor']),
+        'model': str(d['DriveModel']),
         'revision': str(d['DriveRevision'])
     }

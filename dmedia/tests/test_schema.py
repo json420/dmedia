@@ -28,21 +28,16 @@ from unittest import TestCase
 from base64 import b32encode, b32decode, b64encode
 from copy import deepcopy
 import time
+
+from filestore import TYPE_ERROR
+
 from .helpers import raises, TempDir, mov_hash, mov_leaves, mov_size
-from dmedia.constants import TYPE_ERROR
+
 from dmedia.schema import random_id
 from dmedia import schema
 
 
 class TestFunctions(TestCase):
-    def test_random_id(self):
-        f = schema.random_id
-        _id = f()
-        self.assertEqual(len(_id), 24)
-        binary = b32decode(_id)
-        self.assertEqual(len(binary), 15)
-        self.assertEqual(b32encode(binary), _id)
-
     def test_check_dmedia(self):
         f = schema.check_dmedia
 
@@ -55,7 +50,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ('doc', dict, list, bad)
+            TYPE_ERROR.format('doc', dict, list, bad)
         )
 
         good = {
@@ -75,7 +70,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['_id']", basestring, int, 17)
+            TYPE_ERROR.format("doc['_id']", str, int, 17)
         )
 
         # Check with invalid "_id" base32-encoding:
@@ -85,17 +80,17 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['_id']: Non-base32 digit found: 'MZZG2ZDS0QVSW2TEMVZG643F'"
+            "doc['_id']: ID not subset of B32ALPHABET: 'MZZG2ZDS0QVSW2TEMVZG643F'"
         )
 
         # Check with bad "_id" length:
         bad = deepcopy(good)
-        bad['_id'] = '2HOFUVDSAYHM74JKVKP4AKQ='
+        bad['_id'] = '2HOFUVDSAYHM74JKVKP4AKQ'
         with self.assertRaises(ValueError) as cm:
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "len(b32decode(doc['_id'])) not multiple of 5: '2HOFUVDSAYHM74JKVKP4AKQ='"
+            "doc['_id']: length of ID (23) not multiple of 8: '2HOFUVDSAYHM74JKVKP4AKQ'"
         )
 
         # Check with bad "ver" type:
@@ -105,7 +100,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['ver']", int, float, 0.0)
+            TYPE_ERROR.format("doc['ver']", int, float, 0.0)
         )
 
         # Check with bad "ver" value
@@ -124,7 +119,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['type']", basestring, int, 18)
+            TYPE_ERROR.format("doc['type']", str, int, 18)
         )
 
         # Check with bad "type" value
@@ -144,7 +139,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['time']", (int, float), str, '1234567890')
+            TYPE_ERROR.format("doc['time']", (int, float), str, '1234567890')
         )
 
         # Check with bad "time" value
@@ -219,12 +214,12 @@ class TestFunctions(TestCase):
         try:
             self.assertEqual(
                 str(cm.exception),
-                TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
+                TYPE_ERROR.format("doc['bytes']", int, float, bad['bytes'])
             )
         except:
             self.assertEqual(
                 str(cm.exception),
-                TYPE_ERROR % ("doc['bytes']", long, float, bad['bytes'])
+                TYPE_ERROR.formtat("doc['bytes']", long, float, bad['bytes'])
             )
 
         # Test with bytes == 0:
@@ -363,7 +358,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'content_type': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['content_type']", basestring, int, 42)
+            TYPE_ERROR.format("doc['content_type']", str, int, 42)
         )
 
         # content_encoding
@@ -372,7 +367,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'content_encoding': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['content_encoding']", basestring, int, 42)
+            TYPE_ERROR.format("doc['content_encoding']", str, int, 42)
         )
         e = raises(ValueError, f, {'content_encoding': 'stuff'})
         self.assertEqual(
@@ -387,7 +382,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'media': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['media']", basestring, int, 42)
+            TYPE_ERROR.format("doc['media']", str, int, 42)
         )
         e = raises(ValueError, f, {'media': 'stuff'})
         self.assertEqual(
@@ -401,7 +396,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'mtime': '1234567890'})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['mtime']", (int, float), str, '1234567890')
+            TYPE_ERROR.format("doc['mtime']", (int, float), str, '1234567890')
         )
         e = raises(ValueError, f, {'mtime': -1})
         self.assertEqual(
@@ -415,7 +410,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'atime': '1234567890'})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['atime']", (int, float), str, '1234567890')
+            TYPE_ERROR.format("doc['atime']", (int, float), str, '1234567890')
         )
         e = raises(ValueError, f, {'atime': -0.3})
         self.assertEqual(
@@ -428,7 +423,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'name': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['name']", basestring, int, 42)
+            TYPE_ERROR.format("doc['name']", str, int, 42)
         )
 
         # dir
@@ -436,7 +431,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'dir': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['dir']", basestring, int, 42)
+            TYPE_ERROR.format("doc['dir']", str, int, 42)
         )
 
         # meta
@@ -444,7 +439,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'meta': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['meta']", dict, int, 42)
+            TYPE_ERROR.format("doc['meta']", dict, int, 42)
         )
 
         # user
@@ -452,7 +447,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'user': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['user']", dict, int, 42)
+            TYPE_ERROR.format("doc['user']", dict, int, 42)
         )
 
         # tags
@@ -460,7 +455,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, {'tags': 42})
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['tags']", dict, int, 42)
+            TYPE_ERROR.format("doc['tags']", dict, int, 42)
         )
 
     def test_check_store(self):
@@ -494,7 +489,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, bad)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['plugin']", basestring, int, 18)
+            TYPE_ERROR.format("doc['plugin']", str, int, 18)
         )
         bad = deepcopy(good)
         bad['plugin'] = 'foo'
@@ -511,7 +506,7 @@ class TestFunctions(TestCase):
         e = raises(TypeError, f, bad)
         self.assertEqual(
             str(e),
-            TYPE_ERROR % ("doc['copies']", int, float, 2.0)
+            TYPE_ERROR.format("doc['copies']", int, float, 2.0)
         )
         bad = deepcopy(good)
         bad['copies'] = 0
@@ -653,7 +648,6 @@ class TestFunctions(TestCase):
             ])
         )
         _id = doc['_id']
-        self.assertEqual(b32encode(b32decode(_id)), _id)
         self.assertEqual(len(_id), 24)
         self.assertEqual(doc['type'], 'dmedia/batch')
         self.assertTrue(isinstance(doc['time'], (int, float)))
@@ -699,7 +693,6 @@ class TestFunctions(TestCase):
         self.assertEqual(set(doc), keys)
 
         _id = doc['_id']
-        self.assertEqual(b32encode(b32decode(_id)), _id)
         self.assertEqual(len(_id), 24)
 
         self.assertEqual(doc['type'], 'dmedia/import')

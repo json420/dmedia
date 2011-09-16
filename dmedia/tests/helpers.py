@@ -36,19 +36,19 @@ from . import sample_mov, sample_thm
 mov_hash = 'TGX33XXWU3EVHEEY5J7NBOJGKBFXLEBK'
 mov_size = 20202333
 mov_leaves = [
-    b32decode('IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3'),
-    b32decode('MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4'),
-    b32decode('FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'),
+    b32decode(b'IXJTSUCYYFECGSG6JIB2R77CAJVJK4W3'),
+    b32decode(b'MA3IAHUOKXR4TRG7CWAPOO7U4WCV5WJ4'),
+    b32decode(b'FHF7KDMAGNYOVNYSYT6ZYWQLUOCTUADI'),
 ]
 mov_att = {
-    'data': b64encode(''.join(mov_leaves)),
+    'data': b64encode(b''.join(mov_leaves)),
     'content_type': 'application/octet-stream',
 }
 
 mov_qid = 'GJ4AQP3BK3DMTXYOLKDK6CW4QIJJGVMN'
 
 thm_hash = 'GKZMOPVZILR43MZCXLVYP7T62XGBT7BQ'
-thm_leaves = [b32decode('F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')]
+thm_leaves = [b32decode(b'F6ATTKI6YVWVRBQQESAZ4DSUXQ4G457A')]
 thm_qid = 'EYCDXXCNDB6OIIX5DN74J7KEXLNCQD5M'
 
 
@@ -64,28 +64,25 @@ def prep_import_source(tmp):
     return (src1, src2, dup1)
 
 
-class ExceptionNotRaised(StandardError):
+class ExceptionNotRaised(Exception):
     """
     Raised when an expected exception is not raised.
     """
 
     def __init__(self, expected):
         self.expected = expected
-        StandardError.__init__(self, 'expected %s' % expected.__name__)
+        Exception.__init__(self, 'expected %s' % expected.__name__)
 
 
 def raises(exception, callback, *args, **kw):
     """
     Test that ``exception`` is raised when ``callback`` is called.
     """
-    raised = False
     try:
         callback(*args, **kw)
-    except exception, e:
-        raised = True
-    if not raised:
-        raise ExceptionNotRaised(exception)
-    return e
+    except exception as e:
+        return e
+    raise ExceptionNotRaised(exception)
 
 
 class TempDir(object):
