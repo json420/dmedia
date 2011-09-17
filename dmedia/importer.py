@@ -44,7 +44,6 @@ from .workers import (
 )
 from .filestore import FileStore, quick_id, safe_open, safe_ext, pack_leaves
 from .extractor import merge_metadata
-from .udisks import Device
 
 mimetypes.init()
 DOTDIR = '.dmedia'
@@ -209,23 +208,23 @@ class ImportWorker(CouchWorker):
         Create the initial 'dmedia/import' record, return that record's ID.
         """
         assert self._id is None
-        drive = create_drive(self.base)
-        partition = create_partition(self.base)
+        #drive = create_drive(self.base)
+        #partition = create_partition(self.base)
         self.doc = create_import(self.base,
-            partition['_id'],
+            None, #partition['_id'],
             batch_id=self.env.get('batch_id'),
             machine_id=self.env.get('machine_id'),
         )
         self._id = self.doc['_id']
         self.save()
-        try:
-            self.db.save(drive)
-        except microfiber.Conflict:
-            pass
-        try:
-            self.db.save(partition)
-        except microfiber.Conflict:
-            pass
+        #try:
+        #    self.db.save(drive)
+        #except microfiber.Conflict:
+        #    pass
+        #try:
+        #    self.db.save(partition)
+        #except microfiber.Conflict:
+        #    pass
         return self._id
 
     def scanfiles(self):

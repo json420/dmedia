@@ -28,6 +28,7 @@ Install `dmedia`
 
 import os
 from os import path
+import stat
 from distutils.core import setup
 from distutils.cmd import Command
 from unittest import TestLoader, TextTestRunner, TestSuite
@@ -42,30 +43,31 @@ def pynames_iter(pkdir, pkname=None):
     """
     Recursively yield dotted names for *.py files in directory *pydir*.
     """
-    try:
-        names = sorted(os.listdir(pkdir))
-    except StandardError:
-        return
     if not path.isfile(path.join(pkdir, '__init__.py')):
         return
     if pkname is None:
         pkname = path.basename(pkdir)
     yield pkname
-    for name in names:
+    dirs = []
+    for name in sorted(os.listdir(pkdir)):
         if name == '__init__.py':
             continue
         if name.startswith('.') or name.endswith('~'):
             continue
         fullname = path.join(pkdir, name)
-        if path.islink(fullname):
-            continue
-        if path.isfile(fullname) and name.endswith('.py'):
+        st = os.lstat(fullname)
+        if stat.S_ISREG(st.st_mode) and name.endswith('.py'):
             parts = name.split('.')
             if len(parts) == 2:
                 yield '.'.join([pkname, parts[0]])
-        elif path.isdir(fullname):
-            for n in pynames_iter(fullname, '.'.join([pkname, name])):
-                yield n
+        elif stat.S_ISDIR(st.st_mode):
+            dirs.append((fullname, name))
+    for (fullname, name) in dirs:
+        subpkname = '.'.join([pkname, name])
+        if subpkname != 'dmedia.tests':  # FIXME: Remove after core refactor
+            continue
+        for n in pynames_iter(fullname, subpkname):
+            yield n
 
 
 class Test(Command):
@@ -127,55 +129,59 @@ setup(
     license='AGPLv3+',
     cmdclass={'test': Test},
 
-    scripts=[
-        'dmedia-cli',
-        'dmedia-import',
-        'dmedia-gtk',
-    ],
-    packages=[
-        'dmedia',
-        'dmedia.backends',
-        'dmedia.service',
-        'dmedia.webui',
-        'dmedia.gtkui',
-    ],
-    package_data={
-        'dmedia.webui': ['data/*']
-    },
-    data_files=[
-        ('share/man/man1',
-            ['share/dmedia-cli.1']
-        ),
-        ('share/applications',
-            ['share/dmedia-import.desktop']
-        ),
-        ('share/pixmaps',
-            ['share/dmedia.svg']
-        ),
-        ('share/pixmaps/dmedia',
-            [
-                'share/indicator-rendermenu.svg',
-                'share/indicator-rendermenu-att.svg',
-            ]
-        ),
-        ('share/icons/hicolor/scalable/status',
-            [
-                'share/indicator-rendermenu.svg',
-                'share/indicator-rendermenu-att.svg',
-            ]
-        ),
-        ('share/dbus-1/services',
-            [
-                'share/org.freedesktop.DMedia.service',
-                'share/org.freedesktop.DMediaImporter.service',
-            ]
-        ),
-        ('lib/dmedia',
-            [
-                'dmedia-service',
-                'dmedia-importer-service',
-                'dummy-client',
-            ]
-        ),
-    ],
+
+    # FIXME: Change after the core refactor is done
+    packages=['dmedia'],
+
+#    scripts=[
+#        'dmedia-cli',
+#        'dmedia-import',
+#        'dmedia-gtk',
+#    ],
+#    packages=[
+#        'dmedia',
+#        'dmedia.backends',
+#        'dmedia.service',
+#        'dmedia.webui',
+#        'dmedia.gtkui',
+#    ],
+#    package_data={
+#        'dmedia.webui': ['data/*']
+#    },
+#    data_files=[
+#        ('share/man/man1',
+#            ['share/dmedia-cli.1']
+#        ),
+#        ('share/applications',
+#            ['share/dmedia-import.desktop']
+#        ),
+#        ('share/pixmaps',
+#            ['share/dmedia.svg']
+#        ),
+#        ('share/pixmaps/dmedia',
+#            [
+#                'share/indicator-rendermenu.svg',
+#                'share/indicator-rendermenu-att.svg',
+#            ]
+#        ),
+#        ('share/icons/hicolor/scalable/status',
+#            [
+#                'share/indicator-rendermenu.svg',
+#                'share/indicator-rendermenu-att.svg',
+#            ]
+#        ),
+#        ('share/dbus-1/services',
+#            [
+#                'share/org.freedesktop.DMedia.service',
+#                'share/org.freedesktop.DMediaImporter.service',
+#            ]
+#        ),
+#        ('lib/dmedia',
+#            [
+#                'dmedia-service',
+#                'dmedia-importer-service',
+#                'dummy-client',
+#            ]
+#        ),
+#    ],
 )

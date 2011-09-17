@@ -32,6 +32,7 @@ from .filestore import FileStore
 
 
 log = logging.getLogger()
+GObject.threads_init()
 Gst.init(None)
 
 

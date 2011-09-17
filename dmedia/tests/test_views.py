@@ -25,8 +25,9 @@ Unit tests for `dmedia.views` module.
 
 from unittest import TestCase
 
-from dmedia.abstractcouch import get_db
 from dmedia import views
+
+from microfiber import Database
 
 from .couch import CouchCase
 
@@ -58,7 +59,8 @@ class test_functions(TestCase):
 class TestCouchFunctions(CouchCase):
     def test_update_design_doc(self):
         f = views.update_design_doc
-        db = get_db(self.env)
+        db = Database('dmedia', self.env)
+        db.put(None)
 
         # Test when design doesn't exist:
         doc = views.build_design_doc('user',
@@ -89,7 +91,9 @@ class TestCouchFunctions(CouchCase):
         self.assertTrue(db.get('_design/user')['_rev'].startswith('2-'))
 
     def test_init_views(self):
-        db = get_db(self.env)
+        db = Database('dmedia', self.env)
+        db.put(None)
+
         views.init_views(db)
         for (name, views_) in views.designs:
             doc = views.build_design_doc(name, views_)

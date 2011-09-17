@@ -310,7 +310,7 @@ When the job is completed, the document is updated like this:
 
 from __future__ import print_function
 
-from os import urandom, makedirs
+from os import urandom
 from base64 import b32encode, b32decode, b64encode
 from hashlib import sha1
 import re
@@ -319,7 +319,7 @@ import socket
 import platform
 
 from .constants import TYPE_ERROR, EXT_PAT
-from .udisks import Device
+#from .udisks import Device
 
 
 def random_id():
@@ -1198,12 +1198,15 @@ def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' document.
     """
-    try:
-        makedirs(parentdir)
-    except:
-        pass
-    p = Device(path=parentdir)
-    uuid = str(p['IdUuid'])
+    # FIXME: We're going to have have the drive and partition information passed
+    # to schema.py "from the outside" as to abstract whether the info comes from
+    # udisks or the equivalent on other platforms.
+    #try:
+    #    makedirs(parentdir)
+    #except:
+    #    pass
+    #p = Device(path=parentdir)
+    #uuid = str(p['IdUuid'])
     return {
         '_id': random_id(),
         'ver': 0,
@@ -1213,7 +1216,7 @@ def create_store(parentdir, machine_id, copies=1):
         'copies': copies,
         'path': parentdir,
         'machine_id': machine_id,
-        'partition_id': b32encode(sha1(uuid).digest())
+        #'partition_id': b32encode(sha1(uuid).digest())
     }
 
 
