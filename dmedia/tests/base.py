@@ -26,6 +26,10 @@ Usefull TestCase subclasses.
 from unittest import TestCase
 from os import path
 from base64 import b64decode
+import os
+from os import path
+import tempfile
+import shutil
 
 from filestore import ContentHash
 
@@ -44,7 +48,6 @@ class SampleFilesTestCase(TestCase):
 
     mov = path.join(datadir, 'MVI_5751.MOV')
     thm = path.join(datadir, 'MVI_5751.THM')
-
     mov_ch = ContentHash(
         'YGDV257NS4727MLMM52YPRFME7YWIUEFDZC6XMRKMBMDQ2DV',
         20202333,
@@ -54,16 +57,55 @@ class SampleFilesTestCase(TestCase):
             b'/J1zUUpuAQCIQF92Q2WM5iblkiM4wKEEhnq3CJsO'
         ]))
     )
-
     thm_ch = ContentHash(
         'TZE6TOCGTZSNXFANERWF2VH2GMV6REUSBKPHOLJCVHDS6UF6',
         27328,
         b64decode(b'Hme1V45dR/uBMSKsa9GZuHkwYfwzBPELDNma35VN'),   
     )
 
-
     def setUp(self):
         for filename in (self.mov, self.thm):
             if not path.isfile(filename):
                 self.skipTest('Missing file {!r}'.format(filename))
+
+
+class TempDir(object):
+    def __init__(self):
+        self.dir = tempfile.mkdtemp(prefix='unittest.')
+
+    def __del__(self):
+        self.rmtree()
+
+    def rmtree(self):
+        if self.dir is not None:
+            shutil.rmtree(self.dir)
+            self.dir = None
+
+    def join(self, *parts):
+        return path.join(self.dir, *parts)
+
+    def makedirs(self, *parts):
+        d = self.join(*parts)
+        if not path.exists(d):
+            os.makedirs(d)
+        assert path.isdir(d), d
+        return d
+
+    def touch(self, *parts):
+        self.makedirs(*parts[:-1])
+        f = self.join(*parts)
+        open(f, 'wb').close()
+        return f
+
+    def write(self, data, *parts):
+        self.makedirs(*parts[:-1])
+        f = self.join(*parts)
+        open(f, 'wb').write(data)
+        return f
+
+    def copy(self, src, *parts):
+        self.makedirs(*parts[:-1])
+        dst = self.join(*parts)
+        shutil.copy(src, dst)
+        return dst
 
