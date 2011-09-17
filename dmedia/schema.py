@@ -1050,9 +1050,6 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
-    ts = time.time()
-    for value in stored.values():
-        value['time'] = ts
     return {
         '_id': _id,
         '_attachments': {
@@ -1063,7 +1060,7 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
         },
         'ver': 0,
         'type': 'dmedia/file',
-        'time': ts,
+        'time': time.time(),
         'bytes': file_size,
         'origin': origin,
         'stored': stored,

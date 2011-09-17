@@ -30,11 +30,14 @@ import os
 from os import path
 import tempfile
 import shutil
+from random import SystemRandom
 
-from filestore import ContentHash
+from filestore import File, Leaf, ContentHash, Batch, Hasher, LEAF_SIZE
+from microfiber import random_id
 
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
+random = SystemRandom()
 
 
 class SampleFilesTestCase(TestCase):
@@ -67,6 +70,34 @@ class SampleFilesTestCase(TestCase):
         for filename in (self.mov, self.thm):
             if not path.isfile(filename):
                 self.skipTest('Missing file {!r}'.format(filename))
+
+
+def random_leaves(file_size):
+    index = 0
+    for full in range(file_size // LEAF_SIZE):
+        data = os.urandom(16) * (LEAF_SIZE // 16)
+        yield Leaf(index, data)
+        index += 1
+    partial = file_size % LEAF_SIZE
+    if partial:
+        data = os.urandom(1) * partial
+        yield Leaf(index, data)
+
+
+def random_file(tmpdir, max_size):
+    filename = path.join(tmpdir, random_id())
+    file_size = random.randint(1, max_size)
+    dst_fp = open(filename, 'wb')
+    h = Hasher()
+    for leaf in random_leaves(file_size):
+        print(leaf.index)
+        h.hash_leaf(leaf)
+        dst_fp.write(leaf.data)
+    dst_fp.close()
+    st = os.stat(filename)
+    file = File(filename, st.st_size, st.st_mtime)
+    assert file.size == file_size
+    return (file, h.content_hash())
 
 
 class TempDir(object):
@@ -108,4 +139,14 @@ class TempDir(object):
         dst = self.join(*parts)
         shutil.copy(src, dst)
         return dst
+
+    def random_batch(self, count, max_size=LEAF_SIZE*4):
+        result = list(self.random_file(max_size) for i in range(count))
+        result.sort(key=lambda tup: tup[0].name)
+        files = tuple(file for (file, ch) in result)
+        batch = Batch(files, sum(f.size for f in files), len(files))
+        return (batch, result)
+
+    def random_file(self, max_size=LEAF_SIZE*4):
+        return random_file(self.dir, max_size)
 
