@@ -90,7 +90,6 @@ def random_file(tmpdir, max_size):
     dst_fp = open(filename, 'wb')
     h = Hasher()
     for leaf in random_leaves(file_size):
-        print(leaf.index)
         h.hash_leaf(leaf)
         dst_fp.write(leaf.data)
     dst_fp.close()

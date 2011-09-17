@@ -1145,7 +1145,7 @@ def create_batch(machine_id=None):
     }
 
 
-def create_import(base, partition_id, batch_id=None, machine_id=None):
+def create_import(srcdir, machine_id=None, batch_id=None):
     """
     Create initial 'dmedia/import' accounting document.
     """
@@ -1154,22 +1154,21 @@ def create_import(base, partition_id, batch_id=None, machine_id=None):
         'ver': 0,
         'type': 'dmedia/import',
         'time': time.time(),
-        'batch_id': batch_id,
         'machine_id': machine_id,
-        'partition_id': partition_id,
-        'base': base,
+        'batch_id': batch_id,
+        'srcdir': srcdir,
         'log': {
-            'imported': [],
-            'skipped': [],
+            'all': [],
+            'duplicate': [],
             'empty': [],
-            'error': [],
+            'new': [],
         },
         'stats': {
-            'imported': {'count': 0, 'bytes': 0},
-            'skipped': {'count': 0, 'bytes': 0},
+            'all': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 0, 'bytes': 0},
             'empty': {'count': 0, 'bytes': 0},
-            'error': {'count': 0, 'bytes': 0},
-        }
+            'new': {'count': 0, 'bytes': 0},
+        },
     }
 
 

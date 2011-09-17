@@ -38,8 +38,6 @@ from copy import deepcopy
 import microfiber
 from microfiber import random_id
 
-from .helpers import TempHome
-
 
 SOCKET_OPTIONS = '[{recbuf, 262144}, {sndbuf, 262144}, {nodelay, true}]'
 
@@ -241,13 +239,11 @@ class CouchCase(TestCase):
     def setUp(self):
         self.tmpcouch = TempCouch()
         self.env = self.tmpcouch.bootstrap()
-        self.home = TempHome()
         self.machine_id = random_id()
         self.env['machine_id'] = self.machine_id
-        self.env['filestore'] = {'_id': random_id(), 'path': self.home.path}
 
     def tearDown(self):
         self.tmpcouch.kill()
         self.tmpcouch = None
-        self.home = None
         self.env = None
+        self.machine_id = None
