@@ -64,6 +64,7 @@ class TestImportWorker(CouchCase):
         super().tearDown()
         self.q = None
         self.src = None
+        self.dst = None
 
     def test_random_batch(self):
         key = self.src.dir
