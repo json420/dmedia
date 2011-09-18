@@ -1157,12 +1157,8 @@ def create_import(srcdir, machine_id=None, batch_id=None):
         'machine_id': machine_id,
         'batch_id': batch_id,
         'srcdir': srcdir,
-        'log': {
-            'all': [],
-            'duplicate': [],
-            'empty': [],
-            'new': [],
-        },
+        'files_found': [],
+        'files_processed': {},
         'stats': {
             'all': {'count': 0, 'bytes': 0},
             'duplicate': {'count': 0, 'bytes': 0},

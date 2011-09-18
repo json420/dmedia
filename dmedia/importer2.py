@@ -58,7 +58,7 @@ class ImportWorker(CouchWorker):
             'count': self.batch.count,
         }
         self.doc['stats']['all'] = stats
-        self.doc['log']['all'] = [
+        self.doc['files_found'] = [
             {'src': file.name, 'bytes': file.size, 'mtime': file.mtime}
             for file in self.batch.files
         ]
