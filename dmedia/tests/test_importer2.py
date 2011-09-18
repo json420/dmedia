@@ -31,7 +31,7 @@ from microfiber import random_id, Database
 from .couch import CouchCase
 from .base import TempDir
 
-from dmedia import importer2
+from dmedia import importer2, schema
 
 
 class DummyQueue(object):
@@ -136,3 +136,15 @@ class TestImportWorker(CouchCase):
             [file.name for file in batch.files]
         )
         self.assertEqual(doc['files'], files)
+
+        # Check all the dmedia/file docs:
+        for (file, ch) in result:
+            doc = self.db.get(ch.id)
+            schema.check_file(doc)
+            self.assertEqual(doc['import_id'], inst.id)
+            self.assertEqual(doc['mtime'], file.mtime)
+            self.assertEqual(doc['bytes'], ch.file_size)
+            (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
+            self.assertEqual(content_type, 'application/octet-stream')
+            self.assertEqual(leaf_hashes, ch.leaf_hashes)
+
