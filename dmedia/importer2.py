@@ -35,15 +35,15 @@ from dmedia import schema
 class ImportWorker(CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
-        self.srcdir = args[0]
+        self.basedir = args[0]
         self.id = None
         self.doc = None
 
-    def execute(self, srcdir):
+    def execute(self, basedir):
         pass
 
     def start(self):
-        self.doc = schema.create_import(self.srcdir,
+        self.doc = schema.create_import(self.basedir,
             machine_id=self.env.get('machine_id'),
             batch_id=self.env.get('batch_id'),
         )
@@ -52,7 +52,7 @@ class ImportWorker(CouchWorker):
         self.emit('started', self.id)
 
     def scan(self):
-        self.batch = scandir(self.srcdir)
+        self.batch = scandir(self.basedir)
         stats = {
             'bytes': self.batch.size,
             'count': self.batch.count,

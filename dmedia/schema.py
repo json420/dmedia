@@ -251,7 +251,6 @@ from hashlib import sha1
 import re
 import time
 import socket
-import platform
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
 from microfiber import random_id, RANDOM_B32LEN
@@ -681,29 +680,17 @@ def check_dmedia(doc):
     """
     Verify that *doc* is a valid dmedia document.
 
-    This verifies that *doc* has the common schema requirements that all dmedia
-    documents should have.  The *doc* must:
-
-        1. Have "_id" containing only characters from B32ALPHABET and whose
-           length is a multiple of 8 characters.
-
-        2. Have "ver" equal to ``0``
-
-        3. Have "type" that matches ``'dmedia/[a-z]+$'``
-
-        4. Have "time" that is a ``float`` or ``int`` greater than or equal to
-           zero
-
     For example, a conforming value:
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
     ...     'ver': 0,
-    ...     'type': 'dmedia/file',
+    ...     'type': 'dmedia/foo',
     ...     'time': 1234567890,
     ... }
     ...
     >>> check_dmedia(doc)
+
     """
     _check(doc, [], dict)
 
@@ -746,7 +733,7 @@ def check_file(doc):
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'copies': 2,
-    ...             'time': 1234567890,
+    ...             'mtime': 1234567890,
     ...         },
     ...     },
     ... }
@@ -791,7 +778,7 @@ def check_file(doc):
         _check(doc, ['stored', store, 'copies'], int,
             (_at_least, 0),
         )
-        _check(doc, ['stored', store, 'time'], (int, float),
+        _check(doc, ['stored', store, 'mtime'], (int, float),
             (_at_least, 0),
         )
         _check_if_exists(doc, ['stored', store, 'verified'], (int, float),
@@ -857,52 +844,39 @@ def check_store(doc):
     """
     Verify that *doc* is a valid "dmedia/store" document.
 
-    To be a valid 'dmedia/store' record, *doc* must:
-
-        1. conform with `check_dmedia()`
-
-        2. have 'plugin' that equal to 'filestore', 'removable_filestore',
-           'ubuntuone', or 's3'
-
-        3. have 'copies' that is an ``int`` >= 1
-
     For example, a conforming value:
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
     ...     'ver': 0,
-    ...     'type': 'dmedia/file',
+    ...     'type': 'dmedia/store',
     ...     'time': 1234567890,
-    ...     'plugin': 'filestore',
-    ...     'copies': 2,
+    ...     'plugin': 'filestore.local',
+    ...     'copies': 1,
     ... }
     ...
     >>> check_store(doc)
-
-
-    And an invalid value:
-
-    >>> doc = {
-    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
-    ...     'ver': 0,
-    ...     'type': 'dmedia/file',
-    ...     'time': 1234567890,
-    ...     'dispatch': 'filestore',
-    ...     'copies': 2,
-    ... }
-    ...
-    >>> check_store(doc)
-    Traceback (most recent call last):
-      ...
-    ValueError: doc['plugin'] does not exist
 
     """
-    check_dmedia(doc)
-
-    _check(doc, ['plugin'], str,
-        (_is_in, 'filestore', 'removable_filestore', 'ubuntuone', 's3'),
+    # Common schema:
+    _check(doc, [], dict)
+    _check(doc, ['_id'], None,
+        _random_id,
+    )
+    _check(doc, ['ver'], int,
+        (_equals, 0),
+    )
+    _check(doc, ['type'], str,
+        (_equals, 'dmedia/store'),
+    )
+    _check(doc, ['time'], (int, float),
+        (_at_least, 0),
     )
 
+    # Specific to dmedia/store
+    _check(doc, ['plugin'], str,
+        (_is_in, 'filestore.local', 'filestore.removable', 'ubuntuone', 's3'),
+    )
     _check(doc, ['copies'], int,
         (_at_least, 0),
     )
@@ -1077,23 +1051,30 @@ def create_machine():
         'type': 'dmedia/machine',
         'time': time.time(),
         'hostname': socket.gethostname(),
-        'distribution': list(platform.linux_distribution()),
     }
 
 
-def create_store(parentdir, machine_id, copies=1):
+def create_store(parentdir, machine_id, drive_id=None, copies=1):
+    """
+    Create a 'dmedia/store' doc for a FileStore on a non-removable drive.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/store',
+        'time': time.time(),
+        'plugin': 'filestore.local',
+        'parentdir': parentdir,
+        'machine_id': machine_id,
+        'drive_id': drive_id,
+        'copies': copies,
+    }
+
+
+def create_removable_store(drive_id, copies=1):
     """
     Create a 'dmedia/store' document.
     """
-    # FIXME: We're going to have have the drive and partition information passed
-    # to schema.py "from the outside" as to abstract whether the info comes from
-    # udisks or the equivalent on other platforms.
-    #try:
-    #    makedirs(parentdir)
-    #except:
-    #    pass
-    #p = Device(path=parentdir)
-    #uuid = str(p['IdUuid'])
     return {
         '_id': random_id(),
         'ver': 0,
@@ -1101,9 +1082,8 @@ def create_store(parentdir, machine_id, copies=1):
         'time': time.time(),
         'plugin': 'filestore',
         'copies': copies,
-        'path': parentdir,
+        'parentdir': parentdir,
         'machine_id': machine_id,
-        #'partition_id': b32encode(sha1(uuid).digest())
     }
 
 
@@ -1145,27 +1125,28 @@ def create_batch(machine_id=None):
     }
 
 
-def create_import(srcdir, machine_id=None, batch_id=None):
+def create_import(basedir, machine_id, **kw):
     """
     Create initial 'dmedia/import' accounting document.
     """
-    return {
+    doc = {
         '_id': random_id(),
         'ver': 0,
         'type': 'dmedia/import',
         'time': time.time(),
+        'basedir': basedir,
         'machine_id': machine_id,
-        'batch_id': batch_id,
-        'srcdir': srcdir,
         'files': {},
         'import_order': [],
         'stats': {
             'total': {'count': 0, 'bytes': 0},
+            'new': {'count': 0, 'bytes': 0},
             'duplicate': {'count': 0, 'bytes': 0},
             'empty': {'count': 0, 'bytes': 0},
-            'new': {'count': 0, 'bytes': 0},
         },
     }
+    doc.update(kw)
+    return doc
 
 
 def create_partition(base):

@@ -69,14 +69,14 @@ class TestImportWorker(CouchCase):
         key = self.src.dir
         args = (self.src.dir,)
         inst = importer2.ImportWorker(self.env, self.q, key, args)
-        self.assertEqual(inst.srcdir, self.src.dir)
+        self.assertEqual(inst.basedir, self.src.dir)
 
         # start()
         self.assertIsNone(inst.id)
         self.assertIsNone(inst.doc)
         inst.start()
         doc = self.db.get(inst.id)
-        self.assertEqual(doc['srcdir'], self.src.dir)
+        self.assertEqual(doc['basedir'], self.src.dir)
         self.assertEqual(doc['machine_id'], self.machine_id)
         self.assertEqual(doc['batch_id'], self.batch_id)
         self.assertEqual(doc['import_order'], [])
