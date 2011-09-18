@@ -23,6 +23,8 @@
 Import files into dmedia.
 """
 
+import time
+
 import microfiber
 from filestore import FileStore, scandir, batch_import_iter
 
@@ -64,10 +66,27 @@ class ImportWorker(CouchWorker):
         self.emit('scanned', stats)
 
     def get_filestores(self):
-        store = FileStore(self.env['filestore']['path'])
+        store = FileStore(self.env['filestore']['parentdir'])
         store.id = self.env['filestore']['_id']
         store.copies = 1
         return (store,)
+
+    def import_all(self):
+        stores = self.get_filestores()
+        for (state, file, doc) in self.import_iter(*stores):
+            self.db.save(doc)
+            if state == 'empty':
+                entry = file.name
+            else:
+                entry = {
+                    'src': file.name,
+                    'id': doc['_id'],
+                }
+            self.doc['log'][state].append(entry)
+            self.doc['stats'][state]['count'] += 1
+            self.doc['stats'][state]['bytes'] += file.size
+        self.doc['time_end'] = time.time()
+        self.db.save(self.doc)
 
     def import_iter(self, *filestores):
         for (file, ch) in batch_import_iter(self.batch, *filestores):
@@ -88,17 +107,12 @@ class ImportWorker(CouchWorker):
                     ch.id, ch.file_size, ch.leaf_hashes, stored
                 )
                 yield ('new', file, doc)
-                
-            
-            
-            
-            
 
     def log(self, type, **kw):
         doc = {
             '_id': random_id2(),
             'type': type,
-            'machine': self.env.get('machine_id'),
+            'machine_id': self.env.get('machine_id'),
         }
 
 

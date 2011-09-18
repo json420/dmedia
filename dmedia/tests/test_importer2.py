@@ -25,6 +25,7 @@ Unit tests for `dmedia.importer2` module.
 
 from multiprocessing import current_process
 
+import filestore
 from microfiber import random_id, Database
 
 from .couch import CouchCase
@@ -49,6 +50,14 @@ class TestImportWorker(CouchCase):
         self.q = DummyQueue()
         self.pid = current_process().pid
         self.src = TempDir()
+
+        self.dst = TempDir()
+        self.store_id = random_id()
+        self.env['filestore'] = {
+            '_id': self.store_id,
+            'parentdir': self.dst.dir,
+        }
+
         self.db = Database('dmedia', self.env)
 
     def tearDown(self):
@@ -86,7 +95,7 @@ class TestImportWorker(CouchCase):
                 'new': {'count': 0, 'bytes': 0},
             }
         )
- 
+
         # scan()
         (batch, result) = self.src.random_batch(25)
         log_all = [
@@ -112,8 +121,34 @@ class TestImportWorker(CouchCase):
                 'new': {'count': 0, 'bytes': 0},
             }
         )
-        
-        
-        
-        
-    
+
+        # get_filestores()
+        stores = inst.get_filestores()
+        self.assertEqual(len(stores), 1)
+        fs = stores[0]
+        self.assertIsInstance(fs, filestore.FileStore)
+
+        # import_all()
+        log_new = [
+            {'src': file.name, 'id': ch.id}
+            for (file, ch) in result
+        ]
+        stats_new = {'bytes': batch.size, 'count': batch.count}
+        inst.import_all()
+        doc = self.db.get(inst.id)
+        self.assertEqual(doc['log'],
+            {
+                'all': log_all,
+                'duplicate': [],
+                'empty': [],
+                'new': log_new,
+            }
+        )
+        self.assertEqual(doc['stats'],
+            {
+                'all': stats_all,
+                'duplicate': {'count': 0, 'bytes': 0},
+                'empty': {'count': 0, 'bytes': 0},
+                'new': stats_new,
+            }
+        )
