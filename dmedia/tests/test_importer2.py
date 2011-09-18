@@ -79,17 +79,11 @@ class TestImportWorker(CouchCase):
         self.assertEqual(doc['srcdir'], self.src.dir)
         self.assertEqual(doc['machine_id'], self.machine_id)
         self.assertEqual(doc['batch_id'], self.batch_id)
-        self.assertEqual(doc['log'],
-            {
-                'all': [],
-                'duplicate': [],
-                'empty': [],
-                'new': [],
-            }
-        )
+        self.assertEqual(doc['import_order'], [])
+        self.assertEqual(doc['files'], {})
         self.assertEqual(doc['stats'],
             {
-                'all': {'count': 0, 'bytes': 0},
+                'total': {'count': 0, 'bytes': 0},
                 'duplicate': {'count': 0, 'bytes': 0},
                 'empty': {'count': 0, 'bytes': 0},
                 'new': {'count': 0, 'bytes': 0},
@@ -98,29 +92,24 @@ class TestImportWorker(CouchCase):
 
         # scan()
         (batch, result) = self.src.random_batch(25)
-        log_all = [
-            {'src': file.name, 'bytes': file.size, 'mtime': file.mtime}
+        files = dict(
+            (file.name, {'bytes': file.size, 'mtime': file.mtime})
             for file in batch.files
-        ]
-        stats_all = {'bytes': batch.size, 'count': batch.count}
+        )
         inst.scan()
         doc = self.db.get(inst.id)
-        self.assertEqual(doc['log'],
-            {
-                'all': log_all,
-                'duplicate': [],
-                'empty': [],
-                'new': [],
-            }
-        )
         self.assertEqual(doc['stats'],
             {
-                'all': stats_all,
+                'total': {'bytes': batch.size, 'count': batch.count},
                 'duplicate': {'count': 0, 'bytes': 0},
                 'empty': {'count': 0, 'bytes': 0},
                 'new': {'count': 0, 'bytes': 0},
             }
         )
+        self.assertEqual(doc['import_order'],
+            [file.name for file in batch.files]
+        )
+        self.assertEqual(doc['files'], files)
 
         # get_filestores()
         stores = inst.get_filestores()
@@ -129,26 +118,21 @@ class TestImportWorker(CouchCase):
         self.assertIsInstance(fs, filestore.FileStore)
 
         # import_all()
-        log_new = [
-            {'src': file.name, 'id': ch.id}
-            for (file, ch) in result
-        ]
-        stats_new = {'bytes': batch.size, 'count': batch.count}
+        for (file, ch) in result:
+            files[file.name].update(
+                {'status': 'new', 'id': ch.id}
+            )
         inst.import_all()
         doc = self.db.get(inst.id)
-        self.assertEqual(doc['log'],
-            {
-                'all': log_all,
-                'duplicate': [],
-                'empty': [],
-                'new': log_new,
-            }
-        )
         self.assertEqual(doc['stats'],
             {
-                'all': stats_all,
+                'total': {'bytes': batch.size, 'count': batch.count},
                 'duplicate': {'count': 0, 'bytes': 0},
                 'empty': {'count': 0, 'bytes': 0},
-                'new': stats_new,
+                'new': {'bytes': batch.size, 'count': batch.count},
             }
         )
+        self.assertEqual(doc['import_order'],
+            [file.name for file in batch.files]
+        )
+        self.assertEqual(doc['files'], files)

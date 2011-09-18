@@ -57,11 +57,12 @@ class ImportWorker(CouchWorker):
             'bytes': self.batch.size,
             'count': self.batch.count,
         }
-        self.doc['stats']['all'] = stats
-        self.doc['files_found'] = [
-            {'src': file.name, 'bytes': file.size, 'mtime': file.mtime}
+        self.doc['stats']['total'] = stats
+        self.doc['import_order'] = [file.name for file in self.batch.files]
+        self.doc['files'] = dict(
+            (file.name, {'bytes': file.size, 'mtime': file.mtime})
             for file in self.batch.files
-        ]
+        )
         self.db.save(self.doc)
         self.emit('scanned', stats)
 
@@ -73,20 +74,17 @@ class ImportWorker(CouchWorker):
 
     def import_all(self):
         stores = self.get_filestores()
-        for (state, file, doc) in self.import_iter(*stores):
-            self.db.save(doc)
-            if state == 'empty':
-                entry = file.name
-            else:
-                entry = {
-                    'src': file.name,
-                    'id': doc['_id'],
-                }
-            self.doc['log'][state].append(entry)
-            self.doc['stats'][state]['count'] += 1
-            self.doc['stats'][state]['bytes'] += file.size
-        self.doc['time_end'] = time.time()
-        self.db.save(self.doc)
+        try:
+            for (status, file, doc) in self.import_iter(*stores):
+                self.db.save(doc)
+                self.doc['stats'][status]['count'] += 1
+                self.doc['stats'][status]['bytes'] += file.size
+                self.doc['files'][file.name]['status'] = status
+                if status != 'empty':
+                    self.doc['files'][file.name]['id'] = doc['_id']
+            self.doc['time_end'] = time.time()
+        finally:
+            self.db.save(self.doc)
 
     def import_iter(self, *filestores):
         for (file, ch) in batch_import_iter(self.batch, *filestores):
@@ -105,6 +103,10 @@ class ImportWorker(CouchWorker):
             except microfiber.NotFound:
                 doc = schema.create_file(
                     ch.id, ch.file_size, ch.leaf_hashes, stored
+                )
+                doc.update(
+                    import_id=self.id,
+                    mtime=file.mtime,
                 )
                 yield ('new', file, doc)
 
