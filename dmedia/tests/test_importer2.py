@@ -73,6 +73,7 @@ class TestImportWorker(CouchCase):
         self.assertEqual(inst.basedir, self.src.dir)
 
         # start()
+        self.assertEqual(self.q.items, [])
         self.assertIsNone(inst.id)
         self.assertIsNone(inst.doc)
         inst.start()
@@ -90,6 +91,8 @@ class TestImportWorker(CouchCase):
                 'new': {'count': 0, 'bytes': 0},
             }
         )
+        self.assertEqual(self.q.items[0]['signal'], 'started')
+        self.assertEqual(self.q.items[0]['args'], (self.src.dir, inst.id))
 
         # scan()
         (batch, result) = self.src.random_batch(25)
@@ -111,6 +114,12 @@ class TestImportWorker(CouchCase):
             [file.name for file in batch.files]
         )
         self.assertEqual(doc['files'], files)
+        item = self.q.items[1]
+        self.assertEqual(item['signal'], 'scanned')
+        self.assertEqual(
+            item['args'],
+            (self.src.dir, {'bytes': batch.size, 'count': batch.count})
+        )
 
         # get_filestores()
         stores = inst.get_filestores()
@@ -125,18 +134,20 @@ class TestImportWorker(CouchCase):
             )
         inst.import_all()
         doc = self.db.get(inst.id)
-        self.assertEqual(doc['stats'],
-            {
-                'total': {'bytes': batch.size, 'count': batch.count},
-                'duplicate': {'count': 0, 'bytes': 0},
-                'empty': {'count': 0, 'bytes': 0},
-                'new': {'bytes': batch.size, 'count': batch.count},
-            }
-        )
+        stats = {
+            'total': {'bytes': batch.size, 'count': batch.count},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+            'new': {'bytes': batch.size, 'count': batch.count},
+        }
+        self.assertEqual(doc['stats'], stats)
         self.assertEqual(doc['import_order'],
             [file.name for file in batch.files]
         )
         self.assertEqual(doc['files'], files)
+        item = self.q.items[-1]
+        self.assertEqual(item['signal'], 'finished')
+        self.assertEqual(item['args'], (self.src.dir, stats))
 
         # Check all the dmedia/file docs:
         for (file, ch) in result:

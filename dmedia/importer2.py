@@ -53,18 +53,18 @@ class ImportWorker(CouchWorker):
 
     def scan(self):
         self.batch = scandir(self.basedir)
-        stats = {
+        total = {
             'bytes': self.batch.size,
             'count': self.batch.count,
         }
-        self.doc['stats']['total'] = stats
+        self.doc['stats']['total'] = total
         self.doc['import_order'] = [file.name for file in self.batch.files]
         self.doc['files'] = dict(
             (file.name, {'bytes': file.size, 'mtime': file.mtime})
             for file in self.batch.files
         )
         self.db.save(self.doc)
-        self.emit('scanned', stats)
+        self.emit('scanned', total)
 
     def get_filestores(self):
         store = FileStore(self.env['filestore']['parentdir'])
@@ -75,6 +75,7 @@ class ImportWorker(CouchWorker):
     def import_all(self):
         stores = self.get_filestores()
         try:
+            completed = 0
             for (status, file, doc) in self.import_iter(*stores):
                 self.db.save(doc)
                 self.doc['stats'][status]['count'] += 1
@@ -82,9 +83,12 @@ class ImportWorker(CouchWorker):
                 self.doc['files'][file.name]['status'] = status
                 if status != 'empty':
                     self.doc['files'][file.name]['id'] = doc['_id']
+                completed += 1
+                self.emit('progress', completed, self.batch.count)
             self.doc['time_end'] = time.time()
         finally:
             self.db.save(self.doc)
+        self.emit('finished', self.doc['stats'])
 
     def import_iter(self, *filestores):
         for (file, ch) in batch_import_iter(self.batch, *filestores):
