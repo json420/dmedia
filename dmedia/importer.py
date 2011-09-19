@@ -388,36 +388,30 @@ class ImportManager(CouchManager):
         if not isregistered(ImportWorker):
             register(ImportWorker)
 
-    def save(self):
-        """
-        Save current 'dmedia/batch' record to CouchDB.
-        """
-        self.db.save(self.doc)
-
-    def first_worker_starting(self):
-        assert self.doc is None
-        assert self._workers == {}
-        self._total = 0
-        self._completed = 0
-        self.doc = create_batch(self.env.get('machine_id'))
-        self.save()
-        self.emit('BatchStarted', self.doc['_id'])
-
-    def last_worker_finished(self):
-        assert self._workers == {}
-        self.doc['time_end'] = time.time()
-        self.save()
-        self.emit('BatchFinished', self.doc['_id'],
-            to_dbus_stats(self.doc['stats'])
-        )
-        self.doc = None
-        log.info('Batch complete, compacting database...')
-        self.db.post(None, '_compact')
-
     def get_worker_env(self, worker, key, args):
         env = dict(self.env)
         env['batch_id'] = self.doc['_id']
         return env
+
+    def first_worker_starting(self):
+        assert self.doc is None
+        assert self._workers == {}
+
+        self._count = 0
+        self._total_count = 0
+        self._bytes = 0
+        self._total_bytes = 0
+
+        self.doc = create_batch(self.env.get('machine_id'))
+        self.db.save(self.doc)
+        self.emit('batch_started', self.doc['_id'])
+
+    def last_worker_finished(self):
+        assert self._workers == {}
+        self.doc['time_end'] = time.time()
+        self.db.save(self.doc)
+        self.emit('batch_finished', self.doc['_id'], self.doc['stats'])
+        self.doc = None
 
     def on_error(self, key, exception, message):
         super(ImportManager, self).on_error(key, exception, message)
@@ -426,32 +420,28 @@ class ImportManager(CouchManager):
         self.doc['errors'].append(
             {'key': key, 'name': exception, 'msg': message}
         )
-        self.save()
+        self.db.save(self.doc)
 
     def on_started(self, key, import_id):
         self.doc['imports'].append(import_id)
-        self.save()
+        self.db.save(self.doc)
         self.emit('ImportStarted', key, import_id)
 
-    def on_count(self, key, import_id, total):
-        self._total += total
-        self.emit('ImportCount', key, import_id, total)
+    def on_scanned(self, key, total_count, total_bytes):
+        self._total_count += total_count 
+        self._total_bytes += total_bytes
 
-    def on_progress(self, key, import_id, completed, total, info):
-        self._completed += 1
-        self.emit('ImportProgress', key, import_id, completed, total, info)
+    def on_progress(self, key, file_size):
+        self._count += 1
+        self._bytes += file_size
+        self.emit('batch_progress',
+            self._count, self._total_count,
+            self._bytes, self._total_bytes,
+        )
 
-    def on_finished(self, key, import_id, stats):
+    def on_finished(self, key, stats):
         accumulate_stats(self.doc['stats'], stats)
-        self.save()
-        self.emit('ImportFinished', key, import_id, to_dbus_stats(stats))
-
-    def get_batch_progress(self):
-        with self._lock:
-            return dict(
-                completed=self._completed,
-                total=self._total,
-            )
+        self.db.save(self.doc)
 
     def start_import(self, base, extract=True):
         return self.start_job('ImportWorker', base, base, extract)

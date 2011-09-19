@@ -64,7 +64,7 @@ class TestImportWorker(CouchCase):
             {
                 '_id': self.store2_id,
                 'parentdir': self.dst2.dir,
-                'copies': 1,
+                'copies': 2,
             },
         ]
 
@@ -129,7 +129,7 @@ class TestImportWorker(CouchCase):
         self.assertEqual(item['signal'], 'scanned')
         self.assertEqual(
             item['args'],
-            (self.src.dir, {'bytes': batch.size, 'count': batch.count})
+            (self.src.dir, batch.count, batch.size)
         )
 
         # get_filestores()
@@ -140,12 +140,12 @@ class TestImportWorker(CouchCase):
         self.assertEquals(fs1.parentdir, self.dst1.dir)
         self.assertEquals(fs1.id, self.store1_id)
         self.assertEquals(fs1.copies, 1)
-        
+
         fs2 = stores[1]
         self.assertIsInstance(fs2, filestore.FileStore)
         self.assertEquals(fs2.parentdir, self.dst2.dir)
         self.assertEquals(fs2.id, self.store2_id)
-        self.assertEquals(fs2.copies, 1)
+        self.assertEquals(fs2.copies, 2)
 
         # import_all()
         for (file, ch) in result:
@@ -165,6 +165,14 @@ class TestImportWorker(CouchCase):
             [file.name for file in batch.files]
         )
         self.assertEqual(doc['files'], files)
+
+        # Check the 'progress' signals
+        for (i, file) in enumerate(batch.files):
+            item = self.q.items[i + 2]
+            self.assertEqual(item['signal'], 'progress')
+            self.assertEqual(item['args'], (self.src.dir, file.size))
+
+        # Check the 'finished' signal
         item = self.q.items[-1]
         self.assertEqual(item['signal'], 'finished')
         self.assertEqual(item['args'], (self.src.dir, stats))
@@ -179,4 +187,22 @@ class TestImportWorker(CouchCase):
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
             self.assertEqual(leaf_hashes, ch.leaf_hashes)
+            self.assertEqual(
+                set(doc['stored']),
+                set([self.store1_id, self.store2_id])
+            )
+            self.assertEqual(
+                doc['stored'][self.store1_id],
+                {
+                    'mtime': fs1.stat(ch.id).mtime,
+                    'copies': 1,
+                }
+            )
+            self.assertEqual(
+                doc['stored'][self.store2_id],
+                {
+                    'mtime': fs2.stat(ch.id).mtime,
+                    'copies': 2,
+                }
+            )
 
