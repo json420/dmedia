@@ -317,7 +317,6 @@ class TestImportManager(ImportCase):
         callback = DummyCallback()
         inst = self.new(callback)
         batch_id = random_id()
-        
         stats = {
             'total': {'count': 0, 'bytes': 0},
             'new': {'count': 0, 'bytes': 0},
@@ -503,88 +502,48 @@ class TestImportManager(ImportCase):
     def test_on_finished(self):
         callback = DummyCallback()
         inst = self.new(callback)
+
         batch_id = random_id()
+        stats = {
+            'total': {'count': 0, 'bytes': 0},
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+        }
         inst.doc = dict(
             _id=batch_id,
-            stats=dict(
-                imported={'count': 0, 'bytes': 0},
-                skipped={'count': 0, 'bytes': 0},
-            ),
+            stats=stats,
         )
 
-        # Call with first import
+        # Call with 1st import
         one = TempDir()
-        one_id = random_id()
-        one_stats = dict(
-            imported={'count': 17, 'bytes': 98765},
-            skipped={'count': 3, 'bytes': 12345},
-        )
-        inst.on_finished(one.dir, one_id, one_stats)
-        self.assertEqual(
-            callback.messages,
-            [
-                ('ImportFinished', (one.dir, one_id, dict(
-                        imported=17,
-                        imported_bytes=98765,
-                        skipped=3,
-                        skipped_bytes=12345,
-                    ))
-                ),
-            ]
-        )
-        self.assertEqual(
-            set(inst.doc),
-            set(['_id', '_rev', 'stats'])
-        )
-        self.assertEqual(inst.doc['_id'], batch_id)
-        self.assertEqual(
-            inst.doc['stats']['imported'],
-            {'count': 17, 'bytes': 98765}
-        )
-        self.assertEqual(
-            inst.doc['stats']['skipped'],
-            {'count': 3, 'bytes': 12345}
-        )
+        one_stats = {
+            'total': {'count': 1, 'bytes': 2},
+            'new': {'count': 3, 'bytes': 4},
+            'duplicate': {'count': 5, 'bytes': 6},
+            'empty': {'count': 7, 'bytes': 8},
+        }
+        inst.on_finished(one.dir, one_stats)
+        doc = self.db.get(batch_id)
+        self.assertEqual(doc['stats'], one_stats)
 
-        # Call with second import
+        # Call with 2nd import
         two = TempDir()
-        two_id = random_id()
-        two_stats = dict(
-            imported={'count': 18, 'bytes': 9876},
-            skipped={'count': 5, 'bytes': 1234},
-        )
-        inst.on_finished(two.dir, two_id, two_stats)
-        self.assertEqual(
-            callback.messages,
-            [
-                ('ImportFinished', (one.dir, one_id, dict(
-                        imported=17,
-                        imported_bytes=98765,
-                        skipped=3,
-                        skipped_bytes=12345,
-                    ))
-                ),
-                ('ImportFinished', (two.dir, two_id, dict(
-                        imported=18,
-                        imported_bytes=9876,
-                        skipped=5,
-                        skipped_bytes=1234,
-                    ))
-                ),
-            ]
-        )
-        self.assertEqual(
-            set(inst.doc),
-            set(['_id', '_rev', 'stats'])
-        )
-        self.assertEqual(inst.doc['_id'], batch_id)
-        self.assertEqual(
-            inst.doc['stats']['imported'],
-            {'count': 17 + 18, 'bytes': 98765 + 9876}
-        )
-        self.assertEqual(
-            inst.doc['stats']['skipped'],
-            {'count': 3 + 5, 'bytes': 12345 + 1234}
+        two_stats = {
+            'total': {'count': 8, 'bytes': 7},
+            'new': {'count': 6, 'bytes': 5},
+            'duplicate': {'count': 4, 'bytes': 3},
+            'empty': {'count': 2, 'bytes': 1},
+        }
+        inst.on_finished(two.dir, two_stats)
+        doc = self.db.get(batch_id)
+        self.assertEqual(doc['stats'],
+            {
+                'total': {'count': 9, 'bytes': 9},
+                'new': {'count': 9, 'bytes': 9},
+                'duplicate': {'count': 9, 'bytes': 9},
+                'empty': {'count': 9, 'bytes': 9},
+            }
         )
 
     def test_get_batch_progress(self):
@@ -606,15 +565,10 @@ class TestImportManager(ImportCase):
         callback = DummyCallback()
         inst = self.new(callback)
 
-        tmp = TempDir()
-        (src1, src2, dup1) = prep_import_source(tmp)
-        base = tmp.path
-        mov_size = path.getsize(sample_mov)
-        thm_size = path.getsize(sample_thm)
-
         # Test that False is returned when key is present
-        inst._workers[base] = 'foo'
-        self.assertTrue(inst.start_import(base, False) is False)
+        inst._workers[self.src.dir] = 'foo'
+        self.assertFalse(inst.start_import(self.src.dir))
+        return
 
         # Now do the real thing
         inst._workers.clear()

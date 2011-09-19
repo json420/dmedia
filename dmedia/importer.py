@@ -242,5 +242,5 @@ class ImportManager(workers.CouchManager):
         accumulate_stats(self.doc['stats'], stats)
         self.db.save(self.doc)
 
-    def start_import(self, base, extract=True):
-        return self.start_job('ImportWorker', base, base, extract)
+    def start_import(self, base):
+        return self.start_job('ImportWorker', base, base)
