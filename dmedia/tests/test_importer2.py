@@ -23,8 +23,6 @@
 Unit tests for `dmedia.importer2` module.
 """
 
-from multiprocessing import current_process
-
 import filestore
 from microfiber import random_id, Database
 
@@ -42,13 +40,13 @@ class DummyQueue(object):
         self.items.append(item)
 
 
-class TestImportWorker(CouchCase):
+class ImportCase(CouchCase):
     def setUp(self):
         super().setUp()
         self.batch_id = random_id()
         self.env['batch_id'] = self.batch_id
         self.q = DummyQueue()
-        self.pid = current_process().pid
+
         self.src = TempDir()
 
         self.dst1 = TempDir()
@@ -77,6 +75,8 @@ class TestImportWorker(CouchCase):
         self.dst1 = None
         self.dst2 = None
 
+
+class TestImportWorker(ImportCase):
     def test_random_batch(self):
         key = self.src.dir
         args = (self.src.dir,)
