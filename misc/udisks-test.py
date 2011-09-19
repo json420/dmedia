@@ -44,7 +44,7 @@ class DeviceNotFound(Exception):
         self.basedir = basedir
         super().__init__(basedir)
 
-        
+
 def get_device_props(objpath):
     device = system.get(BUS, objpath, PROPS)
     return device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
@@ -67,11 +67,36 @@ def get_partition(basedir):
         pass
     private = path.join(basedir, '.Private')
     if path.islink(private) and os.readlink(private).startswith(ECRYPTFS):
-        try:
-            return by_major_minor(private)
-        except DeviceNotFound:
-            pass
-    return None
+        return by_major_minor(private)
+    raise e
+
+
+def get_info(basedir):
+    objpath = get_partition(basedir)
+    part = get_device_props(objpath)
+    assert part['DeviceIsPartition'] is True
+    drive = get_device_props(part['PartitionSlave'])
+    assert drive['DeviceIsDrive'] is True
+    return {
+        'partition': {
+            'uuid': part['IdUuid'],
+            'bytes': part['DeviceSize'],
+            'filesystem': part['IdType'],
+            'label': part['IdLabel'],
+            'number': part['PartitionNumber'],
+        },
+        'drive': {
+            'serial': drive['DriveSerial'],
+            'bytes': drive['DeviceSize'],
+            'block_bytes': drive['DeviceBlockSize'],
+            'vendor': drive['DriveVendor'],
+            'model': drive['DriveModel'],
+            'revision': drive['DriveRevision'],
+            'rotational': drive['DriveIsRotational'],
+            'partition_scheme': drive['PartitionTableScheme'],
+            'removable': drive['DeviceIsRemovable'],
+        },
+    }
 
 
 info = {'devices': {}, 'paths': {}}
@@ -92,9 +117,12 @@ if path.islink(private):
 for name in os.listdir('/media'):
     dirs.append(path.join('/media', name))
 for d in dirs:
-    objpath = get_partition(d)
-    info['paths'][d] = objpath
-    print('{} => {}'.format(d, objpath))
+    print(d)
+    try: 
+        o = get_info(d)
+    except DeviceNotFound:
+        o = None
+    info['paths'][d] = o
 
 
 print('\nGetting info from `df`:')
@@ -110,27 +138,3 @@ json.dump(info, dst_fp, sort_keys=True, indent=4)
 print('\nUDisks info dumped to:')
 print(dst)
 
-#doc = {
-#    'device': {
-#        'type': 'drive',
-#        'drives': [
-#            {
-#                'serial': drive['DriveSerial'],
-#                'bytes': drive['DeviceSize'],
-#                'block_bytes': drive['DeviceBlockSize'],
-#                'vendor': drive['DriveVendor'],
-#                'model': drive['DriveModel'],
-#                'revision': drive['DriveRevision'],
-#                'rotational': drive['DriveIsRotational'],
-#                'partition_scheme': drive['PartitionTableScheme'],
-#            },
-#        ],
-#        'uuid': fs['IdUuid'],
-#        'bytes': fs['DeviceSize'],
-#        'filesystem': fs['IdType'],
-#        'label': fs['IdLabel'],
-#        'partition': fs['PartitionNumber'],
-#    },
-#}
-
-#print json.dumps(doc, sort_keys=True, indent=4)
