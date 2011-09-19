@@ -601,6 +601,57 @@ class TestImportManager(ImportCase):
                 callback.messages[i + 3],
                 ('batch_progress', (i + 1, batch.count, size, batch.size))
             )
+
+        stats = {
+            'total': {'count': batch.count, 'bytes': batch.size},
+            'new': {'count': batch.count, 'bytes': batch.size},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+        }
+        self.assertEqual(
+            callback.messages[-1],
+            ('batch_finished', (batch_id, stats))
+        )
+
+        ids = set(ch.id for (file, ch) in result)
+        fs1 = filestore.FileStore(self.dst1.dir)
+        fs2 = filestore.FileStore(self.dst2.dir)
+        self.assertEqual(set(st.id for st in fs1), ids)
+        self.assertEqual(set(st.id for st in fs2), ids)
+
+        # Check all the dmedia/file docs:
+        for (file, ch) in result:
+            doc = self.db.get(ch.id)
+            schema.check_file(doc)
+            self.assertEqual(doc['import_id'], import_id)
+            self.assertEqual(doc['mtime'], file.mtime)
+            self.assertEqual(doc['bytes'], file.size)
+            (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
+            self.assertEqual(content_type, 'application/octet-stream')
+            self.assertEqual(leaf_hashes, ch.leaf_hashes)
+            self.assertEqual(
+                set(doc['stored']),
+                set([self.store1_id, self.store2_id])
+            )
+            self.assertEqual(
+                doc['stored'][self.store1_id],
+                {
+                    'mtime': fs1.stat(ch.id).mtime,
+                    'copies': 1,
+                }
+            )
+            self.assertEqual(
+                doc['stored'][self.store2_id],
+                {
+                    'mtime': fs2.stat(ch.id).mtime,
+                    'copies': 2,
+                }
+            )
+
+        # Verify all the files
+        for (file, ch) in result:
+            self.assertEqual(fs1.verify(ch.id), ch)
+            self.assertEqual(fs2.verify(ch.id), ch)
         
         
 
