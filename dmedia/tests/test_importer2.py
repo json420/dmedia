@@ -51,12 +51,22 @@ class TestImportWorker(CouchCase):
         self.pid = current_process().pid
         self.src = TempDir()
 
-        self.dst = TempDir()
-        self.store_id = random_id()
-        self.env['filestore'] = {
-            '_id': self.store_id,
-            'parentdir': self.dst.dir,
-        }
+        self.dst1 = TempDir()
+        self.dst2 = TempDir()
+        self.store1_id = random_id()
+        self.store2_id = random_id()
+        self.env['filestores'] = [
+            {
+                '_id': self.store1_id,
+                'parentdir': self.dst1.dir,
+                'copies': 1,
+            },
+            {
+                '_id': self.store2_id,
+                'parentdir': self.dst2.dir,
+                'copies': 1,
+            },
+        ]
 
         self.db = Database('dmedia', self.env)
 
@@ -64,7 +74,8 @@ class TestImportWorker(CouchCase):
         super().tearDown()
         self.q = None
         self.src = None
-        self.dst = None
+        self.dst1 = None
+        self.dst2 = None
 
     def test_random_batch(self):
         key = self.src.dir
@@ -123,9 +134,18 @@ class TestImportWorker(CouchCase):
 
         # get_filestores()
         stores = inst.get_filestores()
-        self.assertEqual(len(stores), 1)
-        fs = stores[0]
-        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(len(stores), 2)
+        fs1 = stores[0]
+        self.assertIsInstance(fs1, filestore.FileStore)
+        self.assertEquals(fs1.parentdir, self.dst1.dir)
+        self.assertEquals(fs1.id, self.store1_id)
+        self.assertEquals(fs1.copies, 1)
+        
+        fs2 = stores[1]
+        self.assertIsInstance(fs2, filestore.FileStore)
+        self.assertEquals(fs2.parentdir, self.dst2.dir)
+        self.assertEquals(fs2.id, self.store2_id)
+        self.assertEquals(fs2.copies, 1)
 
         # import_all()
         for (file, ch) in result:

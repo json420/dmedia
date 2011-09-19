@@ -67,10 +67,13 @@ class ImportWorker(CouchWorker):
         self.emit('scanned', total)
 
     def get_filestores(self):
-        store = FileStore(self.env['filestore']['parentdir'])
-        store.id = self.env['filestore']['_id']
-        store.copies = 1
-        return (store,)
+        stores = []
+        for doc in self.env['filestores']:
+            fs = FileStore(doc['parentdir'])
+            fs.id = doc['_id']
+            fs.copies = doc['copies']
+            stores.append(fs)
+        return stores
 
     def import_all(self):
         stores = self.get_filestores()
