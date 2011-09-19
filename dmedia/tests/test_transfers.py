@@ -24,35 +24,25 @@ Unit tests for `dmedia.transfers` module.
 """
 
 from unittest import TestCase
-from hashlib import sha1
-from os import urandom
-from base64 import b32encode
 from multiprocessing import current_process
 import time
 from http.client import HTTPConnection, HTTPSConnection
 
+from microfiber import random_id
+import filestore
+
+from .couch import CouchCase
+from .base import TempDir
+
 from dmedia import transfers, schema
 
-from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves, raises, sample_mov
-from .couch import CouchCase
 
+class DummyQueue(object):
+    def __init__(self):
+        self.items = []
 
-def create_file_doc(store_id):
-    return schema.create_file(mov_hash, mov_size, b''.join(mov_leaves),
-        {
-            store_id: {
-                'copies': 1,
-            }
-        }
-    )
-
-
-def random_id(blocks=3):
-    return b32encode(urandom(5 * blocks))
-
-
-def b32hash(chunk):
-    return sha1(chunk).digest()
+    def put(self, item):
+        self.items.append(item)
 
 
 class DummyProgress(object):

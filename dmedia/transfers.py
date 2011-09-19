@@ -23,18 +23,20 @@
 Upload to and download from remote systems.
 """
 
-import logging
 from base64 import b64decode, b32encode
 from hashlib import sha1
 import time
 from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPSConnection
+import logging
+
+from filestore import FileStore, check_root_hash
 
 from dmedia import __version__, workers
 from dmedia import workers
 
 
-USER_AGENT = 'dmedia %s' % __version__
+USER_AGENT = 'dmedia {}'.format(__version__)
 log = logging.getLogger()
 _uploaders = {}
 _downloaders = {}
