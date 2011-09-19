@@ -569,16 +569,20 @@ class TestImportManager(ImportCase):
         inst._workers[self.src.dir] = 'foo'
         self.assertFalse(inst.start_import(self.src.dir))
 
-        # Now do the real thing with 25 random files
-        (batch, result) = self.src.random_batch(25)
+        # Now do the real thing with 25 random files, 11 empty files:
+        (batch, result) = self.src.random_batch(25, empties=11)
+        ids = set(
+            ch.id for ch in filter(None, (ch for (file, ch) in result))
+        )
 
         inst._workers.clear()
         self.assertEqual(callback.messages, [])
         self.assertTrue(inst.start_import(self.src.dir))
         while inst._workers:
-            time.sleep(1)
+            time.sleep(0.5)
+        time.sleep(1.0)
 
-        self.assertEqual(len(callback.messages), 29)
+        self.assertEqual(len(callback.messages), 40)
 
         batch_id = callback.messages[0][1][0]
         import_id = callback.messages[1][1][1]
@@ -604,16 +608,15 @@ class TestImportManager(ImportCase):
 
         stats = {
             'total': {'count': batch.count, 'bytes': batch.size},
-            'new': {'count': batch.count, 'bytes': batch.size},
+            'new': {'count': batch.count - 11, 'bytes': batch.size},
             'duplicate': {'count': 0, 'bytes': 0},
-            'empty': {'count': 0, 'bytes': 0},
+            'empty': {'count': 11, 'bytes': 0},
         }
         self.assertEqual(
             callback.messages[-1],
             ('batch_finished', (batch_id, stats))
         )
 
-        ids = set(ch.id for (file, ch) in result)
         fs1 = filestore.FileStore(self.dst1.dir)
         fs2 = filestore.FileStore(self.dst2.dir)
         self.assertEqual(set(st.id for st in fs1), ids)
@@ -621,6 +624,8 @@ class TestImportManager(ImportCase):
 
         # Check all the dmedia/file docs:
         for (file, ch) in result:
+            if ch is None:
+                continue
             doc = self.db.get(ch.id)
             schema.check_file(doc)
             self.assertTrue(doc['_rev'].startswith('1-'))
@@ -651,17 +656,21 @@ class TestImportManager(ImportCase):
 
         # Verify all the files
         for (file, ch) in result:
+            if ch is None:
+                continue
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
+
 
         ##################################################################
         # Okay, now run the whole thing again when they're all duplicates:
         callback.messages = []
         self.assertTrue(inst.start_import(self.src.dir))
         while inst._workers:
-            time.sleep(1)
+            time.sleep(0.5)
+        time.sleep(1.0)
 
-        self.assertEqual(len(callback.messages), 29)
+        self.assertEqual(len(callback.messages), 40)
 
         batch_id = callback.messages[0][1][0]
         import_id = callback.messages[1][1][1]
@@ -688,15 +697,14 @@ class TestImportManager(ImportCase):
         stats = {
             'total': {'count': batch.count, 'bytes': batch.size},
             'new': {'count': 0, 'bytes': 0},
-            'duplicate': {'count': batch.count, 'bytes': batch.size},
-            'empty': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': batch.count - 11, 'bytes': batch.size},
+            'empty': {'count': 11, 'bytes': 0},
         }
         self.assertEqual(
             callback.messages[-1],
             ('batch_finished', (batch_id, stats))
         )
 
-        ids = set(ch.id for (file, ch) in result)
         fs1 = filestore.FileStore(self.dst1.dir)
         fs2 = filestore.FileStore(self.dst2.dir)
         self.assertEqual(set(st.id for st in fs1), ids)
@@ -704,6 +712,8 @@ class TestImportManager(ImportCase):
 
         # Check all the dmedia/file docs:
         for (file, ch) in result:
+            if ch is None:
+                continue
             doc = self.db.get(ch.id)
             schema.check_file(doc)
             self.assertTrue(doc['_rev'].startswith('2-'))
@@ -734,6 +744,8 @@ class TestImportManager(ImportCase):
 
         # Verify all the files
         for (file, ch) in result:
+            if ch is None:
+                continue
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
 

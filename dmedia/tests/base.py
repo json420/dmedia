@@ -99,6 +99,15 @@ def random_file(tmpdir, max_size):
     return (file, h.content_hash())
 
 
+def random_empty(tmpdir):
+    filename = path.join(tmpdir, random_id())
+    open(filename, 'wb').close()
+    st = os.stat(filename)
+    file = File(filename, st.st_size, st.st_mtime)
+    assert file.size == 0
+    return (file, None)
+
+
 class TempDir(object):
     def __init__(self):
         self.dir = tempfile.mkdtemp(prefix='unittest.')
@@ -139,8 +148,9 @@ class TempDir(object):
         shutil.copy(src, dst)
         return dst
 
-    def random_batch(self, count, max_size=LEAF_SIZE*4):
+    def random_batch(self, count, empties=0, max_size=LEAF_SIZE*4):
         result = list(self.random_file(max_size) for i in range(count))
+        result.extend(self.random_empty() for i in range(empties))
         result.sort(key=lambda tup: tup[0].name)
         files = tuple(file for (file, ch) in result)
         batch = Batch(files, sum(f.size for f in files), len(files))
@@ -148,4 +158,7 @@ class TempDir(object):
 
     def random_file(self, max_size=LEAF_SIZE*4):
         return random_file(self.dir, max_size)
+
+    def random_empty(self):
+        return random_empty(self.dir)
 

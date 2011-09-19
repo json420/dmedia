@@ -139,11 +139,11 @@ class ImportWorker(workers.CouchWorker):
         stores = self.get_filestores()
         try:
             for (status, file, doc) in self.import_iter(*stores):
-                self.db.save(doc)
                 self.doc['stats'][status]['count'] += 1
                 self.doc['stats'][status]['bytes'] += file.size
                 self.doc['files'][file.name]['status'] = status
-                if status != 'empty':
+                if doc is not None:
+                    self.db.save(doc)
                     self.doc['files'][file.name]['id'] = doc['_id']
                 self.emit('progress', file.size)
             self.doc['time_end'] = time.time()
