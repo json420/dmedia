@@ -98,7 +98,9 @@ class ImportWorker(workers.CouchWorker):
         self.doc = None
 
     def execute(self, basedir):
-        pass
+        self.start()
+        self.scan()
+        self.import_all()
 
     def start(self):
         self.doc = schema.create_import(self.basedir,
@@ -219,12 +221,15 @@ class ImportManager(workers.CouchManager):
     def on_started(self, key, import_id):
         self.doc['imports'].append(import_id)
         self.db.save(self.doc)
-        self.emit('ImportStarted', key, import_id)
+        self.emit('import_started', key, import_id)
 
     def on_scanned(self, key, total_count, total_bytes):
         self._total_count += total_count 
         self._total_bytes += total_bytes
-        self.emit('import_scanned', key, total_count, total_bytes)
+        self.emit('batch_progress',
+            self._count, self._total_count,
+            self._bytes, self._total_bytes,
+        )
 
     def on_progress(self, key, file_size):
         self._count += 1

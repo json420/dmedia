@@ -418,7 +418,7 @@ class TestImportManager(ImportCase):
             callback.messages,
             [
                 ('batch_started', (batch_id,)),
-                ('ImportStarted', (one.dir, one_id)),
+                ('import_started', (one.dir, one_id)),
             ]
         )
 
@@ -430,8 +430,8 @@ class TestImportManager(ImportCase):
             callback.messages,
             [
                 ('batch_started', (batch_id,)),
-                ('ImportStarted', (one.dir, one_id)),
-                ('ImportStarted', (two.dir, two_id)),
+                ('import_started', (one.dir, one_id)),
+                ('import_started', (two.dir, two_id)),
             ]
         )
 
@@ -449,7 +449,7 @@ class TestImportManager(ImportCase):
         self.assertEqual(
             callback.messages,
             [
-                ('import_scanned', (one.dir, 123, 4567)),
+                ('batch_progress', (0, 123, 0, 4567)),
             ]
         )
 
@@ -460,8 +460,8 @@ class TestImportManager(ImportCase):
         self.assertEqual(
             callback.messages,
             [
-                ('import_scanned', (one.dir, 123, 4567)),
-                ('import_scanned', (two.dir, 234, 5678)),
+                ('batch_progress', (0, 123, 0, 4567)),
+                ('batch_progress', (0, 123 + 234, 0, 4567 + 5678)),
             ]
         )
 
@@ -568,15 +568,16 @@ class TestImportManager(ImportCase):
         # Test that False is returned when key is present
         inst._workers[self.src.dir] = 'foo'
         self.assertFalse(inst.start_import(self.src.dir))
-        return
-
-        # Now do the real thing
+        
+        # Now do the real thing with 25 random files
+        (batch, result) = self.src.random_batch(25)
+        
         inst._workers.clear()
         self.assertEqual(callback.messages, [])
-        self.assertTrue(inst.start_import(base, False) is True)
+        self.assertTrue(inst.start_import(self.src.dir))
         while inst._workers:
             time.sleep(1)
-
+        return
         self.assertEqual(len(callback.messages), 8)
         batch_id = callback.messages[0][1][0]
         import_id = callback.messages[1][1][1]
@@ -586,7 +587,7 @@ class TestImportManager(ImportCase):
         )
         self.assertEqual(
             callback.messages[1],
-            ('ImportStarted', (base, import_id))
+            ('import_started', (base, import_id))
         )
         self.assertEqual(
             callback.messages[2],
