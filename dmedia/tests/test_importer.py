@@ -470,38 +470,32 @@ class TestImportManager(ImportCase):
         inst = self.new(callback)
         self.assertEqual(callback.messages, [])
 
+        self.assertEqual(inst._count, 0)
+        self.assertEqual(inst._bytes, 0)
+        inst._total_count = 3
+        inst._total_bytes = 123
+
         one = TempDir()
-        one_id = random_id()
-        one_info = dict(
-            src=one.join('happy.mov'),
-            _id=mov_hash,
-            action='imported',
-        )
-        self.assertEqual(inst._completed, 0)
-        inst.on_progress(one.dir, one_id, 1, 18, one_info)
-        self.assertEqual(inst._completed, 1)
+        inst.on_progress(one.dir, 17)
+        self.assertEqual(inst._count, 1)
+        self.assertEqual(inst._bytes, 17)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportProgress', (one.dir, one_id, 1, 18, one_info)),
+                ('batch_progress', (1, 3, 17, 123)),
             ]
         )
 
         two = TempDir()
-        two_id = random_id()
-        two_info = dict(
-            src=two.join('happy.thm'),
-            _id='BKSTXEA5MI5DZTUDIHLI3KM3',
-            action='imported',
-        )
-        self.assertEqual(inst._completed, 1)
-        inst.on_progress(two.dir, two_id, 2, 18, two_info)
-        self.assertEqual(inst._completed, 2)
+        inst.on_progress(two.dir, 18)
+        self.assertEqual(inst._count, 2)
+        self.assertEqual(inst._bytes, 17 + 18)
+
         self.assertEqual(
             callback.messages,
             [
-                ('ImportProgress', (one.dir, one_id, 1, 18, one_info)),
-                ('ImportProgress', (two.dir, two_id, 2, 18, two_info)),
+                ('batch_progress', (1, 3, 17, 123)),
+                ('batch_progress', (2, 3, 17+18, 123)),
             ]
         )
 
