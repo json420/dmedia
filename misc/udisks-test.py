@@ -33,19 +33,45 @@ system = DBus(Gio.bus_get_sync(Gio.BusType.SYSTEM, None))
 
 BUS = 'org.freedesktop.UDisks'
 PROPS = 'org.freedesktop.DBus.Properties'
+ECRYPTFS = '/home/.ecryptfs/'
 
 
 UDisks = system.get(BUS, '/org/freedesktop/UDisks')
 
 
-def by_parentdir(parentdir):
-    st_dev = os.stat(parentdir).st_dev
+class DeviceNotFound(Exception):
+    def __init__(self, basedir):
+        self.basedir = basedir
+        super().__init__(basedir)
+
+        
+def get_device_props(objpath):
+    device = system.get(BUS, objpath, PROPS)
+    return device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
+
+
+def by_major_minor(basedir):
+    st_dev = os.stat(basedir).st_dev
     major = os.major(st_dev)
     minor = os.minor(st_dev)
     try:
         return UDisks.FindDeviceByMajorMinor('(xx)', major, minor)
     except Exception:
-        return None
+        raise DeviceNotFound(basedir)
+
+
+def get_partition(basedir):
+    try:
+        return by_major_minor(basedir)
+    except DeviceNotFound as e:
+        pass
+    private = path.join(basedir, '.Private')
+    if path.islink(private) and os.readlink(private).startswith(ECRYPTFS):
+        try:
+            return by_major_minor(private)
+        except DeviceNotFound:
+            pass
+    return None
 
 
 info = {'devices': {}, 'paths': {}}
@@ -53,15 +79,20 @@ info = {'devices': {}, 'paths': {}}
 print('\nEnumerateDevices:')
 for objpath in UDisks.EnumerateDevices():
     print(objpath)
-    device = system.get(BUS, objpath, PROPS)
-    props = device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
+    props = get_device_props(objpath)
     del props['DriveAtaSmartBlob']
     info['devices'][objpath] = props
 
 print('\nTesting paths:')
-home = path.abspath(os.environ['HOME'])
-for d in ['/', '/home', home, '/tmp']:
-    objpath = by_parentdir(d)
+user = path.abspath(os.environ['HOME'])
+dirs = ['/', '/tmp','/home', user]
+private = path.join(user, '.Private')
+if path.islink(private):
+    dirs.append(private)
+for name in os.listdir('/media'):
+    dirs.append(path.join('/media', name))
+for d in dirs:
+    objpath = get_partition(d)
     info['paths'][d] = objpath
     print('{} => {}'.format(d, objpath))
 
