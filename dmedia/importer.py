@@ -239,13 +239,13 @@ class ImportManager(workers.CouchManager):
             self._bytes, self._total_bytes,
         )
 
-    def get_batch_progress(self):
-        with self._lock:
-            return (self._count, self._total_count, self._bytes, self._total_bytes)
-
     def on_finished(self, key, stats):
         accumulate_stats(self.doc['stats'], stats)
         self.db.save(self.doc)
+
+    def get_batch_progress(self):
+        with self._lock:
+            return (self._count, self._total_count, self._bytes, self._total_bytes)
 
     def start_import(self, base):
         return self.start_job('ImportWorker', base, base)
