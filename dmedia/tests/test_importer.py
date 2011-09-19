@@ -26,6 +26,7 @@ Unit tests for `dmedia.importer` module.
 """
 
 from unittest import TestCase
+import time
 
 import filestore
 from microfiber import random_id, Database
@@ -584,6 +585,21 @@ class TestImportManager(ImportCase):
         self.assertEqual(
             inst.doc['stats']['skipped'],
             {'count': 3 + 5, 'bytes': 12345 + 1234}
+        )
+
+    def test_get_batch_progress(self):
+        inst = self.new()
+        self.assertEqual(
+            inst.get_batch_progress(),
+            (0, 0, 0, 0)
+        )
+        inst._count = 1
+        inst._total_count = 2
+        inst._bytes = 3
+        inst._total_bytes = 4
+        self.assertEqual(
+            inst.get_batch_progress(),
+            (1, 2, 3, 4)
         )
 
     def test_start_import(self):
