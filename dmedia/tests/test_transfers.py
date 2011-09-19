@@ -29,10 +29,9 @@ from os import urandom
 from base64 import b32encode
 from multiprocessing import current_process
 import time
-import httplib
+from http.client import HTTPConnection, HTTPSConnection
 
-from dmedia import transfers, schema, filestore, errors
-from dmedia.errors import DownloadFailure, DuplicateFile, IntegrityError
+from dmedia import transfers, schema
 
 from .helpers import DummyQueue, mov_hash, mov_size, mov_leaves, raises, sample_mov
 from .couch import CouchCase
@@ -246,13 +245,13 @@ class TestFunctions(TestCase):
 
         # Test with HTTP
         (conn, t) = f('http://foo.s3.amazonaws.com/')
-        self.assertIsInstance(conn, httplib.HTTPConnection)
-        self.assertNotIsInstance(conn, httplib.HTTPSConnection)
+        self.assertIsInstance(conn, HTTPConnection)
+        self.assertNotIsInstance(conn, HTTPSConnection)
         self.assertEqual(t, ('http', 'foo.s3.amazonaws.com', '/', '', '', ''))
 
         # Test with HTTPS
         (conn, t) = f('https://foo.s3.amazonaws.com/')
-        self.assertIsInstance(conn, httplib.HTTPSConnection)
+        self.assertIsInstance(conn, HTTPSConnection)
         self.assertEqual(t, ('https', 'foo.s3.amazonaws.com', '/', '', '', ''))
 
 
@@ -401,7 +400,7 @@ class TestHTTPBackend(TestCase):
             inst.t,
             ('https', 'foo.s3.amazonaws.com', '/', '', '', '')
         )
-        self.assertIsInstance(inst.conn, httplib.HTTPSConnection)
+        self.assertIsInstance(inst.conn, HTTPSConnection)
 
         url = 'http://example.com/bar'
         inst = self.klass({'url': url})
@@ -411,8 +410,8 @@ class TestHTTPBackend(TestCase):
             inst.t,
             ('http', 'example.com', '/bar', '', '', '')
         )
-        self.assertIsInstance(inst.conn, httplib.HTTPConnection)
-        self.assertNotIsInstance(inst.conn, httplib.HTTPSConnection)
+        self.assertIsInstance(inst.conn, HTTPConnection)
+        self.assertNotIsInstance(inst.conn, HTTPSConnection)
 
         with self.assertRaises(ValueError) as cm:
             inst = self.klass({'url': 'ftp://example.com/'})

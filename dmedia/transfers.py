@@ -27,16 +27,11 @@ import logging
 from base64 import b64decode, b32encode
 from hashlib import sha1
 import time
-from urlparse import urlparse
-from httplib import HTTPConnection, HTTPSConnection
+from urllib.parse import urlparse
+from http.client import HTTPConnection, HTTPSConnection
 
-from . import __version__
-from . import workers
-from .workers import CouchWorker, Manager
-from .errors import DownloadFailure
-from .constants import LEAF_SIZE
-from .filestore import FileStore, tophash, unpack_leaves
-from .errors import TopHashError
+from dmedia import __version__, workers
+from dmedia import workers
 
 
 USER_AGENT = 'dmedia %s' % __version__
@@ -379,15 +374,11 @@ class HTTPBackend(TransferBackend):
 register_downloader('http', HTTPBackend)
 
 
-class TransferWorker(CouchWorker):
+class TransferWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
-        super(TransferWorker, self).__init__(env, q, key, args)
+        super().__init__(env, q, key, args)
         self.filestore = FileStore(self.env['filestore']['path'])
         self.filestore_id = self.env['filestore']['_id']
-        #try:
-        #    from . import backends
-        #except ImportError:
-        #    pass
 
     def on_progress(self, completed):
         self.emit('progress', completed, self.file_size)
@@ -448,9 +439,9 @@ class UploadWorker(TransferWorker):
             self.db.save(self.file)
 
 
-class TransferManager(Manager):
+class TransferManager(workers.Manager):
     def __init__(self, env, callback=None):
-        super(TransferManager, self).__init__(env, callback)
+        super().__init__(env, callback)
         for klass in (DownloadWorker, UploadWorker):
             if not workers.isregistered(klass):
                 workers.register(klass)
