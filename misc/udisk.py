@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 
 import os
+from os import path
+from subprocess import check_output
 import json
 
 from gi.repository import Gio
@@ -10,18 +12,18 @@ class DBus:
     def __init__(self, conn):
         self.conn = conn
 
-    def get(self, bus, path, iface=None):
+    def get(self, bus, objpath, iface=None):
         if iface is None:
             iface = bus
         return Gio.DBusProxy.new_sync(
-            self.conn, 0, None, bus, path, iface, None
+            self.conn, 0, None, bus, objpath, iface, None
         )
 
-    def get_async(self, callback, bus, path, iface=None):
+    def get_async(self, callback, bus, objpath, iface=None):
         if iface is None:
             iface = bus
         Gio.DBusProxy.new(
-            self.conn, 0, None, bus, path, iface, None, callback, None
+            self.conn, 0, None, bus, objpath, iface, None, callback, None
         )
 
 
@@ -35,42 +37,47 @@ PROPS = 'org.freedesktop.DBus.Properties'
 
 UDisks = system.get(BUS, '/org/freedesktop/UDisks')
 
-d = {}
+
+def by_parentdir(parentdir):
+    st_dev = os.stat(parentdir).st_dev
+    major = os.major(st_dev)
+    minor = os.minor(st_dev)
+    try:
+        return UDisks.FindDeviceByMajorMinor('(xx)', major, minor)
+    except Exception:
+        return None
+
+
+info = {'devices': {}, 'paths': {}}
+
 print('\nEnumerateDevices:')
-for path in UDisks.EnumerateDevices():
-    print(path)
-    device = system.get(BUS, path, PROPS)
+for objpath in UDisks.EnumerateDevices():
+    print(objpath)
+    device = system.get(BUS, objpath, PROPS)
     props = device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
     del props['DriveAtaSmartBlob']
-    d[path] = props
+    info['devices'][objpath] = props
 
-dst = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), 'udisks-report.json'
-)
+print('\nTesting paths:')
+home = path.abspath(os.environ['HOME'])
+for d in ['/', '/home', home, '/tmp']:
+    objpath = by_parentdir(d)
+    info['paths'][d] = objpath
+    print('{} => {}'.format(d, objpath))
+
+
+print('\nGetting info from `df`:')
+lines = check_output(['/bin/df', '-T', '--si']).decode('utf-8').splitlines()
+info['df'] = lines
+for line in lines:
+    print(line)
+
+
+dst = path.join(path.dirname(path.abspath(__file__)), 'udisks-report.json')
 dst_fp = open(dst, 'w')
-json.dump(d, dst_fp, sort_keys=True, indent=4)
+json.dump(info, dst_fp, sort_keys=True, indent=4)
 print('\nUDisks info dumped to:')
 print(dst)
- 
-
-
-
-#class Device(object):
-#    def __init__(self, device, conn=None):
-#        self._conn = (dbus.SystemBus() if conn is None else conn)
-#        self._proxy = self._conn.get_object('org.freedesktop.UDisks', device)
-#        self.device = device
-#        self._get = self._proxy.get_dbus_method('Get',
-#            dbus_interface='org.freedesktop.DBus.Properties'
-#        )
-
-#    def __getitem__(self, key):
-#        return self._get('org.freedesktop.UDisks.Device', key)
-
-
-
-#fs = Device('/org/freedesktop/UDisks/devices/sdf1')
-#drive = Device(fs['PartitionSlave'])
 
 #doc = {
 #    'device': {
