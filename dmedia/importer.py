@@ -26,6 +26,7 @@ Store media files based on content-hash.
 """
 
 import time
+from copy import deepcopy
 import logging
 
 import microfiber
@@ -176,26 +177,26 @@ class ImportManager(workers.CouchManager):
     def __init__(self, env, callback=None):
         super().__init__(env, callback)
         self.doc = None
-        self._total = 0
-        self._completed = 0
+        self._reset_counters()
         if not workers.isregistered(ImportWorker):
             workers.register(ImportWorker)
 
+    def _reset_counters(self):
+        self._count = 0
+        self._total_count = 0
+        self._bytes = 0
+        self._total_bytes = 0
+
     def get_worker_env(self, worker, key, args):
-        env = dict(self.env)
+        env = deepcopy(self.env)
         env['batch_id'] = self.doc['_id']
         return env
 
     def first_worker_starting(self):
         assert self.doc is None
         assert self._workers == {}
-
-        self._count = 0
-        self._total_count = 0
-        self._bytes = 0
-        self._total_bytes = 0
-
-        self.doc = create_batch(self.env.get('machine_id'))
+        self._reset_counters()
+        self.doc = schema.create_batch(self.env.get('machine_id'))
         self.db.save(self.doc)
         self.emit('batch_started', self.doc['_id'])
 
@@ -223,6 +224,7 @@ class ImportManager(workers.CouchManager):
     def on_scanned(self, key, total_count, total_bytes):
         self._total_count += total_count 
         self._total_bytes += total_bytes
+        self.emit('import_scanned', key, total_count, total_bytes)
 
     def on_progress(self, key, file_size):
         self._count += 1

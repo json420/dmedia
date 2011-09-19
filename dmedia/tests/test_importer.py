@@ -88,8 +88,6 @@ class TestFunctions(TestCase):
 class ImportCase(CouchCase):
     def setUp(self):
         super().setUp()
-        self.batch_id = random_id()
-        self.env['batch_id'] = self.batch_id
         self.q = DummyQueue()
 
         self.src = TempDir()
@@ -122,6 +120,11 @@ class ImportCase(CouchCase):
 
 
 class TestImportWorker(ImportCase):
+    def setUp(self):
+        super().setUp()
+        self.batch_id = random_id()
+        self.env['batch_id'] = self.batch_id
+
     def test_random_batch(self):
         key = self.src.dir
         args = (self.src.dir,)
@@ -258,7 +261,6 @@ class TestImportManager(ImportCase):
     def new(self, callback=None):
         return self.klass(self.env, callback)
 
-
     def test_first_worker_starting(self):
         callback = DummyCallback()
         inst = self.new(callback)
@@ -269,11 +271,17 @@ class TestImportManager(ImportCase):
         inst._workers.clear()
 
         # Test under normal conditions
-        inst._completed = 17
-        inst._total = 18
+        inst._count = 17
+        inst._total_count = 18
+        inst._bytes = 19
+        inst._total_bytes = 20
+
         inst.first_worker_starting()
-        self.assertEqual(inst._completed, 0)
-        self.assertEqual(inst._total, 0)
+        self.assertEqual(inst._count, 0)
+        self.assertEqual(inst._total_count, 0)
+        self.assertEqual(inst._bytes, 0)
+        self.assertEqual(inst._total_bytes, 0)
+
         batch = inst.doc
         self.assertTrue(isinstance(batch, dict))
         self.assertEqual(
@@ -297,7 +305,7 @@ class TestImportManager(ImportCase):
         self.assertEqual(
             callback.messages,
             [
-                ('BatchStarted', (batch['_id'],)),
+                ('batch_started', (batch['_id'],)),
             ]
         )
 
@@ -308,12 +316,16 @@ class TestImportManager(ImportCase):
         callback = DummyCallback()
         inst = self.new(callback)
         batch_id = random_id()
+        
+        stats = {
+            'total': {'count': 0, 'bytes': 0},
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+        }
         inst.doc = dict(
             _id=batch_id,
-            stats=dict(
-                imported={'count': 17, 'bytes': 98765},
-                skipped={'count': 3, 'bytes': 12345},
-            ),
+            stats=stats,
         )
 
         # Make sure it checks that workers is empty
@@ -325,16 +337,10 @@ class TestImportManager(ImportCase):
         inst._workers.clear()
         inst.last_worker_finished()
         self.assertEqual(inst.doc, None)
-        stats = dict(
-            imported=17,
-            imported_bytes=98765,
-            skipped=3,
-            skipped_bytes=12345,
-        )
         self.assertEqual(
             callback.messages,
             [
-                ('BatchFinished', (batch_id, stats)),
+                ('batch_finished', (batch_id, stats)),
             ]
         )
         doc = inst.db.get(batch_id)
@@ -347,8 +353,7 @@ class TestImportManager(ImportCase):
                 'time_end',
             ])
         )
-        cur = time.time()
-        self.assertTrue(cur - 1 <= doc['time_end'] <= cur)
+        self.assertLessEqual(doc['time_end'], time.time())
 
     def test_on_error(self):
         callback = DummyCallback()
@@ -401,62 +406,62 @@ class TestImportManager(ImportCase):
         self.assertEqual(
             callback.messages,
             [
-                ('BatchStarted', (batch_id,)),
+                ('batch_started', (batch_id,)),
             ]
         )
 
         one = TempDir()
         one_id = random_id()
-        inst.on_started(one.path, one_id)
+        inst.on_started(one.dir, one_id)
         self.assertEqual(inst.db.get(batch_id)['imports'], [one_id])
         self.assertEqual(
             callback.messages,
             [
-                ('BatchStarted', (batch_id,)),
-                ('ImportStarted', (one.path, one_id)),
+                ('batch_started', (batch_id,)),
+                ('ImportStarted', (one.dir, one_id)),
             ]
         )
 
         two = TempDir()
         two_id = random_id()
-        inst.on_started(two.path, two_id)
+        inst.on_started(two.dir, two_id)
         self.assertEqual(inst.db.get(batch_id)['imports'], [one_id, two_id])
         self.assertEqual(
             callback.messages,
             [
-                ('BatchStarted', (batch_id,)),
-                ('ImportStarted', (one.path, one_id)),
-                ('ImportStarted', (two.path, two_id)),
+                ('batch_started', (batch_id,)),
+                ('ImportStarted', (one.dir, one_id)),
+                ('ImportStarted', (two.dir, two_id)),
             ]
         )
 
-    def test_on_count(self):
+    def test_on_scanned(self):
         callback = DummyCallback()
         inst = self.new(callback)
         self.assertEqual(callback.messages, [])
 
         one = TempDir()
-        one_id = random_id()
-        self.assertEqual(inst._total, 0)
-        inst.on_count(one.path, one_id, 378)
-        self.assertEqual(inst._total, 378)
+        self.assertEqual(inst._total_count, 0)
+        self.assertEqual(inst._total_bytes, 0)
+        inst.on_scanned(one.dir, 123, 4567)
+        self.assertEqual(inst._total_count, 123)
+        self.assertEqual(inst._total_bytes, 4567)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportCount', (one.path, one_id, 378)),
+                ('import_scanned', (one.dir, 123, 4567)),
             ]
         )
 
         two = TempDir()
-        two_id = random_id()
-        self.assertEqual(inst._total, 378)
-        inst.on_count(two.path, two_id, 17)
-        self.assertEqual(inst._total, 395)
+        inst.on_scanned(two.dir, 234, 5678)
+        self.assertEqual(inst._total_count, 123 + 234)
+        self.assertEqual(inst._total_bytes, 4567 + 5678)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportCount', (one.path, one_id, 378)),
-                ('ImportCount', (two.path, two_id, 17)),
+                ('import_scanned', (one.dir, 123, 4567)),
+                ('import_scanned', (two.dir, 234, 5678)),
             ]
         )
 
@@ -473,12 +478,12 @@ class TestImportManager(ImportCase):
             action='imported',
         )
         self.assertEqual(inst._completed, 0)
-        inst.on_progress(one.path, one_id, 1, 18, one_info)
+        inst.on_progress(one.dir, one_id, 1, 18, one_info)
         self.assertEqual(inst._completed, 1)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportProgress', (one.path, one_id, 1, 18, one_info)),
+                ('ImportProgress', (one.dir, one_id, 1, 18, one_info)),
             ]
         )
 
@@ -490,13 +495,13 @@ class TestImportManager(ImportCase):
             action='imported',
         )
         self.assertEqual(inst._completed, 1)
-        inst.on_progress(two.path, two_id, 2, 18, two_info)
+        inst.on_progress(two.dir, two_id, 2, 18, two_info)
         self.assertEqual(inst._completed, 2)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportProgress', (one.path, one_id, 1, 18, one_info)),
-                ('ImportProgress', (two.path, two_id, 2, 18, two_info)),
+                ('ImportProgress', (one.dir, one_id, 1, 18, one_info)),
+                ('ImportProgress', (two.dir, two_id, 2, 18, two_info)),
             ]
         )
 
@@ -519,11 +524,11 @@ class TestImportManager(ImportCase):
             imported={'count': 17, 'bytes': 98765},
             skipped={'count': 3, 'bytes': 12345},
         )
-        inst.on_finished(one.path, one_id, one_stats)
+        inst.on_finished(one.dir, one_id, one_stats)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportFinished', (one.path, one_id, dict(
+                ('ImportFinished', (one.dir, one_id, dict(
                         imported=17,
                         imported_bytes=98765,
                         skipped=3,
@@ -553,18 +558,18 @@ class TestImportManager(ImportCase):
             imported={'count': 18, 'bytes': 9876},
             skipped={'count': 5, 'bytes': 1234},
         )
-        inst.on_finished(two.path, two_id, two_stats)
+        inst.on_finished(two.dir, two_id, two_stats)
         self.assertEqual(
             callback.messages,
             [
-                ('ImportFinished', (one.path, one_id, dict(
+                ('ImportFinished', (one.dir, one_id, dict(
                         imported=17,
                         imported_bytes=98765,
                         skipped=3,
                         skipped_bytes=12345,
                     ))
                 ),
-                ('ImportFinished', (two.path, two_id, dict(
+                ('ImportFinished', (two.dir, two_id, dict(
                         imported=18,
                         imported_bytes=9876,
                         skipped=5,
@@ -636,7 +641,7 @@ class TestImportManager(ImportCase):
         import_id = callback.messages[1][1][1]
         self.assertEqual(
             callback.messages[0],
-            ('BatchStarted', (batch_id,))
+            ('batch_started', (batch_id,))
         )
         self.assertEqual(
             callback.messages[1],
