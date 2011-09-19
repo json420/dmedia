@@ -623,6 +623,7 @@ class TestImportManager(ImportCase):
         for (file, ch) in result:
             doc = self.db.get(ch.id)
             schema.check_file(doc)
+            self.assertTrue(doc['_rev'].startswith('1-'))
             self.assertEqual(doc['import_id'], import_id)
             self.assertEqual(doc['mtime'], file.mtime)
             self.assertEqual(doc['bytes'], file.size)
@@ -652,6 +653,88 @@ class TestImportManager(ImportCase):
         for (file, ch) in result:
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
-        
-        
+
+        ##################################################################
+        # Okay, now run the whole thing again when they're all duplicates:
+        callback.messages = []
+        self.assertTrue(inst.start_import(self.src.dir))
+        while inst._workers:
+            time.sleep(1)
+
+        self.assertEqual(len(callback.messages), 29)
+
+        batch_id = callback.messages[0][1][0]
+        import_id = callback.messages[1][1][1]
+        self.assertEqual(
+            callback.messages[0],
+            ('batch_started', (batch_id,))
+        )
+        self.assertEqual(
+            callback.messages[1],
+            ('import_started', (self.src.dir, import_id))
+        )
+        self.assertEqual(
+            callback.messages[2],
+            ('batch_progress', (0, batch.count, 0, batch.size))
+        )
+        size = 0
+        for (i, file) in enumerate(batch.files):
+            size += file.size
+            self.assertEqual(
+                callback.messages[i + 3],
+                ('batch_progress', (i + 1, batch.count, size, batch.size))
+            )
+
+        stats = {
+            'total': {'count': batch.count, 'bytes': batch.size},
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': batch.count, 'bytes': batch.size},
+            'empty': {'count': 0, 'bytes': 0},
+        }
+        self.assertEqual(
+            callback.messages[-1],
+            ('batch_finished', (batch_id, stats))
+        )
+
+        ids = set(ch.id for (file, ch) in result)
+        fs1 = filestore.FileStore(self.dst1.dir)
+        fs2 = filestore.FileStore(self.dst2.dir)
+        self.assertEqual(set(st.id for st in fs1), ids)
+        self.assertEqual(set(st.id for st in fs2), ids)
+
+        # Check all the dmedia/file docs:
+        for (file, ch) in result:
+            doc = self.db.get(ch.id)
+            schema.check_file(doc)
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertNotEqual(doc['import_id'], import_id)
+            self.assertEqual(doc['mtime'], file.mtime)
+            self.assertEqual(doc['bytes'], file.size)
+            (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
+            self.assertEqual(content_type, 'application/octet-stream')
+            self.assertEqual(leaf_hashes, ch.leaf_hashes)
+            self.assertEqual(
+                set(doc['stored']),
+                set([self.store1_id, self.store2_id])
+            )
+            self.assertEqual(
+                doc['stored'][self.store1_id],
+                {
+                    'mtime': fs1.stat(ch.id).mtime,
+                    'copies': 1,
+                }
+            )
+            self.assertEqual(
+                doc['stored'][self.store2_id],
+                {
+                    'mtime': fs2.stat(ch.id).mtime,
+                    'copies': 2,
+                }
+            )
+
+        # Verify all the files
+        for (file, ch) in result:
+            self.assertEqual(fs1.verify(ch.id), ch)
+            self.assertEqual(fs2.verify(ch.id), ch)
+
 

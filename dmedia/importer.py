@@ -27,6 +27,7 @@ Store media files based on content-hash.
 
 import time
 from copy import deepcopy
+from subprocess import check_call
 import logging
 
 import microfiber
