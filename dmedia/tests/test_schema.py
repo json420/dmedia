@@ -659,14 +659,12 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['imports'], [])
         self.assertEqual(doc['errors'], [])
         self.assertEqual(doc['machine_id'], machine_id)
-        self.assertEqual(
-            doc['stats'],
+        self.assertEqual(doc['stats'],
             {
-                'considered': {'count': 0, 'bytes': 0},
-                'imported': {'count': 0, 'bytes': 0},
-                'skipped': {'count': 0, 'bytes': 0},
+                'total': {'count': 0, 'bytes': 0},
+                'new': {'count': 0, 'bytes': 0},
+                'duplicate': {'count': 0, 'bytes': 0},
                 'empty': {'count': 0, 'bytes': 0},
-                'error': {'count': 0, 'bytes': 0},
             }
         )
 
