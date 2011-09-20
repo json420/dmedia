@@ -232,7 +232,6 @@ def http_conn(url, **options):
     if not t.netloc:
         raise ValueError('bad url: {!r}'.format(url))
     klass = (HTTPConnection if t.scheme == 'http' else HTTPSConnection)
-    options['strict'] = True
     conn = klass(t.netloc, **options)
     return (conn, t)
 
