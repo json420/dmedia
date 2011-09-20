@@ -52,18 +52,18 @@ class SampleFilesTestCase(TestCase):
     mov = path.join(datadir, 'MVI_5751.MOV')
     thm = path.join(datadir, 'MVI_5751.THM')
     mov_ch = ContentHash(
-        'YGDV257NS4727MLMM52YPRFME7YWIUEFDZC6XMRKMBMDQ2DV',
+        'SM3GS4DUDVXOEU2DTTTWU5HKNRK777IWNSI5UQ4ZWNQGRXAN',
         20202333,
         b64decode(b''.join([
-            b'yo0WOxW2f7lieV7zIuAhZBBX7dNhAISx1cKC4Izc',
-            b'/IFZSXhWaIUtYrLwxb/WpXE/m0anfUmtIujXdTM2',
-            b'/J1zUUpuAQCIQF92Q2WM5iblkiM4wKEEhnq3CJsO'
+            b'Ps9ZlZ5RALOGrqUbXJYJDFJaLClkGKkv4gYu2cWn',
+            b'dse+QPUQFn9Q6FBkhhX0hjDGHOyMnFtGdAgRY1Gc',
+            b'XzjjVS002vjsMkVKb4/+E7qmeGfHsBFFbYV127ux'
         ]))
     )
     thm_ch = ContentHash(
-        'TZE6TOCGTZSNXFANERWF2VH2GMV6REUSBKPHOLJCVHDS6UF6',
+        'MXPCFNUNPDAWHQWC5QNTPP2U5OF2J267QQVALXX6B5TRJKJB',
         27328,
-        b64decode(b'Hme1V45dR/uBMSKsa9GZuHkwYfwzBPELDNma35VN'),   
+        b64decode(b'RwtCvXTjDrah3O23qNkobCGNF6hq7HYIB4TRx2Dh'),   
     )
 
     def setUp(self):

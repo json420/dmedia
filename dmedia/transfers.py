@@ -379,6 +379,7 @@ register_downloader('http', HTTPBackend)
 class TransferWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
+        return
         self.filestore = FileStore(self.env['filestore']['path'])
         self.filestore_id = self.env['filestore']['_id']
 
