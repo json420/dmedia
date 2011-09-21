@@ -61,6 +61,7 @@ def benchmark(hashfunc):
 
 print('-' * 80)
 print('Leaf size: {} MiB'.format(options.leaf))
+print('Leaf count: {}'.format(options.count))
 print('Total size: {} MiB'.format(size // MiB))
 print('Python: {}, {}, {}'.format(
     platform.python_version(), platform.machine(), platform.system())
