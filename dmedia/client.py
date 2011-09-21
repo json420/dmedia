@@ -23,10 +23,12 @@
 dmedia HTTP client.
 """
 
+import os
 from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPSConnection
+from collections import OrderedDict
 
-from filestore import LEAF_SIZE, TYPE_ERROR
+from filestore import LEAF_SIZE, TYPE_ERROR, hash_leaf, reader_iter
 from filestore import Leaf, ContentHash, SmartQueue, _start_thread
 
 from dmedia import __version__
@@ -247,19 +249,19 @@ def check_slice(ch, start, stop):
 
 def range_header(ch, start=0, stop=None):
     check_slice(ch, start, stop)
-    if start == 0 and stop is None:
+    if start == 0 and (stop is None or stop == len(ch.leaf_hashes)):
         return {}
     _start = start * LEAF_SIZE
-    if stop is None or len(stop) == len(ch.leaf_hashes):
+    if stop is None or stop == len(ch.leaf_hashes):
         _stop = None
     else:
         _stop = stop * LEAF_SIZE
     return {'Range': bytes_range(_start, _stop)}
 
 
-def response_reader(response, queue, start_index=0):
+def response_reader(response, queue, start=0):
     try:
-        index = start_index
+        index = start
         while True:
             data = response.read(LEAF_SIZE)
             if not data:
@@ -271,9 +273,9 @@ def response_reader(response, queue, start_index=0):
         queue.put(e)
 
 
-def threaded_response_iter(response, start_index=0):
+def threaded_response_iter(response, start=0):
     q = SmartQueue(4)
-    thread = _start_thread(response_reader, response, q, start_index)
+    thread = _start_thread(response_reader, response, q, start)
     while True:
         leaf = q.get()
         if leaf is None:
@@ -290,6 +292,60 @@ def response_iter(response, start=0):
             break
         yield Leaf(index, data)
         index += 1
+
+
+def missing_leaves(ch, tmp_fp):
+    assert isinstance(ch.leaf_hashes, tuple)
+    assert os.fstat(tmp_fp.fileno()).st_size == ch.file_size
+    assert tmp_fp.mode in ('rb+', 'r+b')
+    tmp_fp.seek(0)
+    for leaf in reader_iter(tmp_fp):
+        leaf_hash = ch.leaf_hashes[leaf.index]
+        if hash_leaf(leaf.index, leaf.data) != leaf_hash:
+            yield (leaf.index, leaf_hash)
+    assert leaf.index == len(ch.leaf_hashes) - 1
+
+
+class DownloadWriter:
+    def __init__(self, ch, store):
+        self.ch = ch
+        self.store = store
+        self.tmp_fp = store.allocate_partial(ch.file_size, ch.id)
+        self.resumed = (self.tmp_fp.mode != 'wb')
+        if self.resumed:
+            gen = missing_leaves(ch, self.tmp_fp)
+        else:
+            gen = enumerate(ch.leaf_hashes)
+        self.missing = OrderedDict(gen)
+
+    def write_leaf(self, leaf):
+        if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
+            return False
+        self.tmp_fp.seek(leaf.index * LEAF_SIZE)
+        self.tmp_fp.write(leaf.data)
+        lh = self.missing.pop(leaf.index)
+        assert lh == self.ch.leaf_hashes[leaf.index]
+        return True
+
+    def next_slice(self):
+        if not self.missing:
+            raise Exception('done!')
+        first = None
+        for i in self.missing:
+            if first is None:
+                first = i
+                last = i
+            elif i != last + 1:
+                return (first, last + 1)
+            else:
+                last = i
+        return (first, last + 1)
+
+    def finish(self):
+        assert not self.missing
+        self.tmp_fp.close()
+        tmp_fp = open(self.tmp_fp.name, 'rb')
+        return self.store.verify_and_move(tmp_fp, self.ch.id)
 
 
 class HTTPClient:
