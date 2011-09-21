@@ -28,6 +28,7 @@ import os
 from http.client import HTTPConnection, HTTPSConnection
 
 from microfiber import random_id
+from filestore import ContentHash, TYPE_ERROR, DIGEST_BYTES
 
 from dmedia import client
 
@@ -113,6 +114,105 @@ class TestFunctions(TestCase):
         self.assertEqual(f(500, 1000), 'bytes=500-999')
         self.assertEqual(f(-500), 'bytes=-500')
         self.assertEqual(f(9500), 'bytes=9500-')
+
+    def test_check_slice(self):
+        ch = ContentHash('foo', None, (1, 2, 3))
+
+        # Test all valid slices
+        client.check_slice(ch, 0, None)
+        client.check_slice(ch, 1, None)
+        client.check_slice(ch, 2, None)
+        client.check_slice(ch, 0, 1)
+        client.check_slice(ch, 0, 2)
+        client.check_slice(ch, 1, 2)
+        client.check_slice(ch, 0, 3)
+        client.check_slice(ch, 1, 3)
+        client.check_slice(ch, 2, 3)
+
+        # ch type
+        with self.assertRaises(TypeError) as cm:
+            bad = ('foo', None, (1, 2, 3))
+            client.check_slice(bad, 1, None)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('ch', ContentHash, tuple, bad)
+        )
+
+        # ch.leaf_hashes type
+        with self.assertRaises(TypeError) as cm:
+            bad = ContentHash('foo', None, os.urandom(DIGEST_BYTES))
+            client.check_slice(bad, 1, None)
+        self.assertEqual(
+            str(cm.exception),
+            'ch.leaf_hashes not unpacked for ch.id=foo'
+        )
+
+        # empty ch.leaf_hashes
+        with self.assertRaises(ValueError) as cm:
+            bad = ContentHash('foo', None, tuple())
+            client.check_slice(bad, 1, None)
+        self.assertEqual(
+            str(cm.exception),
+            'got empty ch.leaf_hashes for ch.id=foo'
+        )
+
+        # start type
+        with self.assertRaises(TypeError) as cm:
+            client.check_slice(ch, 0.0, None)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('start', int, float, 0.0)
+        )
+
+        # stop type
+        with self.assertRaises(TypeError) as cm:
+            client.check_slice(ch, 0, 1.0)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('stop', int, float, 1.0)
+        )
+
+        # start value
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, -1, None)
+        self.assertEqual(
+            str(cm.exception),
+            'Need 0 <= start < 3; got start=-1'
+        )
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, 3, None)
+        self.assertEqual(
+            str(cm.exception),
+            'Need 0 <= start < 3; got start=3'
+        )
+
+        # stop value
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, 0, 0)
+        self.assertEqual(
+            str(cm.exception),
+            'Need 1 <= stop <= 3; got stop=0'
+        )
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, 0, 4)
+        self.assertEqual(
+            str(cm.exception),
+            'Need 1 <= stop <= 3; got stop=4'
+        )
+
+        # start < stop
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, 2, 1)
+        self.assertEqual(
+            str(cm.exception),
+            'Need start < stop; got start=2, stop=1'
+        )
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, 1, 1)
+        self.assertEqual(
+            str(cm.exception),
+            'Need start < stop; got start=1, stop=1'
+        )
 
 
 class TestHTTPClient(TestCase):        

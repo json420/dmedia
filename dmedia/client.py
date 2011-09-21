@@ -26,7 +26,8 @@ dmedia HTTP client.
 from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPSConnection
 
-from filestore import LEAF_SIZE, Leaf, SmartQueue, _start_thread
+from filestore import LEAF_SIZE, TYPE_ERROR
+from filestore import Leaf, ContentHash, SmartQueue, _start_thread
 
 from dmedia import __version__
 
@@ -208,28 +209,52 @@ def bytes_range(start, stop=None):
     return 'bytes={}-{}'.format(start, end)
 
 
-def range_header(file_size, start_index=0, stop_index=None):
-    if start_index == 0 and stop_index is None:
-        return {}
-    if start_index < 0:
-        raise ValueError('start_index must be >=0; got {!r}'.format(start_index))
-    if file_size < 1:
-        raise ValueError('file_size must be >=1; got %r' % file_size)
-    start = start_index * LEAF_SIZE
-    if start >= file_size:
-        raise ValueError(
-            'past end of file: file_size={}, start_index={}'.format(
-                file_size, start_index)
+def check_slice(ch, start, stop):
+    """
+    Validate the crap out of a leaf-wise slice of a file.
+    """
+    if not isinstance(ch, ContentHash):
+        raise TypeError(
+            TYPE_ERROR.format('ch', ContentHash, type(ch), ch)
         )
-    if stop_index is None:
-        stop = None
+    if not isinstance(ch.leaf_hashes, tuple):
+        raise TypeError(
+            'ch.leaf_hashes not unpacked for ch.id={}'.format(ch.id)
+        )
+    if not ch.leaf_hashes:
+        raise ValueError('got empty ch.leaf_hashes for ch.id={}'.format(ch.id))
+    if not isinstance(start, int):
+        raise TypeError(
+            TYPE_ERROR.format('start', int, type(start), start)
+        )
+    if not (stop is None or isinstance(stop, int)):
+        raise TypeError(
+            TYPE_ERROR.format('stop', int, type(stop), stop)
+        )
+    if not (0 <= start < len(ch.leaf_hashes)):
+        raise ValueError('Need 0 <= start < {}; got start={}'.format(
+               len(ch.leaf_hashes), start)
+        )
+    if not (stop is None or 1 <= stop <= len(ch.leaf_hashes)):
+        raise ValueError('Need 1 <= stop <= {}; got stop={}'.format(
+               len(ch.leaf_hashes), stop)
+        )
+    if not (stop is None or start < stop):
+        raise ValueError(
+            'Need start < stop; got start={}, stop={}'.format(start, stop)
+        )
+
+
+def range_header(ch, start=0, stop=None):
+    check_slice(ch, start, stop)
+    if start == 0 and stop is None:
+        return {}
+    _start = start * LEAF_SIZE
+    if stop is None or len(stop) == len(ch.leaf_hashes):
+        _stop = None
     else:
-        if stop_index <= start_index:
-            raise ValueError(
-                'stop_index <= start_index: {} <= {}'.format(stop_index, start_index)
-            )
-        stop = min(file_size, stop_index * LEAF_SIZE)
-    return {'Range': bytes_range(start, stop)}
+        _stop = stop * LEAF_SIZE
+    return {'Range': bytes_range(_start, _stop)}
 
 
 def response_reader(response, queue, start_index=0):
@@ -246,7 +271,7 @@ def response_reader(response, queue, start_index=0):
         queue.put(e)
 
 
-def response_iter(response, start_index=0):
+def threaded_response_iter(response, start_index=0):
     q = SmartQueue(4)
     thread = _start_thread(response_reader, response, q, start_index)
     while True:
@@ -255,6 +280,16 @@ def response_iter(response, start_index=0):
             break
         yield leaf
     thread.join()  # Make sure reader() terminates
+
+
+def response_iter(response, start=0):
+    index = start
+    while True:
+        data = response.read(LEAF_SIZE)
+        if not data:
+            break
+        yield Leaf(index, data)
+        index += 1
 
 
 class HTTPClient:
@@ -285,19 +320,7 @@ class HTTPClient:
             raise E(response, method, path)
         return response
 
-    def get_leaves(self, ch, start_index=0, stop_index=None):
-        headers = range_header(ch.file_size, start_index, stop_index)
+    def get(self, ch, start=0, stop=None):
+        headers = range_header(ch, start, stop)
         return self.request('GET', ch.id, headers=headers)
-
-    def iter_leaves(self, ch, start_index=0, stop_index=None):
-        response = self.get_leaves(ch, start_index, stop_index)
-        return response_iter(response, start_index)
-#        index = start_index
-#        while True:
-#            data = response.read(LEAF_SIZE)
-#            if not data:
-#                break
-#            yield Leaf(index, data)
-#            index += 1
-        
 
