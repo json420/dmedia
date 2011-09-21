@@ -26,6 +26,8 @@ dmedia HTTP client.
 from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPSConnection
 
+from filestore import LEAF_SIZE, Leaf, SmartQueue, _start_thread
+
 from dmedia import __version__
 
 
@@ -167,14 +169,105 @@ def http_conn(url, **options):
     return (conn, u)
 
 
+def bytes_range(start, stop=None):
+    """
+    Convert from Python slice semantics to an HTTP Range request.
+
+    Python slice semantics are quite natural to deal with, whereas the HTTP
+    Range semantics are a touch wacky, so this function will help prevent silly
+    errors.
+
+    For example, say we're requesting parts of a 10,000 byte long file.  This
+    requests the first 500 bytes:
+
+    >>> bytes_range(0, 500)
+    'bytes=0-499'
+
+    This requests the second 500 bytes:
+
+    >>> bytes_range(500, 1000)
+    'bytes=500-999'
+
+    All three of these request the final 500 bytes:
+
+    >>> bytes_range(9500, 10000)
+    'bytes=9500-9999'
+    >>> bytes_range(-500)
+    'bytes=-500'
+    >>> bytes_range(9500)
+    'bytes=9500-'
+
+    For details on HTTP Range header, see:
+
+      http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
+    """
+    if start < 0:
+        assert stop is None
+        return 'bytes={}'.format(start)
+    end = ('' if stop is None else stop - 1)
+    return 'bytes={}-{}'.format(start, end)
+
+
+def range_header(file_size, start_index=0, stop_index=None):
+    if start_index == 0 and stop_index is None:
+        return {}
+    if start_index < 0:
+        raise ValueError('start_index must be >=0; got {!r}'.format(start_index))
+    if file_size < 1:
+        raise ValueError('file_size must be >=1; got %r' % file_size)
+    start = start_index * LEAF_SIZE
+    if start >= file_size:
+        raise ValueError(
+            'past end of file: file_size={}, start_index={}'.format(
+                file_size, start_index)
+        )
+    if stop_index is None:
+        stop = None
+    else:
+        if stop_index <= start_index:
+            raise ValueError(
+                'stop_index <= start_index: {} <= {}'.format(stop_index, start_index)
+            )
+        stop = min(file_size, stop_index * LEAF_SIZE)
+    return {'Range': bytes_range(start, stop)}
+
+
+def response_reader(response, queue, start_index=0):
+    try:
+        index = start_index
+        while True:
+            data = response.read(LEAF_SIZE)
+            if not data:
+                queue.put(None)
+                break
+            queue.put(Leaf(index, data))
+            index += 1
+    except Exception as e:
+        queue.put(e)
+
+
+def response_iter(response, start_index=0):
+    q = SmartQueue(4)
+    thread = _start_thread(response_reader, response, q, start_index)
+    while True:
+        leaf = q.get()
+        if leaf is None:
+            break
+        yield leaf
+    thread.join()  # Make sure reader() terminates
+
+
 class HTTPClient:
-    def __init__(self, url):
+    def __init__(self, url, debug=False):
         (self.conn, u) = http_conn(url)
         self.basepath = (u.path if u.path.endswith('/') else u.path + '/')
         self.url = ''.join([u.scheme, '://', u.netloc, self.basepath])
         self.u = u
+        if debug:
+            self.conn.set_debuglevel(1)
 
     def request(self, method, relpath, body=None, headers=None):
+        assert not relpath.startswith('/')
         path = self.basepath + relpath
         h = {'User-Agent': USER_AGENT}
         if headers:
@@ -191,4 +284,20 @@ class HTTPClient:
             E = errors.get(response.status, ClientError)
             raise E(response, method, path)
         return response
+
+    def get_leaves(self, ch, start_index=0, stop_index=None):
+        headers = range_header(ch.file_size, start_index, stop_index)
+        return self.request('GET', ch.id, headers=headers)
+
+    def iter_leaves(self, ch, start_index=0, stop_index=None):
+        response = self.get_leaves(ch, start_index, stop_index)
+        return response_iter(response, start_index)
+#        index = start_index
+#        while True:
+#            data = response.read(LEAF_SIZE)
+#            if not data:
+#                break
+#            yield Leaf(index, data)
+#            index += 1
+        
 
