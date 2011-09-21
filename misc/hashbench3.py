@@ -1,49 +1,40 @@
 #!/usr/bin/env python3
 
-import sys
 import os
-from os import path
 import optparse
 import time
 import hashlib
 import platform
 
 
-parser = optparse.OptionParser(
-	usage='Usage: %prog FILE',
-)
-parser.add_option('--chunk',
-    help='Read buffer size in KiB; default=1024',
-    metavar='KiB',
-    default=1024,
+parser = optparse.OptionParser()
+parser.add_option('--leaf',
+    help='Leaf size in MiB; default=8',
+    metavar='MiB',
+    default=8,
     type='int',
 )
-parser.add_option('--runs',
-    help='Runs per algorithm; default=4',
+parser.add_option('--count',
+    help='Number of leaves to hash; default=256',
     metavar='N',
-    default=4,
+    default=256,
     type='int',
 )
 
 (options, args) = parser.parse_args()
-if len(args) != 1:
-    parser.print_usage()
-    sys.exit('ERROR: must provide FILE to hash')
-src = path.abspath(args[0])
-if not path.isfile(src):
-    parser.print_usage()
-    sys.exit('ERROR: not a file: %r' % src)
-size = path.getsize(src)
-chunk = options.chunk * 1024
+MiB = 1024 * 1024
+leaf_size = options.leaf * MiB
+size = leaf_size * options.count
+leaf = b'a' * leaf_size
 
 
 # Build list of hashes:
 hashes = [
     hashlib.md5,
     hashlib.sha1,
-    hashlib.sha224,
+    #hashlib.sha224,
     hashlib.sha256,
-    hashlib.sha384,
+    #hashlib.sha384,
     hashlib.sha512,
 ]
 try:
@@ -59,41 +50,22 @@ except ImportError:
     print('')
 
 
-def hash_file(filename, hashfunc):
-    """
-    Compute the content-hash of the file *filename*.
-    """
-    fp = open(filename, 'rb')
-    h = hashfunc()
-    while True:
-        try:
-            buf = fp.read(chunk)
-        except KeyboardInterrupt:
-            print('')
-            sys.exit()
-        if not buf:
-            break
-        h.update(buf)
-    return h.hexdigest()
-
-
 def benchmark(hashfunc):
+    h = hashfunc()
     start = time.time()
-    for i in range(options.runs):
-        hash_file(src, hashfunc)
-    return (time.time() - start) / options.runs
+    for i in range(options.count):
+        h.update(leaf)
+    h.digest()
+    return time.time() - start
 
 
 print('-' * 80)
-print('File size: %d bytes' % size)
-print('Read buffer size: %d KiB' % options.chunk)
-print('Runs per algorithm: %d' % options.runs)
-print('Python: %s, %s, %s' %
-    (platform.python_version(), platform.machine(), platform.system())
+print('Leaf size: {} MiB'.format(options.leaf))
+print('Total size: {} MiB'.format(size // MiB))
+print('Python: {}, {}, {}'.format(
+    platform.python_version(), platform.machine(), platform.system())
 )
 
-# Do an md5sum once to get the file into the page cache:
-hash_file(src, hashlib.md5)
 
 report = []
 for hashfunc in hashes:
