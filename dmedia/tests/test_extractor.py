@@ -23,11 +23,11 @@
 Unit tests for `dmedia.extractor` module.
 """
 
-from unittest import TestCase
 import base64
 from os import path
-from .helpers import sample_mov, sample_thm
-from .base import TempDir
+
+from .base import TempDir, SampleFilesTestCase
+
 from dmedia import extractor
 
 # Known EXIF data as returned be exiftool:
@@ -268,7 +268,7 @@ sample_mov_info = {
 }
 
 
-class test_functions(TestCase):
+class TestFunctions(SampleFilesTestCase):
 
     def test_file_2_base64(self):
         f = extractor.file_2_base64
@@ -282,7 +282,7 @@ class test_functions(TestCase):
 
     def test_extract_exif(self):
         f = extractor.extract_exif
-        exif = f(sample_thm)
+        exif = f(self.thm)
         self.assertEqual(set(sample_thm_exif), set(exif))
         for key in sample_thm_exif:
             v1 = sample_thm_exif[key]
@@ -361,7 +361,7 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         # Test with sample_mov from 5D Mark II:
-        info = f(sample_mov)
+        info = f(self.mov)
         self.assertEqual(sample_mov_info, info)
 
         # Test invalid file:
@@ -390,7 +390,7 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         # Test with sample_mov from 5D Mark II:
-        d = f(sample_mov)
+        d = f(self.mov)
         self.assertTrue(isinstance(d, dict))
         self.assertEqual(sorted(d), ['content_type', 'data'])
         self.assertEqual(d['content_type'], 'image/jpeg')
@@ -410,7 +410,7 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         doc = dict(ext='mov')
-        f(sample_mov, doc)
+        f(self.mov, doc)
 
         # Check canon.thm attachment
         att = doc.pop('_attachments')
@@ -419,7 +419,7 @@ class test_functions(TestCase):
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
             base64.b64decode(att['canon.thm']['data']),
-            open(sample_thm, 'rb').read()
+            open(self.thm, 'rb').read()
         )
 
         # Check thumbnail
@@ -456,10 +456,10 @@ class test_functions(TestCase):
 
     def test_merge_exif(self):
         f = extractor.merge_exif
-        self.assertTrue(sample_thm.endswith('.THM'))
+        self.assertTrue(self.thm.endswith('.THM'))
         attachments = {}
         self.assertEqual(
-            dict(f(sample_thm, attachments)),
+            dict(f(self.thm, attachments)),
             dict(
                 width=160,
                 height=120,
@@ -481,7 +481,7 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         att = {}
-        merged = dict(f(sample_mov, att))
+        merged = dict(f(self.mov, att))
 
         # Check canon.thm attachment
         self.assertEqual(set(att), set(['thumbnail', 'canon.thm']))
@@ -489,7 +489,7 @@ class test_functions(TestCase):
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
             base64.b64decode(att['canon.thm']['data']),
-            open(sample_thm, 'rb').read()
+            open(self.thm, 'rb').read()
         )
 
         # Check thumbnail
