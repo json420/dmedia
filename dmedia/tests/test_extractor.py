@@ -26,7 +26,8 @@ Unit tests for `dmedia.extractor` module.
 from unittest import TestCase
 import base64
 from os import path
-from .helpers import sample_mov, sample_thm, TempDir
+from .helpers import sample_mov, sample_thm
+from .base import TempDir
 from dmedia import extractor
 
 # Known EXIF data as returned be exiftool:
@@ -291,7 +292,7 @@ class test_functions(TestCase):
 
         # Test that error is returned for invalid file:
         tmp = TempDir()
-        data = 'Foo Bar\n' * 1000
+        data = b'Foo Bar\n' * 1000
         jpg = tmp.write(data, 'sample.jpg')
         self.assertEqual(
             f(jpg),
@@ -300,11 +301,7 @@ class test_functions(TestCase):
 
         # Test with non-existent file:
         nope = tmp.join('nope.jpg')
-        self.assertEqual(
-            f(nope),
-            {'Error': 'ValueError: No JSON object could be decoded'}
-        )
-
+        self.assertEqual(f(nope), {})
 
     def test_parse_subsec_datetime(self):
         f = extractor.parse_subsec_datetime
@@ -368,7 +365,7 @@ class test_functions(TestCase):
         self.assertEqual(sample_mov_info, info)
 
         # Test invalid file:
-        invalid = tmp.write('Wont work!', 'invalid.mov')
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
         self.assertEqual(
             f(invalid),
             {
@@ -400,7 +397,7 @@ class test_functions(TestCase):
         data = base64.b64decode(d['data'])
 
         # Test invalid file:
-        invalid = tmp.write('Wont work!', 'invalid.mov')
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
         self.assertEqual(f(invalid), None)
 
         # Test with non-existent file:
@@ -422,7 +419,7 @@ class test_functions(TestCase):
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
             base64.b64decode(att['canon.thm']['data']),
-            open(sample_thm, 'r').read()
+            open(sample_thm, 'rb').read()
         )
 
         # Check thumbnail
@@ -492,7 +489,7 @@ class test_functions(TestCase):
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
             base64.b64decode(att['canon.thm']['data']),
-            open(sample_thm, 'r').read()
+            open(sample_thm, 'rb').read()
         )
 
         # Check thumbnail
@@ -525,8 +522,8 @@ class test_functions(TestCase):
         )
 
         # Test invalid file:
-        invalid_mov = tmp.write('Wont work!', 'invalid.mov')
-        invalid_thm = tmp.write('Wont work either!', 'invalid.thm')
+        invalid_mov = tmp.write(b'Wont work!', 'invalid.mov')
+        invalid_thm = tmp.write(b'Wont work either!', 'invalid.thm')
         att = {}
         merged = dict(f(invalid_mov, att))
         self.assertEqual(merged, {})
