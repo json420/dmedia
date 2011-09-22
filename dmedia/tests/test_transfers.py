@@ -51,6 +51,7 @@ class DummyProgress(object):
 
     def __call__(self, completed):
         self._calls.append(completed)
+        
 
 
 class DummyFP(object):
@@ -60,6 +61,13 @@ class DummyFP(object):
         assert chunk is not None
         assert self._chunk is None
         self._chunk = chunk
+        
+
+def create_file_doc(ch, store_id):     
+    return schema.create_file(ch.id, ch.file_size, ch.leaf_hashes,
+        {store_id: {'mtime': 123456789, 'copies': 1}}
+    )
+
 
 
 class TestFunctions(TestCase):
@@ -359,7 +367,7 @@ class TestTransferBackend(TestCase):
     def test_download(self):
         inst = self.klass({})
         with self.assertRaises(NotImplementedError) as cm:
-            inst.download('file doc', 'filestore', 'leaves')
+            inst.download('file doc', 'filestore', 'leaf_hashes')
         self.assertEqual(
             str(cm.exception),
             'TransferBackend.download()'
@@ -368,7 +376,7 @@ class TestTransferBackend(TestCase):
     def test_upload(self):
         inst = self.klass({})
         with self.assertRaises(NotImplementedError) as cm:
-            inst.upload('file doc', 'filestore', 'leaves')
+            inst.upload('file doc', 'filestore', 'leaf_hashes')
         self.assertEqual(
             str(cm.exception),
             'TransferBackend.upload()'
@@ -455,41 +463,54 @@ class TestHTTPBackend(TestCase):
         self.assertEqual(inst.process_leaf(7, a_hash), a)
 
 
-
-class TestTransferWorker(CouchCase):
-    klass = transfers.TransferWorker
-
+class TransferCase(CouchCase):
     def setUp(self):
-        super(TestTransferWorker, self).setUp()
-        self.q = DummyQueue()
-        self.pid = current_process().pid
+        super().setUp()
         transfers._uploaders.clear()
         transfers._downloaders.clear()
+        self.q = DummyQueue()
+        self.pid = current_process().pid
+        self.local = TempDir()
+        self.local_id = random_id()
+        self.env['filestore'] = {
+            '_id': self.local_id,
+            'parentdir': self.local.dir,
+            'copies': 1,
+        }
+
+
+class TestTransferWorker(TransferCase):
+    klass = transfers.TransferWorker
 
     def new(self):
+        self.src = TempDir()
+        (self._file, self.ch) = self.src.random_file()
         self.store_id = schema.random_id()
-        self.key = ('uploads', mov_hash, self.store_id)
-        return self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
+        self.key = ('uploads', self.ch.id, self.store_id)
+        return self.klass(self.env, self.q, self.key, (self.ch.id, self.store_id))
 
     def test_init(self):
         inst = self.new()
         self.assertIsInstance(inst.filestore, filestore.FileStore)
-        self.assertEqual(inst.filestore.parent, self.env['filestore']['path'])
+        self.assertEqual(
+            inst.filestore.parentdir,
+            self.env['filestore']['parentdir']
+        )
         self.assertEqual(inst.filestore_id, self.env['filestore']['_id'])
 
     def test_init_file(self):
         inst = self.new()
-        doc = create_file_doc(self.store_id)
-        self.assertEqual(doc['_id'], mov_hash)
+        doc = create_file_doc(self.ch, self.store_id)
+        self.assertEqual(doc['_id'], self.ch.id)
         inst.db.save(doc)
-        self.assertIsNone(inst.init_file(mov_hash))
-        self.assertEqual(inst.file_id, mov_hash)
+        self.assertIsNone(inst.init_file(self.ch.id))
+        self.assertEqual(inst.file_id, self.ch.id)
         self.assertEqual(
-            inst.file.pop('_attachments')['leaves']['data'],
-            doc.pop('_attachments')['leaves']['data']
+            inst.file.pop('_attachments')['leaf_hashes']['data'],
+            doc.pop('_attachments')['leaf_hashes']['data']
         )
         self.assertEqual(inst.file, doc)
-        self.assertEqual(inst.file_size, mov_size)
+        self.assertEqual(inst.file_size, self.ch.size)
 
     def test_init_remote(self):
         inst = self.new()
@@ -509,41 +530,42 @@ class TestTransferWorker(CouchCase):
 
     def test_init_file(self):
         inst = self.new()
-        doc = create_file_doc(self.store_id)
-        self.assertEqual(doc['_id'], mov_hash)
+        doc = create_file_doc(self.ch, self.store_id)
+        self.assertEqual(doc['_id'], self.ch.id)
         inst.db.save(doc)
-        self.assertIsNone(inst.init_file(mov_hash))
-        self.assertEqual(inst.file_id, mov_hash)
-        self.assertEqual(
-            inst.file.pop('_attachments')['leaves']['data'],
-            doc.pop('_attachments')['leaves']['data']
-        )
+        self.assertIsNone(inst.init_file(self.ch.id))
+        self.assertEqual(inst.file_id, self.ch.id)
+        doc.pop('_attachments')
+        inst.file.pop('_attachments')
         self.assertEqual(inst.file, doc)
-        self.assertEqual(inst.file_size, mov_size)
-        self.assertEqual(inst.leaves, mov_leaves)
+        self.assertEqual(inst.ch.id, self.ch.id)
+        self.assertEqual(inst.ch.file_size, self.ch.file_size)
+        self.assertEqual(
+            b''.join(inst.ch.leaf_hashes),
+            self.ch.leaf_hashes
+        )
 
     def test_init_file_bad(self):
         """
         Test with bad tophash = hash(bytes+leaf_hashes) relationship.
         """
         inst = self.new()
-        doc = create_file_doc(self.store_id)
-        self.assertEqual(doc['_id'], mov_hash)
+        doc = create_file_doc(self.ch, self.store_id)
+        self.assertEqual(doc['_id'], self.ch.id)
         doc['bytes'] += 1
         inst.db.save(doc)
 
-        with self.assertRaises(errors.TopHashError) as cm:
-            inst.init_file(mov_hash)
+        with self.assertRaises(filestore.RootHashError) as cm:
+            inst.init_file(self.ch.id)
 
         e = cm.exception
-        self.assertEqual(e.got, 'FWC4JXINQR2ZKVL3GYA3E5VQUWXLSOFK')
-        self.assertEqual(e.expected, mov_hash)
-        self.assertEqual(e.size, mov_size + 1)
+        self.assertEqual(e.id, self.ch.id)
+        self.assertEqual(e.file_size, self.ch.file_size + 1)
 
     def test_execute(self):
         inst = self.new()
 
-        doc = create_file_doc(self.store_id)
+        doc = create_file_doc(self.ch, self.store_id)
         inst.db.save(doc)
 
         remote = {
@@ -558,24 +580,17 @@ class TestTransferWorker(CouchCase):
         inst.db.save(remote)
 
         self.assertFalse(hasattr(inst, 'transfer_called'))
-        self.assertEqual(self.q.messages, [])
-        self.assertIsNone(inst.execute(mov_hash, self.store_id))
+        self.assertEqual(self.q.items, [])
+        self.assertIsNone(inst.execute(self.ch.id, self.store_id))
         self.assertTrue(inst.transfer_called)
 
         self.assertEqual(inst.remote_id, self.store_id)
         self.assertEqual(inst.remote, remote)
 
-        self.assertEqual(inst.file_id, mov_hash)
-        self.assertEqual(
-            inst.file.pop('_attachments')['leaves']['data'],
-            doc.pop('_attachments')['leaves']['data']
-        )
-        self.assertEqual(inst.file, doc)
-        self.assertEqual(inst.file_size, mov_size)
-        self.assertEqual(inst.leaves, mov_leaves)
+        self.assertEqual(inst.file_id, self.ch.id)
 
         self.assertEqual(
-            self.q.messages,
+            self.q.items,
             [
                 dict(
                     signal='started',
@@ -585,13 +600,13 @@ class TestTransferWorker(CouchCase):
                 ),
                 dict(
                     signal='progress',
-                    args=(self.key, 0, mov_size),
+                    args=(self.key, 0, self.ch.file_size),
                     worker='TransferWorker',
                     pid=self.pid,
                 ),
                 dict(
                     signal='progress',
-                    args=(self.key, mov_size, mov_size),
+                    args=(self.key, self.ch.file_size, self.ch.file_size),
                     worker='TransferWorker',
                     pid=self.pid,
                 ),
@@ -605,11 +620,11 @@ class TestTransferWorker(CouchCase):
         )
 
 
-class TestDownloadWorker(CouchCase):
+class TestDownloadWorker(TransferCase):
     klass = transfers.DownloadWorker
 
     def setUp(self):
-        super(TestDownloadWorker, self).setUp()
+        super().setUp()
         self.q = DummyQueue()
         self.pid = current_process().pid
         transfers._uploaders.clear()
@@ -630,12 +645,13 @@ class TestDownloadWorker(CouchCase):
         self.Backend = S3
 
     def new(self):
+        self.src = TempDir()
+        (self.file, self.ch) = self.src.random_file()
         self.store_id = schema.random_id()
+        self.key = ('downloads', self.ch.id)
+        inst = self.klass(self.env, self.q, self.key, (self.ch.id, self.store_id))
 
-        self.key = ('downloads', mov_hash)
-        inst = self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
-
-        self.file = create_file_doc(self.store_id)
+        self.file = create_file_doc(self.ch, self.store_id)
         inst.db.save(self.file)
 
         self.remote = {
@@ -653,9 +669,9 @@ class TestDownloadWorker(CouchCase):
 
     def test_transfer(self):
         inst = self.new()
-        inst.init_file(mov_hash)
+        inst.init_file(self.ch.id)
         inst.init_remote(self.store_id)
-        self.assertEqual(self.q.messages, [])
+        self.assertEqual(self.q.items, [])
         self.assertFalse(hasattr(inst, 'backend'))
 
         self.assertIsNone(inst.transfer())
@@ -664,15 +680,15 @@ class TestDownloadWorker(CouchCase):
         self.assertEqual(inst.backend.callback, inst.on_progress)
         self.assertEqual(
             inst.backend._args,
-            (inst.file, inst.leaves, inst.filestore)
+            (inst.file, inst.leaf_hashes, inst.filestore)
         )
 
         self.assertEqual(
-            self.q.messages,
+            self.q.items,
             [
                 dict(
                     signal='progress',
-                    args=(self.key, 333, mov_size),
+                    args=(self.key, 333, self.ch.file_size),
                     worker='DownloadWorker',
                     pid=self.pid,
                 ),
@@ -680,15 +696,11 @@ class TestDownloadWorker(CouchCase):
         )
 
 
-class TestUploadWorker(CouchCase):
+class TestUploadWorker(TransferCase):
     klass = transfers.UploadWorker
 
     def setUp(self):
-        super(TestUploadWorker, self).setUp()
-        self.q = DummyQueue()
-        self.pid = current_process().pid
-        transfers._uploaders.clear()
-        transfers._downloaders.clear()
+        super().setUp()
 
         class S3(transfers.TransferBackend):
             def upload(self, *args):
@@ -699,12 +711,13 @@ class TestUploadWorker(CouchCase):
         self.Backend = S3
 
     def new(self):
+        self.src = TempDir()
+        (self._file, self.ch) = self.src.random_file()
         self.store_id = schema.random_id()
+        self.key = ('uploads', self.ch.id)
+        inst = self.klass(self.env, self.q, self.key, (self.ch.id, self.store_id))
 
-        self.key = ('uploads', mov_hash)
-        inst = self.klass(self.env, self.q, self.key, (mov_hash, self.store_id))
-
-        self.file = create_file_doc(self.store_id)
+        self.file = create_file_doc(self.ch, self.store_id)
         inst.db.save(self.file)
 
         self.remote = {
@@ -722,9 +735,9 @@ class TestUploadWorker(CouchCase):
 
     def test_transfer(self):
         inst = self.new()
-        inst.init_file(mov_hash)
+        inst.init_file(self.ch.id)
         inst.init_remote(self.store_id)
-        self.assertEqual(self.q.messages, [])
+        self.assertEqual(self.q.items, [])
         self.assertFalse(hasattr(inst, 'backend'))
 
         self.assertIsNone(inst.transfer())
@@ -733,15 +746,15 @@ class TestUploadWorker(CouchCase):
         self.assertEqual(inst.backend.callback, inst.on_progress)
         self.assertEqual(
             inst.backend._args,
-            (inst.file, inst.leaves, inst.filestore)
+            (inst.file, inst.ch.leaf_hashes, inst.filestore)
         )
 
         self.assertEqual(
-            self.q.messages,
+            self.q.items,
             [
                 dict(
                     signal='progress',
-                    args=(self.key, 444, mov_size),
+                    args=(self.key, 444, self.ch.file_size),
                     worker='UploadWorker',
                     pid=self.pid,
                 ),
