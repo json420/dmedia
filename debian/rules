@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 %:
-	dh $@ --with=python2
+	dh $@ --with=python3
 	
 override_dh_auto_install:
 	for pyvers in $(shell py3versions -vr); do \
