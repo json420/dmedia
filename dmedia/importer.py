@@ -152,6 +152,11 @@ class ImportWorker(workers.CouchWorker):
         self.emit('finished', self.doc['stats'])
 
     def import_iter(self, *filestores):
+        common = {
+            'import_id': self.id,
+            'machine_id': self.env.get('machine_id'),
+            'batch_id': self.env.get('batch_id'),
+        }
         for (file, ch) in batch_import_iter(self.batch, *filestores):
             if ch is None:
                 assert file.size == 0
@@ -169,10 +174,12 @@ class ImportWorker(workers.CouchWorker):
                 doc = schema.create_file(
                     ch.id, ch.file_size, ch.leaf_hashes, stored
                 )
-                doc.update(
-                    import_id=self.id,
-                    mtime=file.mtime,
-                )
+                doc['import'] = {
+                    'src': file.name,
+                    'mtime': file.mtime,
+                }
+                doc['import'].update(common)
+                doc['mtime'] = file.mtime
                 yield ('new', file, doc)
 
 
