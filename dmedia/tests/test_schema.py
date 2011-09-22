@@ -405,20 +405,20 @@ class TestFunctions(TestCase):
             "doc['media'] value 'stuff' not in ('video', 'audio', 'image')"
         )
 
-        # mtime
-        self.assertIsNone(f({'mtime': 1302125982.946627}))
-        self.assertIsNone(f({'mtime': 1234567890}))
+        # ctime
+        self.assertIsNone(f({'ctime': 1302125982.946627}))
+        self.assertIsNone(f({'ctime': 1234567890}))
         with self.assertRaises(TypeError) as cm:
-            f({'mtime': '1234567890'})
+            f({'ctime': '1234567890'})
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR.format("doc['mtime']", (int, float), str, '1234567890')
+            TYPE_ERROR.format("doc['ctime']", (int, float), str, '1234567890')
         )
         with self.assertRaises(ValueError) as cm:
-            f({'mtime': -1})
+            f({'ctime': -1})
         self.assertEqual(
             str(cm.exception),
-            "doc['mtime'] must be >= 0; got -1"
+            "doc['ctime'] must be >= 0; got -1"
         )
 
         # atime

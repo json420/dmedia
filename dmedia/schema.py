@@ -693,19 +693,15 @@ def check_dmedia(doc):
 
     """
     _check(doc, [], dict)
-
     _check(doc, ['_id'], None,
         _any_id,
     )
-
     _check(doc, ['ver'], int,
         (_equals, 0),
     )
-
     _check(doc, ['type'], str,
         (_matches, 'dmedia/[a-z]+$'),
     )
-
     _check(doc, ['time'], (int, float),
         (_at_least, 0),
     )
@@ -813,8 +809,8 @@ def check_file_optional(doc):
         (_is_in, 'video', 'audio', 'image'),
     )
 
-    # 'mtime' like 1234567890
-    _check_if_exists(doc, ['mtime'], (int, float),
+    # 'ctime' like 1234567890
+    _check_if_exists(doc, ['ctime'], (int, float),
         (_at_least, 0),
     )
 

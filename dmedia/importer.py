@@ -39,50 +39,6 @@ from dmedia import workers, schema
 log = logging.getLogger()
 
 
-# FIXME: This needs to be done with some real inspection of the file contents,
-# but this is just a stopgap for the sake of getting the schema stable:
-MEDIA_MAP = {
-    'ogv': 'video',
-    'mov': 'video',
-    'avi': 'video',
-    'mts': 'video',
-
-    'oga': 'audio',
-    'flac': 'audio',
-    'wav': 'audio',
-    'mp3': 'audio',
-
-    'jpg': 'image',
-    'cr2': 'image',
-    'png': 'image',
-}
-
-
-def normalize_ext(name):
-    """
-    Return (root, ext) from *name* where extension is normalized to lower-case.
-
-    If *name* has no extension, ``None`` is returned as 2nd item in (root, ext)
-    tuple:
-
-    >>> normalize_ext('IMG_2140.CR2')
-    ('IMG_2140', 'cr2')
-    >>> normalize_ext('test.jpg')
-    ('test', 'jpg')
-    >>> normalize_ext('hello_world')
-    ('hello_world', None)
-    """
-    parts = name.rsplit('.', 1)
-    if len(parts) == 2:
-        (root, ext) = parts
-        if root and ext:
-            try:
-                return (root, safe_ext(ext.lower()))
-            except (ValueError, TypeError):
-                pass
-    return (name, None)
-
-
 def accumulate_stats(accum, stats):
     for (key, d) in stats.items():
         if key not in accum:
@@ -179,7 +135,7 @@ class ImportWorker(workers.CouchWorker):
                     'mtime': file.mtime,
                 }
                 doc['import'].update(common)
-                doc['mtime'] = file.mtime
+                doc['ctime'] = file.mtime
                 yield ('new', file, doc)
 
 

@@ -54,12 +54,6 @@ class DummyCallback(object):
 
 
 class TestFunctions(TestCase):
-    def test_normalize_ext(self):
-        self.skipTest('fix when normalize_ext() is used again')
-        f = importer.normalize_ext
-        weird = ['._501', 'movie.mov.', '.movie.mov.', 'movie._501']
-        for name in weird:
-            self.assertEqual(f(name), (name, None))
 
     def test_accumulate_stats(self):
         f = importer.accumulate_stats
@@ -88,6 +82,7 @@ class TestFunctions(TestCase):
 
 
 class ImportCase(CouchCase):
+
     def setUp(self):
         super().setUp()
         self.q = DummyQueue()
@@ -122,6 +117,7 @@ class ImportCase(CouchCase):
 
 
 class TestImportWorker(ImportCase):
+
     def setUp(self):
         super().setUp()
         self.batch_id = random_id()
@@ -233,7 +229,7 @@ class TestImportWorker(ImportCase):
             schema.check_file(doc)
             self.assertEqual(doc['import']['import_id'], inst.id)
             self.assertEqual(doc['import']['batch_id'], self.batch_id)
-            self.assertEqual(doc['mtime'], file.mtime)
+            self.assertEqual(doc['ctime'], file.mtime)
             self.assertEqual(doc['bytes'], ch.file_size)
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
@@ -633,7 +629,7 @@ class TestImportManager(ImportCase):
             self.assertTrue(doc['_rev'].startswith('1-'))
             self.assertEqual(doc['import']['import_id'], import_id)
             self.assertEqual(doc['import']['batch_id'], batch_id)
-            self.assertEqual(doc['mtime'], file.mtime)
+            self.assertEqual(doc['ctime'], file.mtime)
             self.assertEqual(doc['bytes'], file.size)
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
@@ -722,7 +718,7 @@ class TestImportManager(ImportCase):
             self.assertTrue(doc['_rev'].startswith('2-'))
             self.assertNotEqual(doc['import']['import_id'], import_id)
             self.assertNotEqual(doc['import']['batch_id'], batch_id)
-            self.assertEqual(doc['mtime'], file.mtime)
+            self.assertEqual(doc['ctime'], file.mtime)
             self.assertEqual(doc['bytes'], file.size)
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
@@ -752,5 +748,3 @@ class TestImportManager(ImportCase):
                 continue
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
-
-
