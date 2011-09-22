@@ -30,17 +30,26 @@ import os
 from os import path
 
 import microfiber
+from filestore import FileStore, DIGEST_BYTES
 
 from dmedia.schema import random_id, check_store
-from dmedia.filestore import FileStore
 from dmedia import core
 
-from .helpers import TempDir, mov_hash, sample_mov
+from .helpers import TempHome
 from .couch import CouchCase
+from .base import TempDir
 
 
 class TestCore(CouchCase):
     klass = core.Core
+
+    def setUp(self):
+        super().setUp()
+        self.home = TempHome()
+
+    def tearDown(self):
+        super().tearDown()
+        self.home = None
 
     def test_init(self):
         inst = self.klass(self.env)
@@ -84,7 +93,6 @@ class TestCore(CouchCase):
                 'type',
                 'time',
                 'hostname',
-                'distribution',
             ])
         )
         self.assertEqual(machine, inst.db.get(local['machine']['_id']))
@@ -142,16 +150,16 @@ class TestCore(CouchCase):
                 'time',
                 'plugin',
                 'copies',
-                'path',
+                'parentdir',
                 'machine_id',
                 #'partition_id',
             ])
         )
         self.assertEqual(lstore['ver'], 0)
         self.assertEqual(lstore['type'], 'dmedia/store')
-        self.assertEqual(lstore['plugin'], 'filestore')
+        self.assertEqual(lstore['plugin'], 'filestore.local')
         self.assertEqual(lstore['copies'], 1)
-        self.assertEqual(lstore['path'], self.home.path)
+        self.assertEqual(lstore['parentdir'], self.home.path)
         self.assertEqual(lstore['machine_id'], inst.machine_id)
 
         store = inst.db.get(_id)
@@ -198,12 +206,12 @@ class TestCore(CouchCase):
         self.assertEqual(set(inst._filestores), set([okay]))
         fs = inst._filestores[okay]
         self.assertIsInstance(fs, FileStore)
-        self.assertEqual(fs.parent, okay)
+        self.assertEqual(fs.parentdir, okay)
 
         # Test the doc
         check_store(store)
         self.assertEqual(inst.db.get(store['_id']), store)
-        self.assertEqual(store['path'], okay)
+        self.assertEqual(store['parentdir'], okay)
         self.assertTrue(store.pop('_rev').startswith('1-'))
         self.assertEqual(list(inst.local['filestores']), [okay])
         self.assertEqual(inst.local['filestores'][okay], store)
@@ -217,26 +225,25 @@ class TestCore(CouchCase):
         self.assertEqual(inst.db.get('_local/dmedia')['_rev'], '0-1')
 
     def test_get_file(self):
+        src = TempDir()
+        (file, ch) = src.random_file()
+
         inst = self.klass(self.env)
-        doc = {
-            '_id': mov_hash,
-            'ext': 'mov',
-        }
-        inst.db.save(doc)
-        self.assertIsNone(inst.get_file(mov_hash))
+        self.assertIsNone(inst.get_file(ch.id))
 
         tmp1 = TempDir()
         tmp2 = TempDir()
-        fs1 = FileStore(tmp1.path)
-        fs2 = FileStore(tmp2.path)
-        inst._filestores[tmp1.path] = fs1
-        inst._filestores[tmp2.path] = fs2
-        self.assertIsNone(inst.get_file(mov_hash))
+        fs1 = FileStore(tmp1.dir)
+        fs2 = FileStore(tmp2.dir)
+        inst._filestores[tmp1.dir] = fs1
+        inst._filestores[tmp2.dir] = fs2
+        self.assertIsNone(inst.get_file(ch.id))
 
-        src_fp = open(sample_mov, 'rb')
+        src_fp = open(file.name, 'rb')
         fs1.import_file(src_fp)
-        self.assertIsNone(inst.get_file(mov_hash))
+        self.assertEqual(inst.get_file(ch.id), fs1.path(ch.id))
+        fs1.remove(ch.id)
 
-        src_fp = open(sample_mov, 'rb')
-        fs2.import_file(src_fp, 'mov')
-        self.assertEqual(inst.get_file(mov_hash), fs2.path(mov_hash, 'mov'))
+        src_fp = open(file.name, 'rb')
+        fs2.import_file(src_fp)
+        self.assertEqual(inst.get_file(ch.id), fs2.path(ch.id))

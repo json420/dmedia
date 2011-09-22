@@ -615,7 +615,6 @@ class TestFunctions(TestCase):
                 'copies',
                 'parentdir',
                 'machine_id',
-                'drive_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
@@ -624,12 +623,9 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['copies'], 1)
         self.assertEqual(doc['parentdir'], tmp.dir)
         self.assertEqual(doc['machine_id'], machine_id)
-        self.assertIsNone(doc['drive_id'])
-
-        drive_id = random_id()
-        doc = schema.create_store(tmp.dir, machine_id, drive_id, copies=3)
+        doc = schema.create_store(tmp.dir, machine_id, copies=3)
         self.assertEqual(doc['copies'], 3)
-        self.assertEqual(doc['drive_id'], drive_id) 
+
 
     def test_create_batch(self):
         f = schema.create_batch

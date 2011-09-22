@@ -1050,7 +1050,7 @@ def create_machine():
     }
 
 
-def create_store(parentdir, machine_id, drive_id=None, copies=1):
+def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' doc for a FileStore on a non-removable drive.
     """
@@ -1062,25 +1062,24 @@ def create_store(parentdir, machine_id, drive_id=None, copies=1):
         'plugin': 'filestore.local',
         'parentdir': parentdir,
         'machine_id': machine_id,
-        'drive_id': drive_id,
         'copies': copies,
     }
 
 
-def create_removable_store(drive_id, copies=1):
+def create_removable_store(copies=1, **kw):
     """
     Create a 'dmedia/store' document.
     """
-    return {
+    doc =  {
         '_id': random_id(),
         'ver': 0,
         'type': 'dmedia/store',
         'time': time.time(),
-        'plugin': 'filestore',
+        'plugin': 'filestore.removable',
         'copies': copies,
-        'parentdir': parentdir,
-        'machine_id': machine_id,
     }
+    doc.update(kw)
+    return doc
 
 
 def create_s3_store(bucket, copies=2, use_ext=True):

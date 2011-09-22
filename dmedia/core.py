@@ -56,8 +56,8 @@ from os import path
 import json
 
 from microfiber import Database, NotFound, Conflict
+from filestore import FileStore
 
-from .filestore import FileStore
 from .constants import DBNAME
 from .transfers import TransferManager
 from .schema import random_id, create_machine, create_store
@@ -126,8 +126,8 @@ class Core(object):
         if not self.local['filestores']:
             self.add_filestore(self.home)
         else:
-            for (parentdir, store) in self.local['filestores'].iteritems():
-                assert store['path'] == parentdir
+            for (parentdir, store) in self.local['filestores'].items():
+                assert store['parentdir'] == parentdir
                 try:
                     self.init_filestore(store)
                 except Exception:
@@ -137,11 +137,11 @@ class Core(object):
                 except Conflict:
                     pass
             if self.local.get('default_filestore') not in self.local['filestores']:
-                self.local['default_filestore'] = store['path']
+                self.local['default_filestore'] = store['parentdir']
         return self.local['filestores'][self.local['default_filestore']]
 
     def init_filestore(self, store):
-        parentdir = store['path']
+        parentdir = store['parentdir']
         self._filestores[parentdir] = FileStore(parentdir)
 
     def add_filestore(self, parentdir):
@@ -156,16 +156,14 @@ class Core(object):
         store = create_store(parentdir, self.machine_id)
         self.init_filestore(store)
         self.local['filestores'][parentdir] = deepcopy(store)
-        self.local['default_filestore'] = store['path']
+        self.local['default_filestore'] = store['parentdir']
         self.db.save(self.local)
         self.db.save(store)
         return store
 
     def get_file(self, file_id):
-        doc = self.db.get(file_id)
-        ext = doc.get('ext')
-        for fs in self._filestores.itervalues():
-            filename = fs.path(file_id, ext)
+        for fs in self._filestores.values():
+            filename = fs.path(file_id)
             if path.isfile(filename):
                 return filename
 
