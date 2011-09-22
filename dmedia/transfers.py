@@ -23,23 +23,20 @@
 Upload to and download from remote systems.
 """
 
-import logging
 from base64 import b64decode, b32encode
 from hashlib import sha1
 import time
-from urlparse import urlparse
-from httplib import HTTPConnection, HTTPSConnection
+from urllib.parse import urlparse
+from http.client import HTTPConnection, HTTPSConnection
+import logging
 
-from . import __version__
-from . import workers
-from .workers import CouchWorker, Manager
-from .errors import DownloadFailure
-from .constants import LEAF_SIZE
-from .filestore import FileStore, tophash, unpack_leaves
-from .errors import TopHashError
+from filestore import FileStore, check_root_hash
+
+from dmedia import __version__, workers
+from dmedia import workers
 
 
-USER_AGENT = 'dmedia %s' % __version__
+USER_AGENT = 'dmedia {}'.format(__version__)
 log = logging.getLogger()
 _uploaders = {}
 _downloaders = {}
@@ -235,7 +232,6 @@ def http_conn(url, **options):
     if not t.netloc:
         raise ValueError('bad url: {!r}'.format(url))
     klass = (HTTPConnection if t.scheme == 'http' else HTTPSConnection)
-    options['strict'] = True
     conn = klass(t.netloc, **options)
     return (conn, t)
 
@@ -379,32 +375,22 @@ class HTTPBackend(TransferBackend):
 register_downloader('http', HTTPBackend)
 
 
-class TransferWorker(CouchWorker):
+class TransferWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
-        super(TransferWorker, self).__init__(env, q, key, args)
-        self.filestore = FileStore(self.env['filestore']['path'])
+        super().__init__(env, q, key, args)
+        self.filestore = FileStore(self.env['filestore']['parentdir'])
         self.filestore_id = self.env['filestore']['_id']
-        #try:
-        #    from . import backends
-        #except ImportError:
-        #    pass
 
     def on_progress(self, completed):
-        self.emit('progress', completed, self.file_size)
+        self.emit('progress', completed, self.ch.file_size)
 
     def init_file(self, file_id):
+        doc = self.db.get(file_id)
+        leaf_hashes = self.db.get_att(file_id, 'leaf_hashes')[1]
+        ch = check_root_hash(file_id, doc['bytes'], leaf_hashes, unpack=True)
         self.file_id = file_id
-        self.file = self.db.get(file_id, attachments=True)
-        self.file_size = self.file['bytes']
-        packed = b64decode(self.file['_attachments']['leaves']['data'])
-        h = tophash(self.file_size)
-        h.update(packed)
-        got = b32encode(h.digest())
-        if got != self.file_id:
-            raise TopHashError(
-                got=got, expected=self.file_id, size=self.file_size
-            )
-        self.leaves = unpack_leaves(packed)
+        self.file = doc
+        self.ch = ch
 
     def init_remote(self, remote_id):
         self.remote_id = remote_id
@@ -414,9 +400,9 @@ class TransferWorker(CouchWorker):
         self.init_file(file_id)
         self.init_remote(remote_id)
         self.emit('started')
-        self.emit('progress', 0, self.file_size)
+        self.emit('progress', 0, self.ch.file_size)
         self.transfer()
-        self.emit('progress', self.file_size, self.file_size)
+        self.emit('progress', self.ch.file_size, self.ch.file_size)
         self.emit('finished')
 
     def transfer(self):
@@ -426,7 +412,7 @@ class TransferWorker(CouchWorker):
 class DownloadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_downloader(self.remote, self.on_progress)
-        self.backend.download(self.file, self.leaves, self.filestore)
+        self.backend.download(self.file, self.ch.leaf_hashes, self.filestore)
         self.filestore.tmp_verify_move(self.file_id, self.file.get('ext'))
         self.file['stored'][self.filestore_id] = {
             'copies': 1,
@@ -439,7 +425,7 @@ class DownloadWorker(TransferWorker):
 class UploadWorker(TransferWorker):
     def transfer(self):
         self.backend = get_uploader(self.remote, self.on_progress)
-        d = self.backend.upload(self.file, self.leaves, self.filestore)
+        d = self.backend.upload(self.file, self.ch.leaf_hashes, self.filestore)
         if d:
             d['time'] = time.time()
             if 'copies' not in d:
@@ -448,9 +434,9 @@ class UploadWorker(TransferWorker):
             self.db.save(self.file)
 
 
-class TransferManager(Manager):
+class TransferManager(workers.Manager):
     def __init__(self, env, callback=None):
-        super(TransferManager, self).__init__(env, callback)
+        super().__init__(env, callback)
         for klass in (DownloadWorker, UploadWorker):
             if not workers.isregistered(klass):
                 workers.register(klass)

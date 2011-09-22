@@ -25,24 +25,20 @@ Unit tests for `dmedia.schema` module.
 """
 
 from unittest import TestCase
+import os
 from base64 import b32encode, b32decode, b64encode
 from copy import deepcopy
 import time
-from .helpers import raises, TempDir, mov_hash, mov_leaves, mov_size
-from dmedia.constants import TYPE_ERROR
-from dmedia.schema import random_id
+
+from filestore import TYPE_ERROR, DIGEST_BYTES
+from microfiber import random_id
+
+from .base import TempDir
+
 from dmedia import schema
 
 
 class TestFunctions(TestCase):
-    def test_random_id(self):
-        f = schema.random_id
-        _id = f()
-        self.assertEqual(len(_id), 24)
-        binary = b32decode(_id)
-        self.assertEqual(len(binary), 15)
-        self.assertEqual(b32encode(binary), _id)
-
     def test_check_dmedia(self):
         f = schema.check_dmedia
 
@@ -55,7 +51,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ('doc', dict, list, bad)
+            TYPE_ERROR.format('doc', dict, list, bad)
         )
 
         good = {
@@ -75,7 +71,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['_id']", basestring, int, 17)
+            TYPE_ERROR.format("doc['_id']", str, int, 17)
         )
 
         # Check with invalid "_id" base32-encoding:
@@ -85,17 +81,17 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['_id']: Non-base32 digit found: 'MZZG2ZDS0QVSW2TEMVZG643F'"
+            "doc['_id']: ID not subset of B32ALPHABET: 'MZZG2ZDS0QVSW2TEMVZG643F'"
         )
 
         # Check with bad "_id" length:
         bad = deepcopy(good)
-        bad['_id'] = '2HOFUVDSAYHM74JKVKP4AKQ='
+        bad['_id'] = '2HOFUVDSAYHM74JKVKP4AKQ'
         with self.assertRaises(ValueError) as cm:
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "len(b32decode(doc['_id'])) not multiple of 5: '2HOFUVDSAYHM74JKVKP4AKQ='"
+            "doc['_id']: length of ID (23) not multiple of 8: '2HOFUVDSAYHM74JKVKP4AKQ'"
         )
 
         # Check with bad "ver" type:
@@ -105,7 +101,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['ver']", int, float, 0.0)
+            TYPE_ERROR.format("doc['ver']", int, float, 0.0)
         )
 
         # Check with bad "ver" value
@@ -124,7 +120,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['type']", basestring, int, 18)
+            TYPE_ERROR.format("doc['type']", str, int, 18)
         )
 
         # Check with bad "type" value
@@ -144,7 +140,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ("doc['time']", (int, float), str, '1234567890')
+            TYPE_ERROR.format("doc['time']", (int, float), str, '1234567890')
         )
 
         # Check with bad "time" value
@@ -173,17 +169,22 @@ class TestFunctions(TestCase):
 
         # Test with good doc:
         good = {
-            '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+            '_attachments': {
+                'leaf_hashes': {
+                    'data': 'v7t381LIyKsBCUYhkGreXx2qKTyyMfMD2eHWWp/L',
+                    'content_type': 'application/octet-stream',
+                },
+            },
             'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
             'bytes': 20202333,
-            'ext': 'mov',
             'origin': 'user',
             'stored': {
                 'MZZG2ZDSOQVSW2TEMVZG643F': {
                     'copies': 2,
-                    'time': 1234567890,
+                    'mtime': 1234567890,
                 },
             },
         }
@@ -191,7 +192,7 @@ class TestFunctions(TestCase):
         self.assertEqual(f(g), None)
 
         # Test with missing attributes:
-        for key in ['bytes', 'ext', 'origin', 'stored']:
+        for key in ['_attachments', 'bytes', 'origin', 'stored']:
             bad = deepcopy(good)
             del bad[key]
             with self.assertRaises(ValueError) as cm:
@@ -219,12 +220,12 @@ class TestFunctions(TestCase):
         try:
             self.assertEqual(
                 str(cm.exception),
-                TYPE_ERROR % ("doc['bytes']", int, float, bad['bytes'])
+                TYPE_ERROR.format("doc['bytes']", int, float, bad['bytes'])
             )
         except:
             self.assertEqual(
                 str(cm.exception),
-                TYPE_ERROR % ("doc['bytes']", long, float, bad['bytes'])
+                TYPE_ERROR.formtat("doc['bytes']", long, float, bad['bytes'])
             )
 
         # Test with bytes == 0:
@@ -252,16 +253,6 @@ class TestFunctions(TestCase):
         g['bytes'] = 1
         self.assertIsNone(f(g))
 
-        # Test with invalid ext
-        bad = deepcopy(good)
-        bad['ext'] = '.mov'
-        with self.assertRaises(ValueError) as cm:
-            f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
-        )
-
         # Test with upercase origin
         bad = deepcopy(good)
         bad['origin'] = 'USER'
@@ -279,7 +270,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['origin'] value 'foo' not in ('user', 'download', 'paid', 'proxy', 'cache', 'render')"
+            "doc['origin'] value 'foo' not in ('user', 'paid', 'download', 'proxy', 'render', 'cache')"
         )
 
         # Test with missing stored "copies":
@@ -292,14 +283,14 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exist"
         )
 
-        # Test with missing stored "time"
+        # Test with missing stored "mtime"
         bad = deepcopy(good)
-        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time']
+        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime']
         with self.assertRaises(ValueError) as cm:
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time'] does not exist"
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] does not exist"
         )
 
         # Test with invalid stored "copies":
@@ -312,14 +303,14 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
         )
 
-        # Test with invalid stored "time":
+        # Test with invalid stored "mtime":
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time'] = -1
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] = -1
         with self.assertRaises(ValueError) as cm:
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['time'] must be >= 0; got -1"
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] must be >= 0; got -1"
         )
 
         # Test with invalid stored "verified":
@@ -352,31 +343,48 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corrupted'] must be >= 0; got -1"
         )
 
-
     def test_file_optional(self):
 
         f = schema.check_file_optional
         f({})
+        
+        # ext
+        self.assertIsNone(f({'ext': 'ogv'}))
+        with self.assertRaises(TypeError) as cm:
+            f({'ext': 42})
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format("doc['ext']", str, int, 42)
+        )
+        with self.assertRaises(ValueError) as cm:
+            f({'ext': '.mov'})
+        self.assertEqual(
+            str(cm.exception),
+            "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
+        )
 
         # content_type
         self.assertIsNone(f({'content_type': 'video/quicktime'}))
-        e = raises(TypeError, f, {'content_type': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'content_type': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['content_type']", basestring, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['content_type']", str, int, 42)
         )
 
         # content_encoding
         self.assertIsNone(f({'content_encoding': 'gzip'}))
         self.assertIsNone(f({'content_encoding': 'deflate'}))
-        e = raises(TypeError, f, {'content_encoding': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'content_encoding': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['content_encoding']", basestring, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['content_encoding']", str, int, 42)
         )
-        e = raises(ValueError, f, {'content_encoding': 'stuff'})
+        with self.assertRaises(ValueError) as cm:
+            f({'content_encoding': 'stuff'})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['content_encoding'] value 'stuff' not in ('gzip', 'deflate')"
         )
 
@@ -384,155 +392,171 @@ class TestFunctions(TestCase):
         self.assertIsNone(f({'media': 'video'}))
         self.assertIsNone(f({'media': 'audio'}))
         self.assertIsNone(f({'media': 'image'}))
-        e = raises(TypeError, f, {'media': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'media': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['media']", basestring, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['media']", str, int, 42)
         )
-        e = raises(ValueError, f, {'media': 'stuff'})
+        with self.assertRaises(ValueError) as cm:
+            f({'media': 'stuff'})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['media'] value 'stuff' not in ('video', 'audio', 'image')"
         )
 
-        # mtime
-        self.assertIsNone(f({'mtime': 1302125982.946627}))
-        self.assertIsNone(f({'mtime': 1234567890}))
-        e = raises(TypeError, f, {'mtime': '1234567890'})
+        # ctime
+        self.assertIsNone(f({'ctime': 1302125982.946627}))
+        self.assertIsNone(f({'ctime': 1234567890}))
+        with self.assertRaises(TypeError) as cm:
+            f({'ctime': '1234567890'})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['mtime']", (int, float), str, '1234567890')
+            str(cm.exception),
+            TYPE_ERROR.format("doc['ctime']", (int, float), str, '1234567890')
         )
-        e = raises(ValueError, f, {'mtime': -1})
+        with self.assertRaises(ValueError) as cm:
+            f({'ctime': -1})
         self.assertEqual(
-            str(e),
-            "doc['mtime'] must be >= 0; got -1"
+            str(cm.exception),
+            "doc['ctime'] must be >= 0; got -1"
         )
 
         # atime
         self.assertIsNone(f({'atime': 1302125982.946627}))
         self.assertIsNone(f({'atime': 1234567890}))
-        e = raises(TypeError, f, {'atime': '1234567890'})
+        with self.assertRaises(TypeError) as cm:
+            f({'atime': '1234567890'})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['atime']", (int, float), str, '1234567890')
+            str(cm.exception),
+            TYPE_ERROR.format("doc['atime']", (int, float), str, '1234567890')
         )
-        e = raises(ValueError, f, {'atime': -0.3})
+        with self.assertRaises(ValueError) as cm:
+            f({'atime': -0.3})
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['atime'] must be >= 0; got -0.3"
         )
 
         # name
         self.assertIsNone(f({'name': 'MVI_5899.MOV'}))
-        e = raises(TypeError, f, {'name': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'name': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['name']", basestring, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['name']", str, int, 42)
         )
 
         # dir
         self.assertIsNone(f({'dir': 'DCIM/100EOS5D2'}))
-        e = raises(TypeError, f, {'dir': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'dir': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['dir']", basestring, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['dir']", str, int, 42)
         )
 
         # meta
         self.assertIsNone(f({'meta': {'iso': 800}}))
-        e = raises(TypeError, f, {'meta': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'meta': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['meta']", dict, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['meta']", dict, int, 42)
         )
 
         # user
         self.assertIsNone(f({'user': {'title': 'cool sunset'}}))
-        e = raises(TypeError, f, {'user': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'user': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['user']", dict, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['user']", dict, int, 42)
         )
 
         # tags
         self.assertIsNone(f({'tags': {'burp': {'start': 6, 'end': 73}}}))
-        e = raises(TypeError, f, {'tags': 42})
+        with self.assertRaises(TypeError) as cm:
+            f({'tags': 42})
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['tags']", dict, int, 42)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['tags']", dict, int, 42)
         )
 
     def test_check_store(self):
-        f = schema.check_store
-
         # Test with good doc:
+        _id = random_id()
         good = {
-            '_id': 'ZR765XWSF6S7JQHLUI4GCG5BHGPE252O',
+            '_id': _id,
             'ver': 0,
-            'type': 'dmedia/file',
+            'type': 'dmedia/store',
             'time': 1234567890,
-            'plugin': 'filestore',
+            'plugin': 'filestore.local',
             'copies': 2,
         }
         g = deepcopy(good)
-        self.assertEqual(f(g), None)
+        self.assertEqual(schema.check_store(g), None)
 
         # Test with missing attributes:
         for key in ['plugin', 'copies']:
             bad = deepcopy(good)
             del bad[key]
-            e = raises(ValueError, f, bad)
+            with self.assertRaises(ValueError) as cm:
+                schema.check_store(bad)
             self.assertEqual(
-                str(e),
+                str(cm.exception),
                 'doc[{!r}] does not exist'.format(key)
             )
 
         # Test with wrong plugin type/value:
         bad = deepcopy(good)
         bad['plugin'] = 18
-        e = raises(TypeError, f, bad)
+        with self.assertRaises(TypeError) as cm:
+            schema.check_store(bad)
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['plugin']", basestring, int, 18)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['plugin']", str, int, 18)
         )
         bad = deepcopy(good)
         bad['plugin'] = 'foo'
-        e = raises(ValueError, f, bad)
-        plugins = ('filestore', 'removable_filestore', 'ubuntuone', 's3')
+        with self.assertRaises(ValueError) as cm:
+            schema.check_store(bad)
+        plugins = ('filestore.local', 'filestore.removable', 'ubuntuone', 's3')
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['plugin'] value %r not in %r" % ('foo', plugins)
         )
 
         # Test with wrong copies type/value:
         bad = deepcopy(good)
         bad['copies'] = 2.0
-        e = raises(TypeError, f, bad)
+        with self.assertRaises(TypeError) as cm:
+            schema.check_store(bad)
         self.assertEqual(
-            str(e),
-            TYPE_ERROR % ("doc['copies']", int, float, 2.0)
+            str(cm.exception),
+            TYPE_ERROR.format("doc['copies']", int, float, 2.0)
         )
         bad = deepcopy(good)
         bad['copies'] = 0
         bad = deepcopy(good)
         bad['copies'] = -2
-        e = raises(ValueError, f, bad)
+        with self.assertRaises(ValueError) as cm:
+            schema.check_store(bad)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             "doc['copies'] must be >= 0; got -2"
         )
 
     def test_create_file(self):
-        f = schema.create_file
-        leaf_hashes = b''.join(mov_leaves)
+        _id = random_id(DIGEST_BYTES)
+        leaf_hashes = os.urandom(DIGEST_BYTES)
+        file_size = 31415
+        store_id = random_id()
+        stored = {store_id: {'copies': 2, 'mtime': 1234567890}}
 
-        store = schema.random_id()
-
-        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}})
-        schema.check_file(d)
+        doc = schema.create_file(_id, file_size, leaf_hashes, stored)
+        schema.check_file(doc)
         self.assertEqual(
-            set(d),
+            set(doc),
             set([
                 '_id',
                 '_attachments',
@@ -540,54 +564,45 @@ class TestFunctions(TestCase):
                 'type',
                 'time',
                 'bytes',
-                'ext',
                 'origin',
                 'stored',
             ])
         )
-        self.assertEqual(d['_id'], mov_hash)
+        self.assertEqual(doc['_id'], _id)
         self.assertEqual(
-            d['_attachments'],
+            doc['_attachments'],
             {
-                'leaves': {
-                    'data': b64encode(leaf_hashes),
+                'leaf_hashes': {
+                    'data': b64encode(leaf_hashes).decode('utf-8'),
                     'content_type': 'application/octet-stream',
                 }
             }
         )
-        self.assertEqual(d['ver'], 0)
-        self.assertEqual(d['type'], 'dmedia/file')
-        self.assertLessEqual(d['time'], time.time())
-        self.assertEqual(d['bytes'], mov_size)
-        self.assertIsNone(d['ext'], None)
-        self.assertEqual(d['origin'], 'user')
+        self.assertEqual(doc['ver'], 0)
+        self.assertEqual(doc['type'], 'dmedia/file')
+        self.assertLessEqual(doc['time'], time.time())
+        self.assertEqual(doc['bytes'], file_size)
+        self.assertEqual(doc['origin'], 'user')
+        self.assertIs(doc['stored'], stored)
 
-        s = d['stored']
+        s = doc['stored']
         self.assertIsInstance(s, dict)
-        self.assertEqual(list(s), [store])
-        self.assertEqual(set(s[store]), set(['copies', 'time']))
-        self.assertEqual(s[store]['copies'], 2)
-        self.assertEqual(s[store]['time'], d['time'])
+        self.assertEqual(list(s), [store_id])
+        self.assertEqual(set(s[store_id]), set(['copies', 'mtime']))
+        self.assertEqual(s[store_id]['copies'], 2)
+        self.assertEqual(s[store_id]['mtime'], 1234567890)
 
-        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}},
-            ext='mov'
-        )
-        schema.check_file(d)
-        self.assertEqual(d['ext'], 'mov')
-
-        d = f(mov_hash, mov_size, leaf_hashes, {store: {'copies': 2}},
+        doc = schema.create_file(_id, file_size, leaf_hashes, stored,
             origin='proxy'
         )
-        schema.check_file(d)
-        self.assertEqual(d['origin'], 'proxy')
+        schema.check_file(doc)
+        self.assertEqual(doc['origin'], 'proxy')
 
     def test_create_store(self):
-        f = schema.create_store
         tmp = TempDir()
-        base = tmp.join('.dmedia')
         machine_id = random_id()
 
-        doc = f(base, machine_id)
+        doc = schema.create_store(tmp.dir, machine_id)
         self.assertEqual(schema.check_store(doc), None)
         self.assertEqual(
             set(doc),
@@ -598,39 +613,19 @@ class TestFunctions(TestCase):
                 'time',
                 'plugin',
                 'copies',
-                'path',
+                'parentdir',
                 'machine_id',
-                #'partition_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
         self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['plugin'], 'filestore')
+        self.assertEqual(doc['plugin'], 'filestore.local')
         self.assertEqual(doc['copies'], 1)
-        self.assertEqual(doc['path'], base)
-
-        doc = f(base, machine_id, copies=3)
-        self.assertEqual(schema.check_store(doc), None)
-        self.assertEqual(
-            set(doc),
-            set([
-                '_id',
-                'ver',
-                'type',
-                'time',
-                'plugin',
-                'copies',
-                'path',
-                'machine_id',
-                #'partition_id',
-            ])
-        )
-        self.assertEqual(doc['type'], 'dmedia/store')
-        self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['plugin'], 'filestore')
-        self.assertEqual(doc['copies'], 3)
-        self.assertEqual(doc['path'], base)
+        self.assertEqual(doc['parentdir'], tmp.dir)
         self.assertEqual(doc['machine_id'], machine_id)
+        doc = schema.create_store(tmp.dir, machine_id, copies=3)
+        self.assertEqual(doc['copies'], 3)
+
 
     def test_create_batch(self):
         f = schema.create_batch
@@ -653,7 +648,6 @@ class TestFunctions(TestCase):
             ])
         )
         _id = doc['_id']
-        self.assertEqual(b32encode(b32decode(_id)), _id)
         self.assertEqual(len(_id), 24)
         self.assertEqual(doc['type'], 'dmedia/batch')
         self.assertTrue(isinstance(doc['time'], (int, float)))
@@ -661,74 +655,45 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['imports'], [])
         self.assertEqual(doc['errors'], [])
         self.assertEqual(doc['machine_id'], machine_id)
-        self.assertEqual(
-            doc['stats'],
+        self.assertEqual(doc['stats'],
             {
-                'considered': {'count': 0, 'bytes': 0},
-                'imported': {'count': 0, 'bytes': 0},
-                'skipped': {'count': 0, 'bytes': 0},
+                'total': {'count': 0, 'bytes': 0},
+                'new': {'count': 0, 'bytes': 0},
+                'duplicate': {'count': 0, 'bytes': 0},
                 'empty': {'count': 0, 'bytes': 0},
-                'error': {'count': 0, 'bytes': 0},
             }
         )
 
     def test_create_import(self):
-        f = schema.create_import
-
-        base = '/media/EOS_DIGITAL'
-        partition_id = random_id()
-        batch_id = random_id()
+        basedir = '/media/EOS_DIGITAL'
         machine_id = random_id()
-
-        keys = set([
-            '_id',
-            'ver',
-            'type',
-            'time',
-            'base',
-            'batch_id',
-            'machine_id',
-            'partition_id',
-            'log',
-            'stats',
-        ])
-
-        doc = f(base, partition_id, batch_id=batch_id, machine_id=machine_id)
+        doc = schema.create_import(basedir, machine_id)
         self.assertEqual(schema.check_dmedia(doc), None)
-        self.assertTrue(isinstance(doc, dict))
-        self.assertEqual(set(doc), keys)
-
-        _id = doc['_id']
-        self.assertEqual(b32encode(b32decode(_id)), _id)
-        self.assertEqual(len(_id), 24)
-
-        self.assertEqual(doc['type'], 'dmedia/import')
-        self.assertTrue(isinstance(doc['time'], (int, float)))
-        self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['base'], base)
-        self.assertEqual(doc['batch_id'], batch_id)
-        self.assertEqual(doc['machine_id'], machine_id)
-
-        doc = f(base, partition_id)
-        self.assertEqual(schema.check_dmedia(doc), None)
-        self.assertEqual(set(doc), keys)
-        self.assertEqual(doc['batch_id'], None)
-        self.assertEqual(doc['machine_id'], None)
-        self.assertEqual(
-            doc['log'],
-            {
-                'imported': [],
-                'skipped': [],
-                'empty': [],
-                'error': [],
-            }
+        self.assertEqual(set(doc),
+            set([
+                '_id',
+                'ver',
+                'type',
+                'time',
+                'basedir',
+                'machine_id',
+                'files',
+                'import_order',
+                'stats',
+            ])
         )
-        self.assertEqual(
-            doc['stats'],
+        self.assertEqual(len(doc['_id']), 24)
+        self.assertEqual(doc['type'], 'dmedia/import')
+        self.assertTrue(doc['time'] <= time.time())
+        self.assertEqual(doc['basedir'], basedir)
+        self.assertEqual(doc['machine_id'], machine_id)
+        self.assertEqual(doc['files'], {})
+        self.assertEqual(doc['import_order'], [])
+        self.assertEqual(doc['stats'],
             {
-                'imported': {'count': 0, 'bytes': 0},
-                'skipped': {'count': 0, 'bytes': 0},
+                'total': {'count': 0, 'bytes': 0},
+                'new': {'count': 0, 'bytes': 0},
+                'duplicate': {'count': 0, 'bytes': 0},
                 'empty': {'count': 0, 'bytes': 0},
-                'error': {'count': 0, 'bytes': 0},
             }
         )

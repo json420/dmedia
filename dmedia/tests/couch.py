@@ -30,15 +30,13 @@ from os import path
 from subprocess import Popen
 import time
 import socket
-from hashlib import sha1
+from hashlib import sha1, md5
 from base64 import b32encode
 import shutil
 from copy import deepcopy
 
 import microfiber
 from microfiber import random_id
-
-from .helpers import TempHome
 
 
 SOCKET_OPTIONS = '[{recbuf, 262144}, {sndbuf, 262144}, {nodelay, true}]'
@@ -93,7 +91,7 @@ def random_port():
 
 
 def random_key():
-    return b32encode(os.urandom(10))
+    return b32encode(os.urandom(10)).decode('utf-8')
 
 
 def random_oauth():
@@ -122,11 +120,12 @@ def random_env(port, oauth=True):
 
 
 def random_salt():
-    return os.urandom(16).encode('hex')
+    return md5(os.urandom(16)).hexdigest()
 
 
 def couch_hashed(password, salt):
-    hexdigest = sha1(password + salt).hexdigest()
+    data = (password + salt).encode('utf-8')
+    hexdigest = sha1(data).hexdigest()
     return '-hashed-{},{}'.format(hexdigest, salt)
 
 
@@ -240,13 +239,11 @@ class CouchCase(TestCase):
     def setUp(self):
         self.tmpcouch = TempCouch()
         self.env = self.tmpcouch.bootstrap()
-        self.home = TempHome()
         self.machine_id = random_id()
         self.env['machine_id'] = self.machine_id
-        self.env['filestore'] = {'_id': random_id(), 'path': self.home.path}
 
     def tearDown(self):
         self.tmpcouch.kill()
         self.tmpcouch = None
-        self.home = None
         self.env = None
+        self.machine_id = None

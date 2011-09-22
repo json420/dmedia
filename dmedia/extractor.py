@@ -25,7 +25,7 @@ Extract meta-data from media files.
 """
 
 from os import path
-from subprocess import check_call, Popen, PIPE
+from subprocess import check_call, check_output, CalledProcessError
 import json
 import tempfile
 import shutil
@@ -95,16 +95,16 @@ def extract_exif(filename):
     """
     Attempt to extract EXIF metadata from file at *filename*.
     """
+    cmd = ['exiftool', '-j', filename]
     try:
-        args = ['exiftool', '-j', filename]
-        (stdout, stderr) = Popen(args, stdout=PIPE).communicate()
-        exif = json.loads(stdout)[0]
-        assert isinstance(exif, dict)
-        for key in EXIFTOOL_IGNORE:
-            exif.pop(key, None)
-        return exif
-    except Exception as e:
-        return {u'Error': u'%s: %s' % (e.__class__.__name__, e)}
+        output = check_output(cmd)
+    except CalledProcessError:
+        return {}
+    exif = json.loads(output.decode('utf-8'))[0]
+    assert isinstance(exif, dict)
+    for key in EXIFTOOL_IGNORE:
+        exif.pop(key, None)
+    return exif
 
 
 def parse_subsec_datetime(string):
@@ -119,7 +119,7 @@ def parse_subsec_datetime(string):
     >>> parse_subsec_datetime('2010:10:21 01:44:37')
     1287625477.0
     """
-    if not isinstance(string, basestring):
+    if not isinstance(string, str):
         return
     parts = string.split('.')
     if len(parts) == 1:
@@ -165,13 +165,10 @@ def extract_video_info(filename):
     Attempt to extract video metadata from video at *filename*.
     """
     try:
-        args = ['totem-video-indexer', filename]
-        popen = Popen(args, stdout=PIPE)
-        (stdout, stderr) = popen.communicate()
-        if popen.returncode != 0:
-            return {}
+        cmd = ['totem-video-indexer', filename]
+        output = check_output(cmd).decode('utf-8')
         info = {}
-        for line in stdout.splitlines():
+        for line in output.splitlines():
             pair = line.split('=', 1)
             if len(pair) != 2:
                 continue
@@ -240,7 +237,7 @@ def merge_metadata(src, doc):
 
 def merge_exif(src, attachments):
     exif = extract_exif(src)
-    for (key, values) in EXIF_REMAP.iteritems():
+    for (key, values) in EXIF_REMAP.items():
         for v in values:
             if v in exif:
                 yield (key, exif[v])

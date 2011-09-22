@@ -59,7 +59,7 @@ happens to be.
 import multiprocessing
 from multiprocessing import current_process
 from threading import Thread, Lock
-from Queue import Empty
+from queue import Empty
 import logging
 
 from microfiber import Database

@@ -23,231 +23,231 @@
 Unit tests for `dmedia.extractor` module.
 """
 
-from unittest import TestCase
 import base64
 from os import path
-import Image
-from .helpers import sample_mov, sample_thm, TempDir
+
+from .base import TempDir, SampleFilesTestCase
+
 from dmedia import extractor
 
 # Known EXIF data as returned be exiftool:
 sample_thm_exif = {
-    u'AddOriginalDecisionData': u'Off',
-    u'AEBAutoCancel': u'On',
-    u'AEBBracketValue': 0,
-    u'AEBSequence': u'0,-,+',
-    u'AFAssistBeam': u'Emits',
-    u'AFMicroAdjActive': u'No',
-    u'AFMicroadjustment': u'Disable; 0; 0; 0; 0',
-    u'AFMicroAdjValue': 0,
-    u'AFOnAELockButtonSwitch': u'Disable',
-    u'AFPointAreaExpansion': u'Disable',
-    u'AFPointSelectionMethod': u'Normal',
-    u'Aperture': 11.0,
-    u'ApertureValue': 11.300000000000001,
-    u'Artist': u'',
-    u'AssignFuncButton': u'LCD brightness',
-    u'AutoExposureBracketing': u'Off',
-    u'AutoISO': 100,
-    u'AutoLightingOptimizer': u'Disable',
-    u'BaseISO': 100,
-    u'BlackMaskBottomBorder': 0,
-    u'BlackMaskLeftBorder': 0,
-    u'BlackMaskRightBorder': 0,
-    u'BlackMaskTopBorder': 0,
-    u'BracketMode': u'Off',
-    u'BracketShotNumber': 0,
-    u'BracketValue': 0,
-    u'BulbDuration': 0,
-    u'CameraType': u'EOS High-end',
-    u'CanonExposureMode': u'Manual',
-    u'CanonFirmwareVersion': u'Firmware Version 2.0.7',
-    u'CanonFlashMode': u'Off',
-    u'CanonImageSize': u'1920x1080 Movie',
-    u'CanonImageType': u'MVI:Canon EOS 5D Mark II',
-    u'CanonModelID': u'EOS 5D Mark II',
-    u'CircleOfConfusion': u'0.031 mm',
-    u'ColorComponents': 3,
-    u'ColorSpace': u'sRGB',
-    u'ColorTemperature': 3600,
-    u'ColorTone': u'Normal',
-    u'ComponentsConfiguration': u'Y, Cb, Cr, -',
-    u'ContinuousDrive': u'Movie',
-    u'Contrast': -4,
-    u'ControlMode': u'Camera Local Control',
-    u'Copyright': u'',
-    u'CreateDate': u'2010:10:19 20:43:14',    
-    u'CustomRendered': u'Normal',
-    u'DateTimeOriginal': u'2010:10:19 20:43:14',
-    u'DialDirectionTvAv': u'Normal',
-    u'DigitalGain': 0,
-    u'DigitalZoom': u'None',
-    #u'Directory': u'dmedia/tests/data',
-    u'DriveMode': u'Continuous Shooting',
-    u'EasyMode': u'Manual',
-    u'EncodingProcess': u'Baseline DCT, Huffman coding',
-    #u'ExifByteOrder': u'Little-endian (Intel, II)',
-    u'ExifImageHeight': 120,
-    u'ExifImageWidth': 160,
-    #u'ExifToolVersion': 8.1500000000000004,
-    u'ExifVersion': u'0221',
-    u'ExposureCompensation': 0,
-    u'ExposureLevelIncrements': u'1/3 Stop',
-    u'ExposureMode': u'Auto',
-    u'ExposureProgram': u'Manual',
-    u'ExposureTime': u'1/100',
-    #u'FileModifyDate': u'2010:10:19 20:43:18-06:00',
-    #u'FileName': u'MVI_5751.THM',
-    #u'FilePermissions': u'rw-r--r--',
-    #u'FileSize': u'27 kB',
-    #u'FileType': u'JPEG',
-    u'FlashActivity': 0,
-    u'FlashBits': u'(none)',
-    u'FlashExposureComp': 0, u'SequenceNumber': 0,
-    u'FlashExposureLock': u'Off',
-    u'FlashGuideNumber': 0,
-    u'FlashpixVersion': u'0100',
-    u'FlashSyncSpeedAv': u'Auto',
-    u'Flash': u'Off, Did not fire',
-    u'FNumber': 11.0,
-    u'FocalLength35efl': u'138.0 mm (35 mm equivalent: 134.7 mm)',
-    u'FocalLength': u'138.0 mm',
-    u'FocalPlaneResolutionUnit': u'inches',
-    u'FocalPlaneXResolution': 109.6641535,
-    u'FocalPlaneYResolution': 125.26096029999999,
-    u'FocalUnits': u'1/mm',
-    u'FocusingScreen': u'Eg-D',
-    u'FocusMode': u'Manual Focus (3)',
-    u'FocusRange': u'Not Known',
-    u'FOV': u'15.2 deg',
-    u'GPSVersionID': u'2.2.0.0',
-    u'HighISONoiseReduction': u'Standard',
-    u'HighlightTonePriority': u'Disable',
-    u'HyperfocalDistance': u'56.23 m',
-    u'ImageHeight': 120,
-    u'ImageSize': u'160x120',
-    u'ImageWidth': 160,
-    u'InternalSerialNumber': u'',
-    u'InteropIndex': u'THM - DCF thumbnail file',
-    u'InteropVersion': u'0100',
-    u'ISO': 100,
-    u'ISOExpansion': u'Off',
-    u'ISOSpeedIncrements': u'1/3 Stop',
-    u'Lens35efl': u'70.0 - 200.0 mm (35 mm equivalent: 68.3 - 195.2 mm)',
-    u'LensAFStopButton': u'AF stop',
-    u'LensDriveNoAF': u'Focus search on',
-    u'LensID': u'Canon EF 70-200mm f/4L IS',
-    u'LensModel': u'EF70-200mm f/4L IS USM',
-    u'LensType': u'Canon EF 70-200mm f/4L IS',
-    u'Lens': u'70.0 - 200.0 mm',
-    u'LightValue': 13.6,
-    u'LiveViewShooting': u'On',
-    u'LongExposureNoiseReduction2': u'Off',
-    u'LongExposureNoiseReduction': u'Off',
-    u'LongFocal': u'200 mm',
-    u'MacroMode': u'Normal',
-    u'Make': u'Canon',
-    u'ManualFlashOutput': u'n/a',
-    u'MaxAperture': 4,
-    u'MeasuredEV': 12.5,
-    u'MeasuredEV2': 13,
-    u'MeteringMode': u'Center-weighted average',
-    #u'MIMEType': u'image/jpeg',
-    u'MinAperture': 32,
-    u'MirrorLockup': u'Disable',
-    u'Model': u'Canon EOS 5D Mark II',
-    u'ModifyDate': u'2010:10:19 20:43:14',
-    u'NDFilter': u'n/a',
-    u'OpticalZoomCode': u'n/a',
-    u'Orientation': u'Horizontal (normal)',
-    u'OwnerName': u'',
-    u'PictureStyle': u'User Def. 1',
-    u'Quality': u'Unknown (-1)',
-    u'RawJpgSize': u'Large',
-    u'RecordMode': u'Video',
-    u'RelatedImageHeight': 1080,
-    u'RelatedImageWidth': 1920,
-    u'ResolutionUnit': u'inches',
-    u'SafetyShift': u'Disable',
-    u'Saturation': u'Normal',
-    u'ScaleFactor35efl': 1.0,
-    u'SceneCaptureType': u'Standard',
-    u'SelfTimer': u'Off',
-    u'SensorBlueLevel': 0,
-    u'SensorBottomBorder': 3799,
-    u'SensorHeight': 3804,
-    u'SensorLeftBorder': 168,
-    u'SensorRedLevel': 0,
-    u'SensorRightBorder': 5783,
-    u'SensorTopBorder': 56,
-    u'SensorWidth': 5792,
-    u'SerialNumberFormat': u'Format 2',
-    u'SerialNumber': u'0820500998',
-    u'SetButtonWhenShooting': u'Normal (disabled)',
-    u'Sharpness': 3,
-    u'SharpnessFrequency': u'n/a',
-    u'ShootingMode': u'Manual',
-    u'ShortFocal': u'70 mm',
-    u'ShutterButtonAFOnButton': u'Metering + AF start',
-    u'ShutterSpeed': u'1/100',
-    u'ShutterSpeedValue': u'1/99',
-    u'SlowShutter': u'None',
-    #u'SourceFile': u'dmedia/tests/data/MVI_5751.THM',
-    u'SubSecCreateDate': u'2010:10:19 20:43:14.68',
-    u'SubSecDateTimeOriginal': u'2010:10:19 20:43:14.68',
-    u'SubSecModifyDate': u'2010:10:19 20:43:14.68',
-    u'SubSecTime': 68,
-    u'SubSecTimeDigitized': 68,
-    u'SubSecTimeOriginal': 68,
-    u'SuperimposedDisplay': u'On',
-    u'TargetAperture': 11,
-    u'TargetExposureTime': u'1/102',
-    u'ThumbnailImageValidArea': u'0 159 15 104',
-    u'ToneCurve': u'Standard',
-    u'UserComment': u'',
-    u'VRDOffset': 0,
-    #u'Warning': u'Invalid CanonAFInfo2 data',  Not present under Oneiric
-    u'WBBracketMode': u'Off',
-    u'WBBracketValueAB': 0,
-    u'WBBracketValueGM': 0,
-    u'WBShiftAB': 0,
-    u'WBShiftGM': 0,
-    u'WhiteBalanceBlue': 0,
-    u'WhiteBalanceRed': 0,
-    u'WhiteBalance': u'Daylight',
-    u'XResolution': 72,
-    u'YCbCrPositioning': u'Co-sited',
-    u'YCbCrSubSampling': u'YCbCr4:2:2 (2 1)',
-    u'YResolution': 72,
-    u'ZoomSourceWidth': 0,
-    u'ZoomTargetWidth': 0,
-    u'BitsPerSample': 8,
+    'AddOriginalDecisionData': 'Off',
+    'AEBAutoCancel': 'On',
+    'AEBBracketValue': 0,
+    'AEBSequence': '0,-,+',
+    'AFAssistBeam': 'Emits',
+    'AFMicroAdjActive': 'No',
+    'AFMicroadjustment': 'Disable; 0; 0; 0; 0',
+    'AFMicroAdjValue': 0,
+    'AFOnAELockButtonSwitch': 'Disable',
+    'AFPointAreaExpansion': 'Disable',
+    'AFPointSelectionMethod': 'Normal',
+    'Aperture': 11.0,
+    'ApertureValue': 11.300000000000001,
+    'Artist': '',
+    'AssignFuncButton': 'LCD brightness',
+    'AutoExposureBracketing': 'Off',
+    'AutoISO': 100,
+    'AutoLightingOptimizer': 'Disable',
+    'BaseISO': 100,
+    'BlackMaskBottomBorder': 0,
+    'BlackMaskLeftBorder': 0,
+    'BlackMaskRightBorder': 0,
+    'BlackMaskTopBorder': 0,
+    'BracketMode': 'Off',
+    'BracketShotNumber': 0,
+    'BracketValue': 0,
+    'BulbDuration': 0,
+    'CameraType': 'EOS High-end',
+    'CanonExposureMode': 'Manual',
+    'CanonFirmwareVersion': 'Firmware Version 2.0.7',
+    'CanonFlashMode': 'Off',
+    'CanonImageSize': '1920x1080 Movie',
+    'CanonImageType': 'MVI:Canon EOS 5D Mark II',
+    'CanonModelID': 'EOS 5D Mark II',
+    'CircleOfConfusion': '0.031 mm',
+    'ColorComponents': 3,
+    'ColorSpace': 'sRGB',
+    'ColorTemperature': 3600,
+    'ColorTone': 'Normal',
+    'ComponentsConfiguration': 'Y, Cb, Cr, -',
+    'ContinuousDrive': 'Movie',
+    'Contrast': -4,
+    'ControlMode': 'Camera Local Control',
+    'Copyright': '',
+    'CreateDate': '2010:10:19 20:43:14',    
+    'CustomRendered': 'Normal',
+    'DateTimeOriginal': '2010:10:19 20:43:14',
+    'DialDirectionTvAv': 'Normal',
+    'DigitalGain': 0,
+    'DigitalZoom': 'None',
+    #'Directory': 'dmedia/tests/data',
+    'DriveMode': 'Continuous Shooting',
+    'EasyMode': 'Manual',
+    'EncodingProcess': 'Baseline DCT, Huffman coding',
+    #'ExifByteOrder': 'Little-endian (Intel, II)',
+    'ExifImageHeight': 120,
+    'ExifImageWidth': 160,
+    #'ExifToolVersion': 8.1500000000000004,
+    'ExifVersion': '0221',
+    'ExposureCompensation': 0,
+    'ExposureLevelIncrements': '1/3 Stop',
+    'ExposureMode': 'Auto',
+    'ExposureProgram': 'Manual',
+    'ExposureTime': '1/100',
+    #'FileModifyDate': '2010:10:19 20:43:18-06:00',
+    #'FileName': 'MVI_5751.THM',
+    #'FilePermissions': 'rw-r--r--',
+    #'FileSize': '27 kB',
+    #'FileType': 'JPEG',
+    'FlashActivity': 0,
+    'FlashBits': '(none)',
+    'FlashExposureComp': 0, 'SequenceNumber': 0,
+    'FlashExposureLock': 'Off',
+    'FlashGuideNumber': 0,
+    'FlashpixVersion': '0100',
+    'FlashSyncSpeedAv': 'Auto',
+    'Flash': 'Off, Did not fire',
+    'FNumber': 11.0,
+    'FocalLength35efl': '138.0 mm (35 mm equivalent: 134.7 mm)',
+    'FocalLength': '138.0 mm',
+    'FocalPlaneResolutionUnit': 'inches',
+    'FocalPlaneXResolution': 109.6641535,
+    'FocalPlaneYResolution': 125.26096029999999,
+    'FocalUnits': '1/mm',
+    'FocusingScreen': 'Eg-D',
+    'FocusMode': 'Manual Focus (3)',
+    'FocusRange': 'Not Known',
+    'FOV': '15.2 deg',
+    'GPSVersionID': '2.2.0.0',
+    'HighISONoiseReduction': 'Standard',
+    'HighlightTonePriority': 'Disable',
+    'HyperfocalDistance': '56.23 m',
+    'ImageHeight': 120,
+    'ImageSize': '160x120',
+    'ImageWidth': 160,
+    'InternalSerialNumber': '',
+    'InteropIndex': 'THM - DCF thumbnail file',
+    'InteropVersion': '0100',
+    'ISO': 100,
+    'ISOExpansion': 'Off',
+    'ISOSpeedIncrements': '1/3 Stop',
+    'Lens35efl': '70.0 - 200.0 mm (35 mm equivalent: 68.3 - 195.2 mm)',
+    'LensAFStopButton': 'AF stop',
+    'LensDriveNoAF': 'Focus search on',
+    'LensID': 'Canon EF 70-200mm f/4L IS',
+    'LensModel': 'EF70-200mm f/4L IS USM',
+    'LensType': 'Canon EF 70-200mm f/4L IS',
+    'Lens': '70.0 - 200.0 mm',
+    'LightValue': 13.6,
+    'LiveViewShooting': 'On',
+    'LongExposureNoiseReduction2': 'Off',
+    'LongExposureNoiseReduction': 'Off',
+    'LongFocal': '200 mm',
+    'MacroMode': 'Normal',
+    'Make': 'Canon',
+    'ManualFlashOutput': 'n/a',
+    'MaxAperture': 4,
+    'MeasuredEV': 12.5,
+    'MeasuredEV2': 13,
+    'MeteringMode': 'Center-weighted average',
+    #'MIMEType': 'image/jpeg',
+    'MinAperture': 32,
+    'MirrorLockup': 'Disable',
+    'Model': 'Canon EOS 5D Mark II',
+    'ModifyDate': '2010:10:19 20:43:14',
+    'NDFilter': 'n/a',
+    'OpticalZoomCode': 'n/a',
+    'Orientation': 'Horizontal (normal)',
+    'OwnerName': '',
+    'PictureStyle': 'User Def. 1',
+    'Quality': 'Unknown (-1)',
+    'RawJpgSize': 'Large',
+    'RecordMode': 'Video',
+    'RelatedImageHeight': 1080,
+    'RelatedImageWidth': 1920,
+    'ResolutionUnit': 'inches',
+    'SafetyShift': 'Disable',
+    'Saturation': 'Normal',
+    'ScaleFactor35efl': 1.0,
+    'SceneCaptureType': 'Standard',
+    'SelfTimer': 'Off',
+    'SensorBlueLevel': 0,
+    'SensorBottomBorder': 3799,
+    'SensorHeight': 3804,
+    'SensorLeftBorder': 168,
+    'SensorRedLevel': 0,
+    'SensorRightBorder': 5783,
+    'SensorTopBorder': 56,
+    'SensorWidth': 5792,
+    'SerialNumberFormat': 'Format 2',
+    'SerialNumber': '0820500998',
+    'SetButtonWhenShooting': 'Normal (disabled)',
+    'Sharpness': 3,
+    'SharpnessFrequency': 'n/a',
+    'ShootingMode': 'Manual',
+    'ShortFocal': '70 mm',
+    'ShutterButtonAFOnButton': 'Metering + AF start',
+    'ShutterSpeed': '1/100',
+    'ShutterSpeedValue': '1/99',
+    'SlowShutter': 'None',
+    #'SourceFile': 'dmedia/tests/data/MVI_5751.THM',
+    'SubSecCreateDate': '2010:10:19 20:43:14.68',
+    'SubSecDateTimeOriginal': '2010:10:19 20:43:14.68',
+    'SubSecModifyDate': '2010:10:19 20:43:14.68',
+    'SubSecTime': 68,
+    'SubSecTimeDigitized': 68,
+    'SubSecTimeOriginal': 68,
+    'SuperimposedDisplay': 'On',
+    'TargetAperture': 11,
+    'TargetExposureTime': '1/102',
+    'ThumbnailImageValidArea': '0 159 15 104',
+    'ToneCurve': 'Standard',
+    'UserComment': '',
+    'VRDOffset': 0,
+    #'Warning': 'Invalid CanonAFInfo2 data',  Not present under Oneiric
+    'WBBracketMode': 'Off',
+    'WBBracketValueAB': 0,
+    'WBBracketValueGM': 0,
+    'WBShiftAB': 0,
+    'WBShiftGM': 0,
+    'WhiteBalanceBlue': 0,
+    'WhiteBalanceRed': 0,
+    'WhiteBalance': 'Daylight',
+    'XResolution': 72,
+    'YCbCrPositioning': 'Co-sited',
+    'YCbCrSubSampling': 'YCbCr4:2:2 (2 1)',
+    'YResolution': 72,
+    'ZoomSourceWidth': 0,
+    'ZoomTargetWidth': 0,
+    'BitsPerSample': 8,
 }
 
 # These values are new running on Oneiric
 sample_thm_exif2 = {
-    u'CropLeftMargin': 24,
-    u'CropRightMargin': 24,
-    u'CropTopMargin': 16,
-    u'CropBottomMargin': 16,
+    'CropLeftMargin': 24,
+    'CropRightMargin': 24,
+    'CropTopMargin': 16,
+    'CropBottomMargin': 16,
     
-    u'CroppedImageWidth': 2784,
-    u'CroppedImageHeight': 1856,
+    'CroppedImageWidth': 2784,
+    'CroppedImageHeight': 1856,
     
-    u'VideoCodec': u'avc1',
+    'VideoCodec': 'avc1',
 
-    u'AudioBitrate': u'1.54 Mbps',
-    u'CustomPictureStyleFileName': u'superflat01', 
-    u'Duration': u'3.00 s',
-    u'FrameRate': 29.97, 
+    'AudioBitrate': '1.54 Mbps',
+    'CustomPictureStyleFileName': 'superflat01', 
+    'Duration': '3.00 s',
+    'FrameRate': 29.97, 
 
-    u'AudioChannels': 2,
-    u'AudioSampleRate': 48000,
-    u'CameraTemperature': u'30 C',
+    'AudioChannels': 2,
+    'AudioSampleRate': 48000,
+    'CameraTemperature': '30 C',
 
-    u'AspectRatio': u'3:2',
+    'AspectRatio': '3:2',
 
-    u'FrameCount': 107,
+    'FrameCount': 107,
 }
 
 sample_thm_exif.update(sample_thm_exif2)
@@ -268,21 +268,21 @@ sample_mov_info = {
 }
 
 
-class test_functions(TestCase):
+class TestFunctions(SampleFilesTestCase):
 
     def test_file_2_base64(self):
         f = extractor.file_2_base64
         tmp = TempDir()
-        src = tmp.write('Hello naughty nurse!', 'sample.txt')
+        src = tmp.write(b'Hello naughty nurse!', 'sample.txt')
         self.assertEqual(
             base64.b64decode(f(src)),
-            'Hello naughty nurse!'
+            b'Hello naughty nurse!'
         )
 
 
     def test_extract_exif(self):
         f = extractor.extract_exif
-        exif = f(sample_thm)
+        exif = f(self.thm)
         self.assertEqual(set(sample_thm_exif), set(exif))
         for key in sample_thm_exif:
             v1 = sample_thm_exif[key]
@@ -292,20 +292,16 @@ class test_functions(TestCase):
 
         # Test that error is returned for invalid file:
         tmp = TempDir()
-        data = 'Foo Bar\n' * 1000
+        data = b'Foo Bar\n' * 1000
         jpg = tmp.write(data, 'sample.jpg')
         self.assertEqual(
             f(jpg),
-            {u'Error': u'File format error'}
+            {'Error': 'File format error'}
         )
 
         # Test with non-existent file:
         nope = tmp.join('nope.jpg')
-        self.assertEqual(
-            f(nope),
-            {u'Error': u'ValueError: No JSON object could be decoded'}
-        )
-
+        self.assertEqual(f(nope), {})
 
     def test_parse_subsec_datetime(self):
         f = extractor.parse_subsec_datetime
@@ -365,11 +361,11 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         # Test with sample_mov from 5D Mark II:
-        info = f(sample_mov)
+        info = f(self.mov)
         self.assertEqual(sample_mov_info, info)
 
         # Test invalid file:
-        invalid = tmp.write('Wont work!', 'invalid.mov')
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
         self.assertEqual(
             f(invalid),
             {
@@ -394,18 +390,14 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         # Test with sample_mov from 5D Mark II:
-        d = f(sample_mov)
+        d = f(self.mov)
         self.assertTrue(isinstance(d, dict))
         self.assertEqual(sorted(d), ['content_type', 'data'])
         self.assertEqual(d['content_type'], 'image/jpeg')
         data = base64.b64decode(d['data'])
-        jpg = tmp.write(data, 'thumbnail.jpg')
-        img = Image.open(jpg)
-        self.assertEqual(img.size, (192, 108))
-        self.assertEqual(img.format, 'JPEG')
 
         # Test invalid file:
-        invalid = tmp.write('Wont work!', 'invalid.mov')
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
         self.assertEqual(f(invalid), None)
 
         # Test with non-existent file:
@@ -418,7 +410,7 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         doc = dict(ext='mov')
-        f(sample_mov, doc)
+        f(self.mov, doc)
 
         # Check canon.thm attachment
         att = doc.pop('_attachments')
@@ -427,7 +419,7 @@ class test_functions(TestCase):
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
             base64.b64decode(att['canon.thm']['data']),
-            open(sample_thm, 'r').read()
+            open(self.thm, 'rb').read()
         )
 
         # Check thumbnail
@@ -436,10 +428,6 @@ class test_functions(TestCase):
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
         data = base64.b64decode(thm['data'])
-        jpg = tmp.write(data, 'thumbnail.jpg')
-        img = Image.open(jpg)
-        self.assertEqual(img.size, (192, 108))
-        self.assertEqual(img.format, 'JPEG')
 
         self.assertEqual(
             doc,
@@ -456,32 +444,32 @@ class test_functions(TestCase):
                     fps=30,
                     channels='Stereo',
                     iso=100,
-                    shutter=u'1/100',
+                    shutter='1/100',
                     aperture=11.0,
-                    lens=u'Canon EF 70-200mm f/4L IS',
-                    camera=u'Canon EOS 5D Mark II',
-                    camera_serial=u'0820500998',
-                    focal_length=u'138.0 mm',
+                    lens='Canon EF 70-200mm f/4L IS',
+                    camera='Canon EOS 5D Mark II',
+                    camera_serial='0820500998',
+                    focal_length='138.0 mm',
                 ),
             )
         )
 
     def test_merge_exif(self):
         f = extractor.merge_exif
-        self.assertTrue(sample_thm.endswith('.THM'))
+        self.assertTrue(self.thm.endswith('.THM'))
         attachments = {}
         self.assertEqual(
-            dict(f(sample_thm, attachments)),
+            dict(f(self.thm, attachments)),
             dict(
                 width=160,
                 height=120,
                 iso=100,
-                shutter=u'1/100',
+                shutter='1/100',
                 aperture=11.0,
-                lens=u'Canon EF 70-200mm f/4L IS',
-                camera=u'Canon EOS 5D Mark II',
-                camera_serial=u'0820500998',
-                focal_length=u'138.0 mm',
+                lens='Canon EF 70-200mm f/4L IS',
+                camera='Canon EOS 5D Mark II',
+                camera_serial='0820500998',
+                focal_length='138.0 mm',
                 mtime=1287520994 + 68 / 100.0,
             ),
         )
@@ -493,7 +481,7 @@ class test_functions(TestCase):
         tmp = TempDir()
 
         att = {}
-        merged = dict(f(sample_mov, att))
+        merged = dict(f(self.mov, att))
 
         # Check canon.thm attachment
         self.assertEqual(set(att), set(['thumbnail', 'canon.thm']))
@@ -501,7 +489,7 @@ class test_functions(TestCase):
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
             base64.b64decode(att['canon.thm']['data']),
-            open(sample_thm, 'r').read()
+            open(self.thm, 'rb').read()
         )
 
         # Check thumbnail
@@ -510,10 +498,6 @@ class test_functions(TestCase):
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
         data = base64.b64decode(thm['data'])
-        jpg = tmp.write(data, 'thumbnail.jpg')
-        img = Image.open(jpg)
-        self.assertEqual(img.size, (192, 108))
-        self.assertEqual(img.format, 'JPEG')
 
         self.assertEqual(
             merged,
@@ -527,19 +511,19 @@ class test_functions(TestCase):
                 fps=30,
                 channels='Stereo',
                 iso=100,
-                shutter=u'1/100',
+                shutter='1/100',
                 aperture=11.0,
-                lens=u'Canon EF 70-200mm f/4L IS',
-                camera=u'Canon EOS 5D Mark II',
-                camera_serial=u'0820500998',
-                focal_length=u'138.0 mm',
+                lens='Canon EF 70-200mm f/4L IS',
+                camera='Canon EOS 5D Mark II',
+                camera_serial='0820500998',
+                focal_length='138.0 mm',
                 mtime=1287520994 + 68 / 100.0,
             )
         )
 
         # Test invalid file:
-        invalid_mov = tmp.write('Wont work!', 'invalid.mov')
-        invalid_thm = tmp.write('Wont work either!', 'invalid.thm')
+        invalid_mov = tmp.write(b'Wont work!', 'invalid.mov')
+        invalid_thm = tmp.write(b'Wont work either!', 'invalid.thm')
         att = {}
         merged = dict(f(invalid_mov, att))
         self.assertEqual(merged, {})

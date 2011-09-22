@@ -2,16 +2,18 @@ Source: dmedia
 Section: python
 Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
-Build-Depends: debhelper (>= 8.9), python (>= 2.7)
+Build-Depends: debhelper (>= 8.9), python3 (>= 3.2)
 Standards-Version: 3.9.2
-X-Python-Version: 2.7
+X-Python-Version: 3.2
+X-Python3-Version: 3.2
 Homepage: https://launchpad.net/dmedia
 
 Package: dmedia
 Architecture: all
-Depends: ${misc:Depends}, python (>= 2.7),
+Depends: ${misc:Depends}, python3 (>= 3.2),
+    python3-filestore (>= 11.09),
+    python3-microfiber (>= 11.09),
     dc3 (>= 11.09),
-    python-microfiber (>= 11.09),
 Description: distributed media library
  A user-experienced-focused technology aimed at making file management go away
  for both content-creation and content-consumption.
