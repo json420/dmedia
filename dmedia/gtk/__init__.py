@@ -20,7 +20,7 @@
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-GTK UI components for dmedia and apps built atop dmedia.
+GTK3 UI components for dmedia and apps built atop dmedia.
 """
 
 import gi
