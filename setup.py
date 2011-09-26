@@ -132,7 +132,7 @@ setup(
     scripts=['dmedia-gtk'],
     data_files=[
         ('share/couchdb/apps/dmedia',
-            ['ui/index.html']
+            [path.join('ui', name) for name in os.listdir('ui')]
         ),
         ('share/applications',
             ['share/dmedia.desktop']
