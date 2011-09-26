@@ -128,60 +128,23 @@ setup(
     author_email='jderose@novacut.com',
     license='AGPLv3+',
     cmdclass={'test': Test},
-
-
-    # FIXME: Change after the core refactor is done
     packages=['dmedia'],
-
-#    scripts=[
-#        'dmedia-cli',
-#        'dmedia-import',
-#        'dmedia-gtk',
-#    ],
-#    packages=[
-#        'dmedia',
-#        'dmedia.backends',
-#        'dmedia.service',
-#        'dmedia.webui',
-#        'dmedia.gtkui',
-#    ],
-#    package_data={
-#        'dmedia.webui': ['data/*']
-#    },
-#    data_files=[
-#        ('share/man/man1',
-#            ['share/dmedia-cli.1']
-#        ),
-#        ('share/applications',
-#            ['share/dmedia-import.desktop']
-#        ),
-#        ('share/pixmaps',
-#            ['share/dmedia.svg']
-#        ),
-#        ('share/pixmaps/dmedia',
-#            [
-#                'share/indicator-rendermenu.svg',
-#                'share/indicator-rendermenu-att.svg',
-#            ]
-#        ),
-#        ('share/icons/hicolor/scalable/status',
-#            [
-#                'share/indicator-rendermenu.svg',
-#                'share/indicator-rendermenu-att.svg',
-#            ]
-#        ),
-#        ('share/dbus-1/services',
-#            [
-#                'share/org.freedesktop.DMedia.service',
-#                'share/org.freedesktop.DMediaImporter.service',
-#            ]
-#        ),
-#        ('lib/dmedia',
-#            [
-#                'dmedia-service',
-#                'dmedia-importer-service',
-#                'dummy-client',
-#            ]
-#        ),
-#    ],
+    scripts=['dmedia-gtk'],
+    data_files=[
+        ('share/couchdb/apps/dmedia',
+            ['ui/index.html']
+        ),
+        ('share/applications',
+            ['share/dmedia.desktop']
+        ),
+        ('share/icons/hicolor/scalable/apps',
+            ['share/dmedia.svg']
+        ),
+        ('share/icons/hicolor/scalable/status',
+            [
+                'share/indicator-rendermenu.svg',
+                'share/indicator-rendermenu-att.svg',
+            ]
+        ),
+    ],
 )
