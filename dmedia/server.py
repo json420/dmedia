@@ -23,6 +23,8 @@
 dmedia HTTP server.
 """
 
+from filestore import DIGEST_B32LEN, B32ALPHABET
+
 
 class HTTPError(Exception):
     def __init__(self, body=b'', headers=None):
@@ -85,24 +87,14 @@ def get_slice(environ):
     parts = environ['PATH_INFO'].lstrip('/').split('/')
     if len(parts) > 3:
         raise BadRequest()
-    try:
-        _id = check_id(parts[0])
-    except IDError:
+    _id = parts[0]
+    if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
         raise BadRequest()
-    if len(parts) > 1:
-        try:
-            start = int(parts[1])
-        except ValueError:
-            raise BadRequest()
-    else:
-        start = 0
-    if len(parts) > 2:
-        try:
-            stop = int(parts[2])
-        except ValueError:
-            raise BadRequest()
-    else:
-        stop = None
+    try:
+        start = (int(parts[1]) if len(parts) > 1 else 0)
+        stop = (int(parts[2]) if len(parts) > 2 else None)
+    except ValueError:
+        raise BadRequest() 
     if start < 0:
         raise BadRequest()
     if not (stop is None or start < stop):
