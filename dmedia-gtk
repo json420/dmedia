@@ -33,6 +33,7 @@ class UI(BaseUI):
     page = 'index.html'
     splash = 'splash.html'
     title = 'Media Browser'
+    databases = ['dmedia']
 
 
 parser = optparse.OptionParser(

@@ -28,18 +28,37 @@ from os import path
 from urllib.parse import urlparse, parse_qsl
 import json
 
-from microfiber import Server, _oauth_header, _basic_auth_header
-
-import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('WebKit', '3.0')
-from gi.repository import GObject, Gtk, WebKit
+import microfiber
+from microfiber import _oauth_header, _basic_auth_header
+from gi.repository import GObject, Gtk, WebKit, Gio
 
 
 GObject.threads_init()
 
 __version__ = '11.09.0'
 APPS = '/usr/share/couchdb/apps/'
+
+
+class DBus:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def get(self, bus, path, iface=None):
+        if iface is None:
+            iface = bus
+        return Gio.DBusProxy.new_sync(
+            self.conn, 0, None, bus, path, iface, None
+        )
+
+    def get_async(self, callback, bus, path, iface=None):
+        if iface is None:
+            iface = bus
+        Gio.DBusProxy.new(
+            self.conn, 0, None, bus, path, iface, None, callback, None
+        )
+
+
+session = DBus(Gio.bus_get_sync(Gio.BusType.SESSION, None))
 
 
 def handler(d):
@@ -120,6 +139,10 @@ class BaseUI(object):
     page = 'index.html'
     splash = 'splash.html'
     title = 'Fix Me'
+    databases = tuple()
+
+    proxy_bus = 'org.freedesktop.DC3'
+    proxy_path = '/'
 
     def __init__(self, benchmark=False):
         self.benchmark = benchmark
@@ -169,17 +192,21 @@ class BaseUI(object):
         if self.benchmark:
             Gtk.main_quit()
             return
-        import novacut.dbus
-        novacut.dbus.session.get_async(self.on_proxy, 'org.freedesktop.DC3', '/')
+        session.get_async(self.on_proxy, self.proxy_bus, self.proxy_path)
 
     def on_proxy(self, proxy, async_result, *args):
-        self.dc3 = proxy
-        env = json.loads(self.dc3.GetEnv())
+        self.proxy = proxy
+        env = json.loads(self.proxy.GetEnv())
         self.set_env(env)
 
     def set_env(self, env):    
         self.env = env
-        self.server = Server(env)      
+        self.server = microfiber.Server(env)    
+        for name in self.databases:
+            try:
+                self.server.put(None, name)
+            except microfiber.PreconditionFailed:
+                pass
         if self.intree:
             url = '/_intree/' + self.page
             self.server.put(
