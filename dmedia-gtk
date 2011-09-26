@@ -32,7 +32,7 @@ class UI(BaseUI):
     app = 'dmedia'
     page = 'index.html'
     splash = 'splash.html'
-    title = 'Media Browser'
+    title = 'DMedia Browser'
     databases = ['dmedia']
 
 
