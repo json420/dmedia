@@ -1,103 +1,50 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Authors:
-#   Jason Gerard DeRose <jderose@novacut.com>
-#   David Green <david4dev@gmail.com>
-#
 # dmedia: distributed media library
-# Copyright (C) 2010, 2011 Jason Gerard DeRose <jderose@novacut.com>
-#
+# Copyright (C) 2011 Novacut Inc
+# 
 # This file is part of `dmedia`.
-#
+# 
 # `dmedia` is free software: you can redistribute it and/or modify it under the
 # terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
-#
+# 
 # `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
 # WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 # A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
 # details.
-#
+# 
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
 
-from __future__ import print_function
+import optparse
 
-import argparse
-from gettext import gettext as _
+from userwebkit import BaseUI
 
 import dmedia
-from dmedia.constants import BUS
-from dmedia.api import DMedia
 
 
-BROWSER = 'dmedia/app/browser'
+class UI(BaseUI):
+    app = 'dmedia'
+    page = 'index.html'
+    splash = 'splash.html'
+    title = 'DMedia Browser'
+    databases = ['dmedia']
 
-parser = argparse.ArgumentParser(
-    description='Manage media files in your dmedia library',
+
+parser = optparse.OptionParser(
+    version=dmedia.__version__,
 )
-parser.add_argument('--version', action='version', version=dmedia.__version__)
-parser.add_argument('--browser',
-    help='open dmedia HTML5 UI in default browser',
+parser.add_option('--benchmark',
+    help='benchmark app startup time',
     action='store_true',
     default=False,
 )
-parser.add_argument('--bus',
-    help='DBus bus name; default is %(default)r',
-    default=BUS,
-)
-parser.add_argument('--att',
-    help='CouchDB attachment path; default is %(default)r',
-    default=BROWSER,
-)
+(options, args) = parser.parse_args()
 
-args = parser.parse_args()
-dm = DMedia(args.bus)
-
-if not dm.has_app():
-    print('Oops, cannot import dmedia.webui.app!')
-    raise SystemExit(2)
-
-
-if args.browser:
-    url = dm.get_auth_url() + args.att
-    import subprocess
-    subprocess.check_call(['/usr/bin/xdg-open', url])
-    raise SystemExit()
-
-
-env = dm.get_env()
-
-from dmedia.gtkui.widgets import CouchView, BrowserMenu
-from gi.repository import Gtk, GObject
-
-window = Gtk.Window()
-window.set_title(_('Media Browser'))
-window.set_default_size(960, 540)
-window.connect('destroy', Gtk.main_quit)
-
-container = Gtk.VBox()
-container.show()
-
-menu = BrowserMenu()
-
-##menu demo
-#from dmedia.gtkui.menu import TEST_MENU
-#menu = BrowserMenu(menu=TEST_MENU)
-
-container.pack_start(menu, False, False, 0)
-
-scroll = Gtk.ScrolledWindow()
-scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-container.add(scroll)
-
-window.add(container)
-
-view = CouchView(env['url'], env.get('oauth'))
-scroll.add(view)
-
-window.show_all()
-view.load_uri(env['url'] + args.att)
-
-Gtk.main()
+ui = UI(options.benchmark)
+ui.run()

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style>
+body {
+    font-family: Ubuntu;
+    font-size: 24px;
+    background-color: #333;
+    color: #e81f3b;
+    text-align: center;
+}
+</style>
+<script src="/_apps/dc3/couch.js"></script>
+<script src="/_apps/dc3/base.js"></script>
+<script>
+// The `dmedia` CouchDB database:
+var db = new couch.Database('dmedia');
+
+function hello() {
+    var s = new couch.Server();
+    $('hello').textContent = 'dmedia is talking to CouchDB ' + s.get()['version'];
+}
+</script>
+</head>
+<body onload="hello()">
+<p id="hello"></p>
+<p>Right click and <strong>Inspect Element</strong></p>
+</body>
+</html>

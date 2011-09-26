@@ -13,6 +13,7 @@ Architecture: all
 Depends: ${misc:Depends}, python3 (>= 3.2),
     python3-filestore (>= 11.09),
     python3-microfiber (>= 11.09),
+    python3-userwebkit (>= 11.09),
     dc3 (>= 11.09),
 Description: distributed media library
  A user-experienced-focused technology aimed at making file management go away
