@@ -72,9 +72,9 @@ class CouchView(WebKit.WebView):
     def __init__(self, env=None):
         super().__init__()
         self.connect('resource-request-starting', self._on_request)
-        self._set_env(env)
+        self.set_env(env)
 
-    def _set_env(self, env):
+    def set_env(self, env):
         self._env = env
         if env is None:
             self._u = None
@@ -214,7 +214,7 @@ class BaseUI(object):
             )
         else:
             url = '/'.join(['/_apps', self.app, self.page])
-        self.view._set_env(env)
+        self.view.set_env(env)
         self.view.load_uri(self.server._full_url(url))
 
     def on_inspect(self, *args):
