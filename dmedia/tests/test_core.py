@@ -35,9 +35,8 @@ from filestore import FileStore, DIGEST_BYTES
 from dmedia.schema import random_id, check_store
 from dmedia import core
 
-from .helpers import TempHome
 from .couch import CouchCase
-from .base import TempDir
+from .base import TempDir, TempHome
 
 
 class TestCore(CouchCase):
@@ -54,7 +53,7 @@ class TestCore(CouchCase):
     def test_init(self):
         inst = self.klass(self.env)
         self.assertIs(inst.env, self.env)
-        self.assertEqual(inst.home, self.home.path)
+        self.assertEqual(inst.home, self.home.dir)
         self.assertIsInstance(inst.db, microfiber.Database)
 
     def test_bootstrap(self):
@@ -157,9 +156,9 @@ class TestCore(CouchCase):
         )
         self.assertEqual(lstore['ver'], 0)
         self.assertEqual(lstore['type'], 'dmedia/store')
-        self.assertEqual(lstore['plugin'], 'filestore.local')
+        self.assertEqual(lstore['plugin'], 'filestore')
         self.assertEqual(lstore['copies'], 1)
-        self.assertEqual(lstore['parentdir'], self.home.path)
+        self.assertEqual(lstore['parentdir'], self.home.dir)
         self.assertEqual(lstore['machine_id'], inst.machine_id)
 
         store = inst.db.get(_id)
