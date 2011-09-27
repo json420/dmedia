@@ -51,7 +51,55 @@ def get_filestore(doc):
     return FileStore(doc['parentdir'], doc['_id'], doc.get('copies', 0))
 
 
-def get_store_id(doc, fast, slow):
+def choose_local_store(doc, fast, slow):
+    """
+    Load balance across multiple local hard disks.
+
+    The idiomatic dmedia use-case involves multiple `FileStore` located on
+    different physical hard disks, where a copy of a file is likely stored once
+    on each disk.
+
+    So the trick is choosing which copy to read.  When choosing among a set of
+    files that are store on multiple hard-drives, we want:
+
+        1. The distribution for all files to be randomly (and roughly evenly)
+           spread across the drives so we can utilize their IO in parallel
+
+        2. For a given file ID to be consistently read from the same hard drive
+           so we can take advantage of times when the file is already in the
+           page cache
+
+    And that's exactly what this function does:
+
+    >>> doc = {
+    ...     '_id': 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    ...     'stored': {
+    ...         'CCCCCCCCCCCCCCCCCCCCCCCC': {
+    ...             'mtime': 1234567890,
+    ...             'copies': 1,
+    ...         },
+    ...         'DDDDDDDDDDDDDDDDDDDDDDDD': {
+    ...             'mtime': 1234567890,
+    ...             'copies': 1,
+    ...         },
+    ...     },
+    ... }
+    >>> fast = set(['CCCCCCCCCCCCCCCCCCCCCCCC', 'DDDDDDDDDDDDDDDDDDDDDDDD'])
+    >>> slow = set()
+    >>> choose_local_store(doc, fast, slow)
+    'DDDDDDDDDDDDDDDDDDDDDDDD'
+    >>> choose_local_store(doc, fast, slow)
+    'DDDDDDDDDDDDDDDDDDDDDDDD'
+    
+    And now with a different doc ID, to see that it to gets a stable choice:
+    
+    >>> doc['_id'] = 'BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    >>> choose_local_store(doc, fast, slow)
+    'CCCCCCCCCCCCCCCCCCCCCCCC'
+    >>> choose_local_store(doc, fast, slow)
+    'CCCCCCCCCCCCCCCCCCCCCCCC'
+
+    """
     stored = set(doc['stored'])
     local = fast.intersection(stored) or slow.intersection(stored)
     if not local:
@@ -144,7 +192,7 @@ class Stores:
     def path(self, _id):
         doc = self.get_doc(_id)
         (stores, internal, removable) = self.get_local()
-        store_id = get_store_id(doc, internal, removable)
+        store_id = choose_local_store(doc, internal, removable)
 
 
 
