@@ -21,13 +21,37 @@
 
 """
 dmedia HTTP server.
+
+== Security Note ==
+
+To help prevent cross-site scripting attacks, the `HTTPError` raised for any
+invalid request should not include any data supplied in the request.
+
+It is helpful to include a meaningful bit a text in the response body, plus it
+allows us to test that an `HTTPError` is being raised because of the condition
+we expected it to be raised for.  But include only static messages.
+
+For example, this is okay:
+
+>>> raise BadRequest('too many slashes in request path')  #doctest: +SKIP
+
+But this is not okay:
+
+>>> raise BadRequest('bad path: {}'.format(environ['PATH_INFO']))  #doctest: +SKIP
+
 """
 
 from filestore import DIGEST_B32LEN, B32ALPHABET
 
 
+HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
+
+
 class HTTPError(Exception):
     def __init__(self, body=b'', headers=None):
+        if isinstance(body, str):
+            body = body.encode('utf-8')
+            headers = [('Content-Type', 'text/plain; charset=utf-8')]
         self.body = body
         self.headers = ([] if headers is None else headers)
         super().__init__(self.status)
@@ -57,7 +81,27 @@ class PreconditionFailed(HTTPError):
     status = '412 Precondition Failed'
 
 
-HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
+def get_slice(environ):
+    parts = environ['PATH_INFO'].lstrip('/').split('/')
+    if len(parts) > 3:
+        raise BadRequest('too many slashes in request path')
+    _id = parts[0]
+    if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
+        raise BadRequest('badly formed dmedia ID')
+    try:
+        start = (int(parts[1]) if len(parts) > 1 else 0)
+    except ValueError:
+        raise BadRequest('start is not a valid integer')
+    try:
+        stop = (int(parts[2]) if len(parts) > 2 else None)
+    except ValueError:
+        raise BadRequest('stop is not a valid integer')
+    if start < 0:
+        raise BadRequest('start cannot be less than zero')
+    if not (stop is None or start < stop):
+        raise BadRequest('start must be less than stop')
+    return (_id, start, stop)
+
 
 class BaseWSGIMeta(type):
     def __new__(meta, name, bases, dict):
@@ -81,25 +125,6 @@ class BaseWSGI(metaclass=BaseWSGIMeta):
         except HTTPError as e:
             start_response(e.status, e.headers)
             return e.body
-
-
-def get_slice(environ):
-    parts = environ['PATH_INFO'].lstrip('/').split('/')
-    if len(parts) > 3:
-        raise BadRequest()
-    _id = parts[0]
-    if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
-        raise BadRequest()
-    try:
-        start = (int(parts[1]) if len(parts) > 1 else 0)
-        stop = (int(parts[2]) if len(parts) > 2 else None)
-    except ValueError:
-        raise BadRequest() 
-    if start < 0:
-        raise BadRequest()
-    if not (stop is None or start < stop):
-        raise BadRequest()
-    return (_id, start, stop)
 
 
 class Server(BaseWSGI):
