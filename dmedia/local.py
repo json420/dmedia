@@ -51,12 +51,9 @@ def get_filestore(doc):
     return FileStore(doc['parentdir'], doc['_id'], doc.get('copies', 0))
 
 
-def get_store_id(doc, internal, removable=frozenset()):
+def get_store_id(doc, fast, slow):
     stored = set(doc['stored'])
-    local = (
-        set(internal).intersection(stored)
-        or set(removable).intersection(stored)
-    )
+    local = fast.intersection(stored) or slow.intersection(stored)
     if not local:
         raise FileNotLocal(doc['_id'])
     if len(local) == 1:
@@ -64,30 +61,48 @@ def get_store_id(doc, internal, removable=frozenset()):
     return Random(doc['_id']).choice(sorted(local))
 
 
-class LocalStores:
-    def __init__(self):
-        self._id_map = {}
-        self._parentdir_map = {}
-        self._internal = set()
-        self._removable = set()
+class LocalMaster:
+    def __init__(self, env):
+        self.db = microfiber.Database('dmedia', env)
+        self.db.ensure()
+        try:
+            self.local = {'_id': '_local/stores', 'stores': {}}
+            self.db.save(self.stores)
+        except microfiber.Conflict:
+            self.local = self.db.get('_local/stores')
+        self._ids = {}
+        self._parentdirs = {}
+        self.fast = set()
 
-    def add(self, doc):
-        fs = get_filestore(doc)
-        self._id_map[fs.id] = fs
-        self._parentdir_map[fs.parentdir] = fs
-        plugin = doc['plugin']
-        assert plugin in ('filestore', 'filestore.removable')
-        if plugin == 'filestore':
-            self._internal.add(fs.id)
-        else:
-            self._removable.add(fs.id)
+    def add(self, parentdir, _id, copies, fast=True):
+        fs = self.init(parentdir, _id, copies, fast)
+        self.local['stores'][parentdir] = {
+            'id': _id,
+            'copies': copies,
+            'fast': fast,
+        }
+        self.db.save(self.local)
         return fs
-        
-    def by_id(self, _id):
-        return self._id_map[_id]
 
-    def by_parentdir(self, parentdir):
-        return self._parentdir_map[parentdir]
+    def init(self, parentdir, _id, copies, fast=True):
+        fs = FileStore(parentdir, _id, copies)
+        self._ids[fs.id] = fs
+        self._parentdirs[fs.parentdir] = fs
+        if fast:
+            self.fast.add(fs.id)
+        return fs
+
+    def destroy(self, fs):
+        del self._ids[fs.id]
+        del self._parentdirs[fs.parentdir]
+        try:
+            self.fast.remove(fs.id)
+        except KeyError:
+            pass
+        
+        
+        
+        
 
 
 

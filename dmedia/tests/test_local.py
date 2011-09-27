@@ -52,51 +52,53 @@ class TestFunctions(TestCase):
         self.assertEqual(fs.copies, 2)
 
     def test_get_store_id(self):
-        internal = tuple(random_id() for i in range(3))
-        removable = tuple(random_id() for i in range(3))
+        fast = tuple(random_id() for i in range(3))
+        slow = tuple(random_id() for i in range(3))
+        _fast = set(fast)
+        _slow = set(slow)
         remote = tuple(random_id() for i in range(4))
 
         # Empty stores and stored
         doc = {'_id': random_id(), 'stored': {}}
         with self.assertRaises(local.FileNotLocal) as cm:
-            local.get_store_id(doc, [])
+            local.get_store_id(doc, set(), set())
         self.assertEqual(cm.exception.id, doc['_id'])
 
         # disjoint set
         doc = {'_id': random_id(), 'stored': remote}
         with self.assertRaises(local.FileNotLocal) as cm:
-            local.get_store_id(doc, internal)
+            local.get_store_id(doc, _fast, set())
         self.assertEqual(cm.exception.id, doc['_id'])
 
-        doc = {'_id': random_id(), 'stored': internal + remote}
-        _id = local.get_store_id(doc, internal)
-        self.assertIn(_id, internal)
-        self.assertEqual(_id, Random(doc['_id']).choice(sorted(internal)))
-        self.assertEqual(local.get_store_id(doc, internal), _id)
+        doc = {'_id': random_id(), 'stored': fast + remote}
+        _id = local.get_store_id(doc, set(fast), set())
+        self.assertIn(_id, fast)
+        self.assertEqual(_id, Random(doc['_id']).choice(sorted(fast)))
+        self.assertEqual(local.get_store_id(doc, _fast, set()), _id)
 
-        doc = {'_id': random_id(), 'stored': (internal[0], remote[0])}
-        self.assertEqual(local.get_store_id(doc, internal), internal[0])
-        self.assertEqual(local.get_store_id(doc, internal), internal[0])
+        doc = {'_id': random_id(), 'stored': (fast[0], remote[0])}
+        self.assertEqual(local.get_store_id(doc, _fast, set()), fast[0])
+        self.assertEqual(local.get_store_id(doc, _fast, set()), fast[0])
 
-        # Test that internal are use preferentially
+        # Test that fast are use preferentially
         for i in range(100):
-            doc = doc = {'_id': random_id(), 'stored': internal + removable}
-            _id = local.get_store_id(doc, internal, removable)
-            self.assertIn(_id, internal)
+            doc = doc = {'_id': random_id(), 'stored': fast + slow}
+            _id = local.get_store_id(doc, _fast, _slow)
+            self.assertIn(_id, fast)
             self.assertEqual(_id,
-                Random(doc['_id']).choice(sorted(internal))
+                Random(doc['_id']).choice(sorted(fast))
             )
-            self.assertEqual(local.get_store_id(doc, internal, removable), _id)
+            self.assertEqual(local.get_store_id(doc, _fast, _slow), _id)
 
-        # Test when only available on removable
+        # Test when only available on slow
         for i in range(100):
-            doc = doc = {'_id': random_id(), 'stored': remote + removable}
-            _id = local.get_store_id(doc, internal, removable)
-            self.assertIn(_id, removable)
+            doc = doc = {'_id': random_id(), 'stored': remote + slow}
+            _id = local.get_store_id(doc, _fast, _slow)
+            self.assertIn(_id, slow)
             self.assertEqual(_id,
-                Random(doc['_id']).choice(sorted(removable))
+                Random(doc['_id']).choice(sorted(slow))
             )
-            self.assertEqual(local.get_store_id(doc, internal, removable), _id)
+            self.assertEqual(local.get_store_id(doc, _fast, _slow), _id)
 
 
 class TestStores(CouchCase):
