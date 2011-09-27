@@ -56,7 +56,7 @@ def get_store_id(stores, doc):
     return Random(doc['_id']).choice(sorted(local))  
 
 
-class LocalStores:
+class Stores:
     def __init__(self, env):
         self.db = microfiber.Database('dmedia', env)
 
