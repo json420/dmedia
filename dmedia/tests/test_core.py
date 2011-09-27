@@ -157,7 +157,7 @@ class TestCore(CouchCase):
         )
         self.assertEqual(lstore['ver'], 0)
         self.assertEqual(lstore['type'], 'dmedia/store')
-        self.assertEqual(lstore['plugin'], 'filestore.local')
+        self.assertEqual(lstore['plugin'], 'filestore.internal')
         self.assertEqual(lstore['copies'], 1)
         self.assertEqual(lstore['parentdir'], self.home.path)
         self.assertEqual(lstore['machine_id'], inst.machine_id)

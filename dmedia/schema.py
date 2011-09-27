@@ -847,7 +847,7 @@ def check_store(doc):
     ...     'ver': 0,
     ...     'type': 'dmedia/store',
     ...     'time': 1234567890,
-    ...     'plugin': 'filestore.local',
+    ...     'plugin': 'filestore.internal',
     ...     'copies': 1,
     ... }
     ...
@@ -871,7 +871,7 @@ def check_store(doc):
 
     # Specific to dmedia/store
     _check(doc, ['plugin'], str,
-        (_is_in, 'filestore.local', 'filestore.removable', 'ubuntuone', 's3'),
+        (_is_in, 'filestore.internal', 'filestore.removable', 'ubuntuone', 's3'),
     )
     _check(doc, ['copies'], int,
         (_at_least, 0),

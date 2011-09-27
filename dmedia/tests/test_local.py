@@ -145,7 +145,7 @@ class TestStores(CouchCase):
                 set(d['_id'] for d in removable),
             )
         )
-        
+
         # Both
         doc['stores'] = removable + internal
         inst.db.save(doc)
