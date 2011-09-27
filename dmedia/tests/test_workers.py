@@ -34,8 +34,23 @@ import threading
 import microfiber
 
 from dmedia import workers
-from .helpers import raises, DummyQueue, DummyCallback
 from .couch import CouchCase
+
+
+class DummyQueue(object):
+    def __init__(self):
+        self.messages = []
+
+    def put(self, msg):
+        self.messages.append(msg)
+
+
+class DummyCallback(object):
+    def __init__(self):
+        self.messages = []
+
+    def __call__(self, signal, args):
+        self.messages.append((signal, args))
 
 
 class test_functions(TestCase):
@@ -46,9 +61,10 @@ class test_functions(TestCase):
         f = workers.register
 
         # Test with an instance rather than class
-        e = raises(TypeError, f, 17)
+        with self.assertRaises(TypeError) as cm:
+            f(17)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             'worker: must be subclass of %r; got %r' % (workers.Worker, 17)
         )
         self.assertEqual(workers._workers, {})
@@ -56,9 +72,10 @@ class test_functions(TestCase):
         # Test with wrong subclass
         class foo(object):
             pass
-        e = raises(TypeError, f, foo)
+        with self.assertRaises(TypeError) as cm:
+            f(foo)
         self.assertEqual(
-            str(e),
+            str(cm.exception),
             'worker: must be subclass of %r; got %r' % (workers.Worker, foo)
         )
         self.assertEqual(workers._workers, {})
@@ -76,11 +93,12 @@ class test_functions(TestCase):
         # Test that another worker with same name cannot be registered
         class import_files(workers.Worker):
             pass
-        e = raises(ValueError, f, import_files)
+        with self.assertRaises(ValueError) as cm:
+            f(import_files)
         msg = 'cannot register %r, worker with name %r already registered' % (
             import_files, 'import_files'
         )
-        self.assertEqual(str(e), msg)
+        self.assertEqual(str(cm.exception), msg)
         self.assertEqual(
             workers._workers,
             {'import_files': orig_import_files}
@@ -241,14 +259,16 @@ class test_Worker(TestCase):
         args = ('foo', 'bar')
         inst = self.klass(env, q, 'key', args)
 
-        e = raises(NotImplementedError, inst.execute)
-        self.assertEqual(str(e), 'Worker.execute()')
+        with self.assertRaises(NotImplementedError) as cm:
+            inst.execute()
+        self.assertEqual(str(cm.exception), 'Worker.execute()')
 
         class do_something(self.klass):
             pass
         inst = do_something(env, q, 'key', args)
-        e = raises(NotImplementedError, inst.execute)
-        self.assertEqual(str(e), 'do_something.execute()')
+        with self.assertRaises(NotImplementedError) as cm:
+            inst.execute()
+        self.assertEqual(str(cm.exception), 'do_something.execute()')
 
 
 class test_CouchWorker(CouchCase):
@@ -297,8 +317,9 @@ class test_Manager(TestCase):
     def test_init(self):
         env = {'foo': 'bar'}
         # Test with non-callable callback:
-        e = raises(TypeError, self.klass, env, 'foo')
-        self.assertEqual(str(e), "callback must be callable; got 'foo'")
+        with self.assertRaises(TypeError) as cm:
+            self.klass(env, 'foo')
+        self.assertEqual(str(cm.exception), "callback must be callable; got 'foo'")
 
         # Test that callback default is None:
         inst = self.klass(env)
@@ -386,7 +407,8 @@ class test_Manager(TestCase):
         env = {'foo': 'bar'}
         inst = self.klass(env)
 
-        e = raises(KeyError, inst.on_terminate, 'foo')
+        with self.assertRaises(KeyError) as cm:
+            inst.on_terminate('foo')
 
         p = multiprocessing.Process(target=time.sleep, args=(1,))
         p.daemon = True

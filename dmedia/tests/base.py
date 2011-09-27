@@ -162,3 +162,14 @@ class TempDir(object):
     def random_empty(self):
         return random_empty(self.dir)
 
+
+class TempHome(TempDir):
+    def __init__(self):
+        super().__init__()
+        self.orig = os.environ['HOME']
+        os.environ['HOME'] = self.dir
+
+    def __del__(self):
+        os.environ['HOME'] = self.orig
+        super().__del__()
+
