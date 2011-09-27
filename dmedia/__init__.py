@@ -22,13 +22,8 @@
 """
 `dmedia` - distributed media library
 
-WARNING: the dmedia content-hash and schema are *not* yet stable, may change
-wildly and without warning!
-
-The `dmedia` API will go through significant changes in the next few months,
-so keep your hardhats on!  A good place to start is the `FileStore` class in the
-`filestore` module, which also probably has the most stable API of any of the
-current code.
+NOTE THAT DMEDIA IS NOT YET PRODUCTION READY! THERE WILL STILL BE CHANGES THAT
+WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
 """
 
 __version__ = '11.09.0'
