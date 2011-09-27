@@ -120,7 +120,7 @@ class BaseWSGI(metaclass=BaseWSGIMeta):
         try:
             name = environ['REQUEST_METHOD']
             if name not in self.__class__.http_methods:
-                raise MethodNotAllowed()  
+                raise MethodNotAllowed()
             return getattr(self, name)(environ, start_response)
         except HTTPError as e:
             start_response(e.status, e.headers)
@@ -137,7 +137,4 @@ class Server(BaseWSGI):
     def GET(self, environ, start_response):
         pass
 
-
-print(BaseWSGI.http_methods)
-print(Server.http_methods)
 

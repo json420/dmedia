@@ -41,7 +41,7 @@ class StartResponse:
         self.status = status
         self.headers = headers
 
- 
+
 class TestFunctions(TestCase):
     def test_get_slice(self):
         # Test all the valid types of requests:
@@ -68,7 +68,7 @@ class TestFunctions(TestCase):
             server.get_slice({'PATH_INFO': '/{}/17/21'.format(_id)}),
             (_id, 17, 21)
         )
-        
+
         _id = random_id(DIGEST_BYTES)
         self.assertEqual(
             server.get_slice({'PATH_INFO': '/{}/0/1'.format(_id)}),
@@ -125,7 +125,7 @@ class TestFunctions(TestCase):
         with self.assertRaises(server.BadRequest) as cm:
             server.get_slice({'PATH_INFO': bad})
         self.assertEqual(cm.exception.body, b'start is not a valid integer')
-        
+
         bad = '/{}/17.9/333'.format(random_id(DIGEST_BYTES))
         with self.assertRaises(server.BadRequest) as cm:
             server.get_slice({'PATH_INFO': bad})
@@ -193,15 +193,15 @@ class TestBaseWSGI(TestCase):
 
             def GET(self, environ, start_response):
                 pass
-                
+
             def DELETE(self, environ, start_response):
                 pass
 
             def HEAD(self, environ, start_response):
                 pass
-  
+
         self.assertEqual(
-            Example.http_methods, 
+            Example.http_methods,
             frozenset(['PUT', 'POST', 'GET', 'DELETE', 'HEAD'])
         )
 
