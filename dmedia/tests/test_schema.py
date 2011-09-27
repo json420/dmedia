@@ -490,7 +490,7 @@ class TestFunctions(TestCase):
             'ver': 0,
             'type': 'dmedia/store',
             'time': 1234567890,
-            'plugin': 'filestore.internal',
+            'plugin': 'filestore',
             'copies': 2,
         }
         g = deepcopy(good)
@@ -520,7 +520,7 @@ class TestFunctions(TestCase):
         bad['plugin'] = 'foo'
         with self.assertRaises(ValueError) as cm:
             schema.check_store(bad)
-        plugins = ('filestore.internal', 'filestore.removable', 'ubuntuone', 's3')
+        plugins = ('filestore', 'filestore.removable', 'ubuntuone', 's3')
         self.assertEqual(
             str(cm.exception),
             "doc['plugin'] value %r not in %r" % ('foo', plugins)
@@ -619,7 +619,7 @@ class TestFunctions(TestCase):
         )
         self.assertEqual(doc['type'], 'dmedia/store')
         self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['plugin'], 'filestore.internal')
+        self.assertEqual(doc['plugin'], 'filestore')
         self.assertEqual(doc['copies'], 1)
         self.assertEqual(doc['parentdir'], tmp.dir)
         self.assertEqual(doc['machine_id'], machine_id)

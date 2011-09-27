@@ -108,7 +108,7 @@ class TestStores(CouchCase):
         
         # When _local/stores does exist
         internal = list(
-            {'_id': random_id(), 'plugin': 'filestore.internal'}
+            {'_id': random_id(), 'plugin': 'filestore'}
             for i in range(4)
         )
         removable = list(
@@ -117,10 +117,7 @@ class TestStores(CouchCase):
         )
         
         # Empty
-        doc = {'_id': '_local/stores'}
-        inst.db.save(doc)
-        self.assertEqual(inst.get_local(), ({}, set(), set()))
-        doc['stores'] = []
+        doc = {'_id': '_local/stores', 'stores': []}
         inst.db.save(doc)
         self.assertEqual(inst.get_local(), ({}, set(), set()))
         

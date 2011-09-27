@@ -76,8 +76,8 @@ class LocalStores:
         self._id_map[fs.id] = fs
         self._parentdir_map[fs.parentdir] = fs
         plugin = doc['plugin']
-        assert plugin in ('filestore.internal', 'filestore.removable')
-        if plugin == 'filestore.internal':
+        assert plugin in ('filestore', 'filestore.removable')
+        if plugin == 'filestore':
             self._internal.add(fs.id)
         else:
             self._removable.add(fs.id)
@@ -98,7 +98,7 @@ class Stores:
 
     def get_local(self):
         try:
-            docs = self.db.get('_local/stores').get('stores', [])
+            docs = self.db.get('_local/stores')['stores']
         except microfiber.NotFound:
             return ({}, set(), set())
         stores = dict(
@@ -107,7 +107,7 @@ class Stores:
         internal = set()
         removable = set()
         for doc in docs:
-            assert doc['plugin'] in ('filestore.internal', 'filestore.removable')
+            assert doc['plugin'] in ('filestore', 'filestore.removable')
             if doc['plugin'] == 'filestore.removable':
                 removable.add(doc['_id'])
             else:
@@ -128,10 +128,8 @@ class Stores:
 
     def path(self, _id):
         doc = self.get_doc(_id)
-        stores = self.db.get('_local/stores')
-        store_id = get_store_id(doc, stores['internal'], stores['removable'])
-        if store_id in stores['internal']:
-            return get_filestore(stores['internal'])
+        (stores, internal, removable) = self.get_local()
+        store_id = get_store_id(doc, internal, removable)
 
 
 
