@@ -63,14 +63,7 @@ def get_store_id(doc, internal, removable=frozenset()):
 class Stores:
     def __init__(self, env):
         self.db = microfiber.Database('dmedia', env)
-
-    def get_store_id(self, doc):
-        local = set(self.stores).intersection(doc['stored'])
-        if not local:
-            raise FileNotLocal(doc['_id'])
-        if len(local) == 1:
-            return local.pop()
-        return Random(doc['_id']).choice(sorted(local))
+        self.db.ensure()
 
     def get_doc(self, _id):
         check_id(_id)
@@ -79,17 +72,10 @@ class Stores:
         except microfiber.NotFound:
             raise NoSuchFile(_id)
 
-    def get_filestore(self, store_id):
-        try:
-            return self._stores[store_id]
-        except KeyError:
-            raise NotLocalStore(store_id)
-
-    def content_hash(self, _id):
-        try:
-            doc = self.db.get(_id)
-        except microfiber.NotFound:
-            raise NoSuchFile(_id)
+    def content_hash(self, _id, unpack=True):
+        doc = self.get_doc(_id)
+        leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
+        return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
     def path(self, _id):
         doc = self.get_doc(_id)

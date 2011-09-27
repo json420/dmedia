@@ -26,13 +26,14 @@ Unit tests for `dmedia.local`.
 from unittest import TestCase
 from random import Random
 
-from filestore import FileStore, DIGEST_B32LEN
+import filestore
+from filestore import FileStore, DIGEST_B32LEN, DIGEST_BYTES
 from microfiber import random_id
 
 from .base import TempDir
 from .couch import CouchCase
 
-from dmedia import local
+from dmedia import local, schema
 
 
 class TestFunctions(TestCase):
@@ -85,6 +86,46 @@ class TestFunctions(TestCase):
 
 
 class TestStores(CouchCase):
+    def test_get_doc(self):
+        inst = local.Stores(self.env)
+
+        # When doc doesn't exist
+        _id = random_id(DIGEST_BYTES)
+        with self.assertRaises(local.NoSuchFile) as cm:
+            doc = inst.get_doc(_id)
+        self.assertEqual(cm.exception.id, _id)
+
+        # When doc does exist
+        doc = {'_id': _id}
+        inst.db.save(doc)
+        self.assertEqual(inst.get_doc(_id), doc)
+
+    def test_content_hash(self):
+        tmp = TempDir()
+        (file, ch) = tmp.random_file()
+        unpacked = filestore.check_root_hash(
+            ch.id, ch.file_size, ch.leaf_hashes, unpack=True
+        )
+        inst = local.Stores(self.env)
+
+        # When doc doesn't exist
+        with self.assertRaises(local.NoSuchFile) as cm:
+            doc = inst.content_hash(ch.id)
+        self.assertEqual(cm.exception.id, ch.id)
+
+        # When doc does exist
+        doc = schema.create_file(ch.id, ch.file_size, ch.leaf_hashes, {})  
+        inst.db.save(doc)
+        self.assertEqual(inst.content_hash(ch.id), unpacked)    
+        self.assertEqual(inst.content_hash(ch.id, False), ch)
+        
+        # Test when root hash is wrong:
+        doc['bytes'] += 1
+        inst.db.save(doc)
+        with self.assertRaises(filestore.RootHashError) as cm:
+            inst.content_hash(ch.id)
+        self.assertEqual(cm.exception.id, ch.id)
+
     def test_local_path(self):
         src = TempDir()
         (file, ch) = src.random_file()
