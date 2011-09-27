@@ -38,29 +38,50 @@ from dmedia import local
 class TestFunctions(TestCase):
     def test_get_store_id(self):
         internal = tuple(random_id() for i in range(3))
+        removable = tuple(random_id() for i in range(3))
         remote = tuple(random_id() for i in range(4))
 
         # Empty stores and stored
         doc = {'_id': random_id(), 'stored': {}}
         with self.assertRaises(local.FileNotLocal) as cm:
-            local.get_store_id([], doc)
+            local.get_store_id(doc, [])
         self.assertEqual(cm.exception.id, doc['_id'])
 
         # disjoint set
         doc = {'_id': random_id(), 'stored': remote}
         with self.assertRaises(local.FileNotLocal) as cm:
-            local.get_store_id(internal, doc)
+            local.get_store_id(doc, internal)
         self.assertEqual(cm.exception.id, doc['_id'])
 
         doc = {'_id': random_id(), 'stored': internal + remote}
-        _id = local.get_store_id(internal, doc)
+        _id = local.get_store_id(doc, internal)
         self.assertIn(_id, internal)
         self.assertEqual(_id, Random(doc['_id']).choice(sorted(internal)))
-        self.assertEqual(local.get_store_id(internal, doc), _id)
-        
+        self.assertEqual(local.get_store_id(doc, internal), _id)
+
         doc = {'_id': random_id(), 'stored': (internal[0], remote[0])}
-        self.assertEqual(local.get_store_id(internal, doc), internal[0])       
-        self.assertEqual(local.get_store_id(internal, doc), internal[0])
+        self.assertEqual(local.get_store_id(doc, internal), internal[0])
+        self.assertEqual(local.get_store_id(doc, internal), internal[0])
+
+        # Test that internal are use preferentially
+        for i in range(100):
+            doc = doc = {'_id': random_id(), 'stored': internal + removable}
+            _id = local.get_store_id(doc, internal, removable)
+            self.assertIn(_id, internal)
+            self.assertEqual(_id,
+                Random(doc['_id']).choice(sorted(internal))
+            )
+            self.assertEqual(local.get_store_id(doc, internal, removable), _id)
+
+        # Test when only available on removable
+        for i in range(100):
+            doc = doc = {'_id': random_id(), 'stored': remote + removable}
+            _id = local.get_store_id(doc, internal, removable)
+            self.assertIn(_id, removable)
+            self.assertEqual(_id,
+                Random(doc['_id']).choice(sorted(removable))
+            )
+            self.assertEqual(local.get_store_id(doc, internal, removable), _id)
 
 
 class TestStores(CouchCase):
@@ -80,5 +101,5 @@ class TestStores(CouchCase):
         store3 = random_id()
 
         inst = local.Stores(self.env)
-        
-        
+
+

@@ -44,16 +44,19 @@ class FileNotLocal(Exception):
 class NotLocalStore(Exception):
     def __init__(self, store_id):
         self.id = store_id
-        super().__init__(store_id)      
+        super().__init__(store_id)
 
 
-def get_store_id(stores, doc):
-    local = set(stores).intersection(doc['stored'])
-    if not local:
+def get_store_id(doc, internal, removable=frozenset()):
+    stores = (
+        set(internal).intersection(doc['stored'])
+        or set(removable).intersection(doc['stored'])
+    )
+    if not stores:
         raise FileNotLocal(doc['_id'])
-    if len(local) == 1:
-        return local.pop()
-    return Random(doc['_id']).choice(sorted(local))  
+    if len(stores) == 1:
+        return stores.pop()
+    return Random(doc['_id']).choice(sorted(stores))
 
 
 class Stores:
@@ -92,8 +95,8 @@ class Stores:
         local = self._local.intersection(doc['stored'])
         if not local:
             raise FileNotLocal(_id)
-        
- 
-    
+
+
+
 
 
