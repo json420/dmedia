@@ -146,12 +146,40 @@ class LocalMaster:
         try:
             self.fast.remove(fs.id)
         except KeyError:
-            pass
-        
-        
-        
-        
+            pass    
 
+
+class LocalStores:
+    __slots__ = ('ids', 'parentdirs', 'fast', 'slow')
+
+    def __init__(self):
+        self.ids = {}
+        self.parentdirs = {}
+        self.fast = set()
+        self.slow = set()
+
+    def add(self, fs, fast=True):
+        if fs.id in self.ids:
+            raise Exception('already have ID {!r}'.format(fs.id))
+        if fs.parentdir in self.parentdirs:
+            raise Exception('already have parentdir {!r}'.format(fs.parentdir))
+        self.ids[fs.id] = fs
+        self.parentdirs[fs.parentdir] = fs
+        speed = (self.fast if fast else self.slow)
+        speed.add(fs.id)
+
+    def remove(fs):
+        del self.ids[fs.id]
+        del self.parentdirs[fs.parentdir]
+        for speed in (self.fast, self.slow):
+            try:
+                speed.remove(fs.id)
+            except KeyError:
+                pass
+
+    def choose_local_store(self, doc):
+        store_id = choose_local_store(doc, self.fast, self.slow)
+        return self.ids[store_id]
 
 
 class Stores:
