@@ -109,46 +109,6 @@ def choose_local_store(doc, fast, slow):
     return Random(doc['_id']).choice(sorted(local))
 
 
-class LocalMaster:
-    def __init__(self, env):
-        self.db = microfiber.Database('dmedia', env)
-        self.db.ensure()
-        try:
-            self.local = {'_id': '_local/stores', 'stores': {}}
-            self.db.save(self.stores)
-        except microfiber.Conflict:
-            self.local = self.db.get('_local/stores')
-        self._ids = {}
-        self._parentdirs = {}
-        self.fast = set()
-
-    def add(self, parentdir, _id, copies, fast=True):
-        fs = self.init(parentdir, _id, copies, fast)
-        self.local['stores'][parentdir] = {
-            'id': _id,
-            'copies': copies,
-            'fast': fast,
-        }
-        self.db.save(self.local)
-        return fs
-
-    def init(self, parentdir, _id, copies, fast=True):
-        fs = FileStore(parentdir, _id, copies)
-        self._ids[fs.id] = fs
-        self._parentdirs[fs.parentdir] = fs
-        if fast:
-            self.fast.add(fs.id)
-        return fs
-
-    def destroy(self, fs):
-        del self._ids[fs.id]
-        del self._parentdirs[fs.parentdir]
-        try:
-            self.fast.remove(fs.id)
-        except KeyError:
-            pass    
-
-
 class LocalStores:
     __slots__ = ('ids', 'parentdirs', 'fast', 'slow')
 
@@ -186,28 +146,11 @@ class LocalStores:
         return self.ids[store_id]
 
 
-class Stores:
+class LocalBase:
     def __init__(self, env):
         self.db = microfiber.Database('dmedia', env)
         self.db.ensure()
-
-    def get_local(self):
-        try:
-            docs = self.db.get('_local/stores')['stores']
-        except microfiber.NotFound:
-            return ({}, set(), set())
-        stores = dict(
-            (doc['_id'], doc) for doc in docs
-        )
-        internal = set()
-        removable = set()
-        for doc in docs:
-            assert doc['plugin'] in ('filestore', 'filestore.removable')
-            if doc['plugin'] == 'filestore.removable':
-                removable.add(doc['_id'])
-            else:
-                internal.add(doc['_id'])
-        return (stores, internal, removable)
+        self.stores = LocalStores()
 
     def get_doc(self, _id):
         check_id(_id)
@@ -223,10 +166,5 @@ class Stores:
 
     def path(self, _id):
         doc = self.get_doc(_id)
-        (stores, internal, removable) = self.get_local()
-        store_id = choose_local_store(doc, internal, removable)
-
-
-
-
+        fs = self.stores.choose_local_store(doc)
 

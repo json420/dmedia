@@ -199,63 +199,10 @@ class TestLocalStores(TestCase):
         self.assertEqual(inst.slow, set())
 
 
-class TestStores(CouchCase):
-    def test_get_local(self):
-        inst = local.Stores(self.env)
-
-        # When _local/stores does not exist
-        self.assertEqual(inst.get_local(), ({}, set(), set()))
-        
-        # When _local/stores does exist
-        internal = list(
-            {'_id': random_id(), 'plugin': 'filestore'}
-            for i in range(4)
-        )
-        removable = list(
-            {'_id': random_id(), 'plugin': 'filestore.removable'}
-            for i in range(4)
-        )
-        
-        # Empty
-        doc = {'_id': '_local/stores', 'stores': []}
-        inst.db.save(doc)
-        self.assertEqual(inst.get_local(), ({}, set(), set()))
-        
-        # All internal
-        doc['stores'] = internal
-        inst.db.save(doc)
-        self.assertEqual(inst.get_local(),
-            (
-                dict((d['_id'], d) for d in internal),
-                set(d['_id'] for d in internal),
-                set(),
-            )
-        )
-
-        # All removable
-        doc['stores'] = removable
-        inst.db.save(doc)
-        self.assertEqual(inst.get_local(),
-            (
-                dict((d['_id'], d) for d in removable),
-                set(),
-                set(d['_id'] for d in removable),
-            )
-        )
-
-        # Both
-        doc['stores'] = removable + internal
-        inst.db.save(doc)
-        self.assertEqual(inst.get_local(),
-            (
-                dict((d['_id'], d) for d in internal + removable),
-                set(d['_id'] for d in internal),
-                set(d['_id'] for d in removable),
-            )
-        )
+class TestLocalBase(CouchCase):
 
     def test_get_doc(self):
-        inst = local.Stores(self.env)
+        inst = local.LocalBase(self.env)
 
         # When doc doesn't exist
         _id = random_id(DIGEST_BYTES)
@@ -274,7 +221,7 @@ class TestStores(CouchCase):
         unpacked = filestore.check_root_hash(
             ch.id, ch.file_size, ch.leaf_hashes, unpack=True
         )
-        inst = local.Stores(self.env)
+        inst = local.LocalBase(self.env)
 
         # When doc doesn't exist
         with self.assertRaises(local.NoSuchFile) as cm:
@@ -309,6 +256,6 @@ class TestStores(CouchCase):
         store2 = random_id()
         store3 = random_id()
 
-        inst = local.Stores(self.env)
+        inst = local.LocalBase(self.env)
 
 
