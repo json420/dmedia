@@ -1059,7 +1059,7 @@ def create_store(parentdir, machine_id, copies=1):
         'ver': 0,
         'type': 'dmedia/store',
         'time': time.time(),
-        'plugin': 'filestore.local',
+        'plugin': 'filestore.internal',
         'parentdir': parentdir,
         'machine_id': machine_id,
         'copies': copies,

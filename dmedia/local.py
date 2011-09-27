@@ -64,10 +64,55 @@ def get_store_id(doc, internal, removable=frozenset()):
     return Random(doc['_id']).choice(sorted(local))
 
 
+class LocalStores:
+    def __init__(self):
+        self._id_map = {}
+        self._parentdir_map = {}
+        self._internal = set()
+        self._removable = set()
+
+    def add(self, doc):
+        fs = get_filestore(doc)
+        self._id_map[fs.id] = fs
+        self._parentdir_map[fs.parentdir] = fs
+        plugin = doc['plugin']
+        assert plugin in ('filestore.internal', 'filestore.removable')
+        if plugin == 'filestore.internal':
+            self._internal.add(fs.id)
+        else:
+            self._removable.add(fs.id)
+        return fs
+        
+    def by_id(self, _id):
+        return self._id_map[_id]
+
+    def by_parentdir(self, parentdir):
+        return self._parentdir_map[parentdir]
+
+
+
 class Stores:
     def __init__(self, env):
         self.db = microfiber.Database('dmedia', env)
         self.db.ensure()
+
+    def get_local(self):
+        try:
+            docs = self.db.get('_local/stores').get('stores', [])
+        except microfiber.NotFound:
+            return ({}, set(), set())
+        stores = dict(
+            (doc['_id'], doc) for doc in docs
+        )
+        internal = set()
+        removable = set()
+        for doc in docs:
+            assert doc['plugin'] in ('filestore.internal', 'filestore.removable')
+            if doc['plugin'] == 'filestore.removable':
+                removable.add(doc['_id'])
+            else:
+                internal.add(doc['_id'])
+        return (stores, internal, removable)
 
     def get_doc(self, _id):
         check_id(_id)
@@ -86,7 +131,7 @@ class Stores:
         stores = self.db.get('_local/stores')
         store_id = get_store_id(doc, stores['internal'], stores['removable'])
         if store_id in stores['internal']:
-            return get_filestore(stores['internal']
+            return get_filestore(stores['internal'])
 
 
 

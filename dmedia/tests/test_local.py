@@ -100,6 +100,63 @@ class TestFunctions(TestCase):
 
 
 class TestStores(CouchCase):
+    def test_get_local(self):
+        inst = local.Stores(self.env)
+
+        # When _local/stores does not exist
+        self.assertEqual(inst.get_local(), ({}, set(), set()))
+        
+        # When _local/stores does exist
+        internal = list(
+            {'_id': random_id(), 'plugin': 'filestore.internal'}
+            for i in range(4)
+        )
+        removable = list(
+            {'_id': random_id(), 'plugin': 'filestore.removable'}
+            for i in range(4)
+        )
+        
+        # Empty
+        doc = {'_id': '_local/stores'}
+        inst.db.save(doc)
+        self.assertEqual(inst.get_local(), ({}, set(), set()))
+        doc['stores'] = []
+        inst.db.save(doc)
+        self.assertEqual(inst.get_local(), ({}, set(), set()))
+        
+        # All internal
+        doc['stores'] = internal
+        inst.db.save(doc)
+        self.assertEqual(inst.get_local(),
+            (
+                dict((d['_id'], d) for d in internal),
+                set(d['_id'] for d in internal),
+                set(),
+            )
+        )
+
+        # All removable
+        doc['stores'] = removable
+        inst.db.save(doc)
+        self.assertEqual(inst.get_local(),
+            (
+                dict((d['_id'], d) for d in removable),
+                set(),
+                set(d['_id'] for d in removable),
+            )
+        )
+        
+        # Both
+        doc['stores'] = removable + internal
+        inst.db.save(doc)
+        self.assertEqual(inst.get_local(),
+            (
+                dict((d['_id'], d) for d in internal + removable),
+                set(d['_id'] for d in internal),
+                set(d['_id'] for d in removable),
+            )
+        )
+
     def test_get_doc(self):
         inst = local.Stores(self.env)
 
