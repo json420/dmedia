@@ -167,4 +167,4 @@ class LocalBase:
     def path(self, _id):
         doc = self.get_doc(_id)
         fs = self.stores.choose_local_store(doc)
-
+        return fs.path(_id)
