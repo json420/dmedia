@@ -167,8 +167,10 @@ class LocalStores:
         self.parentdirs[fs.parentdir] = fs
         speed = (self.fast if fast else self.slow)
         speed.add(fs.id)
+        assert not self.fast.intersection(self.slow)
+        assert set(self.ids) == self.fast.union(self.slow)
 
-    def remove(fs):
+    def remove(self, fs):
         del self.ids[fs.id]
         del self.parentdirs[fs.parentdir]
         for speed in (self.fast, self.slow):
@@ -176,6 +178,8 @@ class LocalStores:
                 speed.remove(fs.id)
             except KeyError:
                 pass
+        assert not self.fast.intersection(self.slow)
+        assert set(self.ids) == self.fast.union(self.slow)
 
     def choose_local_store(self, doc):
         store_id = choose_local_store(doc, self.fast, self.slow)
