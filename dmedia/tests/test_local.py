@@ -37,6 +37,20 @@ from dmedia import local, schema
 
 
 class TestFunctions(TestCase):
+    def test_get_filestore(self):
+        tmp = TempDir()
+        _id = random_id()
+        doc = {
+            '_id': _id,
+            'parentdir': tmp.dir,
+            'copies': 2,
+        }
+        fs = local.get_filestore(doc)
+        self.assertIsInstance(fs, FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, _id)
+        self.assertEqual(fs.copies, 2)
+
     def test_get_store_id(self):
         internal = tuple(random_id() for i in range(3))
         removable = tuple(random_id() for i in range(3))
@@ -114,11 +128,11 @@ class TestStores(CouchCase):
         self.assertEqual(cm.exception.id, ch.id)
 
         # When doc does exist
-        doc = schema.create_file(ch.id, ch.file_size, ch.leaf_hashes, {})  
+        doc = schema.create_file(ch.id, ch.file_size, ch.leaf_hashes, {})
         inst.db.save(doc)
-        self.assertEqual(inst.content_hash(ch.id), unpacked)    
+        self.assertEqual(inst.content_hash(ch.id), unpacked)
         self.assertEqual(inst.content_hash(ch.id, False), ch)
-        
+
         # Test when root hash is wrong:
         doc['bytes'] += 1
         inst.db.save(doc)

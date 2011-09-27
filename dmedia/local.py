@@ -47,6 +47,10 @@ class NotLocalStore(Exception):
         super().__init__(store_id)
 
 
+def get_filestore(doc):
+    return FileStore(doc['parentdir'], doc['_id'], doc.get('copies', 0))
+
+
 def get_store_id(doc, internal, removable=frozenset()):
     stored = set(doc['stored'])
     local = (
@@ -79,9 +83,10 @@ class Stores:
 
     def path(self, _id):
         doc = self.get_doc(_id)
-        local = self._local.intersection(doc['stored'])
-        if not local:
-            raise FileNotLocal(_id)
+        stores = self.db.get('_local/stores')
+        store_id = get_store_id(doc, stores['internal'], stores['removable'])
+        if store_id in stores['internal']:
+            return get_filestore(stores['internal']
 
 
 
