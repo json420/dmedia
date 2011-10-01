@@ -16,19 +16,16 @@ def changes_thread(name, env, queue):
     db = Database(name, env)
     
     # First, get the starting state of the DB:
-    start = db.get('_changes', include_docs=True)
-    last_seq = start['last_seq']
-    queue.put(start)
+    result = db.get('_changes')
+    last_seq = result['last_seq']
+    queue.put(result)
 
     # And now monitor it for changes
     while True:
         try:
-            change = db.get('_changes', include_docs=True,
-                feed='longpoll',
-                since=last_seq,
-            )
-            last_seq = change['last_seq']
-            queue.put(change)
+            result = db.get('_changes', feed='longpoll', since=last_seq)
+            last_seq = result['last_seq']
+            queue.put(result)
         except ResponseNotReady:
             pass
 
@@ -61,20 +58,27 @@ db.put(None)
 q = SmartQueue()
 thread = _start_thread(changes_thread, 'novacut', env, q)
 
-
+print(q.get())  # Get the initial state
 def run_test(count):
     for i in range(count):
+        time.sleep(1)
+        _id = random_id()
+        doc = {'_id': _id, 'index': i}
         start = time.time()
-        doc = {'_id': random_id()}
         db.post(doc)
-        q.get()
-        yield time.time() - start
+        r = q.get()
+        end = time.time()
+        print(r)
+        assert r['results'][0]['id'] == _id
+        yield end - start
 
 
-count = 200
+count = 20
 times = tuple(run_test(count))
+print('\nRound trip times:')
+for t in times:
+    print('  {:.3f}'.format(t))
 total = sum(times)
-print('Total time: {}'.format(total))
-print('Average time: {}'.format(total / count))
-
-
+print('Max latency: {:.3f}'.format(max(times)))
+print('Min latency: {:.3f}'.format(min(times)))
+print('Average latency: {:.3f}'.format(total / count))
