@@ -51,6 +51,7 @@ def _start_thread(target, *args):
 
 tmpcouch = TempCouch()
 env = tmpcouch.bootstrap()
+del env['oauth']
 db = Database('novacut', env)
 db.put(None)
 
@@ -58,27 +59,26 @@ db.put(None)
 q = SmartQueue()
 thread = _start_thread(changes_thread, 'novacut', env, q)
 
-print(q.get())  # Get the initial state
+print('\nRound trip times:')
+docs = []
+q.get()  # Get the initial state
 def run_test(count):
     for i in range(count):
-        time.sleep(1)
+        time.sleep(2)  # 1s is threshold for batching when delayed_commits=True
         _id = random_id()
         doc = {'_id': _id, 'index': i}
         start = time.time()
         db.post(doc)
         r = q.get()
-        end = time.time()
-        print(r)
+        diff = time.time() - start
         assert r['results'][0]['id'] == _id
-        yield end - start
+        print('  {:.4f}'.format(diff))
+        yield diff
 
 
-count = 20
+count = 10
 times = tuple(run_test(count))
-print('\nRound trip times:')
-for t in times:
-    print('  {:.3f}'.format(t))
 total = sum(times)
-print('Max latency: {:.3f}'.format(max(times)))
-print('Min latency: {:.3f}'.format(min(times)))
-print('Average latency: {:.3f}'.format(total / count))
+print('Max latency: {:.4f}'.format(max(times)))
+print('Min latency: {:.4f}'.format(min(times)))
+print('Average latency: {:.4f}'.format(total / count))
