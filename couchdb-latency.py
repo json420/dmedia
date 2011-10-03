@@ -13,21 +13,24 @@ from microfiber import Database, random_id
 
 
 def changes_thread(name, env, queue):
-    db = Database(name, env)
-    
-    # First, get the starting state of the DB:
-    result = db.get('_changes')
-    last_seq = result['last_seq']
-    queue.put(result)
+    try:
+        db = Database(name, env)
+        
+        # First, get the starting state of the DB:
+        result = db.get('_changes')
+        last_seq = result['last_seq']
+        queue.put(result)
 
-    # And now monitor it for changes
-    while True:
-        try:
-            result = db.get('_changes', feed='longpoll', since=last_seq)
-            last_seq = result['last_seq']
-            queue.put(result)
-        except ResponseNotReady:
-            pass
+        # And now monitor it for changes
+        while True:
+            try:
+                result = db.get('_changes', feed='longpoll', since=last_seq)
+                last_seq = result['last_seq']
+                queue.put(result)
+            except ResponseNotReady:
+                pass
+    except Exception as e:
+        queue.put(e)
 
 
 class SmartQueue(Queue):
