@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 
-from microfiber import random_id
-
 from gi.repository import Gio, GObject
 
 GObject.threads_init()
@@ -34,33 +32,26 @@ avahi = system.get(
     '/',
     'org.freedesktop.Avahi.Server'
 )
-group = system.get(
+
+browser = system.get(
     'org.freedesktop.Avahi',
-    avahi.EntryGroupNew(),
-    'org.freedesktop.Avahi.EntryGroup'
+    avahi.ServiceBrowserNew('(iissu)', -1, -1, '_dmedia._tcp', 'local', 0),
+    'org.freedesktop.Avahi.ServiceBrowser',
 )
 
 
-def on_g_signal(*args):
-    print(args)
+def on_g_signal(proxy, sender, signal, params):
+    params = params.unpack()
+    print(signal, params)
+    if signal == 'ItemNew':
+        (interface, protocol, name, _type, domain, flags) = params
+        (ip, port) = avahi.ResolveService('(iisssiu)',
+            interface, protocol, name, _type, domain, -1, 0
+        )[7:9]
+        print(ip, port)
 
-group.connect('g-signal', on_g_signal)
 
-
-machine_id = random_id()
-group.AddService('(iiussssqaay)',
-    -1,  # Interface
-    -1,  # Protocol
-    0,  # Flags
-    machine_id,
-    '_dmedia._tcp',
-    '',  # Domain, default to .local
-    '',  # Host, default to localhost
-    8000,  # Port
-    None,  # TXT record
-)
-group.Commit()
-#group.Reset()  # Remove
+browser.connect('g-signal', on_g_signal)
     
 mainloop = GObject.MainLoop()
 mainloop.run()
