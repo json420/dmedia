@@ -8,7 +8,7 @@ from queue import Queue
 import time
 from http.client import ResponseNotReady
 
-from dmedia.tests.couch import TempCouch
+from usercouch.misc import TempCouch
 from microfiber import Database, random_id
 
 
@@ -54,7 +54,6 @@ def _start_thread(target, *args):
 
 tmpcouch = TempCouch()
 env = tmpcouch.bootstrap()
-del env['oauth']
 db = Database('novacut', env)
 db.put(None)
 
