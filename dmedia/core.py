@@ -81,6 +81,14 @@ class LocalStores(object):
         pass
 
 
+def start_file_server(env, queue):
+    from wsgiref.simple_server import make_server, demo_app
+    httpd = make_server('', 0, demo_app)
+    (ip, port) = httpd.socket.getsockname()
+    queue.put(port)
+    httpd.serve_forever()
+
+
 class Core(object):
     def __init__(self, env, callback=None):
         self.env = env
