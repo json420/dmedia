@@ -41,7 +41,7 @@ But this is not okay:
 
 """
 
-from filestore import DIGEST_B32LEN, B32ALPHABET
+from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 
 
 HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
@@ -127,14 +127,27 @@ class BaseWSGI(metaclass=BaseWSGIMeta):
             return e.body
 
 
-class Server(BaseWSGI):
-    def POST(self, environ, start_response):
-        pass
+class ReadOnlyApp(BaseWSGI):
+    def __init__(self, env):
+        self.local = LocalSlave(env)
 
+    def GET(self, environ, start_response):
+        # FIXME: Also validate slice compared to file-size
+        (_id, start, stop) = get_slice(environ)
+        fp = self.local.open(_id)
+        size = os.fstat(fp.fileno()).st_size
+        _start = start * LEAF_SIZE
+        _stop = (size if stop is None else min(size, stop * LEAF_SIZE))
+        fp.seek(_start)
+        start_response('200 OK' [('Content-Length', str(_stop - _start))])
+        return environ['wsgi.file_wrapper'](fp)
+
+
+class ReadWriteApp(ReadOnlyApp):
     def PUT(self, environ, start_response):
         pass
 
-    def GET(self, environ, start_response):
+    def POST(self, environ, start_response):
         pass
 
 
