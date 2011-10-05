@@ -1,4 +1,4 @@
-# dmedia: dmedia hashing protocol and file layout
+# dmedia: distributed media library
 # Copyright (C) 2011 Novacut Inc
 #
 # This file is part of `dmedia`.
