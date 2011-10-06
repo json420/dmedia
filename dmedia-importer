@@ -110,8 +110,8 @@ def notify_stats(stats):
 
 def notify_started(basedirs):
     summary = ngettext(
-        'Searching for files...',
-        'Searching on {count} cards...',
+        'Importing files...',
+        'Importing files from {count} cards...',
         len(basedirs)
     ).format(count=len(basedirs))
     body = '\n'.join(basedirs)
@@ -242,7 +242,7 @@ def on_timeout():
     return True
 
 
-#GObject.timeout_add(4000, on_timeout)
+#GObject.timeout_add(5000, on_timeout)
 
 ui.manager.start_import(path.abspath(sys.argv[1]))
 
