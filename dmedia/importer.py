@@ -85,9 +85,7 @@ class ImportWorker(workers.CouchWorker):
     def get_filestores(self):
         stores = []
         for doc in self.env['filestores']:
-            fs = FileStore(doc['parentdir'])
-            fs.id = doc['_id']
-            fs.copies = doc['copies']
+            fs = FileStore(doc['parentdir'], doc['_id'], doc['copies'])
             stores.append(fs)
         return stores
 

@@ -1,0 +1,238 @@
+#!/usr/bin/python3
+
+import math
+from gettext import gettext as _
+from gettext import ngettext
+import sys
+from os import path
+
+import gi
+from gi.repository import GObject, Gtk, AppIndicator3, Notify
+
+GObject.threads_init()
+Notify.init('dmedia')
+
+
+ICON = 'indicator-rendermenu'
+ICON_ATT = 'indicator-rendermenu-att'
+
+
+import json
+import time
+
+from microfiber import random_id
+
+from dmedia.service import dbus
+from dmedia.importer import ImportManager
+
+dc3 = dbus.session.get('org.freedesktop.DC3', '/')
+env = json.loads(dc3.GetEnv())
+env['machine_id'] = random_id()
+env['filestores'] = [
+    {
+        '_id': random_id(),
+        'parentdir': '/media/test',
+        'copies': 1,
+    },
+]
+
+
+BYTES10 = (
+    'bytes',
+    'kB',
+    'MB',
+    'GB',
+    'TB',
+    'PB',
+    # For now, we're capping at 999 PB
+    #'EB',
+    #'ZB',
+    #'YB',
+)
+
+
+def bytes10(size):
+    if size is None:
+        return None
+    if size < 0:
+        raise ValueError('size must be > 0; got {!r}'.format(size))
+    if size >= 10 ** 18:
+        raise ValueError('size must be < 10**18; got {!r}'.format(size))
+    if size == 0:
+        return '0 bytes'
+    if size == 1:
+        return '1 byte'
+    i = int(math.floor(math.log(size, 1000)))
+    s = (size / (1000 ** i) if i > 0 else size)
+    return (
+        '{:.3g} {}'.format(s, BYTES10[i])
+    )
+
+
+def notify_stats(stats):
+    new = stats['new']['count']
+    duplicate = stats['duplicate']['count']
+    empty = stats['empty']['count']
+    if new == 0 and duplicate == 0 and empty == 0:
+        return (_('No files found'), None)
+    if new > 0:
+        summary = ngettext(
+            '{count} new file, {size}',
+            '{count} new files, {size}',
+            new
+        ).format(
+            count=new,
+            size=bytes10(stats['new']['bytes']),
+        )
+    else:
+        summary = _('No new files found')
+    lines = []
+    if duplicate > 0:
+        msg = ngettext(
+            '{count} duplicate file, {size}',
+            '{count} duplicate files, {size}',
+            duplicate
+        ).format(
+            count=duplicate,
+            size=bytes10(stats['duplicate']['bytes']),
+        )
+        lines.append(msg)
+    if empty > 0:
+        msg = ngettext(
+            '{count} empty file',
+            '{count} empty files',
+            empty
+        ).format(count=empty)
+        lines.append(msg) 
+    body = ('\n'.join(lines) if lines else None)
+    return (summary, body)
+
+
+def notify_started(basedirs):
+    summary = ngettext(
+        'Searching for files...',
+        'Searching on {count} cards...',
+        len(basedirs)
+    ).format(count=len(basedirs))
+    body = '\n'.join(basedirs)
+    return (summary, body)
+
+
+class NotifyManager:
+    """
+    Helper class to make it easier to update notification when still visible.
+    """
+
+    def __init__(self, klass=None):
+        self._klass = (Notify.Notification if klass is None else klass)
+        self._current = None
+
+    def _on_closed(self, notification):
+        assert self._current is notification
+        self._current = None
+
+    def isvisible(self):
+        """
+        Return ``True`` in a notification is currently visible.
+        """
+        return (self._current is not None)
+
+    def notify(self, summary, body=None, icon=None):
+        """
+        Display a notification with *summary*, *body*, and *icon*.
+        """
+        assert self._current is None
+        self._current = self._klass.new(summary, body, icon)
+        self._current.connect('closed', self._on_closed)
+        self._current.show()
+
+    def update(self, summary, body=None, icon=None):
+        """
+        Update current notification to have *summary*, *body*, and *icon*.
+
+        This method will only work if the current notification is still visible.
+
+        To a display new or replace the existing notification regardless whether
+        the current notification is visible, use
+        `NotifyManager.replace()`.
+        """
+        assert self._current is not None
+        self._current.update(summary, body, icon)
+        self._current.show()
+
+    def replace(self, summary, body=None, icon=None):
+        """
+        Update current notification if visible, otherwise display a new one.
+        """
+        if self.isvisible():
+            self.update(summary, body, icon)
+        else:
+            self.notify(summary, body, icon)
+
+
+class ImportUI:
+    def __init__(self):
+        self.notify = NotifyManager()
+        self.indicator = AppIndicator3.Indicator.new('rendermenu', ICON,
+            AppIndicator3.IndicatorCategory.APPLICATION_STATUS
+        )
+        self.indicator.set_attention_icon(ICON_ATT)
+        self.menu = Gtk.Menu()
+        close = Gtk.MenuItem()
+        close.set_label(_('Close'))
+        close.connect('activate', self.on_close)
+        self.menu.append(close)
+        self.menu.show_all()
+        self.indicator.set_menu(self.menu)
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        self.manager = ImportManager(env, self.on_callback)
+        self.handlers = {
+            'batch_started': self.on_batch_started,
+            'import_started': self.on_import_started,
+            'batch_finished': self.on_batch_finished,
+            'batch_progress': self.on_batch_progress,
+        }
+
+    def on_close(self, button):
+        Gtk.main_quit()
+
+    def on_callback(self, signal, args):
+        print(signal, *args)
+        try:
+            handler = self.handlers[signal]
+            handler(*args)
+        except KeyError:
+            pass
+
+    def on_batch_started(self, batch_id):
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
+        self.basedirs = []
+        
+    def on_import_started(self, basedir, import_id):
+        self.basedirs.append(basedir)
+        (summary, body) = notify_started(self.basedirs)
+        self.notify.replace(summary, body, None)
+        
+    def on_batch_progress(self, count, total_count, size, total_size):
+        print(bytes10(size))
+
+    def on_batch_finished(self, batch_id, stats):
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        (summary, body) = notify_stats(stats)
+        self.notify.replace(summary, body, 'notification-device-eject')
+
+
+ui = ImportUI()
+basedirs = sys.argv[1:]
+
+def on_timeout():
+    if not basedirs:
+        return False
+    basedir = basedirs.pop()
+    ui.manager.start_import(path.abspath(basedir))
+    return True
+
+
+GObject.timeout_add(4000, on_timeout)
+
+Gtk.main()

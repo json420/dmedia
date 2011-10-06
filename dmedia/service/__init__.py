@@ -23,85 +23,85 @@
 Core dmedia DBus service at org.freedesktop.DMedia.
 """
 
-import logging
-import json
-import time
+#import logging
+#import json
+#import time
 
-import dbus
-import dbus.service
+#import dbus
+#import dbus.service
 
-from dmedia import __version__
-from dmedia.constants import IFACE
-from dmedia.core import Core
-
-
-log = logging.getLogger()
+#from dmedia import __version__
+#from dmedia.constants import IFACE
+#from dmedia.core import Core
 
 
-def dumps(obj):
-    return json.dumps(obj, sort_keys=True, separators=(',',': '), indent=4)
+#log = logging.getLogger()
 
 
-class DMedia(dbus.service.Object):
-    def __init__(self, couchargs, bus, killfunc, start=None):
-        self._bus = bus
-        self._killfunc = killfunc
-        log.info('Starting dmedia core service on %r', bus)
-        self._conn = dbus.SessionBus()
-        super(DMedia, self).__init__(self._conn, object_path='/')
-        self._busname = dbus.service.BusName(bus, self._conn)
-        self._core = Core(*couchargs)
-        self._core.bootstrap()
-        self._env_s = json.dumps(self._core.env)
-        if start is not None:
-            log.info('Started service in %.3f seconds', time.time() - start)
+#def dumps(obj):
+#    return json.dumps(obj, sort_keys=True, separators=(',',': '), indent=4)
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def Version(self):
-        """
-        Return dmedia version.
-        """
-        return __version__
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='')
-    def Kill(self):
-        """
-        Kill the `dmedia-service` process.
-        """
-        log.info('Killing dmedia core service on %r', self._bus)
-        self._killfunc()
+#class DMedia(dbus.service.Object):
+#    def __init__(self, couchargs, bus, killfunc, start=None):
+#        self._bus = bus
+#        self._killfunc = killfunc
+#        log.info('Starting dmedia core service on %r', bus)
+#        self._conn = dbus.SessionBus()
+#        super(DMedia, self).__init__(self._conn, object_path='/')
+#        self._busname = dbus.service.BusName(bus, self._conn)
+#        self._core = Core(*couchargs)
+#        self._core.bootstrap()
+#        self._env_s = json.dumps(self._core.env)
+#        if start is not None:
+#            log.info('Started service in %.3f seconds', time.time() - start)
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def GetEnv(self):
-        """
-        Return dmedia env as JSON string.
-        """
-        return self._env_s
+#    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+#    def Version(self):
+#        """
+#        Return dmedia version.
+#        """
+#        return __version__
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='b')
-    def HasApp(self):
-        return self._core.has_app()
+#    @dbus.service.method(IFACE, in_signature='', out_signature='')
+#    def Kill(self):
+#        """
+#        Kill the `dmedia-service` process.
+#        """
+#        log.info('Killing dmedia core service on %r', self._bus)
+#        self._killfunc()
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def GetDoc(self, doc_id):
-        return dumps(self._core.db.get(doc_id, attachments=True))
+#    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+#    def GetEnv(self):
+#        """
+#        Return dmedia env as JSON string.
+#        """
+#        return self._env_s
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def GetFile(self, file_id):
-        return self._core.get_file(file_id)
+#    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+#    def HasApp(self):
+#        return self._core.has_app()
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def AddFileStore(self, parentdir):
-        return dumps(self._core.add_filestore(parentdir))
+#    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+#    def GetDoc(self, doc_id):
+#        return dumps(self._core.db.get(doc_id, attachments=True))
 
-    @dbus.service.method(IFACE, in_signature='ss', out_signature='b')
-    def Upload(self, file_id, store_id):
-        return self._core.upload(str(file_id), str(store_id))
+#    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+#    def GetFile(self, file_id):
+#        return self._core.get_file(file_id)
 
-    @dbus.service.method(IFACE, in_signature='ss', out_signature='b')
-    def Download(self, file_id, store_id):
-        return self._core.download(str(file_id), str(store_id))
+#    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+#    def AddFileStore(self, parentdir):
+#        return dumps(self._core.add_filestore(parentdir))
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='as')
-    def ListTransfers(self):
-        return self._core.manager.list_jobs()
+#    @dbus.service.method(IFACE, in_signature='ss', out_signature='b')
+#    def Upload(self, file_id, store_id):
+#        return self._core.upload(str(file_id), str(store_id))
+
+#    @dbus.service.method(IFACE, in_signature='ss', out_signature='b')
+#    def Download(self, file_id, store_id):
+#        return self._core.download(str(file_id), str(store_id))
+
+#    @dbus.service.method(IFACE, in_signature='', out_signature='as')
+#    def ListTransfers(self):
+#        return self._core.manager.list_jobs()
