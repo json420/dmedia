@@ -27,16 +27,68 @@ Store media files based on content-hash.
 
 import time
 from copy import deepcopy
-from subprocess import check_call
+from gettext import gettext as _
+from gettext import ngettext
 import logging
 
 import microfiber
 from filestore import FileStore, scandir, batch_import_iter
 
+from dmedia.units import bytes10
 from dmedia import workers, schema
 
 
 log = logging.getLogger()
+
+
+def notify_started(basedirs):
+    assert len(basedirs) >= 1
+    summary = ngettext(
+        'Importing files...',
+        'Importing files from {count} cards...',
+        len(basedirs)
+    ).format(count=len(basedirs))
+    body = '\n'.join(basedirs)
+    return (summary, body)
+
+
+def notify_stats(stats):
+    new = stats['new']['count']
+    duplicate = stats['duplicate']['count']
+    empty = stats['empty']['count']
+    if new == 0 and duplicate == 0 and empty == 0:
+        return (_('No files found'), None)
+    if new > 0:
+        summary = ngettext(
+            '{count} new file, {size}',
+            '{count} new files, {size}',
+            new
+        ).format(
+            count=new,
+            size=bytes10(stats['new']['bytes']),
+        )
+    else:
+        summary = _('No new files')
+    lines = []
+    if duplicate > 0:
+        msg = ngettext(
+            '{count} duplicate file, {size}',
+            '{count} duplicate files, {size}',
+            duplicate
+        ).format(
+            count=duplicate,
+            size=bytes10(stats['duplicate']['bytes']),
+        )
+        lines.append(msg)
+    if empty > 0:
+        msg = ngettext(
+            '{count} empty file',
+            '{count} empty files',
+            empty
+        ).format(count=empty)
+        lines.append(msg) 
+    body = ('\n'.join(lines) if lines else None)
+    return (summary, body)
 
 
 def accumulate_stats(accum, stats):

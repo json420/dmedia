@@ -1,29 +1,25 @@
 #!/usr/bin/python3
 
-import math
-from gettext import gettext as _
-from gettext import ngettext
 import sys
 from os import path
+from gettext import gettext as _
+import json
+import time
 
 import gi
 from gi.repository import GObject, Gtk, AppIndicator3, Notify, Unity
 
-GObject.threads_init()
-Notify.init('dmedia')
-
-
-ICON = 'indicator-rendermenu'
-ICON_ATT = 'indicator-rendermenu-att'
-
-
-import json
-import time
-
 from microfiber import random_id
 
 from dmedia.service import dbus
-from dmedia.importer import ImportManager
+from dmedia.importer import ImportManager, notify_started, notify_stats
+
+
+GObject.threads_init()
+Notify.init('dmedia')
+
+ICON = 'indicator-rendermenu'
+ICON_ATT = 'indicator-rendermenu-att'
 
 dc3 = dbus.session.get('org.freedesktop.DC3', '/')
 env = json.loads(dc3.GetEnv())
@@ -35,83 +31,6 @@ env['filestores'] = [
         'copies': 1,
     },
 ]
-
-
-BYTES10 = (
-    'bytes',
-    'kB',
-    'MB',
-    'GB',
-    'TB',
-    'PB',
-    'EB',
-    'ZB',
-    'YB',
-)
-
-def bytes10(size):
-    if size is None:
-        return None
-    if size < 0:
-        raise ValueError('size must be > 0; got {!r}'.format(size))
-    if size == 0:
-        return '0 bytes'
-    if size == 1:
-        return '1 byte'
-    i = min(int(math.floor(math.log(size, 1000))), len(BYTES10) - 1)
-    s = (size / (1000 ** i) if i > 0 else size)
-    return (
-        '{:.3g} {}'.format(s, BYTES10[i])
-    )
-
-
-def notify_stats(stats):
-    new = stats['new']['count']
-    duplicate = stats['duplicate']['count']
-    empty = stats['empty']['count']
-    if new == 0 and duplicate == 0 and empty == 0:
-        return (_('No files found'), None)
-    if new > 0:
-        summary = ngettext(
-            '{count} new file, {size}',
-            '{count} new files, {size}',
-            new
-        ).format(
-            count=new,
-            size=bytes10(stats['new']['bytes']),
-        )
-    else:
-        summary = _('No new files found')
-    lines = []
-    if duplicate > 0:
-        msg = ngettext(
-            '{count} duplicate file, {size}',
-            '{count} duplicate files, {size}',
-            duplicate
-        ).format(
-            count=duplicate,
-            size=bytes10(stats['duplicate']['bytes']),
-        )
-        lines.append(msg)
-    if empty > 0:
-        msg = ngettext(
-            '{count} empty file',
-            '{count} empty files',
-            empty
-        ).format(count=empty)
-        lines.append(msg) 
-    body = ('\n'.join(lines) if lines else None)
-    return (summary, body)
-
-
-def notify_started(basedirs):
-    summary = ngettext(
-        'Importing files...',
-        'Importing files from {count} cards...',
-        len(basedirs)
-    ).format(count=len(basedirs))
-    body = '\n'.join(basedirs)
-    return (summary, body)
 
 
 class NotifyManager:
