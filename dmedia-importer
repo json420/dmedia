@@ -31,7 +31,7 @@ env['machine_id'] = random_id()
 env['filestores'] = [
     {
         '_id': random_id(),
-        'parentdir': '/media/test',
+        'parentdir': '/mnt',
         'copies': 1,
     },
 ]
@@ -44,25 +44,21 @@ BYTES10 = (
     'GB',
     'TB',
     'PB',
-    # For now, we're capping at 999 PB
-    #'EB',
-    #'ZB',
-    #'YB',
+    'EB',
+    'ZB',
+    'YB',
 )
-
 
 def bytes10(size):
     if size is None:
         return None
     if size < 0:
         raise ValueError('size must be > 0; got {!r}'.format(size))
-    if size >= 10 ** 18:
-        raise ValueError('size must be < 10**18; got {!r}'.format(size))
     if size == 0:
         return '0 bytes'
     if size == 1:
         return '1 byte'
-    i = int(math.floor(math.log(size, 1000)))
+    i = min(int(math.floor(math.log(size, 1000))), len(BYTES10) - 1)
     s = (size / (1000 ** i) if i > 0 else size)
     return (
         '{:.3g} {}'.format(s, BYTES10[i])
@@ -242,8 +238,8 @@ def on_timeout():
     return True
 
 
-#GObject.timeout_add(5000, on_timeout)
+GObject.timeout_add(10000, on_timeout)
 
-ui.manager.start_import(path.abspath(sys.argv[1]))
+#ui.manager.start_import(path.abspath(sys.argv[1]))
 
 Gtk.main()
