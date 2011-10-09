@@ -164,12 +164,8 @@ class LocalBase:
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
-    def path(self, _id):
+    def stat(self, _id):
         doc = self.get_doc(_id)
         fs = self.stores.choose_local_store(doc)
-        return fs.path(_id)
+        return fs.stat(_id)
 
-    def open(self, _id):
-        doc = self.get_doc(_id)
-        fs = self.stores.choose_local_store(doc)
-        return fs.open(_id)

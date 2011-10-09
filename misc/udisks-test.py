@@ -36,7 +36,7 @@ PROPS = 'org.freedesktop.DBus.Properties'
 ECRYPTFS = '/home/.ecryptfs/'
 
 
-UDisks = system.get(BUS, '/org/freedesktop/UDisks')
+udisks = system.get(BUS, '/org/freedesktop/UDisks')
 
 
 class DeviceNotFound(Exception):
@@ -55,7 +55,7 @@ def by_major_minor(basedir):
     major = os.major(st_dev)
     minor = os.minor(st_dev)
     try:
-        return UDisks.FindDeviceByMajorMinor('(xx)', major, minor)
+        return udisks.FindDeviceByMajorMinor('(xx)', major, minor)
     except Exception:
         raise DeviceNotFound(basedir)
 
@@ -102,7 +102,7 @@ def get_info(basedir):
 info = {'devices': {}, 'paths': {}}
 
 print('\nEnumerateDevices:')
-for objpath in UDisks.EnumerateDevices():
+for objpath in udisks.EnumerateDevices():
     print(objpath)
     props = get_device_props(objpath)
     del props['DriveAtaSmartBlob']
