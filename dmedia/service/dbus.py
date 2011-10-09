@@ -84,6 +84,11 @@ class UDisks(GObject.GObject):
         return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor)
 
 
+def get_device_props(path):
+    device = system.get('org.freedesktop.UDisks', path, PROPS)
+    return device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
+
+
 class Device:
     bus = 'org.freedesktop.UDisks'
     iface = 'org.freedesktop.UDisks.Device'
@@ -92,17 +97,20 @@ class Device:
         self.path = path
         self.proxy = system.get(self.bus, path, self.iface)
         self.propsproxy = system.get(self.bus, path, PROPS)
-        self.proxy.connect('g-signal', self.on_g_signal)
+        self.props = self.propsproxy.GetAll('(s)', self.iface)
 
-    def GetProps(self):
-        return self.propsproxy.GetAll('(s)', self.iface)
-
-    def FilesystemMount(self, fstype, options):
-        return self.proxy.FilesystemMount('(sas)', fstype, options)
+    def __getitem__(self, key):
+        return self.props[key]
 
     def FilesystemUnmount(self, options):
         return self.proxy.FilesystemUnmount('(as)', options)
-
-    def on_g_signal(self, proxy, sender, signal, params):
-        print(signal, pramas.unpack())
         
+    def DriveEject(self):
+        return self.proxy.DriveEject('(as)', [])
+        
+    def DriveDetach(self):
+        return self.proxy.DriveDetach('(as)', [])
+
+    def FilesystemCreate(self, fstype, options):
+        return self.proxy.FilesystemCreate('(sas)', fstype, options)
+
