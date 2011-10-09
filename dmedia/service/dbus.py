@@ -19,7 +19,11 @@
 Simple dbus helper to make PyGI a bit nicer.
 """
 
-from gi.repository import Gio
+from gi.repository import GObject, Gio
+from gi.repository.GObject import TYPE_PYOBJECT
+
+
+PROPS = 'org.freedesktop.DBus.Properties'
 
 
 class DBus:
@@ -44,3 +48,61 @@ class DBus:
 session = DBus(Gio.bus_get_sync(Gio.BusType.SESSION, None))
 system = DBus(Gio.bus_get_sync(Gio.BusType.SYSTEM, None))
 
+
+class UDisks(GObject.GObject):
+
+    __gsignals__ = {
+        'DeviceAdded': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT]
+        ),
+        'DeviceRemoved': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT]
+        ),
+        'DeviceChanged': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT]
+        ),
+    }
+    _autoemit = ('DeviceAdded', 'DeviceRemoved', 'DeviceChanged')
+
+    def __init__(self):
+        super().__init__()
+        self.proxy = system.get(
+            'org.freedesktop.UDisks',
+            '/org/freedesktop/UDisks'
+        )
+        self.proxy.connect('g-signal', self.on_g_signal)
+
+    def on_g_signal(self, proxy, sender, signal, params):
+        if signal in self._autoemit:
+            args = params.unpack()
+            self.emit(signal, *args)
+
+    def EnumerateDevices(self):
+        return self.proxy.EnumerateDevices()
+
+    def FindDeviceByMajorMinor(self, major, minor):
+        return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor)
+
+
+class Device:
+    bus = 'org.freedesktop.UDisks'
+    iface = 'org.freedesktop.UDisks.Device'
+
+    def __init__(self, path):
+        self.path = path
+        self.proxy = system.get(self.bus, path, self.iface)
+        self.propsproxy = system.get(self.bus, path, PROPS)
+        self.proxy.connect('g-signal', self.on_g_signal)
+
+    def GetProps(self):
+        return self.propsproxy.GetAll('(s)', self.iface)
+
+    def FilesystemMount(self, fstype, options):
+        return self.proxy.FilesystemMount('(sas)', fstype, options)
+
+    def FilesystemUnmount(self, options):
+        return self.proxy.FilesystemUnmount('(as)', options)
+
+    def on_g_signal(self, proxy, sender, signal, params):
+        print(signal, pramas.unpack())
+        
