@@ -32,7 +32,7 @@ from gettext import ngettext
 import logging
 
 import microfiber
-from filestore import FileStore, scandir, batch_import_iter
+from filestore import FileStore, scandir, batch_import_iter, statvfs
 
 from dmedia.units import bytes10
 from dmedia import workers, schema
@@ -116,6 +116,8 @@ class ImportWorker(workers.CouchWorker):
             machine_id=self.env.get('machine_id'),
             batch_id=self.env.get('batch_id'),
         )
+        st = statvfs(self.basedir)
+        self.doc['statvfs'] = st._asdict()
         self.id = self.doc['_id']
         self.db.save(self.doc)
         self.emit('started', self.id)
