@@ -26,51 +26,23 @@ For background, please see:
 
     https://bugs.launchpad.net/dmedia/+bug/753260
 
-
-Security note on /dmedia/_local/dmedia
-======================================
-
-When `DMedia.init_filestores()` is called, it creates `FileStore` instances
-based solely on information in the non-replicated /dmedia/_local/dmedia
-document... despite the fact that the exact same information is also available
-in the corresponding 'dmedia/store' documents.
-
-When it comes to deciding what files dmedia will read and write, it's prudent to
-assume that replicated documents are untrustworthy.
-
-The dangerous approach would be to use a view to get all the 'dmedia/store'
-documents with a machine_id that matches this machine_id, and initialize those `FileStore`.  But the problem is that if an attacker gained control of just one
-of your replicating peers or services, they could insert arbitrary
-'dmedia/store' documents, and have dmedia happily initialize `FileStore` at
-those mount points.  And that would be "a bad thing".
-
-So although the corresponding 'dmedia/store' records are created (if they don't
-already exists), they are completely ignored when it comes to deciding what
-filestores and mount points are configured.
 """
 
-import logging
-from copy import deepcopy
 import os
 from os import path
 import json
 import time
 import stat
 
-from microfiber import Database, NotFound, Conflict
-from filestore import FileStore, DOTNAME
+from microfiber import Database, NotFound
+from filestore import FileStore
 
-from .transfers import TransferManager
 from dmedia import schema
 from dmedia.local import LocalStores
-from .schema import random_id, create_machine, create_store
-from .views import init_views
+from dmedia.views import init_views
 
 
 LOCAL_ID = '_local/dmedia'
-
-
-log = logging.getLogger()
 
 
 def start_file_server(env, queue):
@@ -81,21 +53,25 @@ def start_file_server(env, queue):
     httpd.serve_forever()
 
 
-class Core2:
-    def __init__(self, env):
+class Core:
+    def __init__(self, env, bootstrap=True):
         self.env = env
         self.db = Database('dmedia', env)
         self.stores = LocalStores()
+        if bootstrap:
+            self._bootstrap()
 
-    def bootstrap(self):
+    def _bootstrap(self):
         self.db.ensure()
-        self.init_local()
+        init_views(self.db)
+        self._init_local()
+        self._init_stores()
 
-    def init_local(self):
+    def _init_local(self):
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
-            machine = create_machine()
+            machine = schema.create_machine()
             self.local = {
                 '_id': LOCAL_ID,
                 'machine_id': machine['_id'],
@@ -106,13 +82,13 @@ class Core2:
         self.machine_id = self.local['machine_id']
         self.env['machine_id'] = self.machine_id
 
-    def init_stores(self):
+    def _init_stores(self):
         if not self.local['stores']:
             return
         dirs = sorted(self.local['stores'])
         for parentdir in dirs:
             try:
-                fs = self.init_filestore(parentdir)
+                fs = self._init_filestore(parentdir)
                 self.stores.add(fs)
                 self.local['stores'][parentdir] = {
                     'id': fs.id,
@@ -121,8 +97,10 @@ class Core2:
             except Exception:
                 del self.local['stores'][parentdir]
         self.db.save(self.local)
+        assert set(self.local['stores']) == set(self.stores.parentdirs)
+        assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
-    def init_filestore(self, parentdir, copies=1):
+    def _init_filestore(self, parentdir, copies=1):
         fs = FileStore(parentdir)
         f = path.join(fs.basedir, 'store.json')
         try:
@@ -143,108 +121,25 @@ class Core2:
         fs.copies = doc.get('copies', copies)
         return fs
 
-    def add_filestore(self, parentdir, copies=1, fast=True):
-        pass
-
-    def add_filestore(self, parentdir, copies=1, fast=True):
-        pass
+    def add_filestore(self, parentdir, copies=1):
+        if parentdir in self.local['stores']:
+            raise Exception('already have parentdir {!r}'.format(parentdir))
+        fs = self._init_filestore(parentdir, copies)
+        self.stores.add(fs)
+        self.local['stores'][parentdir] = {
+            'id': fs.id,
+            'copies': fs.copies,
+        }
+        self.db.save(self.local)
+        assert set(self.local['stores']) == set(self.stores.parentdirs)
+        assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
+        return fs
 
     def remove_filestore(self, parentdir):
+        fs = self.stores.by_parentdir(parentdir)
+        self.stores.remove(fs)
         del self.local['stores'][parentdir]
         self.db.save(self.local)
+        assert set(self.local['stores']) == set(self.stores.parentdirs)
+        assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
-
-class Core(object):
-    def __init__(self, env, callback=None):
-        self.env = env
-        self.home = path.abspath(os.environ['HOME'])
-        if not path.isdir(self.home):
-            raise ValueError('HOME is not a dir: {!}'.format(self.home))
-        self.db = Database('dmedia', env)
-        self.db.ensure()
-        self.manager = TransferManager(self.env, callback)
-        self._filestores = {}
-
-    def bootstrap(self):
-        (self.local, self.machine) = self.init_local()
-        self.machine_id = self.machine['_id']
-        self.env['machine_id'] = self.machine_id
-        self.env['filestore'] = self.init_filestores()
-        init_views(self.db)
-
-    def init_local(self):
-        """
-        Get the /dmedia/_local/dmedia document, creating it if needed.
-        """
-        try:
-            local = self.db.get(LOCAL_ID)
-        except NotFound:
-            machine = create_machine()
-            local = {
-                '_id': LOCAL_ID,
-                'machine': deepcopy(machine),
-                'filestores': {},
-            }
-            self.db.save(local)
-            self.db.save(machine)
-        else:
-            try:
-                machine = self.db.get(local['machine']['_id'])
-            except NotFound:
-                machine = deepcopy(local['machine'])
-                self.db.save(machine)
-        return (local, machine)
-
-    def init_filestores(self):
-        if not self.local['filestores']:
-            self.add_filestore(self.home)
-        else:
-            for (parentdir, store) in self.local['filestores'].items():
-                assert store['parentdir'] == parentdir
-                try:
-                    self.init_filestore(store)
-                except Exception:
-                    pass
-                try:
-                    self.db.save(deepcopy(store))
-                except Conflict:
-                    pass
-            if self.local.get('default_filestore') not in self.local['filestores']:
-                self.local['default_filestore'] = store['parentdir']
-        return self.local['filestores'][self.local['default_filestore']]
-
-    def init_filestore(self, store):
-        parentdir = store['parentdir']
-        self._filestores[parentdir] = FileStore(parentdir)
-
-    def add_filestore(self, parentdir):
-        parentdir = path.abspath(parentdir)
-        if not path.isdir(parentdir):
-            raise ValueError('Not a directory: {!r}'.format(parentdir))
-        try:
-            return self.local['filestores'][parentdir]
-        except KeyError:
-            pass
-        log.info('Added filestore at %r', parentdir)
-        store = create_store(parentdir, self.machine_id)
-        self.init_filestore(store)
-        self.local['filestores'][parentdir] = deepcopy(store)
-        self.local['default_filestore'] = store['parentdir']
-        self.db.save(self.local)
-        self.db.save(store)
-        return store
-
-    def get_file(self, file_id):
-        for fs in self._filestores.values():
-            filename = fs.path(file_id)
-            if path.isfile(filename):
-                return filename
-
-    def upload(self, file_id, store_id):
-        return self.manager.upload(file_id, store_id)
-
-    def download(self, file_id, store_id):
-        return self.manager.download(file_id, store_id)
-
-    def verify(self, file_id, store_id):
-        pass
