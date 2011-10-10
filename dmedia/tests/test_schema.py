@@ -187,6 +187,8 @@ class TestFunctions(TestCase):
                     'mtime': 1234567890,
                 },
             },
+            'partial': {},
+            'corrupt': {},
         }
         g = deepcopy(good)
         self.assertEqual(f(g), None)
@@ -321,26 +323,6 @@ class TestFunctions(TestCase):
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
-        )
-
-        # Test with invalid stored "status":
-        bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['status'] = 'broken'
-        with self.assertRaises(ValueError) as cm:
-            f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['status'] value 'broken' not in ('partial', 'corrupt')"
-        )
-
-        # Test with invalid stored "corrupted":
-        bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corrupted'] = -1
-        with self.assertRaises(ValueError) as cm:
-            f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['corrupted'] must be >= 0; got -1"
         )
 
     def test_file_optional(self):
@@ -566,6 +548,8 @@ class TestFunctions(TestCase):
                 'bytes',
                 'origin',
                 'stored',
+                'partial',
+                'corrupt',
             ])
         )
         self.assertEqual(doc['_id'], _id)
@@ -591,6 +575,9 @@ class TestFunctions(TestCase):
         self.assertEqual(set(s[store_id]), set(['copies', 'mtime']))
         self.assertEqual(s[store_id]['copies'], 2)
         self.assertEqual(s[store_id]['mtime'], 1234567890)
+        
+        self.assertEqual(doc['partial'], {})
+        self.assertEqual(doc['corrupt'], {})
 
         doc = schema.create_file(_id, file_size, leaf_hashes, stored,
             origin='proxy'

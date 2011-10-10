@@ -101,6 +101,28 @@ function(doc) {
 }
 """
 
+file_corrupt = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.corrupt) {
+            emit(key, doc.bytes);
+        }
+    }
+}
+"""
+
+file_partial = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.partial) {
+            emit(key, doc.bytes);
+        }
+    }
+}
+"""
+
 file_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -144,14 +166,6 @@ function(doc) {
 }
 """
 
-user_media = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        emit(doc.media, null);
-    }
-}
-"""
-
 user_tags = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.tags) {
@@ -163,82 +177,14 @@ function(doc) {
 }
 """
 
-user_all = """
+user_ctime = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        emit(doc.mtime, null);
+        emit(doc.ctime, null);
     }
 }
 """
 
-user_video = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'video') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_image = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'image') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_audio = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'audio') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_inbox = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.status == null) {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_reject = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.status == 'reject') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_keep = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.status == 'keep') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-
-store_plugin = """
-function(doc) {
-    if (doc.type == 'dmedia/store') {
-        emit(doc.plugin, null);
-    }
-}
-"""
 
 partition_uuid = """
 function(doc) {
@@ -293,17 +239,8 @@ designs = (
 
     ('user', (
         ('copies', user_copies, None),
-        ('media', user_media, _count),
         ('tags', user_tags, _count),
-        ('all', user_all, None),
-        ('video', user_video, None),
-        ('image', user_image, None),
-        ('audio', user_audio, None),
-
-        # Inbox workflow
-        ('inbox', user_inbox, _count),
-        ('reject', user_reject, _count),
-        ('keep', user_keep, _count),
+        ('ctime', user_ctime, None),
     )),
 
     ('store', (

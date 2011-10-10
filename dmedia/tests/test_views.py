@@ -63,32 +63,32 @@ class TestCouchFunctions(CouchCase):
         db.put(None)
 
         # Test when design doesn't exist:
-        doc = views.build_design_doc('user',
-            [('video', views.user_video, None)]
+        doc = views.build_design_doc('file',
+            [('stored', views.file_stored, '_sum')]
         )
         self.assertEqual(f(db, doc), 'new')
-        self.assertTrue(db.get('_design/user')['_rev'].startswith('1-'))
+        self.assertTrue(db.get('_design/file')['_rev'].startswith('1-'))
 
         # Test when design is same:
-        doc = views.build_design_doc('user',
-            [('video', views.user_video, None)]
+        doc = views.build_design_doc('file',
+            [('stored', views.file_stored, '_sum')]
         )
         self.assertEqual(f(db, doc), 'same')
-        self.assertTrue(db.get('_design/user')['_rev'].startswith('1-'))
+        self.assertTrue(db.get('_design/file')['_rev'].startswith('1-'))
 
         # Test when design is changed:
-        doc = views.build_design_doc('user',
-            [('video', views.user_audio, None)]
+        doc = views.build_design_doc('file',
+            [('stored', views.file_bytes, '_sum')]
         )
         self.assertEqual(f(db, doc), 'changed')
-        self.assertTrue(db.get('_design/user')['_rev'].startswith('2-'))
+        self.assertTrue(db.get('_design/file')['_rev'].startswith('2-'))
 
         # Again test when design is same:
-        doc = views.build_design_doc('user',
-            [('video', views.user_audio, None)]
+        doc = views.build_design_doc('file',
+            [('stored', views.file_bytes, '_sum')]
         )
         self.assertEqual(f(db, doc), 'same')
-        self.assertTrue(db.get('_design/user')['_rev'].startswith('2-'))
+        self.assertTrue(db.get('_design/file')['_rev'].startswith('2-'))
 
     def test_init_views(self):
         db = Database('dmedia', self.env)
