@@ -35,11 +35,22 @@ log = logging.getLogger()
 _sum = '_sum'
 _count = '_count'
 
-type_type = """
+
+doc_type = """
 function(doc) {
-    if (doc.type) {
-        emit(doc.type, null);
-    }
+    emit(doc.type, null);
+}
+"""
+
+doc_ver = """
+function(doc) {
+    emit(doc.ver, null);
+}
+"""
+
+doc_time = """
+function(doc) {
+    emit(doc.time, null);
 }
 """
 
@@ -89,7 +100,8 @@ function(doc) {
 """
 
 
-# views in the 'file' design only index docs for which doc.type == 'dmedia/file'
+###########################
+# doc.type == 'dmedia/file'
 file_stored = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -212,8 +224,10 @@ function(doc) {
 
 
 designs = (
-    ('type', (
-        ('type', type_type, _count),
+    ('doc', (
+        ('type', doc_type, _count),
+        ('ver', doc_ver, _count),
+        ('time', doc_time, None),
     )),
 
     ('batch', (
@@ -232,6 +246,8 @@ designs = (
 
     ('file', (
         ('stored', file_stored, _sum),
+        ('partial', file_partial, _sum),
+        ('corrupt', file_corrupt, _sum),
         ('bytes', file_bytes, _sum),
         ('verified', file_verified, None),
         ('ctime', file_ctime, None),
