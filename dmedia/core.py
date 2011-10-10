@@ -54,12 +54,15 @@ from copy import deepcopy
 import os
 from os import path
 import json
+import time
+import stat
 
 from microfiber import Database, NotFound, Conflict
-from filestore import FileStore
+from filestore import FileStore, DOTNAME
 
-from .constants import DBNAME
 from .transfers import TransferManager
+from dmedia import schema
+from dmedia.local import LocalStores
 from .schema import random_id, create_machine, create_store
 from .views import init_views
 
@@ -70,23 +73,85 @@ LOCAL_ID = '_local/dmedia'
 log = logging.getLogger()
 
 
-class LocalStores(object):
-    def by_id(self, _id):
-        pass
-
-    def by_path(self, parentdir):
-        pass
-
-    def by_device(self, device):
-        pass
-
-
 def start_file_server(env, queue):
     from wsgiref.simple_server import make_server, demo_app
     httpd = make_server('', 0, demo_app)
     (ip, port) = httpd.socket.getsockname()
     queue.put(port)
     httpd.serve_forever()
+
+
+class Core2:
+    def __init__(self, env):
+        self.env = env
+        self.db = Database('dmedia', env)
+        self.stores = LocalStores()
+
+    def bootstrap(self):
+        self.db.ensure()
+        self.init_local()
+
+    def init_local(self):
+        try:
+            self.local = self.db.get(LOCAL_ID)
+        except NotFound:
+            machine = create_machine()
+            self.local = {
+                '_id': LOCAL_ID,
+                'machine_id': machine['_id'],
+                'stores': {},
+            }
+            self.db.save(self.local)
+            self.db.save(machine)
+        self.machine_id = self.local['machine_id']
+        self.env['machine_id'] = self.machine_id
+
+    def init_stores(self):
+        if not self.local['stores']:
+            return
+        dirs = sorted(self.local['stores'])
+        for parentdir in dirs:
+            try:
+                fs = self.init_filestore(parentdir)
+                self.stores.add(fs)
+                self.local['stores'][parentdir] = {
+                    'id': fs.id,
+                    'copies': fs.copies,
+                }
+            except Exception:
+                del self.local['stores'][parentdir]
+        self.db.save(self.local)
+
+    def init_filestore(self, parentdir, copies=1):
+        fs = FileStore(parentdir)
+        f = path.join(fs.basedir, 'store.json')
+        try:
+            doc = json.load(open(f, 'r'))
+            try:
+                doc = self.db.get(doc['_id'])
+            except NotFound:
+                pass
+        except Exception:
+            doc = schema.create_filestore(copies)
+            json.dump(doc, open(f, 'w'), sort_keys=True, indent=4)
+            os.chmod(f, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+        doc['connected'] = time.time()
+        doc['connected_to'] = self.machine_id
+        doc['statvfs'] = fs.statvfs()._asdict()
+        self.db.save(doc)
+        fs.id = doc['_id']
+        fs.copies = doc.get('copies', copies)
+        return fs
+
+    def add_filestore(self, parentdir, copies=1, fast=True):
+        pass
+
+    def add_filestore(self, parentdir, copies=1, fast=True):
+        pass
+
+    def remove_filestore(self, parentdir):
+        del self.local['stores'][parentdir]
+        self.db.save(self.local)
 
 
 class Core(object):

@@ -33,10 +33,27 @@ import microfiber
 from filestore import FileStore, DIGEST_BYTES
 
 from dmedia.schema import random_id, check_store
+from dmedia.local import LocalStores
 from dmedia import core
 
 from .couch import CouchCase
 from .base import TempDir, TempHome
+
+
+class TestCore2(CouchCase):
+    def test_init(self):
+        inst = core.Core2(self.env)
+        self.assertIsInstance(inst.db, microfiber.Database)
+        self.assertEqual(inst.db.name, 'dmedia')
+        self.assertIsInstance(inst.stores, LocalStores)
+
+    def test_init_local(self):
+        inst = core.Core2(self.env)
+        self.assertTrue(inst.db.ensure())
+        self.assertFalse(hasattr(inst, 'local'))
+        self.assertIsNone(inst.init_local())
+        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
+        
 
 
 class TestCore(CouchCase):

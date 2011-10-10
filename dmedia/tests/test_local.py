@@ -200,6 +200,7 @@ class TestLocalStores(TestCase):
 
 
 class TestLocalBase(CouchCase):
+    create_databases = ['dmedia', 'dmedia_log']
 
     def test_get_doc(self):
         inst = local.LocalBase(self.env)

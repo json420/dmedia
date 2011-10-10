@@ -1050,6 +1050,20 @@ def create_machine():
     }
 
 
+def create_filestore(copies=1):
+    """
+    Create a 'dmedia/store' doc for a FileStore.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/store',
+        'time': time.time(),
+        'plugin': 'filestore',
+        'copies': copies,
+    }
+
+
 def create_store(parentdir, machine_id, copies=1):
     """
     Create a 'dmedia/store' doc for a FileStore on a non-removable drive.
