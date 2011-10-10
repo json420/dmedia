@@ -27,6 +27,7 @@ The real Python3 dmedia DBus service (well, almost).
 
 import sys
 import json
+from os import path
 
 from gi.repository import GObject
 
@@ -65,10 +66,9 @@ class DMedia:
                 pass
 
     def AddFileStore(self, parentdir):
-        print(parentdir)
+        self.core.add_filestore(path.abspath(parentdir))
 
     def Kill(self):
-        print('Kill')
         self.mainloop.quit()
 
 

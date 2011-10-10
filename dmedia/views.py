@@ -91,7 +91,6 @@ function(doc) {
 
 # views in the 'file' design only index docs for which doc.type == 'dmedia/file'
 file_stored = """
-// Get list of all files on a given store, total bytes on that store
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
@@ -102,50 +101,37 @@ function(doc) {
 }
 """
 
+file_verified = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.stored) {
+            emit(doc.stored[key].verified, null);
+        }
+    }
+}
+"""
+
 file_bytes = """
 function(doc) {
-    if (doc.type == 'dmedia/file' && typeof(doc.bytes) == 'number') {
+    if (doc.type == 'dmedia/file') {
         emit(doc.bytes, doc.bytes);
     }
 }
 """
 
-file_ext = """
+file_ctime = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.ext, null);
+        emit(doc.ctime, null);
     }
 }
 """
 
-file_content_type = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.content_type, null);
-    }
-}
-"""
-
-file_mtime = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.mtime, null);
-    }
-}
-"""
-
-file_import_id = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.import_id) {
-        emit(doc.import_id, null);
-    }
-}
-"""
 
 # views in the 'user' design only index docs for which doc.type == 'dmedia/file'
 # and doc.origin == 'user'
 user_copies = """
-// Durability of user's personal files
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         var copies = 0;
@@ -300,11 +286,9 @@ designs = (
 
     ('file', (
         ('stored', file_stored, _sum),
-        ('import_id', file_import_id, None),
         ('bytes', file_bytes, _sum),
-        ('ext', file_ext, _count),
-        ('content_type', file_content_type, _count),
-        ('mtime', file_mtime, None),
+        ('verified', file_verified, None),
+        ('ctime', file_ctime, None),
     )),
 
     ('user', (

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
@@ -30,7 +30,7 @@ Command line tool for talking to dmedia DBus services.
 from sys import argv, stderr
 import dmedia
 from dmedia.constants import BUS, IFACE
-import dbus
+from dmedia.service import dbus
 
 class DBusCLI (object):
     """
@@ -69,7 +69,6 @@ class DBusCLI (object):
         self._iface = dbus_iface
         self._action_methods = {}
         self._action_help = {}
-        self._conn = dbus.SessionBus()
         self._add_default_actions()
 
     def has_action(self, name):
@@ -152,11 +151,11 @@ for a list of available actions.
         Run the dbus method `name` with arguments `args`.
         Catch any errors and print them to stderr.
         """
-        proxy = self._conn.get_object(self._bus, self._obj)
-        method = proxy.get_dbus_method(name, dbus_interface=self._iface)
+        proxy = dbus.session.get(self._bus, self._obj, self._iface)
         try:
+            getattr(proxy, name)
             print(str(method(*args)))
-        except Exception, e:
+        except Exception as e:
             stderr.write("Error: %s\n"%e.message)
 
     def run_action(self, name, *args):
