@@ -31,6 +31,7 @@ Note that because this script must be Python2, it can't import anything from the
 import argparse
 import os
 from os import path
+from subprocess import Popen
 import logging
 
 import xdg.BaseDirectory
@@ -38,10 +39,13 @@ import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 
+
 __version__ = '11.10.0'
 BUS = 'org.freedesktop.DMedia'
 IFACE = BUS
 log = logging.getLogger()
+service3 = path.join(path.dirname(path.abspath(__file__)), 'dmedia-service3')
+assert path.isfile(service3)
 
 DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
@@ -73,9 +77,11 @@ class DMedia(dbus.service.Object):
     def __init__(self, bus, mainloop):
         self._bus = bus
         self._mainloop = mainloop
-        log.info('Starting dmedia core service on %r', bus)
+        log.info('Binding to %r', bus)
         super(DMedia, self).__init__(session, object_path='/')
         self._busname = dbus.service.BusName(bus, session)
+        log.info('Starting %r', service3)
+        self._child = Popen([service3])
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -90,6 +96,8 @@ class DMedia(dbus.service.Object):
         Kill the `dmedia-service` process.
         """
         log.info('Killing dmedia core service on %r', self._bus)
+        self._child.terminate()
+        self._child.wait()
         self._mainloop.quit()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
@@ -113,7 +121,7 @@ parser.add_argument('--bus',
     help='DBus bus name; default is %(default)r',
 )
 args = parser.parse_args()
-configure_logging('service2')
+configure_logging('service')
 
 from gi.repository import GObject
 GObject.threads_init()
