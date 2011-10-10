@@ -33,6 +33,7 @@ import os
 from os import path
 from subprocess import Popen
 import logging
+import time
 
 import xdg.BaseDirectory
 import dbus
@@ -81,7 +82,7 @@ class DMedia(dbus.service.Object):
         super(DMedia, self).__init__(session, object_path='/')
         self._busname = dbus.service.BusName(bus, session)
         log.info('Starting %r', service3)
-        self._child = Popen([service3])
+        self._child = Popen([service3, bus])
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -96,9 +97,13 @@ class DMedia(dbus.service.Object):
         Kill the `dmedia-service` process.
         """
         log.info('Killing dmedia core service on %r', self._bus)
-        self._child.terminate()
+        self.FwdKill()
         self._child.wait()
         self._mainloop.quit()
+
+    @dbus.service.signal(IFACE, signature='')
+    def FwdKill(self):
+        pass
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
@@ -109,6 +114,10 @@ class DMedia(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def AddFileStore(self, parentdir):
+        self.FwdAddFileStore(parentdir)
+
+    @dbus.service.signal(IFACE, signature='s')
+    def FwdAddFileStore(self, parentdir):
         pass
 
 

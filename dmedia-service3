@@ -25,8 +25,47 @@
 The real Python3 dmedia DBus service (well, almost).
 """
 
+import sys
+
 from gi.repository import GObject
 
+from dmedia.service.dbus import session
+
+if len(sys.argv) != 2:
+    sys.exit('Must supply BUS')
+bus = sys.argv[1]
 GObject.threads_init()
-mainloop = GObject.MainLoop()
-mainloop.run()
+
+
+class DMedia:
+    def __init__(self):
+        self.mainloop = GObject.MainLoop()
+        self.proxy = session.get(bus, '/', 'org.freedesktop.DMedia')
+        self.proxy.connect('g-signal', self.on_g_signal)
+        self._fwd = {
+            'AddFileStore': self.AddFileStore,
+            'Kill': self.Kill,
+        }
+
+    def run(self):
+        self.mainloop.run()
+
+    def on_g_signal(self, proxy, sender, signal, params):
+        if signal.startswith('Fwd'):
+            name = signal[3:]
+            args = params.unpack()
+            try:
+                self._fwd[name](*args)
+            except KeyError:
+                pass
+
+    def AddFileStore(self, parentdir):
+        print(parentdir)
+
+    def Kill(self):
+        print('Kill')
+        self.mainloop.quit()
+
+
+dmedia = DMedia()
+dmedia.run()
