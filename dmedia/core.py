@@ -33,6 +33,7 @@ from os import path
 import json
 import time
 import stat
+import multiprocessing
 
 from microfiber import Database, NotFound
 from filestore import FileStore
@@ -45,12 +46,34 @@ from dmedia.views import init_views
 LOCAL_ID = '_local/dmedia'
 
 
-def start_file_server(env, queue):
-    from wsgiref.simple_server import make_server, demo_app
-    httpd = make_server('', 0, demo_app)
-    (ip, port) = httpd.socket.getsockname()
-    queue.put(port)
-    httpd.serve_forever()
+def file_server(env, queue):
+    try:
+        from wsgiref.simple_server import make_server
+        from dmedia.server import ReadOnlyApp
+        app = ReadOnlyApp(env)
+        httpd = make_server('', 0, app)
+        port = httpd.socket.getsockname()[1]
+        queue.put(port)
+        httpd.serve_forever()
+    except Exception as e:
+        queue.put(e)
+
+
+def _start_process(target, *args):
+    process = multiprocessing.Process(target=target, args=args)
+    process.daemon = True
+    process.start()
+    return process
+
+
+def start_file_server(env):
+    q = multiprocessing.Queue()
+    httpd = _start_process(file_server, env, q)
+    port = q.get()
+    if isinstance(port, Exception):
+        raise port
+    print('http://localhost:{}/'.format(port))
+    return (httpd, port)
 
 
 class Core:

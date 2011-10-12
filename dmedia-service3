@@ -28,20 +28,20 @@ The real Python3 dmedia DBus service (well, almost).
 import sys
 import json
 from os import path
+import optparse
 
 from gi.repository import GObject
 
+from dmedia import __version__
 from dmedia.service.dbus import session
-from dmedia.core import Core
+from dmedia.core import Core, start_file_server
 
-if len(sys.argv) != 2:
-    sys.exit('Must supply BUS')
-bus = sys.argv[1]
 GObject.threads_init()
+BUS = 'org.freedesktop.DMedia'
 
 
 class DMedia:
-    def __init__(self):
+    def __init__(self, bus):
         self.mainloop = GObject.MainLoop()
         dc3 = session.get('org.freedesktop.DC3', '/')
         self.env_s = dc3.GetEnv()
@@ -54,6 +54,7 @@ class DMedia:
         }
 
     def run(self):
+        (self.httpd, self.port) = start_file_server(self.core.env)
         self.mainloop.run()
 
     def on_g_signal(self, proxy, sender, signal, params):
@@ -69,8 +70,21 @@ class DMedia:
         self.core.add_filestore(path.abspath(parentdir))
 
     def Kill(self):
+        self.httpd.terminate()
+        self.httpd.wait()
         self.mainloop.quit()
 
 
-dmedia = DMedia()
+parser = optparse.OptionParser(
+	usage='Usage: %prog FILE',
+	version=__version__,
+)
+parser.add_option('--bus',
+    default=BUS,
+    help='DBus bus name; default is {!r}'.format(BUS),
+)
+(options, args) = parser.parse_args()
+
+
+dmedia = DMedia(options.bus)
 dmedia.run()

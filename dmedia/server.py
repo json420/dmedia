@@ -138,6 +138,7 @@ class ReadOnlyApp(BaseWSGI):
         info = {
             'dmedia': 'Welcome',
             'version': __version__,
+            'machine_id': env.get('machine_id'),
         }
         self._info = json.dumps(info, sort_keys=True).encode('utf-8')
 
