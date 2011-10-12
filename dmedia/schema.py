@@ -724,14 +724,18 @@ def check_file(doc):
     ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
+    ...     'atime': 1318399431,
     ...     'bytes': 20202333,
     ...     'origin': 'user',
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'copies': 2,
     ...             'mtime': 1234567890,
+    ...             'plugin': 'filestore',
     ...         },
     ...     },
+    ...     'partial': {},
+    ...     'corrupt': {},
     ... }
     ...
     >>> check_file(doc)
@@ -751,7 +755,7 @@ def check_file(doc):
     _check(doc, ['time'], (int, float),
         (_at_least, 0),
     )
-
+    
     # dmedia/file specific:
     _check(doc, ['_attachments', 'leaf_hashes'], dict,
         _nonempty,
@@ -766,24 +770,40 @@ def check_file(doc):
         _lowercase,
         (_is_in, 'user', 'paid', 'download', 'proxy', 'render', 'cache'),
     )
-    _check(doc, ['stored'], dict,
-        _nonempty,
+    _check(doc, ['atime'], (int, float),
+        (_at_least, 0),
     )
-    for store in doc['stored']:
-        _check(doc, ['stored', store], dict)
-        _check(doc, ['stored', store, 'copies'], int,
+
+    _check(doc, ['stored'], dict)
+    for key in doc['stored']:
+        _check(doc, ['stored', key], dict)
+        _check(doc, ['stored', key, 'copies'], int,
             (_at_least, 0),
         )
-        _check(doc, ['stored', store, 'mtime'], (int, float),
+        _check(doc, ['stored', key, 'mtime'], (int, float),
             (_at_least, 0),
         )
-        _check_if_exists(doc, ['stored', store, 'verified'], (int, float),
+        _check_if_exists(doc, ['stored', key, 'verified'], (int, float),
             (_at_least, 0),
         )
-        _check_if_exists(doc, ['stored', store, 'status'], str,
-            (_is_in, 'partial', 'corrupt'),
+
+    _check(doc, ['partial'], dict)
+    for key in doc['partial']:
+        _check(doc, ['partial', key], dict)
+        _check(doc, ['partial', store, 'time'], (int, float),
+            (_at_least, 0),
         )
-        _check_if_exists(doc, ['stored', store, 'corrupted'], (int, float),
+        _check(doc, ['partial', store, 'mtime'], (int, float),
+            (_at_least, 0),
+        )
+
+    _check(doc, ['corrupt'], dict)
+    for key in doc['corrupt']:
+        _check(doc, ['corrupt', key], dict)
+        _check(doc, ['corrupt', store, 'time'], (int, float),
+            (_at_least, 0),
+        )
+        _check(doc, ['corrupt', store, 'mtime'], (int, float),
             (_at_least, 0),
         )
 
@@ -811,11 +831,6 @@ def check_file_optional(doc):
 
     # 'ctime' like 1234567890
     _check_if_exists(doc, ['ctime'], (int, float),
-        (_at_least, 0),
-    )
-
-    # 'atime' like 1234567890
-    _check_if_exists(doc, ['atime'], (int, float),
         (_at_least, 0),
     )
 
@@ -1020,6 +1035,7 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
+    timestamp = time.time()
     return {
         '_id': _id,
         '_attachments': {
@@ -1030,10 +1046,13 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
         },
         'ver': 0,
         'type': 'dmedia/file',
-        'time': time.time(),
+        'time': timestamp,
+        'atime': timestamp,
         'bytes': file_size,
         'origin': origin,
         'stored': stored,
+        'partial': {},
+        'corrupt': {},
     }
 
 
@@ -1047,6 +1066,20 @@ def create_machine():
         'type': 'dmedia/machine',
         'time': time.time(),
         'hostname': socket.gethostname(),
+    }
+
+
+def create_filestore(copies=1):
+    """
+    Create a 'dmedia/store' doc for a FileStore.
+    """
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/store',
+        'time': time.time(),
+        'plugin': 'filestore',
+        'copies': copies,
     }
 
 

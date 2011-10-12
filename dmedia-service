@@ -1,15 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
-# Authors:
-#   Jason Gerard DeRose <jderose@novacut.com>
-#
 # dmedia: distributed media library
-# Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2011 Novacut Inc
 #
 # This file is part of `dmedia`.
 #
-# `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Affero General Public License as published by the Free
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
@@ -20,60 +17,124 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Core dmedia DBus service at "org.freedesktop.DMedia".
+Hacky shim till it's possible to implement DBus servers in PyGI.
+
+Note that because this script must be Python2, it can't import anything from the
+`dmedia` package as it will only be installed under Python3.
 """
 
 import argparse
+import os
+from os import path
+from subprocess import Popen
+import logging
 import time
 
-import dmedia
-from dmedia.constants import BUS, DBNAME
+import xdg.BaseDirectory
+import dbus
+import dbus.service
+from dbus.mainloop.glib import DBusGMainLoop
+
+
+__version__ = '11.10.0'
+BUS = 'org.freedesktop.DMedia'
+IFACE = BUS
+log = logging.getLogger()
+service3 = path.join(path.dirname(path.abspath(__file__)), 'dmedia-service3')
+assert path.isfile(service3)
+
+DBusGMainLoop(set_as_default=True)
+session = dbus.SessionBus()
+
+
+def configure_logging(namespace):
+    format = [
+        '%(levelname)s',
+        '%(process)d',
+        '%(message)s',
+    ]
+    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
+    if not path.exists(cache):
+        os.makedirs(cache)
+    filename = path.join(cache, namespace + '.log')
+    if path.exists(filename):
+        os.rename(filename, filename + '.previous')
+    logging.basicConfig(
+        filename=filename,
+        filemode='w',
+        level=logging.DEBUG,
+        format='\t'.join(format),
+    )
+    logging.info('__version__: %r', __version__)
+    logging.info('__file__: %r', path.abspath(__file__))
+
+
+class DMedia(dbus.service.Object):
+    def __init__(self, bus, mainloop):
+        self._bus = bus
+        self._mainloop = mainloop
+        log.info('Binding to %r', bus)
+        super(DMedia, self).__init__(session, object_path='/')
+        self._busname = dbus.service.BusName(bus, session)
+        log.info('Starting %r', service3)
+        self._child = Popen([service3, bus])
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def Version(self):
+        """
+        Return dmedia version.
+        """
+        return __version__
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def Kill(self):
+        """
+        Kill the `dmedia-service` process.
+        """
+        log.info('Killing dmedia core service on %r', self._bus)
+        self.FwdKill()
+        self._child.wait()
+        self._mainloop.quit()
+
+    @dbus.service.signal(IFACE, signature='')
+    def FwdKill(self):
+        pass
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetEnv(self):
+        """
+        Return dmedia env as JSON string.
+        """
+        return self._env_s
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def AddFileStore(self, parentdir):
+        self.FwdAddFileStore(parentdir)
+
+    @dbus.service.signal(IFACE, signature='s')
+    def FwdAddFileStore(self, parentdir):
+        pass
 
 
 parser = argparse.ArgumentParser(
     description='DBus service @{}'.format(BUS),
 )
-parser.add_argument('--version', action='version', version=dmedia.__version__)
-parser.add_argument('--app',
-    action='store_true',
-    default=False,
-    help='prepare webUI files immediately (in-tree testing)',
-)
-parser.add_argument('--no-dc',
-    action='store_true',
-    default=False,
-    help='Use system-wide CouchDB instead of desktopcouch',
-)
+parser.add_argument('--version', action='version', version=__version__)
 parser.add_argument('--bus',
     default=BUS,
     help='DBus bus name; default is %(default)r',
 )
-parser.add_argument('--dbname',
-    metavar='DB',
-    default=DBNAME,
-    help='CouchDB database; default is %(default)r',
-)
-parser.add_argument('--env',
-    help='dmedia environment as JSON serialized string',
-    metavar='JSON',
-)
-
 args = parser.parse_args()
-dmedia.configure_logging('service')
-
-from dbus.mainloop.glib import DBusGMainLoop
-DBusGMainLoop(set_as_default=True)
+configure_logging('service')
 
 from gi.repository import GObject
 GObject.threads_init()
 
-from dmedia.service import DMedia
-
 mainloop = GObject.MainLoop()
-couchargs = (args.dbname, args.no_dc, args.env)
-obj = DMedia(couchargs, args.bus, mainloop.quit, start=time.time())
-if args.app:
-    print('HasApp(): {!r}'.format(obj.HasApp()))
+dmedia = DMedia(args.bus, mainloop)
 mainloop.run()

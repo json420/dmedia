@@ -118,6 +118,12 @@ class LocalStores:
         self.fast = set()
         self.slow = set()
 
+    def by_id(self, _id):
+        return self.ids[_id]
+
+    def by_parentdir(self, parentdir):
+        return self.parentdirs[parentdir]
+
     def add(self, fs, fast=True):
         if fs.id in self.ids:
             raise Exception('already have ID {!r}'.format(fs.id))
@@ -149,7 +155,6 @@ class LocalStores:
 class LocalBase:
     def __init__(self, env):
         self.db = microfiber.Database('dmedia', env)
-        self.db.ensure()
         self.stores = LocalStores()
 
     def get_doc(self, _id):
@@ -164,7 +169,8 @@ class LocalBase:
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
-    def path(self, _id):
+    def stat(self, _id):
         doc = self.get_doc(_id)
         fs = self.stores.choose_local_store(doc)
-        return fs.path(_id)
+        return fs.stat(_id)
+

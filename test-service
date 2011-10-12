@@ -1,0 +1,75 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2011 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+"""
+Test the call forwarding from dmedia-service.
+"""
+
+import os
+from os import path
+from subprocess import Popen
+import time
+
+from microfiber import random_id
+from gi.repository import GObject
+
+import dmedia
+from dmedia.service import dbus
+from dmedia.tests.base import TempDir
+
+GObject.threads_init()
+service = path.join(path.dirname(path.abspath(__file__)), 'dmedia-service')
+assert path.isfile(service)
+bus = 'tmp{}.DMedia'.format(random_id())
+print(bus)
+cmd = [service, '--bus', bus]
+mainloop = GObject.MainLoop()
+
+
+def run_tests(child):
+    try:
+        tmp = TempDir()
+        time.sleep(2)
+        proxy = dbus.session.get(bus, '/', 'org.freedesktop.DMedia')
+        assert proxy.Version() == dmedia.__version__
+
+        proxy.AddFileStore('(s)', tmp.dir)
+        time.sleep(2)
+    
+        proxy.Kill()
+        assert child.wait() == 0
+    finally:
+        mainloop.quit()
+
+
+try:
+    child = Popen(cmd)
+    GObject.idle_add(run_tests, child)
+    mainloop.run()
+finally:
+    try:
+        child.terminate()
+    except OSError:
+        pass
+    child.wait()
+

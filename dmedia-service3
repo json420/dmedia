@@ -1,0 +1,76 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2011 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+"""
+The real Python3 dmedia DBus service (well, almost).
+"""
+
+import sys
+import json
+from os import path
+
+from gi.repository import GObject
+
+from dmedia.service.dbus import session
+from dmedia.core import Core
+
+if len(sys.argv) != 2:
+    sys.exit('Must supply BUS')
+bus = sys.argv[1]
+GObject.threads_init()
+
+
+class DMedia:
+    def __init__(self):
+        self.mainloop = GObject.MainLoop()
+        dc3 = session.get('org.freedesktop.DC3', '/')
+        self.env_s = dc3.GetEnv()
+        self.core = Core(json.loads(self.env_s))
+        self.proxy = session.get(bus, '/', 'org.freedesktop.DMedia')
+        self.proxy.connect('g-signal', self.on_g_signal)
+        self._fwd = {
+            'AddFileStore': self.AddFileStore,
+            'Kill': self.Kill,
+        }
+
+    def run(self):
+        self.mainloop.run()
+
+    def on_g_signal(self, proxy, sender, signal, params):
+        if signal.startswith('Fwd'):
+            name = signal[3:]
+            args = params.unpack()
+            try:
+                self._fwd[name](*args)
+            except KeyError:
+                pass
+
+    def AddFileStore(self, parentdir):
+        self.core.add_filestore(path.abspath(parentdir))
+
+    def Kill(self):
+        self.mainloop.quit()
+
+
+dmedia = DMedia()
+dmedia.run()

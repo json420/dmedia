@@ -32,18 +32,10 @@ import filestore
 from microfiber import random_id, Database
 
 from .couch import CouchCase
-from .base import TempDir
+from .base import TempDir, DummyQueue
 
 from dmedia import importer, schema
 
-
-class DummyQueue(object):
-    def __init__(self):
-        self.items = []
-
-    def put(self, item):
-        self.items.append(item)
-  
 
 class DummyCallback(object):
     def __init__(self):
@@ -54,6 +46,90 @@ class DummyCallback(object):
 
 
 class TestFunctions(TestCase):
+    def test_notify_started(self):
+        basedirs = ['/media/EOS_DIGITAL']
+        (summary, body) = importer.notify_started(basedirs)
+        self.assertEqual(summary, 'Importing files...')
+        self.assertEqual(body, '/media/EOS_DIGITAL')
+
+        basedirs = ['/media/EOS_DIGITAL', '/media/H4n']
+        (summary, body) = importer.notify_started(basedirs)
+        self.assertEqual(summary, 'Importing files from 2 cards...')
+        self.assertEqual(body, '\n'.join(basedirs))
+
+        basedirs = ['/media/EOS_DIGITAL', '/media/H4n', '/media/stuff']
+        (summary, body) = importer.notify_started(basedirs)
+        self.assertEqual(summary, 'Importing files from 3 cards...')
+        self.assertEqual(body, '\n'.join(basedirs))
+
+    def test_notify_stats(self):
+        stats = {
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+        }
+        (summary, body) = importer.notify_stats(stats)
+        self.assertEqual(summary, 'No files found')
+        self.assertIsNone(body)
+
+        GiB = 1024 ** 3
+
+        # Only new files
+        stats = {
+            'new': {'count': 1, 'bytes': 4 * GiB},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+        }
+        (summary, body) = importer.notify_stats(stats)
+        self.assertEqual(summary, '1 new file, 4.29 GB')
+        self.assertIsNone(body)
+
+        stats = {
+            'new': {'count': 2, 'bytes': 1234567890},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 0, 'bytes': 0},
+        }
+        (summary, body) = importer.notify_stats(stats)
+        self.assertEqual(summary, '2 new files, 1.23 GB')
+        self.assertIsNone(body)
+
+        # Only duplicate files
+        stats = {
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 1, 'bytes': 4 * GiB},
+            'empty': {'count': 0, 'bytes': 0},
+        }
+        (summary, body) = importer.notify_stats(stats)
+        self.assertEqual(summary, 'No new files')
+        self.assertEqual(body, '1 duplicate file, 4.29 GB')
+
+        stats = {
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 2, 'bytes': 1234567890},
+            'empty': {'count': 0, 'bytes': 0},
+        }
+        (summary, body) = importer.notify_stats(stats)
+        self.assertEqual(summary, 'No new files')
+        self.assertEqual(body, '2 duplicate files, 1.23 GB')
+
+        # Only empty files
+        stats = {
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 1, 'bytes': 0},
+        }
+        (summary, body) = importer.notify_stats(stats)
+        self.assertEqual(summary, 'No new files')
+        self.assertEqual(body, '1 empty file')
+
+        stats = {
+            'new': {'count': 0, 'bytes': 0},
+            'duplicate': {'count': 0, 'bytes': 0},
+            'empty': {'count': 2, 'bytes': 0},
+        }
+        (summary, body) = importer.notify_stats(stats)
+        self.assertEqual(summary, 'No new files')
+        self.assertEqual(body, '2 empty files')
 
     def test_accumulate_stats(self):
         f = importer.accumulate_stats
@@ -89,24 +165,20 @@ class ImportCase(CouchCase):
 
         self.src = TempDir()
 
-        self.dst1 = TempDir()
-        self.dst2 = TempDir()
+        temps = [TempDir() for i in range(2)]
+        (self.dst1, self.dst2) = sorted(temps, key=lambda t: t.dir)
         self.store1_id = random_id()
         self.store2_id = random_id()
-        self.env['filestores'] = [
-            {
-                '_id': self.store1_id,
-                'parentdir': self.dst1.dir,
-                'copies': 1,
+        local = {
+            '_id': '_local/dmedia',
+            'stores': {
+                self.dst1.dir: {'id': self.store1_id, 'copies': 1},
+                self.dst2.dir: {'id': self.store2_id, 'copies': 2},
             },
-            {
-                '_id': self.store2_id,
-                'parentdir': self.dst2.dir,
-                'copies': 2,
-            },
-        ]
-
+        }
         self.db = Database('dmedia', self.env)
+        self.db.ensure()
+        self.db.save(local)
 
     def tearDown(self):
         super().tearDown()
@@ -243,6 +315,7 @@ class TestImportWorker(ImportCase):
                 {
                     'mtime': fs1.stat(ch.id).mtime,
                     'copies': 1,
+                    'plugin': 'filestore',
                 }
             )
             self.assertEqual(
@@ -250,6 +323,7 @@ class TestImportWorker(ImportCase):
                 {
                     'mtime': fs2.stat(ch.id).mtime,
                     'copies': 2,
+                    'plugin': 'filestore',
                 }
             )
 
@@ -643,6 +717,7 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs1.stat(ch.id).mtime,
                     'copies': 1,
+                    'plugin': 'filestore',
                 }
             )
             self.assertEqual(
@@ -650,6 +725,7 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs2.stat(ch.id).mtime,
                     'copies': 2,
+                    'plugin': 'filestore',
                 }
             )
 
@@ -732,6 +808,7 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs1.stat(ch.id).mtime,
                     'copies': 1,
+                    'plugin': 'filestore',
                 }
             )
             self.assertEqual(
@@ -739,6 +816,7 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs2.stat(ch.id).mtime,
                     'copies': 2,
+                    'plugin': 'filestore',
                 }
             )
 

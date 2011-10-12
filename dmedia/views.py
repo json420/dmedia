@@ -35,11 +35,22 @@ log = logging.getLogger()
 _sum = '_sum'
 _count = '_count'
 
-type_type = """
+
+doc_type = """
 function(doc) {
-    if (doc.type) {
-        emit(doc.type, null);
-    }
+    emit(doc.type, null);
+}
+"""
+
+doc_ver = """
+function(doc) {
+    emit(doc.ver, null);
+}
+"""
+
+doc_time = """
+function(doc) {
+    emit(doc.time, null);
 }
 """
 
@@ -89,9 +100,9 @@ function(doc) {
 """
 
 
-# views in the 'file' design only index docs for which doc.type == 'dmedia/file'
+###########################
+# doc.type == 'dmedia/file'
 file_stored = """
-// Get list of all files on a given store, total bytes on that store
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
@@ -102,50 +113,93 @@ function(doc) {
 }
 """
 
+file_verified = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.stored) {
+            emit([key, doc.stored[key].verified], null);
+        }
+    }
+}
+"""
+
+file_fragile = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            copies += doc.stored[key].copies;
+        }
+        if (copies < 3) {
+            emit(copies, null);
+        }
+    }
+}
+"""
+
+file_reclaimable = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            copies += doc.stored[key].copies;
+        }
+        if (copies > 3) {
+            for (key in doc.stored) {
+                if (copies - doc.stored[key].copies >= 3) {
+                    emit([key, doc.atime], null);
+                }
+            }
+        }
+    }
+}
+"""
+
+file_corrupt = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.corrupt) {
+            emit(key, doc.bytes);
+        }
+    }
+}
+"""
+
+file_partial = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.partial) {
+            emit(key, doc.bytes);
+        }
+    }
+}
+"""
+
 file_bytes = """
 function(doc) {
-    if (doc.type == 'dmedia/file' && typeof(doc.bytes) == 'number') {
+    if (doc.type == 'dmedia/file') {
         emit(doc.bytes, doc.bytes);
     }
 }
 """
 
-file_ext = """
+file_ctime = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.ext, null);
+        emit(doc.ctime, null);
     }
 }
 """
 
-file_content_type = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.content_type, null);
-    }
-}
-"""
-
-file_mtime = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.mtime, null);
-    }
-}
-"""
-
-file_import_id = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.import_id) {
-        emit(doc.import_id, null);
-    }
-}
-"""
 
 # views in the 'user' design only index docs for which doc.type == 'dmedia/file'
 # and doc.origin == 'user'
 user_copies = """
-// Durability of user's personal files
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         var copies = 0;
@@ -154,14 +208,6 @@ function(doc) {
             copies += doc.stored[key].copies;
         }
         emit(copies, null);
-    }
-}
-"""
-
-user_media = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        emit(doc.media, null);
     }
 }
 """
@@ -177,82 +223,14 @@ function(doc) {
 }
 """
 
-user_all = """
+user_ctime = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        emit(doc.mtime, null);
+        emit(doc.ctime, null);
     }
 }
 """
 
-user_video = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'video') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_image = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'image') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_audio = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'audio') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_inbox = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.status == null) {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_reject = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.status == 'reject') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-user_keep = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.status == 'keep') {
-            emit(doc.mtime, null);
-        }
-    }
-}
-"""
-
-
-store_plugin = """
-function(doc) {
-    if (doc.type == 'dmedia/store') {
-        emit(doc.plugin, null);
-    }
-}
-"""
 
 partition_uuid = """
 function(doc) {
@@ -280,8 +258,10 @@ function(doc) {
 
 
 designs = (
-    ('type', (
-        ('type', type_type, _count),
+    ('doc', (
+        ('type', doc_type, _count),
+        ('time', doc_time, None),
+        #('ver', doc_ver, _count),
     )),
 
     ('batch', (
@@ -290,51 +270,39 @@ designs = (
 
     ('import', (
         ('time', import_time, None),
-        ('partition', import_partition, None)
-    )),
-
-    ('store', (
-        ('plugin', store_plugin, _count),
-        ('partition', store_partition, None)
+        #('partition', import_partition, None)
     )),
 
     ('file', (
         ('stored', file_stored, _sum),
-        ('import_id', file_import_id, None),
+        ('fragile', file_fragile, None),
+        ('reclaimable', file_reclaimable, None),
+        ('partial', file_partial, _sum),
+        ('corrupt', file_corrupt, _sum),
         ('bytes', file_bytes, _sum),
-        ('ext', file_ext, _count),
-        ('content_type', file_content_type, _count),
-        ('mtime', file_mtime, None),
+        ('verified', file_verified, None),
+        ('ctime', file_ctime, None),
     )),
 
     ('user', (
         ('copies', user_copies, None),
-        ('media', user_media, _count),
         ('tags', user_tags, _count),
-        ('all', user_all, None),
-        ('video', user_video, None),
-        ('image', user_image, None),
-        ('audio', user_audio, None),
-
-        # Inbox workflow
-        ('inbox', user_inbox, _count),
-        ('reject', user_reject, _count),
-        ('keep', user_keep, _count),
+        ('ctime', user_ctime, None),
     )),
 
     ('store', (
         ('plugin', store_plugin, _count),
-        ('partition', store_partition, None)
+        #('partition', store_partition, None)
     )),
 
-    ('partition', (
-        ('uuid', partition_uuid, None),
-        ('drive', partition_drive, None)
-    )),
+#    ('partition', (
+#        ('uuid', partition_uuid, None),
+#        ('drive', partition_drive, None)
+#    )),
 
-    ('drive', (
-        ('serial', drive_serial, None),
-    ))
+#    ('drive', (
+#        ('serial', drive_serial, None),
+#    ))
 )
 
 

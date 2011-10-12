@@ -146,5 +146,14 @@ setup(
                 'share/indicator-rendermenu-att.svg',
             ]
         ),
+        ('lib/dmedia',
+            [
+                'dmedia-service',
+                'dmedia-service3',
+            ]
+        ),
+        ('share/dbus-1/services/',
+            ['share/org.freedesktop.DMedia.service']
+        ),
     ],
 )

@@ -1,0 +1,155 @@
+#!/usr/bin/python3
+
+import sys
+from os import path
+from gettext import gettext as _
+import json
+import time
+
+import gi
+from gi.repository import GObject, Gtk, AppIndicator3, Notify, Unity
+
+from dmedia.core import Core
+from dmedia.service import dbus
+from dmedia.importer import ImportManager, notify_started, notify_stats
+
+
+GObject.threads_init()
+Notify.init('dmedia')
+
+ICON = 'indicator-rendermenu'
+ICON_ATT = 'indicator-rendermenu-att'
+
+dc3 = dbus.session.get('org.freedesktop.DC3', '/')
+env = json.loads(dc3.GetEnv())
+core = Core(env)
+
+class NotifyManager:
+    """
+    Helper class to make it easier to update notification when still visible.
+    """
+
+    def __init__(self, klass=None):
+        self._klass = (Notify.Notification if klass is None else klass)
+        self._current = None
+
+    def _on_closed(self, notification):
+        assert self._current is notification
+        self._current = None
+
+    def isvisible(self):
+        """
+        Return ``True`` in a notification is currently visible.
+        """
+        return (self._current is not None)
+
+    def notify(self, summary, body=None, icon=None):
+        """
+        Display a notification with *summary*, *body*, and *icon*.
+        """
+        assert self._current is None
+        self._current = self._klass.new(summary, body, icon)
+        self._current.connect('closed', self._on_closed)
+        self._current.show()
+
+    def update(self, summary, body=None, icon=None):
+        """
+        Update current notification to have *summary*, *body*, and *icon*.
+
+        This method will only work if the current notification is still visible.
+
+        To a display new or replace the existing notification regardless whether
+        the current notification is visible, use
+        `NotifyManager.replace()`.
+        """
+        assert self._current is not None
+        self._current.update(summary, body, icon)
+        self._current.show()
+
+    def replace(self, summary, body=None, icon=None):
+        """
+        Update current notification if visible, otherwise display a new one.
+        """
+        if self.isvisible():
+            self.update(summary, body, icon)
+        else:
+            self.notify(summary, body, icon)
+
+
+class ImportUI:
+    def __init__(self, env):
+        self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
+        self.notify = NotifyManager()
+        self.indicator = AppIndicator3.Indicator.new('rendermenu', ICON,
+            AppIndicator3.IndicatorCategory.APPLICATION_STATUS
+        )
+        self.indicator.set_attention_icon(ICON_ATT)
+        self.menu = Gtk.Menu()
+        close = Gtk.MenuItem()
+        close.set_label(_('Close'))
+        close.connect('activate', self.on_close)
+        self.menu.append(close)
+        self.menu.show_all()
+        self.indicator.set_menu(self.menu)
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        self.manager = ImportManager(env, self.on_callback)
+        self.handlers = {
+            'batch_started': self.on_batch_started,
+            'import_started': self.on_import_started,
+            'batch_finished': self.on_batch_finished,
+            'batch_progress': self.on_batch_progress,
+        }
+
+    def on_close(self, button):
+        Gtk.main_quit()
+
+    def on_callback(self, signal, args):
+        print(signal, *args)
+        try:
+            handler = self.handlers[signal]
+            handler(*args)
+        except KeyError:
+            pass
+
+    def on_batch_started(self, batch_id):
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
+        self.launcher.set_property('count', 0)
+        self.launcher.set_property('count_visible', True)
+        self.launcher.set_property('progress', 0.0)
+        self.launcher.set_property('progress_visible', True)
+        self.basedirs = []
+
+    def on_import_started(self, basedir, import_id):
+        self.basedirs.append(basedir)
+        (summary, body) = notify_started(self.basedirs)
+        self.notify.replace(summary, body, None)
+
+    def on_batch_progress(self, count, total_count, size, total_size):
+        self.launcher.set_property('count', total_count)
+        progress = (0.0 if total_size == 0 else size / total_size)
+        self.launcher.set_property('progress', progress)
+
+    def on_batch_finished(self, batch_id, stats):
+        self.launcher.set_property('count_visible', False)
+        self.launcher.set_property('progress_visible', False)
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        (summary, body) = notify_stats(stats)
+        self.notify.replace(summary, body, 'notification-device-eject')
+
+
+ui = ImportUI(core.env)
+basedirs = sys.argv[1:]
+
+def on_timeout():
+    if not basedirs:
+        return False
+    basedir = basedirs.pop()
+    ui.manager.start_import(path.abspath(basedir))
+    return True
+
+
+GObject.timeout_add(10000, on_timeout)
+
+#ui.manager.start_import(path.abspath(sys.argv[1]))
+
+Gtk.main()
