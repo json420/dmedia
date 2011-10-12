@@ -151,10 +151,13 @@ class ReadOnlyApp(BaseWSGI):
             return self.server_info(environ, start_response)
         # FIXME: Also validate slice compared to file-size
         (_id, start, stop) = get_slice(environ)
-        st = self.local.stat(_id)
+        try:
+            st = self.local.stat(_id)
+            fp = open(st.name, 'rb')
+        except Exception:
+            raise NotFound()
         _start = start * LEAF_SIZE
         _stop = (st.size if stop is None else min(st.size, stop * LEAF_SIZE))
-        fp = open(st.name, 'rb')
         fp.seek(_start)
         length = str(_stop - _start)
         start_response('200 OK', [('Content-Length', length)])
