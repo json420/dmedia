@@ -173,8 +173,8 @@ class ImportCase(CouchCase):
 
         self.src = TempDir()
 
-        self.dst1 = TempDir()
-        self.dst2 = TempDir()
+        temps = [TempDir() for i in range(2)]
+        (self.dst1, self.dst2) = sorted(temps, key=lambda t: t.dir)
         self.store1_id = random_id()
         self.store2_id = random_id()
         local = {

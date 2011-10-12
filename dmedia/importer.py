@@ -141,7 +141,8 @@ class ImportWorker(workers.CouchWorker):
         # available space on the filestores.
         stores = []
         local = self.db.get('_local/dmedia')
-        for (parentdir, info) in local['stores'].items():
+        for parentdir in sorted(local['stores']):
+            info = local['stores'][parentdir]
             fs = FileStore(parentdir, info['id'], info['copies'])
             stores.append(fs)
         return stores
