@@ -113,6 +113,36 @@ function(doc) {
 }
 """
 
+file_fragile = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            copies += doc.stored[key].copies;
+        }
+        if (copies < 3) {
+            emit(copies, null);
+        }
+    }
+}
+"""
+
+file_reclaimable = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            copies += doc.stored[key].copies;
+        }
+        if (copies > 3) {
+            emit(doc.atime, null);
+        }
+    }
+}
+"""
+
 file_corrupt = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -226,8 +256,8 @@ function(doc) {
 designs = (
     ('doc', (
         ('type', doc_type, _count),
-        ('ver', doc_ver, _count),
         ('time', doc_time, None),
+        #('ver', doc_ver, _count),
     )),
 
     ('batch', (
@@ -236,16 +266,13 @@ designs = (
 
     ('import', (
         ('time', import_time, None),
-        ('partition', import_partition, None)
-    )),
-
-    ('store', (
-        ('plugin', store_plugin, _count),
-        ('partition', store_partition, None)
+        #('partition', import_partition, None)
     )),
 
     ('file', (
         ('stored', file_stored, _sum),
+        ('fragile', file_fragile, None),
+        ('reclaimable', file_reclaimable, None),
         ('partial', file_partial, _sum),
         ('corrupt', file_corrupt, _sum),
         ('bytes', file_bytes, _sum),
@@ -261,17 +288,17 @@ designs = (
 
     ('store', (
         ('plugin', store_plugin, _count),
-        ('partition', store_partition, None)
+        #('partition', store_partition, None)
     )),
 
-    ('partition', (
-        ('uuid', partition_uuid, None),
-        ('drive', partition_drive, None)
-    )),
+#    ('partition', (
+#        ('uuid', partition_uuid, None),
+#        ('drive', partition_drive, None)
+#    )),
 
-    ('drive', (
-        ('serial', drive_serial, None),
-    ))
+#    ('drive', (
+#        ('serial', drive_serial, None),
+#    ))
 )
 
 
