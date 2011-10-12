@@ -137,6 +137,8 @@ class ImportWorker(workers.CouchWorker):
         self.emit('scanned', self.batch.count, self.batch.size)
 
     def get_filestores(self):
+        # FIXME: Should pick up to 2 filestores based size of import and
+        # available space on the filestores.
         stores = []
         local = self.db.get('_local/dmedia')
         for (parentdir, info) in local['stores'].items():
