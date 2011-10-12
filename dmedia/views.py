@@ -137,7 +137,11 @@ function(doc) {
             copies += doc.stored[key].copies;
         }
         if (copies > 3) {
-            emit(doc.atime, null);
+            for (key in doc.stored) {
+                if (copies - doc.stored[key].copies >= 3) {
+                    emit([key, doc.atime], null);
+                }
+            }
         }
     }
 }

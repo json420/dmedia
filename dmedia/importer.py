@@ -171,7 +171,13 @@ class ImportWorker(workers.CouchWorker):
                 yield ('empty', file, None)
                 continue
             stored = dict(
-                (fs.id, {'copies': fs.copies, 'mtime': fs.stat(ch.id).mtime})
+                (fs.id, 
+                    {
+                        'copies': fs.copies,
+                        'mtime': fs.stat(ch.id).mtime,
+                        'plugin': 'filestore',
+                    }
+                )
                 for fs in filestores
             )
             try:
