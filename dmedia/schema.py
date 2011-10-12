@@ -724,12 +724,14 @@ def check_file(doc):
     ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
+    ...     'atime': 1318399431,
     ...     'bytes': 20202333,
     ...     'origin': 'user',
     ...     'stored': {
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'copies': 2,
     ...             'mtime': 1234567890,
+    ...             'plugin': 'filestore',
     ...         },
     ...     },
     ...     'partial': {},
@@ -753,7 +755,7 @@ def check_file(doc):
     _check(doc, ['time'], (int, float),
         (_at_least, 0),
     )
-
+    
     # dmedia/file specific:
     _check(doc, ['_attachments', 'leaf_hashes'], dict,
         _nonempty,
@@ -767,6 +769,9 @@ def check_file(doc):
     _check(doc, ['origin'], str,
         _lowercase,
         (_is_in, 'user', 'paid', 'download', 'proxy', 'render', 'cache'),
+    )
+    _check(doc, ['atime'], (int, float),
+        (_at_least, 0),
     )
 
     _check(doc, ['stored'], dict)
@@ -826,11 +831,6 @@ def check_file_optional(doc):
 
     # 'ctime' like 1234567890
     _check_if_exists(doc, ['ctime'], (int, float),
-        (_at_least, 0),
-    )
-
-    # 'atime' like 1234567890
-    _check_if_exists(doc, ['atime'], (int, float),
         (_at_least, 0),
     )
 
@@ -1035,6 +1035,7 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
+    timestamp = time.time()
     return {
         '_id': _id,
         '_attachments': {
@@ -1045,7 +1046,8 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
         },
         'ver': 0,
         'type': 'dmedia/file',
-        'time': time.time(),
+        'time': timestamp,
+        'atime': timestamp,
         'bytes': file_size,
         'origin': origin,
         'stored': stored,

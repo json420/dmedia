@@ -179,6 +179,7 @@ class TestFunctions(TestCase):
             'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
+            'atime': 1234567890,
             'bytes': 20202333,
             'origin': 'user',
             'stored': {
@@ -193,8 +194,22 @@ class TestFunctions(TestCase):
         g = deepcopy(good)
         self.assertEqual(f(g), None)
 
+        required = [
+            '_id',
+            'ver',
+            'type',
+            'time',
+            
+            '_attachments',
+            'atime',
+            'bytes',
+            'origin',
+            'stored',
+            'partial',
+            'corrupt',
+        ]
         # Test with missing attributes:
-        for key in ['_attachments', 'bytes', 'origin', 'stored']:
+        for key in required:
             bad = deepcopy(good)
             del bad[key]
             with self.assertRaises(ValueError) as cm:
@@ -273,6 +288,24 @@ class TestFunctions(TestCase):
         self.assertEqual(
             str(cm.exception),
             "doc['origin'] value 'foo' not in ('user', 'paid', 'download', 'proxy', 'render', 'cache')"
+        )
+        
+        # atime
+        bad = deepcopy(good)
+        bad['atime'] = '1234567890'
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format("doc['atime']", (int, float), str, '1234567890')
+        )
+        bad = deepcopy(good)
+        bad['atime'] = -0.3
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['atime'] must be >= 0; got -0.3"
         )
 
         # Test with missing stored "copies":
@@ -403,22 +436,6 @@ class TestFunctions(TestCase):
             "doc['ctime'] must be >= 0; got -1"
         )
 
-        # atime
-        self.assertIsNone(f({'atime': 1302125982.946627}))
-        self.assertIsNone(f({'atime': 1234567890}))
-        with self.assertRaises(TypeError) as cm:
-            f({'atime': '1234567890'})
-        self.assertEqual(
-            str(cm.exception),
-            TYPE_ERROR.format("doc['atime']", (int, float), str, '1234567890')
-        )
-        with self.assertRaises(ValueError) as cm:
-            f({'atime': -0.3})
-        self.assertEqual(
-            str(cm.exception),
-            "doc['atime'] must be >= 0; got -0.3"
-        )
-
         # name
         self.assertIsNone(f({'name': 'MVI_5899.MOV'}))
         with self.assertRaises(TypeError) as cm:
@@ -545,6 +562,7 @@ class TestFunctions(TestCase):
                 'ver',
                 'type',
                 'time',
+                'atime',
                 'bytes',
                 'origin',
                 'stored',
@@ -565,6 +583,7 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['ver'], 0)
         self.assertEqual(doc['type'], 'dmedia/file')
         self.assertLessEqual(doc['time'], time.time())
+        self.assertEqual(doc['time'], doc['atime'])
         self.assertEqual(doc['bytes'], file_size)
         self.assertEqual(doc['origin'], 'user')
         self.assertIs(doc['stored'], stored)
