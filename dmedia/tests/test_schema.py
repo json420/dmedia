@@ -378,6 +378,7 @@ class TestFunctions(TestCase):
             "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
         )
 
+
         # content_type
         self.assertIsNone(f({'content_type': 'video/quicktime'}))
         with self.assertRaises(TypeError) as cm:

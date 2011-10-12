@@ -177,20 +177,16 @@ class ImportCase(CouchCase):
         self.dst2 = TempDir()
         self.store1_id = random_id()
         self.store2_id = random_id()
-        self.env['filestores'] = [
-            {
-                '_id': self.store1_id,
-                'parentdir': self.dst1.dir,
-                'copies': 1,
+        local = {
+            '_id': '_local/dmedia',
+            'stores': {
+                self.dst1.dir: {'id': self.store1_id, 'copies': 1},
+                self.dst2.dir: {'id': self.store2_id, 'copies': 2},
             },
-            {
-                '_id': self.store2_id,
-                'parentdir': self.dst2.dir,
-                'copies': 2,
-            },
-        ]
-
+        }
         self.db = Database('dmedia', self.env)
+        self.db.ensure()
+        self.db.save(local)
 
     def tearDown(self):
         super().tearDown()

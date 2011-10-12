@@ -113,6 +113,17 @@ function(doc) {
 }
 """
 
+file_verified = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.stored) {
+            emit([key, doc.stored[key].verified], null);
+        }
+    }
+}
+"""
+
 file_fragile = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -164,17 +175,6 @@ function(doc) {
         var key;
         for (key in doc.partial) {
             emit(key, doc.bytes);
-        }
-    }
-}
-"""
-
-file_verified = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        var key;
-        for (key in doc.stored) {
-            emit(doc.stored[key].verified, null);
         }
     }
 }

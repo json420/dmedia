@@ -9,8 +9,7 @@ import time
 import gi
 from gi.repository import GObject, Gtk, AppIndicator3, Notify, Unity
 
-from microfiber import random_id
-
+from dmedia.core import Core
 from dmedia.service import dbus
 from dmedia.importer import ImportManager, notify_started, notify_stats
 
