@@ -40,6 +40,14 @@ datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
 random = SystemRandom()
 
 
+class DummyQueue(object):
+    def __init__(self):
+        self.items = []
+
+    def put(self, item):
+        self.items.append(item)
+
+
 class SampleFilesTestCase(TestCase):
     """
     Base clase for tests that use the files in dmedia/tests/data.
@@ -84,7 +92,7 @@ def random_leaves(file_size):
         yield Leaf(index, data)
 
 
-def random_file(tmpdir, max_size):
+def random_file(tmpdir, max_size=LEAF_SIZE*4):
     filename = path.join(tmpdir, random_id())
     file_size = random.randint(1, max_size)
     dst_fp = open(filename, 'wb')

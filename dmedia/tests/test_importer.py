@@ -32,17 +32,9 @@ import filestore
 from microfiber import random_id, Database
 
 from .couch import CouchCase
-from .base import TempDir
+from .base import TempDir, DummyQueue
 
 from dmedia import importer, schema
-
-
-class DummyQueue(object):
-    def __init__(self):
-        self.items = []
-
-    def put(self, item):
-        self.items.append(item)
 
 
 class DummyCallback(object):
