@@ -306,6 +306,9 @@ def missing_leaves(ch, tmp_fp):
     assert leaf.index == len(ch.leaf_hashes) - 1
 
 
+class DownloadComplete(Exception):
+    pass
+
 class DownloadWriter:
     def __init__(self, ch, store):
         self.ch = ch
@@ -329,7 +332,7 @@ class DownloadWriter:
 
     def next_slice(self):
         if not self.missing:
-            raise Exception('done!')
+            raise DownloadComplete()
         first = None
         for i in self.missing:
             if first is None:
@@ -377,6 +380,6 @@ class HTTPClient:
         return response
 
     def get(self, ch, start=0, stop=None):
-        headers = range_header(ch, start, stop)
-        return self.request('GET', ch.id, headers=headers)
+        #headers = range_header(ch, start, stop)
+        return self.request('GET', '/'.join([ch.id, str(start), str(stop)]))
 

@@ -36,7 +36,7 @@ import stat
 import multiprocessing
 
 from microfiber import Database, NotFound
-from filestore import FileStore
+from filestore import FileStore, check_root_hash, check_id
 
 from dmedia import schema
 from dmedia.local import LocalStores
@@ -72,7 +72,6 @@ def start_file_server(env):
     port = q.get()
     if isinstance(port, Exception):
         raise port
-    print('http://localhost:{}/'.format(port))
     return (httpd, port)
 
 
@@ -143,6 +142,18 @@ class Core:
         fs.id = doc['_id']
         fs.copies = doc.get('copies', copies)
         return fs
+
+    def get_doc(self, _id):
+        check_id(_id)
+        try:
+            return self.db.get(_id)
+        except microfiber.NotFound:
+            raise NoSuchFile(_id)        
+
+    def content_hash(self, _id, unpack=True):
+        doc = self.get_doc(_id)
+        leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
+        return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
     def add_filestore(self, parentdir, copies=1):
         if parentdir in self.local['stores']:
