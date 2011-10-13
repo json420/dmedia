@@ -33,6 +33,7 @@ import optparse
 from gi.repository import GObject
 
 from dmedia import __version__
+from dmedia.service import dbus
 from dmedia.service.dbus import session
 from dmedia.core import Core, start_file_server
 
@@ -52,9 +53,31 @@ class DMedia:
             'AddFileStore': self.AddFileStore,
             'Kill': self.Kill,
         }
+        self.avahi = dbus.system.get(
+            'org.freedesktop.Avahi',
+            '/',
+            'org.freedesktop.Avahi.Server'
+        )
 
     def run(self):
         (self.httpd, self.port) = start_file_server(self.core.env)
+        self.group = dbus.system.get(
+            'org.freedesktop.Avahi',
+            self.avahi.EntryGroupNew(),
+            'org.freedesktop.Avahi.EntryGroup'
+        )
+        self.group.AddService('(iiussssqaay)',
+            -1,  # Interface
+            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            0,  # Flags
+            self.core.machine_id,
+            '_dmedia._tcp',
+            '',  # Domain, default to .local
+            '',  # Host, default to localhost
+            self.port,  # Port
+            None,  # TXT record
+        )
+        self.group.Commit()
         self.mainloop.run()
 
     def on_g_signal(self, proxy, sender, signal, params):
@@ -70,6 +93,7 @@ class DMedia:
         self.core.add_filestore(path.abspath(parentdir))
 
     def Kill(self):
+        self.group.Reset()
         self.httpd.terminate()
         self.httpd.wait()
         self.mainloop.quit()

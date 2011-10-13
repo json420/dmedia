@@ -50,7 +50,7 @@ group.connect('g-signal', on_g_signal)
 machine_id = random_id()
 group.AddService('(iiussssqaay)',
     -1,  # Interface
-    -1,  # Protocol
+    -1,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
     0,  # Flags
     machine_id,
     '_dmedia._tcp',
