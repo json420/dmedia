@@ -106,7 +106,7 @@ class DMedia:
     def on_browser_g_signal(self, proxy, sender, signal, params):
         if signal == 'ItemNew':
             (interface, protocol, name, _type, domain, flags) = params.unpack()
-            if not (flags & 8):  # Ignore what we publish ourselves
+            if name != self.core.machine_id:  # Ignore what we publish ourselves
                 (ip, port) = self.avahi.ResolveService('(iisssiu)',
                     interface, protocol, name, _type, domain, -1, 0
                 )[7:9]
@@ -120,7 +120,7 @@ class DMedia:
                 pass
         print(signal, params.unpack())
         for name in sorted(self._peers):
-            print(name, self._peers[name])
+            print('  ', name, self._peers[name])
 
     def AddFileStore(self, parentdir):
         self.core.add_filestore(path.abspath(parentdir))
