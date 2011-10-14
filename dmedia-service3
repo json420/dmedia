@@ -112,3 +112,4 @@ parser.add_option('--bus',
 
 dmedia = DMedia(options.bus)
 dmedia.run()
+dmedia.Kill()
