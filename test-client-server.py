@@ -5,7 +5,8 @@ from filestore import FileStore
 
 from dmedia.core import Core, start_file_server
 from dmedia.tests.base import TempDir
-from dmedia.client import DownloadWriter, HTTPClient, response_iter, DownloadComplete
+from dmedia.client import HTTPClient, threaded_response_iter
+from dmedia.client import DownloadWriter, DownloadComplete
 from dmedia.local import LocalSlave
 
 core = Core(dc3_env())
@@ -23,7 +24,7 @@ for row in core.db.view('doc', 'type', key='dmedia/file', reduce=False)['rows']:
         try:
             (start, stop) = dw.next_slice()
             response = client.get(ch, start, stop)
-            for leaf in response_iter(response, start=start):
+            for leaf in threaded_response_iter(response, start=start):
                 print(leaf.index, dw.write_leaf(leaf))
         except DownloadComplete:
             break
