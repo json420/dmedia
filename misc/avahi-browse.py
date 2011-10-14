@@ -45,6 +45,8 @@ def on_g_signal(proxy, sender, signal, params):
     print(signal, params)
     if signal == 'ItemNew':
         (interface, protocol, name, _type, domain, flags) = params
+        ours = bool(flags & 8)
+        print(ours)
         (ip, port) = avahi.ResolveService('(iisssiu)',
             interface, protocol, name, _type, domain, -1, 0
         )[7:9]
