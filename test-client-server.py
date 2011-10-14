@@ -27,5 +27,6 @@ for row in core.db.view('doc', 'type', key='dmedia/file', reduce=False)['rows']:
                 print(leaf.index, dw.write_leaf(leaf))
         except DownloadComplete:
             break
+    dw.finish()
     dst.remove(ch.id)  # So we don't fill up /tmp
         
