@@ -41,7 +41,12 @@ But this is not okay:
 
 """
 
+import json
+
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
+
+from dmedia import __version__
+from dmedia import local
 
 
 HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
@@ -124,22 +129,38 @@ class BaseWSGI(metaclass=BaseWSGIMeta):
             return getattr(self, name)(environ, start_response)
         except HTTPError as e:
             start_response(e.status, e.headers)
-            return e.body
+            return [e.body]
 
 
 class ReadOnlyApp(BaseWSGI):
     def __init__(self, env):
-        self.local = LocalSlave(env)
+        self.local = local.LocalSlave(env)
+        info = {
+            'dmedia': 'Welcome',
+            'version': __version__,
+            'machine_id': env.get('machine_id'),
+        }
+        self._info = json.dumps(info, sort_keys=True).encode('utf-8')
+
+    def server_info(self, environ, start_response):
+        start_response('200 OK', [('Content-Type', 'application/json')])
+        return [self._info]
 
     def GET(self, environ, start_response):
+        if environ['PATH_INFO'] == '/':
+            return self.server_info(environ, start_response)
         # FIXME: Also validate slice compared to file-size
         (_id, start, stop) = get_slice(environ)
-        fp = self.local.open(_id)
-        size = os.fstat(fp.fileno()).st_size
+        try:
+            st = self.local.stat(_id)
+            fp = open(st.name, 'rb')
+        except Exception:
+            raise NotFound()
         _start = start * LEAF_SIZE
-        _stop = (size if stop is None else min(size, stop * LEAF_SIZE))
+        _stop = (st.size if stop is None else min(st.size, stop * LEAF_SIZE))
         fp.seek(_start)
-        start_response('200 OK' [('Content-Length', str(_stop - _start))])
+        length = str(_stop - _start)
+        start_response('200 OK', [('Content-Length', length)])
         return environ['wsgi.file_wrapper'](fp)
 
 

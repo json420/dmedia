@@ -199,11 +199,11 @@ class TestLocalStores(TestCase):
         self.assertEqual(inst.slow, set())
 
 
-class TestLocalBase(CouchCase):
+class TestLocalSlave(CouchCase):
     create_databases = ['dmedia', 'dmedia_log']
 
     def test_get_doc(self):
-        inst = local.LocalBase(self.env)
+        inst = local.LocalSlave(self.env)
 
         # When doc doesn't exist
         _id = random_id(DIGEST_BYTES)
@@ -222,7 +222,7 @@ class TestLocalBase(CouchCase):
         unpacked = filestore.check_root_hash(
             ch.id, ch.file_size, ch.leaf_hashes, unpack=True
         )
-        inst = local.LocalBase(self.env)
+        inst = local.LocalSlave(self.env)
 
         # When doc doesn't exist
         with self.assertRaises(local.NoSuchFile) as cm:
@@ -257,6 +257,6 @@ class TestLocalBase(CouchCase):
         store2 = random_id()
         store3 = random_id()
 
-        inst = local.LocalBase(self.env)
+        inst = local.LocalSlave(self.env)
 
 

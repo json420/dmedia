@@ -28,20 +28,21 @@ The real Python3 dmedia DBus service (well, almost).
 import sys
 import json
 from os import path
+import optparse
 
 from gi.repository import GObject
 
+from dmedia import __version__
+from dmedia.service import dbus
 from dmedia.service.dbus import session
-from dmedia.core import Core
+from dmedia.core import Core, start_file_server
 
-if len(sys.argv) != 2:
-    sys.exit('Must supply BUS')
-bus = sys.argv[1]
 GObject.threads_init()
+BUS = 'org.freedesktop.DMedia'
 
 
 class DMedia:
-    def __init__(self):
+    def __init__(self, bus):
         self.mainloop = GObject.MainLoop()
         dc3 = session.get('org.freedesktop.DC3', '/')
         self.env_s = dc3.GetEnv()
@@ -52,8 +53,45 @@ class DMedia:
             'AddFileStore': self.AddFileStore,
             'Kill': self.Kill,
         }
+        self.avahi = dbus.system.get(
+            'org.freedesktop.Avahi',
+            '/',
+            'org.freedesktop.Avahi.Server'
+        )
+        self._peers = {}
 
     def run(self):
+        (self.httpd, self.port) = start_file_server(self.core.env)
+        self.group = dbus.system.get(
+            'org.freedesktop.Avahi',
+            self.avahi.EntryGroupNew(),
+            'org.freedesktop.Avahi.EntryGroup'
+        )
+        self.group.AddService('(iiussssqaay)',
+            -1,  # Interface
+            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            0,  # Flags
+            self.core.machine_id,
+            '_dmedia._tcp',
+            '',  # Domain, default to .local
+            '',  # Host, default to localhost
+            self.port,  # Port
+            None  # TXT record
+        )
+        self.group.Commit()
+        browser_path = self.avahi.ServiceBrowserNew('(iissu)',
+            -1,  # Interface
+            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            '_dmedia._tcp',
+            'local',
+            0  # Flags
+        )
+        self.browser = dbus.system.get(
+            'org.freedesktop.Avahi',
+            browser_path,
+            'org.freedesktop.Avahi.ServiceBrowser'
+        )
+        self.browser.connect('g-signal', self.on_browser_g_signal)
         self.mainloop.run()
 
     def on_g_signal(self, proxy, sender, signal, params):
@@ -65,12 +103,47 @@ class DMedia:
             except KeyError:
                 pass
 
+    def on_browser_g_signal(self, proxy, sender, signal, params):
+        if signal == 'ItemNew':
+            (interface, protocol, name, _type, domain, flags) = params.unpack()
+            if name != self.core.machine_id:  # Ignore what we publish ourselves
+                (ip, port) = self.avahi.ResolveService('(iisssiu)',
+                    interface, protocol, name, _type, domain, -1, 0
+                )[7:9]
+                url = 'http://{}:{}/'.format(ip, port)
+                self._peers[name] = url
+        elif signal == 'ItemRemove':
+            (interface, protocol, name, _type, domain, flags) = params.unpack()
+            try:
+                del self._peers[name]
+            except KeyError:
+                pass
+        print(signal, params.unpack())
+        for name in sorted(self._peers):
+            print('  ', name, self._peers[name])
+
     def AddFileStore(self, parentdir):
         self.core.add_filestore(path.abspath(parentdir))
 
     def Kill(self):
+        self.browser.Free()
+        self.group.Free()
+        self.httpd.terminate()
+        self.httpd.wait()
         self.mainloop.quit()
 
 
-dmedia = DMedia()
+parser = optparse.OptionParser(
+	usage='Usage: %prog FILE',
+	version=__version__,
+)
+parser.add_option('--bus',
+    default=BUS,
+    help='DBus bus name; default is {!r}'.format(BUS),
+)
+(options, args) = parser.parse_args()
+
+
+dmedia = DMedia(options.bus)
 dmedia.run()
+dmedia.Kill()

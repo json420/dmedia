@@ -33,9 +33,10 @@ from os import path
 import json
 import time
 import stat
+import multiprocessing
 
 from microfiber import Database, NotFound
-from filestore import FileStore
+from filestore import FileStore, check_root_hash, check_id
 
 from dmedia import schema
 from dmedia.local import LocalStores
@@ -45,12 +46,33 @@ from dmedia.views import init_views
 LOCAL_ID = '_local/dmedia'
 
 
-def start_file_server(env, queue):
-    from wsgiref.simple_server import make_server, demo_app
-    httpd = make_server('', 0, demo_app)
-    (ip, port) = httpd.socket.getsockname()
-    queue.put(port)
-    httpd.serve_forever()
+def file_server(env, queue):
+    try:
+        from wsgiref.simple_server import make_server
+        from dmedia.server import ReadOnlyApp
+        app = ReadOnlyApp(env)
+        httpd = make_server('', 0, app)
+        port = httpd.socket.getsockname()[1]
+        queue.put(port)
+        httpd.serve_forever()
+    except Exception as e:
+        queue.put(e)
+
+
+def _start_process(target, *args):
+    process = multiprocessing.Process(target=target, args=args)
+    process.daemon = True
+    process.start()
+    return process
+
+
+def start_file_server(env):
+    q = multiprocessing.Queue()
+    httpd = _start_process(file_server, env, q)
+    port = q.get()
+    if isinstance(port, Exception):
+        raise port
+    return (httpd, port)
 
 
 class Core:
@@ -120,6 +142,18 @@ class Core:
         fs.id = doc['_id']
         fs.copies = doc.get('copies', copies)
         return fs
+
+    def get_doc(self, _id):
+        check_id(_id)
+        try:
+            return self.db.get(_id)
+        except microfiber.NotFound:
+            raise NoSuchFile(_id)        
+
+    def content_hash(self, _id, unpack=True):
+        doc = self.get_doc(_id)
+        leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
+        return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
     def add_filestore(self, parentdir, copies=1):
         if parentdir in self.local['stores']:

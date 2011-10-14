@@ -82,7 +82,7 @@ class DMedia(dbus.service.Object):
         super(DMedia, self).__init__(session, object_path='/')
         self._busname = dbus.service.BusName(bus, session)
         log.info('Starting %r', service3)
-        self._child = Popen([service3, bus])
+        self._child = Popen([service3, '--bus', bus])
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):

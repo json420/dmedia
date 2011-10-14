@@ -152,10 +152,19 @@ class LocalStores:
         return self.ids[store_id]
 
 
-class LocalBase:
+class LocalSlave:
     def __init__(self, env):
         self.db = microfiber.Database('dmedia', env)
-        self.stores = LocalStores()
+        self.last_rev = None
+
+    def update_stores(self):
+        local = self.db.get('_local/dmedia')
+        if local['_rev'] != self.last_rev:
+            self.last_rev = local['_rev']
+            self.stores = LocalStores()
+            for (parentdir, info) in local['stores'].items():
+                fs = FileStore(parentdir, info['id'], info['copies'])
+                self.stores.add(fs)
 
     def get_doc(self, _id):
         check_id(_id)
@@ -171,6 +180,7 @@ class LocalBase:
 
     def stat(self, _id):
         doc = self.get_doc(_id)
+        self.update_stores()
         fs = self.stores.choose_local_store(doc)
         return fs.stat(_id)
 
