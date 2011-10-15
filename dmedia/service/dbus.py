@@ -1,3 +1,4 @@
+# dmedia: distributed media library
 # Copyright (C) 2011 Novacut Inc
 #
 # This file is part of `dmedia`.
@@ -14,6 +15,9 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
 
 """
 Simple dbus helper to make PyGI a bit nicer.

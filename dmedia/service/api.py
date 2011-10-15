@@ -1,8 +1,5 @@
-# Authors:
-#   Jason Gerard DeRose <jderose@novacut.com>
-#
 # dmedia: distributed media library
-# Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2011 Novacut Inc
 #
 # This file is part of `dmedia`.
 #
@@ -18,6 +15,9 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
 
 """
 Python convenience API for talking to dmedia components over DBus.
@@ -25,55 +25,34 @@ Python convenience API for talking to dmedia components over DBus.
 
 import json
 
-import dbus
-
-from dmedia.constants import BUS
+from . import dbus
 
 
-class DMedia(object):
+class DMedia:
     """
     Talk to "org.freedesktop.DMedia".
     """
-    def __init__(self, bus=BUS):
+
+    def __init__(self, bus='org.freedesktop.DMedia'):
         self.bus = bus
-        self.conn = dbus.SessionBus()
         self._proxy = None
 
     @property
     def proxy(self):
         if self._proxy is None:
-            self._proxy = self.conn.get_object(self.bus, '/')
+            self._proxy = dbus.session.get(self.bus, '/')
         return self._proxy
 
-    def version(self):
+    def Version(self):
         return self.proxy.Version()
 
-    def kill(self):
+    def Kill(self):
         self.proxy.Kill()
         self._proxy = None
 
-    def get_env(self, env_s=None):
-        if not env_s:
-            env_s = self.proxy.GetEnv()
-        return json.loads(env_s)
+    def GetEnv(self):
+        return json.loads(self.proxy.GetEnv())
 
-    def get_auth_url(self):
-        return self.proxy.GetAuthURL()
-
-    def has_app(self):
-        return self.proxy.HasApp()
-
-    def upload(self, file_id, store_id):
-        return self.proxy.Upload(file_id, store_id)
-
-    def download(self, file_id, store_id):
-        return self.proxy.Download(file_id, store_id)
-
-    def list_transfers(self):
-        return self.proxy.ListTransfers()
-
-
-class DMediaImporter(object):
-    """
-    Talk to "org.freedesktop.DMediaImporter".
-    """
+    def AddFileStore(self, parentdir):
+        return self.proxy.AddFileStore('(s)', parentdir)
+        

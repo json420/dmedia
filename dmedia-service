@@ -75,7 +75,8 @@ def configure_logging(namespace):
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, bus, mainloop):
+    def __init__(self, env_s, bus, mainloop):
+        self._env_s = env_s
         self._bus = bus
         self._mainloop = mainloop
         log.info('Binding to %r', bus)
@@ -83,6 +84,7 @@ class DMedia(dbus.service.Object):
         self._busname = dbus.service.BusName(bus, session)
         log.info('Starting %r', service3)
         self._child = Popen([service3, '--bus', bus])
+        self._killed = False
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -96,6 +98,9 @@ class DMedia(dbus.service.Object):
         """
         Kill the `dmedia-service` process.
         """
+        if self._killed:
+            return
+        self._killed = True
         log.info('Killing dmedia core service on %r', self._bus)
         self.FwdKill()
         self._child.wait()
@@ -135,6 +140,10 @@ configure_logging('service')
 from gi.repository import GObject
 GObject.threads_init()
 
+dc3 = session.get_object('org.freedesktop.DC3', '/')
+env_s = dc3.GetEnv()
+
 mainloop = GObject.MainLoop()
-dmedia = DMedia(args.bus, mainloop)
+dmedia = DMedia(env_s, args.bus, mainloop)
 mainloop.run()
+dmedia.Kill()

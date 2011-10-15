@@ -126,10 +126,9 @@ class DMedia:
         self.core.add_filestore(path.abspath(parentdir))
 
     def Kill(self):
-        self.browser.Free()
-        self.group.Free()
+        self.group.Reset()
         self.httpd.terminate()
-        self.httpd.wait()
+        self.httpd.join()
         self.mainloop.quit()
 
 
