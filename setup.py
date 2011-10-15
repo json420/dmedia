@@ -93,6 +93,8 @@ class Test(Command):
         pynames = list(self._pynames_iter())
         pynames.append('dmedia.gtk.ubuntu')
         pynames.append('dmedia.gtk.tests.test_ubuntu')
+        pynames.append('dmedia.gtk.util')
+        pynames.append('dmedia.gtk.tests.test_util')
 
         # Add unit-tests:
         if self.no_unittest:
