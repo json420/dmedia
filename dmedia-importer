@@ -99,6 +99,9 @@ class ImportUI:
             'batch_finished': self.on_batch_finished,
             'batch_progress': self.on_batch_progress,
         }
+        self.window = Gtk.Window()
+        self.window.connect('destroy', self.on_close)
+        self.window.show_all()
 
     def on_close(self, button):
         Gtk.main_quit()

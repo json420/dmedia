@@ -75,8 +75,7 @@ def configure_logging(namespace):
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, env_s, bus, mainloop):
-        self._env_s = env_s
+    def __init__(self, bus, mainloop):
         self._bus = bus
         self._mainloop = mainloop
         log.info('Binding to %r', bus)
@@ -85,6 +84,8 @@ class DMedia(dbus.service.Object):
         log.info('Starting %r', service3)
         self._child = Popen([service3, '--bus', bus])
         self._killed = False
+        self._dc3 = session.get_object('org.freedesktop.DC3', '/')
+        self._dc3.GetEnv()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -115,7 +116,7 @@ class DMedia(dbus.service.Object):
         """
         Return dmedia env as JSON string.
         """
-        return self._env_s
+        return self._dc3.GetEnv()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def AddFileStore(self, parentdir):
@@ -140,10 +141,7 @@ configure_logging('service')
 from gi.repository import GObject
 GObject.threads_init()
 
-dc3 = session.get_object('org.freedesktop.DC3', '/')
-env_s = dc3.GetEnv()
-
 mainloop = GObject.MainLoop()
-dmedia = DMedia(env_s, args.bus, mainloop)
+dmedia = DMedia(args.bus, mainloop)
 mainloop.run()
 dmedia.Kill()
