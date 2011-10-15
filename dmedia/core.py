@@ -35,7 +35,7 @@ import time
 import stat
 import multiprocessing
 
-from microfiber import Database, NotFound
+from microfiber import Database, NotFound, random_id2
 from filestore import FileStore, check_root_hash, check_id
 
 from dmedia import schema
@@ -89,16 +89,28 @@ def init_filestore(parentdir, copies=1):
     return (fs, doc)
 
 
-class Core:
-    def __init__(self, env, bootstrap=True):
+class Base:
+    def __init__(self, env):
         self.env = env
         self.db = Database('dmedia', env)
+        self.logdb = Database('dmedia_log', env)
+
+    def log(self, doc):
+        doc['_id'] = random_id2()
+        doc['machine_id'] = self.env.get('machine_id')
+        return self.logdb.post(doc, batch='ok')
+
+
+class Core(Base):
+    def __init__(self, env, bootstrap=True):
+        super().__init__(env)
         self.stores = LocalStores()
         if bootstrap:
             self._bootstrap()
 
     def _bootstrap(self):
         self.db.ensure()
+        self.logdb.ensure()
         init_views(self.db)
         self._init_local()
         self._init_stores()
