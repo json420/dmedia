@@ -90,7 +90,9 @@ class Test(Command):
                         break
 
     def run(self):
-        pynames = tuple(self._pynames_iter())
+        pynames = list(self._pynames_iter())
+        pynames.append('dmedia.gtk.ubuntu')
+        pynames.append('dmedia.gtk.tests.test_ubuntu')
 
         # Add unit-tests:
         if self.no_unittest:
