@@ -128,8 +128,8 @@ setup(
     author_email='jderose@novacut.com',
     license='AGPLv3+',
     cmdclass={'test': Test},
-    packages=['dmedia'],
-    scripts=['dmedia-gtk'],
+    packages=['dmedia', 'dmedia.service'],
+    scripts=['dmedia-gtk', 'dmedia-cli'],
     data_files=[
         ('share/couchdb/apps/dmedia',
             [path.join('ui', name) for name in os.listdir('ui')]

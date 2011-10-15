@@ -29,8 +29,7 @@ Command line tool for talking to dmedia DBus services.
 
 from sys import argv, stderr
 import dmedia
-from dmedia.constants import BUS, IFACE
-from dmedia.service import dbus
+from dmedia.service.api import DMedia
 
 class DBusCLI (object):
     """
@@ -47,7 +46,7 @@ class DBusCLI (object):
         if __name__ == '__main__':
             my_cli.main(*sys.argv[1:])
     """
-    def __init__(self, exec_name, version, dbus_bus, dbus_object, dbus_iface):
+    def __init__(self, exec_name, version):
         """
         `exec_name` is the name of the executable of the command line
         program. It should be what the user needs to run to use the
@@ -63,21 +62,17 @@ class DBusCLI (object):
         """
         self._exec = exec_name
         self._version = version
-        self._default_bus = dbus_bus
-        self._bus = self._default_bus
-        self._obj = dbus_object
-        self._iface = dbus_iface
         self._action_methods = {}
         self._action_help = {}
         self._add_default_actions()
+        self._dmedia = DMedia()
 
     def has_action(self, name):
         """
         Return true if the action `name` exists,
         false otherwise.
         """
-        return (self._action_methods.has_key(name) and
-            self._action_help.has_key(name))
+        return (name in self._action_methods and name in self._action_help)
 
     def get_action_method(self, name):
         """
@@ -151,12 +146,11 @@ for a list of available actions.
         Run the dbus method `name` with arguments `args`.
         Catch any errors and print them to stderr.
         """
-        proxy = dbus.session.get(self._bus, self._obj, self._iface)
         try:
-            getattr(proxy, name)
+            method = getattr(self._dmedia, name)
             print(str(method(*args)))
         except Exception as e:
-            stderr.write("Error: %s\n"%e.message)
+            stderr.write("Error: {}\n".format(e))
 
     def run_action(self, name, *args):
         """
@@ -248,18 +242,18 @@ for a list of available actions.
         else:
             self.run_action(args.pop(0), *args)
 
-dmedia_cli = DBusCLI("dmedia-cli", dmedia.__version__, BUS, '/', IFACE)
+dmedia_cli = DBusCLI("dmedia-cli", dmedia.__version__)
 
 dmedia_cli.add_dbus_action("Version", "", "Display the version of running `dmedia-service`.")
 dmedia_cli.add_dbus_action("Kill", "", "Shutdown `dmedia-service`.")
 dmedia_cli.add_dbus_action("AddFileStore", "PARENT_DIR", "Add a new dmedia file store. Create it in the `PARENT_DIR` directory (eg. /home/username).")
-dmedia_cli.add_dbus_action("GetDoc", "DOC_ID", "Get a document from CouchDB. `DOC_ID` is the _id of the document.")
-dmedia_cli.add_dbus_action("Upload", "FILE_ID STORE_ID", "Upload the file with id `FILE_ID` to the remote store with id `STORE_ID`.")
-dmedia_cli.add_dbus_action("Download", "FILE_ID STORE_ID", "Download the file with id `FILE_ID` from the remote store with id `STORE_ID`.")
-dmedia_cli.add_dbus_action("ListTransfers", "", "List active uploads and downloads.")
+#dmedia_cli.add_dbus_action("GetDoc", "DOC_ID", "Get a document from CouchDB. `DOC_ID` is the _id of the document.")
+#dmedia_cli.add_dbus_action("Upload", "FILE_ID STORE_ID", "Upload the file with id `FILE_ID` to the remote store with id `STORE_ID`.")
+#dmedia_cli.add_dbus_action("Download", "FILE_ID STORE_ID", "Download the file with id `FILE_ID` from the remote store with id `STORE_ID`.")
+#dmedia_cli.add_dbus_action("ListTransfers", "", "List active uploads and downloads.")
 dmedia_cli.add_dbus_action("GetEnv", "", "Display dmedia env as JSON.")
-dmedia_cli.add_dbus_action("GetAuthURL", "", "Get URL with basic auth user and password.")
-dmedia_cli.add_dbus_action("HasApp", "", "")
+#dmedia_cli.add_dbus_action("GetAuthURL", "", "Get URL with basic auth user and password.")
+#dmedia_cli.add_dbus_action("HasApp", "", "")
 
 if __name__ == '__main__':
     dmedia_cli.main(*argv[1:])
