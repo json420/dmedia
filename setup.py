@@ -150,6 +150,7 @@ setup(
             [
                 'dmedia-service',
                 'dmedia-service3',
+                'share/setup-shared-filestore',
             ]
         ),
         ('share/dbus-1/services/',

@@ -1,0 +1,19 @@
+#!/usr/bin/python3
+
+import json
+import os
+from os import path
+import stat
+
+from filestore import FileStore
+from dmedia import schema
+
+fs = FileStore('/home')
+fs.init_dirs()
+store = path.join(fs.basedir, 'store.json')
+try:
+    doc = json.load(open(store, 'r'))
+except Exception:
+    doc = schema.create_filestore()
+    json.dump(doc, open(store, 'w'), sort_keys=True, indent=4)
+    os.chmod(store, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
