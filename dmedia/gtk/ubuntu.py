@@ -25,8 +25,6 @@ Some Ubuntu-specific UI bits.
 
 from gi.repository import Notify, AppIndicator3
 
-from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
-
 
 class NotifyManager:
     """

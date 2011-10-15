@@ -28,11 +28,15 @@ from gi.repository import GObject
 from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
 
 
-class Timer(object):
+class Timer:
+    """
+    A handy GObject-based periodic timer.
+    """
+
     def __init__(self, seconds, callback):
         if not isinstance(seconds, (float, int)):
-            raise TypeError(
-                TYPE_ERROR % ('seconds', (float, int), type(seconds), seconds)
+            raise TypeError(TYPE_ERROR.format(
+                    'seconds', (float, int), type(seconds), seconds)
             )
         if seconds <= 0:
             raise ValueError(
@@ -40,7 +44,7 @@ class Timer(object):
             )
         if not callable(callback):
             raise TypeError(
-                CALLABLE_ERROR % ('callback', type(callback), callback)
+                CALLABLE_ERROR.format('callback', type(callback), callback)
             )
         self.seconds = seconds
         self.callback = callback

@@ -39,7 +39,7 @@ class test_Timer(TestCase):
             inst = util.Timer('1.0', callback)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR % ('seconds', (float, int), str, '1.0')
+            TYPE_ERROR.format('seconds', (float, int), str, '1.0')
         )
 
         # Test with seconds <= 0:
@@ -57,7 +57,7 @@ class test_Timer(TestCase):
                 inst = util.Timer(1, c)
                 self.assertEqual(
                     str(cm.exception),
-                    CALLABLE_ERROR % ('callback', type(c), c)
+                    CALLABLE_ERROR.format('callback', type(c), c)
                 )
 
         # Test with correct values:
