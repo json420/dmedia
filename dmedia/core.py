@@ -75,6 +75,20 @@ def start_file_server(env):
     return (httpd, port)
 
 
+def init_filestore(parentdir, copies=1):
+    fs = FileStore(parentdir)
+    store = path.join(fs.basedir, 'store.json')
+    try:
+        doc = json.load(open(store, 'r'))
+    except Exception:
+        doc = schema.create_filestore(copies)
+        json.dump(doc, open(store, 'w'), sort_keys=True, indent=4)
+        os.chmod(store, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    fs.id = doc['_id']
+    fs.copies = doc['copies']
+    return (fs, doc)
+
+
 class Core:
     def __init__(self, env, bootstrap=True):
         self.env = env
@@ -123,24 +137,15 @@ class Core:
         assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
     def _init_filestore(self, parentdir, copies=1):
-        fs = FileStore(parentdir)
-        f = path.join(fs.basedir, 'store.json')
+        (fs, doc) = init_filestore(parentdir, copies)
         try:
-            doc = json.load(open(f, 'r'))
-            try:
-                doc = self.db.get(doc['_id'])
-            except NotFound:
-                pass
-        except Exception:
-            doc = schema.create_filestore(copies)
-            json.dump(doc, open(f, 'w'), sort_keys=True, indent=4)
-            os.chmod(f, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+            doc = self.db.get(doc['_id'])
+        except NotFound:
+            pass
         doc['connected'] = time.time()
         doc['connected_to'] = self.machine_id
         doc['statvfs'] = fs.statvfs()._asdict()
         self.db.save(doc)
-        fs.id = doc['_id']
-        fs.copies = doc.get('copies', copies)
         return fs
 
     def get_doc(self, _id):
