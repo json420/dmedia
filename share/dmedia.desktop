@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=DMedia Browser
-GenericName=DMedia Browser
-Comment=Browse files in your Distributed Media Library.
+Name=DMedia
+GenericName=DMedia
+Comment=The Distributed Media Library.
 Exec=/usr/bin/dmedia-gtk
 Icon=dmedia
 Terminal=false

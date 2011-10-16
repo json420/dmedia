@@ -221,7 +221,7 @@ class TestImportWorker(ImportCase):
             }
         )
         self.assertEqual(self.q.items[0]['signal'], 'started')
-        self.assertEqual(self.q.items[0]['args'], (self.src.dir, inst.id))
+        self.assertEqual(self.q.items[0]['args'], (self.src.dir, inst.id, None))
 
         # scan()
         (batch, result) = self.src.random_batch(25)
@@ -484,26 +484,26 @@ class TestImportManager(ImportCase):
 
         one = TempDir()
         one_id = random_id()
-        inst.on_started(one.dir, one_id)
+        inst.on_started(one.dir, one_id, None)
         self.assertEqual(inst.db.get(batch_id)['imports'], [one_id])
         self.assertEqual(
             callback.messages,
             [
                 ('batch_started', (batch_id,)),
-                ('import_started', (one.dir, one_id)),
+                ('import_started', (one.dir, one_id, None)),
             ]
         )
 
         two = TempDir()
         two_id = random_id()
-        inst.on_started(two.dir, two_id)
+        inst.on_started(two.dir, two_id, None)
         self.assertEqual(inst.db.get(batch_id)['imports'], [one_id, two_id])
         self.assertEqual(
             callback.messages,
             [
                 ('batch_started', (batch_id,)),
-                ('import_started', (one.dir, one_id)),
-                ('import_started', (two.dir, two_id)),
+                ('import_started', (one.dir, one_id, None)),
+                ('import_started', (two.dir, two_id, None)),
             ]
         )
 
@@ -650,9 +650,11 @@ class TestImportManager(ImportCase):
         inst._workers.clear()
         self.assertEqual(callback.messages, [])
         self.assertTrue(inst.start_import(self.src.dir))
-        while inst._workers:
+        while True:
             time.sleep(0.5)
-        time.sleep(1.0)
+            if callback.messages[-1][0] == 'batch_finished':
+                break
+        time.sleep(0.5)
 
         self.assertEqual(len(callback.messages), 40)
 
@@ -664,7 +666,7 @@ class TestImportManager(ImportCase):
         )
         self.assertEqual(
             callback.messages[1],
-            ('import_started', (self.src.dir, import_id))
+            ('import_started', (self.src.dir, import_id, None))
         )
         self.assertEqual(
             callback.messages[2],
@@ -736,14 +738,15 @@ class TestImportManager(ImportCase):
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
 
-
         ##################################################################
         # Okay, now run the whole thing again when they're all duplicates:
         callback.messages = []
         self.assertTrue(inst.start_import(self.src.dir))
-        while inst._workers:
+        while True:
             time.sleep(0.5)
-        time.sleep(1.0)
+            if callback.messages[-1][0] == 'batch_finished':
+                break
+        time.sleep(0.5)
 
         self.assertEqual(len(callback.messages), 40)
 
@@ -755,7 +758,7 @@ class TestImportManager(ImportCase):
         )
         self.assertEqual(
             callback.messages[1],
-            ('import_started', (self.src.dir, import_id))
+            ('import_started', (self.src.dir, import_id, None))
         )
         self.assertEqual(
             callback.messages[2],

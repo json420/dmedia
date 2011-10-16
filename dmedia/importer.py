@@ -29,6 +29,7 @@ import time
 from copy import deepcopy
 from gettext import gettext as _
 from gettext import ngettext
+from subprocess import check_call
 import logging
 
 import microfiber
@@ -234,6 +235,7 @@ class ImportManager(workers.CouchManager):
 
     def last_worker_finished(self):
         assert self._workers == {}
+        check_call(['/bin/sync'])
         self.doc['time_end'] = time.time()
         self.db.save(self.doc)
         self.emit('batch_finished', self.doc['_id'], self.doc['stats'])
