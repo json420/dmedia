@@ -23,6 +23,8 @@
 Simple dbus helper to make PyGI a bit nicer.
 """
 
+import os
+
 from gi.repository import GObject, Gio
 from gi.repository.GObject import TYPE_PYOBJECT
 
@@ -65,6 +67,9 @@ class UDisks(GObject.GObject):
         'DeviceChanged': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
+        'insert': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
     }
     _autoemit = ('DeviceAdded', 'DeviceRemoved', 'DeviceChanged')
 
@@ -80,6 +85,21 @@ class UDisks(GObject.GObject):
         if signal in self._autoemit:
             args = params.unpack()
             self.emit(signal, *args)
+
+    def on_DeviceChanged(self, udisks, obj):
+        partition = get_device_props(obj)
+        if (
+            partition['DeviceIsPartition'] 
+            and partition['DeviceIsMounted']
+            and partition['IdType'] == 'vfat'
+            and not partition['DeviceIsSystemInternal']
+        ):
+            parentdir = partition['DeviceMountPaths'][0]
+            drive = get_device_props(partition['PartitionSlave'])
+            print('insert', parentdir)
+
+    def monitor(self):
+        self.connect('DeviceChanged', self.on_DeviceChanged)
 
     def EnumerateDevices(self):
         return self.proxy.EnumerateDevices()
