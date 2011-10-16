@@ -30,11 +30,18 @@ def on_DeviceChanged(udisks, objpath):
 def on_DeviceRemoved(udisks, objpath):
     print('DeviceRemoved', objpath)
 
+    
+def callback(udisks, *args):
+    signal = args[-1]
+    print(signal, args[0], args[1])
+
 
 udisks = dbus.UDisks()
-udisks.connect('DeviceAdded', on_DeviceAdded)
-udisks.connect('DeviceChanged', on_DeviceChanged)
-udisks.connect('DeviceRemoved', on_DeviceRemoved)
+
+signals = ['card-inserted', 'store-added', 'card-removed', 'store-removed']
+for name in signals:
+    udisks.connect(name, callback, name)
+
 udisks.monitor()
 
 

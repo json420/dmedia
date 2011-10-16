@@ -74,6 +74,12 @@ class UDisks(GObject.GObject):
         'store-added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
+        'card-removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'store-removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
     }
     _autoemit = ('DeviceAdded', 'DeviceRemoved', 'DeviceChanged')
 
@@ -101,14 +107,28 @@ class UDisks(GObject.GObject):
             parentdir = partition['DeviceMountPaths'][0]
             drive = get_device_props(partition['PartitionSlave'])
             if path.isdir(path.join(parentdir, DOTNAME)):
-                print('store-added', parentdir)
-                self.emit('store-added', parentdir, obj, partition, drive)
+                self._stores[obj] = parentdir
+                self.emit('store-added', obj, parentdir, partition, drive)
             elif not partition['DeviceIsSystemInternal']:
-                print('card-inserted', parentdir)
-                self.emit('card-inserted', parentdir, obj, partition, drive)
+                self._cards[obj] = parentdir
+                self.emit('card-inserted', obj, parentdir, partition, drive)
+
+    def on_DeviceRemoved(self, udisks, obj):
+        try:
+            parentdir = self._stores.pop(obj)
+            self.emit('store-removed', obj, parentdir)
+        except KeyError:
+            try:
+                parentdir = self._cards.pop(obj)
+                self.emit('card-removed', obj, parentdir)
+            except KeyError:
+                pass  
 
     def monitor(self):
+        self._cards = {}
+        self._stores = {}
         self.connect('DeviceChanged', self.on_DeviceChanged)
+        self.connect('DeviceRemoved', self.on_DeviceRemoved)
 
     def EnumerateDevices(self):
         return self.proxy.EnumerateDevices()
