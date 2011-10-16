@@ -1,6 +1,0 @@
-#!/usr/bin/python3
-
-from dmedia.core import init_filestore
-
-(fs, doc) = init_filestore('/home')
-fs.init_dirs()  # Force init_dirs() to make sure layout is correct
