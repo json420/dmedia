@@ -38,7 +38,7 @@ def callback(udisks, *args):
 
 udisks = dbus.UDisks()
 
-signals = ['card-inserted', 'store-added', 'card-removed', 'store-removed']
+signals = ['card_inserted', 'store_added', 'card_removed', 'store_removed']
 for name in signals:
     udisks.connect(name, callback, name)
 

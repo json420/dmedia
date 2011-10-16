@@ -82,6 +82,7 @@ def get_info(basedir):
             'uuid': part['IdUuid'],
             'bytes': part['DeviceSize'],
             'filesystem': part['IdType'],
+            'filesystem_version': part['IdVersion'],
             'label': part['IdLabel'],
             'number': part['PartitionNumber'],
         },
@@ -94,7 +95,7 @@ def get_info(basedir):
             'revision': drive['DriveRevision'],
             'rotational': drive['DriveIsRotational'],
             'partition_scheme': drive['PartitionTableScheme'],
-            'removable': drive['DeviceIsRemovable'],
+            'internal': drive['DeviceIsSystemInternal'],
         },
     }
 

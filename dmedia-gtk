@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 # dmedia: distributed media library
 # Copyright (C) 2011 Novacut Inc
@@ -22,23 +22,45 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 import optparse
-
-from userwebkit import BaseUI
+import json
 
 import dmedia
+from dmedia.gtk import GObject, Gtk
 
 
-class UI(BaseUI):
-    app = 'dmedia'
-    page = 'index.html'
-    splash = 'splash.html'
-    title = 'DMedia Browser'
-    databases = ['dmedia']
+class UI:
+    def __init__(self, benchmark=False):
+        self.benchmark = benchmark
+        self.window = Gtk.Window()
+        self.window.connect('destroy', Gtk.main_quit)
+        self.window.set_default_size(960, 540)
+        self.window.set_title('DMedia')
+
+    def run(self):
+        self.window.show_all()
+        GObject.idle_add(self.on_idle)
+        Gtk.main()
+
+    def on_idle(self):
+        if self.benchmark:
+            Gtk.main_quit()
+            return
+        from dmedia.service.dbus import session
+        session.get_async(self.on_proxy, 'org.freedesktop.DC3', '/')
+
+    def on_proxy(self, proxy, async_result, *args):
+        self.proxy = proxy
+        self.env = json.loads(self.proxy.GetEnv())
+        self.start_importer()
+
+    def start_importer(self):
+        from dmedia.service.wrappers import GImportManager
+        from dmedia.gtk.ubuntu import UnityImportUX
+        self.gmanager = GImportManager(self.env)
+        self.ux = UnityImportUX(self.gmanager)
 
 
-parser = optparse.OptionParser(
-    version=dmedia.__version__,
-)
+parser = optparse.OptionParser(version=dmedia.__version__)
 parser.add_option('--benchmark',
     help='benchmark app startup time',
     action='store_true',

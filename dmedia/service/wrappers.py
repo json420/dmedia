@@ -38,6 +38,34 @@ needed.
 from gi.repository import GObject
 from gi.repository.GObject import TYPE_PYOBJECT
 
+from dmedia.importer import ImportManager
+from dmedia.service import dbus
+
+
+def extra_info(partition, drive):
+    return {
+        'partition': {
+            'uuid': partition['IdUuid'],
+            'bytes': partition['DeviceSize'],
+            'filesystem': partition['IdType'],
+            'filesystem_version': partition['IdVersion'],
+            'label': partition['IdLabel'],
+            'number': partition['PartitionNumber'],
+        },
+        'drive': {
+            'serial': drive['DriveSerial'],
+            'bytes': drive['DeviceSize'],
+            'block_bytes': drive['DeviceBlockSize'],
+            'vendor': drive['DriveVendor'],
+            'model': drive['DriveModel'],
+            'revision': drive['DriveRevision'],
+            'rotational': drive['DriveIsRotational'],
+            'partition_scheme': drive['PartitionTableScheme'],
+            'internal': drive['DeviceIsSystemInternal'],
+            'connection': drive['DriveConnectionInterface'],
+        },
+    }
+
 
 class GImportManager(GObject.GObject):
     """
@@ -48,16 +76,37 @@ class GImportManager(GObject.GObject):
         'batch_started': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
+        'import_started': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'batch_progress': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'batch_finished': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
     }
 
-    _autoemit = ('batch_started',)
+    _autoemit = (
+        'batch_started',
+        'import_started',
+        'batch_progress',
+        'batch_finished',
+    )
 
     def __init__(self, env):
+        super().__init__()
         self.manager = ImportManager(env, self._callback)
+        self.udisks = dbus.UDisks()
+        self.udisks.monitor()
+        self.udisks.connect('card_inserted', self._on_card_inserted)
 
-    def callback(self, signal, args):
-        print(signal, *args)
+    def _callback(self, signal, args):
         if signal in self._autoemit:
             self.emit(signal, *args)
+
+    def _on_card_inserted(self, udisks, obj, parentdir, partition, drive):
+        info = extra_info(partition, drive)
+        self.manager.start_import(parentdir, info)
 
 

@@ -68,16 +68,16 @@ class UDisks(GObject.GObject):
         'DeviceChanged': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
-        'card-inserted': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+        'card_inserted': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
-        'store-added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+        'store_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
-        'card-removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+        'card_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
-        'store-removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+        'store_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
     }
@@ -109,19 +109,19 @@ class UDisks(GObject.GObject):
             drive = get_device_props(partition['PartitionSlave'])
             if path.isdir(path.join(parentdir, DOTNAME)):
                 self._stores[obj] = parentdir
-                self.emit('store-added', obj, parentdir, partition, drive)
+                self.emit('store_added', obj, parentdir, partition, drive)
             elif not partition['DeviceIsSystemInternal']:
                 self._cards[obj] = parentdir
-                self.emit('card-inserted', obj, parentdir, partition, drive)
+                self.emit('card_inserted', obj, parentdir, partition, drive)
 
     def _on_DeviceRemoved(self, udisks, obj):
         try:
             parentdir = self._stores.pop(obj)
-            self.emit('store-removed', obj, parentdir)
+            self.emit('store_removed', obj, parentdir)
         except KeyError:
             try:
                 parentdir = self._cards.pop(obj)
-                self.emit('card-removed', obj, parentdir)
+                self.emit('card_removed', obj, parentdir)
             except KeyError:
                 pass  
 

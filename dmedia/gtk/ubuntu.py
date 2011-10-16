@@ -86,7 +86,8 @@ class NotifyManager:
 
 
 class UnityImportUX:
-    def __init__(self):
+    def __init__(self, gmanager):
+        self.gmanager = gmanager
         self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
         self.notify = NotifyManager()
         self.indicator = AppIndicator3.Indicator.new('dmedia', ICON,
@@ -94,36 +95,15 @@ class UnityImportUX:
         )
         self.indicator.set_attention_icon(ICON_ATT)
         self.menu = Gtk.Menu()
-        close = Gtk.MenuItem()
-        close.set_label(_('Close'))
-        close.connect('activate', self.on_close)
-        self.menu.append(close)
         self.menu.show_all()
         self.indicator.set_menu(self.menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
-        self.manager = ImportManager(env, self.on_callback)
-        self.handlers = {
-            'batch_started': self.on_batch_started,
-            'import_started': self.on_import_started,
-            'batch_finished': self.on_batch_finished,
-            'batch_progress': self.on_batch_progress,
-        }
-        self.window = Gtk.Window()
-        self.window.connect('destroy', self.on_close)
-        self.window.show_all()
+        self.gmanager.connect('batch_started', self.on_batch_started)
+        self.gmanager.connect('import_started', self.on_import_started)
+        self.gmanager.connect('batch_progress', self.on_batch_progress)
+        self.gmanager.connect('batch_finished', self.on_batch_finished)
 
-    def on_close(self, button):
-        Gtk.main_quit()
-
-    def on_callback(self, signal, args):
-        print(signal, *args)
-        try:
-            handler = self.handlers[signal]
-            handler(*args)
-        except KeyError:
-            pass
-
-    def on_batch_started(self, batch_id):
+    def on_batch_started(self, gm, batch_id):
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
         self.launcher.set_property('count', 0)
         self.launcher.set_property('count_visible', True)
@@ -131,17 +111,21 @@ class UnityImportUX:
         self.launcher.set_property('progress_visible', True)
         self.basedirs = []
 
-    def on_import_started(self, basedir, import_id):
+    def on_import_started(self, gm, basedir, import_id, info):
         self.basedirs.append(basedir)
         (summary, body) = notify_started(self.basedirs)
-        self.notify.replace(summary, body, None)
+        icons = {
+            'usb': 'notification-device-usb',
+        }
+        icon = icons.get(info['drive']['connection'])
+        self.notify.replace(summary, body, icon)
 
-    def on_batch_progress(self, count, total_count, size, total_size):
+    def on_batch_progress(self, gm, count, total_count, size, total_size):
         self.launcher.set_property('count', total_count)
         progress = (0.0 if total_size == 0 else size / total_size)
         self.launcher.set_property('progress', progress)
 
-    def on_batch_finished(self, batch_id, stats):
+    def on_batch_finished(self, gm, batch_id, stats):
         self.launcher.set_property('count_visible', False)
         self.launcher.set_property('progress_visible', False)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)

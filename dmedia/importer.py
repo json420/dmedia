@@ -103,10 +103,12 @@ class ImportWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
         self.basedir = args[0]
+        self.extra = None
         self.id = None
         self.doc = None
 
-    def execute(self, basedir):
+    def execute(self, basedir, extra=None):
+        self.extra = extra
         self.start()
         self.scan()
         self.import_all()
@@ -118,9 +120,11 @@ class ImportWorker(workers.CouchWorker):
         )
         st = statvfs(self.basedir)
         self.doc['statvfs'] = st._asdict()
+        if self.extra:
+            self.doc.update(self.extra)
         self.id = self.doc['_id']
         self.db.save(self.doc)
-        self.emit('started', self.id)
+        self.emit('started', self.id, self.extra)
 
     def scan(self):
         self.batch = scandir(self.basedir)
@@ -244,10 +248,10 @@ class ImportManager(workers.CouchManager):
         )
         self.db.save(self.doc)
 
-    def on_started(self, key, import_id):
+    def on_started(self, key, import_id, extra):
         self.doc['imports'].append(import_id)
         self.db.save(self.doc)
-        self.emit('import_started', key, import_id)
+        self.emit('import_started', key, import_id, extra)
 
     def on_scanned(self, key, total_count, total_bytes):
         self._total_count += total_count 
@@ -273,5 +277,5 @@ class ImportManager(workers.CouchManager):
         with self._lock:
             return (self._count, self._total_count, self._bytes, self._total_bytes)
 
-    def start_import(self, base):
-        return self.start_job('ImportWorker', base, base)
+    def start_import(self, base, extra=None):
+        return self.start_job('ImportWorker', base, base, extra)
