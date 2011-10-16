@@ -23,8 +23,9 @@
 Simple dbus helper to make PyGI a bit nicer.
 """
 
-import os
+from os import path
 
+from filestore import DOTNAME
 from gi.repository import GObject, Gio
 from gi.repository.GObject import TYPE_PYOBJECT
 
@@ -36,18 +37,18 @@ class DBus:
     def __init__(self, conn):
         self.conn = conn
 
-    def get(self, bus, path, iface=None):
+    def get(self, bus, obj, iface=None):
         if iface is None:
             iface = bus
         return Gio.DBusProxy.new_sync(
-            self.conn, 0, None, bus, path, iface, None
+            self.conn, 0, None, bus, obj, iface, None
         )
 
-    def get_async(self, callback, bus, path, iface=None):
+    def get_async(self, callback, bus, obj, iface=None):
         if iface is None:
             iface = bus
         Gio.DBusProxy.new(
-            self.conn, 0, None, bus, path, iface, None, callback, None
+            self.conn, 0, None, bus, obj, iface, None, callback, None
         )
 
 
@@ -67,7 +68,10 @@ class UDisks(GObject.GObject):
         'DeviceChanged': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
-        'insert': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+        'card-inserted': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'store-added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
     }
@@ -87,17 +91,21 @@ class UDisks(GObject.GObject):
             self.emit(signal, *args)
 
     def on_DeviceChanged(self, udisks, obj):
-        partition = get_device_props(obj)
-        if (
-            partition['DeviceIsPartition'] 
-            and partition['DeviceIsMounted']
-            and partition['IdType'] == 'vfat'
-            and not partition['DeviceIsSystemInternal']
-        ):
+        try:
+            partition = get_device_props(obj)
+        except Exception:
+            return
+        if partition['DeviceIsPartition'] and partition['DeviceIsMounted']:
+            if len(partition['DeviceMountPaths']) != 1:
+                return
             parentdir = partition['DeviceMountPaths'][0]
             drive = get_device_props(partition['PartitionSlave'])
-            print('insert', parentdir)
-            self.emit('insert', parentdir, obj, partition, drive)
+            if path.isdir(path.join(parentdir, DOTNAME)):
+                print('store-added', parentdir)
+                self.emit('store-added', parentdir, obj, partition, drive)
+            elif not partition['DeviceIsSystemInternal']:
+                print('card-inserted', parentdir)
+                self.emit('card-inserted', parentdir, obj, partition, drive)
 
     def monitor(self):
         self.connect('DeviceChanged', self.on_DeviceChanged)
@@ -109,8 +117,8 @@ class UDisks(GObject.GObject):
         return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor)
 
 
-def get_device_props(path):
-    device = system.get('org.freedesktop.UDisks', path, PROPS)
+def get_device_props(obj):
+    device = system.get('org.freedesktop.UDisks', obj, PROPS)
     return device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
 
 
@@ -118,10 +126,10 @@ class Device:
     bus = 'org.freedesktop.UDisks'
     iface = 'org.freedesktop.UDisks.Device'
 
-    def __init__(self, path):
-        self.path = path
-        self.proxy = system.get(self.bus, path, self.iface)
-        self.propsproxy = system.get(self.bus, path, PROPS)
+    def __init__(self, obj):
+        self.obj = obj
+        self.proxy = system.get(self.bus, obj, self.iface)
+        self.propsproxy = system.get(self.bus, obj, PROPS)
         self.props = self.propsproxy.GetAll('(s)', self.iface)
 
     def __getitem__(self, key):

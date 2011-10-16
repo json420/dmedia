@@ -7,9 +7,10 @@ def report(objpath):
     keys = [
         'DeviceIsMounted',
         'DeviceIsPartition',
-        'DeviceIsSystemInternal',
+        #'DeviceIsSystemInternal',
         'DeviceMountPaths',
-        'DriveConnectionInterface',
+        'DriveConnectionSpeed',
+        #'DriveConnectionInterface',
     ]
     props = dbus.get_device_props(objpath)
     for key in sorted(keys):
