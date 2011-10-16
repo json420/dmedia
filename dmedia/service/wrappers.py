@@ -35,6 +35,8 @@ need an event to have multiple consumers, so we wrap this in a GObject when
 needed.
 """
 
+import time
+
 from gi.repository import GObject
 from gi.repository.GObject import TYPE_PYOBJECT
 
@@ -44,8 +46,9 @@ from dmedia.service import dbus
 
 def extra_info(partition, drive):
     return {
+        'drive_serial': drive['DriveSerial'],
+        'partition_uuid': partition['IdUuid'],
         'partition': {
-            'uuid': partition['IdUuid'],
             'bytes': partition['DeviceSize'],
             'filesystem': partition['IdType'],
             'filesystem_version': partition['IdVersion'],
@@ -53,13 +56,11 @@ def extra_info(partition, drive):
             'number': partition['PartitionNumber'],
         },
         'drive': {
-            'serial': drive['DriveSerial'],
             'bytes': drive['DeviceSize'],
             'block_bytes': drive['DeviceBlockSize'],
             'vendor': drive['DriveVendor'],
             'model': drive['DriveModel'],
             'revision': drive['DriveRevision'],
-            'rotational': drive['DriveIsRotational'],
             'partition_scheme': drive['PartitionTableScheme'],
             'internal': drive['DeviceIsSystemInternal'],
             'connection': drive['DriveConnectionInterface'],
@@ -91,7 +92,7 @@ class GImportManager(GObject.GObject):
         'batch_started',
         'import_started',
         'batch_progress',
-        'batch_finished',
+#        'batch_finished',
     )
 
     def __init__(self, env):
@@ -100,12 +101,29 @@ class GImportManager(GObject.GObject):
         self.udisks = dbus.UDisks()
         self.udisks.monitor()
         self.udisks.connect('card_inserted', self._on_card_inserted)
+        self._cards = []
 
     def _callback(self, signal, args):
         if signal in self._autoemit:
             self.emit(signal, *args)
+        elif signal == 'batch_finished':
+            self._on_batch_finished(*args)
+
+    def _on_batch_finished(self, batch_id, stats):
+        print('batch_finished', batch_id, stats)
+        for obj in self._cards:
+            print(obj)
+            partition = dbus.Partition(obj)
+            drive = partition.get_drive()
+            partition.FilesystemUnmount()
+            partition.FilesystemCreate()
+            drive.DriveEject()
+        self._cards = []
+        time.sleep(0.5)
+        self.emit('batch_finished', batch_id, stats)
 
     def _on_card_inserted(self, udisks, obj, parentdir, partition, drive):
+        self._cards.append(obj)
         info = extra_info(partition, drive)
         self.manager.start_import(parentdir, info)
 

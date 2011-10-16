@@ -35,6 +35,18 @@ class UI:
         self.window.connect('destroy', Gtk.main_quit)
         self.window.set_default_size(960, 540)
         self.window.set_title('DMedia')
+        self.notebook = Gtk.Notebook()
+        self.window.add(self.notebook)
+        self.append_page('Import')
+        self.append_page('Library')
+        self.append_page('Storage')
+        
+    def append_page(self, text, child=None):
+        if child is None:
+            child = Gtk.VBox()
+        label = Gtk.Label(text)
+        label.set_padding(6, 2)
+        self.notebook.append_page(child, label)
 
     def run(self):
         self.window.show_all()
@@ -58,6 +70,7 @@ class UI:
         from dmedia.gtk.ubuntu import UnityImportUX
         self.gmanager = GImportManager(self.env)
         self.ux = UnityImportUX(self.gmanager)
+
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)

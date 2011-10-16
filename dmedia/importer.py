@@ -235,7 +235,9 @@ class ImportManager(workers.CouchManager):
 
     def last_worker_finished(self):
         assert self._workers == {}
+        print('sync')
         check_call(['/bin/sync'])
+        print('sync done')
         self.doc['time_end'] = time.time()
         self.db.save(self.doc)
         self.emit('batch_finished', self.doc['_id'], self.doc['stats'])

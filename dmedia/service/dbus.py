@@ -141,6 +141,14 @@ class UDisks(GObject.GObject):
 def get_device_props(obj):
     device = system.get('org.freedesktop.UDisks', obj, PROPS)
     return device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
+    
+    
+#>>> part = dbus.Partition(obj)
+#>>> drive = part.get_drive()
+#>>> part.FilesystemUnmount()
+#>>> part.FilesystemCreate()
+#>>> drive.DriveEject()
+
 
 
 class Device:
@@ -150,21 +158,42 @@ class Device:
     def __init__(self, obj):
         self.obj = obj
         self.proxy = system.get(self.bus, obj, self.iface)
-        self.propsproxy = system.get(self.bus, obj, PROPS)
-        self.props = self.propsproxy.GetAll('(s)', self.iface)
+        self.props = get_device_props(obj)
+
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.obj)
 
     def __getitem__(self, key):
         return self.props[key]
 
-    def FilesystemUnmount(self, options):
-        return self.proxy.FilesystemUnmount('(as)', options)
-        
+
+class Partition(Device):
+    def get_drive(self):
+        assert self['DeviceIsPartition']
+        obj = self['PartitionSlave']
+        return Drive(obj)
+
+    def FilesystemUnmount(self):
+        return self.proxy.FilesystemUnmount('(as)', [])
+
+    def FilesystemCreate(self, fstype=None, options=None):
+        if fstype is None:
+            fstype = self['IdType']
+        if options is None:
+            options = ['label={}'.format(self['IdLabel'])]
+        return self.proxy.FilesystemCreate('(sas)', fstype, options)
+
+
+class Drive(Device):
+
     def DriveEject(self):
         return self.proxy.DriveEject('(as)', [])
-        
+
     def DriveDetach(self):
+        """
+        Worthless, don't use this!
+        """
         return self.proxy.DriveDetach('(as)', [])
 
-    def FilesystemCreate(self, fstype, options):
-        return self.proxy.FilesystemCreate('(sas)', fstype, options)
+
 
