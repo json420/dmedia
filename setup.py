@@ -146,8 +146,8 @@ setup(
         ),
         ('share/icons/hicolor/scalable/status',
             [
-                'share/indicator-rendermenu.svg',
-                'share/indicator-rendermenu-att.svg',
+                'share/indicator-dmedia.svg',
+                'share/indicator-dmedia-att.svg',
             ]
         ),
         ('lib/dmedia',
