@@ -8,5 +8,6 @@ if len(sys.argv) != 2:
     print('takes exactly one argument PARENTDIR')
     sys.exit(1)
 
-(fs, doc) = init_filestore(sys.argv[1])
+parentdir = path.abspath(sys.argv[1])
+(fs, doc) = init_filestore(parentdir)
 fs.init_dirs()  # Force init_dirs() to make sure layout is correct
