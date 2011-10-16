@@ -111,15 +111,40 @@ class GImportManager(GObject.GObject):
 
     def _on_batch_finished(self, batch_id, stats):
         print('batch_finished', batch_id, stats)
-        for obj in self._cards:
-            print(obj)
-            partition = dbus.Partition(obj)
-            drive = partition.get_drive()
-            partition.FilesystemUnmount()
-            partition.FilesystemCreate()
-            drive.DriveEject()
+        parts = [dbus.Partition(obj) for obj in self._cards]
         self._cards = []
-        time.sleep(0.5)
+
+        for p in parts:
+            p.FilesystemUnmount()
+        while True:
+            print('unmount')
+            time.sleep(0.1)
+            for p in parts:
+                p.refresh()
+            if not any(p['JobInProgress'] for p in parts):
+                break
+   
+        for p in parts:
+            p.FilesystemCreate()
+        while True:
+            print('format')
+            time.sleep(0.1)
+            for p in parts:
+                p.refresh()
+            if not any(p['JobInProgress'] for p in parts):
+                break
+
+        for p in parts:
+            p.drive.DriveEject()
+        while True:
+            print('eject')
+            time.sleep(0.1)
+            for p in parts:
+                p.drive.refresh()
+            if not any(p.drive['JobInProgress'] for p in parts):
+                break
+
+        time.sleep(0.2)
         self.emit('batch_finished', batch_id, stats)
 
     def _on_card_inserted(self, udisks, obj, parentdir, partition, drive):

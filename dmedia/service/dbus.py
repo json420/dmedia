@@ -158,20 +158,23 @@ class Device:
     def __init__(self, obj):
         self.obj = obj
         self.proxy = system.get(self.bus, obj, self.iface)
-        self.props = get_device_props(obj)
+        self.refresh()
+
+    def refresh(self):
+        self.__props = get_device_props(self.obj)
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
 
     def __getitem__(self, key):
-        return self.props[key]
+        return self.__props[key]
 
 
 class Partition(Device):
-    def get_drive(self):
+    def __init__(self, obj):
+        super().__init__(obj)
         assert self['DeviceIsPartition']
-        obj = self['PartitionSlave']
-        return Drive(obj)
+        self.drive = Drive(self['PartitionSlave'])
 
     def FilesystemUnmount(self):
         return self.proxy.FilesystemUnmount('(as)', [])
