@@ -81,6 +81,7 @@ class UDisks(GObject.GObject):
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
     }
+
     _autoemit = ('DeviceAdded', 'DeviceRemoved', 'DeviceChanged')
 
     def __init__(self):
@@ -89,14 +90,14 @@ class UDisks(GObject.GObject):
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
-        self.proxy.connect('g-signal', self.on_g_signal)
+        self.proxy.connect('g-signal', self._on_g_signal)
 
-    def on_g_signal(self, proxy, sender, signal, params):
+    def _on_g_signal(self, proxy, sender, signal, params):
         if signal in self._autoemit:
             args = params.unpack()
             self.emit(signal, *args)
 
-    def on_DeviceChanged(self, udisks, obj):
+    def _on_DeviceChanged(self, udisks, obj):
         try:
             partition = get_device_props(obj)
         except Exception:
@@ -113,7 +114,7 @@ class UDisks(GObject.GObject):
                 self._cards[obj] = parentdir
                 self.emit('card-inserted', obj, parentdir, partition, drive)
 
-    def on_DeviceRemoved(self, udisks, obj):
+    def _on_DeviceRemoved(self, udisks, obj):
         try:
             parentdir = self._stores.pop(obj)
             self.emit('store-removed', obj, parentdir)
@@ -127,8 +128,8 @@ class UDisks(GObject.GObject):
     def monitor(self):
         self._cards = {}
         self._stores = {}
-        self.connect('DeviceChanged', self.on_DeviceChanged)
-        self.connect('DeviceRemoved', self.on_DeviceRemoved)
+        self.connect('DeviceChanged', self._on_DeviceChanged)
+        self.connect('DeviceRemoved', self._on_DeviceRemoved)
 
     def EnumerateDevices(self):
         return self.proxy.EnumerateDevices()
