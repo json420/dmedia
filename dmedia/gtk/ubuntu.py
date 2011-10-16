@@ -23,6 +23,8 @@
 Some Ubuntu-specific UI bits.
 """
 
+from gettext import gettext as _
+
 from gi.repository import Gtk, Notify, AppIndicator3, Unity
 
 from dmedia.importer import notify_started, notify_stats
@@ -95,6 +97,10 @@ class UnityImportUX:
         )
         self.indicator.set_attention_icon(ICON_ATT)
         self.menu = Gtk.Menu()
+        self.close = Gtk.MenuItem()
+        self.close.set_label(_('Close'))
+        #self.close.connect('activate', self.on_close)
+        self.menu.append(self.close)
         self.menu.show_all()
         self.indicator.set_menu(self.menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
@@ -131,7 +137,3 @@ class UnityImportUX:
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         (summary, body) = notify_stats(stats)
         self.notify.replace(summary, body, 'notification-device-eject')
-
-
-
-

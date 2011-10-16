@@ -45,7 +45,7 @@ class UI:
         if child is None:
             child = Gtk.VBox()
         label = Gtk.Label(text)
-        label.set_padding(6, 2)
+        label.set_padding(8, 2)
         self.notebook.append_page(child, label)
 
     def run(self):
