@@ -97,6 +97,7 @@ class UDisks(GObject.GObject):
             parentdir = partition['DeviceMountPaths'][0]
             drive = get_device_props(partition['PartitionSlave'])
             print('insert', parentdir)
+            self.emit('insert', parentdir, obj, partition, drive)
 
     def monitor(self):
         self.connect('DeviceChanged', self.on_DeviceChanged)
