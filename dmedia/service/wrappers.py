@@ -66,12 +66,16 @@ class GImportManager(GObject.GObject):
         'batch_finished': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
+        'error': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
     }
 
     _autoemit = (
         'batch_started',
         'import_started',
         'batch_progress',
+        'error',
     )
 
     def __init__(self, env):
@@ -84,6 +88,7 @@ class GImportManager(GObject.GObject):
         self._cards = []
 
     def _callback(self, signal, args):
+        print(signal, args)
         if signal in self._autoemit:
             self.emit(signal, *args)
         elif signal == 'batch_finished':

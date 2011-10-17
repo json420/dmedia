@@ -108,6 +108,7 @@ class UnityImportUX:
         self.gmanager.connect('import_started', self.on_import_started)
         self.gmanager.connect('batch_progress', self.on_batch_progress)
         self.gmanager.connect('batch_finished', self.on_batch_finished)
+        self.gmanager.connect('error', self.on_error)
 
     def on_batch_started(self, gm, batch_id):
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
@@ -137,3 +138,10 @@ class UnityImportUX:
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         (summary, body) = notify_stats(stats)
         self.notify.replace(summary, body, 'notification-device-eject')
+
+    def on_error(self, gm, exception, message):
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        self.launcher.set_property('count_visible', False)
+        self.launcher.set_property('progress_visible', False)
+        self.launcher.set_property('urgent', True)
+        

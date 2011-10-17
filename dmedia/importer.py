@@ -223,6 +223,7 @@ class ImportManager(workers.CouchManager):
         self._total_count = 0
         self._bytes = 0
         self._total_bytes = 0
+        self._error = None
 
     def get_worker_env(self, worker, key, args):
         env = deepcopy(self.env)
@@ -248,16 +249,19 @@ class ImportManager(workers.CouchManager):
         self.doc = None
 
     def on_error(self, basedir, exception, message):
+        self._error = {
+            'basedir': basedir,
+            'name': exception,
+            'message': message,
+        }
         try:
+            self.abort()
             if self.doc is not None:
-                self.doc['error'] = {
-                    'basedir': basedir,
-                    'name': exception,
-                    'message': message,
-                }
+                self.doc['error'] = self._error
                 self.db.save(self.doc)
         finally:
-            self.emit('error', basedir, exception, message)
+            self.doc = None
+            self.emit('error', exception, message)
 
     def on_started(self, basedir, import_id, extra):
         assert import_id not in self.doc['imports']

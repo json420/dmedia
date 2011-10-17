@@ -342,6 +342,14 @@ class Manager(object):
             self._workers.clear()
             return True
 
+    def abort(self):
+        log.info('Aborting %s', self.name)
+        self._running = False
+        for p in self._workers.values():
+            p.terminate()
+            p.join()
+        self._workers.clear()
+
     def get_worker_env(self, worker, key, args):
         return dict(self.env)
 
