@@ -1081,38 +1081,6 @@ def create_filestore(copies=1):
     }
 
 
-def create_store(parentdir, machine_id, copies=1):
-    """
-    Create a 'dmedia/store' doc for a FileStore on a non-removable drive.
-    """
-    return {
-        '_id': random_id(),
-        'ver': 0,
-        'type': 'dmedia/store',
-        'time': time.time(),
-        'plugin': 'filestore',
-        'parentdir': parentdir,
-        'machine_id': machine_id,
-        'copies': copies,
-    }
-
-
-def create_removable_store(copies=1, **kw):
-    """
-    Create a 'dmedia/store' document.
-    """
-    doc =  {
-        '_id': random_id(),
-        'ver': 0,
-        'type': 'dmedia/store',
-        'time': time.time(),
-        'plugin': 'filestore.removable',
-        'copies': copies,
-    }
-    doc.update(kw)
-    return doc
-
-
 def create_s3_store(bucket, copies=2, use_ext=True):
     """
     Create a 'dmedia/store' document.
@@ -1161,7 +1129,6 @@ def create_import(basedir, machine_id, **kw):
         'basedir': basedir,
         'machine_id': machine_id,
         'files': {},
-        'import_order': [],
         'stats': {
             'total': {'count': 0, 'bytes': 0},
             'new': {'count': 0, 'bytes': 0},

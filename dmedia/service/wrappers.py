@@ -68,6 +68,7 @@ def extra_info(partition, drive):
             'partition_scheme': drive['PartitionTableScheme'],
             'internal': drive['DeviceIsSystemInternal'],
             'connection': drive['DriveConnectionInterface'],
+            'connection_rate': drive['DriveConnectionSpeed'],
         },
     }
 

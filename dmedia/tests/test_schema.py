@@ -605,12 +605,10 @@ class TestFunctions(TestCase):
         schema.check_file(doc)
         self.assertEqual(doc['origin'], 'proxy')
 
-    def test_create_store(self):
-        tmp = TempDir()
-        machine_id = random_id()
-
-        doc = schema.create_store(tmp.dir, machine_id)
-        self.assertEqual(schema.check_store(doc), None)
+    def test_create_filestore(self):
+        start = time.time()
+        doc = schema.create_filestore()
+        self.assertIsNone(schema.check_store(doc))
         self.assertEqual(
             set(doc),
             set([
@@ -620,19 +618,15 @@ class TestFunctions(TestCase):
                 'time',
                 'plugin',
                 'copies',
-                'parentdir',
-                'machine_id',
             ])
         )
         self.assertEqual(doc['type'], 'dmedia/store')
-        self.assertTrue(doc['time'] <= time.time())
+        self.assertTrue(start <= doc['time'] <= time.time())
         self.assertEqual(doc['plugin'], 'filestore')
         self.assertEqual(doc['copies'], 1)
-        self.assertEqual(doc['parentdir'], tmp.dir)
-        self.assertEqual(doc['machine_id'], machine_id)
-        doc = schema.create_store(tmp.dir, machine_id, copies=3)
-        self.assertEqual(doc['copies'], 3)
 
+        doc = schema.create_filestore(copies=3)
+        self.assertEqual(doc['copies'], 3)
 
     def test_create_batch(self):
         f = schema.create_batch
@@ -683,7 +677,6 @@ class TestFunctions(TestCase):
                 'basedir',
                 'machine_id',
                 'files',
-                'import_order',
                 'stats',
             ])
         )
@@ -693,7 +686,6 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['basedir'], basedir)
         self.assertEqual(doc['machine_id'], machine_id)
         self.assertEqual(doc['files'], {})
-        self.assertEqual(doc['import_order'], [])
         self.assertEqual(doc['stats'],
             {
                 'total': {'count': 0, 'bytes': 0},
