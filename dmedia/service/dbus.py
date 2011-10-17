@@ -24,12 +24,14 @@ Simple dbus helper to make PyGI a bit nicer.
 """
 
 from os import path
+import logging
 
 from filestore import DOTNAME
 from gi.repository import GObject, Gio
 from gi.repository.GObject import TYPE_PYOBJECT
 
 
+log = logging.getLogger()
 PROPS = 'org.freedesktop.DBus.Properties'
 
 
@@ -174,11 +176,12 @@ class Partition(Device):
     def __init__(self, obj):
         super().__init__(obj)
         assert self['DeviceIsPartition']
-        
+ 
     def get_drive(self):
         return Drive(self['PartitionSlave'])
 
     def FilesystemUnmount(self):
+        log.info('Unmounting %r', self)
         return self.proxy.FilesystemUnmount('(as)', [])
 
     def FilesystemCreate(self, fstype=None, options=None):
@@ -186,18 +189,21 @@ class Partition(Device):
             fstype = self['IdType']
         if options is None:
             options = ['label={}'.format(self['IdLabel'])]
+        log.info('Formating %r as %r with %r', self, fstype, options)
         return self.proxy.FilesystemCreate('(sas)', fstype, options)
 
 
 class Drive(Device):
 
     def DriveEject(self):
+        log.info('Ejecting %r', self)
         return self.proxy.DriveEject('(as)', [])
 
     def DriveDetach(self):
         """
         Worthless, don't use this!
         """
+        log.info('Detaching %r', self)
         return self.proxy.DriveDetach('(as)', [])
 
 
@@ -215,35 +221,30 @@ class Formatter:
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
 
     def on_g_signal(self, proxy, sender, signal, params, which):
-        print(which, signal, params.unpack())
+        log.debug('%r %s %s %r', self, which, signal, params.unpack())
         if signal == 'JobChanged':
             job_in_progress = params.unpack()[0]
             if not (job_in_progress or self.next is None):
-                print('calling next()...')
                 self.next()
 
     def run(self):
         self.unmount()
 
     def unmount(self):
-        print('unmount')
         self.next = self.format
         self.partition.FilesystemUnmount()
 
     def format(self):
-        print('format')
         self.next = self.wait1
         self.partition.FilesystemCreate()
 
     def wait1(self):
         # FIXME: This wait is to work around a UDisks bug: when we get the
         # signal that the format is complete, we can't actually eject yet
-        print('wait1')
         self.next = None
         GObject.timeout_add(1000, self.eject)
 
     def eject(self):
-        print('eject')
         self.next = self.wait2
         self.drive.DriveEject()
         return False  # Do not repeat timeout call
@@ -255,14 +256,9 @@ class Formatter:
         # during a dmedia import as the aren't actionable in the expected way.
         # Plus, we want to mount the cards read-only... which will probably take
         # some changes in Nautilus.
-        print('wait2')
         self.next = None
         GObject.timeout_add(1000, self.finish)
 
     def finish(self):
-        print('finished')
         self.callback(self, self.obj)
         return False  # Do not repeat timeout call
-
-
-

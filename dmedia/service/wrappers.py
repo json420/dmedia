@@ -36,12 +36,16 @@ needed.
 """
 
 import time
+import logging
 
 from gi.repository import GObject
 from gi.repository.GObject import TYPE_PYOBJECT
 
 from dmedia.importer import ImportManager
 from dmedia.service import dbus
+
+
+log = logging.getLogger()
 
 
 def extra_info(partition, drive):
@@ -92,7 +96,6 @@ class GImportManager(GObject.GObject):
         'batch_started',
         'import_started',
         'batch_progress',
-#        'batch_finished',
     )
 
     def __init__(self, env):
@@ -111,7 +114,6 @@ class GImportManager(GObject.GObject):
             self._on_batch_finished(*args)
 
     def _on_batch_finished(self, batch_id, stats):
-        print('batch_finished', batch_id, stats)
         self._blocking = True
         self._batch_id = batch_id
         self._stats = stats
@@ -124,7 +126,7 @@ class GImportManager(GObject.GObject):
             f.run()
 
     def _on_format_complete(self, formatter, obj):
-        print('format complete', obj)
+        log.info('Completed: %r', formatter)
         f = self._formatters.pop(obj)
         assert formatter is f
         if len(self._formatters) == 0:
@@ -133,7 +135,9 @@ class GImportManager(GObject.GObject):
 
     def _on_card_inserted(self, udisks, obj, parentdir, partition, drive):
         if self._blocking:
+            log.warning('Blocking, ignoring card-insert %r', obj)
             return
+        log.info('card-insert %r', obj)
         self._cards.append(obj)
         info = extra_info(partition, drive)
         self.manager.start_import(parentdir, info)

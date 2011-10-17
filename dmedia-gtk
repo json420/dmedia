@@ -40,7 +40,7 @@ class UI:
         self.append_page('Import')
         self.append_page('Library')
         self.append_page('Storage')
-        
+
     def append_page(self, text, child=None):
         if child is None:
             child = Gtk.VBox()
@@ -72,7 +72,6 @@ class UI:
         self.ux = UnityImportUX(self.gmanager)
 
 
-
 parser = optparse.OptionParser(version=dmedia.__version__)
 parser.add_option('--benchmark',
     help='benchmark app startup time',
@@ -81,5 +80,6 @@ parser.add_option('--benchmark',
 )
 (options, args) = parser.parse_args()
 
+dmedia.configure_logging('dmedia-gtk')
 ui = UI(options.benchmark)
 ui.run()

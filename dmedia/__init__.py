@@ -34,14 +34,15 @@ def configure_logging(namespace):
     from os import path
     import logging
 
-    import xdg.BaseDirectory
-
     format = [
         '%(levelname)s',
         '%(process)d',
         '%(message)s',
     ]
-    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
+    home = path.abspath(os.environ['HOME'])
+    if not path.isdir(home):
+        raise Exception('$HOME is not a directory: {!r}'.format(home))
+    cache = path.join(home, '.cache', 'dmedia')
     if not path.exists(cache):
         os.makedirs(cache)
     filename = path.join(cache, namespace + '.log')
