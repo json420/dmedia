@@ -58,7 +58,7 @@ class UI:
             Gtk.main_quit()
             return
         from dmedia.service.dbus import session
-        session.get_async(self.on_proxy, 'org.freedesktop.DC3', '/')
+        session.get_async(self.on_proxy, 'org.freedesktop.DMedia', '/')
 
     def on_proxy(self, proxy, async_result, *args):
         self.proxy = proxy
