@@ -137,9 +137,7 @@ def dispatch(worker, env, q, key, args):
     :param args: arguments to be passed to `Worker.run()`
     """
     pid = current_process().pid
-    log.debug('** dispatch in process %d: worker=%r, key=%r, args=%r',
-        pid, worker, key, args
-    )
+    log.debug('** dispatch: worker=%r, key=%r, args=%r', worker, key, args)
     try:
         klass = _workers[worker]
         inst = klass(env, q, key, args)
@@ -280,7 +278,7 @@ class Manager(object):
                 pass
 
     def _process_message(self, msg):
-        log.info('[from %(worker)s %(pid)d] %(signal)s %(args)r', msg)
+        log.info('[%(worker)s] %(signal)s %(args)r', msg)
         with self._lock:
             signal = msg['signal']
             args = msg['args']

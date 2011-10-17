@@ -34,6 +34,7 @@ import json
 import time
 import stat
 import multiprocessing
+import logging
 
 from microfiber import Database, NotFound, random_id2
 from filestore import FileStore, check_root_hash, check_id
@@ -44,6 +45,7 @@ from dmedia.views import init_views
 
 
 LOCAL_ID = '_local/dmedia'
+log = logging.getLogger()
 
 
 def file_server(env, queue):
@@ -53,6 +55,7 @@ def file_server(env, queue):
         app = ReadOnlyApp(env)
         httpd = make_server('', 0, app)
         port = httpd.socket.getsockname()[1]
+        log.info('Starting HTTP file transfer server on port %d', port)
         queue.put(port)
         httpd.serve_forever()
     except Exception as e:
@@ -134,6 +137,7 @@ class Core(Base):
         if not self.local['stores']:
             return
         dirs = sorted(self.local['stores'])
+        log.info('Attempting to init all previous FileStore in _local/dmedia')
         for parentdir in dirs:
             try:
                 fs = self._init_filestore(parentdir)
@@ -143,12 +147,15 @@ class Core(Base):
                     'copies': fs.copies,
                 }
             except Exception:
+                log.exception('Failed to init FileStore %r', parentdir)
                 del self.local['stores'][parentdir]
+                log.info('Removed %r from _local/dmedia', parentdir)
         self.db.save(self.local)
         assert set(self.local['stores']) == set(self.stores.parentdirs)
         assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
     def _init_filestore(self, parentdir, copies=1):
+        log.info('Attempting to init FileStore at %r', parentdir)
         (fs, doc) = init_filestore(parentdir, copies)
         try:
             doc = self.db.get(doc['_id'])
@@ -173,6 +180,7 @@ class Core(Base):
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
     def add_filestore(self, parentdir, copies=1):
+        log.info('add_filestore(%r, copies=%r)', parentdir, copies)
         if parentdir in self.local['stores']:
             raise Exception('already have parentdir {!r}'.format(parentdir))
         fs = self._init_filestore(parentdir, copies)
@@ -187,6 +195,7 @@ class Core(Base):
         return fs
 
     def remove_filestore(self, parentdir):
+        log.info('remove_filestore(%r)', parentdir)
         fs = self.stores.by_parentdir(parentdir)
         self.stores.remove(fs)
         del self.local['stores'][parentdir]

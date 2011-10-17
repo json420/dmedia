@@ -29,16 +29,18 @@ import sys
 import json
 from os import path
 import optparse
+import logging
 
 from gi.repository import GObject
 
-from dmedia import __version__
+import dmedia
 from dmedia.service import dbus
 from dmedia.service.dbus import session
 from dmedia.core import Core, start_file_server
 
 GObject.threads_init()
 BUS = 'org.freedesktop.DMedia'
+log = logging.getLogger()
 
 
 class DMedia:
@@ -111,16 +113,15 @@ class DMedia:
                     interface, protocol, name, _type, domain, -1, 0
                 )[7:9]
                 url = 'http://{}:{}/'.format(ip, port)
+                log.info('New peer %r at %r', name, url)
                 self._peers[name] = url
         elif signal == 'ItemRemove':
             (interface, protocol, name, _type, domain, flags) = params.unpack()
+            log.info('Removing peer %r', name)
             try:
                 del self._peers[name]
             except KeyError:
                 pass
-        print(signal, params.unpack())
-        for name in sorted(self._peers):
-            print('  ', name, self._peers[name])
 
     def AddFileStore(self, parentdir):
         self.core.add_filestore(path.abspath(parentdir))
@@ -134,7 +135,7 @@ class DMedia:
 
 parser = optparse.OptionParser(
 	usage='Usage: %prog FILE',
-	version=__version__,
+	version=dmedia.__version__,
 )
 parser.add_option('--bus',
     default=BUS,
@@ -142,7 +143,7 @@ parser.add_option('--bus',
 )
 (options, args) = parser.parse_args()
 
-
-dmedia = DMedia(options.bus)
-dmedia.run()
-dmedia.Kill()
+dmedia.configure_logging()
+service = DMedia(options.bus)
+service.run()
+service.Kill()
