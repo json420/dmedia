@@ -90,8 +90,10 @@ def extra_info(partition, drive):
             'internal': drive['DeviceIsSystemInternal'],
             'connection': drive['DriveConnectionInterface'],
             'connection_rate': drive['DriveConnectionSpeed'],
-            'rotational': drive['DriveIsRotational'],
-            'rotation_rate': drive['DriveRotationRate'],
+            
+            # These seem consitently worthless, never correct:
+            #'rotational': drive['DriveIsRotational'],
+            #'rotation_rate': drive['DriveRotationRate'],
         },
     }
 
