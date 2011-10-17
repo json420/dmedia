@@ -57,7 +57,6 @@ happens to be.
 """
 
 import multiprocessing
-from multiprocessing import current_process
 from threading import Thread, Lock
 from queue import Empty
 import logging
@@ -136,26 +135,23 @@ def dispatch(worker, env, q, key, args):
         controlled by the `Manager` that launched this worker
     :param args: arguments to be passed to `Worker.run()`
     """
-    pid = current_process().pid
     log.debug('** dispatch: worker=%r, key=%r, args=%r', worker, key, args)
     try:
         klass = _workers[worker]
         inst = klass(env, q, key, args)
         inst.run()
     except Exception as e:
-        log.exception('exception in procces %d, worker=%r', pid, worker)
+        log.exception('exception in worker=%r, key=%r', worker, key)
         q.put(dict(
             signal='error',
             args=(key, exception_name(e), str(e)),
             worker=worker,
-            pid=pid,
         ))
     finally:
         q.put(dict(
             signal='terminate',
             args=(key,),
             worker=worker,
-            pid=pid,
         ))
 
 
@@ -202,7 +198,6 @@ class Worker(object):
         self.q = q
         self.key = key
         self.args = args
-        self.pid = current_process().pid
         self.name = self.__class__.__name__
 
     def emit(self, signal, *args):
@@ -215,13 +210,11 @@ class Worker(object):
         The message is a ``dict`` with the following keys:
 
             *worker* - the worker class name
-            *pid* - the process ID
             *signal* - the signal name
             *args* - signal arguments
         """
         self.q.put(dict(
             worker=self.name,
-            pid=self.pid,
             signal=signal,
             args=(self.key,) + args,
         ))

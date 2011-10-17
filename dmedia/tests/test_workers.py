@@ -28,7 +28,6 @@ from os import path
 import time
 import multiprocessing
 import multiprocessing.queues
-from multiprocessing import current_process
 import threading
 
 import microfiber
@@ -127,7 +126,6 @@ class test_functions(TestCase):
 
     def test_dispatch(self):
         f = workers.dispatch
-        pid = current_process().pid
 
         # Test with unknown worker name
         q = DummyQueue()
@@ -141,13 +139,11 @@ class test_functions(TestCase):
                     signal='error',
                     args=('the key', 'KeyError', "'ImportFiles'"),
                     worker='ImportFiles',
-                    pid=pid,
                 ),
                 dict(
                     signal='terminate',
                     args=('the key',),
                     worker='ImportFiles',
-                    pid=pid,
                 ),
             ]
         )
@@ -168,13 +164,11 @@ class test_functions(TestCase):
                     signal='word',
                     args=('the key', 'hello', 'world'),
                     worker=('ImportFiles'),
-                    pid=pid,
                 ),
                 dict(
                     signal='terminate',
                     args=('the key',),
                     worker='ImportFiles',
-                    pid=pid,
                 ),
             ]
         )
@@ -193,7 +187,6 @@ class test_Worker(TestCase):
         self.assertTrue(inst.q is q)
         self.assertTrue(inst.key is key)
         self.assertTrue(inst.args is args)
-        self.assertEqual(inst.pid, current_process().pid)
         self.assertEqual(inst.name, 'Worker')
 
     def test_emit(self):
@@ -201,14 +194,12 @@ class test_Worker(TestCase):
         q = DummyQueue()
         args = ('foo', 'bar')
         inst = self.klass(env, q, 'akey', args)
-        pid = current_process().pid
 
         self.assertEqual(q.messages, [])
 
         inst.emit('SomeSignal')
         one = dict(
             worker='Worker',
-            pid=pid,
             signal='SomeSignal',
             args=('akey',),
         )
@@ -217,7 +208,6 @@ class test_Worker(TestCase):
         inst.emit('AnotherSignal', 'this', 'time', 'with', 'args')
         two = dict(
             worker='Worker',
-            pid=pid,
             signal='AnotherSignal',
             args=('akey', 'this', 'time', 'with', 'args')
         )
@@ -226,7 +216,6 @@ class test_Worker(TestCase):
         inst.emit('OneMore', 'stuff')
         three = dict(
             worker='Worker',
-            pid=pid,
             signal='OneMore',
             args=('akey', 'stuff'),
         )
@@ -236,7 +225,6 @@ class test_Worker(TestCase):
         env = {'foo': 'bar'}
         q = DummyQueue()
         args = ('foo', 'bar')
-        pid = current_process().pid
 
         class do_something(self.klass):
             def execute(self, one, two):
@@ -247,7 +235,6 @@ class test_Worker(TestCase):
         self.assertEqual(q.messages[0],
             dict(
                 worker='do_something',
-                pid=pid,
                 signal='Hello',
                 args=('key', 'foo and bar'),
             )
