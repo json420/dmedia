@@ -244,8 +244,6 @@ When the job is completed, the document is updated like this:
 
 """
 
-from __future__ import print_function
-
 from base64 import b32encode, b64encode
 from hashlib import sha1
 import re

@@ -80,6 +80,6 @@ parser.add_option('--benchmark',
 )
 (options, args) = parser.parse_args()
 
-dmedia.configure_logging('dmedia-gtk')
+dmedia.configure_logging()
 ui = UI(options.benchmark)
 ui.run()

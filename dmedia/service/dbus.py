@@ -143,14 +143,6 @@ class UDisks(GObject.GObject):
 def get_device_props(obj):
     device = system.get('org.freedesktop.UDisks', obj, PROPS)
     return device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
-    
-    
-#>>> part = dbus.Partition(obj)
-#>>> drive = part.get_drive()
-#>>> part.FilesystemUnmount()
-#>>> part.FilesystemCreate()
-#>>> drive.DriveEject()
-
 
 
 class Device:
@@ -176,7 +168,7 @@ class Partition(Device):
     def __init__(self, obj):
         super().__init__(obj)
         assert self['DeviceIsPartition']
- 
+
     def get_drive(self):
         return Drive(self['PartitionSlave'])
 
@@ -221,7 +213,6 @@ class Formatter:
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
 
     def on_g_signal(self, proxy, sender, signal, params, which):
-        log.debug('%r %s %s %r', self, which, signal, params.unpack())
         if signal == 'JobChanged':
             job_in_progress = params.unpack()[0]
             if not (job_in_progress or self.next is None):

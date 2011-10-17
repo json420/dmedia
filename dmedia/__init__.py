@@ -29,14 +29,18 @@ WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
 __version__ = '11.10.0'
 
 
-def configure_logging(namespace):
+def configure_logging():
+    import sys
     import os
     from os import path
     import logging
 
+    script = path.abspath(sys.argv[0])
+    namespace = path.basename(script)
     format = [
         '%(levelname)s',
-        '%(process)d',
+        '%(processName)s',
+        '%(threadName)s',
         '%(message)s',
     ]
     home = path.abspath(os.environ['HOME'])
@@ -54,6 +58,6 @@ def configure_logging(namespace):
         level=logging.DEBUG,
         format='\t'.join(format),
     )
-    logging.info('dmedia.__version__: %r', __version__)
+    logging.info('script: %r', script)
     logging.info('dmedia.__file__: %r', __file__)
-    logging.info('Logging namespace %r to %r', namespace, filename)
+    logging.info('dmedia.__version__: %r', __version__)
