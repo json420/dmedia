@@ -232,24 +232,37 @@ class Formatter:
 
     def format(self):
         print('format')
-        self.next = self.wait
+        self.next = self.wait1
         self.partition.FilesystemCreate()
 
-    def wait(self):
-        print('wait')
+    def wait1(self):
+        # FIXME: This wait is to work around a UDisks bug: when we get the
+        # signal that the format is complete, we can't actually eject yet
+        print('wait1')
         self.next = None
         GObject.timeout_add(1000, self.eject)
 
     def eject(self):
         print('eject')
-        self.next = self.finish
+        self.next = self.wait2
         self.drive.DriveEject()
         return False  # Do not repeat timeout call
 
+    def wait2(self):
+        # FIXME: This wait is a UX hack so the 'batch_finished' notification is
+        # shown just a touch after the cards disappear from the Launcher.
+        # Ideally, we don't want these cards in the Launcher in the first place
+        # during a dmedia import as the aren't actionable in the expected way.
+        # Plus, we want to mount the cards read-only... which will probably take
+        # some changes in Nautilus.
+        print('wait2')
+        self.next = None
+        GObject.timeout_add(1000, self.finish)
+
     def finish(self):
         print('finished')
-        self.next = None
         self.callback(self, self.obj)
+        return False  # Do not repeat timeout call
 
 
 
