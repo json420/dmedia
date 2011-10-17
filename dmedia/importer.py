@@ -169,7 +169,7 @@ class ImportWorker(workers.CouchWorker):
             self.doc['time_end'] = time.time()
         finally:
             self.db.save(self.doc)
-        self.emit('finished', self.doc['stats'])
+        self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
         common = {
@@ -255,10 +255,13 @@ class ImportManager(workers.CouchManager):
         )
         self.db.save(self.doc)
 
-    def on_started(self, key, import_id, extra):
-        self.doc['imports'].append(import_id)
+    def on_started(self, basedir, import_id, extra):
+        assert import_id not in self.doc['imports']
+        self.doc['imports'][import_id] = {
+            'basedir': basedir,
+        }
         self.db.save(self.doc)
-        self.emit('import_started', key, import_id, extra)
+        self.emit('import_started', basedir, import_id, extra)
 
     def on_scanned(self, key, total_count, total_bytes):
         self._total_count += total_count 
@@ -276,7 +279,9 @@ class ImportManager(workers.CouchManager):
             self._bytes, self._total_bytes,
         )
 
-    def on_finished(self, key, stats):
+    def on_finished(self, basedir, import_id, stats):
+        self.doc['imports'][import_id]['stats'] = stats
+        self.db.save(self.doc)
         accumulate_stats(self.doc['stats'], stats)
         self.db.save(self.doc)
 

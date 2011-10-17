@@ -1139,8 +1139,7 @@ def create_batch(machine_id=None):
         'type': 'dmedia/batch',
         'time': time.time(),
         'machine_id': machine_id,
-        'imports': [],
-        'errors': [],
+        'imports': {},
         'stats': {
             'total': {'count': 0, 'bytes': 0},
             'new': {'count': 0, 'bytes': 0},

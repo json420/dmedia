@@ -649,7 +649,6 @@ class TestFunctions(TestCase):
                 'type',
                 'time',
                 'imports',
-                'errors',
                 'machine_id',
                 'stats',
             ])
@@ -659,8 +658,7 @@ class TestFunctions(TestCase):
         self.assertEqual(doc['type'], 'dmedia/batch')
         self.assertTrue(isinstance(doc['time'], (int, float)))
         self.assertTrue(doc['time'] <= time.time())
-        self.assertEqual(doc['imports'], [])
-        self.assertEqual(doc['errors'], [])
+        self.assertEqual(doc['imports'], {})
         self.assertEqual(doc['machine_id'], machine_id)
         self.assertEqual(doc['stats'],
             {
