@@ -129,6 +129,9 @@ class ImportWorker(workers.CouchWorker):
 
     def scan(self):
         self.batch = scandir(self.basedir)
+        log.info('%r has %d files, %s', self.basedir, self.batch.count,
+            bytes10(self.batch.size)
+        )
         self.doc['stats']['total'] = {
             'bytes': self.batch.size,
             'count': self.batch.count,

@@ -132,12 +132,13 @@ class Core(Base):
             self.db.save(machine)
         self.machine_id = self.local['machine_id']
         self.env['machine_id'] = self.machine_id
+        log.info('machine_id = %r', self.machine_id)
 
     def _init_stores(self):
         if not self.local['stores']:
             return
         dirs = sorted(self.local['stores'])
-        log.info('Attempting to init all previous FileStore in _local/dmedia')
+        log.info('Adding previous FileStore in _local/dmedia')
         for parentdir in dirs:
             try:
                 fs = self._init_filestore(parentdir)
@@ -155,7 +156,6 @@ class Core(Base):
         assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
     def _init_filestore(self, parentdir, copies=1):
-        log.info('Attempting to init FileStore at %r', parentdir)
         (fs, doc) = init_filestore(parentdir, copies)
         try:
             doc = self.db.get(doc['_id'])
@@ -165,6 +165,7 @@ class Core(Base):
         doc['connected_to'] = self.machine_id
         doc['statvfs'] = fs.statvfs()._asdict()
         self.db.save(doc)
+        log.info('FileStore %r at %r', fs.id, fs.parentdir)
         return fs
 
     def get_doc(self, _id):

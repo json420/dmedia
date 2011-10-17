@@ -114,6 +114,9 @@ class GImportManager(GObject.GObject):
             self._on_batch_finished(*args)
 
     def _on_batch_finished(self, batch_id, stats):
+        self._cards = []
+        self.emit('batch_finished', batch_id, stats)
+        return  # FIXME
         self._blocking = True
         self._batch_id = batch_id
         self._stats = stats
