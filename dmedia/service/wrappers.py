@@ -88,7 +88,6 @@ class GImportManager(GObject.GObject):
         self._cards = []
 
     def _callback(self, signal, args):
-        print(signal, args)
         if signal in self._autoemit:
             self.emit(signal, *args)
         elif signal == 'batch_finished':
