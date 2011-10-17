@@ -25,7 +25,7 @@
 Hacky shim till it's possible to implement DBus servers in PyGI.
 
 Note that because this script must be Python2, it can't import anything from the
-`dmedia` package as it will only be installed under Python3.
+`dmedia` package as that will only be installed under Python3.
 """
 
 import argparse
