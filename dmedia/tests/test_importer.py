@@ -210,7 +210,6 @@ class TestImportWorker(ImportCase):
         self.assertEqual(doc['basedir'], self.src.dir)
         self.assertEqual(doc['machine_id'], self.machine_id)
         self.assertEqual(doc['batch_id'], self.batch_id)
-        self.assertEqual(doc['import_order'], [])
         self.assertEqual(doc['files'], {})
         self.assertEqual(doc['stats'],
             {
@@ -238,9 +237,6 @@ class TestImportWorker(ImportCase):
                 'empty': {'count': 0, 'bytes': 0},
                 'new': {'count': 0, 'bytes': 0},
             }
-        )
-        self.assertEqual(doc['import_order'],
-            [file.name for file in batch.files]
         )
         self.assertEqual(doc['files'], files)
         item = self.q.items[1]
@@ -279,9 +275,6 @@ class TestImportWorker(ImportCase):
             'new': {'bytes': batch.size, 'count': batch.count},
         }
         self.assertEqual(doc['stats'], stats)
-        self.assertEqual(doc['import_order'],
-            [file.name for file in batch.files]
-        )
         self.assertEqual(doc['files'], files)
 
         # Check the 'progress' signals
