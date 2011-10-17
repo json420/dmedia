@@ -48,31 +48,6 @@ from dmedia.service import dbus
 log = logging.getLogger()
 
 
-def extra_info(partition, drive):
-    return {
-        'partition': {
-            'uuid': partition['IdUuid'],
-            'bytes': partition['DeviceSize'],
-            'filesystem': partition['IdType'],
-            'filesystem_version': partition['IdVersion'],
-            'label': partition['IdLabel'],
-            'number': partition['PartitionNumber'],
-        },
-        'drive': {
-            'serial': drive['DriveSerial'],
-            'bytes': drive['DeviceSize'],
-            'block_bytes': drive['DeviceBlockSize'],
-            'vendor': drive['DriveVendor'],
-            'model': drive['DriveModel'],
-            'revision': drive['DriveRevision'],
-            'partition_scheme': drive['PartitionTableScheme'],
-            'internal': drive['DeviceIsSystemInternal'],
-            'connection': drive['DriveConnectionInterface'],
-            'connection_rate': drive['DriveConnectionSpeed'],
-        },
-    }
-
-
 class GImportManager(GObject.GObject):
     """
     Wrap signals from `dmedia.importer.ImportManager`
@@ -143,7 +118,7 @@ class GImportManager(GObject.GObject):
             return
         log.info('card-insert %r', obj)
         self._cards.append(obj)
-        info = extra_info(partition, drive)
+        info = dbus.extra_info(partition, drive)
         self.manager.start_import(parentdir, info)
 
 

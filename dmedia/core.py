@@ -105,9 +105,10 @@ class Base:
 
 
 class Core(Base):
-    def __init__(self, env, bootstrap=True):
+    def __init__(self, env, get_parentdir_info=None, bootstrap=True):
         super().__init__(env)
         self.stores = LocalStores()
+        self._get_parentdir_info = get_parentdir_info
         if bootstrap:
             self._bootstrap()
 
@@ -164,6 +165,8 @@ class Core(Base):
         doc['connected'] = time.time()
         doc['connected_to'] = self.machine_id
         doc['statvfs'] = fs.statvfs()._asdict()
+        if callable(self._get_parentdir_info):
+            doc.update(self._get_parentdir_info(parentdir))
         self.db.save(doc)
         log.info('FileStore %r at %r', fs.id, fs.parentdir)
         return fs

@@ -23,6 +23,7 @@
 Simple dbus helper to make PyGI a bit nicer.
 """
 
+import os
 from os import path
 import logging
 
@@ -33,6 +34,7 @@ from gi.repository.GObject import TYPE_PYOBJECT
 
 log = logging.getLogger()
 PROPS = 'org.freedesktop.DBus.Properties'
+ECRYPTFS = '/home/.ecryptfs/'
 
 
 class DBus:
@@ -56,6 +58,42 @@ class DBus:
 
 session = DBus(Gio.bus_get_sync(Gio.BusType.SESSION, None))
 system = DBus(Gio.bus_get_sync(Gio.BusType.SYSTEM, None))
+
+
+def read_ecryptfs_link(parentdir):
+    private = path.join(parentdir, '.Private')
+    if path.islink(private):
+        link = os.readlink(private)
+        if link.startswith(ECRYPTFS):
+            return link
+
+
+def extra_info(partition, drive):
+    return {
+        'partition': {
+            'uuid': partition['IdUuid'],
+            'bytes': partition['DeviceSize'],
+            'filesystem': partition['IdType'],
+            'filesystem_version': partition['IdVersion'],
+            'label': partition['IdLabel'],
+            'number': partition['PartitionNumber'],
+        },
+        'drive': {
+            'serial': drive['DriveSerial'],
+            'world_wide_name': drive['DriveWwn'],
+            'bytes': drive['DeviceSize'],
+            'block_bytes': drive['DeviceBlockSize'],
+            'vendor': drive['DriveVendor'],
+            'model': drive['DriveModel'],
+            'revision': drive['DriveRevision'],
+            'partition_scheme': drive['PartitionTableScheme'],
+            'internal': drive['DeviceIsSystemInternal'],
+            'connection': drive['DriveConnectionInterface'],
+            'connection_rate': drive['DriveConnectionSpeed'],
+            'rotational': drive['DriveIsRotational'],
+            'rotation_rate': drive['DriveRotationRate'],
+        },
+    }
 
 
 class UDisks(GObject.GObject):
@@ -138,6 +176,37 @@ class UDisks(GObject.GObject):
 
     def FindDeviceByMajorMinor(self, major, minor):
         return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor)
+
+    def get_parentdir_info(self, parentdir):
+        info = {
+            'parentdir': parentdir,
+            'ecryptfs': False,
+            'ecryptfs_link_target': None,
+        }
+        try:
+            st_dev = os.stat(parentdir).st_dev
+            major = os.major(st_dev)
+            minor = os.minor(st_dev)
+            obj = self.FindDeviceByMajorMinor(major, minor)
+            partition = Partition(obj)
+            drive = partition.get_drive()
+            info.update(extra_info(partition, drive))
+        except Exception:
+            link = read_ecryptfs_link(parentdir)
+            if link:
+                info['ecryptfs'] = True
+                info['ecryptfs_link_target'] = link
+                try:
+                    st_dev = os.stat(link).st_dev
+                    major = os.major(st_dev)
+                    minor = os.minor(st_dev)
+                    obj = self.FindDeviceByMajorMinor(major, minor)
+                    partition = Partition(obj)
+                    drive = partition.get_drive()
+                    info.update(extra_info(partition, drive))
+                except Exception:
+                    pass
+        return info
 
 
 def get_device_props(obj):
