@@ -27,6 +27,7 @@ Store media files based on content-hash.
 
 import time
 from copy import deepcopy
+from os import path
 from gettext import gettext as _
 from gettext import ngettext
 from subprocess import check_call
@@ -121,6 +122,7 @@ class ImportWorker(workers.CouchWorker):
         )
         st = statvfs(self.basedir)
         self.doc['statvfs'] = st._asdict()
+        self.doc['basedir_ismount'] = path.ismount(self.basedir)
         if self.extra:
             self.doc.update(self.extra)
         self.id = self.doc['_id']
@@ -136,7 +138,6 @@ class ImportWorker(workers.CouchWorker):
             'bytes': self.batch.size,
             'count': self.batch.count,
         }
-        self.doc['import_order'] = [file.name for file in self.batch.files]
         self.doc['files'] = dict(
             (file.name, {'bytes': file.size, 'mtime': file.mtime})
             for file in self.batch.files
@@ -246,14 +247,17 @@ class ImportManager(workers.CouchManager):
         self.emit('batch_finished', self.doc['_id'], self.doc['stats'])
         self.doc = None
 
-    def on_error(self, key, exception, message):
-        super(ImportManager, self).on_error(key, exception, message)
-        if self.doc is None:
-            return
-        self.doc['errors'].append(
-            {'key': key, 'name': exception, 'msg': message}
-        )
-        self.db.save(self.doc)
+    def on_error(self, basedir, exception, message):
+        try:
+            if self.doc is not None:
+                self.doc['error'] = {
+                    'basedir': basedir,
+                    'name': exception,
+                    'message': message,
+                }
+                self.db.save(self.doc)
+        finally:
+            self.emit('error', basedir, exception, message)
 
     def on_started(self, basedir, import_id, extra):
         assert import_id not in self.doc['imports']

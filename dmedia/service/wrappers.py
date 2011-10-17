@@ -50,9 +50,8 @@ log = logging.getLogger()
 
 def extra_info(partition, drive):
     return {
-        'drive_serial': drive['DriveSerial'],
-        'partition_uuid': partition['IdUuid'],
         'partition': {
+            'uuid': partition['IdUuid'],
             'bytes': partition['DeviceSize'],
             'filesystem': partition['IdType'],
             'filesystem_version': partition['IdVersion'],
@@ -60,6 +59,7 @@ def extra_info(partition, drive):
             'number': partition['PartitionNumber'],
         },
         'drive': {
+            'serial': drive['DriveSerial'],
             'bytes': drive['DeviceSize'],
             'block_bytes': drive['DeviceBlockSize'],
             'vendor': drive['DriveVendor'],
