@@ -90,25 +90,23 @@ class GImportManager(GObject.GObject):
             self._on_batch_finished(*args)
 
     def _on_batch_finished(self, batch_id, stats):
-        self._cards = []
-        self.emit('batch_finished', batch_id, stats)
-        return  # FIXME
+        Worker = dbus.Ejector
         self._blocking = True
         self._batch_id = batch_id
         self._stats = stats
-        self._formatters = dict(
-            (obj, dbus.Formatter(obj, self._on_format_complete))
+        self._workers = dict(
+            (obj, Worker(obj, self._on_complete))
             for obj in self._cards
         )
         self._cards = []
-        for f in self._formatters.values():
-            f.run()
+        for worker in self._workers.values():
+            worker.run()
 
-    def _on_format_complete(self, formatter, obj):
-        log.info('Completed: %r', formatter)
-        f = self._formatters.pop(obj)
-        assert formatter is f
-        if len(self._formatters) == 0:
+    def _on_complete(self, worker, obj):
+        log.info('Completed: %r', worker)
+        w = self._workers.pop(obj)
+        assert worker is w
+        if len(self._workers) == 0:
             self._blocking = False
             self.emit('batch_finished', self._batch_id, self._stats)
 

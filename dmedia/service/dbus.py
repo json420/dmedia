@@ -268,9 +268,10 @@ class Drive(Device):
         """
         log.info('Detaching %r', self)
         return self.proxy.DriveDetach('(as)', [])
-
-
-class Formatter:
+        
+        
+        
+class DeviceWorker:
     def __init__(self, obj, callback):
         self.obj = obj
         self.callback = callback
@@ -282,12 +283,50 @@ class Formatter:
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
-
+        
     def on_g_signal(self, proxy, sender, signal, params, which):
         if signal == 'JobChanged':
             job_in_progress = params.unpack()[0]
             if not (job_in_progress or self.next is None):
                 self.next()
+
+
+class Ejector(DeviceWorker):
+
+    def run(self):
+        self.unmount()
+
+    def unmount(self):
+        self.next = self.eject
+        self.partition.FilesystemUnmount()
+
+    def wait1(self):
+        # FIXME: This wait is to work around a UDisks bug: when we get the
+        # signal that the format is complete, we can't actually eject yet
+        self.next = None
+        GObject.timeout_add(1000, self.eject)
+
+    def eject(self):
+        self.next = self.wait2
+        self.drive.DriveEject()
+        return False  # Do not repeat timeout call
+
+    def wait2(self):
+        # FIXME: This wait is a UX hack so the 'batch_finished' notification is
+        # shown just a touch after the cards disappear from the Launcher.
+        # Ideally, we don't want these cards in the Launcher in the first place
+        # during a dmedia import as the aren't actionable in the expected way.
+        # Plus, we want to mount the cards read-only... which will probably take
+        # some changes in Nautilus.
+        self.next = None
+        GObject.timeout_add(1000, self.finish)
+
+    def finish(self):
+        self.callback(self, self.obj)
+        return False  # Do not repeat timeout call
+
+
+class Formatter(DeviceWorker):
 
     def run(self):
         self.unmount()
