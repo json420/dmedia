@@ -174,7 +174,9 @@ class Partition(Device):
     def __init__(self, obj):
         super().__init__(obj)
         assert self['DeviceIsPartition']
-        self.drive = Drive(self['PartitionSlave'])
+        
+    def get_drive(self):
+        return Drive(self['PartitionSlave'])
 
     def FilesystemUnmount(self):
         return self.proxy.FilesystemUnmount('(as)', [])
@@ -197,6 +199,57 @@ class Drive(Device):
         Worthless, don't use this!
         """
         return self.proxy.DriveDetach('(as)', [])
+
+
+class Formatter:
+    def __init__(self, obj, callback):
+        self.obj = obj
+        self.callback = callback
+        self.partition = Partition(obj)
+        self.drive = self.partition.get_drive()
+        self.partition.proxy.connect('g-signal', self.on_g_signal, 'partition')
+        self.drive.proxy.connect('g-signal', self.on_g_signal, 'drive')
+        self.next = None
+
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.obj)
+
+    def on_g_signal(self, proxy, sender, signal, params, which):
+        print(which, signal, params.unpack())
+        if signal == 'JobChanged':
+            job_in_progress = params.unpack()[0]
+            if not (job_in_progress or self.next is None):
+                print('calling next()...')
+                self.next()
+
+    def run(self):
+        self.unmount()
+
+    def unmount(self):
+        print('unmount')
+        self.next = self.format
+        self.partition.FilesystemUnmount()
+
+    def format(self):
+        print('format')
+        self.next = self.wait
+        self.partition.FilesystemCreate()
+
+    def wait(self):
+        print('wait')
+        self.next = None
+        GObject.timeout_add(1000, self.eject)
+
+    def eject(self):
+        print('eject')
+        self.next = self.finish
+        self.drive.DriveEject()
+        return False  # Do not repeat timeout call
+
+    def finish(self):
+        print('finished')
+        self.next = None
+        self.callback(self, self.obj)
 
 
 

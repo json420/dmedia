@@ -101,6 +101,7 @@ class GImportManager(GObject.GObject):
         self.udisks = dbus.UDisks()
         self.udisks.monitor()
         self.udisks.connect('card_inserted', self._on_card_inserted)
+        self._blocking = False
         self._cards = []
 
     def _callback(self, signal, args):
@@ -111,43 +112,28 @@ class GImportManager(GObject.GObject):
 
     def _on_batch_finished(self, batch_id, stats):
         print('batch_finished', batch_id, stats)
-        parts = [dbus.Partition(obj) for obj in self._cards]
+        self._blocking = True
+        self._batch_id = batch_id
+        self._stats = stats
+        self._formatters = dict(
+            (obj, dbus.Formatter(obj, self._on_format_complete))
+            for obj in self._cards
+        )
         self._cards = []
+        for f in self._formatters.values():
+            f.run()
 
-        for p in parts:
-            p.FilesystemUnmount()
-        while True:
-            print('unmount')
-            time.sleep(0.1)
-            for p in parts:
-                p.refresh()
-            if not any(p['JobInProgress'] for p in parts):
-                break
-   
-        for p in parts:
-            p.FilesystemCreate()
-        while True:
-            print('format')
-            time.sleep(0.1)
-            for p in parts:
-                p.refresh()
-            if not any(p['JobInProgress'] for p in parts):
-                break
-
-        for p in parts:
-            p.drive.DriveEject()
-        while True:
-            print('eject')
-            time.sleep(0.1)
-            for p in parts:
-                p.drive.refresh()
-            if not any(p.drive['JobInProgress'] for p in parts):
-                break
-
-        time.sleep(0.2)
-        self.emit('batch_finished', batch_id, stats)
+    def _on_format_complete(self, formatter, obj):
+        print('format complete', obj)
+        f = self._formatters.pop(obj)
+        assert formatter is f
+        if len(self._formatters) == 0:
+            self._blocking = False
+            self.emit('batch_finished', self._batch_id, self._stats)
 
     def _on_card_inserted(self, udisks, obj, parentdir, partition, drive):
+        if self._blocking:
+            return
         self._cards.append(obj)
         info = extra_info(partition, drive)
         self.manager.start_import(parentdir, info)
