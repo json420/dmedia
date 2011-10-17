@@ -132,7 +132,7 @@ setup(
     author_email='jderose@novacut.com',
     license='AGPLv3+',
     cmdclass={'test': Test},
-    packages=['dmedia', 'dmedia.service'],
+    packages=['dmedia', 'dmedia.service', 'dmedia.gtk'],
     scripts=['dmedia-gtk', 'dmedia-cli'],
     data_files=[
         ('share/couchdb/apps/dmedia',
