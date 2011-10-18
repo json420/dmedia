@@ -93,6 +93,14 @@ def notify_stats(stats):
     return (summary, body)
 
 
+def label_text(count, size):
+    return ngettext(
+        '{count} file, {size}',
+        '{count} files, {size}',
+        count
+    ).format(count=count, size=bytes10(size))
+
+
 def accumulate_stats(accum, stats):
     for (key, d) in stats.items():
         if key not in accum:
@@ -235,8 +243,15 @@ class ImportManager(workers.CouchManager):
         assert self.doc is None
         assert self._workers == {}
         self._reset_counters()
+        stores = self.db.get('_local/dmedia')['stores']
+        assert isinstance(stores, dict)
+        if not stores:
+            raise ValueError('No FileStores to import into!')
+        self.copies = sum(v['copies'] for v in stores.values())
+        if self.copies < 1:
+            raise ValueError('must have at least durability of copies=1')
         self.doc = schema.create_batch(self.env.get('machine_id'))
-        self.doc['stores'] = self.db.get('_local/dmedia')['stores']
+        self.doc['stores'] = stores
         self.db.save(self.doc)
         self.emit('batch_started', self.doc['_id'])
 

@@ -28,6 +28,20 @@ import dmedia
 from dmedia.gtk import GObject, Gtk
 
 
+class Importer(Gtk.VBox):
+    def __init__(self):
+        super().__init__()
+        self._progressbar = Gtk.ProgressBar()
+        self.pack_start(self._progressbar, False, False, 2)
+        
+    def _set_gmanager(self, gmanager):
+        gmanager.connect('batch_progress', self._on_batch_progress)
+
+    def _on_batch_progress(self, gm, count, total_count, size, total_size):
+        progress = (0.0 if total_size == 0 else size / total_size)
+        self._progressbar.set_property('fraction', progress)
+   
+
 class UI:
     def __init__(self, benchmark=False):
         self.benchmark = benchmark
@@ -37,7 +51,8 @@ class UI:
         self.window.set_title('DMedia')
         self.notebook = Gtk.Notebook()
         self.window.add(self.notebook)
-        self.append_page('Import')
+        self.importer = Importer()
+        self.append_page('Import', self.importer)
         self.append_page('Library')
         self.append_page('Storage')
 
@@ -47,6 +62,7 @@ class UI:
         label = Gtk.Label(text)
         label.set_padding(8, 2)
         self.notebook.append_page(child, label)
+        return child
 
     def run(self):
         self.window.show_all()
@@ -70,6 +86,7 @@ class UI:
         from dmedia.gtk.ubuntu import UnityImportUX
         self.gmanager = GImportManager(self.env)
         self.ux = UnityImportUX(self.gmanager)
+        self.importer._set_gmanager(self.gmanager)
         self.gmanager.connect('error', self.on_error)
 
     def on_error(self, gm, error):

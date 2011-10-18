@@ -381,6 +381,7 @@ class TestImportManager(ImportCase):
                 ('batch_started', (batch['_id'],)),
             ]
         )
+        self.assertEqual(inst.copies, 3)
 
         # Test that batch cannot be re-started without first finishing
         self.assertRaises(AssertionError, inst.first_worker_starting)

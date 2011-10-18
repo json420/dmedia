@@ -43,6 +43,7 @@ from gi.repository.GObject import TYPE_PYOBJECT
 
 from dmedia.importer import ImportManager
 from dmedia.service import dbus
+from dmedia.service.dbus import Ejector, Formatter 
 
 
 log = logging.getLogger()
@@ -97,7 +98,7 @@ class GImportManager(GObject.GObject):
             self._on_batch_finished(*args)
 
     def _on_batch_finished(self, batch_id, stats):
-        Worker = dbus.Ejector
+        Worker = (Formatter if self.manager.copies >= 2 else Ejector)
         self._blocking = True
         self._batch_id = batch_id
         self._stats = stats
