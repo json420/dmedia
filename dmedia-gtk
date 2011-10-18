@@ -70,6 +70,10 @@ class UI:
         from dmedia.gtk.ubuntu import UnityImportUX
         self.gmanager = GImportManager(self.env)
         self.ux = UnityImportUX(self.gmanager)
+        self.gmanager.connect('error', self.on_error)
+
+    def on_error(self, gm, error):
+        print('error')
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)

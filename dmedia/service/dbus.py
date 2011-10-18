@@ -80,7 +80,7 @@ def extra_info(partition, drive):
         },
         'drive': {
             'serial': drive['DriveSerial'],
-            'world_wide_name': drive['DriveWwn'],
+            'wwn': drive['DriveWwn'],
             'bytes': drive['DeviceSize'],
             'block_bytes': drive['DeviceBlockSize'],
             'vendor': drive['DriveVendor'],
@@ -90,7 +90,7 @@ def extra_info(partition, drive):
             'internal': drive['DeviceIsSystemInternal'],
             'connection': drive['DriveConnectionInterface'],
             'connection_rate': drive['DriveConnectionSpeed'],
-            
+
             # These seem consitently worthless, never correct:
             #'rotational': drive['DriveIsRotational'],
             #'rotation_rate': drive['DriveRotationRate'],
@@ -315,7 +315,7 @@ class Ejector(DeviceWorker):
         # FIXME: This wait is a UX hack so the 'batch_finished' notification is
         # shown just a touch after the cards disappear from the Launcher.
         # Ideally, we don't want these cards in the Launcher in the first place
-        # during a dmedia import as the aren't actionable in the expected way.
+        # during a dmedia import as they aren't actionable in the expected way.
         # Plus, we want to mount the cards read-only... which will probably take
         # some changes in Nautilus.
         self.next = None
