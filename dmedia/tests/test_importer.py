@@ -420,33 +420,34 @@ class TestImportManager(ImportCase):
         self.assertLessEqual(doc['time_end'], time.time())
 
     def test_on_error(self):
-        return
         callback = DummyCallback()
         inst = self.new(callback)
 
         # Make sure it works when doc is None:
         inst.on_error('foo', 'IOError', 'nope')
         self.assertEqual(inst.doc, None)
+        self.assertEqual(
+            callback.messages[0],
+            ('error', ({'basedir': 'foo', 'name': 'IOError', 'message': 'nope'},))
+        )
 
         # Test normally:
         inst.first_worker_starting()
-        self.assertEqual(inst.doc['errors'], [])
-        inst.on_error('foo', 'IOError', 'nope')
-        doc = inst.db.get(inst.doc['_id'])
+        batch_id = inst.doc['_id']
         self.assertEqual(
-            doc['errors'],
-            [
-                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
-            ]
+            callback.messages[1],
+            ('batch_started', (batch_id,))
         )
-        inst.on_error('bar', 'error!', 'no way')
-        doc = inst.db.get(inst.doc['_id'])
+        self.assertNotIn('error', inst.doc)
+        inst.on_error('bar', 'ValueError', 'way')
+        doc = inst.db.get(batch_id)
         self.assertEqual(
-            doc['errors'],
-            [
-                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
-                {'key': 'bar', 'name': 'error!', 'msg': 'no way'},
-            ]
+            doc['error'],
+            {'basedir': 'bar', 'name': 'ValueError', 'message': 'way'}
+        )
+        self.assertEqual(
+            callback.messages[2],
+            ('error', ({'basedir': 'bar', 'name': 'ValueError', 'message': 'way'},))
         )
 
     def test_get_worker_env(self):

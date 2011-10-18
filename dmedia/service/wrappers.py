@@ -67,7 +67,7 @@ class GImportManager(GObject.GObject):
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'error': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+            [TYPE_PYOBJECT]
         ),
     }
 

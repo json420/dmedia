@@ -249,19 +249,18 @@ class ImportManager(workers.CouchManager):
         self.doc = None
 
     def on_error(self, basedir, exception, message):
-        self._error = {
+        error = {
             'basedir': basedir,
             'name': exception,
             'message': message,
         }
         try:
-            self.abort()
             if self.doc is not None:
-                self.doc['error'] = self._error
+                self.doc['error'] = error
                 self.db.save(self.doc)
         finally:
             self.doc = None
-            self.emit('error', exception, message)
+            self.abort_with_error(error)
 
     def on_started(self, basedir, import_id, extra):
         assert import_id not in self.doc['imports']

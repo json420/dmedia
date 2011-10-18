@@ -139,7 +139,7 @@ class UnityImportUX:
         (summary, body) = notify_stats(stats)
         self.notify.replace(summary, body, 'notification-device-eject')
 
-    def on_error(self, gm, exception, message):
+    def on_error(self, gm, error):
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         self.launcher.set_property('count_visible', False)
         self.launcher.set_property('progress_visible', False)

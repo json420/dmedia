@@ -239,10 +239,10 @@ class Manager(object):
     def __init__(self, env, callback=None):
         if not (callback is None or callable(callback)):
             raise TypeError(
-                'callback must be callable; got %r' % callback
+                'callback must be callable; got {!r}'.format(callback)
             )
         self.env = env
-        self._callback = callback
+        self.callback = callback
         self._q = multiprocessing.Queue()
         self._lock = Lock()
         self._workers = {}
@@ -260,9 +260,6 @@ class Manager(object):
         self._thread.daemon = True
         self._thread.start()
 
-    def _kill_signal_thread(self):
-        self._running = False
-
     def _signal_thread(self):
         while self._running:
             try:
@@ -271,15 +268,34 @@ class Manager(object):
                 pass
 
     def _process_message(self, msg):
-        log.info('[%(worker)s] %(signal)s %(args)r', msg)
         with self._lock:
-            signal = msg['signal']
-            args = msg['args']
-            handler = getattr(self, 'on_' + signal, None)
-            if callable(handler):
-                handler(*args)
-            else:
-                self.emit(signal, *args)
+            try:
+                signal = msg['signal']
+                args = msg['args']
+                if signal == 'error':
+                    log.error('[%(worker)s] %(signal)s %(args)r', msg)
+                else:
+                    log.info('[%(worker)s] %(signal)s %(args)r', msg)
+                handler = getattr(self, 'on_' + signal, None)
+                if callable(handler):
+                    handler(*args)
+                else:
+                    self.emit(signal, *args)
+            except Exception as e:
+                log.exception('Exception in Manager._process_message()')
+                error = {'name': exception_name(e), 'message': str(e)}
+                self.abort_with_error(error)
+
+    def abort_with_error(self, error):
+        self._error = error
+        self._running = False
+        for p in self._workers.values():
+            p.terminate()
+            p.join()
+        self._workers.clear()
+        self._q = multiprocessing.Queue()
+        log.error('%(name)s %(message)s', error)
+        self.emit('error', error)
 
     def first_worker_starting(self):
         """
@@ -316,11 +332,8 @@ class Manager(object):
         p = self._workers.pop(key)
         p.join()
         if len(self._workers) == 0:
-            self._kill_signal_thread()
+            self._running = False
             self.last_worker_finished()
-
-    def on_error(self, key, exception, message):
-        log.error('%s %s: %s: %s', self.name, key, exception, message)
 
     def kill(self):
         if not self._running:
@@ -333,15 +346,8 @@ class Manager(object):
                 p.terminate()
                 p.join()
             self._workers.clear()
+            self._q = multiprocessing.Queue()
             return True
-
-    def abort(self):
-        log.info('Aborting %s', self.name)
-        self._running = False
-        for p in self._workers.values():
-            p.terminate()
-            p.join()
-        self._workers.clear()
 
     def get_worker_env(self, worker, key, args):
         return dict(self.env)
@@ -396,9 +402,9 @@ class Manager(object):
         """
         Emit a signal to higher-level code.
         """
-        if self._callback is None:
+        if self.callback is None:
             return
-        self._callback(signal, args)
+        self.callback(signal, args)
 
 
 class CouchManager(Manager):
