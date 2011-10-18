@@ -27,6 +27,7 @@ Unit tests for `dmedia.importer` module.
 
 from unittest import TestCase
 import time
+from copy import deepcopy
 
 import filestore
 from microfiber import random_id, Database
@@ -169,12 +170,13 @@ class ImportCase(CouchCase):
         (self.dst1, self.dst2) = sorted(temps, key=lambda t: t.dir)
         self.store1_id = random_id()
         self.store2_id = random_id()
+        self.stores = {
+            self.dst1.dir: {'id': self.store1_id, 'copies': 1},
+            self.dst2.dir: {'id': self.store2_id, 'copies': 2},
+        }
         local = {
             '_id': '_local/dmedia',
-            'stores': {
-                self.dst1.dir: {'id': self.store1_id, 'copies': 1},
-                self.dst2.dir: {'id': self.store2_id, 'copies': 2},
-            },
+            'stores': self.stores,
         }
         self.db = Database('dmedia', self.env)
         self.db.ensure()
@@ -361,6 +363,7 @@ class TestImportManager(ImportCase):
                 'imports',
                 'machine_id',
                 'stats',
+                'stores',
             ])
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
@@ -453,10 +456,12 @@ class TestImportManager(ImportCase):
     def test_get_worker_env(self):
         batch_id = random_id()
         inst = self.new()
-        env = dict(self.env)
+        env = deepcopy(self.env)
         assert 'batch_id' not in env
-        inst.doc = {'_id': batch_id}
+        assert 'stores' not in env
+        inst.doc = {'_id': batch_id, 'stores': self.stores}
         env['batch_id'] = batch_id
+        env['stores'] = self.stores
         self.assertEqual(
             inst.get_worker_env('ImportWorker', 'a key', ('some', 'args')),
             env

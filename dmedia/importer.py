@@ -228,6 +228,7 @@ class ImportManager(workers.CouchManager):
     def get_worker_env(self, worker, key, args):
         env = deepcopy(self.env)
         env['batch_id'] = self.doc['_id']
+        env['stores'] = self.doc['stores']
         return env
 
     def first_worker_starting(self):
@@ -235,6 +236,7 @@ class ImportManager(workers.CouchManager):
         assert self._workers == {}
         self._reset_counters()
         self.doc = schema.create_batch(self.env.get('machine_id'))
+        self.doc['stores'] = self.db.get('_local/dmedia')['stores']
         self.db.save(self.doc)
         self.emit('batch_started', self.doc['_id'])
 
