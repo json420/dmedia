@@ -87,9 +87,12 @@ class GImportManager(GObject.GObject):
         self._blocking = False
         self._cards = []
 
+    def emit_mainthread(self, signal, *args):
+        GObject.idle_add(self.emit, signal, *args)
+
     def _callback(self, signal, args):
         if signal in self._autoemit:
-            self.emit(signal, *args)
+            self.emit_mainthread(signal, *args)
         elif signal == 'batch_finished':
             self._on_batch_finished(*args)
 
@@ -112,7 +115,8 @@ class GImportManager(GObject.GObject):
         assert worker is w
         if len(self._workers) == 0:
             self._blocking = False
-            self.emit('batch_finished', self._batch_id, self._stats)
+            log.info('emitting batch_finished to UI')
+            self.emit_mainthread('batch_finished', self._batch_id, self._stats)
 
     def _on_card_inserted(self, udisks, obj, parentdir, partition, drive):
         if self._blocking:
