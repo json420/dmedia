@@ -174,13 +174,8 @@ class ImportCase(CouchCase):
             self.dst1.dir: {'id': self.store1_id, 'copies': 1},
             self.dst2.dir: {'id': self.store2_id, 'copies': 2},
         }
-        local = {
-            '_id': '_local/dmedia',
-            'stores': self.stores,
-        }
         self.db = Database('dmedia', self.env)
         self.db.ensure()
-        self.db.save(local)
 
     def tearDown(self):
         super().tearDown()
@@ -196,6 +191,7 @@ class TestImportWorker(ImportCase):
         super().setUp()
         self.batch_id = random_id()
         self.env['batch_id'] = self.batch_id
+        self.env['stores'] = self.stores
 
     def test_random_batch(self):
         key = self.src.dir
@@ -221,6 +217,7 @@ class TestImportWorker(ImportCase):
                 'new': {'count': 0, 'bytes': 0},
             }
         )
+        self.assertEqual(doc['stores'], self.stores)
         self.assertEqual(self.q.items[0]['signal'], 'started')
         self.assertEqual(self.q.items[0]['args'], (self.src.dir, inst.id, None))
 
@@ -325,6 +322,14 @@ class TestImportWorker(ImportCase):
 
 class TestImportManager(ImportCase):
     klass = importer.ImportManager
+
+    def setUp(self):
+        super().setUp()
+        local = {
+            '_id': '_local/dmedia',
+            'stores': self.stores,
+        }
+        self.db.save(local)
 
     def new(self, callback=None):
         return self.klass(self.env, callback)

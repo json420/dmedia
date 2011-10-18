@@ -123,6 +123,7 @@ class ImportWorker(workers.CouchWorker):
         st = statvfs(self.basedir)
         self.doc['statvfs'] = st._asdict()
         self.doc['basedir_ismount'] = path.ismount(self.basedir)
+        self.doc['stores'] = self.env['stores']
         if self.extra:
             self.doc.update(self.extra)
         self.id = self.doc['_id']
@@ -149,9 +150,8 @@ class ImportWorker(workers.CouchWorker):
         # FIXME: Should pick up to 2 filestores based size of import and
         # available space on the filestores.
         stores = []
-        local = self.db.get('_local/dmedia')
-        for parentdir in sorted(local['stores']):
-            info = local['stores'][parentdir]
+        for parentdir in sorted(self.env['stores']):
+            info = self.env['stores'][parentdir]
             fs = FileStore(parentdir, info['id'], info['copies'])
             stores.append(fs)
         return stores
