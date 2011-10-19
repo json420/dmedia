@@ -369,6 +369,7 @@ class TestImportManager(ImportCase):
                 'machine_id',
                 'stats',
                 'stores',
+                'copies',
             ])
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
@@ -408,12 +409,13 @@ class TestImportManager(ImportCase):
 
         # Check that it fires signal correctly
         inst._workers.clear()
+        inst.copies = 2
         inst.last_worker_finished()
         self.assertEqual(inst.doc, None)
         self.assertEqual(
             callback.messages,
             [
-                ('batch_finished', (batch_id, stats)),
+                ('batch_finished', (batch_id, stats, 2)),
             ]
         )
         doc = inst.db.get(batch_id)
@@ -707,7 +709,7 @@ class TestImportManager(ImportCase):
         }
         self.assertEqual(
             callback.messages[-1],
-            ('batch_finished', (batch_id, stats))
+            ('batch_finished', (batch_id, stats, 3))
         )
 
         fs1 = filestore.FileStore(self.dst1.dir)
@@ -799,7 +801,7 @@ class TestImportManager(ImportCase):
         }
         self.assertEqual(
             callback.messages[-1],
-            ('batch_finished', (batch_id, stats))
+            ('batch_finished', (batch_id, stats, 3))
         )
 
         fs1 = filestore.FileStore(self.dst1.dir)

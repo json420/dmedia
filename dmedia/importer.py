@@ -252,6 +252,7 @@ class ImportManager(workers.CouchManager):
             raise ValueError('must have at least durability of copies=1')
         self.doc = schema.create_batch(self.env.get('machine_id'))
         self.doc['stores'] = stores
+        self.doc['copies'] = self.copies
         self.db.save(self.doc)
         self.emit('batch_started', self.doc['_id'])
 
@@ -262,7 +263,7 @@ class ImportManager(workers.CouchManager):
         log.info('sync done')
         self.doc['time_end'] = time.time()
         self.db.save(self.doc)
-        self.emit('batch_finished', self.doc['_id'], self.doc['stats'])
+        self.emit('batch_finished', self.doc['_id'], self.doc['stats'], self.copies)
         self.doc = None
 
     def on_error(self, basedir, exception, message):

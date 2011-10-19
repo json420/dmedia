@@ -49,6 +49,20 @@ from dmedia.service.dbus import Ejector, Formatter
 log = logging.getLogger()
 
 
+
+class Wrapper(GObject.GObject):
+    """
+    Wrap signals from a `dmedia.workers.Manager`.
+    """
+
+    def emit_mainthread(self, signal, *args):
+        GObject.idle_add(self.emit, signal, *args)
+
+    def callback(self, signal, args):
+        self.emit_mainthread(signal, *args)
+
+
+
 class GImportManager(GObject.GObject):
     """
     Wrap signals from `dmedia.importer.ImportManager`
