@@ -24,6 +24,7 @@
 import optparse
 import json
 import logging
+import sys
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
@@ -48,15 +49,15 @@ class ActiveImport(Gtk.VBox):
     def _on_batch_progress(self, gm, count, total_count, size, total_size):
         progress = (0.0 if total_size == 0 else size / total_size)
         self._progressbar.set_property('fraction', progress)
-   
+
 
 class Importer:
     def __init__(self, env):
         super().__init__()
         self.env = env
-        self.udisks = UDisks()
-        self.udisks.monitor()
-        self.udisks.connect('card_inserted', self.on_card_inserted)
+        udisks = UDisks()
+        udisks.monitor()
+        udisks.connect('card_inserted', self.on_card_inserted)
         self.blocking = False
         self.cards = []
         self.wrapper = ImportWrapper()
@@ -98,6 +99,7 @@ class Importer:
         info = extra_info(partition, drive)
         self.manager.start_import(parentdir, info)
 
+
 class UI:
     def __init__(self, benchmark=False):
         self.benchmark = benchmark
@@ -108,7 +110,10 @@ class UI:
         self.notebook = Gtk.Notebook()
         self.window.add(self.notebook)
         self.importer = None
-        self.append_page('Import')
+        self.importer_tab = self.append_page('Importer')
+        button = Gtk.Button('Start Importer')
+        button.connect('clicked', self.on_clicked)
+        self.importer_tab.pack_start(button, False, False, 0)
         self.append_page('Library')
         self.append_page('Storage')
 
@@ -134,18 +139,13 @@ class UI:
     def on_proxy(self, proxy, async_result, *args):
         self.proxy = proxy
         self.env = json.loads(self.proxy.GetEnv())
-        self.start_importer()
 
-    def start_importer(self):
-        self.importer = Importer(self.env)
-        return
-        self.gmanager = GImportManager(self.env)
-        self.ux = UnityImportUX(self.gmanager)
-        self.importer._set_gmanager(self.gmanager)
-        self.gmanager.connect('error', self.on_error)
-
-    def on_error(self, gm, error):
-        print('error')
+    def on_clicked(self, button):
+        if self.importer is None:
+            self.importer = Importer(self.env)
+        else:
+            self.importer = None
+        
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)
