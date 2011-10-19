@@ -35,19 +35,8 @@ need an event to have multiple consumers, so we wrap this in a GObject when
 needed.
 """
 
-import time
-import logging
-
 from gi.repository import GObject
 from gi.repository.GObject import TYPE_PYOBJECT
-
-from dmedia.importer import ImportManager
-from dmedia.service import dbus
-from dmedia.service.dbus import Ejector, Formatter 
-
-
-log = logging.getLogger()
-
 
 
 class Wrapper(GObject.GObject):
@@ -55,15 +44,25 @@ class Wrapper(GObject.GObject):
     Wrap signals from a `dmedia.workers.Manager`.
     """
 
+    def __init__(self):
+        super().__init__()
+        self._handlers = {}
+
+    def set_handler(self, signal, handler):
+        self._handlers[signal] = handler
+
     def emit_mainthread(self, signal, *args):
         GObject.idle_add(self.emit, signal, *args)
 
     def callback(self, signal, args):
-        self.emit_mainthread(signal, *args)
+        print(signal, args)
+        try:
+            self._handlers[signal](*args)
+        except KeyError:
+            self.emit_mainthread(signal, *args)
 
 
-
-class GImportManager(GObject.GObject):
+class ImportWrapper(Wrapper):
     """
     Wrap signals from `dmedia.importer.ImportManager`
     """
@@ -79,67 +78,12 @@ class GImportManager(GObject.GObject):
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'batch_finished': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+            # (batch_id, stats, copies)
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'error': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT]
         ),
     }
-
-    _autoemit = (
-        'batch_started',
-        'import_started',
-        'batch_progress',
-        'error',
-    )
-
-    def __init__(self, env):
-        super().__init__()
-        self.manager = ImportManager(env, self._callback)
-        self.udisks = dbus.UDisks()
-        self.udisks.monitor()
-        self.udisks.connect('card_inserted', self._on_card_inserted)
-        self._blocking = False
-        self._cards = []
-
-    def emit_mainthread(self, signal, *args):
-        GObject.idle_add(self.emit, signal, *args)
-
-    def _callback(self, signal, args):
-        if signal in self._autoemit:
-            self.emit_mainthread(signal, *args)
-        elif signal == 'batch_finished':
-            self._on_batch_finished(*args)
-
-    def _on_batch_finished(self, batch_id, stats):
-        Worker = (Formatter if self.manager.copies >= 2 else Ejector)
-        self._blocking = True
-        self._batch_id = batch_id
-        self._stats = stats
-        self._workers = dict(
-            (obj, Worker(obj, self._on_complete))
-            for obj in self._cards
-        )
-        self._cards = []
-        for worker in self._workers.values():
-            worker.run()
-
-    def _on_complete(self, worker, obj):
-        log.info('Completed: %r', worker)
-        w = self._workers.pop(obj)
-        assert worker is w
-        if len(self._workers) == 0:
-            self._blocking = False
-            log.info('emitting batch_finished to UI')
-            self.emit_mainthread('batch_finished', self._batch_id, self._stats)
-
-    def _on_card_inserted(self, udisks, obj, parentdir, partition, drive):
-        if self._blocking:
-            log.warning('Blocking, ignoring card-insert %r', obj)
-            return
-        log.info('card-insert %r', obj)
-        self._cards.append(obj)
-        info = dbus.extra_info(partition, drive)
-        self.manager.start_import(parentdir, info)
 
 

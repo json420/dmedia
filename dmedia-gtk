@@ -23,12 +23,20 @@
 
 import optparse
 import json
+import logging
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
+from dmedia.service.dbus import Ejector, Formatter, UDisks, extra_info, session
+from dmedia.importer import ImportManager
+from dmedia.service.wrappers import ImportWrapper
+from dmedia.gtk.ubuntu import UnityImportUX
 
 
-class Importer(Gtk.VBox):
+log = logging.getLogger()
+
+
+class ActiveImport(Gtk.VBox):
     def __init__(self):
         super().__init__()
         self._progressbar = Gtk.ProgressBar()
@@ -42,6 +50,54 @@ class Importer(Gtk.VBox):
         self._progressbar.set_property('fraction', progress)
    
 
+class Importer:
+    def __init__(self, env):
+        super().__init__()
+        self.env = env
+        self.udisks = UDisks()
+        self.udisks.monitor()
+        self.udisks.connect('card_inserted', self.on_card_inserted)
+        self.blocking = False
+        self.cards = []
+        self.wrapper = ImportWrapper()
+        self.wrapper.set_handler('batch_finished', self.handle_batch_finished)
+        self.manager = ImportManager(env, self.wrapper.callback)
+        self.ux = UnityImportUX(self.wrapper)
+
+    def handle_batch_finished(self, batch_id, stats, copies):
+        Worker = (Formatter if copies >= 2 else Ejector)
+        self.blocking = True
+        self.batch_id = batch_id
+        self.copies = copies
+        self.stats = stats
+        self.workers = dict(
+            (obj, Worker(obj, self.on_complete))
+            for obj in self.cards
+        )
+        self.cards = []
+        for worker in self.workers.values():
+            worker.run()
+
+    def on_complete(self, worker, obj):
+        log.info('Completed: %r', worker)
+        w = self.workers.pop(obj)
+        assert worker is w
+        if len(self.workers) == 0:
+            self.blocking = False
+            log.info('emitting batch_finished to UI')
+            self.wrapper.emit_mainthread(
+                'batch_finished', self.batch_id, self.stats, self.copies
+            )
+
+    def on_card_inserted(self, udisks, obj, parentdir, partition, drive):
+        if self.blocking:
+            log.warning('Blocking, ignoring card-insert %r', obj)
+            return
+        log.info('card-insert %r', obj)
+        self.cards.append(obj)
+        info = extra_info(partition, drive)
+        self.manager.start_import(parentdir, info)
+
 class UI:
     def __init__(self, benchmark=False):
         self.benchmark = benchmark
@@ -51,8 +107,8 @@ class UI:
         self.window.set_title('DMedia')
         self.notebook = Gtk.Notebook()
         self.window.add(self.notebook)
-        self.importer = Importer()
-        self.append_page('Import', self.importer)
+        self.importer = None
+        self.append_page('Import')
         self.append_page('Library')
         self.append_page('Storage')
 
@@ -73,7 +129,6 @@ class UI:
         if self.benchmark:
             Gtk.main_quit()
             return
-        from dmedia.service.dbus import session
         session.get_async(self.on_proxy, 'org.freedesktop.DMedia', '/')
 
     def on_proxy(self, proxy, async_result, *args):
@@ -82,8 +137,8 @@ class UI:
         self.start_importer()
 
     def start_importer(self):
-        from dmedia.service.wrappers import GImportManager
-        from dmedia.gtk.ubuntu import UnityImportUX
+        self.importer = Importer(self.env)
+        return
         self.gmanager = GImportManager(self.env)
         self.ux = UnityImportUX(self.gmanager)
         self.importer._set_gmanager(self.gmanager)
