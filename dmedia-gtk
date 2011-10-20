@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 # dmedia: distributed media library
 # Copyright (C) 2011 Novacut Inc
@@ -22,23 +22,161 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 import optparse
-
-from userwebkit import BaseUI
+import json
+import logging
+import sys
 
 import dmedia
+from dmedia.gtk import GObject, Gtk
+from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
+from dmedia.service.dbus import extra_info, session
+from dmedia.importer import ImportManager
+from dmedia.service.wrappers import ImportWrapper
+from dmedia.gtk.ubuntu import UnityImportUX
 
 
-class UI(BaseUI):
-    app = 'dmedia'
-    page = 'index.html'
-    splash = 'splash.html'
-    title = 'DMedia Browser'
-    databases = ['dmedia']
+log = logging.getLogger()
 
 
-parser = optparse.OptionParser(
-    version=dmedia.__version__,
-)
+class ActiveImport(Gtk.VBox):
+    def __init__(self):
+        super().__init__()
+        self._progressbar = Gtk.ProgressBar()
+        self.pack_start(self._progressbar, False, False, 2)
+
+    def _set_gmanager(self, gmanager):
+        gmanager.connect('batch_progress', self._on_batch_progress)
+
+    def _on_batch_progress(self, gm, count, total_count, size, total_size):
+        progress = (0.0 if total_size == 0 else size / total_size)
+        self._progressbar.set_property('fraction', progress)
+
+
+s = """
+After starting the importer, dmedia will automatically import all files from any cards you insert.
+
+If you have multiple card readers, you can import multiple cards at the same time.
+"""
+
+
+class Importer:
+    def __init__(self, env):
+        super().__init__()
+        self.env = env
+        self.udisks = UDisks()
+        self.udisks.monitor()
+        self.udisks.connect('card_inserted',
+            WeakMethod(self, 'on_card_inserted')
+        )
+        self.blocking = False
+        self.cards = []
+        self.wrapper = ImportWrapper()
+        self.wrapper.set_handler('batch_finished', self.handle_batch_finished)
+        self.manager = ImportManager(env, self.wrapper.callback)
+        self.ux = UnityImportUX(self.wrapper)
+
+    def handle_batch_finished(self, batch_id, stats, copies):
+        Worker = (Formatter if copies >= 2 else Ejector)
+        self.blocking = True
+        self.batch_id = batch_id
+        self.copies = copies
+        self.stats = stats
+        self.workers = dict(
+            (obj, Worker(obj, self.on_complete))
+            for obj in self.cards
+        )
+        self.cards = []
+        for worker in self.workers.values():
+            worker.run()
+
+    def on_complete(self, worker, obj):
+        log.info('Completed: %r', worker)
+        w = self.workers.pop(obj)
+        assert worker is w
+        if len(self.workers) == 0:
+            self.blocking = False
+            log.info('emitting batch_finished to UI')
+            self.wrapper.emit_mainthread(
+                'batch_finished', self.batch_id, self.stats, self.copies
+            )
+
+    def on_card_inserted(self, udisks, obj, parentdir, partition, drive):
+        if self.blocking:
+            log.warning('Blocking, ignoring card-insert %r', obj)
+            return
+        log.info('card-insert %r', obj)
+        self.cards.append(obj)
+        info = extra_info(partition, drive)
+        self.manager.start_import(parentdir, info)
+
+
+class UI:
+    def __init__(self, benchmark=False):
+        self.benchmark = benchmark
+        self.window = Gtk.Window()
+        self.window.connect('destroy', Gtk.main_quit)
+        self.window.set_default_size(960, 540)
+        self.window.set_title('DMedia')
+        self.notebook = Gtk.Notebook()
+        self.window.add(self.notebook)
+        self.importer = None
+        tab0 = self.append_page('Importer')
+        label = Gtk.Label()
+        label.set_markup(s)
+        tab0.pack_start(label, True, True, 0)
+        self.button = Gtk.Button('Start Importer')
+        self.button.connect('clicked', self.on_clicked)
+        tab0.pack_end(self.button, False, False, 0)
+        self.append_page('Library')
+        self.append_page('Storage')
+
+    def append_page(self, text, child=None):
+        if child is None:
+            child = Gtk.VBox()
+        label = Gtk.Label(text)
+        label.set_padding(8, 2)
+        self.notebook.append_page(child, label)
+        return child
+
+    def run(self):
+        self.window.show_all()
+        GObject.idle_add(self.on_idle)
+        Gtk.main()
+
+    def on_idle(self):
+        if self.benchmark:
+            Gtk.main_quit()
+            return
+        session.get_async(self.on_proxy, 'org.freedesktop.DMedia', '/')
+
+    def on_proxy(self, proxy, async_result, *args):
+        self.proxy = proxy
+        self.env = json.loads(self.proxy.GetEnv())
+
+    def on_clicked(self, button):
+        if self.importer is None:
+            self.button.set_label('Stop Importer')
+            self.importer = Importer(self.env)
+            self.importer.wrapper.connect('error', self.on_error)
+        else:
+            self.button.set_label('Start Importer')
+            self.importer = None
+
+    def on_error(self, w, error):
+        self.window.present()
+        self.notebook.set_current_page(0)
+        dialog = Gtk.MessageDialog(
+            self.window,
+           0,
+            Gtk.MessageType.ERROR,
+            Gtk.ButtonsType.CLOSE,
+            'An error occured during the import!\nYour files have not been imported!'
+        )
+        dialog.run()
+        dialog.destroy()
+
+
+parser = optparse.OptionParser(version=dmedia.__version__)
 parser.add_option('--benchmark',
     help='benchmark app startup time',
     action='store_true',
@@ -46,5 +184,6 @@ parser.add_option('--benchmark',
 )
 (options, args) = parser.parse_args()
 
+dmedia.configure_logging()
 ui = UI(options.benchmark)
 ui.run()

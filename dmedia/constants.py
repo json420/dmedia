@@ -56,10 +56,10 @@ DC_INTERFACE = DC_BUS
 
 
 # Standard format for TypeError message:
-TYPE_ERROR = '%s: need a %r; got a %r: %r'
+TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
 
 # Stardard format for TypeError message when a callable is expected:
-CALLABLE_ERROR = '%s: need a callable; got a %r: %r'
+CALLABLE_ERROR = '{}: need a callable; got a {!r}: {!r}'
 
 def get_extensions_for_type(general_type):
     """

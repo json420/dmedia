@@ -24,7 +24,6 @@ Unit tests for `dmedia.transfers` module.
 """
 
 from unittest import TestCase
-from multiprocessing import current_process
 import time
 from http.client import HTTPConnection, HTTPSConnection
 
@@ -471,7 +470,6 @@ class TransferCase(CouchCase):
         transfers._uploaders.clear()
         transfers._downloaders.clear()
         self.q = DummyQueue()
-        self.pid = current_process().pid
         self.local = TempDir()
         self.local_id = random_id()
         self.env['filestore'] = {
@@ -598,25 +596,21 @@ class TestTransferWorker(TransferCase):
                     signal='started',
                     args=(self.key,),
                     worker='TransferWorker',
-                    pid=self.pid,
                 ),
                 dict(
                     signal='progress',
                     args=(self.key, 0, self.ch.file_size),
                     worker='TransferWorker',
-                    pid=self.pid,
                 ),
                 dict(
                     signal='progress',
                     args=(self.key, self.ch.file_size, self.ch.file_size),
                     worker='TransferWorker',
-                    pid=self.pid,
                 ),
                 dict(
                     signal='finished',
                     args=(self.key,),
                     worker='TransferWorker',
-                    pid=self.pid,
                 ),
             ]
         )
@@ -628,7 +622,6 @@ class TestDownloadWorker(TransferCase):
     def setUp(self):
         super().setUp()
         self.q = DummyQueue()
-        self.pid = current_process().pid
         transfers._uploaders.clear()
         transfers._downloaders.clear()
 
@@ -693,7 +686,6 @@ class TestDownloadWorker(TransferCase):
                     signal='progress',
                     args=(self.key, 333, self.ch.file_size),
                     worker='DownloadWorker',
-                    pid=self.pid,
                 ),
             ]
         )
@@ -759,7 +751,6 @@ class TestUploadWorker(TransferCase):
                     signal='progress',
                     args=(self.key, 444, self.ch.file_size),
                     worker='UploadWorker',
-                    pid=self.pid,
                 ),
             ]
         )

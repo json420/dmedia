@@ -90,7 +90,11 @@ class Test(Command):
                         break
 
     def run(self):
-        pynames = tuple(self._pynames_iter())
+        pynames = list(self._pynames_iter())
+        pynames.append('dmedia.gtk.ubuntu')
+        pynames.append('dmedia.gtk.tests.test_ubuntu')
+        pynames.append('dmedia.gtk.util')
+        pynames.append('dmedia.gtk.tests.test_util')
 
         # Add unit-tests:
         if self.no_unittest:
@@ -128,8 +132,8 @@ setup(
     author_email='jderose@novacut.com',
     license='AGPLv3+',
     cmdclass={'test': Test},
-    packages=['dmedia'],
-    scripts=['dmedia-gtk'],
+    packages=['dmedia', 'dmedia.service', 'dmedia.gtk'],
+    scripts=['dmedia-gtk', 'dmedia-cli'],
     data_files=[
         ('share/couchdb/apps/dmedia',
             [path.join('ui', name) for name in os.listdir('ui')]
@@ -142,14 +146,15 @@ setup(
         ),
         ('share/icons/hicolor/scalable/status',
             [
-                'share/indicator-rendermenu.svg',
-                'share/indicator-rendermenu-att.svg',
+                'share/indicator-dmedia.svg',
+                'share/indicator-dmedia-att.svg',
             ]
         ),
         ('lib/dmedia',
             [
                 'dmedia-service',
                 'dmedia-service3',
+                'share/init-filestore',
             ]
         ),
         ('share/dbus-1/services/',

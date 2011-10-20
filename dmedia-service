@@ -25,7 +25,7 @@
 Hacky shim till it's possible to implement DBus servers in PyGI.
 
 Note that because this script must be Python2, it can't import anything from the
-`dmedia` package as it will only be installed under Python3.
+`dmedia` package as that will only be installed under Python3.
 """
 
 import argparse
@@ -34,11 +34,14 @@ from os import path
 from subprocess import Popen
 import logging
 import time
+import sys
+import json
 
 import xdg.BaseDirectory
 import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
+from dc3lib.microfiber import Database, NotFound
 
 
 __version__ = '11.10.0'
@@ -52,12 +55,13 @@ DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
 
 
-def configure_logging(namespace):
+def configure_logging():
     format = [
         '%(levelname)s',
-        '%(process)d',
         '%(message)s',
     ]
+    script = path.abspath(sys.argv[0])
+    namespace = path.basename(script)
     cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
     if not path.exists(cache):
         os.makedirs(cache)
@@ -70,19 +74,43 @@ def configure_logging(namespace):
         level=logging.DEBUG,
         format='\t'.join(format),
     )
-    logging.info('__version__: %r', __version__)
-    logging.info('__file__: %r', path.abspath(__file__))
+    logging.info('script: %r', script)
+    logging.info('dmedia.__file__: %r', __file__)
+    logging.info('dmedia.__version__: %r', __version__)
 
 
 class DMedia(dbus.service.Object):
     def __init__(self, bus, mainloop):
+        self._killed = False
         self._bus = bus
         self._mainloop = mainloop
+
         log.info('Binding to %r', bus)
         super(DMedia, self).__init__(session, object_path='/')
         self._busname = dbus.service.BusName(bus, session)
+
+        self._dc3 = session.get_object('org.freedesktop.DC3', '/')
+        self._machine_id = None
+        env = self._get_env()
+
         log.info('Starting %r', service3)
         self._child = Popen([service3, '--bus', bus])
+        db = Database('dmedia', env)
+        while True:
+            try:
+                time.sleep(0.1)
+                doc = db.get('_local/dmedia')
+                self._machine_id = doc['machine_id']
+                log.info('machine_id = %r', self._machine_id)
+                break
+            except NotFound:
+                pass
+
+    def _get_env(self):
+        log.info('Calling DC3.GetEnv()')
+        env = json.loads(self._dc3.GetEnv())
+        env['machine_id'] = self._machine_id
+        return env
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -96,6 +124,9 @@ class DMedia(dbus.service.Object):
         """
         Kill the `dmedia-service` process.
         """
+        if self._killed:
+            return
+        self._killed = True
         log.info('Killing dmedia core service on %r', self._bus)
         self.FwdKill()
         self._child.wait()
@@ -110,7 +141,7 @@ class DMedia(dbus.service.Object):
         """
         Return dmedia env as JSON string.
         """
-        return self._env_s
+        return json.dumps(self._get_env())
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def AddFileStore(self, parentdir):
@@ -130,7 +161,7 @@ parser.add_argument('--bus',
     help='DBus bus name; default is %(default)r',
 )
 args = parser.parse_args()
-configure_logging('service')
+configure_logging()
 
 from gi.repository import GObject
 GObject.threads_init()
@@ -138,3 +169,4 @@ GObject.threads_init()
 mainloop = GObject.MainLoop()
 dmedia = DMedia(args.bus, mainloop)
 mainloop.run()
+dmedia.Kill()

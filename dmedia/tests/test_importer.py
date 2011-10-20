@@ -27,6 +27,7 @@ Unit tests for `dmedia.importer` module.
 
 from unittest import TestCase
 import time
+from copy import deepcopy
 
 import filestore
 from microfiber import random_id, Database
@@ -169,16 +170,12 @@ class ImportCase(CouchCase):
         (self.dst1, self.dst2) = sorted(temps, key=lambda t: t.dir)
         self.store1_id = random_id()
         self.store2_id = random_id()
-        local = {
-            '_id': '_local/dmedia',
-            'stores': {
-                self.dst1.dir: {'id': self.store1_id, 'copies': 1},
-                self.dst2.dir: {'id': self.store2_id, 'copies': 2},
-            },
+        self.stores = {
+            self.dst1.dir: {'id': self.store1_id, 'copies': 1},
+            self.dst2.dir: {'id': self.store2_id, 'copies': 2},
         }
         self.db = Database('dmedia', self.env)
         self.db.ensure()
-        self.db.save(local)
 
     def tearDown(self):
         super().tearDown()
@@ -194,6 +191,7 @@ class TestImportWorker(ImportCase):
         super().setUp()
         self.batch_id = random_id()
         self.env['batch_id'] = self.batch_id
+        self.env['stores'] = self.stores
 
     def test_random_batch(self):
         key = self.src.dir
@@ -210,7 +208,6 @@ class TestImportWorker(ImportCase):
         self.assertEqual(doc['basedir'], self.src.dir)
         self.assertEqual(doc['machine_id'], self.machine_id)
         self.assertEqual(doc['batch_id'], self.batch_id)
-        self.assertEqual(doc['import_order'], [])
         self.assertEqual(doc['files'], {})
         self.assertEqual(doc['stats'],
             {
@@ -220,8 +217,9 @@ class TestImportWorker(ImportCase):
                 'new': {'count': 0, 'bytes': 0},
             }
         )
+        self.assertEqual(doc['stores'], self.stores)
         self.assertEqual(self.q.items[0]['signal'], 'started')
-        self.assertEqual(self.q.items[0]['args'], (self.src.dir, inst.id))
+        self.assertEqual(self.q.items[0]['args'], (self.src.dir, inst.id, None))
 
         # scan()
         (batch, result) = self.src.random_batch(25)
@@ -238,9 +236,6 @@ class TestImportWorker(ImportCase):
                 'empty': {'count': 0, 'bytes': 0},
                 'new': {'count': 0, 'bytes': 0},
             }
-        )
-        self.assertEqual(doc['import_order'],
-            [file.name for file in batch.files]
         )
         self.assertEqual(doc['files'], files)
         item = self.q.items[1]
@@ -279,9 +274,6 @@ class TestImportWorker(ImportCase):
             'new': {'bytes': batch.size, 'count': batch.count},
         }
         self.assertEqual(doc['stats'], stats)
-        self.assertEqual(doc['import_order'],
-            [file.name for file in batch.files]
-        )
         self.assertEqual(doc['files'], files)
 
         # Check the 'progress' signals
@@ -293,7 +285,7 @@ class TestImportWorker(ImportCase):
         # Check the 'finished' signal
         item = self.q.items[-1]
         self.assertEqual(item['signal'], 'finished')
-        self.assertEqual(item['args'], (self.src.dir, stats))
+        self.assertEqual(item['args'], (self.src.dir, inst.id, stats))
 
         # Check all the dmedia/file docs:
         for (file, ch) in result:
@@ -331,6 +323,14 @@ class TestImportWorker(ImportCase):
 class TestImportManager(ImportCase):
     klass = importer.ImportManager
 
+    def setUp(self):
+        super().setUp()
+        local = {
+            '_id': '_local/dmedia',
+            'stores': self.stores,
+        }
+        self.db.save(local)
+
     def new(self, callback=None):
         return self.klass(self.env, callback)
 
@@ -366,13 +366,14 @@ class TestImportManager(ImportCase):
                 'type',
                 'time',
                 'imports',
-                'errors',
                 'machine_id',
                 'stats',
+                'stores',
+                'copies',
             ])
         )
         self.assertEqual(batch['type'], 'dmedia/batch')
-        self.assertEqual(batch['imports'], [])
+        self.assertEqual(batch['imports'], {})
         self.assertEqual(batch['machine_id'], self.machine_id)
         self.assertEqual(inst.db.get(batch['_id']), batch)
         self.assertEqual(
@@ -381,6 +382,7 @@ class TestImportManager(ImportCase):
                 ('batch_started', (batch['_id'],)),
             ]
         )
+        self.assertEqual(inst.copies, 3)
 
         # Test that batch cannot be re-started without first finishing
         self.assertRaises(AssertionError, inst.first_worker_starting)
@@ -407,12 +409,13 @@ class TestImportManager(ImportCase):
 
         # Check that it fires signal correctly
         inst._workers.clear()
+        inst.copies = 2
         inst.last_worker_finished()
         self.assertEqual(inst.doc, None)
         self.assertEqual(
             callback.messages,
             [
-                ('batch_finished', (batch_id, stats)),
+                ('batch_finished', (batch_id, stats, 2)),
             ]
         )
         doc = inst.db.get(batch_id)
@@ -434,35 +437,39 @@ class TestImportManager(ImportCase):
         # Make sure it works when doc is None:
         inst.on_error('foo', 'IOError', 'nope')
         self.assertEqual(inst.doc, None)
+        self.assertEqual(
+            callback.messages[0],
+            ('error', ({'basedir': 'foo', 'name': 'IOError', 'message': 'nope'},))
+        )
 
         # Test normally:
         inst.first_worker_starting()
-        self.assertEqual(inst.doc['errors'], [])
-        inst.on_error('foo', 'IOError', 'nope')
-        doc = inst.db.get(inst.doc['_id'])
+        batch_id = inst.doc['_id']
         self.assertEqual(
-            doc['errors'],
-            [
-                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
-            ]
+            callback.messages[1],
+            ('batch_started', (batch_id,))
         )
-        inst.on_error('bar', 'error!', 'no way')
-        doc = inst.db.get(inst.doc['_id'])
+        self.assertNotIn('error', inst.doc)
+        inst.on_error('bar', 'ValueError', 'way')
+        doc = inst.db.get(batch_id)
         self.assertEqual(
-            doc['errors'],
-            [
-                {'key': 'foo', 'name': 'IOError', 'msg': 'nope'},
-                {'key': 'bar', 'name': 'error!', 'msg': 'no way'},
-            ]
+            doc['error'],
+            {'basedir': 'bar', 'name': 'ValueError', 'message': 'way'}
+        )
+        self.assertEqual(
+            callback.messages[2],
+            ('error', ({'basedir': 'bar', 'name': 'ValueError', 'message': 'way'},))
         )
 
     def test_get_worker_env(self):
         batch_id = random_id()
         inst = self.new()
-        env = dict(self.env)
+        env = deepcopy(self.env)
         assert 'batch_id' not in env
-        inst.doc = {'_id': batch_id}
+        assert 'stores' not in env
+        inst.doc = {'_id': batch_id, 'stores': self.stores}
         env['batch_id'] = batch_id
+        env['stores'] = self.stores
         self.assertEqual(
             inst.get_worker_env('ImportWorker', 'a key', ('some', 'args')),
             env
@@ -474,7 +481,7 @@ class TestImportManager(ImportCase):
         self.assertEqual(callback.messages, [])
         inst.first_worker_starting()
         batch_id = inst.doc['_id']
-        self.assertEqual(inst.db.get(batch_id)['imports'], [])
+        self.assertEqual(inst.db.get(batch_id)['imports'], {})
         self.assertEqual(
             callback.messages,
             [
@@ -484,26 +491,35 @@ class TestImportManager(ImportCase):
 
         one = TempDir()
         one_id = random_id()
-        inst.on_started(one.dir, one_id)
-        self.assertEqual(inst.db.get(batch_id)['imports'], [one_id])
+        inst.on_started(one.dir, one_id, None)
+        self.assertEqual(inst.db.get(batch_id)['imports'],
+            {
+                one_id: {'basedir': one.dir}, 
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
                 ('batch_started', (batch_id,)),
-                ('import_started', (one.dir, one_id)),
+                ('import_started', (one.dir, one_id, None)),
             ]
         )
 
         two = TempDir()
         two_id = random_id()
-        inst.on_started(two.dir, two_id)
-        self.assertEqual(inst.db.get(batch_id)['imports'], [one_id, two_id])
+        inst.on_started(two.dir, two_id, None)
+        self.assertEqual(inst.db.get(batch_id)['imports'],
+            {
+                one_id: {'basedir': one.dir},
+                two_id: {'basedir': two.dir},
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
                 ('batch_started', (batch_id,)),
-                ('import_started', (one.dir, one_id)),
-                ('import_started', (two.dir, two_id)),
+                ('import_started', (one.dir, one_id, None)),
+                ('import_started', (two.dir, two_id, None)),
             ]
         )
 
@@ -585,29 +601,34 @@ class TestImportManager(ImportCase):
         inst.doc = dict(
             _id=batch_id,
             stats=stats,
+            imports={},
         )
 
         # Call with 1st import
         one = TempDir()
+        one_id = random_id()
         one_stats = {
             'total': {'count': 1, 'bytes': 2},
             'new': {'count': 3, 'bytes': 4},
             'duplicate': {'count': 5, 'bytes': 6},
             'empty': {'count': 7, 'bytes': 8},
         }
-        inst.on_finished(one.dir, one_stats)
+        inst.doc['imports'][one_id] = {}
+        inst.on_finished(one.dir, one_id, one_stats)
         doc = self.db.get(batch_id)
         self.assertEqual(doc['stats'], one_stats)
 
         # Call with 2nd import
         two = TempDir()
+        two_id = random_id()
         two_stats = {
             'total': {'count': 8, 'bytes': 7},
             'new': {'count': 6, 'bytes': 5},
             'duplicate': {'count': 4, 'bytes': 3},
             'empty': {'count': 2, 'bytes': 1},
         }
-        inst.on_finished(two.dir, two_stats)
+        inst.doc['imports'][two_id] = {}
+        inst.on_finished(two.dir, two_id, two_stats)
         doc = self.db.get(batch_id)
         self.assertEqual(doc['stats'],
             {
@@ -650,9 +671,11 @@ class TestImportManager(ImportCase):
         inst._workers.clear()
         self.assertEqual(callback.messages, [])
         self.assertTrue(inst.start_import(self.src.dir))
-        while inst._workers:
+        while True:
             time.sleep(0.5)
-        time.sleep(1.0)
+            if callback.messages[-1][0] == 'batch_finished':
+                break
+        time.sleep(0.5)
 
         self.assertEqual(len(callback.messages), 40)
 
@@ -664,7 +687,7 @@ class TestImportManager(ImportCase):
         )
         self.assertEqual(
             callback.messages[1],
-            ('import_started', (self.src.dir, import_id))
+            ('import_started', (self.src.dir, import_id, None))
         )
         self.assertEqual(
             callback.messages[2],
@@ -686,7 +709,7 @@ class TestImportManager(ImportCase):
         }
         self.assertEqual(
             callback.messages[-1],
-            ('batch_finished', (batch_id, stats))
+            ('batch_finished', (batch_id, stats, 3))
         )
 
         fs1 = filestore.FileStore(self.dst1.dir)
@@ -736,14 +759,15 @@ class TestImportManager(ImportCase):
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
 
-
         ##################################################################
         # Okay, now run the whole thing again when they're all duplicates:
         callback.messages = []
         self.assertTrue(inst.start_import(self.src.dir))
-        while inst._workers:
+        while True:
             time.sleep(0.5)
-        time.sleep(1.0)
+            if callback.messages[-1][0] == 'batch_finished':
+                break
+        time.sleep(0.5)
 
         self.assertEqual(len(callback.messages), 40)
 
@@ -755,7 +779,7 @@ class TestImportManager(ImportCase):
         )
         self.assertEqual(
             callback.messages[1],
-            ('import_started', (self.src.dir, import_id))
+            ('import_started', (self.src.dir, import_id, None))
         )
         self.assertEqual(
             callback.messages[2],
@@ -777,7 +801,7 @@ class TestImportManager(ImportCase):
         }
         self.assertEqual(
             callback.messages[-1],
-            ('batch_finished', (batch_id, stats))
+            ('batch_finished', (batch_id, stats, 3))
         )
 
         fs1 = filestore.FileStore(self.dst1.dir)

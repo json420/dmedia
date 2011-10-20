@@ -1,28 +1,39 @@
-#!/usr/bin/python3
+# dmedia: distributed media library
+# Copyright (C) 2011 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
 
-import sys
-from os import path
+"""
+Some Ubuntu-specific UI bits.
+"""
+
 from gettext import gettext as _
-import json
-import time
 
-import gi
-from gi.repository import GObject, Gtk, AppIndicator3, Notify, Unity
+from gi.repository import Gtk, Notify, AppIndicator3, Unity
 
-from dmedia.core import Core
-from dmedia.service import dbus
-from dmedia.importer import ImportManager, notify_started, notify_stats
+from dmedia.importer import notify_started, notify_stats
 
 
-GObject.threads_init()
 Notify.init('dmedia')
+ICON = 'indicator-dmedia'
+ICON_ATT = 'indicator-dmedia-att'
 
-ICON = 'indicator-rendermenu'
-ICON_ATT = 'indicator-rendermenu-att'
-
-dc3 = dbus.session.get('org.freedesktop.DC3', '/')
-env = json.loads(dc3.GetEnv())
-core = Core(env)
 
 class NotifyManager:
     """
@@ -76,42 +87,29 @@ class NotifyManager:
             self.notify(summary, body, icon)
 
 
-class ImportUI:
-    def __init__(self, env):
+class UnityImportUX:
+    def __init__(self, gmanager):
         self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
         self.notify = NotifyManager()
-        self.indicator = AppIndicator3.Indicator.new('rendermenu', ICON,
+        self.indicator = AppIndicator3.Indicator.new('dmedia', ICON,
             AppIndicator3.IndicatorCategory.APPLICATION_STATUS
         )
         self.indicator.set_attention_icon(ICON_ATT)
         self.menu = Gtk.Menu()
-        close = Gtk.MenuItem()
-        close.set_label(_('Close'))
-        close.connect('activate', self.on_close)
-        self.menu.append(close)
+        self.close = Gtk.MenuItem()
+        self.close.set_label(_('Close'))
+        #self.close.connect('activate', self.on_close)
+        self.menu.append(self.close)
         self.menu.show_all()
         self.indicator.set_menu(self.menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
-        self.manager = ImportManager(env, self.on_callback)
-        self.handlers = {
-            'batch_started': self.on_batch_started,
-            'import_started': self.on_import_started,
-            'batch_finished': self.on_batch_finished,
-            'batch_progress': self.on_batch_progress,
-        }
+        gmanager.connect('batch_started', self.on_batch_started)
+        gmanager.connect('import_started', self.on_import_started)
+        gmanager.connect('batch_progress', self.on_batch_progress)
+        gmanager.connect('batch_finished', self.on_batch_finished)
+        gmanager.connect('error', self.on_error)
 
-    def on_close(self, button):
-        Gtk.main_quit()
-
-    def on_callback(self, signal, args):
-        print(signal, *args)
-        try:
-            handler = self.handlers[signal]
-            handler(*args)
-        except KeyError:
-            pass
-
-    def on_batch_started(self, batch_id):
+    def on_batch_started(self, gm, batch_id):
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
         self.launcher.set_property('count', 0)
         self.launcher.set_property('count_visible', True)
@@ -119,37 +117,30 @@ class ImportUI:
         self.launcher.set_property('progress_visible', True)
         self.basedirs = []
 
-    def on_import_started(self, basedir, import_id):
+    def on_import_started(self, gm, basedir, import_id, info):
         self.basedirs.append(basedir)
         (summary, body) = notify_started(self.basedirs)
-        self.notify.replace(summary, body, None)
+        icons = {
+            'usb': 'notification-device-usb',
+        }
+        icon = icons.get(info['drive']['connection'])
+        self.notify.replace(summary, body, icon)
 
-    def on_batch_progress(self, count, total_count, size, total_size):
+    def on_batch_progress(self, gm, count, total_count, size, total_size):
         self.launcher.set_property('count', total_count)
         progress = (0.0 if total_size == 0 else size / total_size)
         self.launcher.set_property('progress', progress)
 
-    def on_batch_finished(self, batch_id, stats):
+    def on_batch_finished(self, gm, batch_id, stats, copies):
         self.launcher.set_property('count_visible', False)
         self.launcher.set_property('progress_visible', False)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         (summary, body) = notify_stats(stats)
         self.notify.replace(summary, body, 'notification-device-eject')
 
-
-ui = ImportUI(core.env)
-basedirs = sys.argv[1:]
-
-def on_timeout():
-    if not basedirs:
-        return False
-    basedir = basedirs.pop()
-    ui.manager.start_import(path.abspath(basedir))
-    return True
-
-
-GObject.timeout_add(10000, on_timeout)
-
-#ui.manager.start_import(path.abspath(sys.argv[1]))
-
-Gtk.main()
+    def on_error(self, gm, error):
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        self.launcher.set_property('count_visible', False)
+        self.launcher.set_property('progress_visible', False)
+        self.launcher.set_property('urgent', True)
+        

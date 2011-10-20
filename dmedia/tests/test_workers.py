@@ -28,7 +28,6 @@ from os import path
 import time
 import multiprocessing
 import multiprocessing.queues
-from multiprocessing import current_process
 import threading
 
 import microfiber
@@ -127,7 +126,6 @@ class test_functions(TestCase):
 
     def test_dispatch(self):
         f = workers.dispatch
-        pid = current_process().pid
 
         # Test with unknown worker name
         q = DummyQueue()
@@ -141,13 +139,11 @@ class test_functions(TestCase):
                     signal='error',
                     args=('the key', 'KeyError', "'ImportFiles'"),
                     worker='ImportFiles',
-                    pid=pid,
                 ),
                 dict(
                     signal='terminate',
                     args=('the key',),
                     worker='ImportFiles',
-                    pid=pid,
                 ),
             ]
         )
@@ -168,13 +164,11 @@ class test_functions(TestCase):
                     signal='word',
                     args=('the key', 'hello', 'world'),
                     worker=('ImportFiles'),
-                    pid=pid,
                 ),
                 dict(
                     signal='terminate',
                     args=('the key',),
                     worker='ImportFiles',
-                    pid=pid,
                 ),
             ]
         )
@@ -193,7 +187,6 @@ class test_Worker(TestCase):
         self.assertTrue(inst.q is q)
         self.assertTrue(inst.key is key)
         self.assertTrue(inst.args is args)
-        self.assertEqual(inst.pid, current_process().pid)
         self.assertEqual(inst.name, 'Worker')
 
     def test_emit(self):
@@ -201,14 +194,12 @@ class test_Worker(TestCase):
         q = DummyQueue()
         args = ('foo', 'bar')
         inst = self.klass(env, q, 'akey', args)
-        pid = current_process().pid
 
         self.assertEqual(q.messages, [])
 
         inst.emit('SomeSignal')
         one = dict(
             worker='Worker',
-            pid=pid,
             signal='SomeSignal',
             args=('akey',),
         )
@@ -217,7 +208,6 @@ class test_Worker(TestCase):
         inst.emit('AnotherSignal', 'this', 'time', 'with', 'args')
         two = dict(
             worker='Worker',
-            pid=pid,
             signal='AnotherSignal',
             args=('akey', 'this', 'time', 'with', 'args')
         )
@@ -226,7 +216,6 @@ class test_Worker(TestCase):
         inst.emit('OneMore', 'stuff')
         three = dict(
             worker='Worker',
-            pid=pid,
             signal='OneMore',
             args=('akey', 'stuff'),
         )
@@ -236,7 +225,6 @@ class test_Worker(TestCase):
         env = {'foo': 'bar'}
         q = DummyQueue()
         args = ('foo', 'bar')
-        pid = current_process().pid
 
         class do_something(self.klass):
             def execute(self, one, two):
@@ -247,7 +235,6 @@ class test_Worker(TestCase):
         self.assertEqual(q.messages[0],
             dict(
                 worker='do_something',
-                pid=pid,
                 signal='Hello',
                 args=('key', 'foo and bar'),
             )
@@ -323,15 +310,15 @@ class test_Manager(TestCase):
 
         # Test that callback default is None:
         inst = self.klass(env)
-        self.assertTrue(inst.env is env)
-        self.assertTrue(inst._callback is None)
+        self.assertIs(inst.env, env)
+        self.assertIsNone(inst.callback)
 
         # Test with a callable:
         def foo():
             pass
         inst = self.klass(env, callback=foo)
-        self.assertTrue(inst.env is env)
-        self.assertTrue(inst._callback is foo)
+        self.assertIs(inst.env, env)
+        self.assertIs(inst.callback, foo)
         self.assertTrue(inst._running is False)
         self.assertEqual(inst._workers, {})
         self.assertTrue(isinstance(inst._q, multiprocessing.queues.Queue))
@@ -361,8 +348,7 @@ class test_Manager(TestCase):
         inst._thread.daemon = True
         inst._thread.start()
 
-        self.assertIsNone(inst._kill_signal_thread())
-        self.assertIs(inst._running, False)
+        inst._running = False
         inst._thread.join()
         self.assertIs(inst._thread.is_alive(), False)
 
@@ -402,6 +388,38 @@ class test_Manager(TestCase):
                 ('crazy', tuple()),
             ]
         )
+
+        # Test when an exception occurs in the handler
+        class Example(self.klass):
+            _call = None
+            def on_stuff(self, arg1, arg2):
+                assert self._call is None
+                self._call = arg1 + arg2
+                raise ValueError('no way')
+
+        callback = DummyCallback()
+        inst = Example({'foo': 'bar'}, callback)
+        self.assertTrue(inst.start_job('ExampleWorker', '/the/key', 'foo'))
+        p = inst._workers['/the/key']
+        q = inst._q
+        self.assertTrue(p.is_alive())
+        msg = dict(signal='stuff', args=('foo', 'bar'), worker='ExampleWorker')
+        inst._q.put(msg)
+        inst._thread.join()
+        self.assertEqual(
+            inst._error,
+            {'name': 'ValueError', 'message': 'no way'}
+        )
+        self.assertFalse(p.is_alive())
+        self.assertFalse(inst._running)
+        self.assertEqual(inst._workers, {})
+        self.assertEqual(
+            callback.messages,
+            [
+                ('error', ({'name': 'ValueError', 'message': 'no way'},))
+            ]
+        )
+        self.assertIsNot(inst._q, q)
 
     def test_on_terminate(self):
         env = {'foo': 'bar'}
@@ -539,12 +557,12 @@ class test_CouchManager(CouchCase):
     def test_init(self):
         inst = self.klass(self.env)
         self.assertTrue(inst.env is self.env)
-        self.assertTrue(inst._callback is None)
+        self.assertTrue(inst.callback is None)
         self.assertTrue(isinstance(inst.db, microfiber.Database))
 
         def func():
             pass
         inst = self.klass(self.env, func)
         self.assertTrue(inst.env is self.env)
-        self.assertTrue(inst._callback, func)
+        self.assertTrue(inst.callback, func)
         self.assertTrue(isinstance(inst.db, microfiber.Database))

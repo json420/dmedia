@@ -27,8 +27,10 @@ Store media files based on content-hash.
 
 import time
 from copy import deepcopy
+from os import path
 from gettext import gettext as _
 from gettext import ngettext
+from subprocess import check_call
 import logging
 
 import microfiber
@@ -91,6 +93,14 @@ def notify_stats(stats):
     return (summary, body)
 
 
+def label_text(count, size):
+    return ngettext(
+        '{count} file, {size}',
+        '{count} files, {size}',
+        count
+    ).format(count=count, size=bytes10(size))
+
+
 def accumulate_stats(accum, stats):
     for (key, d) in stats.items():
         if key not in accum:
@@ -103,10 +113,12 @@ class ImportWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
         self.basedir = args[0]
+        self.extra = None
         self.id = None
         self.doc = None
 
-    def execute(self, basedir):
+    def execute(self, basedir, extra=None):
+        self.extra = extra
         self.start()
         self.scan()
         self.import_all()
@@ -118,17 +130,23 @@ class ImportWorker(workers.CouchWorker):
         )
         st = statvfs(self.basedir)
         self.doc['statvfs'] = st._asdict()
+        self.doc['basedir_ismount'] = path.ismount(self.basedir)
+        self.doc['stores'] = self.env['stores']
+        if self.extra:
+            self.doc.update(self.extra)
         self.id = self.doc['_id']
         self.db.save(self.doc)
-        self.emit('started', self.id)
+        self.emit('started', self.id, self.extra)
 
     def scan(self):
         self.batch = scandir(self.basedir)
+        log.info('%r has %d files, %s', self.basedir, self.batch.count,
+            bytes10(self.batch.size)
+        )
         self.doc['stats']['total'] = {
             'bytes': self.batch.size,
             'count': self.batch.count,
         }
-        self.doc['import_order'] = [file.name for file in self.batch.files]
         self.doc['files'] = dict(
             (file.name, {'bytes': file.size, 'mtime': file.mtime})
             for file in self.batch.files
@@ -140,9 +158,8 @@ class ImportWorker(workers.CouchWorker):
         # FIXME: Should pick up to 2 filestores based size of import and
         # available space on the filestores.
         stores = []
-        local = self.db.get('_local/dmedia')
-        for parentdir in sorted(local['stores']):
-            info = local['stores'][parentdir]
+        for parentdir in sorted(self.env['stores']):
+            info = self.env['stores'][parentdir]
             fs = FileStore(parentdir, info['id'], info['copies'])
             stores.append(fs)
         return stores
@@ -161,7 +178,7 @@ class ImportWorker(workers.CouchWorker):
             self.doc['time_end'] = time.time()
         finally:
             self.db.save(self.doc)
-        self.emit('finished', self.doc['stats'])
+        self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
         common = {
@@ -214,40 +231,62 @@ class ImportManager(workers.CouchManager):
         self._total_count = 0
         self._bytes = 0
         self._total_bytes = 0
+        self._error = None
 
     def get_worker_env(self, worker, key, args):
         env = deepcopy(self.env)
         env['batch_id'] = self.doc['_id']
+        env['stores'] = self.doc['stores']
         return env
 
     def first_worker_starting(self):
         assert self.doc is None
         assert self._workers == {}
         self._reset_counters()
+        stores = self.db.get('_local/dmedia')['stores']
+        assert isinstance(stores, dict)
+        if not stores:
+            raise ValueError('No FileStores to import into!')
+        self.copies = sum(v['copies'] for v in stores.values())
+        if self.copies < 1:
+            raise ValueError('must have at least durability of copies=1')
         self.doc = schema.create_batch(self.env.get('machine_id'))
+        self.doc['stores'] = stores
+        self.doc['copies'] = self.copies
         self.db.save(self.doc)
         self.emit('batch_started', self.doc['_id'])
 
     def last_worker_finished(self):
         assert self._workers == {}
+        log.info('Calling /bin/sync')
+        check_call(['/bin/sync'])
+        log.info('sync done')
         self.doc['time_end'] = time.time()
         self.db.save(self.doc)
-        self.emit('batch_finished', self.doc['_id'], self.doc['stats'])
+        self.emit('batch_finished', self.doc['_id'], self.doc['stats'], self.copies)
         self.doc = None
 
-    def on_error(self, key, exception, message):
-        super(ImportManager, self).on_error(key, exception, message)
-        if self.doc is None:
-            return
-        self.doc['errors'].append(
-            {'key': key, 'name': exception, 'msg': message}
-        )
-        self.db.save(self.doc)
+    def on_error(self, basedir, exception, message):
+        error = {
+            'basedir': basedir,
+            'name': exception,
+            'message': message,
+        }
+        try:
+            if self.doc is not None:
+                self.doc['error'] = error
+                self.db.save(self.doc)
+        finally:
+            self.doc = None
+            self.abort_with_error(error)
 
-    def on_started(self, key, import_id):
-        self.doc['imports'].append(import_id)
+    def on_started(self, basedir, import_id, extra):
+        assert import_id not in self.doc['imports']
+        self.doc['imports'][import_id] = {
+            'basedir': basedir,
+        }
         self.db.save(self.doc)
-        self.emit('import_started', key, import_id)
+        self.emit('import_started', basedir, import_id, extra)
 
     def on_scanned(self, key, total_count, total_bytes):
         self._total_count += total_count 
@@ -265,7 +304,9 @@ class ImportManager(workers.CouchManager):
             self._bytes, self._total_bytes,
         )
 
-    def on_finished(self, key, stats):
+    def on_finished(self, basedir, import_id, stats):
+        self.doc['imports'][import_id]['stats'] = stats
+        self.db.save(self.doc)
         accumulate_stats(self.doc['stats'], stats)
         self.db.save(self.doc)
 
@@ -273,5 +314,5 @@ class ImportManager(workers.CouchManager):
         with self._lock:
             return (self._count, self._total_count, self._bytes, self._total_bytes)
 
-    def start_import(self, base):
-        return self.start_job('ImportWorker', base, base)
+    def start_import(self, base, extra=None):
+        return self.start_job('ImportWorker', base, base, extra)

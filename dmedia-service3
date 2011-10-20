@@ -29,36 +29,44 @@ import sys
 import json
 from os import path
 import optparse
+import logging
 
 from gi.repository import GObject
 
-from dmedia import __version__
+import dmedia
 from dmedia.service import dbus
-from dmedia.service.dbus import session
+from dmedia.service.dbus import session, UDisks
 from dmedia.core import Core, start_file_server
 
 GObject.threads_init()
-BUS = 'org.freedesktop.DMedia'
+log = logging.getLogger()
 
 
 class DMedia:
     def __init__(self, bus):
         self.mainloop = GObject.MainLoop()
         dc3 = session.get('org.freedesktop.DC3', '/')
-        self.env_s = dc3.GetEnv()
-        self.core = Core(json.loads(self.env_s))
-        self.proxy = session.get(bus, '/', 'org.freedesktop.DMedia')
-        self.proxy.connect('g-signal', self.on_g_signal)
+        env = json.loads(dc3.GetEnv())
+        self.udisks = UDisks()
+        self.core = Core(env, self.udisks.get_parentdir_info)
         self._fwd = {
             'AddFileStore': self.AddFileStore,
+            'RemoveFileStore': self.RemoveFileStore,
             'Kill': self.Kill,
         }
+        if bus:
+            log.info('Listing to forwards from %r', bus)
+            self.proxy = session.get(bus, '/', 'org.freedesktop.DMedia')
+            self.proxy.connect('g-signal', self.on_g_signal)
         self.avahi = dbus.system.get(
             'org.freedesktop.Avahi',
             '/',
             'org.freedesktop.Avahi.Server'
         )
         self._peers = {}
+        self.udisks.connect('store_added', self.on_store_added)
+        self.udisks.connect('store_removed', self.on_store_removed)
+        self.udisks.monitor()
 
     def run(self):
         (self.httpd, self.port) = start_file_server(self.core.env)
@@ -94,6 +102,20 @@ class DMedia:
         self.browser.connect('g-signal', self.on_browser_g_signal)
         self.mainloop.run()
 
+    def on_store_added(self, udisks, obj, parentdir, partition, drive):
+        log.info('UDisks store_added: %r', parentdir)
+        try:
+            self.AddFileStore(parentdir)
+        except Exception:
+            log.exception('Could not add FileStore %r', parentdir)
+
+    def on_store_removed(self, udisks, obj, parentdir):
+        log.info('UDisks store_removed: %r', parentdir)
+        try:
+            self.RemoveFileStore(parentdir)
+        except Exception:
+            log.exception('Could not remove FileStore %r', parentdir)
+
     def on_g_signal(self, proxy, sender, signal, params):
         if signal.startswith('Fwd'):
             name = signal[3:]
@@ -111,39 +133,39 @@ class DMedia:
                     interface, protocol, name, _type, domain, -1, 0
                 )[7:9]
                 url = 'http://{}:{}/'.format(ip, port)
+                log.info('New peer %r at %r', name, url)
                 self._peers[name] = url
         elif signal == 'ItemRemove':
             (interface, protocol, name, _type, domain, flags) = params.unpack()
+            log.info('Removing peer %r', name)
             try:
                 del self._peers[name]
             except KeyError:
                 pass
-        print(signal, params.unpack())
-        for name in sorted(self._peers):
-            print('  ', name, self._peers[name])
 
     def AddFileStore(self, parentdir):
         self.core.add_filestore(path.abspath(parentdir))
 
+    def RemoveFileStore(self, parentdir):
+        self.core.remove_filestore(path.abspath(parentdir))
+
     def Kill(self):
-        self.browser.Free()
-        self.group.Free()
+        self.group.Reset()
         self.httpd.terminate()
-        self.httpd.wait()
+        self.httpd.join()
         self.mainloop.quit()
 
 
 parser = optparse.OptionParser(
 	usage='Usage: %prog FILE',
-	version=__version__,
+	version=dmedia.__version__,
 )
 parser.add_option('--bus',
-    default=BUS,
-    help='DBus bus name; default is {!r}'.format(BUS),
+    help='If provided, expect Python2 shim on this DBus bus',
 )
 (options, args) = parser.parse_args()
 
-
-dmedia = DMedia(options.bus)
-dmedia.run()
-dmedia.Kill()
+dmedia.configure_logging()
+service = DMedia(options.bus)
+service.run()
+service.Kill()

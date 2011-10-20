@@ -34,8 +34,9 @@ import json
 import time
 import stat
 import multiprocessing
+import logging
 
-from microfiber import Database, NotFound
+from microfiber import Database, NotFound, random_id2
 from filestore import FileStore, check_root_hash, check_id
 
 from dmedia import schema
@@ -44,6 +45,7 @@ from dmedia.views import init_views
 
 
 LOCAL_ID = '_local/dmedia'
+log = logging.getLogger()
 
 
 def file_server(env, queue):
@@ -53,6 +55,7 @@ def file_server(env, queue):
         app = ReadOnlyApp(env)
         httpd = make_server('', 0, app)
         port = httpd.socket.getsockname()[1]
+        log.info('Starting HTTP file transfer server on port %d', port)
         queue.put(port)
         httpd.serve_forever()
     except Exception as e:
@@ -75,16 +78,43 @@ def start_file_server(env):
     return (httpd, port)
 
 
-class Core:
-    def __init__(self, env, bootstrap=True):
+def init_filestore(parentdir, copies=1):
+    fs = FileStore(parentdir)
+    store = path.join(fs.basedir, 'store.json')
+    try:
+        doc = json.load(open(store, 'r'))
+    except Exception:
+        doc = schema.create_filestore(copies)
+        json.dump(doc, open(store, 'w'), sort_keys=True, indent=4)
+        os.chmod(store, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    fs.id = doc['_id']
+    fs.copies = doc['copies']
+    return (fs, doc)
+
+
+class Base:
+    def __init__(self, env):
         self.env = env
         self.db = Database('dmedia', env)
+        self.logdb = Database('dmedia_log', env)
+
+    def log(self, doc):
+        doc['_id'] = random_id2()
+        doc['machine_id'] = self.env.get('machine_id')
+        return self.logdb.post(doc, batch='ok')
+
+
+class Core(Base):
+    def __init__(self, env, get_parentdir_info=None, bootstrap=True):
+        super().__init__(env)
         self.stores = LocalStores()
+        self._get_parentdir_info = get_parentdir_info
         if bootstrap:
             self._bootstrap()
 
     def _bootstrap(self):
         self.db.ensure()
+        self.logdb.ensure()
         init_views(self.db)
         self._init_local()
         self._init_stores()
@@ -103,11 +133,13 @@ class Core:
             self.db.save(machine)
         self.machine_id = self.local['machine_id']
         self.env['machine_id'] = self.machine_id
+        log.info('machine_id = %r', self.machine_id)
 
     def _init_stores(self):
         if not self.local['stores']:
             return
         dirs = sorted(self.local['stores'])
+        log.info('Adding previous FileStore in _local/dmedia')
         for parentdir in dirs:
             try:
                 fs = self._init_filestore(parentdir)
@@ -117,30 +149,26 @@ class Core:
                     'copies': fs.copies,
                 }
             except Exception:
+                log.exception('Failed to init FileStore %r', parentdir)
                 del self.local['stores'][parentdir]
+                log.info('Removed %r from _local/dmedia', parentdir)
         self.db.save(self.local)
         assert set(self.local['stores']) == set(self.stores.parentdirs)
         assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
     def _init_filestore(self, parentdir, copies=1):
-        fs = FileStore(parentdir)
-        f = path.join(fs.basedir, 'store.json')
+        (fs, doc) = init_filestore(parentdir, copies)
         try:
-            doc = json.load(open(f, 'r'))
-            try:
-                doc = self.db.get(doc['_id'])
-            except NotFound:
-                pass
-        except Exception:
-            doc = schema.create_filestore(copies)
-            json.dump(doc, open(f, 'w'), sort_keys=True, indent=4)
-            os.chmod(f, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+            doc = self.db.get(doc['_id'])
+        except NotFound:
+            pass
         doc['connected'] = time.time()
         doc['connected_to'] = self.machine_id
         doc['statvfs'] = fs.statvfs()._asdict()
+        if callable(self._get_parentdir_info):
+            doc.update(self._get_parentdir_info(parentdir))
         self.db.save(doc)
-        fs.id = doc['_id']
-        fs.copies = doc.get('copies', copies)
+        log.info('FileStore %r at %r', fs.id, fs.parentdir)
         return fs
 
     def get_doc(self, _id):
@@ -156,6 +184,7 @@ class Core:
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
     def add_filestore(self, parentdir, copies=1):
+        log.info('add_filestore(%r, copies=%r)', parentdir, copies)
         if parentdir in self.local['stores']:
             raise Exception('already have parentdir {!r}'.format(parentdir))
         fs = self._init_filestore(parentdir, copies)
@@ -170,6 +199,7 @@ class Core:
         return fs
 
     def remove_filestore(self, parentdir):
+        log.info('remove_filestore(%r)', parentdir)
         fs = self.stores.by_parentdir(parentdir)
         self.stores.remove(fs)
         del self.local['stores'][parentdir]
