@@ -55,14 +55,14 @@ class Importer:
     def __init__(self, env):
         super().__init__()
         self.env = env
-        udisks = UDisks()
-        udisks.monitor()
-        udisks.connect('card_inserted', self.on_card_inserted)
-        self.blocking = False
-        self.cards = []
+        #self.udisks = UDisks()
+        #udisks.monitor()
+        #udisks.connect('card_inserted', self.on_card_inserted)
+        #self.blocking = False
+        #self.cards = []
         self.wrapper = ImportWrapper()
-        self.wrapper.set_handler('batch_finished', self.handle_batch_finished)
-        self.manager = ImportManager(env, self.wrapper.callback)
+        #self.wrapper.set_handler('batch_finished', self.handle_batch_finished)
+        #self.manager = ImportManager(env, self.wrapper.callback)
         self.ux = UnityImportUX(self.wrapper)
 
     def handle_batch_finished(self, batch_id, stats, copies):

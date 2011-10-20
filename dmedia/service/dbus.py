@@ -26,6 +26,7 @@ Simple dbus helper to make PyGI a bit nicer.
 import os
 from os import path
 import logging
+import weakref
 
 from filestore import DOTNAME
 from gi.repository import GObject, Gio
@@ -98,6 +99,14 @@ def extra_info(partition, drive):
     }
 
 
+class WeakRefCallback:
+    def __init__(self, inst):
+        self.proxy = weakref.proxy(inst)
+
+    def __call__(self, *args):
+        return self.proxy._on_g_signal(*args)
+
+
 class UDisks(GObject.GObject):
 
     __gsignals__ = {
@@ -132,7 +141,7 @@ class UDisks(GObject.GObject):
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
-        self.proxy.connect('g-signal', self._on_g_signal)
+        self.proxy.connect('g-signal', WeakRefCallback(self))
 
     def _on_g_signal(self, proxy, sender, signal, params):
         if signal in self._autoemit:
@@ -277,14 +286,15 @@ class DeviceWorker:
         self.callback = callback
         self.partition = Partition(obj)
         self.drive = self.partition.get_drive()
-        self.partition.proxy.connect('g-signal', self.on_g_signal, 'partition')
-        self.drive.proxy.connect('g-signal', self.on_g_signal, 'drive')
+        weak = WeakRefCallback(self)
+        self.partition.proxy.connect('g-signal', weak)
+        self.drive.proxy.connect('g-signal', weak)
         self.next = None
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
-        
-    def on_g_signal(self, proxy, sender, signal, params, which):
+
+    def _on_g_signal(self, proxy, sender, signal, params):
         if signal == 'JobChanged':
             job_in_progress = params.unpack()[0]
             if not (job_in_progress or self.next is None):
