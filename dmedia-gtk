@@ -114,9 +114,9 @@ class UI:
         self.window.add(self.notebook)
         self.importer = None
         self.importer_tab = self.append_page('Importer')
-        button = Gtk.Button('Start Importer')
-        button.connect('clicked', self.on_clicked)
-        self.importer_tab.pack_start(button, False, False, 0)
+        self.button = Gtk.Button('Start Importer')
+        self.button.connect('clicked', self.on_clicked)
+        self.importer_tab.pack_start(self.button, False, False, 0)
         self.append_page('Library')
         self.append_page('Storage')
 
@@ -145,8 +145,10 @@ class UI:
 
     def on_clicked(self, button):
         if self.importer is None:
+            self.button.set_label('Stop Importer')
             self.importer = Importer(self.env)
         else:
+            self.button.set_label('Start Importer')
             self.importer = None
         
 
