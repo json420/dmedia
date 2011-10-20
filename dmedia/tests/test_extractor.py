@@ -30,6 +30,11 @@ from .base import TempDir, SampleFilesTestCase
 
 from dmedia import extractor
 
+
+def b64decode(data):
+    return base64.b64decode(data.encode('utf-8'))
+
+
 # Known EXIF data as returned be exiftool:
 sample_thm_exif = {
     'AddOriginalDecisionData': 'Off',
@@ -275,7 +280,7 @@ class TestFunctions(SampleFilesTestCase):
         tmp = TempDir()
         src = tmp.write(b'Hello naughty nurse!', 'sample.txt')
         self.assertEqual(
-            base64.b64decode(f(src)),
+            b64decode(f(src)),
             b'Hello naughty nurse!'
         )
 
@@ -394,7 +399,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertTrue(isinstance(d, dict))
         self.assertEqual(sorted(d), ['content_type', 'data'])
         self.assertEqual(d['content_type'], 'image/jpeg')
-        data = base64.b64decode(d['data'])
+        data = b64decode(d['data'])
 
         # Test invalid file:
         invalid = tmp.write(b'Wont work!', 'invalid.mov')
@@ -418,7 +423,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
-            base64.b64decode(att['canon.thm']['data']),
+            b64decode(att['canon.thm']['data']),
             open(self.thm, 'rb').read()
         )
 
@@ -427,13 +432,13 @@ class TestFunctions(SampleFilesTestCase):
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
-        data = base64.b64decode(thm['data'])
+        data = b64decode(thm['data'])
 
         self.assertEqual(
             doc,
             dict(
                 ext='mov',
-                mtime=1287520994 + 68 / 100.0,
+                ctime=1287520994 + 68 / 100.0,
                 meta=dict(
                     width=1920,
                     height=1080,
@@ -488,7 +493,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
         self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
         self.assertEqual(
-            base64.b64decode(att['canon.thm']['data']),
+            b64decode(att['canon.thm']['data']),
             open(self.thm, 'rb').read()
         )
 
@@ -497,7 +502,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertTrue(isinstance(thm, dict))
         self.assertEqual(sorted(thm), ['content_type', 'data'])
         self.assertEqual(thm['content_type'], 'image/jpeg')
-        data = base64.b64decode(thm['data'])
+        data = b64decode(thm['data'])
 
         self.assertEqual(
             merged,

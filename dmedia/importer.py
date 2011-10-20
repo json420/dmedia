@@ -38,9 +38,16 @@ from filestore import FileStore, scandir, batch_import_iter, statvfs
 
 from dmedia.units import bytes10
 from dmedia import workers, schema
+from dmedia.extractor import merge_metadata
 
 
 log = logging.getLogger()
+
+
+def normalize_ext(filename):
+    ext = path.splitext(filename)[1]
+    if ext:
+        return ext.strip('.').lower()
 
 
 def notify_started(basedirs):
@@ -215,6 +222,8 @@ class ImportWorker(workers.CouchWorker):
                 }
                 doc['import'].update(common)
                 doc['ctime'] = file.mtime
+                #doc['ext'] = normalize_ext(file.name)
+                #merge_metadata(file.name, doc)
                 yield ('new', file, doc)
 
 

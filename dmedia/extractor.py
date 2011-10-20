@@ -88,7 +88,7 @@ def file_2_base64(filename):
     """
     Return contents of file at *filename* base64-encoded.
     """
-    return b64encode(open(filename, 'rb').read())
+    return b64encode(open(filename, 'rb').read()).decode('utf-8')
 
 
 def extract_exif(filename):
@@ -226,7 +226,7 @@ def merge_metadata(src, doc):
         callback = _extractors[ext]
         for (key, value) in callback(src, attachments):
             if key == 'mtime':
-                doc[key] = value
+                doc['ctime'] = value
             elif key not in meta:
                 meta[key] = value
     if attachments and '_attachments' not in doc:
