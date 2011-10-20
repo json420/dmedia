@@ -144,7 +144,7 @@ class UDisks(GObject.GObject):
         )
         self.proxy.connect('g-signal', WeakMethod(self, '_on_g_signal'))
         self._monitoring = False
-        
+
     def __del__(self):
         print('del')
 
@@ -159,7 +159,7 @@ class UDisks(GObject.GObject):
             elif signal == 'DeviceRemoved':
                 self._on_DeviceRemoved(*args)
 
-    def _on_DeviceChanged(self, udisks, obj):
+    def _on_DeviceChanged(self, obj):
         try:
             partition = get_device_props(obj)
         except Exception:
@@ -176,7 +176,7 @@ class UDisks(GObject.GObject):
                 self._cards[obj] = parentdir
                 self.emit('card_inserted', obj, parentdir, partition, drive)
 
-    def _on_DeviceRemoved(self, udisks, obj):
+    def _on_DeviceRemoved(self, obj):
         try:
             parentdir = self._stores.pop(obj)
             self.emit('store_removed', obj, parentdir)
