@@ -147,10 +147,23 @@ class UI:
         if self.importer is None:
             self.button.set_label('Stop Importer')
             self.importer = Importer(self.env)
+            self.importer.wrapper.connect('error', self.on_error)
         else:
             self.button.set_label('Start Importer')
             self.importer = None
-        
+
+    def on_error(self, w, error):
+        self.window.present()
+        self.notebook.set_current_page(0)
+        dialog = Gtk.MessageDialog(
+            self.window,
+           0,
+            Gtk.MessageType.ERROR,
+            Gtk.ButtonsType.CLOSE,
+            'An error occured during the import!\nYour files have not been imported!'
+        )
+        dialog.run()
+        dialog.destroy()
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)
