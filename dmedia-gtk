@@ -43,13 +43,20 @@ class ActiveImport(Gtk.VBox):
         super().__init__()
         self._progressbar = Gtk.ProgressBar()
         self.pack_start(self._progressbar, False, False, 2)
-        
+
     def _set_gmanager(self, gmanager):
         gmanager.connect('batch_progress', self._on_batch_progress)
 
     def _on_batch_progress(self, gm, count, total_count, size, total_size):
         progress = (0.0 if total_size == 0 else size / total_size)
         self._progressbar.set_property('fraction', progress)
+
+
+s = """
+After starting the importer, dmedia will automatically import all files from any cards you insert.
+
+If you have multiple card readers, you can import multiple cards at the same time.
+"""
 
 
 class Importer:
@@ -113,10 +120,13 @@ class UI:
         self.notebook = Gtk.Notebook()
         self.window.add(self.notebook)
         self.importer = None
-        self.importer_tab = self.append_page('Importer')
+        tab0 = self.append_page('Importer')
+        label = Gtk.Label()
+        label.set_markup(s)
+        tab0.pack_start(label, True, True, 0)
         self.button = Gtk.Button('Start Importer')
         self.button.connect('clicked', self.on_clicked)
-        self.importer_tab.pack_start(self.button, False, False, 0)
+        tab0.pack_end(self.button, False, False, 0)
         self.append_page('Library')
         self.append_page('Storage')
 
