@@ -142,11 +142,21 @@ class UDisks(GObject.GObject):
             '/org/freedesktop/UDisks'
         )
         self.proxy.connect('g-signal', WeakRefCallback(self))
+        self._monitoring = False
+        
+    def __del__(self):
+        print('del')
 
     def _on_g_signal(self, proxy, sender, signal, params):
         if signal in self._autoemit:
             args = params.unpack()
             self.emit(signal, *args)
+            if not self._monitoring:
+                return
+            if signal == 'DeviceChanged':
+                self._on_DeviceChanged(*args)
+            elif signal == 'DeviceRemoved':
+                self._on_DeviceRemoved(*args)
 
     def _on_DeviceChanged(self, udisks, obj):
         try:
@@ -179,8 +189,7 @@ class UDisks(GObject.GObject):
     def monitor(self):
         self._cards = {}
         self._stores = {}
-        self.connect('DeviceChanged', self._on_DeviceChanged)
-        self.connect('DeviceRemoved', self._on_DeviceRemoved)
+        self._monitoring = True
 
     def EnumerateDevices(self):
         return self.proxy.EnumerateDevices()
