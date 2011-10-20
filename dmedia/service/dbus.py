@@ -99,7 +99,7 @@ def extra_info(partition, drive):
     }
 
 
-class WeakCallback:
+class WeakMethod:
     def __init__(self, inst, method):
         self.proxy = weakref.proxy(inst)
         self.method = method
@@ -142,7 +142,7 @@ class UDisks(GObject.GObject):
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
-        self.proxy.connect('g-signal', WeakCallback(self, '_on_g_signal'))
+        self.proxy.connect('g-signal', WeakMethod(self, '_on_g_signal'))
         self._monitoring = False
         
     def __del__(self):
@@ -296,7 +296,7 @@ class DeviceWorker:
         self.callback = callback
         self.partition = Partition(obj)
         self.drive = self.partition.get_drive()
-        weak = WeakCallback(self, '_on_g_signal')
+        weak = WeakMethod(self, '_on_g_signal')
         self.partition.proxy.connect('g-signal', weak)
         self.drive.proxy.connect('g-signal', weak)
         self.next = None

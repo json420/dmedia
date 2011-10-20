@@ -35,6 +35,8 @@ need an event to have multiple consumers, so we wrap this in a GObject when
 needed.
 """
 
+import weakref
+
 from gi.repository import GObject
 from gi.repository.GObject import TYPE_PYOBJECT
 
@@ -46,7 +48,7 @@ class Wrapper(GObject.GObject):
 
     def __init__(self):
         super().__init__()
-        self._handlers = {}
+        self._handlers = weakref.WeakValueDictionary()
 
     def set_handler(self, signal, handler):
         self._handlers[signal] = handler

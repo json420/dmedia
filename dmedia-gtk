@@ -28,7 +28,7 @@ import sys
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
-from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakCallback
+from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
 from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
 from dmedia.service.wrappers import ImportWrapper
@@ -59,13 +59,13 @@ class Importer:
         self.udisks = UDisks()
         self.udisks.monitor()
         self.udisks.connect('card_inserted',
-            WeakCallback(self, 'on_card_inserted')
+            WeakMethod(self, 'on_card_inserted')
         )
-        #self.blocking = False
-        #self.cards = []
+        self.blocking = False
+        self.cards = []
         self.wrapper = ImportWrapper()
-        #self.wrapper.set_handler('batch_finished', self.handle_batch_finished)
-        #self.manager = ImportManager(env, self.wrapper.callback)
+        self.wrapper.set_handler('batch_finished', self.handle_batch_finished)
+        self.manager = ImportManager(env, self.wrapper.callback)
         self.ux = UnityImportUX(self.wrapper)
 
     def handle_batch_finished(self, batch_id, stats, copies):
