@@ -28,7 +28,8 @@ import sys
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
-from dmedia.service.dbus import Ejector, Formatter, UDisks, extra_info, session
+from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakCallback
+from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
 from dmedia.service.wrappers import ImportWrapper
 from dmedia.gtk.ubuntu import UnityImportUX
@@ -57,7 +58,9 @@ class Importer:
         self.env = env
         self.udisks = UDisks()
         self.udisks.monitor()
-        #self.udisks.connect('card_inserted', self.on_card_inserted)
+        self.udisks.connect('card_inserted',
+            WeakCallback(self, 'on_card_inserted')
+        )
         #self.blocking = False
         #self.cards = []
         self.wrapper = ImportWrapper()
