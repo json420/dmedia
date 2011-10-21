@@ -106,7 +106,7 @@ class UnityImportUX:
         gmanager.connect('batch_started', self.on_batch_started)
         gmanager.connect('import_started', self.on_import_started)
         gmanager.connect('batch_progress', self.on_batch_progress)
-        gmanager.connect('batch_finished', self.on_batch_finished)
+        gmanager.connect('batch_finalized', self.on_batch_finalized)
         gmanager.connect('error', self.on_error)
 
     def on_batch_started(self, gm, batch_id):
@@ -131,7 +131,7 @@ class UnityImportUX:
         progress = (0.0 if total_size == 0 else size / total_size)
         self.launcher.set_property('progress', progress)
 
-    def on_batch_finished(self, gm, batch_id, stats, copies):
+    def on_batch_finalized(self, gm, batch_id, stats, copies):
         self.launcher.set_property('count_visible', False)
         self.launcher.set_property('progress_visible', False)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)

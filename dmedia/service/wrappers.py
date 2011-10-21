@@ -46,22 +46,12 @@ class Wrapper(GObject.GObject):
     Wrap signals from a `dmedia.workers.Manager`.
     """
 
-    def __init__(self):
-        super().__init__()
-        self._handlers = weakref.WeakValueDictionary()
-
-    def set_handler(self, signal, handler):
-        self._handlers[signal] = handler
+    def callback(self, signal, args):
+        self.emit_mainthread(signal, *args)
 
     def emit_mainthread(self, signal, *args):
         GObject.idle_add(self.emit, signal, *args)
 
-    def callback(self, signal, args):
-        print(signal, args)
-        try:
-            self._handlers[signal](*args)
-        except KeyError:
-            self.emit_mainthread(signal, *args)
 
 
 class ImportWrapper(Wrapper):
@@ -80,6 +70,10 @@ class ImportWrapper(Wrapper):
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'batch_finished': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            # (batch_id, stats, copies)
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'batch_finalized': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             # (batch_id, stats, copies)
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),

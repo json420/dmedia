@@ -71,11 +71,13 @@ class Importer:
         self.blocking = False
         self.cards = []
         self.wrapper = ImportWrapper()
-        self.wrapper.set_handler('batch_finished', self.handle_batch_finished)
+        self.wrapper.connect('batch_finished',
+            WeakMethod(self, 'on_batch_finished')
+        )
         self.manager = ImportManager(env, self.wrapper.callback)
         self.ux = UnityImportUX(self.wrapper)
 
-    def handle_batch_finished(self, batch_id, stats, copies):
+    def on_batch_finished(self, wrapper, batch_id, stats, copies):
         Worker = (Formatter if copies >= 2 else Ejector)
         self.blocking = True
         self.batch_id = batch_id
@@ -95,9 +97,9 @@ class Importer:
         assert worker is w
         if len(self.workers) == 0:
             self.blocking = False
-            log.info('emitting batch_finished to UI')
+            log.info('emitting batch_finalized to UI')
             self.wrapper.emit_mainthread(
-                'batch_finished', self.batch_id, self.stats, self.copies
+                'batch_finalized', self.batch_id, self.stats, self.copies
             )
 
     def on_card_inserted(self, udisks, obj, parentdir, partition, drive):
