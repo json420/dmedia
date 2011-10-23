@@ -231,6 +231,16 @@ function(doc) {
 }
 """
 
+user_needsproxy = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.ext == 'mov' && !doc.proxy) {
+            emit(doc.mtime, null);
+        }
+    }
+}
+"""
+
 
 partition_uuid = """
 function(doc) {
@@ -288,6 +298,7 @@ designs = (
         ('copies', user_copies, None),
         ('tags', user_tags, _count),
         ('ctime', user_ctime, None),
+        ('needsproxy', user_needsproxy, None),
     )),
 
     ('store', (
