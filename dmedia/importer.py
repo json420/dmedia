@@ -123,6 +123,7 @@ class ImportWorker(workers.CouchWorker):
         self.extra = None
         self.id = None
         self.doc = None
+        self.extract = self.env.get('extract', True)
 
     def execute(self, basedir, extra=None):
         self.extra = extra
@@ -222,8 +223,12 @@ class ImportWorker(workers.CouchWorker):
                 }
                 doc['import'].update(common)
                 doc['ctime'] = file.mtime
-                #doc['ext'] = normalize_ext(file.name)
-                #merge_metadata(file.name, doc)
+                doc['name'] = path.basename(file.name)
+                ext = normalize_ext(file.name)
+                if ext:
+                    doc['ext'] = ext
+                if self.extract:
+                    merge_metadata(file.name, doc)
                 yield ('new', file, doc)
 
 

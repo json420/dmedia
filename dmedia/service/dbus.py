@@ -145,9 +145,6 @@ class UDisks(GObject.GObject):
         self.proxy.connect('g-signal', WeakMethod(self, '_on_g_signal'))
         self._monitoring = False
 
-    def __del__(self):
-        print('del')
-
     def _on_g_signal(self, proxy, sender, signal, params):
         if signal in self._autoemit:
             args = params.unpack()

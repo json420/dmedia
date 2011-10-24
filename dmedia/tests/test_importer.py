@@ -176,6 +176,7 @@ class ImportCase(CouchCase):
         }
         self.db = Database('dmedia', self.env)
         self.db.ensure()
+        self.env['extract'] = False
 
     def tearDown(self):
         super().tearDown()

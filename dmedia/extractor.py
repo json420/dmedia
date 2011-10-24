@@ -190,7 +190,7 @@ def generate_thumbnail(filename):
             'totem-video-thumbnailer',
             '-r', # Create a "raw" thumbnail without film boarder
             '-j', # Save as JPEG instead of PNG
-            '-s', '192', # Fit video into 192x192 pixel square (192x108 for 16:9)
+            '-s', '256', # Fit video into 192x192 pixel square (192x108 for 16:9)
             filename,
             dst,
         ])
@@ -204,6 +204,24 @@ def generate_thumbnail(filename):
         if path.isdir(tmp):
             shutil.rmtree(tmp)
 
+
+def generate_cr2_thumbnail(filename):
+    try:
+        data = check_output([
+            'ufraw-batch',
+            '--embedded-image',
+            '--size=256',
+            '--compression=85',
+            '--out-type=jpg',
+            '--output=-',
+            filename,
+        ])
+        return {
+            'content_type': 'image/jpeg',
+            'data': b64encode(data).decode('utf-8'),
+        }
+    except CalledProcessError:
+        pass
 
 
 #### High-level meta-data extract/merge functions:
@@ -245,7 +263,10 @@ def merge_exif(src, attachments):
     mtime = extract_mtime_from_exif(exif)
     if mtime is not None:
         yield ('mtime', mtime)
-
+    if src.endswith('.CR2'):
+        thumbnail = generate_cr2_thumbnail(src)
+        if thumbnail is not None:
+            attachments['thumbnail'] = thumbnail
 
 register(merge_exif, 'jpg', 'png', 'cr2')
 
