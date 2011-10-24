@@ -55,4 +55,8 @@ class DMedia:
 
     def AddFileStore(self, parentdir):
         return self.proxy.AddFileStore('(s)', parentdir)
+
+    def RemoveFileStore(self, parentdir):
+        return self.proxy.RemoveFileStore('(s)', parentdir)
+        
         
