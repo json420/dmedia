@@ -293,10 +293,10 @@ def merge_video_info(src, attachments):
     # Extract EXIF metadata from Canon .THM file if present:
     thm = src[:-3] + 'THM'
     if path.isfile(thm):
-        attachments['canon.thm'] = {
-            'content_type': 'image/jpeg',
-            'data': file_2_base64(thm),
-        }
+#        attachments['canon.thm'] = {
+#            'content_type': 'image/jpeg',
+#            'data': file_2_base64(thm),
+#        }
         for (key, value) in merge_exif(thm, attachments):
             if key in ('width', 'height'):
                 continue

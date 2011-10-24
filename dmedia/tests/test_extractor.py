@@ -419,13 +419,7 @@ class TestFunctions(SampleFilesTestCase):
 
         # Check canon.thm attachment
         att = doc.pop('_attachments')
-        self.assertEqual(set(att), set(['canon.thm', 'thumbnail']))
-        self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
-        self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
-        self.assertEqual(
-            b64decode(att['canon.thm']['data']),
-            open(self.thm, 'rb').read()
-        )
+        self.assertEqual(set(att), set(['thumbnail']))
 
         # Check thumbnail
         thm = att['thumbnail']
@@ -489,13 +483,7 @@ class TestFunctions(SampleFilesTestCase):
         merged = dict(f(self.mov, att))
 
         # Check canon.thm attachment
-        self.assertEqual(set(att), set(['thumbnail', 'canon.thm']))
-        self.assertEqual(set(att['canon.thm']), set(['content_type', 'data']))
-        self.assertEqual(att['canon.thm']['content_type'], 'image/jpeg')
-        self.assertEqual(
-            b64decode(att['canon.thm']['data']),
-            open(self.thm, 'rb').read()
-        )
+        self.assertEqual(set(att), set(['thumbnail']))
 
         # Check thumbnail
         thm = att['thumbnail']
