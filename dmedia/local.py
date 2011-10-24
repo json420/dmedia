@@ -118,6 +118,9 @@ class LocalStores:
         self.fast = set()
         self.slow = set()
 
+    def __len__(self):
+        return len(self.ids)
+
     def by_id(self, _id):
         return self.ids[_id]
 

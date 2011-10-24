@@ -50,6 +50,8 @@ class DMedia:
         env = json.loads(dc3.GetEnv())
         self.udisks = UDisks()
         self.core = Core(env, self.udisks.get_parentdir_info)
+        if len(self.core.stores) == 0:
+            self.core.add_filestore('/home')
         self._fwd = {
             'AddFileStore': self.AddFileStore,
             'RemoveFileStore': self.RemoveFileStore,
