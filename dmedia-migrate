@@ -1,0 +1,73 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2011 Novacut Inc
+# 
+# This file is part of `dmedia`.
+# 
+# `dmedia` is free software: you can redistribute it and/or modify it under the
+# terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+# 
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+# 
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+
+import sys
+from os import path
+
+from gi.repository import GObject
+
+import dmedia
+from dmedia.units import bytes10
+from dmedia.service.api import DMedia
+from dmedia.importer import ImportManager, notify_stats
+
+
+if len(sys.argv) != 2:
+    print('takes exactly one argument DIRECTORY')
+    sys.exit(1)
+basedir = path.abspath(sys.argv[1])
+if not path.isdir(basedir):
+    print('not a directory: {!r}'.format(basedir))
+    sys.exit(1)
+
+
+GObject.threads_init()
+api = DMedia()
+env = api.GetEnv()
+print(repr(env))
+mainloop = GObject.MainLoop()
+
+
+def callback(signal, args):
+    if signal == 'batch_finished':
+        (batch_id, stats, copies) = args
+        (summary, body) = notify_stats(stats)
+        print('')
+        if summary:
+            print(summary)
+        if body:
+            print(body)
+        mainloop.quit()
+    elif signal == 'batch_progress':
+        (count, total_count, size, total_size) = args
+        print('File {} of {}, {} of {}'.format(
+                count, total_count, bytes10(size), bytes10(total_size))
+        )
+
+
+dmedia.configure_logging()
+manager = ImportManager(env, callback)
+manager.start_import(basedir)
+mainloop.run()
+

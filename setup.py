@@ -133,7 +133,7 @@ setup(
     license='AGPLv3+',
     cmdclass={'test': Test},
     packages=['dmedia', 'dmedia.service', 'dmedia.gtk'],
-    scripts=['dmedia-gtk', 'dmedia-cli'],
+    scripts=['dmedia-gtk', 'dmedia-cli', 'dmedia-migrate'],
     data_files=[
         ('share/couchdb/apps/dmedia',
             [path.join('ui', name) for name in os.listdir('ui')]
