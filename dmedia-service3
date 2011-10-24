@@ -32,6 +32,7 @@ import optparse
 import logging
 
 from gi.repository import GObject
+from microfiber import NotFound
 
 import dmedia
 from dmedia.service import dbus
@@ -63,7 +64,12 @@ class DMedia:
             '/',
             'org.freedesktop.Avahi.Server'
         )
-        self._peers = {}
+        try:
+            self._peers = self.core.db.get('_local/peers')
+        except NotFound:
+            self._peers = {'_id': '_local/peers'}
+        self._peers['peers'] = {}
+        self.core.db.save(self._peers)
         self.udisks.connect('store_added', self.on_store_added)
         self.udisks.connect('store_removed', self.on_store_removed)
         self.udisks.monitor()
@@ -134,12 +140,14 @@ class DMedia:
                 )[7:9]
                 url = 'http://{}:{}/'.format(ip, port)
                 log.info('New peer %r at %r', name, url)
-                self._peers[name] = url
+                self._peers['peers'][name] = url
+                self.core.db.save(self._peers)
         elif signal == 'ItemRemove':
             (interface, protocol, name, _type, domain, flags) = params.unpack()
             log.info('Removing peer %r', name)
             try:
-                del self._peers[name]
+                del self._peers['peers'][name]
+                self.core.db.save(self._peers)
             except KeyError:
                 pass
 
