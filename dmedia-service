@@ -151,6 +151,14 @@ class DMedia(dbus.service.Object):
     def FwdAddFileStore(self, parentdir):
         pass
 
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def RemoveFileStore(self, parentdir):
+        self.FwdRemoveFileStore(parentdir)
+
+    @dbus.service.signal(IFACE, signature='s')
+    def FwdRemoveFileStore(self, parentdir):
+        pass
+
 
 parser = argparse.ArgumentParser(
     description='DBus service @{}'.format(BUS),

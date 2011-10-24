@@ -27,6 +27,8 @@ from os import path
 
 from gi.repository import GObject
 
+from microfiber import Database
+from filestore import DOTNAME
 import dmedia
 from dmedia.units import bytes10
 from dmedia.service.api import DMedia
@@ -45,19 +47,31 @@ if not path.isdir(basedir):
 GObject.threads_init()
 api = DMedia()
 env = api.GetEnv()
-print(repr(env))
 mainloop = GObject.MainLoop()
 
 
 def callback(signal, args):
     if signal == 'batch_finished':
         (batch_id, stats, copies) = args
+
+        db = Database('dmedia', env)
+        doc = db.get(batch_id)
+        print('\nFiles stored in:')
+        for parentdir in sorted(doc['stores']):
+            print('  {}'.format(path.join(parentdir, DOTNAME)))
+        print('Total durability is copies={}'.format(doc['copies']))
+        elapsed = doc['time_end'] - doc['time']
+        rate = stats['total']['bytes'] / elapsed
+        print('Imported at {} per second'.format(bytes10(rate)))
+
         (summary, body) = notify_stats(stats)
         print('')
         if summary:
             print(summary)
         if body:
             print(body)
+        print('')
+
         mainloop.quit()
     elif signal == 'batch_progress':
         (count, total_count, size, total_size) = args
