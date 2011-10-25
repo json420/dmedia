@@ -210,7 +210,7 @@ def generate_cr2_thumbnail(filename):
         data = check_output([
             'ufraw-batch',
             '--embedded-image',
-            '--size=384',
+            '--size=324',
             '--compression=85',
             '--out-type=jpg',
             '--output=-',

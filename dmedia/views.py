@@ -196,6 +196,14 @@ function(doc) {
 }
 """
 
+file_ext = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        emit(doc.ext, null);
+    }
+}
+"""
+
 
 # views in the 'user' design only index docs for which doc.type == 'dmedia/file'
 # and doc.origin == 'user'
@@ -292,6 +300,7 @@ designs = (
         ('bytes', file_bytes, _sum),
         ('verified', file_verified, None),
         ('ctime', file_ctime, None),
+        ('ext', file_ext, _count),
     )),
 
     ('user', (
