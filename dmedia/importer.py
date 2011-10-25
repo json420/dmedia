@@ -278,6 +278,8 @@ class ImportManager(workers.CouchManager):
         self.doc['time_end'] = time.time()
         self.db.save(self.doc)
         self.emit('batch_finished', self.doc['_id'], self.doc['stats'], self.copies)
+        log.info('compacting %r', self.db)
+        self.db.post(None, '_compact')
         self.doc = None
 
     def on_error(self, basedir, exception, message):
