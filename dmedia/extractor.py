@@ -237,7 +237,7 @@ def register(callback, *extensions):
 
 
 def merge_metadata(src, doc):
-    ext = doc['ext']
+    ext = doc.get('ext')
     attachments = doc.get('_attachments', {})
     meta = doc.get('meta', {})
     if ext in _extractors:

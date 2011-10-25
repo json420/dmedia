@@ -51,7 +51,11 @@ mainloop = GObject.MainLoop()
 
 
 def callback(signal, args):
-    if signal == 'batch_finished':
+    if signal == 'error':
+        print(signal, args)
+        mainloop.quit()
+
+    elif signal == 'batch_finished':
         (batch_id, stats, copies) = args
 
         db = Database('dmedia', env)
@@ -71,7 +75,7 @@ def callback(signal, args):
         if body:
             print(body)
         print('')
-
+        
         mainloop.quit()
     elif signal == 'batch_progress':
         (count, total_count, size, total_size) = args
