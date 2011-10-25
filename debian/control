@@ -15,6 +15,11 @@ Depends: ${misc:Depends}, python3 (>= 3.2),
     python3-microfiber (>= 11.10),
     python3-userwebkit (>= 11.10),
     dc3 (>= 11.10),
+    libimage-exiftool-perl,
+    ufraw-batch,
+    gir1.2-unity-4.0,
+    gir1.2-notify-0.7,
+    gir1.2-appindicator3-0.1,
 Description: distributed media library
  A user-experienced-focused technology aimed at making file management go away
  for both content-creation and content-consumption.
