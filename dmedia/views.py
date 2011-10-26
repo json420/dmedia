@@ -233,7 +233,7 @@ function(doc) {
 
 user_ctime = """
 function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.ext != 'thm') {
         emit(doc.ctime, null);
     }
 }
