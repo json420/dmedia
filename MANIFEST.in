@@ -1,2 +1,4 @@
 include AUTHORS COPYING HACKING.txt
 include dmedia/tests/*.py
+include dmedia/gtk/tests/*.py
+include dmedia/service/tests/*.py
