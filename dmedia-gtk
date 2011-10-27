@@ -56,6 +56,9 @@ s = """
 After starting the importer, dmedia will automatically import all files from any cards you insert.
 
 If you have multiple card readers, you can import multiple cards at the same time.
+
+NOTE THAT DMEDIA IS NOT YET PRODUCTION READY!
+THERE WILL STILL BE CHANGES THAT WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
 """
 
 
@@ -78,7 +81,8 @@ class Importer:
         self.ux = UnityImportUX(self.wrapper)
 
     def on_batch_finished(self, wrapper, batch_id, stats, copies):
-        Worker = (Formatter if copies >= 2 else Ejector)
+        #Worker = (Formatter if copies >= 2 else Ejector)
+        Worker = Ejector
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
