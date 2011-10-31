@@ -81,8 +81,8 @@ class Importer:
         self.ux = UnityImportUX(self.wrapper)
 
     def on_batch_finished(self, wrapper, batch_id, stats, copies):
-        #Worker = (Formatter if copies >= 2 else Ejector)
-        Worker = Ejector
+        Worker = (Formatter if copies >= 2 else Ejector)
+        #Worker = Ejector
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
