@@ -118,72 +118,6 @@ class Importer:
         self.manager.start_import(parentdir, info)
 
 
-class UI:
-    def __init__(self, benchmark=False):
-        self.benchmark = benchmark
-        self.window = Gtk.Window()
-        self.window.connect('destroy', Gtk.main_quit)
-        self.window.set_default_size(960, 540)
-        self.window.set_title('DMedia')
-        self.notebook = Gtk.Notebook()
-        self.window.add(self.notebook)
-        self.importer = None
-        tab0 = self.append_page('Importer')
-        label = Gtk.Label()
-        label.set_markup(s)
-        tab0.pack_start(label, True, True, 0)
-        self.button = Gtk.Button('Start Importer')
-        self.button.connect('clicked', self.on_clicked)
-        tab0.pack_end(self.button, False, False, 0)
-        self.append_page('Library')
-        self.append_page('Storage')
-
-    def append_page(self, text, child=None):
-        if child is None:
-            child = Gtk.VBox()
-        label = Gtk.Label(text)
-        label.set_padding(8, 2)
-        self.notebook.append_page(child, label)
-        return child
-
-    def run(self):
-        self.window.show_all()
-        GObject.idle_add(self.on_idle)
-        Gtk.main()
-
-    def on_idle(self):
-        if self.benchmark:
-            Gtk.main_quit()
-            return
-        session.get_async(self.on_proxy, 'org.freedesktop.DMedia', '/')
-
-    def on_proxy(self, proxy, async_result, *args):
-        self.proxy = proxy
-        self.env = json.loads(self.proxy.GetEnv())
-
-    def on_clicked(self, button):
-        if self.importer is None:
-            self.button.set_label('Stop Importer')
-            self.importer = Importer(self.env)
-            self.importer.wrapper.connect('error', self.on_error)
-        else:
-            self.button.set_label('Start Importer')
-            self.importer = None
-
-    def on_error(self, w, error):
-        self.window.present()
-        self.notebook.set_current_page(0)
-        dialog = Gtk.MessageDialog(
-            self.window,
-           0,
-            Gtk.MessageType.ERROR,
-            Gtk.ButtonsType.CLOSE,
-            'An error occured during the import!\nYour files have not been imported!'
-        )
-        dialog.run()
-        dialog.destroy()
-
-
 class UI(BaseUI):
     app = 'dmedia'
     page = 'index.html'
@@ -223,10 +157,7 @@ class UI(BaseUI):
         script = 'Signal.recv({!r})'.format(
             json.dumps({'signal': signal, 'args': args})
         )
-        print(script)
         self.view.execute_script(script)
-        
-        
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)

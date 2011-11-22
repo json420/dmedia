@@ -15,16 +15,10 @@ body {
 <script src="/_apps/dc3/base.js"></script>
 <script>
 
-function cb1(a, b) {console.log(['1', a, b])}
-
-function cb2(a, b) {console.log(['2', a, b])}
-
-var s = JSON.stringify({signal: 'foo', args: ['hello', 'world']});
-
 /*
 Relay signals between JavaScript and Gtk.
 
-For example, to send signal to Gtk via document.title:
+For example, to send a signal to Gtk via document.title:
 
 >>> Signal.send('click');
 >>> Signal.send('changed', 'foo', 'bar');
@@ -82,13 +76,14 @@ Signal.connect('batch_progress',
 
 // The `dmedia` CouchDB database:
 var db = new couch.Database('dmedia');
+var server = new couch.Server();
 
 function hello() {
     $('button').onclick = function() {
         Signal.send('click');
     }
-    var s = new couch.Server();
-    $('hello').textContent = 'dmedia is talking to CouchDB ' + s.get()['version'];
+    var version = server.get_sync()['version'];
+    $('hello').textContent = 'dmedia is talking to CouchDB ' + version;
 }
 
 

@@ -67,17 +67,17 @@ couch.CouchRequest.prototype = {
         }
     },
 
-    request: function(method, url, obj) {
-        this.do_request(false, method, url, obj);
-    },
-
-    async_request: function(callback, method, url, obj) {
+    request: function(callback, method, url, obj) {
         this.callback = callback;
         var self = this;
         this.req.onreadystatechange = function() {
             self.on_readystatechange();
         }
         this.do_request(true, method, url, obj);
+    },
+
+    request_sync: function(method, url, obj) {
+        this.do_request(false, method, url, obj);
     },
 
     do_request: function(async, method, url, obj) {
@@ -131,7 +131,7 @@ couch.ChangesMonitor.prototype = {
         var callback = function(r) {
             self.on_request(r);
         }
-        this.req = this.db.async_get(callback, '_changes', 
+        this.req = this.db.get(callback, '_changes', 
             {feed: 'longpoll', include_docs: true, since: this.since}
         ); 
     },
@@ -213,21 +213,25 @@ couch.CouchBase.prototype = {
         return url;
     },
 
-    request: function(method, obj, parts, options) {
-        var url = this.path(parts, options);
-        this.req = new couch.CouchRequest(this.Request);
-        this.req.request(method, url, obj);
-        return this.req.read();
-    },
-
-    async_request: function(callback, method, obj, parts, options) {
+    request: function(callback, method, obj, parts, options) {
         var url = this.path(parts, options);
         var req = new couch.CouchRequest(this.Request);
-        req.async_request(callback, method, url, obj);
+        req.request(callback, method, url, obj);
         return req;
     },
 
-    put: function(obj, parts, options) {
+    request_sync: function(method, obj, parts, options) {
+        var url = this.path(parts, options);
+        this.req = new couch.CouchRequest(this.Request);
+        this.req.request_sync(method, url, obj);
+        return this.req.read();
+    },
+
+    put: function(callback, obj, parts, options) {
+        return this.request(callback, 'PUT', obj, parts, options);
+    },
+
+    put_sync: function(obj, parts, options) {
         /*
         Do a PUT request.
 
@@ -239,10 +243,14 @@ couch.CouchBase.prototype = {
         cb.put({a: 1}, ['foo', 'baz'], {batch: true});  # with query option
 
         */
-        return this.request('PUT', obj, parts, options);
+        return this.request_sync('PUT', obj, parts, options);
     },
 
-    post: function(obj, parts, options) {
+    post: function(callback, obj, parts, options) {
+        return this.request(callback, 'POST', obj, parts, options);
+    },
+
+    post_sync: function(obj, parts, options) {
         /*
         Do a POST request.
 
@@ -254,14 +262,14 @@ couch.CouchBase.prototype = {
         cb.post({_id: 'baz'}, 'foo', {batch: true});  # with query option
 
         */
-        return this.request('POST', obj, parts, options);
+        return this.request_sync('POST', obj, parts, options);
     },
 
-    post_async: function(callback, obj, parts, options) {
-        return this.async_request(callback, 'POST', obj, parts, options);
+    get: function(callback, parts, options) {
+        return this.request(callback, 'GET', null, parts, options);
     },
 
-    get: function(parts, options) {
+    get_sync: function(parts, options) {
         /*
         Do a GET request.
 
@@ -274,14 +282,14 @@ couch.CouchBase.prototype = {
         cb.get(['foo', 'bar'], {attachments: true});  # include attachments
         cb.get(['foo', 'bar', 'baz']);  # get attachment /foo/bar/baz
         */
-        return this.request('GET', null, parts, options);
+        return this.request_sync('GET', null, parts, options);
     },
 
-    async_get: function(callback, parts, options) {
-        return this.async_request(callback, 'GET', null, parts, options);
+    delete: function(callback, parts, options) {
+        return this.request(callback, 'DELETE', null, parts, options);
     },
 
-    delete: function(parts, options) {
+    delete_sync: function(parts, options) {
         /*
         Do a DELETE request.
 
@@ -292,7 +300,7 @@ couch.CouchBase.prototype = {
         cb.delete(['foo', 'bar'], {rev: '2-flop'});  # delete doc
         cb.delete('foo');  # delete database
         */
-        return this.request('DELETE', null, parts, options);
+        return this.request_sync('DELETE', null, parts, options);
     },
 }
 
@@ -331,7 +339,6 @@ couch.Database = function(name, url, Request) {
     couch.CouchBase.call(this, url, Request);
     this.basepath = this.url + name + '/';
     this.name = name;
-    this._dirty_docs = {};
 }
 couch.Database.prototype = {
     save: function(doc) {
@@ -348,14 +355,14 @@ couch.Database.prototype = {
         {_id: '2c370303', _rev: '1-7a00dff5', foo: 'bar'}
 
         */
-        var r = this.post(doc);
+        var r = this.post_sync(doc);
         doc['_rev'] = r['rev'];
         doc['_id'] = r['id'];
         return r;
     },
 
     bulksave: function(docs) {
-        var rows = this.post({docs: docs, all_or_nothing: true}, '_bulk_docs');
+        var rows = this.post_sync({docs: docs, all_or_nothing: true}, '_bulk_docs');
         var i;
         for (i in docs) {
             docs[i]['_rev'] = rows[i]['rev'];
@@ -364,7 +371,11 @@ couch.Database.prototype = {
         return rows;
     },
 
-    view: function(design, view, options) {
+    view: function(callback, design, view, options) {
+        return this.get(callback, ['_design', design, '_view', view], options);
+    },
+
+    view_sync: function(design, view, options) {
         /*
         Shortcut for making a GET request to a view.
 
@@ -377,7 +388,7 @@ couch.Database.prototype = {
 
             Database.view(['_design', design, '_view', view], options);
         */
-        return this.get(['_design', design, '_view', view], options);
+        return this.get_sync(['_design', design, '_view', view], options);
     },
 
     att_url: function(doc_or_id, name) {
@@ -407,22 +418,6 @@ couch.Database.prototype = {
         return new couch.ChangesMonitor(callback, this, since);
     },
 
-    dirty: function(doc) {
-        this._dirty_docs[doc._id] = doc;
-    },
-
-    commit: function() {
-        var docs = [];
-        var _id;
-        for (_id in this._dirty_docs) {
-            docs.push(this._dirty_docs[_id]);
-        }
-        if (docs.length == 0) {
-            return;
-        }
-        this._dirty_docs = {};
-        this.bulksave(docs);
-    },
 }
 couch.Database.prototype.__proto__ = couch.CouchBase.prototype;
 
@@ -475,6 +470,9 @@ couch.Session.prototype = {
     },
 
     mark: function(doc) {
+        /*
+        Mark *doc* as dirty, will save when Session.commit() is called.
+        */
         this.dirty[doc._id] = doc;
         doc.session_id = this.session_id;
     },
@@ -496,7 +494,7 @@ couch.Session.prototype = {
         var callback = function(req) {
             self.on_complete(req);
         }
-        this.req = this.db.post_async(callback, {docs: docs, all_or_nothing: true}, '_bulk_docs');
+        this.req = this.db.post(callback, {docs: docs, all_or_nothing: true}, '_bulk_docs');
     },
 }
 
