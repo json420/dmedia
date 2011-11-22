@@ -46,11 +46,21 @@ class Wrapper(GObject.GObject):
     Wrap signals from a `dmedia.workers.Manager`.
     """
 
+    __gsignals__ = {
+        'signal': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+    }
+
     def callback(self, signal, args):
-        self.emit_mainthread(signal, *args)
+        GObject.idle_add(self._emit, signal, args)
+
+    def _emit(self, signal, args):
+        self.emit('signal', signal, args)
+        self.emit(signal, *args)
 
     def emit_mainthread(self, signal, *args):
-        GObject.idle_add(self.emit, signal, *args)
+        GObject.idle_add(self._emit, signal, args)
 
 
 
@@ -65,6 +75,9 @@ class ImportWrapper(Wrapper):
         ),
         'import_started': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'import_scanned': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'batch_progress': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]

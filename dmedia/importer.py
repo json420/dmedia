@@ -160,7 +160,7 @@ class ImportWorker(workers.CouchWorker):
             for file in self.batch.files
         )
         self.db.save(self.doc)
-        self.emit('scanned', self.batch.count, self.batch.size)
+        self.emit('scanned', self.id, self.batch.count, self.batch.size)
 
     def get_filestores(self):
         # FIXME: Should pick up to 2 filestores based size of import and
@@ -304,7 +304,8 @@ class ImportManager(workers.CouchManager):
         self.db.save(self.doc)
         self.emit('import_started', basedir, import_id, extra)
 
-    def on_scanned(self, key, total_count, total_bytes):
+    def on_scanned(self, basedir, import_id, total_count, total_bytes):
+        self.emit('import_scanned', basedir, import_id, total_count, total_bytes)
         self._total_count += total_count 
         self._total_bytes += total_bytes
         self.emit('batch_progress',

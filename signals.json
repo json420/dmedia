@@ -1,0 +1,325 @@
+[
+    [
+        "batch_started", 
+        [
+            "F3TQDHHKUJAHTVMG2KQ7ZQMU"
+        ]
+    ], 
+    [
+        "import_started", 
+        [
+            "/media/EOS_DIGITAL", 
+            "RR4YFXKEPVM32GLDCJ52UFYJ", 
+            {
+                "drive": {
+                    "block_bytes": 512, 
+                    "bytes": 16005169152, 
+                    "connection": "usb", 
+                    "connection_rate": 480000000, 
+                    "internal": false, 
+                    "model": "CF  USB_3_0 Read", 
+                    "partition_scheme": "mbr", 
+                    "revision": "0545", 
+                    "serial": "000000003693", 
+                    "vendor": "Lexar", 
+                    "wwn": ""
+                }, 
+                "partition": {
+                    "bytes": 16004620800, 
+                    "filesystem": "vfat", 
+                    "filesystem_version": "FAT32", 
+                    "label": "EOS_DIGITAL", 
+                    "number": 1, 
+                    "uuid": "E81C-18C0"
+                }
+            }
+        ]
+    ], 
+    [
+        "import_scanned", 
+        [
+            "/media/EOS_DIGITAL", 
+            "RR4YFXKEPVM32GLDCJ52UFYJ", 
+            6, 
+            1987823156
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            0, 
+            6, 
+            0, 
+            1987823156
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            1, 
+            6, 
+            1253373849, 
+            1987823156
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            2, 
+            6, 
+            1253391932, 
+            1987823156
+        ]
+    ], 
+    [
+        "import_started", 
+        [
+            "/media/EOS_DIGITAL_", 
+            "LKXCLAIWEDUWR7IPR5XRGZX7", 
+            {
+                "drive": {
+                    "block_bytes": 512, 
+                    "bytes": 32017047552, 
+                    "connection": "usb", 
+                    "connection_rate": 480000000, 
+                    "internal": false, 
+                    "model": "CF  USB_3_0 Read", 
+                    "partition_scheme": "mbr", 
+                    "revision": "0545", 
+                    "serial": "000000003031", 
+                    "vendor": "Lexar", 
+                    "wwn": ""
+                }, 
+                "partition": {
+                    "bytes": 32016499200, 
+                    "filesystem": "vfat", 
+                    "filesystem_version": "FAT32", 
+                    "label": "EOS_DIGITAL", 
+                    "number": 1, 
+                    "uuid": ""
+                }
+            }
+        ]
+    ], 
+    [
+        "import_scanned", 
+        [
+            "/media/EOS_DIGITAL_", 
+            "LKXCLAIWEDUWR7IPR5XRGZX7", 
+            13, 
+            291042720
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            2, 
+            19, 
+            1253391932, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            3, 
+            19, 
+            1275780131, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            4, 
+            19, 
+            1298181629, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            5, 
+            19, 
+            1320575127, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            6, 
+            19, 
+            1342971424, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            7, 
+            19, 
+            1365360852, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            8, 
+            19, 
+            1387747159, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            9, 
+            19, 
+            1410135798, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            10, 
+            19, 
+            1432522141, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            11, 
+            19, 
+            1840645494, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            12, 
+            19, 
+            1840660531, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            13, 
+            19, 
+            1863047099, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            14, 
+            19, 
+            1885438902, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            15, 
+            19, 
+            1907814177, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            16, 
+            19, 
+            1930192726, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            17, 
+            19, 
+            1952573042, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            18, 
+            19, 
+            2278843503, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_progress", 
+        [
+            19, 
+            19, 
+            2278865876, 
+            2278865876
+        ]
+    ], 
+    [
+        "batch_finished", 
+        [
+            "F3TQDHHKUJAHTVMG2KQ7ZQMU", 
+            {
+                "duplicate": {
+                    "bytes": 2278865876, 
+                    "count": 19
+                }, 
+                "empty": {
+                    "bytes": 0, 
+                    "count": 0
+                }, 
+                "new": {
+                    "bytes": 0, 
+                    "count": 0
+                }, 
+                "total": {
+                    "bytes": 2278865876, 
+                    "count": 19
+                }
+            }, 
+            1
+        ]
+    ], 
+    [
+        "batch_finalized", 
+        [
+            "F3TQDHHKUJAHTVMG2KQ7ZQMU", 
+            {
+                "duplicate": {
+                    "bytes": 2278865876, 
+                    "count": 19
+                }, 
+                "empty": {
+                    "bytes": 0, 
+                    "count": 0
+                }, 
+                "new": {
+                    "bytes": 0, 
+                    "count": 0
+                }, 
+                "total": {
+                    "bytes": 2278865876, 
+                    "count": 19
+                }
+            }, 
+            1
+        ]
+    ]
+]

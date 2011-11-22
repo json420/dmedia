@@ -5,26 +5,123 @@
 <style>
 body {
     font-family: Ubuntu;
-    font-size: 24px;
+    font-size: 16px;
     background-color: #333;
     color: #e81f3b;
-    text-align: center;
 }
+
+button {
+    margin-left: 0;
+}
+
+progress {
+    width: 100%;
+}
+
+
 </style>
-<script src="/_apps/dc3/couch.js"></script>
+<script src="couch.js"></script>
 <script src="/_apps/dc3/base.js"></script>
 <script>
+
+/*
+Relay signals between JavaScript and Gtk.
+
+For example, to send a signal to Gtk via document.title:
+
+>>> Signal.send('click');
+>>> Signal.send('changed', 'foo', 'bar');
+
+*/
+var Signal = {
+    i: 0,
+
+    names: {},
+
+    connect: function(signal, callback, self) {
+        if (! Signal.names[signal]) {
+            Signal.names[signal] = [];
+        }
+        Signal.names[signal].push({callback: callback, self: self});
+    },
+
+    emit: function(signal, args) {
+        var items = Signal.names[signal];
+        if (items) {
+            items.forEach(function(i) {
+                i.callback.apply(i.self, args);
+            });
+        }
+    },
+
+    send: function() {
+        var args = Array.prototype.slice.call(arguments);
+        var obj = {
+            i: Signal.i,
+            signal: args[0],
+            args: args.slice(1),
+        };
+        Signal.i += 1;
+        document.title = JSON.stringify(obj);
+    },
+
+    recv: function(string) {
+        var obj = JSON.parse(string);
+        Signal.emit(obj.signal, obj.args);
+    },
+
+}
+
+
+Signal.connect('batch_progress',
+    function(count, total_count, size, total_size) {
+        var p = $('progress');
+        p.max = total_size;
+        p.value = size;
+    }
+);
+
+Signal.connect('import_started',
+    function(basedir, import_id, info) {
+        var ul = $('cards');
+        var li = $el('li', {id: import_id});
+
+        var path = $el('div', {textContent: basedir});
+        li.appendChild(path);
+
+        var info = $el('div');
+        li.appendChild(info);
+        li._info = info;
+
+        ul.appendChild(li);
+    }
+);
+
+Signal.connect('import_scanned',
+    function(basedir, import_id, total_count, total_size) {
+        $(import_id)._info.textContent = [total_count, total_size].join(' ');
+    }
+);
+
+
+
 // The `dmedia` CouchDB database:
 var db = new couch.Database('dmedia');
 
-function hello() {
-    var s = new couch.Server();
-    $('hello').textContent = 'dmedia is talking to CouchDB ' + s.get()['version'];
+function start() {
+    $('button').onclick = function() {
+        Signal.send('click');
+    }
 }
+
+
 </script>
 </head>
-<body onload="hello()">
-<p id="hello"></p>
-<p>Right click and <strong>Inspect Element</strong></p>
+<body onload="start()">
+<button id="button">Start Importer</button>
+<p>
+<progress id="progress" value="0" max="0">
+</p>
+<ul id="cards"></ul>
 </body>
 </html>
