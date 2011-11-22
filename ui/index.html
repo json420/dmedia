@@ -5,11 +5,20 @@
 <style>
 body {
     font-family: Ubuntu;
-    font-size: 24px;
+    font-size: 16px;
     background-color: #333;
     color: #e81f3b;
-    text-align: center;
 }
+
+button {
+    margin-left: 0;
+}
+
+progress {
+    width: 100%;
+}
+
+
 </style>
 <script src="couch.js"></script>
 <script src="/_apps/dc3/base.js"></script>
@@ -72,29 +81,33 @@ Signal.connect('batch_progress',
     }
 );
 
+Signal.connect('import_started',
+    function(basedir, import_id, info) {
+        var ul = $('cards');
+        var li = $el('li', {textContent: basedir});
+        ul.appendChild(li);
+    }
+);
+
 
 
 // The `dmedia` CouchDB database:
 var db = new couch.Database('dmedia');
-var server = new couch.Server();
 
-function hello() {
+function start() {
     $('button').onclick = function() {
         Signal.send('click');
     }
-    var version = server.get_sync()['version'];
-    $('hello').textContent = 'dmedia is talking to CouchDB ' + version;
 }
 
 
 </script>
 </head>
-<body onload="hello()">
-<p id="hello"></p>
-<p>Right click and <strong>Inspect Element</strong></p>
-<button id="button">Importer</button>
+<body onload="start()">
+<button id="button">Start Importer</button>
 <p>
 <progress id="progress" value="0" max="0">
 </p>
+<ul id="cards"></ul>
 </body>
 </html>
