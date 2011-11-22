@@ -119,6 +119,34 @@ couch.CouchRequest.prototype = {
 }
 
 
+couch.ChangesMonitor = function(callback, db, since) {
+    this.callback = callback;
+    this.db = db;
+    this.since = since;
+    this.monitor();
+}
+couch.ChangesMonitor.prototype = {
+    monitor: function() {
+        var self = this;
+        var callback = function(r) {
+            self.on_request(r);
+        }
+        this.req = this.db.async_get(callback, '_changes', 
+            {feed: 'longpoll', include_docs: true, since: this.since}
+        ); 
+    },
+
+    on_request: function(req) {
+        var result = req.read();
+        if (result.last_seq != this.since) {
+            this.since = result.last_seq;
+            this.callback(result);
+        }
+        this.monitor();
+    },
+}
+
+
 // microfiber.CouchBase
 couch.CouchBase = function(url, Request) {
     this.url = url || '/';
@@ -167,6 +195,9 @@ couch.CouchBase.prototype = {
             keys.sort();
             var query = [];
             keys.forEach(function(key) {
+                if (options[key] === undefined) {
+                    return;
+                }
                 if (['key', 'startkey', 'endkey'].indexOf(key) > -1) {
                     var value = JSON.stringify(options[key]);
                 }
@@ -226,6 +257,10 @@ couch.CouchBase.prototype = {
         return this.request('POST', obj, parts, options);
     },
 
+    post_async: function(callback, obj, parts, options) {
+        return this.async_request(callback, 'POST', obj, parts, options);
+    },
+
     get: function(parts, options) {
         /*
         Do a GET request.
@@ -240,6 +275,10 @@ couch.CouchBase.prototype = {
         cb.get(['foo', 'bar', 'baz']);  # get attachment /foo/bar/baz
         */
         return this.request('GET', null, parts, options);
+    },
+
+    async_get: function(callback, parts, options) {
+        return this.async_request(callback, 'GET', null, parts, options);
     },
 
     delete: function(parts, options) {
@@ -292,6 +331,7 @@ couch.Database = function(name, url, Request) {
     couch.CouchBase.call(this, url, Request);
     this.basepath = this.url + name + '/';
     this.name = name;
+    this._dirty_docs = {};
 }
 couch.Database.prototype = {
     save: function(doc) {
@@ -339,5 +379,124 @@ couch.Database.prototype = {
         */
         return this.get(['_design', design, '_view', view], options);
     },
+
+    att_url: function(doc_or_id, name) {
+        /*
+        Return URL of a document's attachmnet.
+        
+        Examples:
+        
+        >>> var db = new couch.Database('dmedia');
+        undefined
+        >>> db.att_url({'_id': 'foo'}, 'thumbnail');
+        "/dmedia/foo/thumbnail"
+        >>> db.att_url('foo', 'thumbnail');
+        "/dmedia/foo/thumbnail"
+        
+        */
+        if (doc_or_id instanceof Object) {
+            var _id = doc_or_id['_id'];
+        }
+        else {
+            var _id = doc_or_id;
+        }
+        return this.path([_id, name]);
+    },
+
+    monitor_changes: function(callback, since) {
+        return new couch.ChangesMonitor(callback, this, since);
+    },
+
+    dirty: function(doc) {
+        this._dirty_docs[doc._id] = doc;
+    },
+
+    commit: function() {
+        var docs = [];
+        var _id;
+        for (_id in this._dirty_docs) {
+            docs.push(this._dirty_docs[_id]);
+        }
+        if (docs.length == 0) {
+            return;
+        }
+        this._dirty_docs = {};
+        this.bulksave(docs);
+    },
 }
 couch.Database.prototype.__proto__ = couch.CouchBase.prototype;
+
+
+couch.Session = function(db, callback) {
+    this.db = db;
+    this.callback = callback;
+    this.docs = {};
+    this.dirty = {};
+    this.s = new couch.Server(this.db.url);
+    this.session_id = this.s.get('_uuids', {count: 1}).uuids[0];
+    console.log(this.session_id);
+}
+couch.Session.prototype = {
+    start: function() {
+        var r = this.db.get('_all_docs', {include_docs: true});
+        r.rows.forEach(function(row) {
+            var doc = row.doc;
+            this.docs[doc._id] = doc;
+        }, this);
+        var self = this;
+        var callback = function(r) {
+            self.on_changes(r);
+        }
+        var since = this.db.get().update_seq;
+        this.monitor = this.db.monitor_changes(callback, since);
+    },
+
+    on_changes: function(r) {
+        r.results.forEach(function(row) {
+            var doc = row.doc;
+            if (doc.session_id != this.session_id) {
+                this.docs[doc._id] = doc;
+                this.callback(doc);
+            }
+        }, this);
+    },
+
+    on_complete: function(req) {
+        this.req = null;
+        var rows = req.read();
+        rows.forEach(function(row) {
+            this.docs[row.id]._rev = row.rev;
+            
+        }, this);
+        if (this.pending) {
+            this.pending = false;
+            this.commit();
+        }
+    },
+
+    mark: function(doc) {
+        this.dirty[doc._id] = doc;
+        doc.session_id = this.session_id;
+    },
+
+    commit: function() {
+        var docs = [];
+        var _id;
+        for (_id in this.dirty) {
+            docs.push(this.dirty[_id]);
+        }
+        if (docs.length == 0) {
+            return;
+        }
+        if (this.req) {
+            this.pending = true;
+            return;
+        }
+        var self = this;
+        var callback = function(req) {
+            self.on_complete(req);
+        }
+        this.req = this.db.post_async(callback, {docs: docs, all_or_nothing: true}, '_bulk_docs');
+    },
+}
+

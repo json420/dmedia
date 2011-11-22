@@ -26,6 +26,8 @@ import json
 import logging
 import sys
 
+from userwebkit import BaseUI
+
 import dmedia
 from dmedia.gtk import GObject, Gtk
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
@@ -180,6 +182,14 @@ class UI:
         )
         dialog.run()
         dialog.destroy()
+  
+
+class UI(BaseUI):
+    app = 'dmedia'
+    page = 'index.html'
+    splash = 'splash.html'
+    title = 'Dmedia'
+    databases = ['dmedia', 'dmedia_log']
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)
