@@ -243,7 +243,7 @@ class TestImportWorker(ImportCase):
         self.assertEqual(item['signal'], 'scanned')
         self.assertEqual(
             item['args'],
-            (self.src.dir, batch.count, batch.size)
+            (self.src.dir, inst.id, batch.count, batch.size)
         )
 
         # get_filestores()
@@ -530,26 +530,31 @@ class TestImportManager(ImportCase):
         self.assertEqual(callback.messages, [])
 
         one = TempDir()
+        id1 = random_id()
         self.assertEqual(inst._total_count, 0)
         self.assertEqual(inst._total_bytes, 0)
-        inst.on_scanned(one.dir, 123, 4567)
+        inst.on_scanned(one.dir, id1, 123, 4567)
         self.assertEqual(inst._total_count, 123)
         self.assertEqual(inst._total_bytes, 4567)
         self.assertEqual(
             callback.messages,
             [
+                ('import_scanned', (one.dir, id1, 123, 4567)),
                 ('batch_progress', (0, 123, 0, 4567)),
             ]
         )
 
         two = TempDir()
-        inst.on_scanned(two.dir, 234, 5678)
+        id2 = random_id()
+        inst.on_scanned(two.dir, id2, 234, 5678)
         self.assertEqual(inst._total_count, 123 + 234)
         self.assertEqual(inst._total_bytes, 4567 + 5678)
         self.assertEqual(
             callback.messages,
             [
+                ('import_scanned', (one.dir, id1, 123, 4567)),
                 ('batch_progress', (0, 123, 0, 4567)),
+                ('import_scanned', (two.dir, id2, 234, 5678)),
                 ('batch_progress', (0, 123 + 234, 0, 4567 + 5678)),
             ]
         )
@@ -678,7 +683,7 @@ class TestImportManager(ImportCase):
                 break
         time.sleep(0.5)
 
-        self.assertEqual(len(callback.messages), 40)
+        self.assertEqual(len(callback.messages), 41)
 
         batch_id = callback.messages[0][1][0]
         import_id = callback.messages[1][1][1]
@@ -692,13 +697,17 @@ class TestImportManager(ImportCase):
         )
         self.assertEqual(
             callback.messages[2],
+            ('import_scanned', (self.src.dir, import_id, batch.count, batch.size))
+        )
+        self.assertEqual(
+            callback.messages[3],
             ('batch_progress', (0, batch.count, 0, batch.size))
         )
         size = 0
         for (i, file) in enumerate(batch.files):
             size += file.size
             self.assertEqual(
-                callback.messages[i + 3],
+                callback.messages[i + 4],
                 ('batch_progress', (i + 1, batch.count, size, batch.size))
             )
 
@@ -770,7 +779,7 @@ class TestImportManager(ImportCase):
                 break
         time.sleep(0.5)
 
-        self.assertEqual(len(callback.messages), 40)
+        self.assertEqual(len(callback.messages), 41)
 
         batch_id = callback.messages[0][1][0]
         import_id = callback.messages[1][1][1]
@@ -784,13 +793,17 @@ class TestImportManager(ImportCase):
         )
         self.assertEqual(
             callback.messages[2],
+            ('import_scanned', (self.src.dir, import_id, batch.count, batch.size))
+        )
+        self.assertEqual(
+            callback.messages[3],
             ('batch_progress', (0, batch.count, 0, batch.size))
         )
         size = 0
         for (i, file) in enumerate(batch.files):
             size += file.size
             self.assertEqual(
-                callback.messages[i + 3],
+                callback.messages[i + 4],
                 ('batch_progress', (i + 1, batch.count, size, batch.size))
             )
 

@@ -84,8 +84,22 @@ Signal.connect('batch_progress',
 Signal.connect('import_started',
     function(basedir, import_id, info) {
         var ul = $('cards');
-        var li = $el('li', {textContent: basedir});
+        var li = $el('li', {id: import_id});
+
+        var path = $el('div', {textContent: basedir});
+        li.appendChild(path);
+
+        var info = $el('div');
+        li.appendChild(info);
+        li._info = info;
+
         ul.appendChild(li);
+    }
+);
+
+Signal.connect('import_scanned',
+    function(basedir, import_id, total_count, total_size) {
+        $(import_id)._info.textContent = [total_count, total_size].join(' ');
     }
 );
 

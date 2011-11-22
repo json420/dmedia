@@ -76,6 +76,9 @@ class ImportWrapper(Wrapper):
         'import_started': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
+        'import_scanned': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
         'batch_progress': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
