@@ -30,6 +30,7 @@ from userwebkit import BaseUI
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
+from dmedia.gtk.util import Timer
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
 from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
@@ -65,7 +66,7 @@ THERE WILL STILL BE CHANGES THAT WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE
 
 
 class Importer:
-    def __init__(self, env):
+    def __init__(self, env, hub):
         super().__init__()
         self.env = env
         self.udisks = UDisks()
@@ -75,14 +76,13 @@ class Importer:
         )
         self.blocking = False
         self.cards = []
-        self.wrapper = ImportWrapper()
-        self.wrapper.connect('batch_finished',
+        self.hub = hub
+        self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
         )
-        self.manager = ImportManager(env, self.wrapper.callback)
-        self.ux = UnityImportUX(self.wrapper)
+        self.manager = ImportManager(env, self.hub.callback)
 
-    def on_batch_finished(self, wrapper, batch_id, stats, copies):
+    def on_batch_finished(self, hub, batch_id, stats, copies):
         Worker = (Formatter if copies >= 2 else Ejector)
         Worker = Ejector
         self.blocking = True
@@ -104,7 +104,7 @@ class Importer:
         if len(self.workers) == 0:
             self.blocking = False
             log.info('emitting batch_finalized to UI')
-            self.wrapper.emit_mainthread(
+            self.hub.emit_mainthread(
                 'batch_finalized', self.batch_id, self.stats, self.copies
             )
 
@@ -129,18 +129,27 @@ class UI(BaseUI):
     def __init__(self, benchmark=False):
         super().__init__(benchmark)
         self.view.connect('title_data', self.on_title_data)
+        self.hub = ImportWrapper()
+        self.hub.connect('error', self.on_error)
+        self.hub.connect('signal', self.on_signal)
         self.importer = None
 
     def on_title_data(self, view, obj):
         if obj.get('signal') == 'click':
             if self.importer is None:
-                self.importer = Importer(self.env)
-                self.importer.wrapper.connect('error', self.on_error)
-                self.importer.wrapper.connect('signal', self.on_signal)
+                self.importer = Importer(self.env, self.hub)
+                self.create_ux()
             else:
                 self.importer = None
+                self.destroy_ux()
 
-    def on_error(self, w, error):
+    def create_ux(self):
+        self.ux = UnityImportUX(self.hub)
+
+    def destroy_ux(self):
+        self.ux = None
+
+    def on_error(self, hub, error):
         self.window.present()
         self.notebook.set_current_page(0)
         dialog = Gtk.MessageDialog(
@@ -153,11 +162,29 @@ class UI(BaseUI):
         dialog.run()
         dialog.destroy()
 
-    def on_signal(self, w, signal, args):
+    def on_signal(self, hub, signal, args):
         script = 'Signal.recv({!r})'.format(
             json.dumps({'signal': signal, 'args': args})
         )
         self.view.execute_script(script)
+
+
+class Replay:
+    def __init__(self, filename, callback):
+        self.events = json.load(open(filename, 'r'))
+        assert isinstance(self.events, list)
+        self.i = 0
+        self.callback = callback
+        self.timer = Timer(1, self.on_timer)
+        self.timer.start()
+
+    def on_timer(self):
+        if self.i >= len(self.events):
+            self.timer.stop()
+            return
+        (signal, args) = self.events[self.i]
+        self.i += 1
+        self.callback(signal, args)
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)
@@ -166,8 +193,18 @@ parser.add_option('--benchmark',
     action='store_true',
     default=False,
 )
+parser.add_option('--replay',
+    help='replay import',
+    action='store_true',
+    default=False,
+)
 (options, args) = parser.parse_args()
 
 dmedia.configure_logging()
 ui = UI(options.benchmark)
+
+if options.replay:
+    ui.create_ux()
+    replay = Replay('signals.json', ui.hub.callback)
+
 ui.run()
