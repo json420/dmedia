@@ -84,7 +84,7 @@ class Importer:
 
     def on_batch_finished(self, wrapper, batch_id, stats, copies):
         Worker = (Formatter if copies >= 2 else Ejector)
-        #Worker = Ejector
+        Worker = Ejector
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
@@ -182,7 +182,7 @@ class UI:
         )
         dialog.run()
         dialog.destroy()
-  
+
 
 class UI(BaseUI):
     app = 'dmedia'
@@ -190,6 +190,43 @@ class UI(BaseUI):
     splash = 'splash.html'
     title = 'Dmedia'
     databases = ['dmedia', 'dmedia_log']
+    proxy_bus = 'org.freedesktop.DMedia'
+
+    def __init__(self, benchmark=False):
+        super().__init__(benchmark)
+        self.view.connect('title_data', self.on_title_data)
+        self.importer = None
+
+    def on_title_data(self, view, obj):
+        if obj.get('signal') == 'click':
+            if self.importer is None:
+                self.importer = Importer(self.env)
+                self.importer.wrapper.connect('error', self.on_error)
+                self.importer.wrapper.connect('signal', self.on_signal)
+            else:
+                self.importer = None
+
+    def on_error(self, w, error):
+        self.window.present()
+        self.notebook.set_current_page(0)
+        dialog = Gtk.MessageDialog(
+            self.window,
+           0,
+            Gtk.MessageType.ERROR,
+            Gtk.ButtonsType.CLOSE,
+            'An error occured during the import!\nYour files have not been imported!'
+        )
+        dialog.run()
+        dialog.destroy()
+
+    def on_signal(self, w, signal, args):
+        script = 'Signal.recv({!r})'.format(
+            json.dumps({'signal': signal, 'args': args})
+        )
+        print(script)
+        self.view.execute_script(script)
+        
+        
 
 
 parser = optparse.OptionParser(version=dmedia.__version__)

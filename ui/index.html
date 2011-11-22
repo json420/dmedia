@@ -11,20 +11,95 @@ body {
     text-align: center;
 }
 </style>
-<script src="/_apps/dc3/couch.js"></script>
+<script src="couch.js"></script>
 <script src="/_apps/dc3/base.js"></script>
 <script>
+
+function cb1(a, b) {console.log(['1', a, b])}
+
+function cb2(a, b) {console.log(['2', a, b])}
+
+var s = JSON.stringify({signal: 'foo', args: ['hello', 'world']});
+
+/*
+Relay signals between JavaScript and Gtk.
+
+For example, to send signal to Gtk via document.title:
+
+>>> Signal.send('click');
+>>> Signal.send('changed', 'foo', 'bar');
+
+*/
+var Signal = {
+    i: 0,
+
+    names: {},
+
+    connect: function(signal, callback, self) {
+        if (! Signal.names[signal]) {
+            Signal.names[signal] = [];
+        }
+        Signal.names[signal].push({callback: callback, self: self});
+    },
+
+    emit: function(signal, args) {
+        var items = Signal.names[signal];
+        if (items) {
+            items.forEach(function(i) {
+                i.callback.apply(i.self, args);
+            });
+        }
+    },
+
+    send: function() {
+        var args = Array.prototype.slice.call(arguments);
+        var obj = {
+            i: Signal.i,
+            signal: args[0],
+            args: args.slice(1),
+        };
+        Signal.i += 1;
+        document.title = JSON.stringify(obj);
+    },
+
+    recv: function(string) {
+        var obj = JSON.parse(string);
+        Signal.emit(obj.signal, obj.args);
+    },
+
+}
+
+
+Signal.connect('batch_progress',
+    function(count, total_count, size, total_size) {
+        var p = $('progress');
+        p.max = total_size;
+        p.value = size;
+    }
+);
+
+
+
 // The `dmedia` CouchDB database:
 var db = new couch.Database('dmedia');
 
 function hello() {
+    $('button').onclick = function() {
+        Signal.send('click');
+    }
     var s = new couch.Server();
     $('hello').textContent = 'dmedia is talking to CouchDB ' + s.get()['version'];
 }
+
+
 </script>
 </head>
 <body onload="hello()">
 <p id="hello"></p>
 <p>Right click and <strong>Inspect Element</strong></p>
+<button id="button">Importer</button>
+<p>
+<progress id="progress" value="0" max="0">
+</p>
 </body>
 </html>
