@@ -242,8 +242,8 @@ function(doc) {
 user_needsproxy = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'mov' && !doc.proxy) {
-            emit(doc.ctime, null);
+        if (doc.ext == 'mov' && !doc.proxies) {
+            emit(doc.time, null);
         }
     }
 }

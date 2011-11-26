@@ -32,102 +32,138 @@ import gobject
 import gst
 
 
+def make_element(desc):
+    """
+    Create a GStreamer element and set its properties.
 
-def caps_string(mime, caps):
+    For example:
+
+    >>> enc = make_element({'name': 'theoraenc'})
+    >>> enc.get_property('quality')
+    48
+
+    Or with properties:
+
+    >>> enc = make_element({'name': 'theoraenc', 'props': {'quality': 40}})
+    >>> enc.get_property('quality')
+    40
+
+    """
+    el = gst.element_factory_make(desc['name'])
+    if desc.get('props'):
+        for (key, value) in desc['props'].iteritems():
+            el.set_property(key, value)
+    return el
+
+
+def caps_string(desc):
     """
     Build a GStreamer caps string.
 
     For example:
 
-    >>> caps_string('video/x-raw-yuv', {'width': 800, 'height': 450})
+    >>> desc = {'mime': 'video/x-raw-yuv'}
+    >>> caps_string(desc)
+    'video/x-raw-yuv'
+
+    Or with specific caps:
+
+    >>> desc = {
+    ...     'mime': 'video/x-raw-yuv',
+    ...     'caps': {'width': 800, 'height': 450},
+    ... }
+    ...
+    >>> caps_string(desc)
     'video/x-raw-yuv, height=450, width=800'
+
     """
-    accum = [mime]
-    for key in sorted(caps):
-        accum.append('%s=%s' % (key, caps[key]))
+    accum = [desc['mime']]
+    if desc.get('caps'):
+        caps = desc['caps']
+        for key in sorted(caps):
+            accum.append('{}={}'.format(key, caps[key]))
     return ', '.join(accum)
 
 
+def make_caps(desc):
+    if not desc:
+        return None
+    return gst.caps_from_string(caps_string(desc))
 
-class TranscodeBin(gst.Bin):
+
+class EncoderBin(gst.Bin):
     """
-    Base class for `AudioTranscoder` and `VideoTranscoder`.
+    Base class for `AudioEncoder` and `VideoEncoder`.
     """
+
     def __init__(self, d):
-        super(TranscodeBin, self).__init__()
+        super(EncoderBin, self).__init__()
         self._d = d
+
+        # Create elements
         self._q1 = self._make('queue')
-        self._enc = self._make(d['enc'], d.get('props'))
         self._q2 = self._make('queue')
-        self._enc.link(self._q2)
+        self._q3 = self._make('queue')
+        self._enc = self._make(d['encoder'])
+
+        # Create the filter caps
+        self._caps = make_caps(d.get('filter'))
+
+        # Link elements
+        if self._caps is None:
+            self._q2.link(self._enc)
+        else:
+            self._q2.link(self._enc, self._caps)
+        self._enc.link(self._q3)
+
+        # Ghost Pads
         self.add_pad(
             gst.GhostPad('sink', self._q1.get_pad('sink'))
         )
         self.add_pad(
-            gst.GhostPad('src', self._q2.get_pad('src'))
+            gst.GhostPad('src', self._q3.get_pad('src'))
         )
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self._d)
+        return '{}({!r})'.format(self.__class__.__name__, self._d)
 
-    def _make(self, name, props=None):
+    def _make(self, desc, props=None):
         """
         Create gst element, set properties, and add to this bin.
         """
-        element = gst.element_factory_make(name)
-        if props:
-            for (key, value) in props.iteritems():
-                element.set_property(key, value)
-        self.add(element)
-        return element
+        if isinstance(desc, basestring):
+            desc = {'name': desc, 'props': props}
+        el = make_element(desc)
+        self.add(el)
+        return el
 
 
-class AudioTranscoder(TranscodeBin):
+class AudioEncoder(EncoderBin):
     def __init__(self, d):
-        super(AudioTranscoder, self).__init__(d)
+        super(AudioEncoder, self).__init__(d)
 
-        # Create processing elements:
+        # Create elements:
         self._conv = self._make('audioconvert')
         self._rsp = self._make('audioresample', {'quality': 10})
         self._rate = self._make('audiorate')
 
         # Link elements:
-        self._q1.link(self._conv)
-        self._conv.link(self._rsp)
-        if d.get('caps'):
-            # FIXME: There is probably a better way to do this, but the caps API
-            # has always been a bit of a mystery to me.  --jderose
-            if d['enc'] == 'vorbisenc':
-                mime = 'audio/x-raw-float'
-            else:
-                mime = 'audio/x-raw-int'
-            caps = gst.caps_from_string(
-                caps_string(mime, d['caps'])
-            )
-            self._rsp.link(self._rate, caps)
-        else:
-            self._rsp.link(self._rate)
-        self._rate.link(self._enc)
+        gst.element_link_many(
+            self._q1, self._conv, self._rsp, self._rate, self._q2
+        )
 
 
-class VideoTranscoder(TranscodeBin):
+class VideoEncoder(EncoderBin):
     def __init__(self, d):
-        super(VideoTranscoder, self).__init__(d)
+        super(VideoEncoder, self).__init__(d)
 
-        # Create processing elements:
+        # Create elements:
         self._scale = self._make('ffvideoscale', {'method': 10})
-        self._q = self._make('queue')
+        self._color = self._make('ffmpegcolorspace')
+        self._rate = self._make('videorate')
 
         # Link elements:
-        self._q1.link(self._scale)
-        if d.get('caps'):
-            caps = gst.caps_from_string(
-                caps_string('video/x-raw-yuv', d['caps'])
-            )
-            self._scale.link(self._q, caps)
-        else:
-            self._scale.link(self._q)
-        self._q.link(self._enc)
+        gst.element_link_many(self._q1, self._scale, self._color, self._rate, self._q2)
 
 
 class Transcoder(object):
@@ -184,7 +220,7 @@ class Transcoder(object):
 
     def link_pad(self, pad, name, key):
         if key in self.job:
-            klass = {'audio': AudioTranscoder, 'video': VideoTranscoder}[key]
+            klass = {'audio': AudioEncoder, 'video': VideoEncoder}[key]
             el = klass(self.job[key])
         else:
             el = gst.element_factory_make('fakesink')
@@ -210,6 +246,7 @@ class Transcoder(object):
     def on_error(self, bus, msg):
         error = msg.parse_error()[1]
         self.kill()
+        print(error)
         sys.exit(2)
 
 
@@ -230,13 +267,25 @@ job = {
     'dst': dst,
     'mux': 'webmmux',
     'video': {
-        'enc': 'vp8enc',
-        'props': {'quality': 8, 'threads': 2, 'speed': 2},
-        'caps': {'width': 640, 'height': 360},
+        'encoder': {
+            'name': 'vp8enc',
+            'props': {
+                'quality': 7,
+                'max-keyframe-distance': 30,
+                'speed': 1,
+                'threads': 3,
+            },
+        },
+        'filter': {
+            'mime': 'video/x-raw-yuv',
+            'caps': {'width': 640, 'height': 360},
+        },
     },
     'audio': {
-        'enc': 'vorbisenc',
-        'props': {'quality': 0.3},
+        'encoder': {
+            'name': 'vorbisenc',
+            'props': {'quality': 0.2},
+        },
     },
 }
 t = Transcoder(job)
