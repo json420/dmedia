@@ -18,6 +18,34 @@ progress {
     width: 100%;
 }
 
+.switch{
+	width:60px;
+	height:20px;
+	background:-webkit-linear-gradient(top, #222, #333);
+	border-radius:5px;
+	border:1px solid #e81f3b;
+	position:relative;
+	box-shadow:inset 0px 1px 5px rgba(0,0,0,0.6);
+}
+
+.switch.on{
+	background:-webkit-linear-gradient(top, #2395ff, #005eb5);
+}
+
+.switch .thumb{
+	height:100%;
+	width:50%;
+	background:-webkit-linear-gradient(top, #666, #444);
+	border-radius:3px;
+	position:absolute;
+	top:0px;
+	left:0px;
+	box-shadow:0px 0px 10px rgba(0,0,0,0.6);
+}
+
+.switch.on .thumb{
+	left:50%;
+}
 
 </style>
 <script src="couch.js"></script>
@@ -149,6 +177,18 @@ function start() {
     $('button').onclick = function() {
         Signal.send('click');
     }
+    var sw = document.getElementsByClassName("switch");
+    for (var i = 0; i < sw.length; i++){
+	    var s = sw[i];
+	    s.addEventListener("click", function(){
+		    if (s.classList.contains("on") == true){
+			    s.classList.remove("on");
+		    }
+		    else{
+			    s.classList.add("on");
+		    }
+	    }, false);
+    }
 }
 
 
@@ -156,6 +196,9 @@ function start() {
 </head>
 <body onload="start()">
 <button id="button">Start Importer</button>
+<div class="switch">
+    <div class="thumb"></div>
+</div>
 <p>
 <progress id="progress" value="0" max="0">
 </p>
