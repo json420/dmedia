@@ -53,8 +53,8 @@ def normalize_ext(filename):
 def notify_started(basedirs):
     assert len(basedirs) >= 1
     summary = ngettext(
-        'Importing files...',
-        'Importing files from {count} cards...',
+        'Importing files from {count} card:',
+        'Importing files from {count} cards:',
         len(basedirs)
     ).format(count=len(basedirs))
     body = '\n'.join(basedirs)

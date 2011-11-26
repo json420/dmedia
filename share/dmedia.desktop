@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=DMedia
-GenericName=DMedia
+Name=Dmedia
+GenericName=Dmedia
 Comment=The Distributed Media Library.
 Exec=/usr/bin/dmedia-gtk
 Icon=dmedia

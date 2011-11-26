@@ -126,8 +126,9 @@ class UI(BaseUI):
     databases = ['dmedia', 'dmedia_log']
     proxy_bus = 'org.freedesktop.DMedia'
 
-    def __init__(self, benchmark=False):
+    def __init__(self, benchmark=False, replay=False):
         super().__init__(benchmark)
+        self.replay = replay
         self.view.connect('title_data', self.on_title_data)
         self.hub = ImportWrapper()
         self.hub.connect('error', self.on_error)
@@ -142,6 +143,20 @@ class UI(BaseUI):
             else:
                 self.importer = None
                 self.destroy_ux()
+ 
+    def set_env(self, env):
+        super().set_env(env)
+        if env is None:
+            return
+        if self.replay:
+            self.create_ux()
+        else:
+            self.start_importer()
+    
+    def start_importer(self):
+        print('start')
+        self.importer = Importer(self.env, self.hub)
+        self.create_ux()
 
     def create_ux(self):
         self.ux = UnityImportUX(self.hub)
@@ -201,10 +216,9 @@ parser.add_option('--replay',
 (options, args) = parser.parse_args()
 
 dmedia.configure_logging()
-ui = UI(options.benchmark)
+ui = UI(options.benchmark, options.replay)
 
 if options.replay:
-    ui.create_ux()
     replay = Replay('signals.json', ui.hub.callback)
 
 ui.run()

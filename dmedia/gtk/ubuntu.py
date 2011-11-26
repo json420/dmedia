@@ -29,6 +29,7 @@ import weakref
 from gi.repository import Gtk, Notify, AppIndicator3, Unity
 
 from dmedia.importer import notify_started, notify_stats
+from dmedia.units import bytes10
 
 
 Notify.init('dmedia')
@@ -97,6 +98,13 @@ class NotifyManager:
             self.notify(summary, body, icon)
 
 
+def card_label(basedir, info):
+    if info and info.get('partition'):
+        p = info['partition']
+        return '{}, {}'.format(bytes10(p['bytes']), p['label'])
+    return basedir
+
+
 class UnityImportUX:
     def __init__(self, hub):
         self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
@@ -107,7 +115,7 @@ class UnityImportUX:
         self.indicator.set_attention_icon(ICON_ATT)
         self.menu = Gtk.Menu()
         self.close = Gtk.MenuItem()
-        self.close.set_label(_('Close'))
+        self.close.set_label(_('Close Dmedia'))
         #self.close.connect('activate', self.on_close)
         self.menu.append(self.close)
         self.menu.show_all()
@@ -128,7 +136,7 @@ class UnityImportUX:
         self.basedirs = []
 
     def on_import_started(self, gm, basedir, import_id, info):
-        self.basedirs.append(basedir)
+        self.basedirs.append(card_label(basedir, info))
         (summary, body) = notify_started(self.basedirs)
         icons = {
             'usb': 'notification-device-usb',

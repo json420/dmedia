@@ -50,17 +50,17 @@ class TestFunctions(TestCase):
     def test_notify_started(self):
         basedirs = ['/media/EOS_DIGITAL']
         (summary, body) = importer.notify_started(basedirs)
-        self.assertEqual(summary, 'Importing files...')
+        self.assertEqual(summary, 'Importing files from 1 card:')
         self.assertEqual(body, '/media/EOS_DIGITAL')
 
         basedirs = ['/media/EOS_DIGITAL', '/media/H4n']
         (summary, body) = importer.notify_started(basedirs)
-        self.assertEqual(summary, 'Importing files from 2 cards...')
+        self.assertEqual(summary, 'Importing files from 2 cards:')
         self.assertEqual(body, '\n'.join(basedirs))
 
         basedirs = ['/media/EOS_DIGITAL', '/media/H4n', '/media/stuff']
         (summary, body) = importer.notify_started(basedirs)
-        self.assertEqual(summary, 'Importing files from 3 cards...')
+        self.assertEqual(summary, 'Importing files from 3 cards:')
         self.assertEqual(body, '\n'.join(basedirs))
 
     def test_notify_stats(self):
