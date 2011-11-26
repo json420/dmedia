@@ -1,5 +1,5 @@
-dmedia (11.11.0-0~oneiric) oneiric; urgency=low
+dmedia (11.12.0-0~precise) precise; urgency=low
 
-  * Upstream 11.11.0 pre-release
+  * Upstream 11.12.0 pre-release
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Sat, 29 Oct 2011 10:58:50 +0000
+ -- Jason Gerard DeRose <jderose@novacut.com>  Sat, 26 Nov 2011 16:17:31 +0000
