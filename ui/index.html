@@ -24,6 +24,39 @@ progress {
 <script src="/_apps/dc3/base.js"></script>
 <script>
 
+
+function files(count) {
+    if (count == 1) {
+        return '1 file';
+    }
+    return count.toString() + ' files';
+}
+
+function bytes10(size) {
+    var BYTES10 = [
+        'bytes',
+        'kB',
+        'MB',
+        'GB',
+        'TB',
+        'PB',
+        'EB',
+        'ZB',
+        'YB',
+    ];
+    if (size == 0) {
+        return '0 bytes';
+    }
+    if (size == 1) {
+        return '1 byte';
+    }
+    var ex = Math.floor(Math.log(size) / Math.log(1000));
+    var i = Math.min(ex, BYTES10.length - 1);
+    var s = (i > 0) ? size / Math.pow(1000, i) : size;
+    return s.toPrecision(3) + ' ' + BYTES10[i];
+}
+
+
 /*
 Relay signals between JavaScript and Gtk.
 
@@ -97,9 +130,13 @@ Signal.connect('import_started',
     }
 );
 
+
 Signal.connect('import_scanned',
     function(basedir, import_id, total_count, total_size) {
-        $(import_id)._info.textContent = [total_count, total_size].join(' ');
+        $(import_id)._info.textContent = [
+            files(total_count), 
+            bytes10(total_size)
+        ].join(', ');
     }
 );
 
