@@ -113,6 +113,14 @@ function(doc) {
 }
 """
 
+file_origin = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        emit(doc.origin, doc.bytes);
+    }
+}
+"""
+
 file_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -301,6 +309,8 @@ designs = (
         ('verified', file_verified, None),
         ('ctime', file_ctime, None),
         ('ext', file_ext, _count),
+        ('origin-count', file_origin, _count),
+        ('origin-bytes', file_origin, _sum),
     )),
 
     ('user', (

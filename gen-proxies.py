@@ -1,5 +1,6 @@
 from subprocess import check_call
 import json
+import time
 
 from microfiber import Database, dc3_env
 from filestore import FileStore
@@ -21,7 +22,9 @@ for row in r['rows']:
         continue
     print(src)
     tmp_fp = fs.allocate_tmp()
+    start = time.time()
     check_call(['./dmedia-transcoder', src, tmp_fp.name])
+    elapsed = time.time() - start
     ch = fs.hash_and_move(tmp_fp)
     st = fs.stat(ch.id)
     stored = {
@@ -34,6 +37,7 @@ for row in r['rows']:
     proxy = create_file(ch.id, ch.file_size, ch.leaf_hashes, stored, 'proxy')
     proxy['proxyof'] = _id
     proxy['content_type'] = 'video/webm'
+    proxy['elapsed'] = elapsed
     db.save(proxy)
     doc = db.get(_id)
     doc['proxies'] = doc.get('proxies', {})
