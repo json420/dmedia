@@ -24,6 +24,7 @@ Some Ubuntu-specific UI bits.
 """
 
 from gettext import gettext as _
+import weakref
 
 from gi.repository import Gtk, Notify, AppIndicator3, Unity
 
@@ -33,6 +34,15 @@ from dmedia.importer import notify_started, notify_stats
 Notify.init('dmedia')
 ICON = 'indicator-dmedia'
 ICON_ATT = 'indicator-dmedia-att'
+
+
+class WeakMethod:
+    def __init__(self, inst, method):
+        self.proxy = weakref.proxy(inst)
+        self.method = method
+
+    def __call__(self, *args):
+        return getattr(self.proxy, self.method)(*args)
 
 
 class NotifyManager:
@@ -88,7 +98,7 @@ class NotifyManager:
 
 
 class UnityImportUX:
-    def __init__(self, gmanager):
+    def __init__(self, hub):
         self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
         self.notify = NotifyManager()
         self.indicator = AppIndicator3.Indicator.new('dmedia', ICON,
@@ -103,11 +113,11 @@ class UnityImportUX:
         self.menu.show_all()
         self.indicator.set_menu(self.menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
-        gmanager.connect('batch_started', self.on_batch_started)
-        gmanager.connect('import_started', self.on_import_started)
-        gmanager.connect('batch_progress', self.on_batch_progress)
-        gmanager.connect('batch_finalized', self.on_batch_finalized)
-        gmanager.connect('error', self.on_error)
+        hub.connect('batch_started', WeakMethod(self, 'on_batch_started'))
+        hub.connect('import_started', WeakMethod(self, 'on_import_started'))
+        hub.connect('batch_progress', WeakMethod(self, 'on_batch_progress'))
+        hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
+        hub.connect('error', WeakMethod(self, 'on_error'))
 
     def on_batch_started(self, gm, batch_id):
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
