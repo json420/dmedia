@@ -113,6 +113,14 @@ function(doc) {
 }
 """
 
+file_origin = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        emit(doc.origin, doc.bytes);
+    }
+}
+"""
+
 file_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -242,8 +250,8 @@ function(doc) {
 user_needsproxy = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'mov' && !doc.proxy) {
-            emit(doc.mtime, null);
+        if (doc.ext == 'mov' && !doc.proxies) {
+            emit(doc.time, null);
         }
     }
 }
@@ -301,6 +309,8 @@ designs = (
         ('verified', file_verified, None),
         ('ctime', file_ctime, None),
         ('ext', file_ext, _count),
+        ('origin-count', file_origin, _count),
+        ('origin-bytes', file_origin, _sum),
     )),
 
     ('user', (
