@@ -116,7 +116,7 @@ def accumulate_stats(accum, stats):
             accum[key][k] += v
 
 
-def accumulate_progress(progress):
+def sum_progress(progress):
     values = tuple(progress.values())
     return tuple(
         sum(v[i] for v in values)
@@ -319,11 +319,11 @@ class ImportManager(workers.CouchManager):
     def on_scanned(self, basedir, _id, total_count, total_size):
         self.emit('import_scanned', basedir, _id, total_count, total_size)
         self._progress[_id] = (0, total_count, 0, total_size)
-        self.emit('batch_progress', *accumulate_progress(self._progress))
+        self.emit('batch_progress', *sum_progress(self._progress))
 
     def on_progress(self, basedir, _id, count, total_count, size, total_size):
         self._progress[_id] = (count, total_count, size, total_size)
-        self.emit('batch_progress', *accumulate_progress(self._progress))
+        self.emit('batch_progress', *sum_progress(self._progress))
 
     def on_finished(self, basedir, import_id, stats):
         self.doc['imports'][import_id]['stats'] = stats
@@ -333,7 +333,7 @@ class ImportManager(workers.CouchManager):
 
     def get_batch_progress(self):
         with self._lock:
-            return accumulate_progress(self._progress)
+            return sum_progress(self._progress)
 
     def start_import(self, base, extra=None):
         return self.start_job('ImportWorker', base, base, extra)

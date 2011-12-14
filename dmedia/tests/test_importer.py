@@ -157,13 +157,13 @@ class TestFunctions(TestCase):
             )
         )
 
-    def test_accumulate_progress(self):
+    def test_sum_progress(self):
         self.assertEqual(
-            importer.accumulate_progress({}),
+            importer.sum_progress({}),
             (0, 0, 0, 0)
         )
         self.assertEqual(
-            importer.accumulate_progress(
+            importer.sum_progress(
                 {
                     random_id(): (0, 0, 0, 0),
                 }
@@ -171,7 +171,7 @@ class TestFunctions(TestCase):
             (0, 0, 0, 0)
         )
         self.assertEqual(
-            importer.accumulate_progress(
+            importer.sum_progress(
                 {
                     random_id(): (0, 0, 0, 0),
                     random_id(): (0, 0, 0, 0),
@@ -180,7 +180,7 @@ class TestFunctions(TestCase):
             (0, 0, 0, 0)
         )
         self.assertEqual(
-            importer.accumulate_progress(
+            importer.sum_progress(
                 {
                     random_id(): (5, 6, 7, 8),
                 }
@@ -188,7 +188,7 @@ class TestFunctions(TestCase):
             (5, 6, 7, 8)
         )
         self.assertEqual(
-            importer.accumulate_progress(
+            importer.sum_progress(
                 {
                     random_id(): (5, 6, 7, 8),
                     random_id(): (1, 2, 3, 4),
