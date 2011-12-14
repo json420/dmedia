@@ -688,13 +688,19 @@ class TestImportManager(ImportCase):
             inst.get_batch_progress(),
             (0, 0, 0, 0)
         )
-        inst._count = 1
-        inst._total_count = 2
-        inst._bytes = 3
-        inst._total_bytes = 4
+
+        id1 = random_id()
+        inst._progress[id1] = (1, 2, 3, 4)
         self.assertEqual(
             inst.get_batch_progress(),
             (1, 2, 3, 4)
+        )
+
+        id2 = random_id()
+        inst._progress[id2] = (5, 6, 7, 8)
+        self.assertEqual(
+            inst.get_batch_progress(),
+            (1+5, 2+6, 3+7, 4+8)
         )
 
     def test_start_import(self):

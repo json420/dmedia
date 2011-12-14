@@ -337,7 +337,7 @@ class ImportManager(workers.CouchManager):
 
     def get_batch_progress(self):
         with self._lock:
-            return (self._count, self._total_count, self._bytes, self._total_bytes)
+            return accumulate_progress(self._progress)
 
     def start_import(self, base, extra=None):
         return self.start_job('ImportWorker', base, base, extra)
