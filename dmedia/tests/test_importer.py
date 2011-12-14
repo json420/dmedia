@@ -157,6 +157,46 @@ class TestFunctions(TestCase):
             )
         )
 
+    def test_accumulate_progress(self):
+        self.assertEqual(
+            importer.accumulate_progress({}),
+            (0, 0, 0, 0)
+        )
+        self.assertEqual(
+            importer.accumulate_progress(
+                {
+                    random_id(): (0, 0, 0, 0),
+                }
+            ),
+            (0, 0, 0, 0)
+        )
+        self.assertEqual(
+            importer.accumulate_progress(
+                {
+                    random_id(): (0, 0, 0, 0),
+                    random_id(): (0, 0, 0, 0),
+                }
+            ),
+            (0, 0, 0, 0)
+        )
+        self.assertEqual(
+            importer.accumulate_progress(
+                {
+                    random_id(): (5, 6, 7, 8),
+                }
+            ),
+            (5, 6, 7, 8)
+        )
+        self.assertEqual(
+            importer.accumulate_progress(
+                {
+                    random_id(): (5, 6, 7, 8),
+                    random_id(): (1, 2, 3, 4),
+                }
+            ),
+            (6, 8, 10, 12)
+        )
+
 
 class ImportCase(CouchCase):
 
