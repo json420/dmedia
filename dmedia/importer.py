@@ -117,6 +117,20 @@ def accumulate_stats(accum, stats):
 
 
 def sum_progress(progress):
+    """
+    Sum the progress stats for all imports to for 'batch_progress' signal.
+
+    For example:
+
+    >>> progress = {
+    ...     'UEZ2ZH25CZSEQEVENYJMHKZH': (10, 20, 30, 40),
+    ...     'OE36HPQOUVAV5EXYCCUV4R55': (100, 200, 300, 400),
+    ... }
+    ... 
+    >>> sum_progress(progress)
+    (110, 220, 330, 440)
+
+    """
     values = tuple(progress.values())
     return tuple(
         sum(v[i] for v in values)
