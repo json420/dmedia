@@ -350,16 +350,10 @@ class TestImportManager(ImportCase):
         inst._workers.clear()
 
         # Test under normal conditions
-        inst._count = 17
-        inst._total_count = 18
-        inst._bytes = 19
-        inst._total_bytes = 20
+        inst._progress = 'whatever'
 
         inst.first_worker_starting()
-        self.assertEqual(inst._count, 0)
-        self.assertEqual(inst._total_count, 0)
-        self.assertEqual(inst._bytes, 0)
-        self.assertEqual(inst._total_bytes, 0)
+        self.assertEqual(inst._progress, {})
 
         batch = inst.doc
         self.assertTrue(isinstance(batch, dict))

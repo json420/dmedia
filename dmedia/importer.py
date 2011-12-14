@@ -251,15 +251,11 @@ class ImportManager(workers.CouchManager):
     def __init__(self, env, callback=None):
         super().__init__(env, callback)
         self.doc = None
-        self._reset_counters()
+        self._reset()
         if not workers.isregistered(ImportWorker):
             workers.register(ImportWorker)
 
-    def _reset_counters(self):
-        self._count = 0
-        self._total_count = 0
-        self._bytes = 0
-        self._total_bytes = 0
+    def _reset(self):
         self._error = None
         self._progress = {}
 
@@ -272,7 +268,7 @@ class ImportManager(workers.CouchManager):
     def first_worker_starting(self):
         assert self.doc is None
         assert self._workers == {}
-        self._reset_counters()
+        self._reset()
         stores = self.db.get('_local/dmedia')['stores']
         assert isinstance(stores, dict)
         if not stores:
