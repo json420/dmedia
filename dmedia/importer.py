@@ -116,6 +116,14 @@ def accumulate_stats(accum, stats):
             accum[key][k] += v
 
 
+def accumulate_progress(progress):
+    values = tuple(progress.values())
+    return tuple(
+        sum(v[i] for v in values)
+        for i in range(4)
+    )
+
+
 class ImportWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
@@ -233,7 +241,10 @@ class ImportWorker(workers.CouchWorker):
                 yield ('new', file, doc)
 
     def progress_callback(self, count, size):
-        self.emit('progress', size)
+        self.emit('progress', self.id,
+            count, self.batch.count,
+            size, self.batch.size
+        )
 
 
 class ImportManager(workers.CouchManager):
@@ -250,6 +261,7 @@ class ImportManager(workers.CouchManager):
         self._bytes = 0
         self._total_bytes = 0
         self._error = None
+        self._progress = {}
 
     def get_worker_env(self, worker, key, args):
         env = deepcopy(self.env)
@@ -308,8 +320,8 @@ class ImportManager(workers.CouchManager):
         self.db.save(self.doc)
         self.emit('import_started', basedir, import_id, extra)
 
-    def on_scanned(self, basedir, import_id, total_count, total_bytes):
-        self.emit('import_scanned', basedir, import_id, total_count, total_bytes)
+    def on_scanned(self, basedir, _id, total_count, total_bytes):
+        self.emit('import_scanned', basedir, _id, total_count, total_bytes)
         self._total_count += total_count 
         self._total_bytes += total_bytes
         self.emit('batch_progress',
@@ -317,13 +329,9 @@ class ImportManager(workers.CouchManager):
             self._bytes, self._total_bytes,
         )
 
-    def on_progress(self, key, file_size):
-        self._count += 1
-        self._bytes += file_size
-        self.emit('batch_progress',
-            self._count, self._total_count,
-            self._bytes, self._total_bytes,
-        )
+    def on_progress(self, basedir, _id, count, total_count, size, total_size):
+        self._progress[_id] = (count, total_count, size, total_size)
+        self.emit('batch_progress', *accumulate_progress(self._progress))
 
     def on_finished(self, basedir, import_id, stats):
         self.doc['imports'][import_id]['stats'] = stats

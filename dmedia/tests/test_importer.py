@@ -283,7 +283,10 @@ class TestImportWorker(ImportCase):
             item = self.q.items[i + 2]
             size += file.size
             self.assertEqual(item['signal'], 'progress')
-            self.assertEqual(item['args'], (self.src.dir, size))
+            self.assertEqual(
+                item['args'],
+                (self.src.dir, inst.id, i + 1, batch.count, size, batch.size)
+            )
 
         # Check the 'finished' signal
         item = self.q.items[-1]
@@ -566,32 +569,56 @@ class TestImportManager(ImportCase):
         inst = self.new(callback)
         self.assertEqual(callback.messages, [])
 
-        self.assertEqual(inst._count, 0)
-        self.assertEqual(inst._bytes, 0)
-        inst._total_count = 3
-        inst._total_bytes = 123
+        self.assertEqual(inst._progress, {})
 
         one = TempDir()
-        inst.on_progress(one.dir, 17)
-        self.assertEqual(inst._count, 1)
-        self.assertEqual(inst._bytes, 17)
+        id1 = random_id()
+        inst.on_progress(one.dir, id1, 17, 18, 19, 20)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (17, 18, 19, 20),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
-                ('batch_progress', (1, 3, 17, 123)),
+                ('batch_progress', (17, 18, 19, 20)),
             ]
         )
 
         two = TempDir()
-        inst.on_progress(two.dir, 18)
-        self.assertEqual(inst._count, 2)
-        self.assertEqual(inst._bytes, 17 + 18)
-
+        id2 = random_id()
+        inst.on_progress(two.dir, id2, 30, 29, 28, 27)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (17, 18, 19, 20),
+                id2: (30, 29, 28, 27),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
-                ('batch_progress', (1, 3, 17, 123)),
-                ('batch_progress', (2, 3, 17+18, 123)),
+                ('batch_progress', (17, 18, 19, 20)),
+                ('batch_progress', (17+30, 18+29, 19+28, 20+27))
+            ]
+        )
+        
+        inst.on_progress(one.dir, id1, 18, 19, 20, 21)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (18, 19, 20, 21),
+                id2: (30, 29, 28, 27),
+            }
+        )
+        self.assertEqual(
+            callback.messages,
+            [
+                ('batch_progress', (17, 18, 19, 20)),
+                ('batch_progress', (17+30, 18+29, 19+28, 20+27)),
+                ('batch_progress', (18+30, 19+29, 20+28, 21+27)),
             ]
         )
 
