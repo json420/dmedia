@@ -320,14 +320,10 @@ class ImportManager(workers.CouchManager):
         self.db.save(self.doc)
         self.emit('import_started', basedir, import_id, extra)
 
-    def on_scanned(self, basedir, _id, total_count, total_bytes):
-        self.emit('import_scanned', basedir, _id, total_count, total_bytes)
-        self._total_count += total_count 
-        self._total_bytes += total_bytes
-        self.emit('batch_progress',
-            self._count, self._total_count,
-            self._bytes, self._total_bytes,
-        )
+    def on_scanned(self, basedir, _id, total_count, total_size):
+        self.emit('import_scanned', basedir, _id, total_count, total_size)
+        self._progress[_id] = (0, total_count, 0, total_size)
+        self.emit('batch_progress', *accumulate_progress(self._progress))
 
     def on_progress(self, basedir, _id, count, total_count, size, total_size):
         self._progress[_id] = (count, total_count, size, total_size)

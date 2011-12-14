@@ -533,14 +533,17 @@ class TestImportManager(ImportCase):
         callback = DummyCallback()
         inst = self.new(callback)
         self.assertEqual(callback.messages, [])
+        self.assertEqual(inst._progress, {})
 
         one = TempDir()
         id1 = random_id()
-        self.assertEqual(inst._total_count, 0)
-        self.assertEqual(inst._total_bytes, 0)
         inst.on_scanned(one.dir, id1, 123, 4567)
-        self.assertEqual(inst._total_count, 123)
-        self.assertEqual(inst._total_bytes, 4567)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (0, 123, 0, 4567),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
@@ -552,8 +555,13 @@ class TestImportManager(ImportCase):
         two = TempDir()
         id2 = random_id()
         inst.on_scanned(two.dir, id2, 234, 5678)
-        self.assertEqual(inst._total_count, 123 + 234)
-        self.assertEqual(inst._total_bytes, 4567 + 5678)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (0, 123, 0, 4567),
+                id2: (0, 234, 0, 5678),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
