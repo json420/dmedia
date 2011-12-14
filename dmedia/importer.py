@@ -182,7 +182,6 @@ class ImportWorker(workers.CouchWorker):
                 if doc is not None:
                     self.db.save(doc)
                     self.doc['files'][file.name]['id'] = doc['_id']
-                self.emit('progress', file.size)
             self.doc['time_end'] = time.time()
         finally:
             self.db.save(self.doc)
@@ -194,7 +193,9 @@ class ImportWorker(workers.CouchWorker):
             'machine_id': self.env.get('machine_id'),
             'batch_id': self.env.get('batch_id'),
         }
-        for (file, ch) in batch_import_iter(self.batch, *filestores):
+        for (file, ch) in batch_import_iter(self.batch, *filestores,
+            callback=self.progress_callback
+        ):
             if ch is None:
                 assert file.size == 0
                 yield ('empty', file, None)
@@ -230,6 +231,9 @@ class ImportWorker(workers.CouchWorker):
                 if self.extract:
                     merge_metadata(file.name, doc)
                 yield ('new', file, doc)
+
+    def progress_callback(self, count, size):
+        self.emit('progress', size)
 
 
 class ImportManager(workers.CouchManager):

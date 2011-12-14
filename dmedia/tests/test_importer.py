@@ -278,10 +278,12 @@ class TestImportWorker(ImportCase):
         self.assertEqual(doc['files'], files)
 
         # Check the 'progress' signals
+        size = 0
         for (i, file) in enumerate(batch.files):
             item = self.q.items[i + 2]
+            size += file.size
             self.assertEqual(item['signal'], 'progress')
-            self.assertEqual(item['args'], (self.src.dir, file.size))
+            self.assertEqual(item['args'], (self.src.dir, size))
 
         # Check the 'finished' signal
         item = self.q.items[-1]
