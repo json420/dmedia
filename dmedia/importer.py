@@ -116,6 +116,28 @@ def accumulate_stats(accum, stats):
             accum[key][k] += v
 
 
+def sum_progress(progress):
+    """
+    Sum the progress stats for all imports to for 'batch_progress' signal.
+
+    For example:
+
+    >>> progress = {
+    ...     'UEZ2ZH25CZSEQEVENYJMHKZH': (10, 20, 30, 40),
+    ...     'OE36HPQOUVAV5EXYCCUV4R55': (100, 200, 300, 400),
+    ... }
+    ... 
+    >>> sum_progress(progress)
+    (110, 220, 330, 440)
+
+    """
+    values = tuple(progress.values())
+    return tuple(
+        sum(v[i] for v in values)
+        for i in range(4)
+    )
+
+
 class ImportWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
@@ -182,7 +204,6 @@ class ImportWorker(workers.CouchWorker):
                 if doc is not None:
                     self.db.save(doc)
                     self.doc['files'][file.name]['id'] = doc['_id']
-                self.emit('progress', file.size)
             self.doc['time_end'] = time.time()
         finally:
             self.db.save(self.doc)
@@ -194,7 +215,9 @@ class ImportWorker(workers.CouchWorker):
             'machine_id': self.env.get('machine_id'),
             'batch_id': self.env.get('batch_id'),
         }
-        for (file, ch) in batch_import_iter(self.batch, *filestores):
+        for (file, ch) in batch_import_iter(self.batch, *filestores,
+            callback=self.progress_callback
+        ):
             if ch is None:
                 assert file.size == 0
                 yield ('empty', file, None)
@@ -231,21 +254,24 @@ class ImportWorker(workers.CouchWorker):
                     merge_metadata(file.name, doc)
                 yield ('new', file, doc)
 
+    def progress_callback(self, count, size):
+        self.emit('progress', self.id,
+            count, self.batch.count,
+            size, self.batch.size
+        )
+
 
 class ImportManager(workers.CouchManager):
     def __init__(self, env, callback=None):
         super().__init__(env, callback)
         self.doc = None
-        self._reset_counters()
+        self._reset()
         if not workers.isregistered(ImportWorker):
             workers.register(ImportWorker)
 
-    def _reset_counters(self):
-        self._count = 0
-        self._total_count = 0
-        self._bytes = 0
-        self._total_bytes = 0
+    def _reset(self):
         self._error = None
+        self._progress = {}
 
     def get_worker_env(self, worker, key, args):
         env = deepcopy(self.env)
@@ -256,7 +282,7 @@ class ImportManager(workers.CouchManager):
     def first_worker_starting(self):
         assert self.doc is None
         assert self._workers == {}
-        self._reset_counters()
+        self._reset()
         stores = self.db.get('_local/dmedia')['stores']
         assert isinstance(stores, dict)
         if not stores:
@@ -304,22 +330,14 @@ class ImportManager(workers.CouchManager):
         self.db.save(self.doc)
         self.emit('import_started', basedir, import_id, extra)
 
-    def on_scanned(self, basedir, import_id, total_count, total_bytes):
-        self.emit('import_scanned', basedir, import_id, total_count, total_bytes)
-        self._total_count += total_count 
-        self._total_bytes += total_bytes
-        self.emit('batch_progress',
-            self._count, self._total_count,
-            self._bytes, self._total_bytes,
-        )
+    def on_scanned(self, basedir, _id, total_count, total_size):
+        self.emit('import_scanned', basedir, _id, total_count, total_size)
+        self._progress[_id] = (0, total_count, 0, total_size)
+        self.emit('batch_progress', *sum_progress(self._progress))
 
-    def on_progress(self, key, file_size):
-        self._count += 1
-        self._bytes += file_size
-        self.emit('batch_progress',
-            self._count, self._total_count,
-            self._bytes, self._total_bytes,
-        )
+    def on_progress(self, basedir, _id, count, total_count, size, total_size):
+        self._progress[_id] = (count, total_count, size, total_size)
+        self.emit('batch_progress', *sum_progress(self._progress))
 
     def on_finished(self, basedir, import_id, stats):
         self.doc['imports'][import_id]['stats'] = stats
@@ -329,7 +347,7 @@ class ImportManager(workers.CouchManager):
 
     def get_batch_progress(self):
         with self._lock:
-            return (self._count, self._total_count, self._bytes, self._total_bytes)
+            return sum_progress(self._progress)
 
     def start_import(self, base, extra=None):
         return self.start_job('ImportWorker', base, base, extra)

@@ -157,6 +157,46 @@ class TestFunctions(TestCase):
             )
         )
 
+    def test_sum_progress(self):
+        self.assertEqual(
+            importer.sum_progress({}),
+            (0, 0, 0, 0)
+        )
+        self.assertEqual(
+            importer.sum_progress(
+                {
+                    random_id(): (0, 0, 0, 0),
+                }
+            ),
+            (0, 0, 0, 0)
+        )
+        self.assertEqual(
+            importer.sum_progress(
+                {
+                    random_id(): (0, 0, 0, 0),
+                    random_id(): (0, 0, 0, 0),
+                }
+            ),
+            (0, 0, 0, 0)
+        )
+        self.assertEqual(
+            importer.sum_progress(
+                {
+                    random_id(): (5, 6, 7, 8),
+                }
+            ),
+            (5, 6, 7, 8)
+        )
+        self.assertEqual(
+            importer.sum_progress(
+                {
+                    random_id(): (5, 6, 7, 8),
+                    random_id(): (1, 2, 3, 4),
+                }
+            ),
+            (6, 8, 10, 12)
+        )
+
 
 class ImportCase(CouchCase):
 
@@ -278,10 +318,15 @@ class TestImportWorker(ImportCase):
         self.assertEqual(doc['files'], files)
 
         # Check the 'progress' signals
+        size = 0
         for (i, file) in enumerate(batch.files):
             item = self.q.items[i + 2]
+            size += file.size
             self.assertEqual(item['signal'], 'progress')
-            self.assertEqual(item['args'], (self.src.dir, file.size))
+            self.assertEqual(
+                item['args'],
+                (self.src.dir, inst.id, i + 1, batch.count, size, batch.size)
+            )
 
         # Check the 'finished' signal
         item = self.q.items[-1]
@@ -345,16 +390,10 @@ class TestImportManager(ImportCase):
         inst._workers.clear()
 
         # Test under normal conditions
-        inst._count = 17
-        inst._total_count = 18
-        inst._bytes = 19
-        inst._total_bytes = 20
+        inst._progress = 'whatever'
 
         inst.first_worker_starting()
-        self.assertEqual(inst._count, 0)
-        self.assertEqual(inst._total_count, 0)
-        self.assertEqual(inst._bytes, 0)
-        self.assertEqual(inst._total_bytes, 0)
+        self.assertEqual(inst._progress, {})
 
         batch = inst.doc
         self.assertTrue(isinstance(batch, dict))
@@ -528,14 +567,17 @@ class TestImportManager(ImportCase):
         callback = DummyCallback()
         inst = self.new(callback)
         self.assertEqual(callback.messages, [])
+        self.assertEqual(inst._progress, {})
 
         one = TempDir()
         id1 = random_id()
-        self.assertEqual(inst._total_count, 0)
-        self.assertEqual(inst._total_bytes, 0)
         inst.on_scanned(one.dir, id1, 123, 4567)
-        self.assertEqual(inst._total_count, 123)
-        self.assertEqual(inst._total_bytes, 4567)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (0, 123, 0, 4567),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
@@ -547,8 +589,13 @@ class TestImportManager(ImportCase):
         two = TempDir()
         id2 = random_id()
         inst.on_scanned(two.dir, id2, 234, 5678)
-        self.assertEqual(inst._total_count, 123 + 234)
-        self.assertEqual(inst._total_bytes, 4567 + 5678)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (0, 123, 0, 4567),
+                id2: (0, 234, 0, 5678),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
@@ -564,32 +611,56 @@ class TestImportManager(ImportCase):
         inst = self.new(callback)
         self.assertEqual(callback.messages, [])
 
-        self.assertEqual(inst._count, 0)
-        self.assertEqual(inst._bytes, 0)
-        inst._total_count = 3
-        inst._total_bytes = 123
+        self.assertEqual(inst._progress, {})
 
         one = TempDir()
-        inst.on_progress(one.dir, 17)
-        self.assertEqual(inst._count, 1)
-        self.assertEqual(inst._bytes, 17)
+        id1 = random_id()
+        inst.on_progress(one.dir, id1, 17, 18, 19, 20)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (17, 18, 19, 20),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
-                ('batch_progress', (1, 3, 17, 123)),
+                ('batch_progress', (17, 18, 19, 20)),
             ]
         )
 
         two = TempDir()
-        inst.on_progress(two.dir, 18)
-        self.assertEqual(inst._count, 2)
-        self.assertEqual(inst._bytes, 17 + 18)
-
+        id2 = random_id()
+        inst.on_progress(two.dir, id2, 30, 29, 28, 27)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (17, 18, 19, 20),
+                id2: (30, 29, 28, 27),
+            }
+        )
         self.assertEqual(
             callback.messages,
             [
-                ('batch_progress', (1, 3, 17, 123)),
-                ('batch_progress', (2, 3, 17+18, 123)),
+                ('batch_progress', (17, 18, 19, 20)),
+                ('batch_progress', (17+30, 18+29, 19+28, 20+27))
+            ]
+        )
+        
+        inst.on_progress(one.dir, id1, 18, 19, 20, 21)
+        self.assertEqual(
+            inst._progress,
+            {
+                id1: (18, 19, 20, 21),
+                id2: (30, 29, 28, 27),
+            }
+        )
+        self.assertEqual(
+            callback.messages,
+            [
+                ('batch_progress', (17, 18, 19, 20)),
+                ('batch_progress', (17+30, 18+29, 19+28, 20+27)),
+                ('batch_progress', (18+30, 19+29, 20+28, 21+27)),
             ]
         )
 
@@ -651,13 +722,19 @@ class TestImportManager(ImportCase):
             inst.get_batch_progress(),
             (0, 0, 0, 0)
         )
-        inst._count = 1
-        inst._total_count = 2
-        inst._bytes = 3
-        inst._total_bytes = 4
+
+        id1 = random_id()
+        inst._progress[id1] = (1, 2, 3, 4)
         self.assertEqual(
             inst.get_batch_progress(),
             (1, 2, 3, 4)
+        )
+
+        id2 = random_id()
+        inst._progress[id2] = (5, 6, 7, 8)
+        self.assertEqual(
+            inst.get_batch_progress(),
+            (1+5, 2+6, 3+7, 4+8)
         )
 
     def test_start_import(self):
