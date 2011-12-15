@@ -1,5 +1,3 @@
-@import url(http://fonts.googleapis.com/css?family=Lato:300,400);
-
 *{
 	margin:0px;
 	padding:0px;
@@ -10,7 +8,7 @@ html{
 }
 
 body{
-	font-family:"Lato";
+	font-family:Ubuntu;
 	font-size:16px;
 	line-height:1.5em;
 	color:white;
@@ -159,7 +157,7 @@ textarea, select{
 	padding-right:5%;
 	width:90%;
 	box-sizing:content-box;
-	font-family:"Lato";
+	font-family:Ubuntu;
 	color:white;
 	background:-webkit-linear-gradient(top, #444, #666);
 	border:0px;
@@ -188,14 +186,14 @@ select option{
 	z-index:-12;
 }
 
-.progbfg{
-	height:1.4em;
-	position:absolute;
-	top:0px;
-	left:0px;
-	content:"";
-	border-radius:0.7em;
-	background:-webkit-linear-gradient(top, #ea364f, #bd132b);
+.progfg{
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 0%;
+	border-radius: 0.7em;
+	background: -webkit-linear-gradient(top, #ea364f, #bd132b);
 }
 
 #content{
