@@ -45,9 +45,9 @@ ProgressBar.prototype = {
         this._bar.style.width = (p * 100).toFixed(0) + '%';
     },
 
-    update: function(complete, total) {
+    update: function(completed, total) {
         if (total > 0) {
-            this.progress = complete / total;
+            this.progress = completed / total;
         }
         else {
             this.progress = 0;
@@ -122,8 +122,8 @@ Signal.connect('batch_started',
 
 Signal.connect('batch_progress',
     function(count, total_count, size, total_size) {
-        //$('total').textContent = count_n_size(total_count, total_size);
-        //$('completed').textContent = count_n_size(count, size);
+        UI.total.textContent = count_n_size(total_count, total_size);
+        UI.completed.textContent = count_n_size(count, size);
         UI.progressbar.update(size, total_size);
     }
 );
@@ -165,6 +165,8 @@ var UI = {};
 
 window.onload = function() {
     UI.progressbar = new ProgressBar('progress');
+    UI.total = $('total');
+    UI.completed = $('completed');
 }
 
 
