@@ -52,7 +52,7 @@ ProgressBar.prototype = {
         else {
             this.progress = 0;
         }
-    }
+    },
 
 }
 
@@ -108,15 +108,14 @@ var Signal = {
 }
 
 
-var import_html = '<p><strong>Total: </strong><span id="total"></span></p>'
-    + '<p><strong>Completed: </strong><span id="completed"></span></p>'
-    + '<p><progress id="progress" value="0" max="0">'
-    + '</p><ul id="cards"></ul>';
-
 Signal.connect('batch_started',
     function(batch_id) {
-        return;
-        $('import').innerHTML = import_html;
+        UI.cards.textContent = '';
+        UI.new_row();
+        UI.i = 0;
+        UI.total.textContent = '';
+        UI.completed.textContent = '';
+        UI.progressbar.progress = 0;
     }
 );
 
@@ -130,28 +129,34 @@ Signal.connect('batch_progress',
 
 Signal.connect('import_started',
     function(basedir, import_id, info) {
-        return;
-        var ul = $('cards');
-        var li = $el('li', {id: import_id});
+        if (UI.i > 0 && UI.i % 4 == 0) {
+            UI.new_row();   
+        }
+        UI.i += 1;
 
-        var card = $el('div', {'class': 'card'});
-        card.textContent = [
+        var div = $el('div', {'id': import_id, 'class': 'three'});
+
+        var img = $el('img', {'src': '#'});
+        div.appendChild(img);
+        div._img = img;
+
+        var label = $el('div', {'class': 'card-label'});
+        label.textContent = [
             bytes10(info.partition.bytes),
-            info.partition.label]
-        .join(', ');
-        li.appendChild(card);
+            info.partition.label
+        ].join(', ');
+        div.appendChild(label);
 
         var info = $el('div');
-        li.appendChild(info);
-        li._info = info;
+        div.appendChild(info);
+        div._info = info;
 
-        ul.appendChild(li);
+        UI.row.appendChild(div);
     }
 );
 
 Signal.connect('import_scanned',
     function(basedir, import_id, total_count, total_size) {
-        return;
         $(import_id)._info.textContent = count_n_size(total_count, total_size);
     }
 );
@@ -161,12 +166,18 @@ Signal.connect('import_scanned',
 var db = new couch.Database('dmedia');
 
 
-var UI = {};
+var UI = {
+    new_row: function() {
+        UI.row = $el('div', {'class': 'row'});
+        UI.cards.appendChild(UI.row);
+    },
+};
 
 window.onload = function() {
     UI.progressbar = new ProgressBar('progress');
     UI.total = $('total');
     UI.completed = $('completed');
+    UI.cards = $('cards');
 }
 
 
