@@ -177,7 +177,7 @@ select option{
 	background:#444;
 }
 
-#progbar{
+.progbg{
 	height:1.5em;
 	margin-top:1.5em;
 	margin-bottom:1.5em;
@@ -185,26 +185,14 @@ select option{
 	border-radius:0.75em;
 	box-shadow:0px 2px 10px rgba(0,0,0,0.5);
 	position:relative;
+	z-index:-12;
 }
 
-#progbar:before{
+.progbfg{
 	height:1.4em;
 	position:absolute;
-	z-index:-10;
-	top:0.1em;
-	left:0.1em;
-	width:10%;
-	content:"";
-	border-radius:0.7em;
-	box-shadow:0px 0px 20px #ea364f;
-}
-
-#progbar:after{
-	height:1.4em;
-	position:absolute;
-	top:0.1em;
-	left:0.1em;
-	width:10%;
+	top:0px;
+	left:0px;
 	content:"";
 	border-radius:0.7em;
 	background:-webkit-linear-gradient(top, #ea364f, #bd132b);
