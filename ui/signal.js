@@ -206,7 +206,7 @@ Signal.connect('import_started',
         ].join(', ');
         inner.appendChild(label);
 
-        var info = $el('p');
+        var info = $el('p', {textContent: '...'});
         inner.appendChild(info);
         div._info = info;
 
