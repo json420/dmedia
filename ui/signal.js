@@ -1,3 +1,21 @@
+db = new couch.Database('dmedia');
+
+var UI = {
+    new_row: function() {
+        UI.row = $el('div', {'class': 'row'});
+        UI.cards.appendChild(UI.row);
+    },
+};
+
+window.onload = function() {
+    UI.progressbar = new ProgressBar('progress');
+    UI.total = $('total');
+    UI.completed = $('completed');
+    UI.cards = $('cards');
+    UI.tabs = new Tabs();
+}
+
+
 function files(count) {
     if (count == 1) {
         return '1 file';
@@ -204,24 +222,17 @@ Signal.connect('import_scanned',
     }
 );
 
+Signal.connect('thumbnail',
+    function(basedir, import_id, doc_id) {
+        var src = db.att_url(doc_id, 'thumbnail');
+        $(import_id)._img.setAttribute('src', src);
+    }
+);
 
-// The `dmedia` CouchDB database:
-var db = new couch.Database('dmedia');
 
 
-var UI = {
-    new_row: function() {
-        UI.row = $el('div', {'class': 'row'});
-        UI.cards.appendChild(UI.row);
-    },
-};
 
-window.onload = function() {
-    UI.progressbar = new ProgressBar('progress');
-    UI.total = $('total');
-    UI.completed = $('completed');
-    UI.cards = $('cards');
-    UI.tabs = new Tabs();
-}
+
+
 
 

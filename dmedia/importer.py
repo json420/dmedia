@@ -196,6 +196,7 @@ class ImportWorker(workers.CouchWorker):
 
     def import_all(self):
         stores = self.get_filestores()
+        need_thumbnail = True
         try:
             for (status, file, doc) in self.import_iter(*stores):
                 self.doc['stats'][status]['count'] += 1
@@ -204,6 +205,9 @@ class ImportWorker(workers.CouchWorker):
                 if doc is not None:
                     self.db.save(doc)
                     self.doc['files'][file.name]['id'] = doc['_id']
+                    if need_thumbnail and 'thumbnail' in doc['_attachments']:
+                        self.emit('thumbnail', self.id, doc['_id'])
+                        need_thumbnail = False
             self.doc['time_end'] = time.time()
         finally:
             self.db.save(self.doc)
