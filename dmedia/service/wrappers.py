@@ -79,6 +79,9 @@ class ImportWrapper(Wrapper):
         'import_scanned': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
+        'thumbnail': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
         'batch_progress': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
