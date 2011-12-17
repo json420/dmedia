@@ -87,11 +87,11 @@ class ImportWrapper(Wrapper):
         ),
         'batch_finished': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             # (batch_id, stats, copies)
-            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'batch_finalized': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            # (batch_id, stats, copies)
-            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+            # (batch_id, stats, copies, msg)
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'error': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT]

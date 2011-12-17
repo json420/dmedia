@@ -82,7 +82,7 @@ class Importer:
         )
         self.manager = ImportManager(env, self.hub.callback)
 
-    def on_batch_finished(self, hub, batch_id, stats, copies):
+    def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         Worker = (Formatter if copies >= 2 else Ejector)
         # FIXME: for now, we never use the Formatter just in case.
         Worker = Ejector
@@ -90,6 +90,7 @@ class Importer:
         self.batch_id = batch_id
         self.copies = copies
         self.stats = stats
+        self.msg = msg
         self.workers = dict(
             (obj, Worker(obj, self.on_complete))
             for obj in self.cards
@@ -106,7 +107,7 @@ class Importer:
             self.blocking = False
             log.info('emitting batch_finalized to UI')
             self.hub.emit_mainthread(
-                'batch_finalized', self.batch_id, self.stats, self.copies
+                'batch_finalized', self.batch_id, self.stats, self.copies, self.msg
             )
 
     def on_card_inserted(self, udisks, obj, parentdir, partition, drive):

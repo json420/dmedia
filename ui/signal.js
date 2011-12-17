@@ -16,6 +16,19 @@ window.onload = function() {
 }
 
 
+function $hide(id) {
+    var element = $(id);
+    element.classList.add('hide');
+    return element;
+}
+
+function $show(id) {
+    var element = $(id);
+    element.classList.remove('hide');
+    return element;
+}
+
+
 function files(count) {
     if (count == 1) {
         return '1 file';
@@ -171,6 +184,8 @@ var Signal = {
 
 Signal.connect('batch_started',
     function(batch_id) {
+        $hide('summary');
+        $show('info');
         UI.cards.textContent = '';
         //UI.new_row();
         UI.i = 0;
@@ -224,6 +239,22 @@ Signal.connect('thumbnail',
     function(basedir, import_id, doc_id) {
         var url = db.att_url(doc_id, 'thumbnail');
         $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 
+    }
+);
+
+
+Signal.connect('batch_finalized',
+    function(batch_id, stats, copies, msg) {
+        $hide('info');
+        $show('summary');
+        $('summary_summary').textContent = msg[0];
+        var body = $('summary_body');
+        body.textContent = '';
+        msg.slice(1).forEach(function(line) {
+            body.appendChild(
+                $el('p', {textContent: line})
+            );
+        });
     }
 );
 

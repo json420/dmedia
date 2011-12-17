@@ -105,6 +105,13 @@ def card_label(basedir, info):
     return basedir
 
 
+def notify_stats(lines):
+    summary = lines[0]
+    lines = lines[1:]
+    body = ('\n'.join(lines) if lines else None)
+    return (summary, body)
+
+
 class UnityImportUX:
     def __init__(self, hub):
         self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
@@ -149,11 +156,11 @@ class UnityImportUX:
         progress = (0.0 if total_size == 0 else size / total_size)
         self.launcher.set_property('progress', progress)
 
-    def on_batch_finalized(self, gm, batch_id, stats, copies):
+    def on_batch_finalized(self, gm, batch_id, stats, copies, lines):
         self.launcher.set_property('count_visible', False)
         self.launcher.set_property('progress_visible', False)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
-        (summary, body) = notify_stats(stats)
+        (summary, body) = notify_stats(lines)
         self.notify.replace(summary, body, 'notification-device-eject')
 
     def on_error(self, gm, error):

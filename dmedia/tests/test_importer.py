@@ -455,7 +455,7 @@ class TestImportManager(ImportCase):
         self.assertEqual(
             callback.messages,
             [
-                ('batch_finished', (batch_id, stats, 2)),
+                ('batch_finished', (batch_id, stats, 2, importer.notify_stats2(stats))),
             ]
         )
         doc = inst.db.get(batch_id)
@@ -796,7 +796,7 @@ class TestImportManager(ImportCase):
         }
         self.assertEqual(
             callback.messages[-1],
-            ('batch_finished', (batch_id, stats, 3))
+            ('batch_finished', (batch_id, stats, 3, importer.notify_stats2(stats)))
         )
 
         fs1 = filestore.FileStore(self.dst1.dir)
@@ -892,7 +892,7 @@ class TestImportManager(ImportCase):
         }
         self.assertEqual(
             callback.messages[-1],
-            ('batch_finished', (batch_id, stats, 3))
+            ('batch_finished', (batch_id, stats, 3, importer.notify_stats2(stats)))
         )
 
         fs1 = filestore.FileStore(self.dst1.dir)

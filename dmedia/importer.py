@@ -61,12 +61,12 @@ def notify_started(basedirs):
     return (summary, body)
 
 
-def notify_stats(stats):
+def notify_stats2(stats):
     new = stats['new']['count']
     duplicate = stats['duplicate']['count']
     empty = stats['empty']['count']
     if new == 0 and duplicate == 0 and empty == 0:
-        return (_('No files found'), None)
+        return [_('No files found')]
     if new > 0:
         summary = ngettext(
             '{count} new file, {size}',
@@ -78,7 +78,7 @@ def notify_stats(stats):
         )
     else:
         summary = _('No new files')
-    lines = []
+    lines = [summary]
     if duplicate > 0:
         msg = ngettext(
             '{count} duplicate file, {size}',
@@ -96,6 +96,13 @@ def notify_stats(stats):
             empty
         ).format(count=empty)
         lines.append(msg) 
+    return lines
+
+
+def notify_stats(stats):
+    lines = notify_stats2(stats)
+    summary = lines[0]
+    lines = lines[1:]
     body = ('\n'.join(lines) if lines else None)
     return (summary, body)
 
@@ -307,7 +314,13 @@ class ImportManager(workers.CouchManager):
         log.info('sync done')
         self.doc['time_end'] = time.time()
         self.db.save(self.doc)
-        self.emit('batch_finished', self.doc['_id'], self.doc['stats'], self.copies)
+        self.emit('batch_finished',
+            self.doc['_id'],
+            self.doc['stats'],
+            self.copies,
+            notify_stats2(self.doc['stats'])
+            
+        )
         log.info('compacting %r', self.db)
         self.db.post(None, '_compact')
         self.doc = None
