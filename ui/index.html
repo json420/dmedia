@@ -25,47 +25,47 @@
                 </div>
             </div>
         </div>
-        <div id="content">
-            <div id="import_target">
-                <div class="row">
-                    <div class="three">
-                        <h2>Importer</h2>
-                        <p>Project:</p>
-                        <select name="project">
-                            <option value="TheBigProject">TheBigProject</option>
-                            <option value="Linaro Connect Q1.12">Linaro Connect Q1.12</option>
-                            <option value="UDS P">UDS P</option>
-                            <option value="Crazy Film">Crazy Film</option>
-                        </select>
-                    </div>
-                    <div class="three">
-                        <h3>(Running)</h3>
-                        <p>Tags:</p>
-                        <textarea placeholder="comma, seperated, tags"></textarea>
-                    </div>
-                    <div class="six">
-                        <h3>Stats...</h3>
-                        <p><strong>Total: </strong><span id="total"></span></p>
-                        <p><strong>Completed: </strong><span id="completed"></span></p>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="twelve">
-                        <div class="progress" id="progress"><div></div></div>
-                    </div>
-                </div>
-                <div id="cards"></div>
-            </div>
 
-            <div id="history_target" class="hide">
-                <div class="row">History</div>
+        <div id="import_target" class="content">
+            <div class="row">
+                <div class="three">
+                    <h2>Importer</h2>
+                    <p>Project:</p>
+                    <select name="project">
+                        <option value="TheBigProject">TheBigProject</option>
+                        <option value="Linaro Connect Q1.12">Linaro Connect Q1.12</option>
+                        <option value="UDS P">UDS P</option>
+                        <option value="Crazy Film">Crazy Film</option>
+                    </select>
+                </div>
+                <div class="three">
+                    <h3>(Running)</h3>
+                    <p>Tags:</p>
+                    <textarea placeholder="comma, seperated, tags"></textarea>
+                </div>
+                <div class="six">
+                    <h3>Stats...</h3>
+                    <p><strong>Total: </strong><span id="total"></span></p>
+                    <p><strong>Completed: </strong><span id="completed"></span></p>
+                </div>
             </div>
-            <div id="browser_target" class="hide">
-                <div class="row">Browser</div>
+            <div class="row">
+                <div class="twelve">
+                    <div class="progress" id="progress"><div></div></div>
+                </div>
             </div>
-            <div id="storage_target" class="hide">
-                <div class="row">Storage</div>
-            </div>
+            <div id="cards"></div>
         </div>
+
+        <div id="history_target" class="content hide">
+            <div class="row">History</div>
+        </div>
+        <div id="browser_target" class="content hide">
+            <div class="row">Browser</div>
+        </div>
+        <div id="storage_target" class="content hide">
+            <div class="row">Storage</div>
+        </div>
+
     </body>
 </html>

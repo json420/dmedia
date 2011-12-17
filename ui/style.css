@@ -200,8 +200,13 @@ select option{
 	background: -webkit-linear-gradient(top, #ea364f, #bd132b);
 }
 
-#content{
+.content{
 	margin-top:3em;
+	min-hight: 100%;
+}
+
+#browser_target {
+    background-color: #333;
 }
 
 #header{
