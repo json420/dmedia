@@ -9,7 +9,7 @@ html{
 
 body{
 	font-family:Ubuntu;
-	font-size:16px;
+	font-size:15px;
 	line-height:1.5em;
 	color:white;
 	background:-webkit-radial-gradient(50% 90%, 400% 100%, #51225e, #28102c);
@@ -53,10 +53,6 @@ h3{
 	clear:both;
 }
 
-.row p{
-	margin-bottom:1.5em;
-	text-align:justify;
-}
 
 .one{
 	margin-left:1%;
