@@ -268,3 +268,25 @@ select option{
 .card-label {
     font-weight: bold;
 }
+
+
+.thumbnail {
+    height: 192px;
+    width: 192px;
+	border-radius: 5px;
+	box-shadow: 0px 2px 10px rgba(0,0,0,0.5);
+	background-color: #999;
+	background-size: cover;
+	background-position: center center;
+	display: inline-block;
+	overflow: hidden;
+	margin: 10px; 
+	position: relative;
+}
+
+.thumbnail div {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 4px;
+    position: absolute;
+    width: 100%;
+}

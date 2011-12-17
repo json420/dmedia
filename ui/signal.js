@@ -172,7 +172,7 @@ var Signal = {
 Signal.connect('batch_started',
     function(batch_id) {
         UI.cards.textContent = '';
-        UI.new_row();
+        //UI.new_row();
         UI.i = 0;
         UI.total.textContent = '';
         UI.completed.textContent = '';
@@ -190,29 +190,27 @@ Signal.connect('batch_progress',
 
 Signal.connect('import_started',
     function(basedir, import_id, info) {
-        if (UI.i > 0 && UI.i % 4 == 0) {
-            UI.new_row();   
-        }
-        UI.i += 1;
+//        if (UI.i > 0 && UI.i % 4 == 0) {
+//            UI.new_row();   
+//        }
+//        UI.i += 1;
 
-        var div = $el('div', {'id': import_id, 'class': 'three'});
+        var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
+        var inner = $el('div');
+        div.appendChild(inner);
 
-        var img = $el('img', {'src': '#'});
-        div.appendChild(img);
-        div._img = img;
-
-        var label = $el('div', {'class': 'card-label'});
+        var label = $el('p', {'class': 'card-label'});
         label.textContent = [
             bytes10(info.partition.bytes),
             info.partition.label
         ].join(', ');
-        div.appendChild(label);
+        inner.appendChild(label);
 
-        var info = $el('div');
-        div.appendChild(info);
+        var info = $el('p');
+        inner.appendChild(info);
         div._info = info;
 
-        UI.row.appendChild(div);
+        UI.cards.appendChild(div);
     }
 );
 
@@ -224,8 +222,8 @@ Signal.connect('import_scanned',
 
 Signal.connect('thumbnail',
     function(basedir, import_id, doc_id) {
-        var src = db.att_url(doc_id, 'thumbnail');
-        $(import_id)._img.setAttribute('src', src);
+        var url = db.att_url(doc_id, 'thumbnail');
+        $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 
     }
 );
 
