@@ -216,7 +216,7 @@ select option{
 
 #header .item{
 	position:relative;
-	cursor: pointer;
+	cursor: default;
 }
 
 #header .item:after{
