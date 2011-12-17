@@ -10,40 +10,36 @@
     </head>
     <body>
         <div id="header">
-            <div class="row">
-                <div class="three item active" id="import">
-                    Import 
-                </div>
-                <div class="three item" id="history">
-                    History
-                </div>
-                <div class="three item" id="browser">
-                    Browser
-                </div>
-                <div class="three item" id="storage">
-                    Storage
-                </div>
+            <div class="tab active" id="import">
+                Import 
+            </div>
+            <div class="tab" id="history">
+                History
+            </div>
+            <div class="tab" id="browser">
+                Browser
+            </div>
+            <div class="tab" id="storage">
+                Storage
             </div>
         </div>
 
         <div id="import_target" class="content">
-            <div class="grow">
+            <div class="row">
                 <div class="grid_2">
-                    <h3>Tags</h3>
-                    <textarea placeholder="comma, seperated, tags"></textarea>
-                </div>
-                <div class="grid_2">
-                    <h3>Stats</h3>
                     <p><strong>Total: </strong><span id="total"></span></p>
                     <p><strong>Completed: </strong><span id="completed"></span></p>
                 </div>
+                <div class="grid_2">
+                    <textarea placeholder="comma, seperated, tags"></textarea>
+                </div>
             </div>
-            <div class="grow">
+            <div class="row">
                 <div class="grid_4">
                     <div class="progress" id="progress"><div></div></div>
                 </div>
             </div>
-            <div class="grow" id="cards"></div>
+            <div class="row" id="cards"></div>
         </div>
 
         <div id="history_target" class="content hide">

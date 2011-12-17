@@ -83,7 +83,7 @@ function Tabs() {
         }
     }
 
-    var elements = document.getElementsByClassName('item');
+    var elements = document.getElementsByClassName('tab');
     for (i=0; i<elements.length; i++) {
         var element = elements[i];
         element.onclick = make_handler(element);
