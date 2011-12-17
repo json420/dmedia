@@ -57,6 +57,49 @@ ProgressBar.prototype = {
 }
 
 
+function Tabs() {
+    function make_handler(element) {
+        var id = element.id;
+        return function(event) {
+            window.location.hash = '#' + id;
+        }
+    }
+
+    var elements = document.getElementsByClassName('item');
+    for (i=0; i<elements.length; i++) {
+        var element = elements[i];
+        element.onclick = make_handler(element);
+    }
+
+    var self = this;
+    window.addEventListener('hashchange', function() {
+        self.on_hashchange();
+    });
+
+    this.show_tab('import');
+}
+
+Tabs.prototype = {
+    on_hashchange: function() {
+        var id = window.location.hash.slice(1);
+        this.show_tab(id);
+    },
+
+    show_tab: function(id) {
+        if (this.tab) {
+            this.tab.classList.remove('active'); 
+        }
+        this.tab = $(id);
+        this.tab.classList.add('active');
+        if (this.target) {
+            this.target.classList.add('hide');
+        }
+        this.target = $(id + '.target');
+        this.target.classList.remove('hide');
+    },
+}
+
+
 
 
 /*
@@ -178,6 +221,7 @@ window.onload = function() {
     UI.total = $('total');
     UI.completed = $('completed');
     UI.cards = $('cards');
+    UI.tabs = new Tabs();
 }
 
 

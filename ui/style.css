@@ -16,6 +16,10 @@ body{
 	background-attachment:fixed;
 }
 
+.hide {
+    display: none !important;
+}
+
 h1{
 	font-size:3em;
 	line-height:1em;
@@ -183,11 +187,11 @@ select option{
 	border-radius: 0.75em;
 	box-shadow: 0px 2px 10px rgba(0,0,0,0.5);
 	position: relative;
-	z-index: -12;
 }
 
 .progress div {
 	position: absolute;
+	z-index: 10;
 	top: 0;
 	bottom: 0;
 	left: 0;
@@ -207,10 +211,12 @@ select option{
 	right:0px;
 	text-align:center;
 	background:-webkit-linear-gradient(top, rgba(40, 16, 44, 1), rgba(40, 16, 44, 1) 50%, rgba(40, 16, 44, 0));
+	z-index: 100;
 }
 
 #header .item{
 	position:relative;
+	cursor: pointer;
 }
 
 #header .item:after{

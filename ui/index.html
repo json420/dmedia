@@ -1,58 +1,71 @@
 <!doctype html>
 <html>
-	<head>
+    <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <script src="couch.js"></script>
         <script src="/_apps/dc3/base.js"></script>
         <script src="signal.js"></script>
-		<title>dmedia</title>
-		<link rel="stylesheet" href="style.css"/>
-	</head>
-	<body>
-		<div id="header">
-			<div class="row">
-				<div class="three item active">
-					Import 
-				</div>
-				<div class="three item">
-					History
-				</div>
-				<div class="three item">
-					Browser
-				</div>
-				<div class="three item">
-					Storage
-				</div>
-			</div>
-		</div>
-		<div id="content" class="row">
-			<div class="three">
-				<h2>Importer</h2>
-				<p>Project:</p>
-				<select name="project">
-					<option value="TheBigProject">TheBigProject</option>
-					<option value="Linaro Connect Q1.12">Linaro Connect Q1.12</option>
-					<option value="UDS P">UDS P</option>
-					<option value="Crazy Film">Crazy Film</option>
-				</select>
-			</div>
-			<div class="three">
-				<h3>(Running)</h3>
-				<p>Tags:</p>
-				<textarea placeholder="comma, seperated, tags"></textarea>
-			</div>
-			<div class="six">
-				<h3>Stats...</h3>
-		        <p><strong>Total: </strong><span id="total"></span></p>
-				<p><strong>Completed: </strong><span id="completed"></span></p>
-			</div>
-		</div>
-		<div class="row">
-			<div class="twelve">
-				<div class="progress" id="progress"><div></div></div>
-			</div>
-		</div>
-		<div id="cards"></div>
-		</div>
-	</body>
+        <title>dmedia</title>
+        <link rel="stylesheet" href="style.css"/>
+    </head>
+    <body>
+        <div id="header">
+            <div class="row">
+                <div class="three item active" id="import">
+                    Import 
+                </div>
+                <div class="three item" id="history">
+                    History
+                </div>
+                <div class="three item" id="browser">
+                    Browser
+                </div>
+                <div class="three item" id="storage">
+                    Storage
+                </div>
+            </div>
+        </div>
+        <div id="content">
+            <div id="import.target">
+                <div class="row">
+                    <div class="three">
+                        <h2>Importer</h2>
+                        <p>Project:</p>
+                        <select name="project">
+                            <option value="TheBigProject">TheBigProject</option>
+                            <option value="Linaro Connect Q1.12">Linaro Connect Q1.12</option>
+                            <option value="UDS P">UDS P</option>
+                            <option value="Crazy Film">Crazy Film</option>
+                        </select>
+                    </div>
+                    <div class="three">
+                        <h3>(Running)</h3>
+                        <p>Tags:</p>
+                        <textarea placeholder="comma, seperated, tags"></textarea>
+                    </div>
+                    <div class="six">
+                        <h3>Stats...</h3>
+                        <p><strong>Total: </strong><span id="total"></span></p>
+                        <p><strong>Completed: </strong><span id="completed"></span></p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="twelve">
+                        <div class="progress" id="progress"><div></div></div>
+                    </div>
+                </div>
+                <div id="cards"></div>
+            </div>
+
+            <div id="history.target" class="hide">
+                <div class="row">History</div>
+            </div>
+            <div id="browser.target" class="hide">
+                <div class="row">Browser</div>
+            </div>
+            <div id="storage.target" class="hide">
+                <div class="row">Storage</div>
+            </div>
+        </div>
+    </body>
 </html>
