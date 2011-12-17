@@ -170,6 +170,7 @@ textarea {
     background-color: rgba(0, 0, 0, 0.5);
     padding: 6px;
     position: absolute;
+    top: 20px;
     width: 100%;
 }
 
