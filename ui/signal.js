@@ -94,7 +94,7 @@ Tabs.prototype = {
         if (this.target) {
             this.target.classList.add('hide');
         }
-        this.target = $(id + '.target');
+        this.target = $(id + '_target');
         this.target.classList.remove('hide');
     },
 }
