@@ -86,6 +86,10 @@ class PreconditionFailed(HTTPError):
     status = '412 Precondition Failed'
 
 
+class BadRangeRequest(HTTPError):
+    status = '416 Requested Range Not Satisfiable'
+
+
 def get_slice(environ):
     parts = environ['PATH_INFO'].lstrip('/').split('/')
     if len(parts) > 3:
@@ -106,6 +110,64 @@ def get_slice(environ):
     if not (stop is None or start < stop):
         raise BadRequest('start must be less than stop')
     return (_id, start, stop)
+
+
+def range_to_slice(value):
+    """
+    Convert from HTTP Range request to Python slice semantics.
+
+    Python slice semantics are quite natural to deal with, whereas the HTTP
+    Range semantics are a touch wacky, so this function will help prevent silly
+    errors.
+
+    For example, say we're requesting parts of a 10,000 byte long file.  This
+    requests the first 500 bytes:
+
+    >>> range_to_slice('bytes=0-499')
+    (0, 500)
+
+    This requests the second 500 bytes:
+
+    >>> range_to_slice('bytes=500-999')
+    (500, 1000)
+
+    All three of these request the final 500 bytes:
+
+    >>> range_to_slice('bytes=9500-9999')
+    (9500, 10000)
+    >>> range_to_slice('bytes=-500')
+    (-500, None)
+    >>> range_to_slice('bytes=9500-')
+    (9500, None)
+
+    For details on HTTP Range header, see:
+
+      http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
+    """
+    unit = 'bytes='
+    if not value.startswith(unit):
+        raise BadRangeRequest('bad range units')
+    value = value[len(unit):]
+    if value.startswith('-'):
+        try:
+            return (int(value), None)
+        except ValueError:
+            raise BadRangeRequest('range -start is not an integer')  
+    parts = value.split('-')
+    if not len(parts) == 2:
+        raise BadRangeRequest('not formatted as bytes=start-end')
+    try:
+        start = int(parts[0])
+    except ValueError:
+        raise BadRangeRequest('range start is not an integer')
+    try:
+        end = parts[1]
+        stop = (int(end) + 1 if end else None)
+    except ValueError:
+        raise BadRangeRequest('range end is not an integer')
+    if not (stop is None or start < stop):
+        raise BadRangeRequest('range end must be less than or equal to start')
+    return (start, stop)
 
 
 class BaseWSGIMeta(type):
