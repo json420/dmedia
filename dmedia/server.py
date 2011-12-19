@@ -198,6 +198,8 @@ MiB = 1024 * 1024
 
 
 class FileSlice:
+    __slots__ = ('fp', 'start', 'stop')
+
     def __init__(self, fp, start=0, stop=None):
         self.fp = fp
         self.start = start
@@ -242,7 +244,6 @@ class ReadOnlyApp(BaseWSGI):
             raise BadRequest('badly formed dmedia ID')
 
         if 'HTTP_RANGE' in environ:
-            print(environ['HTTP_RANGE'])
             (start, stop) = range_to_slice(environ['HTTP_RANGE'])
         else:
             start = 0
