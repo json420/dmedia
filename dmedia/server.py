@@ -194,6 +194,27 @@ class BaseWSGI(metaclass=BaseWSGIMeta):
             return [e.body]
 
 
+MiB = 1024 * 1024
+
+
+class FileSlice:
+    def __init__(self, fp, start=0, stop=None):
+        self.fp = fp
+        self.start = start
+        self.stop = stop
+
+    def __iter__(self):
+        self.fp.seek(self.start)
+        remaining = self.stop - self.start
+        while remaining:
+            read = min(remaining, MiB)
+            remaining -= read
+            data = self.fp.read(read)
+            assert len(data) == read
+            yield data
+        assert remaining == 0
+
+
 class ReadOnlyApp(BaseWSGI):
     def __init__(self, env):
         self.local = local.LocalSlave(env)
@@ -233,11 +254,9 @@ class ReadOnlyApp(BaseWSGI):
             raise NotFound()
 
         stop = (st.size if stop is None else min(st.size, stop))
-        fp.seek(start)
         length = str(stop - start)
-        print(start, stop, length)
         start_response('200 OK', [('Content-Length', length)])
-        return environ['wsgi.file_wrapper'](fp)
+        return FileSlice(fp, start, stop)
 
 
 class ReadWriteApp(ReadOnlyApp):
@@ -246,5 +265,4 @@ class ReadWriteApp(ReadOnlyApp):
 
     def POST(self, environ, start_response):
         pass
-
 
