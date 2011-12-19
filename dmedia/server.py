@@ -249,14 +249,18 @@ class ReadOnlyApp(BaseWSGI):
             start = 0
             stop = None
         try:
-            st = self.local.stat(_id)
+            doc = self.local.get_doc(_id)
+            st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
         except Exception:
             raise NotFound()
 
         stop = (st.size if stop is None else min(st.size, stop))
         length = str(stop - start)
-        start_response('200 OK', [('Content-Length', length)])
+        headers = [('Content-Length', length)]
+        if doc.get('content_type'):
+            headers.append(('Content-Type', doc['content_type']))
+        start_response('200 OK', headers)
         return FileSlice(fp, start, stop)
 
 
