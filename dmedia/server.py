@@ -209,19 +209,33 @@ class ReadOnlyApp(BaseWSGI):
         return [self._info]
 
     def GET(self, environ, start_response):
-        if environ['PATH_INFO'] == '/':
+        path_info = environ['PATH_INFO']
+        if path_info == '/':
             return self.server_info(environ, start_response)
-        # FIXME: Also validate slice compared to file-size
-        (_id, start, stop) = get_slice(environ)
+
+        parts = path_info.lstrip('/').split('/')
+        if len(parts) > 3:
+            raise BadRequest('too many slashes in request path')
+        _id = parts[0]
+        if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
+            raise BadRequest('badly formed dmedia ID')
+
+        if 'HTTP_RANGE' in environ:
+            print(environ['HTTP_RANGE'])
+            (start, stop) = range_to_slice(environ['HTTP_RANGE'])
+        else:
+            start = 0
+            stop = None
         try:
             st = self.local.stat(_id)
             fp = open(st.name, 'rb')
         except Exception:
             raise NotFound()
-        _start = start * LEAF_SIZE
-        _stop = (st.size if stop is None else min(st.size, stop * LEAF_SIZE))
-        fp.seek(_start)
-        length = str(_stop - _start)
+
+        stop = (st.size if stop is None else min(st.size, stop))
+        fp.seek(start)
+        length = str(stop - start)
+        print(start, stop, length)
         start_response('200 OK', [('Content-Length', length)])
         return environ['wsgi.file_wrapper'](fp)
 

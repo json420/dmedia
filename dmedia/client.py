@@ -380,6 +380,6 @@ class HTTPClient:
         return response
 
     def get(self, ch, start=0, stop=None):
-        #headers = range_header(ch, start, stop)
-        return self.request('GET', '/'.join([ch.id, str(start), str(stop)]))
+        headers = range_header(ch, start, stop)
+        return self.request('GET', ch.id, headers=headers)
 
