@@ -218,9 +218,9 @@ def generate_thumbnail2(filename):
         dst = path.join(tmp, 'thumbnail.jpg')
         check_call([
             'totem-video-thumbnailer',
-            '-r', # Create a "raw" thumbnail without film boarder
-            '-j', # Save as JPEG instead of PNG
-            '-s', '384',
+            '-r',  # Create a "raw" thumbnail without film boarder
+            '-j',  # Save as JPEG instead of PNG
+            '-s', '384',  # 384x216 for 16:9
             filename,
             dst,
         ])
@@ -237,7 +237,7 @@ def generate_cr2_thumbnail(filename):
         data = check_output([
             'ufraw-batch',
             '--embedded-image',
-            '--size=384',
+            '--size=324',
             '--compression=85',
             '--out-type=jpg',
             '--output=-',
@@ -247,6 +247,22 @@ def generate_cr2_thumbnail(filename):
             'content_type': 'image/jpeg',
             'data': b64encode(data).decode('utf-8'),
         }
+    except CalledProcessError:
+        pass
+
+
+def generate_cr2_thumbnail2(filename):
+    try:
+        data = check_output([
+            'ufraw-batch',
+            '--embedded-image',
+            '--size=324',  # 324x216 for 3:2
+            '--compression=85',
+            '--out-type=jpg',
+            '--output=-',
+            filename,
+        ])
+        return Thumbnail('image/jpeg', data)
     except CalledProcessError:
         pass
 
