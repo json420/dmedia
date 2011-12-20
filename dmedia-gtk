@@ -122,7 +122,7 @@ class Importer:
 
 class UI(BaseUI):
     app = 'dmedia'
-    page = 'browser.html'
+    page = 'index.html'
     splash = 'splash.html'
     title = 'Dmedia'
     databases = ['dmedia', 'dmedia_log']

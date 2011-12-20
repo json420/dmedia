@@ -5,30 +5,52 @@ var UI = {
         UI.row = $el('div', {'class': 'row'});
         UI.cards.appendChild(UI.row);
     },
-};
 
-function browser(req) {
-    var rows = req.read()['rows'];
-    var div = $('browser_target');
-    var player = $('player');
-    player.addEventListener('ended', function() {
-        player.pause();
-        player.classList.add('hide');
-    });
-    rows.forEach(function(row) {
-        var id = row['id'];
-        var thm = db.att_url(id, 'thumbnail');
-        var img = $el('img', {src: thm, width: 192, height: 108})
-        div.appendChild(img);
-        img.onclick = function() {
-            player.classList.remove('hide');
-            player.pause();
-            player.src = UI.url + id;
-            player.load();
-            player.play();      
+    on_doc: function(req) {
+        var doc = req.read();
+        var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
+        keys.forEach(function(key) {
+            var el = $(key);
+            if (el) {
+                el.textContent = doc.meta[key];
+            }
+        });
+    },
+
+    on_view: function(req) {
+        var rows = req.read()['rows'];
+        var tray = $('tray');
+        rows.forEach(function(row) {
+            var id = row.id;
+            var img = $el('img',
+                {
+                    id: id,
+                    src: db.att_url(id, 'thumbnail'),
+                    width: 160,
+                    height: 90,
+                }
+            );
+            img.onclick = function() {
+                UI.play(id);
+            }
+            tray.appendChild(img);
+        });
+    },
+
+    play: function(id) {
+        console.log(id);
+        if (UI.selected) {
+            UI.selected.classList.remove('selected');
         }
-    });
+        UI.selected = $(id);
+        UI.selected.classList.add('selected');
+        UI.player.poster = db.att_url(id, 'thumbnail');
+        db.get(UI.on_doc, id);
+        //UI.player.src = UI.url + id;
+        //UI.player.play();
+    },
 }
+
 
 
 window.onload = function() {
@@ -39,8 +61,9 @@ window.onload = function() {
     UI.tabs = new Tabs();
     UI.tabs.show_tab('browser');
     UI.url = db.get_sync('_local/peers')['self'];
+    UI.player = $('player');
     console.log(UI.url);
-    db.view(browser, 'file', 'ext', {key: 'mov', reduce: false, limit: 50});
+    db.view(UI.on_view, 'user', 'video');
 }
 
 
