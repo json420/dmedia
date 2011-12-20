@@ -12,8 +12,11 @@ body{
     font-size:16px;
     line-height:1.5em;
     color:white;
+    /*
     background:-webkit-radial-gradient(50% 90%, 400% 100%, #51225e, #28102c);
     background-attachment:fixed;
+    */
+    background-color: #333;
 }
 
 .hide {
@@ -82,10 +85,6 @@ textarea {
 .content{
     padding-top:3em;
     padding-left: 10px;
-}
-
-#browser_target {
-    background-color: #333;
 }
 
 #header {
@@ -197,4 +196,12 @@ textarea {
 
 .grid_4 {
     width: 920px;
+}
+
+#player {
+    position: fixed;
+    z-index: 200;
+    top: 50px;
+    left: 50px;
+    background-color: #fff;
 }

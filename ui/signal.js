@@ -7,6 +7,30 @@ var UI = {
     },
 };
 
+function browser(req) {
+    var rows = req.read()['rows'];
+    var div = $('browser_target');
+    var player = $('player');
+    player.addEventListener('ended', function() {
+        player.pause();
+        player.classList.add('hide');
+    });
+    rows.forEach(function(row) {
+        var id = row['id'];
+        var thm = db.att_url(id, 'thumbnail');
+        var img = $el('img', {src: thm, width: 192, height: 108})
+        div.appendChild(img);
+        img.onclick = function() {
+            player.classList.remove('hide');
+            player.pause();
+            player.src = UI.url + id;
+            player.load();
+            player.play();      
+        }
+    });
+}
+
+
 window.onload = function() {
     UI.progressbar = new ProgressBar('progress');
     UI.total = $('total');
@@ -14,6 +38,9 @@ window.onload = function() {
     UI.cards = $('cards');
     UI.tabs = new Tabs();
     UI.tabs.show_tab('browser');
+    UI.url = db.get_sync('_local/peers')['self'];
+    console.log(UI.url);
+    db.view(browser, 'file', 'ext', {key: 'mov', reduce: false, limit: 50});
 }
 
 
