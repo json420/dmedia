@@ -258,6 +258,17 @@ function(doc) {
 """
 
 
+user_video = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.ext == 'mov') {
+            emit(doc.ctime, null);
+        }
+    }
+}
+"""
+
+
 partition_uuid = """
 function(doc) {
     if (doc.type == 'dmedia/partition') {
@@ -318,6 +329,7 @@ designs = (
         ('tags', user_tags, _count),
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
+        ('video', user_video, None),
     )),
 
     ('store', (
