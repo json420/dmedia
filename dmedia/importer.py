@@ -32,6 +32,7 @@ from gettext import gettext as _
 from gettext import ngettext
 from subprocess import check_call
 import logging
+import mimetypes
 
 import microfiber
 from filestore import FileStore, scandir, batch_import_iter, statvfs
@@ -42,6 +43,7 @@ from dmedia.extractor import merge_metadata
 
 
 log = logging.getLogger()
+mimetypes.init()
 
 
 def normalize_ext(filename):
@@ -261,6 +263,9 @@ class ImportWorker(workers.CouchWorker):
                 ext = normalize_ext(file.name)
                 if ext:
                     doc['ext'] = ext
+                (mime, encoding) = mimetypes.guess_type(file.name)
+                if mime:
+                    doc['content_type'] = mime
                 if self.extract:
                     merge_metadata(file.name, doc)
                 yield ('new', file, doc)
