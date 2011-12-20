@@ -32,6 +32,10 @@ import shutil
 from base64 import b64encode
 import time
 import calendar
+from collections import namedtuple
+
+
+Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
 # exiftool adds some metadata that doesn't make sense to include:
 EXIFTOOL_IGNORE = (
@@ -198,6 +202,29 @@ def generate_thumbnail(filename):
             'content_type': 'image/jpeg',
             'data': file_2_base64(dst),
         }
+    except Exception:
+        return None
+    finally:
+        if path.isdir(tmp):
+            shutil.rmtree(tmp)
+
+
+def generate_thumbnail2(filename):
+    """
+    Generate thumbnail for video at *filename*.
+    """
+    try:
+        tmp = tempfile.mkdtemp(prefix='dmedia.')
+        dst = path.join(tmp, 'thumbnail.jpg')
+        check_call([
+            'totem-video-thumbnailer',
+            '-r', # Create a "raw" thumbnail without film boarder
+            '-j', # Save as JPEG instead of PNG
+            '-s', '384',
+            filename,
+            dst,
+        ])
+        return Thumbnail('image/jpeg', open(dst, 'rb').read())
     except Exception:
         return None
     finally:

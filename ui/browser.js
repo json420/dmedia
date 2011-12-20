@@ -16,6 +16,7 @@ var UI = {
                     height: 90,
                 }
             );
+            img._value = row.value;
             img.onclick = function() {
                 UI.play(id);
             }
@@ -27,14 +28,25 @@ var UI = {
         UI.player.pause();
         UI.player.src = '';
         UI.player.load();
-        UI.player.src = UI.url + id;
-        UI.player.load();
-        UI.player.play();
+        
         if (UI.selected) {
             UI.selected.classList.remove('selected');
         }
         UI.selected = $(id);
         UI.selected.classList.add('selected');
+
+        var keys = [];
+        var key;
+        for (key in UI.selected._value) {
+            keys.push(key);
+        }
+        var proxy = keys[0];
+        console.log(id);
+        console.log(proxy);
+        
+        UI.player.src = UI.url + proxy;
+        UI.player.load();
+        UI.player.play();
     },
 
     next: function() {
@@ -50,5 +62,5 @@ window.onload = function() {
     UI.player.addEventListener('ended', function() {
         UI.next();
     });
-    db.view(UI.on_view, 'file', 'ext', {key: 'mov', reduce: false, limit: 25});
+    db.view(UI.on_view, 'user', 'video');
 }
