@@ -13,6 +13,7 @@ window.onload = function() {
     UI.completed = $('completed');
     UI.cards = $('cards');
     UI.tabs = new Tabs();
+    UI.tabs.show_tab('browser');
 }
 
 
@@ -106,8 +107,6 @@ function Tabs() {
     window.addEventListener('hashchange', function() {
         self.on_hashchange();
     });
-
-    this.show_tab('import');
 }
 
 Tabs.prototype = {
@@ -127,6 +126,7 @@ Tabs.prototype = {
         }
         this.target = $(id + '_target');
         this.target.classList.remove('hide');
+        Signal.emit('tab_changed', [this, id]);
     },
 }
 
