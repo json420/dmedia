@@ -170,6 +170,26 @@ def range_to_slice(value):
     return (start, stop)
 
 
+def slice_to_content_range(start, stop, length):
+    """
+    Convert Python slice to HTTP Content-Range.
+
+    For example, a slice containing the first 500 bytes of a 1234 byte file:
+
+    >>> slice_to_content_range(0, 500, 1234)
+    'bytes 0-499/1234'
+
+    Or the 2nd 500 bytes:
+
+    >>> slice_to_content_range(500, 1000, 1234)
+    'bytes 500-999/1234'
+
+    """
+    assert 0 <= start < length
+    assert start < stop <= length
+    return 'bytes {}-{}/{}'.format(start, stop - 1, length)
+
+
 class BaseWSGIMeta(type):
     def __new__(meta, name, bases, dict):
         http_methods = []
@@ -221,7 +241,7 @@ class ReadOnlyApp(BaseWSGI):
     def __init__(self, env):
         self.local = local.LocalSlave(env)
         info = {
-            'dmedia': 'Welcome',
+            'Dmedia': 'Welcome',
             'version': __version__,
             'machine_id': env.get('machine_id'),
         }
@@ -236,18 +256,9 @@ class ReadOnlyApp(BaseWSGI):
         if path_info == '/':
             return self.server_info(environ, start_response)
 
-        parts = path_info.lstrip('/').split('/')
-        if len(parts) > 3:
-            raise BadRequest('too many slashes in request path')
-        _id = parts[0]
+        _id = path_info.lstrip('/')
         if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
-            raise BadRequest('badly formed dmedia ID')
-
-        if 'HTTP_RANGE' in environ:
-            (start, stop) = range_to_slice(environ['HTTP_RANGE'])
-        else:
-            start = 0
-            stop = None
+            raise NotFound()
         try:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
@@ -255,12 +266,28 @@ class ReadOnlyApp(BaseWSGI):
         except Exception:
             raise NotFound()
 
+        if doc.get('content_type'):
+            headers = [('Content-Type', doc['content_type'])]
+        else:
+            headers = []
+
+        if 'HTTP_RANGE' in environ:
+            (start, stop) = range_to_slice(environ['HTTP_RANGE'])                
+            status = '206 Partial Content'
+        else:
+            start = 0
+            stop = None
+            status = '200 OK'
+
         stop = (st.size if stop is None else min(st.size, stop))
         length = str(stop - start)
-        headers = [('Content-Length', length)]
-        if doc.get('content_type'):
-            headers.append(('Content-Type', doc['content_type']))
-        start_response('200 OK', headers)
+        headers.append(('Content-Length', length))
+        if 'HTTP_RANGE' in environ:
+            headers.append(
+                ('Content-Range', slice_to_content_range(start, stop, st.size))
+            )
+
+        start_response(status, headers)
         return FileSlice(fp, start, stop)
 
 
