@@ -216,6 +216,8 @@ textarea {
 #tray img {
     display: block;
     border: 3px solid #000;
+    width: 160px;
+    height: 90px;
 }
 
 #tray img.selected {

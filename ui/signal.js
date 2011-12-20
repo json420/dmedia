@@ -26,8 +26,6 @@ var UI = {
                 {
                     id: id,
                     src: db.att_url(id, 'thumbnail'),
-                    width: 160,
-                    height: 90,
                 }
             );
             img.onclick = function() {
