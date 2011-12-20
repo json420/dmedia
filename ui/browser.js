@@ -33,25 +33,13 @@ var UI = {
         });
     },
 
-    play: function(id) {
-        UI.player.pause();
-        UI.player.src = '';
-        UI.player.load();
-        
+    play: function(id) {       
         if (UI.selected) {
             UI.selected.classList.remove('selected');
         }
         UI.selected = $(id);
         UI.selected.classList.add('selected');
-
-        var keys = [];
-        var key;
-        for (key in UI.selected._value) {
-            keys.push(key);
-        }
-        var proxy = keys[0];
-
-        UI.player.src = UI.url + proxy;
+        UI.player.src = UI.url + id;
         UI.player.load();
         UI.player.play();
         db.get(UI.on_doc, id);
