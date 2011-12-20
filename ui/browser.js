@@ -24,6 +24,15 @@ var UI = {
         });
     },
 
+    on_doc: function(req) {
+        var doc = req.read();
+        var d = new Date(doc.ctime * 1000);
+        var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
+        keys.forEach(function(key) {
+            $(key).textContent = doc.meta[key];
+        });
+    },
+
     play: function(id) {
         UI.player.pause();
         UI.player.src = '';
@@ -41,12 +50,11 @@ var UI = {
             keys.push(key);
         }
         var proxy = keys[0];
-        console.log(id);
-        console.log(proxy);
-        
+
         UI.player.src = UI.url + proxy;
         UI.player.load();
         UI.player.play();
+        db.get(UI.on_doc, id);
     },
 
     next: function() {
@@ -58,6 +66,7 @@ var UI = {
 
 window.onload = function() {
     UI.url = db.get_sync('_local/peers')['self'];
+    UI.info = $('info');
     UI.player = $('player');
     UI.player.addEventListener('ended', function() {
         UI.next();

@@ -280,6 +280,18 @@ def merge_metadata(src, doc):
         doc['meta'] = meta
 
 
+def merge_exif2(src):
+    exif = extract_exif(src)
+    for (key, values) in EXIF_REMAP.items():
+        for v in values:
+            if v in exif:
+                yield (key, exif[v])
+                break
+    mtime = extract_mtime_from_exif(exif)
+    if mtime is not None:
+        yield ('mtime', mtime)
+
+
 def merge_exif(src, attachments):
     exif = extract_exif(src)
     for (key, values) in EXIF_REMAP.items():
@@ -296,6 +308,18 @@ def merge_exif(src, attachments):
             attachments['thumbnail'] = thumbnail
 
 register(merge_exif, 'jpg', 'png', 'cr2')
+
+
+def merge_video_info2(src):
+    info = extract_video_info(src)
+    for (dst_key, src_key) in TOTEM_REMAP:
+        if src_key in info:
+            value = info[src_key]
+            try:
+                value = int(value)
+            except ValueError:
+                pass
+            yield (dst_key, value)
 
 
 def merge_video_info(src, attachments):
