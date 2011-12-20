@@ -78,6 +78,8 @@ class DMedia:
 
     def run(self):
         (self.httpd, self.port) = start_file_server(self.core.env)
+        self._peers['self'] = 'http://localhost:{}/'.format(self.port)
+        self.core.db.save(self._peers)
         self.group = dbus.system.get(
             'org.freedesktop.Avahi',
             self.avahi.EntryGroupNew(),
