@@ -272,8 +272,8 @@ job = {
             'props': {
                 'quality': 7,
                 'max-keyframe-distance': 30,
-                'speed': 1,
-                'threads': 3,
+                'speed': 2,
+                'threads': 2,
             },
         },
         'filter': {
