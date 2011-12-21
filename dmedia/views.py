@@ -107,7 +107,7 @@ function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
         for (key in doc.stored) {
-            emit(key, doc.bytes);
+            emit(key, [1, doc.bytes]);
         }
     }
 }
@@ -207,7 +207,7 @@ function(doc) {
 file_ext = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.ext, null);
+        emit(doc.ext, [1, doc.bytes]);
     }
 }
 """
@@ -345,7 +345,10 @@ designs = (
     )),
 
     ('file', (
-        ('stored', file_stored, _sum),
+        ('stored', file_stored, _both),
+        ('ext', file_ext, _both),
+        ('origin', file_origin, _both),
+
         ('fragile', file_fragile, None),
         ('reclaimable', file_reclaimable, None),
         ('partial', file_partial, _sum),
@@ -353,8 +356,6 @@ designs = (
         ('bytes', file_bytes, _sum),
         ('verified', file_verified, None),
         ('ctime', file_ctime, None),
-        ('ext', file_ext, _count),
-        ('origin', file_origin, _both),
     )),
 
     ('user', (
