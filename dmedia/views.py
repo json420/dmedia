@@ -116,7 +116,7 @@ function(doc) {
 file_origin = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.origin, doc.bytes);
+        emit(doc.origin, [1, doc.bytes]);
     }
 }
 """
@@ -268,6 +268,26 @@ function(doc) {
 }
 """
 
+user_audio = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.ext == 'wav') {
+            emit(doc.ctime, null);
+        }
+    }
+}
+"""
+
+user_photo = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (['cr2', 'jpg'].indexOf(doc.ext) >= 0) {
+            emit(doc.ctime, null);
+        }
+    }
+}
+"""
+
 
 partition_uuid = """
 function(doc) {
@@ -290,6 +310,20 @@ function(doc) {
     if (doc.type == 'dmedia/drive') {
         emit(doc.serial, null)
     }
+}
+"""
+
+# Reduce function to both count and sum in a single view (thanks manveru!)
+_both = """
+function(key, values, rereduce) {
+    var count = 0;
+    var sum = 0;
+    var i;
+    for (i in values) {
+        count += values[i][0];
+        sum += values[i][1];
+    }
+    return [count, sum];
 }
 """
 
@@ -320,8 +354,7 @@ designs = (
         ('verified', file_verified, None),
         ('ctime', file_ctime, None),
         ('ext', file_ext, _count),
-        ('origin-count', file_origin, _count),
-        ('origin-bytes', file_origin, _sum),
+        ('origin', file_origin, _both),
     )),
 
     ('user', (
@@ -330,6 +363,8 @@ designs = (
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
         ('video', user_video, None),
+        ('photo', user_photo, None),
+        ('audio', user_audio, None),
     )),
 
     ('store', (
