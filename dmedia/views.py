@@ -262,7 +262,7 @@ user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         if (doc.ext == 'mov') {
-            emit(doc.ctime, null);
+            emit(doc.ctime, doc.bytes);
         }
     }
 }
@@ -272,7 +272,7 @@ user_audio = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         if (doc.ext == 'wav') {
-            emit(doc.ctime, null);
+            emit(doc.ctime, doc.bytes);
         }
     }
 }
@@ -282,7 +282,7 @@ user_photo = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         if (['cr2', 'jpg'].indexOf(doc.ext) >= 0) {
-            emit(doc.ctime, null);
+            emit(doc.ctime, doc.bytes);
         }
     }
 }
@@ -363,9 +363,9 @@ designs = (
         ('tags', user_tags, _count),
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
-        ('video', user_video, None),
-        ('photo', user_photo, None),
-        ('audio', user_audio, None),
+        ('video', user_video, _sum),
+        ('photo', user_photo, _sum),
+        ('audio', user_audio, _sum),
     )),
 
     ('store', (
