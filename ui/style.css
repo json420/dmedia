@@ -12,8 +12,12 @@ body{
     font-size:16px;
     line-height:1.5em;
     color:white;
+
     background:-webkit-radial-gradient(50% 90%, 400% 100%, #51225e, #28102c);
     background-attachment:fixed;
+    /*
+    background-color: #333;
+    */
 }
 
 .hide {
@@ -82,10 +86,6 @@ textarea {
 .content{
     padding-top:3em;
     padding-left: 10px;
-}
-
-#browser_target {
-    background-color: #333;
 }
 
 #header {
@@ -198,3 +198,33 @@ textarea {
 .grid_4 {
     width: 920px;
 }
+
+#player {
+
+}
+
+#tray {
+    position: fixed;
+    right: 0;
+    top: 25px;
+    bottom: 0;
+    width: 212px;
+    background-color: #000;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    -webkit-user-select: none;
+    z-index: 200;
+}
+
+#tray img {
+    -webkit-user-select: none;
+    display: block;
+    border: 3px solid #000;
+    width: 192px;
+    height: 108px;
+}
+
+#tray img.selected {
+    border-color: #e81f3b; 
+}
+

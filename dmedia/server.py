@@ -86,6 +86,10 @@ class PreconditionFailed(HTTPError):
     status = '412 Precondition Failed'
 
 
+class BadRangeRequest(HTTPError):
+    status = '416 Requested Range Not Satisfiable'
+
+
 def get_slice(environ):
     parts = environ['PATH_INFO'].lstrip('/').split('/')
     if len(parts) > 3:
@@ -106,6 +110,84 @@ def get_slice(environ):
     if not (stop is None or start < stop):
         raise BadRequest('start must be less than stop')
     return (_id, start, stop)
+
+
+def range_to_slice(value):
+    """
+    Convert from HTTP Range request to Python slice semantics.
+
+    Python slice semantics are quite natural to deal with, whereas the HTTP
+    Range semantics are a touch wacky, so this function will help prevent silly
+    errors.
+
+    For example, say we're requesting parts of a 10,000 byte long file.  This
+    requests the first 500 bytes:
+
+    >>> range_to_slice('bytes=0-499')
+    (0, 500)
+
+    This requests the second 500 bytes:
+
+    >>> range_to_slice('bytes=500-999')
+    (500, 1000)
+
+    All three of these request the final 500 bytes:
+
+    >>> range_to_slice('bytes=9500-9999')
+    (9500, 10000)
+    >>> range_to_slice('bytes=-500')
+    (-500, None)
+    >>> range_to_slice('bytes=9500-')
+    (9500, None)
+
+    For details on HTTP Range header, see:
+
+      http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
+    """
+    unit = 'bytes='
+    if not value.startswith(unit):
+        raise BadRangeRequest('bad range units')
+    value = value[len(unit):]
+    if value.startswith('-'):
+        try:
+            return (int(value), None)
+        except ValueError:
+            raise BadRangeRequest('range -start is not an integer')  
+    parts = value.split('-')
+    if not len(parts) == 2:
+        raise BadRangeRequest('not formatted as bytes=start-end')
+    try:
+        start = int(parts[0])
+    except ValueError:
+        raise BadRangeRequest('range start is not an integer')
+    try:
+        end = parts[1]
+        stop = (int(end) + 1 if end else None)
+    except ValueError:
+        raise BadRangeRequest('range end is not an integer')
+    if not (stop is None or start < stop):
+        raise BadRangeRequest('range end must be less than or equal to start')
+    return (start, stop)
+
+
+def slice_to_content_range(start, stop, length):
+    """
+    Convert Python slice to HTTP Content-Range.
+
+    For example, a slice containing the first 500 bytes of a 1234 byte file:
+
+    >>> slice_to_content_range(0, 500, 1234)
+    'bytes 0-499/1234'
+
+    Or the 2nd 500 bytes:
+
+    >>> slice_to_content_range(500, 1000, 1234)
+    'bytes 500-999/1234'
+
+    """
+    assert 0 <= start < length
+    assert start < stop <= length
+    return 'bytes {}-{}/{}'.format(start, stop - 1, length)
 
 
 class BaseWSGIMeta(type):
@@ -132,11 +214,34 @@ class BaseWSGI(metaclass=BaseWSGIMeta):
             return [e.body]
 
 
+MiB = 1024 * 1024
+
+
+class FileSlice:
+    __slots__ = ('fp', 'start', 'stop')
+
+    def __init__(self, fp, start=0, stop=None):
+        self.fp = fp
+        self.start = start
+        self.stop = stop
+
+    def __iter__(self):
+        self.fp.seek(self.start)
+        remaining = self.stop - self.start
+        while remaining:
+            read = min(remaining, MiB)
+            remaining -= read
+            data = self.fp.read(read)
+            assert len(data) == read
+            yield data
+        assert remaining == 0
+
+
 class ReadOnlyApp(BaseWSGI):
     def __init__(self, env):
         self.local = local.LocalSlave(env)
         info = {
-            'dmedia': 'Welcome',
+            'Dmedia': 'Welcome',
             'version': __version__,
             'machine_id': env.get('machine_id'),
         }
@@ -147,21 +252,43 @@ class ReadOnlyApp(BaseWSGI):
         return [self._info]
 
     def GET(self, environ, start_response):
-        if environ['PATH_INFO'] == '/':
+        path_info = environ['PATH_INFO']
+        if path_info == '/':
             return self.server_info(environ, start_response)
-        # FIXME: Also validate slice compared to file-size
-        (_id, start, stop) = get_slice(environ)
+
+        _id = path_info.lstrip('/')
+        if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
+            raise NotFound()
         try:
-            st = self.local.stat(_id)
+            doc = self.local.get_doc(_id)
+            st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
         except Exception:
             raise NotFound()
-        _start = start * LEAF_SIZE
-        _stop = (st.size if stop is None else min(st.size, stop * LEAF_SIZE))
-        fp.seek(_start)
-        length = str(_stop - _start)
-        start_response('200 OK', [('Content-Length', length)])
-        return environ['wsgi.file_wrapper'](fp)
+
+        if doc.get('content_type'):
+            headers = [('Content-Type', doc['content_type'])]
+        else:
+            headers = []
+
+        if 'HTTP_RANGE' in environ:
+            (start, stop) = range_to_slice(environ['HTTP_RANGE'])                
+            status = '206 Partial Content'
+        else:
+            start = 0
+            stop = None
+            status = '200 OK'
+
+        stop = (st.size if stop is None else min(st.size, stop))
+        length = str(stop - start)
+        headers.append(('Content-Length', length))
+        if 'HTTP_RANGE' in environ:
+            headers.append(
+                ('Content-Range', slice_to_content_range(start, stop, st.size))
+            )
+
+        start_response(status, headers)
+        return FileSlice(fp, start, stop)
 
 
 class ReadWriteApp(ReadOnlyApp):
@@ -170,5 +297,4 @@ class ReadWriteApp(ReadOnlyApp):
 
     def POST(self, environ, start_response):
         pass
-
 

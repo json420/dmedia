@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <script src="couch.js"></script>
+        <script src="/_apps/dc3/couch.js"></script>
         <script src="/_apps/dc3/base.js"></script>
         <script src="signal.js"></script>
         <title>dmedia</title>
@@ -10,7 +10,7 @@
     </head>
     <body>
         <div id="header">
-            <div class="tab active" id="import">
+            <div class="tab" id="import">
                 Import 
             </div>
             <div class="tab" id="history">
@@ -24,7 +24,7 @@
             </div>
         </div>
 
-        <div id="import_target" class="content">
+        <div id="import_target" class="content hide">
             <div class="row">
                 <div class="grid_2">
                     <textarea placeholder="comma, seperated, tags"></textarea>
@@ -50,7 +50,17 @@
             <div class="row">History</div>
         </div>
         <div id="browser_target" class="content hide">
-            <div class="row">Browser</div>
+        <video width="640" height="360" id="player"></video>
+        <p>
+        <span id="aperture"></span>
+        <span id="shutter"></span>
+        <span id="iso"></span>
+        </p>
+        <p>
+        <span id="camera"></span>
+        <span id="lens"></span>
+        <p>
+        <div id="tray"></div>
         </div>
         <div id="storage_target" class="content hide">
             <div class="row">Storage</div>

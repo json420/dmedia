@@ -2,6 +2,7 @@
 
 from microfiber import dc3_env
 from filestore import FileStore
+import time
 
 from dmedia.core import Core, start_file_server
 from dmedia.tests.base import TempDir
@@ -20,14 +21,11 @@ for row in core.db.view('doc', 'type', key='dmedia/file', reduce=False)['rows']:
     ch = core.content_hash(row['id'])
     print(ch.id)
     dw = DownloadWriter(ch, dst)
-    while True:
-        try:
-            (start, stop) = dw.next_slice()
-            response = client.get(ch, start, stop)
-            for leaf in threaded_response_iter(response, start=start):
-                print(leaf.index, dw.write_leaf(leaf))
-        except DownloadComplete:
-            break
+    (start, stop) = dw.next_slice()
+    for i in range(stop):
+        response = client.get(ch, i, i+1)
+        for leaf in threaded_response_iter(response, start=i):
+            print(leaf.index, dw.write_leaf(leaf))
     dw.finish()
     dst.remove(ch.id)  # So we don't fill up /tmp
         

@@ -28,7 +28,7 @@ from unittest import TestCase
 from filestore import DIGEST_B32LEN, DIGEST_BYTES
 from microfiber import random_id
 
-from dmedia import server
+from dmedia import server, client
 
 
 class StartResponse:
@@ -178,6 +178,72 @@ class TestFunctions(TestCase):
         with self.assertRaises(server.BadRequest) as cm:
             server.get_slice({'PATH_INFO': bad})
         self.assertEqual(cm.exception.body, b'start must be less than stop')
+
+    def test_range_to_slice(self):
+        with self.assertRaises(server.BadRangeRequest) as cm:
+            (start, stop) = server.range_to_slice('goats=0-500')
+        self.assertEqual(cm.exception.body, b'bad range units')
+
+        with self.assertRaises(server.BadRangeRequest) as cm:
+            (start, stop) = server.range_to_slice('bytes=-500-999')
+        self.assertEqual(cm.exception.body, b'range -start is not an integer')
+
+        with self.assertRaises(server.BadRangeRequest) as cm:
+            (start, stop) = server.range_to_slice('bytes=-foo')
+        self.assertEqual(cm.exception.body, b'range -start is not an integer')
+
+        with self.assertRaises(server.BadRangeRequest) as cm:
+            (start, stop) = server.range_to_slice('bytes=500')
+        self.assertEqual(cm.exception.body, b'not formatted as bytes=start-end')
+
+        with self.assertRaises(server.BadRangeRequest) as cm:
+            (start, stop) = server.range_to_slice('bytes=foo-999')
+        self.assertEqual(cm.exception.body, b'range start is not an integer')
+
+        with self.assertRaises(server.BadRangeRequest) as cm:
+            (start, stop) = server.range_to_slice('bytes=500-bar')
+        self.assertEqual(cm.exception.body, b'range end is not an integer')
+
+        with self.assertRaises(server.BadRangeRequest) as cm:
+            (start, stop) = server.range_to_slice('bytes=500-499')
+        self.assertEqual(
+            cm.exception.body,
+            b'range end must be less than or equal to start'
+        )
+
+        self.assertEqual(
+            server.range_to_slice('bytes=0-0'), (0, 1)
+        )
+        self.assertEqual(
+            server.range_to_slice('bytes=0-499'), (0, 500)
+        )
+        self.assertEqual(
+            server.range_to_slice('bytes=500-999'), (500, 1000)
+        )
+        self.assertEqual(
+            server.range_to_slice('bytes=9500-9999'), (9500, 10000)
+        )
+        self.assertEqual(
+            server.range_to_slice('bytes=9500-'), (9500, None)
+        )
+        self.assertEqual(
+            server.range_to_slice('bytes=-500'), (-500, None)
+        )
+
+        # Test the round-trip with client.bytes_range
+        slices = [
+            (0, 1),
+            (0, 500),
+            (500, 1000),
+            (9500, 10000),
+            (-500, None),
+            (9500, None),
+        ]
+        for (start, stop) in slices:
+            self.assertEqual(
+                server.range_to_slice(client.bytes_range(start, stop)),
+                (start, stop)
+            )
 
 
 class TestBaseWSGI(TestCase):

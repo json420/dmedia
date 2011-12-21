@@ -107,7 +107,7 @@ function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
         for (key in doc.stored) {
-            emit(key, doc.bytes);
+            emit(key, [1, doc.bytes]);
         }
     }
 }
@@ -116,7 +116,7 @@ function(doc) {
 file_origin = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.origin, doc.bytes);
+        emit(doc.origin, [1, doc.bytes]);
     }
 }
 """
@@ -207,7 +207,7 @@ function(doc) {
 file_ext = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.ext, null);
+        emit(doc.ext, [1, doc.bytes]);
     }
 }
 """
@@ -258,6 +258,37 @@ function(doc) {
 """
 
 
+user_video = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.ext == 'mov') {
+            emit(doc.ctime, doc.bytes);
+        }
+    }
+}
+"""
+
+user_audio = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.ext == 'wav') {
+            emit(doc.ctime, doc.bytes);
+        }
+    }
+}
+"""
+
+user_photo = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (['cr2', 'jpg'].indexOf(doc.ext) >= 0) {
+            emit(doc.ctime, doc.bytes);
+        }
+    }
+}
+"""
+
+
 partition_uuid = """
 function(doc) {
     if (doc.type == 'dmedia/partition') {
@@ -282,6 +313,20 @@ function(doc) {
 }
 """
 
+# Reduce function to both count and sum in a single view (thanks manveru!)
+_both = """
+function(key, values, rereduce) {
+    var count = 0;
+    var sum = 0;
+    var i;
+    for (i in values) {
+        count += values[i][0];
+        sum += values[i][1];
+    }
+    return [count, sum];
+}
+"""
+
 
 designs = (
     ('doc', (
@@ -300,7 +345,10 @@ designs = (
     )),
 
     ('file', (
-        ('stored', file_stored, _sum),
+        ('stored', file_stored, _both),
+        ('ext', file_ext, _both),
+        ('origin', file_origin, _both),
+
         ('fragile', file_fragile, None),
         ('reclaimable', file_reclaimable, None),
         ('partial', file_partial, _sum),
@@ -308,9 +356,6 @@ designs = (
         ('bytes', file_bytes, _sum),
         ('verified', file_verified, None),
         ('ctime', file_ctime, None),
-        ('ext', file_ext, _count),
-        ('origin-count', file_origin, _count),
-        ('origin-bytes', file_origin, _sum),
     )),
 
     ('user', (
@@ -318,6 +363,9 @@ designs = (
         ('tags', user_tags, _count),
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
+        ('video', user_video, _sum),
+        ('photo', user_photo, _sum),
+        ('audio', user_audio, _sum),
     )),
 
     ('store', (

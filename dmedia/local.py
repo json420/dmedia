@@ -187,3 +187,8 @@ class LocalSlave:
         fs = self.stores.choose_local_store(doc)
         return fs.stat(_id)
 
+    def stat2(self, doc):
+        self.update_stores()
+        fs = self.stores.choose_local_store(doc)
+        return fs.stat(doc['_id'])
+

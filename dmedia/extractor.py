@@ -32,6 +32,10 @@ import shutil
 from base64 import b64encode
 import time
 import calendar
+from collections import namedtuple
+
+
+Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
 # exiftool adds some metadata that doesn't make sense to include:
 EXIFTOOL_IGNORE = (
@@ -205,12 +209,35 @@ def generate_thumbnail(filename):
             shutil.rmtree(tmp)
 
 
+def generate_thumbnail2(filename):
+    """
+    Generate thumbnail for video at *filename*.
+    """
+    try:
+        tmp = tempfile.mkdtemp(prefix='dmedia.')
+        dst = path.join(tmp, 'thumbnail.jpg')
+        check_call([
+            'totem-video-thumbnailer',
+            '-r',  # Create a "raw" thumbnail without film boarder
+            '-j',  # Save as JPEG instead of PNG
+            '-s', '384',  # 384x216 for 16:9
+            filename,
+            dst,
+        ])
+        return Thumbnail('image/jpeg', open(dst, 'rb').read())
+    except Exception:
+        return None
+    finally:
+        if path.isdir(tmp):
+            shutil.rmtree(tmp)
+
+
 def generate_cr2_thumbnail(filename):
     try:
         data = check_output([
             'ufraw-batch',
             '--embedded-image',
-            '--size=384',
+            '--size=324',
             '--compression=85',
             '--out-type=jpg',
             '--output=-',
@@ -220,6 +247,22 @@ def generate_cr2_thumbnail(filename):
             'content_type': 'image/jpeg',
             'data': b64encode(data).decode('utf-8'),
         }
+    except CalledProcessError:
+        pass
+
+
+def generate_cr2_thumbnail2(filename):
+    try:
+        data = check_output([
+            'ufraw-batch',
+            '--embedded-image',
+            '--size=324',  # 324x216 for 3:2
+            '--compression=85',
+            '--out-type=jpg',
+            '--output=-',
+            filename,
+        ])
+        return Thumbnail('image/jpeg', data)
     except CalledProcessError:
         pass
 
@@ -253,6 +296,18 @@ def merge_metadata(src, doc):
         doc['meta'] = meta
 
 
+def merge_exif2(src):
+    exif = extract_exif(src)
+    for (key, values) in EXIF_REMAP.items():
+        for v in values:
+            if v in exif:
+                yield (key, exif[v])
+                break
+    mtime = extract_mtime_from_exif(exif)
+    if mtime is not None:
+        yield ('mtime', mtime)
+
+
 def merge_exif(src, attachments):
     exif = extract_exif(src)
     for (key, values) in EXIF_REMAP.items():
@@ -269,6 +324,18 @@ def merge_exif(src, attachments):
             attachments['thumbnail'] = thumbnail
 
 register(merge_exif, 'jpg', 'png', 'cr2')
+
+
+def merge_video_info2(src):
+    info = extract_video_info(src)
+    for (dst_key, src_key) in TOTEM_REMAP:
+        if src_key in info:
+            value = info[src_key]
+            try:
+                value = int(value)
+            except ValueError:
+                pass
+            yield (dst_key, value)
 
 
 def merge_video_info(src, attachments):
