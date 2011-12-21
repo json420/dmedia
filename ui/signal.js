@@ -1,11 +1,8 @@
-db = new couch.Database('dmedia');
+"use strict";
+
+var db = new couch.Database('dmedia');
 
 var UI = {
-    new_row: function() {
-        UI.row = $el('div', {'class': 'row'});
-        UI.cards.appendChild(UI.row);
-    },
-
     on_doc: function(req) {
         var doc = req.read();
         var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
@@ -36,19 +33,53 @@ var UI = {
     },
 
     play: function(id) {
-        console.log(id);
         if (UI.selected) {
             UI.selected.classList.remove('selected');
         }
         UI.selected = $(id);
         UI.selected.classList.add('selected');
-        UI.player.poster = db.att_url(id, 'thumbnail');
+        UI.player.pause();
+        UI.player.src = '';
         db.get(UI.on_doc, id);
-        //UI.player.src = UI.url + id;
-        //UI.player.play();
+        UI.player.src = UI.url + id;
+        UI.player.load();
+        UI.player.play();
     },
-}
 
+    next: function() {
+        if (UI.selected && UI.selected.nextSibling) {
+            UI.play(UI.selected.nextSibling.id);
+        }
+    },
+
+    tabinit: {},    
+
+    on_tab_changed: function(tabs, id) {
+        if (!UI.tabinit[id]) {
+            UI.tabinit[id] = true;
+            UI['init_' + id]();
+        }
+    },
+
+    init_import: function() {
+        console.log('init_import');
+    },
+
+    init_history: function() {
+        console.log('init_history'); 
+    },
+
+    init_browser: function() {
+        UI.player = $('player');
+        UI.player.addEventListener('ended', UI.next);
+        db.view(UI.on_view, 'user', 'video');
+    },
+
+    init_storage: function() {
+        console.log('init_storage'); 
+    },
+    
+}
 
 
 window.onload = function() {
@@ -56,12 +87,9 @@ window.onload = function() {
     UI.total = $('total');
     UI.completed = $('completed');
     UI.cards = $('cards');
-    UI.tabs = new Tabs();
-    UI.tabs.show_tab('browser');
     UI.url = db.get_sync('_local/peers')['self'];
-    UI.player = $('player');
-    console.log(UI.url);
-    db.view(UI.on_view, 'user', 'video');
+    UI.tabs = new Tabs();
+    UI.tabs.show_tab('import');    
 }
 
 
@@ -146,6 +174,7 @@ function Tabs() {
     }
 
     var elements = document.getElementsByClassName('tab');
+    var i;
     for (i=0; i<elements.length; i++) {
         var element = elements[i];
         element.onclick = make_handler(element);
@@ -230,13 +259,16 @@ var Signal = {
 }
 
 
+// Lazily init-tabs so startup is faster, more responsive
+Signal.connect('tab_changed', UI.on_tab_changed);
+
+
+// All the import related signals:
 Signal.connect('batch_started',
     function(batch_id) {
         $hide('summary');
         $show('info');
         UI.cards.textContent = '';
-        //UI.new_row();
-        UI.i = 0;
         UI.total.textContent = '';
         UI.completed.textContent = '';
         UI.progressbar.progress = 0;
@@ -253,11 +285,6 @@ Signal.connect('batch_progress',
 
 Signal.connect('import_started',
     function(basedir, import_id, info) {
-//        if (UI.i > 0 && UI.i % 4 == 0) {
-//            UI.new_row();   
-//        }
-//        UI.i += 1;
-
         var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
         var inner = $el('div');
         div.appendChild(inner);
@@ -289,7 +316,6 @@ Signal.connect('thumbnail',
         $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 
     }
 );
-
 
 Signal.connect('batch_finalized',
     function(batch_id, stats, copies, msg) {
