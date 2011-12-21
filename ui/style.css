@@ -200,19 +200,20 @@ textarea {
 }
 
 #player {
-    background-color: #555;
+
 }
 
 #tray {
     position: fixed;
     right: 0;
-    top: 3em;
+    top: 25px;
     bottom: 0;
     width: 212px;
     background-color: #000;
     overflow-y: scroll;
     overflow-x: hidden;
     -webkit-user-select: none;
+    z-index: 200;
 }
 
 #tray img {

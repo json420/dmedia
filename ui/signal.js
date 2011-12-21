@@ -72,7 +72,7 @@ var UI = {
     init_browser: function() {
         UI.player = $('player');
         UI.player.addEventListener('ended', UI.next);
-        db.view(UI.on_view, 'user', 'video');
+        db.view(UI.on_view, 'user', 'video', {reduce: false});
     },
 
     init_storage: function() {
