@@ -4,6 +4,8 @@ import json
 
 from gi.repository import GObject, Gio
 
+from dmedia.units import bytes10
+
 GObject.threads_init()
 PROPS = 'org.freedesktop.DBus.Properties'
 
@@ -69,8 +71,10 @@ class WeakMethod:
 
 def partition_info(partition):
     return {
+        'mount_paths': partition['DeviceMountPaths'],
         'uuid': partition['IdUuid'],
         'bytes': partition['DeviceSize'],
+        'size': bytes10(partition['DeviceSize']),
         'filesystem': partition['IdType'],
         'filesystem_version': partition['IdVersion'],
         'label': partition['IdLabel'],
@@ -80,9 +84,11 @@ def partition_info(partition):
 
 def drive_info(drive):
     return {
+        'partitions': {},
         'serial': drive['DriveSerial'],
         'wwn': drive['DriveWwn'],
         'bytes': drive['DeviceSize'],
+        'size': bytes10(drive['DeviceSize']),
         'block_bytes': drive['DeviceBlockSize'],
         'vendor': drive['DriveVendor'],
         'model': drive['DriveModel'],
@@ -91,10 +97,6 @@ def drive_info(drive):
         'internal': drive['DeviceIsSystemInternal'],
         'connection': drive['DriveConnectionInterface'],
         'connection_rate': drive['DriveConnectionSpeed'],
-
-        # These seem consitently worthless, never correct:
-        #'rotational': drive['DriveIsRotational'],
-        #'rotation_rate': drive['DriveRotationRate'],
     }
 
 
@@ -111,13 +113,10 @@ class UDisks:
     def monitor(self):
         self.proxy.connect('g-signal', WeakMethod(self, 'on_g_signal'))
         for obj in self.proxy.EnumerateDevices():
-            self.add_device(obj)
             self.change_device(obj)
 
     def on_g_signal(self, proxy, sender, signal, params):
-        if signal == 'DeviceAdded':
-            self.add_device(params.unpack()[0])
-        elif signal == 'DeviceChanged':
+        if signal == 'DeviceChanged':
             self.change_device(params.unpack()[0])
         elif signal == 'DeviceRemoved':
             self.remove_device(params.unpack()[0])
@@ -127,26 +126,24 @@ class UDisks:
             self.props[obj] = Props(obj)
         return self.props[obj]
 
-    def add_device(self, obj):
-        print('add', obj)
-        self.get_props(obj)
-
     def change_device(self, obj):
-        print('change', obj)
-        props = self.props[obj]
+        #print('change', obj)
+        props = self.get_props(obj)
         if not props.ispartition:
             return
         if props.get('DeviceIsMounted'):
-            d = self.drives.get(props.drive, {})
-            self.drives[props.drive] = d
-            d[props.drive] = {}     
+            if props.drive not in self.drives:
+                self.drives[props.drive] = drive_info(
+                    self.get_props(props.drive).get_all()
+                )
+            d = self.drives[props.drive]
+            d['partitions'][obj] = partition_info(props.get_all())
         else:
             try:
-                del self.drives[props.drive][obj]
+                del self.drives[props.drive]['partitions'][obj]
                 del self.drives[props.drive]
             except KeyError:
                 pass
-        #print(json.dumps(self.drives, sort_keys=True, indent=4))
 
     def remove_device(self, obj):
         print('remove', obj)
@@ -154,12 +151,24 @@ class UDisks:
             del self.props[obj]
         except KeyError:
             pass
- 
+
 start = time.time()
 udisks = UDisks()
 udisks.monitor()
 print(time.time() - start)
+print('')
 
-mainloop = GObject.MainLoop()
-mainloop.run()
+
+print(json.dumps(udisks.drives, sort_keys=True, indent=4))
+print('')
+
+for d in sorted(udisks.drives):
+    drive = udisks.drives[d]
+    print('{size}, {model}'.format(**drive))
+    for p in sorted(drive['partitions']):
+        partition = drive['partitions'][p]
+        print('    {number}: {size}, {filesystem}'.format(**partition))    
+
+#mainloop = GObject.MainLoop()
+#mainloop.run()
 
