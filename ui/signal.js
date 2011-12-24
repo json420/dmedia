@@ -89,7 +89,7 @@ window.onload = function() {
     UI.cards = $('cards');
     UI.url = db.get_sync('_local/peers')['self'];
     UI.tabs = new Tabs();
-    UI.tabs.show_tab('import');    
+    UI.tabs.show_tab('storage');    
 }
 
 

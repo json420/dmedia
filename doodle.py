@@ -1,6 +1,9 @@
 import weakref
 import time
 import json
+import os
+from os import path
+from collections import namedtuple
 
 from gi.repository import GObject, Gio
 
@@ -8,6 +11,11 @@ from dmedia.units import bytes10
 
 GObject.threads_init()
 PROPS = 'org.freedesktop.DBus.Properties'
+
+
+def major_minor(parentdir):
+    st_dev = os.stat(parentdir).st_dev
+    return (os.major(st_dev), os.minor(st_dev))
 
 
 class DBus:
@@ -30,12 +38,6 @@ class DBus:
 
 
 system = DBus(Gio.bus_get_sync(Gio.BusType.SYSTEM, None))
-
-
-def get_device_props(obj):
-    device = system.get('org.freedesktop.UDisks', obj, PROPS)
-    #return device.Get('(ss)', 'org.freedesktop.UDisks.Device', 'DeviceIsPartition')
-    return device.GetAll('(s)', 'org.freedesktop.UDisks.Device')
 
 
 class Props:
@@ -71,7 +73,7 @@ class WeakMethod:
 
 def partition_info(partition):
     return {
-        'mount_paths': partition['DeviceMountPaths'],
+        'mounts': partition['DeviceMountPaths'],
         'uuid': partition['IdUuid'],
         'bytes': partition['DeviceSize'],
         'size': bytes10(partition['DeviceSize']),
@@ -100,6 +102,16 @@ def drive_info(drive):
     }
 
 
+Store = namedtuple('Store', 'parentdir partition')
+
+
+def usable_mount(mounts):
+    for mount in mounts:
+        if mount.startswith('/media/') or mount.startswith('/srv/'):
+            return mount
+      
+
+
 class UDisks:
     def __init__(self):
         self.devices = {}
@@ -111,9 +123,21 @@ class UDisks:
         )
 
     def monitor(self):
+        user = path.abspath(os.environ['HOME'])
+        home = path.dirname(user)
+        self.home = Store(home, self.find(home))
+        try:
+            self.user = Store(user, self.find(user))
+        except Exception:
+            self.user = Store(user, self.find(home))
+        self.standard = (self.home.partition, self.user.partition)
         self.proxy.connect('g-signal', WeakMethod(self, 'on_g_signal'))
         for obj in self.proxy.EnumerateDevices():
             self.change_device(obj)
+
+    def find(self, parentdir):
+        (major, minor) = major_minor(parentdir)
+        return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor) 
 
     def on_g_signal(self, proxy, sender, signal, params):
         if signal == 'DeviceChanged':
@@ -127,11 +151,14 @@ class UDisks:
         return self.props[obj]
 
     def change_device(self, obj):
-        #print('change', obj)
         props = self.get_props(obj)
         if not props.ispartition:
             return
         if props.get('DeviceIsMounted'):
+            if obj not in self.standard:
+                mount = usable_mount(props.get('DeviceMountPaths'))
+                if not mount:
+                    return
             if props.drive not in self.drives:
                 self.drives[props.drive] = drive_info(
                     self.get_props(props.drive).get_all()
@@ -155,19 +182,15 @@ class UDisks:
 start = time.time()
 udisks = UDisks()
 udisks.monitor()
-print(time.time() - start)
-print('')
-
 
 print(json.dumps(udisks.drives, sort_keys=True, indent=4))
+       
 print('')
+print(time.time() - start)
 
-for d in sorted(udisks.drives):
-    drive = udisks.drives[d]
-    print('{size}, {model}'.format(**drive))
-    for p in sorted(drive['partitions']):
-        partition = drive['partitions'][p]
-        print('    {number}: {size}, {filesystem}'.format(**partition))    
+#for p in ('/', '/tmp', '/home', '/home/jderose'):
+#    print(p, major_minor(p))
+
 
 #mainloop = GObject.MainLoop()
 #mainloop.run()
