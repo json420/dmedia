@@ -76,7 +76,23 @@ var UI = {
     },
 
     init_storage: function() {
-        console.log('init_storage'); 
+        var disks = Object.keys(udisks);
+        disks.sort();
+        disks.forEach(function(disk) {
+            console.log(disk);
+            var dinfo = udisks[disk];
+            var partitions = Object.keys(dinfo.partitions);
+            partitions.sort();
+            partitions.forEach(function(partition) {
+                console.log(partition);
+                var pinfo = dinfo.partitions[partition];
+                var stores = Object.keys(pinfo.stores);
+                stores.sort();
+                stores.forEach(function(store) {
+                    console.log(store);
+                });
+            });
+        });
     },
     
 }
@@ -331,6 +347,128 @@ Signal.connect('batch_finalized',
         });
     }
 );
+
+
+var udisks = {
+    "/org/freedesktop/UDisks/devices/sdb": {
+        "bytes": 2000398934016, 
+        "connection": "ata", 
+        "internal": true, 
+        "model": "WDC WD2002FAEX-007BA0", 
+        "partition_scheme": "gpt", 
+        "partitions": {
+            "/org/freedesktop/UDisks/devices/sdb3": {
+                "bytes": 1967398000128, 
+                "filesystem": "ext4", 
+                "filesystem_version": "1.0", 
+                "label": "", 
+                "mounts": [
+                    "/home"
+                ], 
+                "number": 3, 
+                "size": "1.97 TB", 
+                "stores": {
+                    "/home": {
+                        "dmedia": true
+                    }, 
+                    "/home/jderose": {
+                        "dmedia": true
+                    }
+                }, 
+                "uuid": "419a4e98-6487-4b2a-9315-8256e97c08f3"
+            }
+        }, 
+        "revision": "05.01D50", 
+        "serial": "WD-WMAY02010850", 
+        "size": "2 TB"
+    }, 
+    "/org/freedesktop/UDisks/devices/sdc": {
+        "bytes": 1000204886016, 
+        "connection": "ata", 
+        "internal": true, 
+        "model": "WDC WD1002FBYS-02A6B0", 
+        "partition_scheme": "mbr", 
+        "partitions": {
+            "/org/freedesktop/UDisks/devices/sdc1": {
+                "bytes": 1000202241024, 
+                "filesystem": "ext4", 
+                "filesystem_version": "1.0", 
+                "label": "dmedia1", 
+                "mounts": [
+                    "/srv/dmedia/dmedia1"
+                ], 
+                "number": 1, 
+                "size": "1 TB", 
+                "stores": {
+                    "/srv/dmedia/dmedia1": {
+                        "dmedia": true
+                    }
+                }, 
+                "uuid": "3cee2c95-cd63-4990-ab80-0c96786c6efa"
+            }
+        }, 
+        "revision": "03.00C60", 
+        "serial": "WD-WMATV1598616", 
+        "size": "1 TB"
+    }, 
+    "/org/freedesktop/UDisks/devices/sdd": {
+        "bytes": 1000204886016, 
+        "connection": "ata", 
+        "internal": true, 
+        "model": "WDC WD1002FBYS-02A6B0", 
+        "partition_scheme": "mbr", 
+        "partitions": {
+            "/org/freedesktop/UDisks/devices/sdd1": {
+                "bytes": 1000202241024, 
+                "filesystem": "ext4", 
+                "filesystem_version": "1.0", 
+                "label": "dmedia2", 
+                "mounts": [
+                    "/srv/dmedia/dmedia2"
+                ], 
+                "number": 1, 
+                "size": "1 TB", 
+                "stores": {
+                    "/srv/dmedia/dmedia2": {
+                        "dmedia": true
+                    }
+                }, 
+                "uuid": "a3f9ea81-680f-4144-be3a-2616ac2a3c2c"
+            }
+        }, 
+        "revision": "03.00C60", 
+        "serial": "WD-WMATV1496290", 
+        "size": "1 TB"
+    }, 
+    "/org/freedesktop/UDisks/devices/sdf": {
+        "bytes": 32017047552, 
+        "connection": "usb", 
+        "internal": false, 
+        "model": "CF  USB_3_0 Read", 
+        "partition_scheme": "mbr", 
+        "partitions": {
+            "/org/freedesktop/UDisks/devices/sdf1": {
+                "bytes": 32017015296, 
+                "filesystem": "vfat", 
+                "filesystem_version": "FAT32", 
+                "label": "EOS_DIGITAL", 
+                "mounts": [
+                    "/media/EOS_DIGITAL"
+                ], 
+                "number": 1, 
+                "size": "32 GB", 
+                "stores": {
+                    "/media/EOS_DIGITAL": {}
+                }, 
+                "uuid": "2478-0E2D"
+            }
+        }, 
+        "revision": "0545", 
+        "serial": "000000003693", 
+        "size": "32 GB"
+    }
+};
+
 
 
 

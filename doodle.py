@@ -6,6 +6,7 @@ from os import path
 from collections import namedtuple
 
 from gi.repository import GObject, Gio
+from filestore import DOTNAME
 
 from dmedia.units import bytes10
 
@@ -48,6 +49,7 @@ class Props:
             obj,
             'org.freedesktop.DBus.Properties'
         )
+        self.cache = {}
         self.ispartition = self.get('DeviceIsPartition')
         if self.ispartition:
             self.drive = self.get('PartitionSlave')
@@ -55,11 +57,22 @@ class Props:
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
 
+    def __getitem__(self, key):
+        try:
+            return self.cache[key]
+        except KeyError:
+            value = self.get(key)
+            self.cache[key] = value
+            return value
+
     def get(self, key):
         return self.proxy.Get('(ss)', 'org.freedesktop.UDisks.Device', key)
 
     def get_all(self):
         return self.proxy.GetAll('(s)', 'org.freedesktop.UDisks.Device')
+
+    def reset(self):
+        self.cache.clear()
 
 
 class WeakMethod:
@@ -73,6 +86,7 @@ class WeakMethod:
 
 def partition_info(partition):
     return {
+        'stores': {},
         'mounts': partition['DeviceMountPaths'],
         'uuid': partition['IdUuid'],
         'bytes': partition['DeviceSize'],
@@ -88,17 +102,15 @@ def drive_info(drive):
     return {
         'partitions': {},
         'serial': drive['DriveSerial'],
-        'wwn': drive['DriveWwn'],
         'bytes': drive['DeviceSize'],
         'size': bytes10(drive['DeviceSize']),
-        'block_bytes': drive['DeviceBlockSize'],
-        'vendor': drive['DriveVendor'],
+        #'vendor': drive['DriveVendor'],
         'model': drive['DriveModel'],
         'revision': drive['DriveRevision'],
         'partition_scheme': drive['PartitionTableScheme'],
         'internal': drive['DeviceIsSystemInternal'],
         'connection': drive['DriveConnectionInterface'],
-        'connection_rate': drive['DriveConnectionSpeed'],
+        #'connection_rate': drive['DriveConnectionSpeed'],
     }
 
 
@@ -107,9 +119,9 @@ Store = namedtuple('Store', 'parentdir partition')
 
 def usable_mount(mounts):
     for mount in mounts:
-        if mount.startswith('/media/') or mount.startswith('/srv/'):
+        if mount.startswith('/media/') or mount[:4] in ('/srv', '/mnt'):
             return mount
-      
+
 
 
 class UDisks:
@@ -154,21 +166,36 @@ class UDisks:
         props = self.get_props(obj)
         if not props.ispartition:
             return
-        if props.get('DeviceIsMounted'):
+        props.reset()
+        if props['DeviceIsMounted']:
             if obj not in self.standard:
-                mount = usable_mount(props.get('DeviceMountPaths'))
-                if not mount:
+                parentdir = usable_mount(props['DeviceMountPaths'])
+                if not parentdir:
                     return
+                stores = {
+                    parentdir: {},
+                }
+            else:
+                stores = {}
+                if obj == self.home.partition:
+                    stores[self.home.parentdir] = {}
+                if obj == self.user.partition:
+                    stores[self.user.parentdir] = {}
             if props.drive not in self.drives:
                 self.drives[props.drive] = drive_info(
-                    self.get_props(props.drive).get_all()
+                    self.get_props(props.drive)
                 )
             d = self.drives[props.drive]
-            d['partitions'][obj] = partition_info(props.get_all())
+            d['partitions'][obj] = partition_info(props)
+            d['partitions'][obj]['stores'].update(stores)
+            for key in stores:
+                if path.isdir(path.join(key, DOTNAME)):
+                    stores[key]['dmedia'] = True
         else:
             try:
                 del self.drives[props.drive]['partitions'][obj]
-                del self.drives[props.drive]
+                if not self.drives[props.drive]['partitions']:
+                    del self.drives[props.drive]
             except KeyError:
                 pass
 
