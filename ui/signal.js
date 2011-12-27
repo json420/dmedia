@@ -76,11 +76,14 @@ var UI = {
     },
 
     init_storage: function() {
-        var disks = Object.keys(udisks);
-        disks.sort();
-        disks.forEach(function(disk) {
-            console.log(disk);
-            var dinfo = udisks[disk];
+        return;
+        var div = $('drives');
+        var drives = Object.keys(UI.drives);
+        drives.sort();
+        drives.forEach(function(drive) {
+            console.log(drive);
+            var dinfo = UI.drives[drive];
+            div.appendChild(mk_drive(drive, dinfo));
             var partitions = Object.keys(dinfo.partitions);
             partitions.sort();
             partitions.forEach(function(partition) {
@@ -94,7 +97,13 @@ var UI = {
             });
         });
     },
-    
+
+}
+
+function mk_drive(id, info) {
+    var div = $el('div', {id: id, textContent: info.text});
+    return div;
+
 }
 
 
@@ -349,7 +358,7 @@ Signal.connect('batch_finalized',
 );
 
 
-var udisks = {
+UI.drives  = {
     "/org/freedesktop/UDisks/devices/sdb": {
         "bytes": 2000398934016, 
         "connection": "ata", 
@@ -380,7 +389,8 @@ var udisks = {
         }, 
         "revision": "05.01D50", 
         "serial": "WD-WMAY02010850", 
-        "size": "2 TB"
+        "size": "2 TB", 
+        "text": "2 TB Drive"
     }, 
     "/org/freedesktop/UDisks/devices/sdc": {
         "bytes": 1000204886016, 
@@ -409,7 +419,8 @@ var udisks = {
         }, 
         "revision": "03.00C60", 
         "serial": "WD-WMATV1598616", 
-        "size": "1 TB"
+        "size": "1 TB", 
+        "text": "1 TB Drive"
     }, 
     "/org/freedesktop/UDisks/devices/sdd": {
         "bytes": 1000204886016, 
@@ -438,7 +449,8 @@ var udisks = {
         }, 
         "revision": "03.00C60", 
         "serial": "WD-WMATV1496290", 
-        "size": "1 TB"
+        "size": "1 TB", 
+        "text": "1 TB Drive"
     }, 
     "/org/freedesktop/UDisks/devices/sdf": {
         "bytes": 32017047552, 
@@ -465,7 +477,8 @@ var udisks = {
         }, 
         "revision": "0545", 
         "serial": "000000003693", 
-        "size": "32 GB"
+        "size": "32 GB", 
+        "text": "32 GB Removable Drive"
     }
 };
 

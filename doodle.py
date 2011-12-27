@@ -4,9 +4,11 @@ import json
 import os
 from os import path
 from collections import namedtuple
+from gettext import gettext as _
 
 from gi.repository import GObject, Gio
 from filestore import DOTNAME
+from microfiber import Database, dmedia_env
 
 from dmedia.units import bytes10
 
@@ -98,6 +100,14 @@ def partition_info(partition):
     }
 
 
+def drive_text(drive):
+    if drive['DeviceIsSystemInternal']:
+        template = _('{size} Drive')
+    else:
+        template = _('{size} Removable Drive')
+    return template.format(size=bytes10(drive['DeviceSize']))
+
+
 def drive_info(drive):
     return {
         'partitions': {},
@@ -111,6 +121,7 @@ def drive_info(drive):
         'internal': drive['DeviceIsSystemInternal'],
         'connection': drive['DriveConnectionInterface'],
         #'connection_rate': drive['DriveConnectionSpeed'],
+        'text': drive_text(drive),
     }
 
 
@@ -121,7 +132,6 @@ def usable_mount(mounts):
     for mount in mounts:
         if mount.startswith('/media/') or mount[:4] in ('/srv', '/mnt'):
             return mount
-
 
 
 class UDisks:
@@ -211,6 +221,14 @@ udisks = UDisks()
 udisks.monitor()
 
 print(json.dumps(udisks.drives, sort_keys=True, indent=4))
+
+for dkey in sorted(udisks.drives):
+    print(dkey)
+    drive = udisks.drives[dkey]
+    for pkey in drive['partitions']:
+        print('    {}'.format(pkey))
+        partition = drive['partitions'][pkey]
+        
        
 print('')
 print(time.time() - start)
