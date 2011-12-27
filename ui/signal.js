@@ -38,7 +38,6 @@ var UI = {
         }
         UI.selected = $(id);
         UI.selected.classList.add('selected');
-        UI.selected.scrollIntoView(false);
         UI.player.pause();
         UI.player.src = '';
         db.get(UI.on_doc, id);
@@ -50,6 +49,7 @@ var UI = {
     next: function() {
         if (UI.selected && UI.selected.nextSibling) {
             UI.play(UI.selected.nextSibling.id);
+            UI.selected.scrollIntoView(false);
         }
     },
 
