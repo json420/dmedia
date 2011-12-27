@@ -11,10 +11,11 @@ Homepage: https://launchpad.net/dmedia
 Package: dmedia
 Architecture: all
 Depends: ${misc:Depends}, python3 (>= 3.2),
-    python3-filestore (>= 11.10),
-    python3-microfiber (>= 11.10),
-    python3-userwebkit (>= 11.10),
-    dc3 (>= 11.10),
+    python3-filestore (>= 11.12),
+    python3-microfiber (>= 11.12),
+    python3-userwebkit (>= 11.12),
+    python3-usercouch (>= 11.12),
+    dc3 (>= 11.12),
     libimage-exiftool-perl,
     ufraw-batch,
     gir1.2-unity-4.0,
