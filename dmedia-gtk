@@ -25,6 +25,7 @@ import optparse
 import json
 import logging
 import sys
+from urllib.parse import urlparse
 
 from userwebkit import BaseUI
 
@@ -36,6 +37,7 @@ from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
 from dmedia.service.wrappers import ImportWrapper
 from dmedia.gtk.ubuntu import UnityImportUX
+from dmedia import local
 
 
 log = logging.getLogger()
@@ -136,6 +138,29 @@ class UI(BaseUI):
         self.hub.connect('error', self.on_error)
         self.hub.connect('signal', self.on_signal)
         self.importer = None
+        self.local = None
+  
+    def dmedia_resolver(self, uri):
+        if self.env is None:
+            return ''
+        if self.local is None:
+            self.local = local.LocalSlave(self.env)
+        try:
+            u = urlparse(uri)
+            _id = u.path
+            doc = self.local.get_doc(_id)
+            if doc.get('proxies'):
+                proxies = doc['proxies']
+                for proxy in proxies:
+                    try:
+                        st = self.local.stat(proxy)
+                        return 'file://' + st.name
+                    except (local.NoSuchFile, local.FileNotLocal):
+                        pass
+            st = self.local.stat2(doc)
+            return 'file://' + st.name
+        except Exception:    
+            return ''
 
     def on_title_data(self, view, obj):
         if obj.get('signal') == 'click':
