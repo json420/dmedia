@@ -41,7 +41,7 @@ var UI = {
         UI.player.pause();
         UI.player.src = '';
         db.get(UI.on_doc, id);
-        UI.player.src = UI.url + id;
+        UI.player.src = 'dmedia:' + id;
         UI.player.load();
         UI.player.play();
     },
@@ -87,7 +87,6 @@ window.onload = function() {
     UI.total = $('total');
     UI.completed = $('completed');
     UI.cards = $('cards');
-    UI.url = db.get_sync('_local/peers')['self'];
     UI.tabs = new Tabs();
     UI.tabs.show_tab('import');    
 }
