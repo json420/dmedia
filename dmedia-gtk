@@ -141,7 +141,6 @@ class UI(BaseUI):
         self.local = None
   
     def dmedia_resolver(self, uri):
-        print(uri)
         if self.env is None:
             return ''
         if self.local is None:
