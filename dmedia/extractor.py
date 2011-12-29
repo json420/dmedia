@@ -316,12 +316,13 @@ def merge_video_info(src):
     if not src.endswith('.MOV'):
         return
 
-    # Extract EXIF metadata from Canon .THM file if present:
+    # Extract EXIF metadata from Canon .THM file if present, otherwise try from
+    # MOV (for 60D, T3i, etc):
     thm = src[:-3] + 'THM'
-    if path.isfile(thm):
-        for (key, value) in merge_exif(thm):
-            if key in ('width', 'height'):
-                continue
-            yield (key, value)
+    target = (thm if path.isfile(thm) else src)
+    for (key, value) in merge_exif(target):
+        if key in ('width', 'height'):
+            continue
+        yield (key, value)
 
 register(merge_video_info, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga', 'mts')
