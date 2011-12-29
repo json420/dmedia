@@ -37,6 +37,15 @@ from collections import namedtuple
 
 Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
+# Why 288x288 box for thumbnail size?  To preserve exact aspect ratio for
+# common aspect-ratios we care about:
+#   288x162 = 16:9
+#   288x192 = 3:2
+#   288x216 = 4:3
+SIZE = 288
+SCALE = '{}x{}'.format(SIZE, SIZE)
+UNSHARP = '3x2+0.5+0.0'  # Sharpening
+
 # exiftool adds some metadata that doesn't make sense to include:
 EXIFTOOL_IGNORE = (
     'SourceFile',  # 'dmedia/tests/data/MVI_5751.THM'
@@ -242,7 +251,7 @@ def thumbnail_image(filename):
         check_call([
             'convert',
             filename,
-            '-scale', '192',  # Fit in 192x192 box
+            '-scale', SCALE,
             '-unsharp', '3x2+0.5+0.0',
             '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
             '-quality', '95', 
@@ -250,6 +259,34 @@ def thumbnail_image(filename):
         ])
         return Thumbnail('image/jpeg', open(dst, 'rb').read())
     except Exception:
+        return None
+    finally:
+        if path.isdir(tmp):
+            shutil.rmtree(tmp)
+
+
+def thumbnail_raw(filename):
+    tmp = tempfile.mkdtemp(prefix='dmedia.')
+    try:
+        embedded = path.join(tmp, 'embedded.jpg')
+        dst = path.join(tmp, 'thumbnail.jpg')
+        check_call([
+            'ufraw-batch',
+            '--embedded-image',
+            '--output', embedded,
+            filename,
+        ])
+        check_call([
+            'convert',
+            embedded,
+            '-scale', SCALE, 
+            '-unsharp', UNSHARP,
+            '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
+            '-quality', '95', 
+            dst,
+        ])
+        return Thumbnail('image/jpeg', open(dst, 'rb').read())
+    except CalledProcessError:
         return None
     finally:
         if path.isdir(tmp):
@@ -271,22 +308,6 @@ def generate_cr2_thumbnail(filename):
             'content_type': 'image/jpeg',
             'data': b64encode(data).decode('utf-8'),
         }
-    except CalledProcessError:
-        pass
-
-
-def generate_cr2_thumbnail2(filename):
-    try:
-        data = check_output([
-            'ufraw-batch',
-            '--embedded-image',
-            '--size=324',  # 324x216 for 3:2
-            '--compression=85',
-            '--out-type=jpg',
-            '--output=-',
-            filename,
-        ])
-        return Thumbnail('image/jpeg', data)
     except CalledProcessError:
         pass
 
