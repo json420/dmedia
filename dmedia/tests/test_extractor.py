@@ -24,6 +24,7 @@ Unit tests for `dmedia.extractor` module.
 """
 
 import base64
+import os
 from os import path
 from subprocess import CalledProcessError
 
@@ -417,38 +418,69 @@ class TestFunctions(SampleFilesTestCase):
         self.assertIsInstance(t, extractor.Thumbnail)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
+        self.assertEqual(
+            sorted(os.listdir(tmp.dir)),
+            ['frame.png', 'thumbnail.jpg']
+        )
 
         # Test invalid file:
         tmp = TempDir()
         invalid = tmp.write(b'Wont work!', 'invalid.mov')
         with self.assertRaises(CalledProcessError) as cm:
             t = extractor.thumbnail_video(invalid, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), ['invalid.mov'])
 
         # Test with non-existent file:
         tmp = TempDir()
         nope = tmp.join('nope.mov')
         with self.assertRaises(CalledProcessError) as cm:
             t = extractor.thumbnail_video(nope, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), [])
 
     def test_thumbnail_image(self):
         # Test with sample_thm from 5D Mark II:
         tmp = TempDir()
-        t = extractor.thumbnail_video(self.thm, tmp.dir)
+        t = extractor.thumbnail_image(self.thm, tmp.dir)
         self.assertIsInstance(t, extractor.Thumbnail)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
+        self.assertEqual(os.listdir(tmp.dir), ['thumbnail.jpg'])
 
         # Test invalid file:
         tmp = TempDir()
         invalid = tmp.write(b'Wont work!', 'invalid.jpg')
         with self.assertRaises(CalledProcessError) as cm:
-            t = extractor.thumbnail_video(invalid, tmp.dir)
+            t = extractor.thumbnail_image(invalid, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), ['invalid.jpg'])
 
         # Test with non-existent file:
         tmp = TempDir()
         nope = tmp.join('nope.jpg')
         with self.assertRaises(CalledProcessError) as cm:
-            t = extractor.thumbnail_video(nope, tmp.dir)
+            t = extractor.thumbnail_image(nope, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), [])
+
+    def test_create_thumbnail(self):
+        # Test with sample_mov from 5D Mark II:
+        t = extractor.create_thumbnail(self.mov, 'mov')
+        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertEqual(t.content_type, 'image/jpeg')
+        self.assertIsInstance(t.data, bytes)
+
+        # Test when ext is None:
+        self.assertIsNone(extractor.create_thumbnail(self.mov, None))
+
+        # Test when ext is unknown
+        self.assertIsNone(extractor.create_thumbnail(self.mov, 'nope'))
+        
+        # Test invalid file:
+        tmp = TempDir()
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
+        self.assertIsNone(extractor.create_thumbnail(invalid, 'mov'))
+
+        # Test with non-existent file:
+        nope = tmp.join('nope.mov')
+        self.assertIsNone(extractor.create_thumbnail(nope, 'mov'))
 
     def test_merge_metadata(self):
         f = extractor.merge_metadata

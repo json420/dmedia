@@ -228,7 +228,7 @@ def thumbnail_image(src, tmp):
         '-scale', '{}x{}'.format(SIZE, SIZE), 
         '-unsharp', '3x2+0.5+0.0',
         '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
-        '-quality', '95', 
+        '-quality', '90', 
         dst,
     ]
     check_call(cmd)
@@ -398,10 +398,6 @@ def merge_video_info(src, attachments):
     # Extract EXIF metadata from Canon .THM file if present:
     thm = src[:-3] + 'THM'
     if path.isfile(thm):
-#        attachments['canon.thm'] = {
-#            'content_type': 'image/jpeg',
-#            'data': file_2_base64(thm),
-#        }
         for (key, value) in merge_exif(thm, attachments):
             if key in ('width', 'height'):
                 continue
