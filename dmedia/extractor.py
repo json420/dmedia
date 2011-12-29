@@ -209,7 +209,7 @@ def generate_thumbnail(filename):
             shutil.rmtree(tmp)
 
 
-def generate_thumbnail2(filename):
+def thumbnail_video(filename):
     """
     Generate thumbnail for video at *filename*.
     """
@@ -220,7 +220,8 @@ def generate_thumbnail2(filename):
             'totem-video-thumbnailer',
             '-r',  # Create a "raw" thumbnail without film boarder
             '-j',  # Save as JPEG instead of PNG
-            '-s', '384',  # 384x216 for 16:9
+            '-s', '192',  # 384x216 for 16:9
+            #'-q', '90',
             filename,
             dst,
         ])
