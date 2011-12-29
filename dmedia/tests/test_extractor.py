@@ -429,7 +429,7 @@ class TestFunctions(SampleFilesTestCase):
         nope = tmp.join('nope.mov')
         with self.assertRaises(CalledProcessError) as cm:
             t = extractor.thumbnail_video(nope, tmp.dir)
-        
+
     def test_thumbnail_image(self):
         # Test with sample_thm from 5D Mark II:
         tmp = TempDir()

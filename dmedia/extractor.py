@@ -217,19 +217,6 @@ def generate_thumbnail(filename):
             shutil.rmtree(tmp)
 
 
-def scale_and_sharpen(src, dst):
-    cmd = [
-        'convert',
-        src,
-        '-scale', '{}x{}'.format(SIZE, SIZE), 
-        '-unsharp', '3x2+0.5+0.0',
-        '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
-        '-quality', '95', 
-        dst,
-    ]
-    check_call(cmd)
-
-
 def thumbnail_image(src, tmp):
     """
     Generate thumbnail for image with filename *src*.
@@ -256,7 +243,7 @@ def thumbnail_video(src, tmp):
     cmd = [
         'totem-video-thumbnailer',
         '-r',  # Create a "raw" thumbnail without film boarder
-        '-s', str(SIZE * 2),
+        '-s', str(SIZE),
         src,
         dst,
     ]
