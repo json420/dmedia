@@ -34,6 +34,8 @@ import time
 import calendar
 from collections import namedtuple
 
+from filestore import hash_fp
+
 
 Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
@@ -319,6 +321,9 @@ def merge_video_info(src):
     # Extract EXIF metadata from Canon .THM file if present, otherwise try from
     # MOV (for 60D, T3i, etc):
     thm = src[:-3] + 'THM'
+    if path.isfile(thm):
+        ch = hash_fp(open(thm, 'rb'))
+        yield ('canon_thm', ch.id)
     target = (thm if path.isfile(thm) else src)
     for (key, value) in merge_exif(target):
         if key in ('width', 'height'):

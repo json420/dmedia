@@ -492,6 +492,7 @@ class TestFunctions(SampleFilesTestCase):
                     camera='Canon EOS 5D Mark II',
                     camera_serial='0820500998',
                     focal_length='138.0 mm',
+                    canon_thm=self.thm_ch.id,
                 ),
             )
         )
@@ -540,6 +541,7 @@ class TestFunctions(SampleFilesTestCase):
                 camera_serial='0820500998',
                 focal_length='138.0 mm',
                 mtime=1287520994 + 68 / 100.0,
+                canon_thm=self.thm_ch.id,
             )
         )
 
