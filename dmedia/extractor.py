@@ -43,8 +43,7 @@ Thumbnail = namedtuple('Thumbnail', 'content_type data')
 #   288x192 = 3:2
 #   288x216 = 4:3
 SIZE = 288
-SCALE = '{}x{}'.format(SIZE, SIZE)
-UNSHARP = '3x2+0.5+0.0'  # Sharpening
+
 
 # exiftool adds some metadata that doesn't make sense to include:
 EXIFTOOL_IGNORE = (
@@ -218,75 +217,82 @@ def generate_thumbnail(filename):
             shutil.rmtree(tmp)
 
 
-def thumbnail_video(filename):
+def scale_and_sharpen(src, dst):
+    cmd = [
+        'convert',
+        src,
+        '-scale', '{}x{}'.format(SIZE, SIZE), 
+        '-unsharp', '3x2+0.5+0.0',
+        '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
+        '-quality', '95', 
+        dst,
+    ]
+    check_call(cmd)
+
+
+def thumbnail_image(src, tmp):
     """
-    Generate thumbnail for video at *filename*.
+    Generate thumbnail for image with filename *src*.
     """
-    try:
-        tmp = tempfile.mkdtemp(prefix='dmedia.')
-        dst = path.join(tmp, 'thumbnail.jpg')
-        check_call([
-            'totem-video-thumbnailer',
-            '-r',  # Create a "raw" thumbnail without film boarder
-            '-j',  # Save as JPEG instead of PNG
-            '-s', '192',  # Fit in 192x192 box
-            filename,
-            dst,
-        ])
-        return Thumbnail('image/jpeg', open(dst, 'rb').read())
-    except Exception:
+    dst = path.join(tmp, 'thumbnail.jpg')
+    cmd = [
+        'convert',
+        src,
+        '-scale', '{}x{}'.format(SIZE, SIZE), 
+        '-unsharp', '3x2+0.5+0.0',
+        '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
+        '-quality', '95', 
+        dst,
+    ]
+    check_call(cmd)
+    return Thumbnail('image/jpeg', open(dst, 'rb').read())
+
+
+def thumbnail_video(src, tmp):
+    """
+    Generate thumbnail for video with filename *src*.
+    """
+    dst = path.join(tmp, 'frame.png')
+    cmd = [
+        'totem-video-thumbnailer',
+        '-r',  # Create a "raw" thumbnail without film boarder
+        '-s', str(SIZE * 2),
+        src,
+        dst,
+    ]
+    check_call(cmd)
+    return thumbnail_image(dst, tmp)
+
+
+def thumbnail_raw(src, tmp):
+    """
+    Generate thumbnail for RAW photo with filename *src*.
+    """
+    dst = path.join(tmp, 'embedded.jpg')
+    cmd = [
+        'ufraw-batch',
+        '--embedded-image',
+        '--output', dst,
+        src,
+    ]
+    check_call(cmd)
+    return thumbnail_image(dst, tmp)
+
+
+thumbnailers = {
+    'mov': thumbnail_video,
+    'cr2': thumbnail_raw,
+    'jpg': thumbnail_image,
+}
+
+
+def create_thumbnail(filename, ext):
+    if ext not in thumbnailers:
         return None
-    finally:
-        if path.isdir(tmp):
-            shutil.rmtree(tmp)
-
-
-def thumbnail_image(filename):
-    """
-    Generate thumbnail for image at *filename*.
-    """
-    try:
-        tmp = tempfile.mkdtemp(prefix='dmedia.')
-        dst = path.join(tmp, 'thumbnail.jpg')
-        check_call([
-            'convert',
-            filename,
-            '-scale', SCALE,
-            '-unsharp', '3x2+0.5+0.0',
-            '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
-            '-quality', '95', 
-            dst,
-        ])
-        return Thumbnail('image/jpeg', open(dst, 'rb').read())
-    except Exception:
-        return None
-    finally:
-        if path.isdir(tmp):
-            shutil.rmtree(tmp)
-
-
-def thumbnail_raw(filename):
     tmp = tempfile.mkdtemp(prefix='dmedia.')
     try:
-        embedded = path.join(tmp, 'embedded.jpg')
-        dst = path.join(tmp, 'thumbnail.jpg')
-        check_call([
-            'ufraw-batch',
-            '--embedded-image',
-            '--output', embedded,
-            filename,
-        ])
-        check_call([
-            'convert',
-            embedded,
-            '-scale', SCALE, 
-            '-unsharp', UNSHARP,
-            '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
-            '-quality', '95', 
-            dst,
-        ])
-        return Thumbnail('image/jpeg', open(dst, 'rb').read())
-    except CalledProcessError:
+        return thumbnailers[ext](filename, tmp)
+    except Exception:
         return None
     finally:
         if path.isdir(tmp):

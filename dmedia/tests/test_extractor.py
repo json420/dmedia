@@ -25,6 +25,7 @@ Unit tests for `dmedia.extractor` module.
 
 import base64
 from os import path
+from subprocess import CalledProcessError
 
 from .base import TempDir, SampleFilesTestCase
 
@@ -410,38 +411,44 @@ class TestFunctions(SampleFilesTestCase):
         self.assertEqual(f(nope), None)
 
     def test_thumbnail_video(self):
-        tmp = TempDir()
-
         # Test with sample_mov from 5D Mark II:
-        t = extractor.thumbnail_video(self.mov)
+        tmp = TempDir()
+        t = extractor.thumbnail_video(self.mov, tmp.dir)
         self.assertIsInstance(t, extractor.Thumbnail)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
 
         # Test invalid file:
+        tmp = TempDir()
         invalid = tmp.write(b'Wont work!', 'invalid.mov')
-        self.assertIsNone(extractor.thumbnail_video(invalid))
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_video(invalid, tmp.dir)
 
         # Test with non-existent file:
+        tmp = TempDir()
         nope = tmp.join('nope.mov')
-        self.assertIsNone(extractor.thumbnail_video(nope))
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_video(nope, tmp.dir)
         
     def test_thumbnail_image(self):
-        tmp = TempDir()
-
         # Test with sample_thm from 5D Mark II:
-        t = extractor.thumbnail_video(self.thm)
+        tmp = TempDir()
+        t = extractor.thumbnail_video(self.thm, tmp.dir)
         self.assertIsInstance(t, extractor.Thumbnail)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
 
         # Test invalid file:
+        tmp = TempDir()
         invalid = tmp.write(b'Wont work!', 'invalid.jpg')
-        self.assertIsNone(extractor.thumbnail_video(invalid))
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_video(invalid, tmp.dir)
 
         # Test with non-existent file:
+        tmp = TempDir()
         nope = tmp.join('nope.jpg')
-        self.assertIsNone(extractor.thumbnail_video(nope))
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_video(nope, tmp.dir)
 
     def test_merge_metadata(self):
         f = extractor.merge_metadata
