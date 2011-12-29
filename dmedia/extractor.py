@@ -323,18 +323,24 @@ def merge_metadata(src, doc):
     meta = doc.get('meta', {})
     if ext in _extractors:
         callback = _extractors[ext]
-        for (key, value) in callback(src, attachments):
+        for (key, value) in callback(src):
             if key == 'mtime':
                 doc['ctime'] = value
             elif key not in meta:
                 meta[key] = value
+    thm = create_thumbnail(src, ext)
+    if thm is not None:
+        attachments['thumbnail'] = {
+            'content_type': thm.content_type,
+            'data': b64encode(thm.data).decode('utf-8'),
+        }
     if attachments and '_attachments' not in doc:
         doc['_attachments'] = attachments
     if meta and 'meta' not in doc:
         doc['meta'] = meta
 
 
-def merge_exif2(src):
+def merge_exif(src):
     exif = extract_exif(src)
     for (key, values) in EXIF_REMAP.items():
         for v in values:
@@ -344,22 +350,6 @@ def merge_exif2(src):
     mtime = extract_mtime_from_exif(exif)
     if mtime is not None:
         yield ('mtime', mtime)
-
-
-def merge_exif(src, attachments):
-    exif = extract_exif(src)
-    for (key, values) in EXIF_REMAP.items():
-        for v in values:
-            if v in exif:
-                yield (key, exif[v])
-                break
-    mtime = extract_mtime_from_exif(exif)
-    if mtime is not None:
-        yield ('mtime', mtime)
-    if src.endswith('.CR2'):
-        thumbnail = generate_cr2_thumbnail(src)
-        if thumbnail is not None:
-            attachments['thumbnail'] = thumbnail
 
 register(merge_exif, 'jpg', 'png', 'cr2')
 
@@ -376,7 +366,7 @@ def merge_video_info2(src):
             yield (dst_key, value)
 
 
-def merge_video_info(src, attachments):
+def merge_video_info(src):
     info = extract_video_info(src)
     for (dst_key, src_key) in TOTEM_REMAP:
         if src_key in info:
@@ -387,18 +377,13 @@ def merge_video_info(src, attachments):
                 pass
             yield (dst_key, value)
 
-    # Try to generate thumbnail:
-    thumbnail = generate_thumbnail(src)
-    if thumbnail is not None:
-        attachments['thumbnail'] = thumbnail
-
     if not src.endswith('.MOV'):
         return
 
     # Extract EXIF metadata from Canon .THM file if present:
     thm = src[:-3] + 'THM'
     if path.isfile(thm):
-        for (key, value) in merge_exif(thm, attachments):
+        for (key, value) in merge_exif(thm):
             if key in ('width', 'height'):
                 continue
             yield (key, value)
