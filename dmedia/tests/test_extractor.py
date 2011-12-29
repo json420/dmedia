@@ -24,7 +24,9 @@ Unit tests for `dmedia.extractor` module.
 """
 
 import base64
+import os
 from os import path
+from subprocess import CalledProcessError
 
 from .base import TempDir, SampleFilesTestCase
 
@@ -275,16 +277,6 @@ sample_mov_info = {
 
 class TestFunctions(SampleFilesTestCase):
 
-    def test_file_2_base64(self):
-        f = extractor.file_2_base64
-        tmp = TempDir()
-        src = tmp.write(b'Hello naughty nurse!', 'sample.txt')
-        self.assertEqual(
-            b64decode(f(src)),
-            b'Hello naughty nurse!'
-        )
-
-
     def test_extract_exif(self):
         f = extractor.extract_exif
         exif = f(self.thm)
@@ -345,7 +337,6 @@ class TestFunctions(SampleFilesTestCase):
         )
         self.assertEqual(f('2010:10:21 01:44:37'), 1287625477)
 
-
     def test_extract_mtime_from_exif(self):
         f = extractor.extract_mtime_from_exif
         self.assertEqual(
@@ -359,7 +350,6 @@ class TestFunctions(SampleFilesTestCase):
         self.assertEqual(f(d), 1287520994 + 68 / 100.0)
         del d['SubSecModifyDate']
         self.assertEqual(f(d), None)
-
 
     def test_extract_video_info(self):
         f = extractor.extract_video_info
@@ -389,26 +379,79 @@ class TestFunctions(SampleFilesTestCase):
             }
         )
 
-
-    def test_generate_thumbnail(self):
-        f = extractor.generate_thumbnail
-        tmp = TempDir()
-
+    def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:
-        d = f(self.mov)
-        self.assertTrue(isinstance(d, dict))
-        self.assertEqual(sorted(d), ['content_type', 'data'])
-        self.assertEqual(d['content_type'], 'image/jpeg')
-        data = b64decode(d['data'])
+        tmp = TempDir()
+        t = extractor.thumbnail_video(self.mov, tmp.dir)
+        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertEqual(t.content_type, 'image/jpeg')
+        self.assertIsInstance(t.data, bytes)
+        self.assertGreater(len(t.data), 5000)
+        self.assertEqual(
+            sorted(os.listdir(tmp.dir)),
+            ['frame.png', 'thumbnail.jpg']
+        )
 
         # Test invalid file:
+        tmp = TempDir()
         invalid = tmp.write(b'Wont work!', 'invalid.mov')
-        self.assertEqual(f(invalid), None)
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_video(invalid, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), ['invalid.mov'])
+
+        # Test with non-existent file:
+        tmp = TempDir()
+        nope = tmp.join('nope.mov')
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_video(nope, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), [])
+
+    def test_thumbnail_image(self):
+        # Test with sample_thm from 5D Mark II:
+        tmp = TempDir()
+        t = extractor.thumbnail_image(self.thm, tmp.dir)
+        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertEqual(t.content_type, 'image/jpeg')
+        self.assertIsInstance(t.data, bytes)
+        self.assertGreater(len(t.data), 5000)
+        self.assertEqual(os.listdir(tmp.dir), ['thumbnail.jpg'])
+
+        # Test invalid file:
+        tmp = TempDir()
+        invalid = tmp.write(b'Wont work!', 'invalid.jpg')
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_image(invalid, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), ['invalid.jpg'])
+
+        # Test with non-existent file:
+        tmp = TempDir()
+        nope = tmp.join('nope.jpg')
+        with self.assertRaises(CalledProcessError) as cm:
+            t = extractor.thumbnail_image(nope, tmp.dir)
+        self.assertEqual(os.listdir(tmp.dir), [])
+
+    def test_create_thumbnail(self):
+        # Test with sample_mov from 5D Mark II:
+        t = extractor.create_thumbnail(self.mov, 'mov')
+        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertEqual(t.content_type, 'image/jpeg')
+        self.assertIsInstance(t.data, bytes)
+        self.assertGreater(len(t.data), 5000)
+
+        # Test when ext is None:
+        self.assertIsNone(extractor.create_thumbnail(self.mov, None))
+
+        # Test when ext is unknown
+        self.assertIsNone(extractor.create_thumbnail(self.mov, 'nope'))
+        
+        # Test invalid file:
+        tmp = TempDir()
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
+        self.assertIsNone(extractor.create_thumbnail(invalid, 'mov'))
 
         # Test with non-existent file:
         nope = tmp.join('nope.mov')
-        self.assertEqual(f(nope), None)
-
+        self.assertIsNone(extractor.create_thumbnail(nope, 'mov'))
 
     def test_merge_metadata(self):
         f = extractor.merge_metadata
@@ -449,6 +492,7 @@ class TestFunctions(SampleFilesTestCase):
                     camera='Canon EOS 5D Mark II',
                     camera_serial='0820500998',
                     focal_length='138.0 mm',
+                    canon_thm=self.thm_ch.id,
                 ),
             )
         )
@@ -456,9 +500,8 @@ class TestFunctions(SampleFilesTestCase):
     def test_merge_exif(self):
         f = extractor.merge_exif
         self.assertTrue(self.thm.endswith('.THM'))
-        attachments = {}
         self.assertEqual(
-            dict(f(self.thm, attachments)),
+            dict(f(self.thm)),
             dict(
                 width=160,
                 height=120,
@@ -472,25 +515,12 @@ class TestFunctions(SampleFilesTestCase):
                 mtime=1287520994 + 68 / 100.0,
             ),
         )
-        self.assertEqual(attachments, {})
-
 
     def test_merge_video_info(self):
         f = extractor.merge_video_info
         tmp = TempDir()
 
-        att = {}
-        merged = dict(f(self.mov, att))
-
-        # Check canon.thm attachment
-        self.assertEqual(set(att), set(['thumbnail']))
-
-        # Check thumbnail
-        thm = att['thumbnail']
-        self.assertTrue(isinstance(thm, dict))
-        self.assertEqual(sorted(thm), ['content_type', 'data'])
-        self.assertEqual(thm['content_type'], 'image/jpeg')
-        data = b64decode(thm['data'])
+        merged = dict(f(self.mov))
 
         self.assertEqual(
             merged,
@@ -511,13 +541,12 @@ class TestFunctions(SampleFilesTestCase):
                 camera_serial='0820500998',
                 focal_length='138.0 mm',
                 mtime=1287520994 + 68 / 100.0,
+                canon_thm=self.thm_ch.id,
             )
         )
 
         # Test invalid file:
         invalid_mov = tmp.write(b'Wont work!', 'invalid.mov')
         invalid_thm = tmp.write(b'Wont work either!', 'invalid.thm')
-        att = {}
-        merged = dict(f(invalid_mov, att))
+        merged = dict(f(invalid_mov))
         self.assertEqual(merged, {})
-        self.assertEqual(att, {})
