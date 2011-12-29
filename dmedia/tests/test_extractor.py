@@ -425,6 +425,23 @@ class TestFunctions(SampleFilesTestCase):
         # Test with non-existent file:
         nope = tmp.join('nope.mov')
         self.assertIsNone(extractor.thumbnail_video(nope))
+        
+    def test_thumbnail_image(self):
+        tmp = TempDir()
+
+        # Test with sample_thm from 5D Mark II:
+        t = extractor.thumbnail_video(self.thm)
+        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertEqual(t.content_type, 'image/jpeg')
+        self.assertIsInstance(t.data, bytes)
+
+        # Test invalid file:
+        invalid = tmp.write(b'Wont work!', 'invalid.jpg')
+        self.assertIsNone(extractor.thumbnail_video(invalid))
+
+        # Test with non-existent file:
+        nope = tmp.join('nope.jpg')
+        self.assertIsNone(extractor.thumbnail_video(nope))
 
     def test_merge_metadata(self):
         f = extractor.merge_metadata

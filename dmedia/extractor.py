@@ -220,9 +220,31 @@ def thumbnail_video(filename):
             'totem-video-thumbnailer',
             '-r',  # Create a "raw" thumbnail without film boarder
             '-j',  # Save as JPEG instead of PNG
-            '-s', '192',  # 384x216 for 16:9
-            #'-q', '90',
+            '-s', '192',  # Fit in 192x192 box
             filename,
+            dst,
+        ])
+        return Thumbnail('image/jpeg', open(dst, 'rb').read())
+    except Exception:
+        return None
+    finally:
+        if path.isdir(tmp):
+            shutil.rmtree(tmp)
+
+
+def thumbnail_image(filename):
+    """
+    Generate thumbnail for image at *filename*.
+    """
+    try:
+        tmp = tempfile.mkdtemp(prefix='dmedia.')
+        dst = path.join(tmp, 'thumbnail.jpg')
+        check_call([
+            'convert',
+            filename,
+            '-strip', # Remove EXIF and other metadata so thumbnail is smaller
+            '-scale', '192',  # Fit in 192x192 box
+            '-quality', '95', 
             dst,
         ])
         return Thumbnail('image/jpeg', open(dst, 'rb').read())
