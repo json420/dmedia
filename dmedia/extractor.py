@@ -242,8 +242,9 @@ def thumbnail_image(filename):
         check_call([
             'convert',
             filename,
-            '-strip', # Remove EXIF and other metadata so thumbnail is smaller
             '-scale', '192',  # Fit in 192x192 box
+            '-unsharp', '3x2+0.5+0.0',
+            '-strip',  # Remove EXIF and other metadata so thumbnail is smaller
             '-quality', '95', 
             dst,
         ])
