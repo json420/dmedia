@@ -56,7 +56,7 @@ def callback(signal, args):
         mainloop.quit()
 
     elif signal == 'batch_finished':
-        (batch_id, stats, copies) = args
+        (batch_id, stats, copies, msg) = args
 
         db = Database('dmedia', env)
         doc = db.get(batch_id)
