@@ -386,6 +386,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertIsInstance(t, extractor.Thumbnail)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
+        self.assertGreater(len(t.data), 5000)
         self.assertEqual(
             sorted(os.listdir(tmp.dir)),
             ['frame.png', 'thumbnail.jpg']
@@ -412,6 +413,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertIsInstance(t, extractor.Thumbnail)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
+        self.assertGreater(len(t.data), 5000)
         self.assertEqual(os.listdir(tmp.dir), ['thumbnail.jpg'])
 
         # Test invalid file:
@@ -434,6 +436,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertIsInstance(t, extractor.Thumbnail)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
+        self.assertGreater(len(t.data), 5000)
 
         # Test when ext is None:
         self.assertIsNone(extractor.create_thumbnail(self.mov, None))
