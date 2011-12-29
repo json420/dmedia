@@ -96,13 +96,6 @@ TOTEM_REMAP = (
 
 #### Utility functions that do heavy lifting:
 
-def file_2_base64(filename):
-    """
-    Return contents of file at *filename* base64-encoded.
-    """
-    return b64encode(open(filename, 'rb').read()).decode('utf-8')
-
-
 def extract_exif(filename):
     """
     Attempt to extract EXIF metadata from file at *filename*.
@@ -191,32 +184,6 @@ def extract_video_info(filename):
         return {}
 
 
-def generate_thumbnail(filename):
-    """
-    Generate thumbnail for video at *filename*.
-    """
-    try:
-        tmp = tempfile.mkdtemp(prefix='dmedia.')
-        dst = path.join(tmp, 'thumbnail.jpg')
-        check_call([
-            'totem-video-thumbnailer',
-            '-r', # Create a "raw" thumbnail without film boarder
-            '-j', # Save as JPEG instead of PNG
-            '-s', '384',
-            filename,
-            dst,
-        ])
-        return {
-            'content_type': 'image/jpeg',
-            'data': file_2_base64(dst),
-        }
-    except Exception:
-        return None
-    finally:
-        if path.isdir(tmp):
-            shutil.rmtree(tmp)
-
-
 def thumbnail_image(src, tmp):
     """
     Generate thumbnail for image with filename *src*.
@@ -286,25 +253,6 @@ def create_thumbnail(filename, ext):
             shutil.rmtree(tmp)
 
 
-def generate_cr2_thumbnail(filename):
-    try:
-        data = check_output([
-            'ufraw-batch',
-            '--embedded-image',
-            '--size=324',
-            '--compression=85',
-            '--out-type=jpg',
-            '--output=-',
-            filename,
-        ])
-        return {
-            'content_type': 'image/jpeg',
-            'data': b64encode(data).decode('utf-8'),
-        }
-    except CalledProcessError:
-        pass
-
-
 #### High-level meta-data extract/merge functions:
 
 _extractors = {}
@@ -352,18 +300,6 @@ def merge_exif(src):
         yield ('mtime', mtime)
 
 register(merge_exif, 'jpg', 'png', 'cr2')
-
-
-def merge_video_info2(src):
-    info = extract_video_info(src)
-    for (dst_key, src_key) in TOTEM_REMAP:
-        if src_key in info:
-            value = info[src_key]
-            try:
-                value = int(value)
-            except ValueError:
-                pass
-            yield (dst_key, value)
 
 
 def merge_video_info(src):

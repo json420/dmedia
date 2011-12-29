@@ -277,16 +277,6 @@ sample_mov_info = {
 
 class TestFunctions(SampleFilesTestCase):
 
-    def test_file_2_base64(self):
-        f = extractor.file_2_base64
-        tmp = TempDir()
-        src = tmp.write(b'Hello naughty nurse!', 'sample.txt')
-        self.assertEqual(
-            b64decode(f(src)),
-            b'Hello naughty nurse!'
-        )
-
-
     def test_extract_exif(self):
         f = extractor.extract_exif
         exif = f(self.thm)
@@ -347,7 +337,6 @@ class TestFunctions(SampleFilesTestCase):
         )
         self.assertEqual(f('2010:10:21 01:44:37'), 1287625477)
 
-
     def test_extract_mtime_from_exif(self):
         f = extractor.extract_mtime_from_exif
         self.assertEqual(
@@ -361,7 +350,6 @@ class TestFunctions(SampleFilesTestCase):
         self.assertEqual(f(d), 1287520994 + 68 / 100.0)
         del d['SubSecModifyDate']
         self.assertEqual(f(d), None)
-
 
     def test_extract_video_info(self):
         f = extractor.extract_video_info
@@ -390,26 +378,6 @@ class TestFunctions(SampleFilesTestCase):
                 'TOTEM_INFO_HAS_AUDIO': 'False',
             }
         )
-
-
-    def test_generate_thumbnail(self):
-        f = extractor.generate_thumbnail
-        tmp = TempDir()
-
-        # Test with sample_mov from 5D Mark II:
-        d = f(self.mov)
-        self.assertTrue(isinstance(d, dict))
-        self.assertEqual(sorted(d), ['content_type', 'data'])
-        self.assertEqual(d['content_type'], 'image/jpeg')
-        data = b64decode(d['data'])
-
-        # Test invalid file:
-        invalid = tmp.write(b'Wont work!', 'invalid.mov')
-        self.assertEqual(f(invalid), None)
-
-        # Test with non-existent file:
-        nope = tmp.join('nope.mov')
-        self.assertEqual(f(nope), None)
 
     def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:
