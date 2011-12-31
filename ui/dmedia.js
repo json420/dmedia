@@ -246,7 +246,7 @@ Hub.connect('import_scanned',
     }
 );
 
-Hub.connect('thumbnail',
+Hub.connect('import_thumbnail',
     function(basedir, import_id, doc_id) {
         var url = db.att_url(doc_id, 'thumbnail');
         $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 

@@ -215,7 +215,7 @@ class ImportWorker(workers.CouchWorker):
                     self.db.save(doc)
                     self.doc['files'][file.name]['id'] = doc['_id']
                     if need_thumbnail and 'thumbnail' in doc['_attachments']:
-                        self.emit('thumbnail', self.id, doc['_id'])
+                        self.emit('import_thumbnail', self.id, doc['_id'])
                         need_thumbnail = False
             self.doc['time_end'] = time.time()
         finally:

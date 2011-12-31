@@ -157,7 +157,7 @@ class App(BaseApp):
         'batch_started': ['batch_id'],
         'import_started': ['basedir', 'import_id', 'extra'],
         'import_scanned': ['basedir', 'import_id', 'total_count', 'total_size'],
-        'thumbnail': ['basedir', 'import_id', 'doc_id'],
+        'import_thumbnail': ['basedir', 'import_id', 'doc_id'],
         'batch_progress': ['count', 'total_count', 'size', 'total_size'],
         'batch_finished': ['batch_id', 'stats', 'copies', 'notification'],
         'batch_finalized': ['batch_id', 'stats', 'copies', 'notification'],
