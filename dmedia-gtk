@@ -142,14 +142,17 @@ class Replay:
         self.hub.send(signal, *args)
 
 
+WELCOMED_ID = '_local/welcomed'
+
+
 class App(BaseApp):
     name = 'dmedia'
+    dbname = 'dmedia'
     version = dmedia.__version__
     title = 'Dmedia'
     splash = 'splash.html'
     page = 'index.html'
     title = 'Dmedia'
-    databases = ['dmedia', 'dmedia_log']
     proxy_bus = 'org.freedesktop.DMedia'
 
     signals = {
@@ -164,12 +167,6 @@ class App(BaseApp):
         'error': ['error_dict'],
     }
 
-    def connect_hub_signals(self, hub):
-        self.importer = None
-        self.local = None
-        hub.connect('error', self.on_error)
-        hub.connect('welcome_complete', self.on_welcome_complete)
-
     def extend_parser(self, parser):
         parser.add_option('--replay',
             help='replay import',
@@ -177,12 +174,18 @@ class App(BaseApp):
             default=False,
         )
 
+    def connect_hub_signals(self, hub):
+        self.importer = None
+        self.local = None
+        hub.connect('error', self.on_error)
+        hub.connect('welcome_complete', self.on_welcome_complete)
+
     def choose_starting_page(self):
         _id = '_local/welcomed'
         #doc = self.server.get('dmedia', _id)
         #self.server.delete('dmedia', _id, rev=doc['_rev'])
         try:
-            self.server.get('dmedia', '_local/welcomed')
+            self.db.get(WELCOMED_ID)
             return self.page
         except NotFound:
             return 'welcome.html'
@@ -210,7 +213,7 @@ class App(BaseApp):
             return ''
 
     def on_welcome_complete(self, hub):
-        self.server.post({'_id': '_local/welcomed'}, 'dmedia')
+        self.db.post({'_id': WELCOMED_ID})
         self.load_page(self.page)
 
     def set_env(self, env):
@@ -235,19 +238,15 @@ class App(BaseApp):
 
     def on_error(self, hub, error):
         self.window.present()
-        self.notebook.set_current_page(0)
         dialog = Gtk.MessageDialog(
             self.window,
-           0,
+            0,
             Gtk.MessageType.ERROR,
             Gtk.ButtonsType.CLOSE,
             'An error occured during the import!\nYour files have not been imported!'
         )
         dialog.run()
         dialog.destroy()
-
-    def on_signal(self, hub, signal, args):
-        self.send(signal, *args)
 
 
 dmedia.configure_logging()      
