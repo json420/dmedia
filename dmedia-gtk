@@ -35,7 +35,6 @@ from dmedia.gtk.util import Timer
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
 from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
-from dmedia.service.wrappers import ImportWrapper
 from dmedia.gtk.ubuntu import UnityImportUX
 from dmedia import local
 
@@ -150,13 +149,21 @@ class App(BaseApp):
     databases = ['dmedia', 'dmedia_log']
     proxy_bus = 'org.freedesktop.DMedia'
 
-    def __init__(self):
-        super().__init__()
-        self.hub = ImportWrapper()
-        self.hub.connect('error', self.on_error)
-        self.hub.connect('signal', self.on_signal)
+    signals = {
+        'batch_started': ['batch_id'],
+        'import_started': ['basedir', 'import_id', 'extra'],
+        'import_scanned': ['basedir', 'import_id', 'total_count', 'total_size'],
+        'thumbnail': ['basedir', 'import_id', 'doc_id'],
+        'batch_progress': ['count', 'total_count', 'size', 'total_size'],
+        'batch_finished': ['batch_id', 'stats', 'copies', 'notification'],
+        'batch_finalized': ['batch_id', 'stats', 'copies', 'notification'],
+        'error': ['error_dict'],
+    }
+
+    def connect_hub_signals(self, hub):
         self.importer = None
         self.local = None
+        hub.connect('error', self.on_error)
 
     def extend_parser(self, parser):
         parser.add_option('--replay',
