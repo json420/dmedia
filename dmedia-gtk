@@ -119,14 +119,14 @@ class Importer:
         self.cards.append(obj)
         info = extra_info(partition, drive)
         self.manager.start_import(parentdir, info)
-    
-  
+
+
 class Replay:
-    def __init__(self, filename, callback):
+    def __init__(self, filename, hub):
         self.events = json.load(open(filename, 'r'))
         assert isinstance(self.events, list)
         self.i = 0
-        self.callback = callback
+        self.hub = hub
         self.timer = Timer(1, self.on_timer)
         self.timer.start()
 
@@ -136,7 +136,7 @@ class Replay:
             return
         (signal, args) = self.events[self.i]
         self.i += 1
-        self.callback(signal, args)
+        self.hub.send(signal, *args)
 
 
 class App(BaseApp):
@@ -222,7 +222,7 @@ class App(BaseApp):
             return
         if self.options.replay:
             self.create_ux()
-            self._replay = Replay('signals.json', self.hub.callback)
+            self._replay = Replay('signals.json', self.hub)
         else:
             self.start_importer()
 
