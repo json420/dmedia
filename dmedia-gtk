@@ -27,6 +27,7 @@ import sys
 from urllib.parse import urlparse
 
 from userwebkit import BaseApp
+from microfiber import NotFound
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
@@ -164,6 +165,13 @@ class App(BaseApp):
             default=False,
         )
 
+    def choose_starting_page(self):
+        try:
+            self.server.get('dmedia', '_local/welcomed')
+            return self.page
+        except NotFound:
+            return 'welcome.html'
+
     def dmedia_resolver(self, uri):
         if self.env is None:
             return ''
@@ -194,6 +202,12 @@ class App(BaseApp):
             else:
                 self.importer = None
                 self.destroy_ux()
+        elif obj.get('signal') == 'welcome_complete':
+            self.on_welcome_complete()
+
+    def on_welcome_complete(self):
+        self.server.post({'_id': '_local/welcomed'}, 'dmedia')
+        self.load_page(self.page)
 
     def set_env(self, env):
         super().set_env(env)
@@ -206,7 +220,6 @@ class App(BaseApp):
             self.start_importer()
 
     def start_importer(self):
-        print('start')
         self.importer = Importer(self.env, self.hub)
         self.create_ux()
 
@@ -230,10 +243,7 @@ class App(BaseApp):
         dialog.destroy()
 
     def on_signal(self, hub, signal, args):
-        script = 'Signal.recv({!r})'.format(
-            json.dumps({'signal': signal, 'args': args})
-        )
-        self.view.execute_script(script)
+        self.send(signal, *args)
 
 
 dmedia.configure_logging()      
