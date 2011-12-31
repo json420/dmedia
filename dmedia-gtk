@@ -81,7 +81,10 @@ class Importer:
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
         )
-        self.manager = ImportManager(env, self.hub.callback)
+        self.manager = ImportManager(env, self.callback)
+
+    def callback(self, signal, args):
+        GObject.idle_add(self.hub.send, signal, *args)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         Worker = (Formatter if copies >= 2 else Ejector)
@@ -150,6 +153,7 @@ class App(BaseApp):
     proxy_bus = 'org.freedesktop.DMedia'
 
     signals = {
+        'welcome_complete': [],
         'batch_started': ['batch_id'],
         'import_started': ['basedir', 'import_id', 'extra'],
         'import_scanned': ['basedir', 'import_id', 'total_count', 'total_size'],
@@ -164,6 +168,7 @@ class App(BaseApp):
         self.importer = None
         self.local = None
         hub.connect('error', self.on_error)
+        hub.connect('welcome_complete', self.on_welcome_complete)
 
     def extend_parser(self, parser):
         parser.add_option('--replay',
@@ -173,6 +178,9 @@ class App(BaseApp):
         )
 
     def choose_starting_page(self):
+        _id = '_local/welcomed'
+        #doc = self.server.get('dmedia', _id)
+        #self.server.delete('dmedia', _id, rev=doc['_rev'])
         try:
             self.server.get('dmedia', '_local/welcomed')
             return self.page
@@ -201,18 +209,7 @@ class App(BaseApp):
         except Exception:    
             return ''
 
-    def on_title_data(self, view, obj):
-        if obj.get('signal') == 'click':
-            if self.importer is None:
-                self.importer = Importer(self.env, self.hub)
-                self.create_ux()
-            else:
-                self.importer = None
-                self.destroy_ux()
-        elif obj.get('signal') == 'welcome_complete':
-            self.on_welcome_complete()
-
-    def on_welcome_complete(self):
+    def on_welcome_complete(self, hub):
         self.server.post({'_id': '_local/welcomed'}, 'dmedia')
         self.load_page(self.page)
 
