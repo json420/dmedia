@@ -93,19 +93,6 @@ window.onload = function() {
 }
 
 
-function $hide(id) {
-    var element = $(id);
-    element.classList.add('hide');
-    return element;
-}
-
-function $show(id) {
-    var element = $(id);
-    element.classList.remove('hide');
-    return element;
-}
-
-
 function files(count) {
     if (count == 1) {
         return '1 file';
@@ -203,59 +190,8 @@ Tabs.prototype = {
         }
         this.target = $(id + '_target');
         this.target.classList.remove('hide');
-        Signal.emit('tab_changed', [this, id]);
+        Signal.emit('tab_changed', this, id);
     },
-}
-
-
-
-
-/*
-Relay signals between JavaScript and Gtk.
-
-For example, to send a signal to Gtk via document.title:
-
->>> Signal.send('click');
->>> Signal.send('changed', 'foo', 'bar');
-
-*/
-var Signal = {
-    i: 0,
-
-    names: {},
-
-    connect: function(signal, callback, self) {
-        if (! Signal.names[signal]) {
-            Signal.names[signal] = [];
-        }
-        Signal.names[signal].push({callback: callback, self: self});
-    },
-
-    emit: function(signal, args) {
-        var items = Signal.names[signal];
-        if (items) {
-            items.forEach(function(i) {
-                i.callback.apply(i.self, args);
-            });
-        }
-    },
-
-    send: function() {
-        var args = Array.prototype.slice.call(arguments);
-        var obj = {
-            i: Signal.i,
-            signal: args[0],
-            args: args.slice(1),
-        };
-        Signal.i += 1;
-        document.title = JSON.stringify(obj);
-    },
-
-    recv: function(string) {
-        var obj = JSON.parse(string);
-        Signal.emit(obj.signal, obj.args);
-    },
-
 }
 
 
