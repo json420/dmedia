@@ -93,19 +93,6 @@ window.onload = function() {
 }
 
 
-function $hide(id) {
-    var element = $(id);
-    element.classList.add('hide');
-    return element;
-}
-
-function $show(id) {
-    var element = $(id);
-    element.classList.remove('hide');
-    return element;
-}
-
-
 function files(count) {
     if (count == 1) {
         return '1 file';
@@ -203,68 +190,17 @@ Tabs.prototype = {
         }
         this.target = $(id + '_target');
         this.target.classList.remove('hide');
-        Signal.emit('tab_changed', [this, id]);
+        Hub.emit('tab_changed', this, id);
     },
-}
-
-
-
-
-/*
-Relay signals between JavaScript and Gtk.
-
-For example, to send a signal to Gtk via document.title:
-
->>> Signal.send('click');
->>> Signal.send('changed', 'foo', 'bar');
-
-*/
-var Signal = {
-    i: 0,
-
-    names: {},
-
-    connect: function(signal, callback, self) {
-        if (! Signal.names[signal]) {
-            Signal.names[signal] = [];
-        }
-        Signal.names[signal].push({callback: callback, self: self});
-    },
-
-    emit: function(signal, args) {
-        var items = Signal.names[signal];
-        if (items) {
-            items.forEach(function(i) {
-                i.callback.apply(i.self, args);
-            });
-        }
-    },
-
-    send: function() {
-        var args = Array.prototype.slice.call(arguments);
-        var obj = {
-            i: Signal.i,
-            signal: args[0],
-            args: args.slice(1),
-        };
-        Signal.i += 1;
-        document.title = JSON.stringify(obj);
-    },
-
-    recv: function(string) {
-        var obj = JSON.parse(string);
-        Signal.emit(obj.signal, obj.args);
-    },
-
 }
 
 
 // Lazily init-tabs so startup is faster, more responsive
-Signal.connect('tab_changed', UI.on_tab_changed);
+Hub.connect('tab_changed', UI.on_tab_changed);
 
 
 // All the import related signals:
-Signal.connect('batch_started',
+Hub.connect('batch_started',
     function(batch_id) {
         $hide('summary');
         $show('info');
@@ -275,7 +211,7 @@ Signal.connect('batch_started',
     }
 );
 
-Signal.connect('batch_progress',
+Hub.connect('batch_progress',
     function(count, total_count, size, total_size) {
         UI.total.textContent = count_n_size(total_count, total_size);
         UI.completed.textContent = count_n_size(count, size);
@@ -283,7 +219,7 @@ Signal.connect('batch_progress',
     }
 );
 
-Signal.connect('import_started',
+Hub.connect('import_started',
     function(basedir, import_id, info) {
         var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
         var inner = $el('div');
@@ -304,20 +240,20 @@ Signal.connect('import_started',
     }
 );
 
-Signal.connect('import_scanned',
+Hub.connect('import_scanned',
     function(basedir, import_id, total_count, total_size) {
         $(import_id)._info.textContent = count_n_size(total_count, total_size);
     }
 );
 
-Signal.connect('thumbnail',
+Hub.connect('import_thumbnail',
     function(basedir, import_id, doc_id) {
         var url = db.att_url(doc_id, 'thumbnail');
         $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 
     }
 );
 
-Signal.connect('batch_finalized',
+Hub.connect('batch_finalized',
     function(batch_id, stats, copies, msg) {
         $hide('info');
         $show('summary');

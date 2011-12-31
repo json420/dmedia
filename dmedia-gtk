@@ -21,13 +21,13 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 
-import optparse
 import json
 import logging
 import sys
 from urllib.parse import urlparse
 
-from userwebkit import BaseUI
+from userwebkit import BaseApp
+from microfiber import NotFound
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
@@ -35,7 +35,6 @@ from dmedia.gtk.util import Timer
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
 from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
-from dmedia.service.wrappers import ImportWrapper
 from dmedia.gtk.ubuntu import UnityImportUX
 from dmedia import local
 
@@ -82,7 +81,10 @@ class Importer:
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
         )
-        self.manager = ImportManager(env, self.hub.callback)
+        self.manager = ImportManager(env, self.callback)
+
+    def callback(self, signal, args):
+        GObject.idle_add(self.hub.send, signal, *args)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         Worker = (Formatter if copies >= 2 else Ejector)
@@ -108,8 +110,8 @@ class Importer:
         if len(self.workers) == 0:
             self.blocking = False
             log.info('emitting batch_finalized to UI')
-            self.hub.emit_mainthread(
-                'batch_finalized', self.batch_id, self.stats, self.copies, self.msg
+            self.hub.send('batch_finalized',
+                self.batch_id, self.stats, self.copies, self.msg
             )
 
     def on_card_inserted(self, udisks, obj, parentdir, partition, drive):
@@ -122,24 +124,72 @@ class Importer:
         self.manager.start_import(parentdir, info)
 
 
-class UI(BaseUI):
-    app = 'dmedia'
-    page = 'index.html'
-    splash = 'splash.html'
+class Replay:
+    def __init__(self, filename, hub):
+        self.events = json.load(open(filename, 'r'))
+        assert isinstance(self.events, list)
+        self.i = 0
+        self.hub = hub
+        self.timer = Timer(1, self.on_timer)
+        self.timer.start()
+
+    def on_timer(self):
+        if self.i >= len(self.events):
+            self.timer.stop()
+            return
+        (signal, args) = self.events[self.i]
+        self.i += 1
+        self.hub.send(signal, *args)
+
+
+WELCOMED_ID = '_local/welcomed'
+
+
+class App(BaseApp):
+    name = 'dmedia'
+    dbname = 'dmedia'
+    version = dmedia.__version__
     title = 'Dmedia'
-    databases = ['dmedia', 'dmedia_log']
+    splash = 'splash.html'
+    page = 'index.html'
+    title = 'Dmedia'
     proxy_bus = 'org.freedesktop.DMedia'
 
-    def __init__(self, benchmark=False, replay=False):
-        super().__init__(benchmark)
-        self.replay = replay
-        self.view.connect('title_data', self.on_title_data)
-        self.hub = ImportWrapper()
-        self.hub.connect('error', self.on_error)
-        self.hub.connect('signal', self.on_signal)
+    signals = {
+        'welcome_complete': [],
+        'batch_started': ['batch_id'],
+        'import_started': ['basedir', 'import_id', 'extra'],
+        'import_scanned': ['basedir', 'import_id', 'total_count', 'total_size'],
+        'import_thumbnail': ['basedir', 'import_id', 'doc_id'],
+        'batch_progress': ['count', 'total_count', 'size', 'total_size'],
+        'batch_finished': ['batch_id', 'stats', 'copies', 'notification'],
+        'batch_finalized': ['batch_id', 'stats', 'copies', 'notification'],
+        'error': ['error_dict'],
+    }
+
+    def extend_parser(self, parser):
+        parser.add_option('--replay',
+            help='replay import',
+            action='store_true',
+            default=False,
+        )
+
+    def connect_hub_signals(self, hub):
         self.importer = None
         self.local = None
-  
+        hub.connect('error', self.on_error)
+        hub.connect('welcome_complete', self.on_welcome_complete)
+
+    def choose_starting_page(self):
+        _id = '_local/welcomed'
+        #doc = self.server.get('dmedia', _id)
+        #self.server.delete('dmedia', _id, rev=doc['_rev'])
+        try:
+            self.db.get(WELCOMED_ID)
+            return self.page
+        except NotFound:
+            return 'welcome.html'
+
     def dmedia_resolver(self, uri):
         if self.env is None:
             return ''
@@ -162,26 +212,21 @@ class UI(BaseUI):
         except Exception:    
             return ''
 
-    def on_title_data(self, view, obj):
-        if obj.get('signal') == 'click':
-            if self.importer is None:
-                self.importer = Importer(self.env, self.hub)
-                self.create_ux()
-            else:
-                self.importer = None
-                self.destroy_ux()
- 
+    def on_welcome_complete(self, hub):
+        self.db.post({'_id': WELCOMED_ID})
+        self.load_page(self.page)
+
     def set_env(self, env):
         super().set_env(env)
         if env is None:
             return
-        if self.replay:
+        if self.options.replay:
             self.create_ux()
+            self._replay = Replay('signals.json', self.hub)
         else:
             self.start_importer()
-    
+
     def start_importer(self):
-        print('start')
         self.importer = Importer(self.env, self.hub)
         self.create_ux()
 
@@ -193,10 +238,9 @@ class UI(BaseUI):
 
     def on_error(self, hub, error):
         self.window.present()
-        self.notebook.set_current_page(0)
         dialog = Gtk.MessageDialog(
             self.window,
-           0,
+            0,
             Gtk.MessageType.ERROR,
             Gtk.ButtonsType.CLOSE,
             'An error occured during the import!\nYour files have not been imported!'
@@ -204,48 +248,7 @@ class UI(BaseUI):
         dialog.run()
         dialog.destroy()
 
-    def on_signal(self, hub, signal, args):
-        script = 'Signal.recv({!r})'.format(
-            json.dumps({'signal': signal, 'args': args})
-        )
-        self.view.execute_script(script)
 
-
-class Replay:
-    def __init__(self, filename, callback):
-        self.events = json.load(open(filename, 'r'))
-        assert isinstance(self.events, list)
-        self.i = 0
-        self.callback = callback
-        self.timer = Timer(1, self.on_timer)
-        self.timer.start()
-
-    def on_timer(self):
-        if self.i >= len(self.events):
-            self.timer.stop()
-            return
-        (signal, args) = self.events[self.i]
-        self.i += 1
-        self.callback(signal, args)
-
-
-parser = optparse.OptionParser(version=dmedia.__version__)
-parser.add_option('--benchmark',
-    help='benchmark app startup time',
-    action='store_true',
-    default=False,
-)
-parser.add_option('--replay',
-    help='replay import',
-    action='store_true',
-    default=False,
-)
-(options, args) = parser.parse_args()
-
-dmedia.configure_logging()
-ui = UI(options.benchmark, options.replay)
-
-if options.replay:
-    replay = Replay('signals.json', ui.hub.callback)
-
-ui.run()
+dmedia.configure_logging()      
+app = App()
+app.run()

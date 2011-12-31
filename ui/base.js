@@ -69,13 +69,7 @@ function $replace(incumbent, replacement) {
     return incumbent.parentNode.replaceChild(replacement, incumbent);
 }
 
-function $hide(el) {
-    $(el).classList.add('hide');
-}
 
-function $show(el) {
-    $(el).classList.remove('hide');
-}
 
 function $appendEach(parent, viewresult, func) {
     viewresult.rows.forEach(function(row) {
