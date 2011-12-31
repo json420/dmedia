@@ -21,13 +21,12 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 
-import optparse
 import json
 import logging
 import sys
 from urllib.parse import urlparse
 
-from userwebkit import BaseUI
+from userwebkit import BaseApp
 
 import dmedia
 from dmedia.gtk import GObject, Gtk
@@ -120,26 +119,51 @@ class Importer:
         self.cards.append(obj)
         info = extra_info(partition, drive)
         self.manager.start_import(parentdir, info)
+    
+  
+class Replay:
+    def __init__(self, filename, callback):
+        self.events = json.load(open(filename, 'r'))
+        assert isinstance(self.events, list)
+        self.i = 0
+        self.callback = callback
+        self.timer = Timer(1, self.on_timer)
+        self.timer.start()
+
+    def on_timer(self):
+        if self.i >= len(self.events):
+            self.timer.stop()
+            return
+        (signal, args) = self.events[self.i]
+        self.i += 1
+        self.callback(signal, args)
 
 
-class UI(BaseUI):
-    app = 'dmedia'
-    page = 'index.html'
+class App(BaseApp):
+    name = 'dmedia'
+    version = dmedia.__version__
+    title = 'Dmedia'
     splash = 'splash.html'
+    page = 'index.html'
     title = 'Dmedia'
     databases = ['dmedia', 'dmedia_log']
     proxy_bus = 'org.freedesktop.DMedia'
 
-    def __init__(self, benchmark=False, replay=False):
-        super().__init__(benchmark)
-        self.replay = replay
-        self.view.connect('title_data', self.on_title_data)
+    def __init__(self):
+        super().__init__()
         self.hub = ImportWrapper()
         self.hub.connect('error', self.on_error)
         self.hub.connect('signal', self.on_signal)
         self.importer = None
         self.local = None
-  
+
+    def extend_parser(self, parser):
+        parser.add_option('--replay',
+            help='replay import',
+            action='store_true',
+            default=False,
+        )
+
     def dmedia_resolver(self, uri):
         if self.env is None:
             return ''
@@ -170,16 +194,17 @@ class UI(BaseUI):
             else:
                 self.importer = None
                 self.destroy_ux()
- 
+
     def set_env(self, env):
         super().set_env(env)
         if env is None:
             return
-        if self.replay:
+        if self.options.replay:
             self.create_ux()
+            self._replay = Replay('signals.json', self.hub.callback)
         else:
             self.start_importer()
-    
+
     def start_importer(self):
         print('start')
         self.importer = Importer(self.env, self.hub)
@@ -211,41 +236,6 @@ class UI(BaseUI):
         self.view.execute_script(script)
 
 
-class Replay:
-    def __init__(self, filename, callback):
-        self.events = json.load(open(filename, 'r'))
-        assert isinstance(self.events, list)
-        self.i = 0
-        self.callback = callback
-        self.timer = Timer(1, self.on_timer)
-        self.timer.start()
-
-    def on_timer(self):
-        if self.i >= len(self.events):
-            self.timer.stop()
-            return
-        (signal, args) = self.events[self.i]
-        self.i += 1
-        self.callback(signal, args)
-
-
-parser = optparse.OptionParser(version=dmedia.__version__)
-parser.add_option('--benchmark',
-    help='benchmark app startup time',
-    action='store_true',
-    default=False,
-)
-parser.add_option('--replay',
-    help='replay import',
-    action='store_true',
-    default=False,
-)
-(options, args) = parser.parse_args()
-
-dmedia.configure_logging()
-ui = UI(options.benchmark, options.replay)
-
-if options.replay:
-    replay = Replay('signals.json', ui.hub.callback)
-
-ui.run()
+dmedia.configure_logging()      
+app = App()
+app.run()
