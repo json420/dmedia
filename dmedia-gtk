@@ -110,8 +110,8 @@ class Importer:
         if len(self.workers) == 0:
             self.blocking = False
             log.info('emitting batch_finalized to UI')
-            self.hub.emit_mainthread(
-                'batch_finalized', self.batch_id, self.stats, self.copies, self.msg
+            self.hub.send('batch_finalized',
+                self.batch_id, self.stats, self.copies, self.msg
             )
 
     def on_card_inserted(self, udisks, obj, parentdir, partition, drive):
