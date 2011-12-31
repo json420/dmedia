@@ -190,17 +190,17 @@ Tabs.prototype = {
         }
         this.target = $(id + '_target');
         this.target.classList.remove('hide');
-        Signal.emit('tab_changed', this, id);
+        Hub.emit('tab_changed', this, id);
     },
 }
 
 
 // Lazily init-tabs so startup is faster, more responsive
-Signal.connect('tab_changed', UI.on_tab_changed);
+Hub.connect('tab_changed', UI.on_tab_changed);
 
 
 // All the import related signals:
-Signal.connect('batch_started',
+Hub.connect('batch_started',
     function(batch_id) {
         $hide('summary');
         $show('info');
@@ -211,7 +211,7 @@ Signal.connect('batch_started',
     }
 );
 
-Signal.connect('batch_progress',
+Hub.connect('batch_progress',
     function(count, total_count, size, total_size) {
         UI.total.textContent = count_n_size(total_count, total_size);
         UI.completed.textContent = count_n_size(count, size);
@@ -219,7 +219,7 @@ Signal.connect('batch_progress',
     }
 );
 
-Signal.connect('import_started',
+Hub.connect('import_started',
     function(basedir, import_id, info) {
         var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
         var inner = $el('div');
@@ -240,20 +240,20 @@ Signal.connect('import_started',
     }
 );
 
-Signal.connect('import_scanned',
+Hub.connect('import_scanned',
     function(basedir, import_id, total_count, total_size) {
         $(import_id)._info.textContent = count_n_size(total_count, total_size);
     }
 );
 
-Signal.connect('thumbnail',
+Hub.connect('thumbnail',
     function(basedir, import_id, doc_id) {
         var url = db.att_url(doc_id, 'thumbnail');
         $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 
     }
 );
 
-Signal.connect('batch_finalized',
+Hub.connect('batch_finalized',
     function(batch_id, stats, copies, msg) {
         $hide('info');
         $show('summary');
