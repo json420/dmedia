@@ -256,6 +256,13 @@ from microfiber import random_id, RANDOM_B32LEN
 from .constants import EXT_PAT
 
 
+# schema-compatibility version:
+VER = 0
+
+# versioned primary database name:
+DBNAME = 'dmedia-{}'.format(VER)
+
+
 # Some private helper functions that don't directly define any schema.
 #
 # If this seems unnecessary or even a bit un-Pythonic (where's my duck typing?),
@@ -1177,4 +1184,62 @@ def create_drive(base):
         'vendor': str(d['DriveVendor']),
         'model': str(d['DriveModel']),
         'revision': str(d['DriveRevision'])
+    }
+
+
+def check_project(doc):
+    """
+    Verify that *doc* is a valid novacut/project document.
+
+    For example, a conforming value:
+
+    >>> doc = {
+    ...     '_id': 'HB6YSCKAY27KIWUTWKGKCTNI',
+    ...     'ver': 0,
+    ...     'type': 'dmedia/project',
+    ...     'time': 1234567890,
+    ...     'db': 'dmedia-0-hb6ysckay27kiwutwkgkctni',
+    ...     'title': 'UDS-P',
+    ... }
+    ...
+    >>> check_project(doc)
+
+    """
+    check_dmedia(doc)
+    _check(doc, ['_id'], None,
+        _random_id,
+    )
+    _check(doc, ['type'], str,
+        (_equals, 'dmedia/project'),
+    )
+    _check(doc, ['db'], str,
+        (_equals, project_db_name(doc['_id'])),
+    )
+    _check(doc, ['title'], str),
+
+
+def project_db_name(_id):
+    """
+    Return the CouchDB database name for the project with *_id*.
+
+    For example:
+
+    >>> project_db_name('HB6YSCKAY27KIWUTWKGKCTNI')
+    'dmedia-0-hb6ysckay27kiwutwkgkctni'
+
+    """
+    return '-'.join(['dmedia', str(VER), _id.lower()])
+
+
+def create_project(title=''):
+    _id = random_id()
+    ts = time.time()
+    return {
+        '_id': _id,
+        'ver': VER,
+        'type': 'dmedia/project',
+        'time': ts,
+        'atime': ts,
+        'db': project_db_name(_id),
+        'title': title,
     }

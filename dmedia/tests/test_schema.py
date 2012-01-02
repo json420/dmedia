@@ -694,3 +694,23 @@ class TestFunctions(TestCase):
                 'empty': {'count': 0, 'bytes': 0},
             }
         )
+
+    def test_project_db_name(self):
+        self.assertEqual(
+            schema.project_db_name('AAAAAAAAAAAAAAAAAAAAAAAA'),
+            'dmedia-0-aaaaaaaaaaaaaaaaaaaaaaaa',
+        )
+        _id = random_id()
+        self.assertEqual(
+            schema.project_db_name(_id),
+            'dmedia-0-{}'.format(_id.lower())
+        )
+
+    def test_create_project(self):
+        doc = schema.create_project()
+        schema.check_project(doc)
+        self.assertEqual(doc['title'], '')
+
+        doc = schema.create_project(title='Hobo Spaceship')
+        schema.check_project(doc)
+        self.assertEqual(doc['title'], 'Hobo Spaceship')
