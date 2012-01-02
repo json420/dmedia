@@ -35,10 +35,14 @@ _core = (
     'time',
     'atime',
     'bytes',
-    'content_type',
-    'ext',
     'origin',
     'stored',
+    'partial',
+    'corrupt',
+
+    'content_type',
+    'ext',
+
     'proxies',
     'proxyof',
 )

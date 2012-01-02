@@ -145,6 +145,8 @@ core_file = {
             'plugin': 'filestore',
         },
     },
+    'partial': {},
+    'corrupt': {},
     'proxies': {
          'W4J4FRF5UOCOX4KQ3JZIQMFSAAPTBGRBZIBXVCFEFAZ7OMZS': {
               'bytes': 50880190,
