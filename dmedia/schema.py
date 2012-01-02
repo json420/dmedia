@@ -639,7 +639,7 @@ def check_dmedia(doc):
         _any_id,
     )
     _check(doc, ['ver'], int,
-        (_equals, 0),
+        (_equals, VER),
     )
     _check(doc, ['type'], str,
         (_matches, 'dmedia/[a-z]+$'),
@@ -834,7 +834,7 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
                 'content_type': 'application/octet-stream',
             }
         },
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/file',
         'time': timestamp,
         'atime': timestamp,
@@ -852,7 +852,7 @@ def create_machine():
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/machine',
         'time': time.time(),
         'hostname': socket.gethostname(),
@@ -865,7 +865,7 @@ def create_filestore(copies=1):
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 'filestore',
@@ -879,7 +879,7 @@ def create_s3_store(bucket, copies=2, use_ext=True):
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 's3',
@@ -895,7 +895,7 @@ def create_batch(machine_id=None):
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/batch',
         'time': time.time(),
         'machine_id': machine_id,
@@ -915,7 +915,7 @@ def create_import(basedir, machine_id, **kw):
     """
     doc = {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/import',
         'time': time.time(),
         'basedir': basedir,
