@@ -118,7 +118,7 @@ def migrate_if_needed(core):
         pass
     doc = schema.create_project('Auto Migrated Project')
     core.post(doc)
-    project = Database(doc['db'], core.env)
+    project = Database(doc['db_name'], core.env)
     project.put(None)
     project.post(doc)
     migrate(orig, core, project)

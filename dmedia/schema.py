@@ -259,7 +259,7 @@ from .constants import EXT_PAT
 VER = 0
 
 # versioned primary database name:
-DBNAME = 'dmedia-{}'.format(VER)
+DB_NAME = 'dmedia-{}'.format(VER)
 
 
 # Some private helper functions that don't directly define any schema.
@@ -943,7 +943,7 @@ def check_project(doc):
     ...     'ver': 0,
     ...     'type': 'dmedia/project',
     ...     'time': 1234567890,
-    ...     'db': 'dmedia-0-hb6ysckay27kiwutwkgkctni',
+    ...     'db_name': 'dmedia-0-hb6ysckay27kiwutwkgkctni',
     ...     'title': 'UDS-P',
     ... }
     ...
@@ -957,7 +957,7 @@ def check_project(doc):
     _check(doc, ['type'], str,
         (_equals, 'dmedia/project'),
     )
-    _check(doc, ['db'], str,
+    _check(doc, ['db_name'], str,
         (_equals, project_db_name(doc['_id'])),
     )
     _check(doc, ['title'], str),
@@ -985,6 +985,6 @@ def create_project(title=''):
         'type': 'dmedia/project',
         'time': ts,
         'atime': ts,
-        'db': project_db_name(_id),
+        'db_name': project_db_name(_id),
         'title': title,
     }

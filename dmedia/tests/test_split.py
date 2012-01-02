@@ -29,7 +29,7 @@ from copy import deepcopy
 
 from microfiber import random_id
 
-from dmedia import split
+from dmedia import split, schema
 
 
 sample_file = """
@@ -227,6 +227,7 @@ class TestFunctions(TestCase):
             dict(split.file_to_core(doc)),
             core_file
         )
+        schema.check_file(core_file)
 
     def test_file_to_project(self):
         doc = json.loads(sample_file)
