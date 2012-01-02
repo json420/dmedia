@@ -41,6 +41,14 @@ class TestFunctions(CouchCase):
         self.assertTrue(db.ensure())
         self.assertEqual(db.get()['db_name'], schema.DB_NAME)
 
+    def test_get_db2(self):
+        # Test with init=True
+        db = util.get_db(self.env, True)
+        self.assertIsInstance(db, microfiber.Database)
+        self.assertEqual(db.name, schema.DB_NAME)
+        self.assertEqual(db.get()['db_name'], schema.DB_NAME)
+        self.assertFalse(db.ensure())
+
     def test_get_project_db(self):
         _id = random_id()
         db_name = schema.project_db_name(_id)
@@ -50,4 +58,12 @@ class TestFunctions(CouchCase):
         self.assertTrue(db.ensure())
         self.assertEqual(db.get()['db_name'], db_name)
         
-        
+        # Test with init=True
+        _id = random_id()
+        db_name = schema.project_db_name(_id)
+        db = util.get_project_db(_id, self.env, True)
+        self.assertIsInstance(db, microfiber.Database)
+        self.assertEqual(db.name, db_name)
+        self.assertEqual(db.get()['db_name'], db_name)
+        self.assertFalse(db.ensure())
+
