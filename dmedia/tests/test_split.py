@@ -25,6 +25,9 @@ Unit tests for `dmedia.split`.
 
 from unittest import TestCase
 import json
+from copy import deepcopy
+
+from microfiber import random_id
 
 from dmedia import split
 
@@ -234,6 +237,38 @@ class TestFunctions(TestCase):
         doc = json.loads(sample_file)
         self.assertEqual(split.doc_to_core(doc), core_file)
 
+        # dmedia/store
+        doc = {'_id': random_id(), 'type': 'dmedia/store'}
+        self.assertIs(split.doc_to_core(doc), doc)
+
+        # dmedia/machine
+        doc = {'_id': random_id(), 'type': 'dmedia/machine'}
+        self.assertIs(split.doc_to_core(doc), doc)
+        
+        # dmedia/import
+        doc = {'_id': random_id(), 'type': 'dmedia/import'}
+        self.assertIsNone(split.doc_to_core(doc))
+
+        # dmedia/batch
+        doc = {'_id': random_id(), 'type': 'dmedia/batch'}
+        self.assertIsNone(split.doc_to_core(doc))
+
     def test_doc_to_project(self):
         doc = json.loads(sample_file)
         self.assertEqual(split.doc_to_project(doc), project_file)
+
+        # dmedia/store
+        doc = {'_id': random_id(), 'type': 'dmedia/store'}
+        self.assertIsNone(split.doc_to_project(doc))
+
+        # dmedia/machine
+        doc = {'_id': random_id(), 'type': 'dmedia/machine'}
+        self.assertIsNone(split.doc_to_project(doc))
+
+        # dmedia/import
+        doc = {'_id': random_id(), 'type': 'dmedia/import'}
+        self.assertIs(split.doc_to_project(doc), doc)
+
+        # dmedia/batch
+        doc = {'_id': random_id(), 'type': 'dmedia/batch'}
+        self.assertIs(split.doc_to_project(doc), doc)
