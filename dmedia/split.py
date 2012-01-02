@@ -67,15 +67,20 @@ def file_to_project(doc):
     assert doc['type'] == 'dmedia/file'
     assert doc['ver'] == 0
     for (key, value) in doc.items():
-        if key not in ('_rev', 'atime', 'stored', 'partial', 'corrupt'):
+        if key not in ('_rev', 'atime', 'stored', 'partial', 'corrupt', 'proxyof', 'proxy_of'):
             yield (key, value)
+    try:
+        yield ('proxy_of', doc['proxyof'])
+    except KeyError:
+        pass
 
 
 def doc_to_core(doc):
     if doc.get('type') not in ('dmedia/file', 'dmedia/store', 'dmedia/machine'):
         return
     if doc['type'] == 'dmedia/file':
-        return dict(file_to_core(doc))
+        doc = dict(file_to_core(doc))
+        schema.check_file(doc)
     return doc
 
 

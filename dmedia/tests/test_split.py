@@ -114,6 +114,7 @@ sample_file = """
 }
 """
 
+
 core_file = {
     '_attachments': {
         'leaf_hashes': {
@@ -220,6 +221,98 @@ project_file = {
 }
 
 
+sample_proxy = """
+{
+   "_id": "ZY3EZMTYWEFNDOVU74OUU2SQAY37GUBNHQLIOUIAJHQ6PKRO",
+   "_rev": "1-5528ee232e98d5f7d97f57cd6801fc48",
+   "atime": 1325055007.130608,
+   "bytes": 20979329,
+   "content_type": "video/webm",
+   "corrupt": {
+   },
+   "elapsed": 329.1916332244873,
+   "ext": "webm",
+   "origin": "proxy",
+   "partial": {
+   },
+   "proxyof": "P6HD6F3H7LGSH4Z7VIW7UMLIB2GPETCVNHIIMDVHULTOOF2L",
+   "stored": {
+       "342QKXWMYVM3ORHO7WKAF4XK": {
+           "copies": 1,
+           "mtime": 1325055006.8708012,
+           "plugin": "filestore"
+       }
+   },
+   "time": 1325055007.130608,
+   "type": "dmedia/file",
+   "ver": 0,
+   "_attachments": {
+       "leaf_hashes": {
+           "content_type": "application/octet-stream",
+           "revpos": 1,
+           "digest": "md5-9q57mOLzKk9Uekviuc5QLg==",
+           "length": 90,
+           "stub": true
+       }
+   }
+}
+"""
+
+core_proxy = {
+    '_id': 'ZY3EZMTYWEFNDOVU74OUU2SQAY37GUBNHQLIOUIAJHQ6PKRO',
+    'atime': 1325055007.130608,
+    'bytes': 20979329,
+    'content_type': 'video/webm',
+    'corrupt': {},
+    'ext': 'webm',
+    'origin': 'proxy',
+    'partial': {},
+    'proxy_of': 'P6HD6F3H7LGSH4Z7VIW7UMLIB2GPETCVNHIIMDVHULTOOF2L',
+    'stored': {
+         '342QKXWMYVM3ORHO7WKAF4XK': {
+              'copies': 1,
+              'mtime': 1325055006.8708012,
+              'plugin': 'filestore'
+         }
+    },
+    'time': 1325055007.130608,
+    'type': 'dmedia/file',
+    'ver': 0,
+    '_attachments': {
+         'leaf_hashes': {
+              'content_type': 'application/octet-stream',
+              'revpos': 1,
+              'digest': 'md5-9q57mOLzKk9Uekviuc5QLg==',
+              'length': 90,
+              'stub': True,
+         }
+    }
+}
+
+
+project_proxy = {
+    '_id': 'ZY3EZMTYWEFNDOVU74OUU2SQAY37GUBNHQLIOUIAJHQ6PKRO',
+    'bytes': 20979329,
+    'content_type': 'video/webm',
+    'elapsed': 329.1916332244873,
+    'ext': 'webm',
+    'origin': 'proxy',
+    'proxy_of': 'P6HD6F3H7LGSH4Z7VIW7UMLIB2GPETCVNHIIMDVHULTOOF2L',
+    'time': 1325055007.130608,
+    'type': 'dmedia/file',
+    'ver': 0,
+    '_attachments': {
+         'leaf_hashes': {
+              'content_type': 'application/octet-stream',
+              'revpos': 1,
+              'digest': 'md5-9q57mOLzKk9Uekviuc5QLg==',
+              'length': 90,
+              'stub': True,
+         }
+    }
+}
+
+
 class TestFunctions(TestCase):
     def test_file_to_core(self):
         doc = json.loads(sample_file)
@@ -228,6 +321,7 @@ class TestFunctions(TestCase):
             core_file
         )
         schema.check_file(core_file)
+        schema.check_file(core_proxy)
 
     def test_file_to_project(self):
         doc = json.loads(sample_file)
@@ -239,6 +333,9 @@ class TestFunctions(TestCase):
     def test_doc_to_core(self):
         doc = json.loads(sample_file)
         self.assertEqual(split.doc_to_core(doc), core_file)
+
+        doc = json.loads(sample_proxy)
+        self.assertEqual(split.doc_to_core(doc), core_proxy)
 
         # dmedia/store
         doc = {'_id': random_id(), 'type': 'dmedia/store'}
@@ -259,6 +356,9 @@ class TestFunctions(TestCase):
     def test_doc_to_project(self):
         doc = json.loads(sample_file)
         self.assertEqual(split.doc_to_project(doc), project_file)
+
+        doc = json.loads(sample_proxy)
+        self.assertEqual(split.doc_to_project(doc), project_proxy)
 
         # dmedia/store
         doc = {'_id': random_id(), 'type': 'dmedia/store'}
