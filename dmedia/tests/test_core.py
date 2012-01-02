@@ -30,6 +30,7 @@ import microfiber
 import filestore
 
 from dmedia.local import LocalStores
+from dmedia.schema import DB_NAME
 from dmedia import core
 
 from .couch import CouchCase
@@ -40,7 +41,7 @@ class TestCore(CouchCase):
     def test_init(self):
         inst = core.Core(self.env)
         self.assertIsInstance(inst.db, microfiber.Database)
-        self.assertEqual(inst.db.name, 'dmedia')
+        self.assertEqual(inst.db.name, DB_NAME)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.local['stores'], {})
 

@@ -95,7 +95,7 @@ def init_filestore(parentdir, copies=1):
 class Base:
     def __init__(self, env):
         self.env = env
-        self.db = Database('dmedia', env)
+        self.db = Database(schema.DB_NAME, env)
         self.logdb = Database('dmedia_log', env)
 
     def log(self, doc):
