@@ -30,17 +30,30 @@ _core = (
     'time',
     'atime',
     'bytes',
+    'content_type',
     'origin',
     'stored',
 )
 
 
-def split_to_core(doc):
+def file_to_core(doc):
+    assert doc['type'] == 'dmedia/file'
+    assert doc['ver'] == 0
     for key in _core:
         yield (key, doc[key])
+    att = doc['_attachments']
+    yield ('_attachments', {'leaf_hashes': att['leaf_hashes']})
 
 
-def split_to_project(doc):
+def doc_to_core(doc):
+    if doc.get('type') not in ('dmedia/file', 'dmedia/store', 'dmedia/machine'):
+        return
+    if doc['type'] == 'dmedia/file':
+        return dict(file_to_core(doc))
+    return doc
+
+
+def file_to_project(doc):
     pass
 
 

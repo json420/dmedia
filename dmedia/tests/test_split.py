@@ -29,7 +29,7 @@ import json
 from dmedia import split
 
 
-sample = """
+sample_file = """
 {
    "_id": "6YOVAUG25HYQGYQTRZ43T75S52D3E4T47S5R2MHJ7CNGEORX",
    "_rev": "8-f73a3a18e3fe634af4cdd543d4b55880",
@@ -111,33 +111,47 @@ sample = """
 }
 """
 
+core_file = {
+    '_attachments': {
+        'leaf_hashes': {
+            'content_type': 'application/octet-stream',
+            'revpos': 1,
+            'digest': 'md5-6h6hUlNAmi0d2fbTpROrLw==',
+            'length': 7170,
+            'stub': True,
+        },
+    },
+    '_id': '6YOVAUG25HYQGYQTRZ43T75S52D3E4T47S5R2MHJ7CNGEORX',
+    'ver': 0,
+    'type': 'dmedia/file',
+    'time': 1320469454.88212,
+    'atime': 1320469454.88212,
+    'bytes': 1999975956,
+    'content_type': 'video/quicktime',
+    'origin': 'user',
+    'stored': {
+        'BTVD5CS2HM4OBDLMAC2L7WZM': {
+            'copies': 1,
+            'mtime': 1320475903.9720492,
+            'plugin': 'filestore',
+        },
+        'DLA4NDZRW2LXEPF3RV7YHMON': {
+            'copies': 1,
+            'mtime': 1320475903.9680493,
+            'plugin': 'filestore',
+        },
+    },
+}
+
 
 class TestFunctions(TestCase):
-    def test_split_to_core(self):
-        src = json.loads(sample)
-        dst = dict(split.split_to_core(src))
-        self.assertEqual(dst,
-            {
-                '_id': '6YOVAUG25HYQGYQTRZ43T75S52D3E4T47S5R2MHJ7CNGEORX',
-                'ver': 0,
-                'type': 'dmedia/file',
-                'time': 1320469454.88212,
-                'atime': 1320469454.88212,
-                'bytes': 1999975956,
-                'origin': 'user',
-                'stored': {
-                    'BTVD5CS2HM4OBDLMAC2L7WZM': {
-                        'copies': 1,
-                        'mtime': 1320475903.9720492,
-                        'plugin': 'filestore',
-                    },
-                    'DLA4NDZRW2LXEPF3RV7YHMON': {
-                        'copies': 1,
-                        'mtime': 1320475903.9680493,
-                        'plugin': 'filestore',
-                    },
-                },
-            }
+    def test_file_to_core(self):
+        doc = json.loads(sample_file)
+        self.assertEqual(
+            dict(split.file_to_core(doc)),
+            core_file
         )
-        
-        
+
+    def test_doc_to_doc(self):
+        doc = json.loads(sample_file)
+        self.assertEqual(split.doc_to_core(doc), core_file)
