@@ -31,8 +31,11 @@ _core = (
     'atime',
     'bytes',
     'content_type',
+    'ext',
     'origin',
     'stored',
+    'proxies',
+    'proxyof',
 )
 
 
@@ -40,9 +43,20 @@ def file_to_core(doc):
     assert doc['type'] == 'dmedia/file'
     assert doc['ver'] == 0
     for key in _core:
-        yield (key, doc[key])
+        try:
+            yield (key, doc[key])
+        except KeyError:
+            pass
     att = doc['_attachments']
     yield ('_attachments', {'leaf_hashes': att['leaf_hashes']})
+
+
+def file_to_project(doc):
+    assert doc['type'] == 'dmedia/file'
+    assert doc['ver'] == 0
+    for (key, value) in doc.items():
+        if key not in ('_rev', 'stored', 'partial', 'corrupt'):
+            yield (key, value)
 
 
 def doc_to_core(doc):
@@ -53,7 +67,12 @@ def doc_to_core(doc):
     return doc
 
 
-def file_to_project(doc):
-    pass
+def doc_to_project(doc):
+    if doc.get('type') in ('dmedia/store', 'dmedia/machine'):
+        return
+    if doc['type'] == 'dmedia/file':
+        return dict(file_to_project(doc))
+    return doc
+
 
 

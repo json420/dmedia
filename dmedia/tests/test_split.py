@@ -128,6 +128,7 @@ core_file = {
     'atime': 1320469454.88212,
     'bytes': 1999975956,
     'content_type': 'video/quicktime',
+    'ext': 'mov',
     'origin': 'user',
     'stored': {
         'BTVD5CS2HM4OBDLMAC2L7WZM': {
@@ -141,6 +142,77 @@ core_file = {
             'plugin': 'filestore',
         },
     },
+    'proxies': {
+         'W4J4FRF5UOCOX4KQ3JZIQMFSAAPTBGRBZIBXVCFEFAZ7OMZS': {
+              'bytes': 50880190,
+              'content_type': 'video/webm',
+              'height': 540,
+              'width': 960
+         }
+    },
+}
+
+project_file = {
+    '_id': '6YOVAUG25HYQGYQTRZ43T75S52D3E4T47S5R2MHJ7CNGEORX',
+    'atime': 1320469454.88212,
+    'bytes': 1999975956,
+    'content_type': 'video/quicktime',
+    'ctime': 1320472976,
+    'ext': 'mov',
+    'import': {
+         'batch_id': 'IBGXM2UIF53WZ5FEWUZCYYJ4',
+         'import_id': 'VTNZLEO5SAWHBEVQLNPZPABY',
+         'machine_id': 'HW6GAWV33TYHRAT5XNQLDXTR',
+         'mtime': 1320472976,
+         'src': '/media/H4N_SD_/DCIM/100CANON/MVI_3406.MOV'
+    },
+    'meta': {
+         'aperture': 2.8,
+         'camera': 'Canon EOS 60D',
+         'camera_serial': '0520422197',
+         'channels': 'Stereo',
+         'codec_audio': 'Raw 16-bit PCM audio',
+         'codec_video': 'H.264 / AVC',
+         'duration': 339,
+         'focal_length': '14.0 mm',
+         'fps': 30,
+         'height': 1080,
+         'iso': 800,
+         'lens': 'Canon EF 14mm f/2.8L II USM',
+         'mtime': 1320458236.37,
+         'sample_rate': 48000,
+         'shutter': '1/30',
+         'width': 1920
+    },
+    'name': 'MVI_3406.MOV',
+    'origin': 'user',
+    'proxies': {
+         'W4J4FRF5UOCOX4KQ3JZIQMFSAAPTBGRBZIBXVCFEFAZ7OMZS': {
+              'bytes': 50880190,
+              'content_type': 'video/webm',
+              'height': 540,
+              'width': 960
+         }
+    },
+    'time': 1320469454.88212,
+    'type': 'dmedia/file',
+    'ver': 0,
+    '_attachments': {
+         'leaf_hashes': {
+              'content_type': 'application/octet-stream',
+              'revpos': 1,
+              'digest': 'md5-6h6hUlNAmi0d2fbTpROrLw==',
+              'length': 7170,
+              'stub': True,
+         },
+         'thumbnail': {
+              'content_type': 'image/jpeg',
+              'revpos': 7,
+              'digest': 'md5-rDUdjxrzjg5yAsPSt0uWhg==',
+              'length': 15146,
+              'stub': True,
+         }
+    }
 }
 
 
@@ -152,6 +224,17 @@ class TestFunctions(TestCase):
             core_file
         )
 
-    def test_doc_to_doc(self):
+    def test_file_to_project(self):
+        doc = json.loads(sample_file)
+        self.assertEqual(
+            dict(split.file_to_project(doc)),
+            project_file
+        )
+
+    def test_doc_to_core(self):
         doc = json.loads(sample_file)
         self.assertEqual(split.doc_to_core(doc), core_file)
+
+    def test_doc_to_project(self):
+        doc = json.loads(sample_file)
+        self.assertEqual(split.doc_to_project(doc), project_file)
