@@ -23,6 +23,9 @@
 Migrate from monolithic dmedia database to dmedia-0 plus project databases.
 """
 
+from microfiber import NotFound
+
+
 _core = (
     '_id',
     'ver',
@@ -75,4 +78,29 @@ def doc_to_project(doc):
     return doc
 
 
+def migrate(orig, core, project):
+    for row in orig.get('_all_docs')['rows']:
+        _id = row['id']
+        if _id.startswith('_design/'):
+            continue
+        print(_id)
+        _rev = row['value']['rev']
+        src = orig.get(_id, rev=_rev, attachments=True)
+        del src['_rev']
+        dst = doc_to_core(src)
+        if dst is not None:
+            core.post(dst)
+        dst = doc_to_project(src)
+        if dst is not None:
+            project.post(dst)
+
+    try:
+        loc = orig.get('_local/dmedia')
+        del loc['_rev']
+        core.post(loc)
+    except NotFound:
+        pass
+
+    for db in (core, project):
+        db.post(None, '_compact')
 
