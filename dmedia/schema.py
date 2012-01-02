@@ -245,7 +245,6 @@ When the job is completed, the document is updated like this:
 """
 
 from base64 import b32encode, b64encode
-from hashlib import sha1
 import re
 import time
 import socket
