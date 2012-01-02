@@ -520,7 +520,7 @@ class TestFunctions(TestCase):
         bad['plugin'] = 'foo'
         with self.assertRaises(ValueError) as cm:
             schema.check_store(bad)
-        plugins = ('filestore', 'filestore.removable', 'ubuntuone', 's3')
+        plugins = ('filestore', 'ubuntuone', 's3')
         self.assertEqual(
             str(cm.exception),
             "doc['plugin'] value %r not in %r" % ('foo', plugins)

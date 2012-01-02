@@ -636,7 +636,7 @@ def check_dmedia(doc):
 
     """
     _check(doc, [], dict)
-    _check(doc, ['_id'], None,
+    _check(doc, ['_id'], str,
         _any_id,
     )
     _check(doc, ['ver'], int,
@@ -684,22 +684,14 @@ def check_file(doc):
     >>> check_file(doc)
 
     """
-    # Common schema:
-    _check(doc, [], dict)
-    _check(doc, ['_id'], None,
+    check_dmedia(doc)
+    _check(doc, ['_id'], str,
         _intrinsic_id,
-    )
-    _check(doc, ['ver'], int,
-        (_equals, 0),
     )
     _check(doc, ['type'], str,
         (_equals, 'dmedia/file'),
     )
-    _check(doc, ['time'], (int, float),
-        (_at_least, 0),
-    )
-    
-    # dmedia/file specific:
+
     _check(doc, ['_attachments', 'leaf_hashes'], dict,
         _nonempty,
     )
@@ -812,24 +804,15 @@ def check_store(doc):
     >>> check_store(doc)
 
     """
-    # Common schema:
-    _check(doc, [], dict)
-    _check(doc, ['_id'], None,
+    check_dmedia(doc)
+    _check(doc, ['_id'], str,
         _random_id,
-    )
-    _check(doc, ['ver'], int,
-        (_equals, 0),
     )
     _check(doc, ['type'], str,
         (_equals, 'dmedia/store'),
     )
-    _check(doc, ['time'], (int, float),
-        (_at_least, 0),
-    )
-
-    # Specific to dmedia/store
     _check(doc, ['plugin'], str,
-        (_is_in, 'filestore', 'filestore.removable', 'ubuntuone', 's3'),
+        (_is_in, 'filestore', 'ubuntuone', 's3'),
     )
     _check(doc, ['copies'], int,
         (_at_least, 0),
@@ -969,7 +952,7 @@ def check_project(doc):
 
     """
     check_dmedia(doc)
-    _check(doc, ['_id'], None,
+    _check(doc, ['_id'], str,
         _random_id,
     )
     _check(doc, ['type'], str,
