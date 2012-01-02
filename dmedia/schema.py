@@ -372,53 +372,6 @@ def _exists(doc, path):
         return False
 
 
-def _check_exist(doc, *paths):
-    """
-    Verify that each of *paths* exist in *doc*.
-    Throw a ValueError if any of them don't.
-    """
-    for path in paths:
-        if not _exists(doc, path):
-            raise(ValueError(
-                "%s does not exist" % _label(path)
-            ))
-
-
-def _isinstance(value, label, *allowed):
-    """
-    Verify that *value* is an instance of one of *allowed*.
-
-    For example:
-
-    >>> _isinstance('18', "doc['bytes']", int)
-    Traceback (most recent call last):
-      ...
-    TypeError: doc['bytes']: need a <class 'int'>; got a <class 'str'>: '18'
-
-    """
-    for a in allowed:
-        if isinstance(value, a):
-            return
-    raise TypeError('{}: need a {}; got a {!r}: {!r}'.format(
-            label, ' or '.join(map(repr, allowed)), type(value), value
-        )
-    )
-
-
-def _check_types(doc, *items):
-    """
-    An *item* is a tuple:
-        (path, *allowed)
-    For each item, verify that *path* exists in *doc* and that
-    the value at *path* is one of *allowed*.
-    """
-    for item in items:
-        path = item[0]
-        allowed = item[1:]
-        _check_exist(doc, path)
-        _isinstance(_value(doc, path), _label(path), *allowed)
-
-
 def _check(doc, path, allowed, *checks):
     """
     Run a series of *checks* on the value in *doc* addressed by *path*.
@@ -663,21 +616,6 @@ def _intrinsic_id(value, label):
         )
 
 
-def _drive_id(drive):
-    """
-    Generate the couchdb _id for a udisks.Device drive.
-    """
-    return b32encode(sha1(
-        "%s-%s-%s-%s-%s" % (
-            drive['DriveVendor'],
-            drive['DriveModel'],
-            drive['DriveRevision'],
-            drive['DriveSerial'],
-            drive['DriveWwn']
-        )
-    ).digest())
-
-
 ##################################
 # The schema validation functions:
 
@@ -898,141 +836,6 @@ def check_store(doc):
     )
 
 
-def check_partition(doc):
-    """
-    Verify that *doc* is a valid "dmedia/partition" document.
-
-    To be a valid 'dmedia/partition' record, *doc* must:
-
-        1. conform with `check_dmedia()`
-
-        2. have the following keys:
-            ('uuid', 'size', 'label', 'partition_label', 'fs', 'drive_id')
-
-        3. have 'uuid', 'fs', 'drive_id' as ``str`` strings.
-
-        4. have 'label', 'partition_label' as ``str`` strings.
-
-        5. have 'size' as an ``int`` or ``long``.
-
-        6. have 'drive_id' as a valid dmedia id.
-
-        For example, a conforming value:
-
-        >>> doc = {
-        ...     '_id': 'YU57NGTX4IPWFAR6GOOYGGLYRBP56JME',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/partition',
-        ...     'time': 1234567890,
-        ...     'size': 1073741824,
-        ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
-        ...     'fs': 'ext4',
-        ...     'label': 'Data',
-        ...     'partition_label': '',
-        ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
-        ... }
-        ...
-        >>> check_partition(doc)
-
-
-        And an invalid value:
-
-        >>> doc = {
-        ...     '_id': 'YU57NGTX4IPWFAR6GOOYGGLYRBP56JME',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/partition',
-        ...     'time': 1234567890,
-        ...     'size': 1073741824,
-        ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
-        ...     'label': 'Data',
-        ...     'partition_label': '',
-        ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
-        ... }
-        ...
-        >>> check_partition(doc)
-        Traceback (most recent call last):
-          ...
-        ValueError: doc['fs'] does not exist
-
-    """
-    check_dmedia(doc)
-
-    _check_types(
-        doc,
-        (['uuid'], str),
-        (['size'], int),
-        (['label'], str),
-        (['partition_label'], str),
-        (['fs'], str),
-        (['drive_id'], str)
-    )
-
-    _any_id(doc['drive_id'], _label('drive_id'))
-
-
-def check_drive(doc):
-    """
-    Verify that *doc* is a valid "dmedia/drive" document.
-
-    To be a valid 'dmedia/drive' record, *doc* must:
-
-        1. conform with `check_dmedia()`
-
-        2. have the following keys:
-            ('serial', 'wwn', 'vendor', 'model', 'revision')
-
-        3. have 'serial', 'wwn', 'revision' as ``str`` strings.
-
-        4. have 'vendor', 'model' as ``str`` strings.
-
-        For example, a conforming value:
-
-        >>> doc = {
-        ...     '_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/drive',
-        ...     'time': 1234567890,
-        ...     'serial': 'A0000001B900',
-        ...     'wwn': '50014ee0016eb572',
-        ...     'revision': '1.95',
-        ...     'vendor': 'Canon',
-        ...     'model': 'EOS 7D'
-        ... }
-        ...
-        >>> check_drive(doc)
-
-
-        And an invalid value:
-
-        >>> doc = {
-        ...     '_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/drive',
-        ...     'time': 1234567890,
-        ...     'serial': 'A0000001B900',
-        ...     'wwn': '50014ee0016eb572',
-        ...     'revision': '1.95',
-        ...     'vendor': 'Canon'
-        ... }
-        ...
-        >>> check_drive(doc)
-        Traceback (most recent call last):
-          ...
-        ValueError: doc['model'] does not exist
-
-    """
-    check_dmedia(doc)
-
-    _check_types(
-        doc,
-        (['serial'], str),
-        (['wwn'], str),
-        (['vendor'], str),
-        (['model'], str),
-        (['revision'], str)
-    )
-
-
 #######################################################
 # Functions for creating specific types of dmedia docs:
 
@@ -1145,46 +948,6 @@ def create_import(basedir, machine_id, **kw):
     }
     doc.update(kw)
     return doc
-
-
-def create_partition(base):
-    """
-    Create a dmedia/partition document.
-    """
-    p = Device(path=base)
-    d = p.get_device()
-    uuid = str(p['IdUuid'])
-    return {
-        '_id': b32encode(sha1(uuid).digest()),
-        'ver': 0,
-        'type': 'dmedia/partition',
-        'time': time.time(),
-        'uuid': uuid,
-        'size': int(p['DeviceSize']),
-        'label': str(p['IdLabel']),
-        'partition_label': str(p['PartitionLabel']),
-        'fs': str(p['IdType']),
-        'drive_id': _drive_id(d)
-    }
-
-
-def create_drive(base):
-    """
-    Create a dmedia/drive document.
-    """
-    p = Device(path=base)
-    d = p.get_device()
-    return {
-        '_id': _drive_id(d),
-        'ver': 0,
-        'type': 'dmedia/drive',
-        'time': time.time(),
-        'serial': str(d['DriveSerial']),
-        'wwn': str(d['DriveWwn']),
-        'vendor': str(d['DriveVendor']),
-        'model': str(d['DriveModel']),
-        'revision': str(d['DriveRevision'])
-    }
 
 
 def check_project(doc):
