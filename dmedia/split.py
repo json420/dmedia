@@ -55,7 +55,7 @@ def file_to_project(doc):
     assert doc['type'] == 'dmedia/file'
     assert doc['ver'] == 0
     for (key, value) in doc.items():
-        if key not in ('_rev', 'stored', 'partial', 'corrupt'):
+        if key not in ('_rev', 'atime', 'stored', 'partial', 'corrupt'):
             yield (key, value)
 
 

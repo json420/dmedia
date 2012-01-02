@@ -154,7 +154,6 @@ core_file = {
 
 project_file = {
     '_id': '6YOVAUG25HYQGYQTRZ43T75S52D3E4T47S5R2MHJ7CNGEORX',
-    'atime': 1320469454.88212,
     'bytes': 1999975956,
     'content_type': 'video/quicktime',
     'ctime': 1320472976,
