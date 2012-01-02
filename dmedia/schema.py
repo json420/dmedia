@@ -740,11 +740,7 @@ def check_file(doc):
         _check(doc, ['corrupt', store, 'mtime'], (int, float),
             (_at_least, 0),
         )
-
-    check_file_optional(doc)
-
-
-def check_file_optional(doc):
+ 
     # 'ext' like 'mov'
     _check_if_exists(doc, ['ext'], str,
         (_matches, EXT_PAT),
@@ -752,6 +748,11 @@ def check_file_optional(doc):
 
     # 'content_type' like 'video/quicktime'
     _check_if_exists(doc, ['content_type'], str)
+
+    check_file_optional(doc)
+
+
+def check_file_optional(doc):
 
     # 'content_encoding' like 'gzip'
     _check_if_exists(doc, ['content_encoding'], str,

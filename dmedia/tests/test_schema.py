@@ -358,36 +358,42 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
         )
 
-    def test_file_optional(self):
-
-        f = schema.check_file_optional
-        f({})
-        
         # ext
-        self.assertIsNone(f({'ext': 'ogv'}))
+        copy = deepcopy(good)
+        copy['ext'] = 'ogv'
+        self.assertIsNone(f(copy))
+        copy['ext'] = 42
         with self.assertRaises(TypeError) as cm:
-            f({'ext': 42})
+            f(copy)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format("doc['ext']", str, int, 42)
         )
+        copy['ext'] = '.mov'
         with self.assertRaises(ValueError) as cm:
-            f({'ext': '.mov'})
+            f(copy)
         self.assertEqual(
             str(cm.exception),
             "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
         )
 
-
         # content_type
-        self.assertIsNone(f({'content_type': 'video/quicktime'}))
+        copy = deepcopy(good)
+        copy['content_type'] = 'video/quicktime'
+        self.assertIsNone(f(copy))
+        copy['content_type'] = 42
         with self.assertRaises(TypeError) as cm:
-            f({'content_type': 42})
+            f(copy)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format("doc['content_type']", str, int, 42)
         )
 
+    def test_file_optional(self):
+
+        f = schema.check_file_optional
+        f({})
+        
         # content_encoding
         self.assertIsNone(f({'content_encoding': 'gzip'}))
         self.assertIsNone(f({'content_encoding': 'deflate'}))
