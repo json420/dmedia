@@ -389,6 +389,21 @@ class TestFunctions(TestCase):
             TYPE_ERROR.format("doc['content_type']", str, int, 42)
         )
 
+        # proxy_of
+        copy = deepcopy(good)
+        copy['origin'] = 'proxy'
+        bad_id = random_id()
+        copy['proxy_of'] = bad_id
+        with self.assertRaises(ValueError) as cm:
+            f(copy)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['proxy_of']: intrinsic ID must be 48 characters, got 24: {!r}".format(bad_id)
+        )
+        good_id = random_id(DIGEST_BYTES)
+        copy['proxy_of'] = good_id
+        self.assertIsNone(f(copy))
+
     def test_file_optional(self):
 
         f = schema.check_file_optional
@@ -608,6 +623,7 @@ class TestFunctions(TestCase):
         doc = schema.create_file(_id, file_size, leaf_hashes, stored,
             origin='proxy'
         )
+        doc['proxy_of'] = random_id(DIGEST_BYTES)
         schema.check_file(doc)
         self.assertEqual(doc['origin'], 'proxy')
 

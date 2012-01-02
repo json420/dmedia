@@ -44,7 +44,6 @@ _core = (
     'ext',
 
     'proxies',
-    'proxyof',
 )
 
 
@@ -56,6 +55,10 @@ def file_to_core(doc):
             yield (key, doc[key])
         except KeyError:
             pass
+    try:
+        yield ('proxy_of', doc['proxyof'])
+    except KeyError:
+        pass
     att = doc['_attachments']
     yield ('_attachments', {'leaf_hashes': att['leaf_hashes']})
 

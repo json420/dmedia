@@ -35,7 +35,7 @@ for row in r['rows']:
         }
     }
     proxy = create_file(ch.id, ch.file_size, ch.leaf_hashes, stored, 'proxy')
-    proxy['proxyof'] = _id
+    proxy['proxy_of'] = _id
     proxy['content_type'] = 'video/webm'
     proxy['ext'] = 'webm'
     proxy['elapsed'] = elapsed
