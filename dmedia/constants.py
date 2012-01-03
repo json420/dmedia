@@ -27,8 +27,6 @@ Various constants conveniently located in one place.
 import mimetypes
 mimetypes.init()
 
-DBNAME = 'dmedia'
-
 # Standard read/write buffer size:
 CHUNK_SIZE = 2**20  # 1 MiB
 
