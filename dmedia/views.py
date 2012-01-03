@@ -313,6 +313,24 @@ function(doc) {
 }
 """
 
+
+# Project related:
+project_atime = """
+function(doc) {
+    if (doc.type == 'dmedia/project') {
+        emit(doc.atime, doc.title);
+    }
+}
+"""
+
+project_title = """
+function(doc) {
+    if (doc.type == 'dmedia/project') {
+        emit(doc.title, doc.atime);
+    }
+}
+"""
+
 # Reduce function to both count and sum in a single view (thanks manveru!)
 _both = """
 function(key, values, rereduce) {
@@ -374,6 +392,10 @@ core = (
         ('plugin', store_plugin, _count),
     )),
 
+    ('project', (
+        ('atime', project_atime, None),
+        ('title', project_title, None),
+    )),
 )
 
 
