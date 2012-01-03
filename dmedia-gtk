@@ -161,7 +161,7 @@ class App(BaseApp):
         'create_project': ['title'],
         'project_created': ['project_id', 'title'],
         'start_importer': ['project_id'],
-        'importer_started': [],
+        'importer_started': ['project_db_name'],
         'stop_importer': [],
         'importer_stopped': [],
 
@@ -259,7 +259,7 @@ class App(BaseApp):
         self.importer = Importer(env, self.hub)
         assert sys.getrefcount(self.importer) == 2
         self.create_ux()
-        self.hub.send('importer_started')
+        self.hub.send('importer_started', schema.project_db_name(project_id))
 
     def on_stop_importer(self, hub):
         self.importer = None

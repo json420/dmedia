@@ -299,7 +299,8 @@ Hub.connect('project_created',
 
 
 Hub.connect('importer_started',
-    function() {
+    function(project_db_name) {
+        UI.pdb = new couch.Database(project_db_name);
         $hide('choose_project');
         $show('importer');
     }
@@ -362,8 +363,8 @@ Hub.connect('import_scanned',
 
 Hub.connect('import_thumbnail',
     function(basedir, import_id, doc_id) {
-        var url = db.att_url(doc_id, 'thumbnail');
-        $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 
+        var url = UI.pdb.att_url(doc_id, 'thumbnail');
+        $(import_id).style.backgroundImage = 'url("' + url + '")'; 
     }
 );
 
