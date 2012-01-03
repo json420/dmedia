@@ -25,6 +25,7 @@ import json
 import logging
 import sys
 from urllib.parse import urlparse
+from copy import deepcopy
 
 from userwebkit import BaseApp
 from microfiber import NotFound
@@ -253,7 +254,9 @@ class App(BaseApp):
         dialog.destroy()
 
     def on_start_importer(self, dub, project_id):
-        self.importer = Importer(self.env, self.hub)
+        env = deepcopy(self.env)
+        env['project_id'] = project_id
+        self.importer = Importer(env, self.hub)
         assert sys.getrefcount(self.importer) == 2
         self.create_ux()
         self.hub.send('importer_started')
