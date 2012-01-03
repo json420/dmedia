@@ -16,6 +16,12 @@ function set_title(id, value) {
 }
 
 
+function time() {
+    /* Return Unix-style timestamp like time.time() */
+    return Date.now() / 1000;
+}
+
+
 var UI = {
     project: null,
 
@@ -269,6 +275,14 @@ Project.prototype = {
         }
         else {
             this.load(null);
+        }
+    },
+
+    access: function() {
+        /* Update the doc.atime timestamp */
+        if (this.doc && this.db) {
+            this.doc.atime = time();
+            this.db.save(this.doc);
         }
     },
 }
