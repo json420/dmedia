@@ -468,6 +468,7 @@ class TestImportManager(ImportCase):
                 '_rev',
                 'stats',
                 'time_end',
+                'rate',
             ])
         )
         self.assertLessEqual(doc['time_end'], time.time())

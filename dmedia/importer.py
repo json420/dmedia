@@ -148,6 +148,17 @@ def sum_progress(progress):
     )
 
 
+def get_rate(doc):
+    try:
+        elapsed = doc['time_end'] - doc['time']
+        rate = doc['stats']['total']['bytes'] / elapsed
+        return bytes10(rate) + '/s'
+    except Exception:
+        pass
+    
+    
+
+
 class ImportWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
@@ -217,11 +228,13 @@ class ImportWorker(workers.CouchWorker):
                     self.db.save(doc)
                     self.doc['files'][file.name]['id'] = doc['_id']
             self.doc['time_end'] = time.time()
+            self.doc['rate'] = get_rate(self.doc)
         finally:
             self.db.save(self.doc)
         self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
+        need_thumbnail = True
         for (file, ch) in batch_import_iter(self.batch, *filestores,
             callback=self.progress_callback
         ):
@@ -261,9 +274,9 @@ class ImportWorker(workers.CouchWorker):
                 log.info('adding to %r', self.project)
                 self.project.save(doc)
 
-#                    if need_thumbnail and 'thumbnail' in doc['_attachments']:
-#                        self.emit('import_thumbnail', self.id, doc['_id'])
-#                        need_thumbnail = False
+            if need_thumbnail and 'thumbnail' in doc['_attachments']:
+                self.emit('import_thumbnail', self.id, ch.id)
+                need_thumbnail = False
 
             # Core doc
             stored = dict(
@@ -292,6 +305,7 @@ class ImportWorker(workers.CouchWorker):
             count, self.batch.count,
             size, self.batch.size
         )
+
 
 
 class ImportManager(workers.CouchManager):
@@ -335,13 +349,13 @@ class ImportManager(workers.CouchManager):
         check_call(['/bin/sync'])
         log.info('sync done')
         self.doc['time_end'] = time.time()
+        self.doc['rate'] = get_rate(self.doc)
         self.db.save(self.doc)
         self.emit('batch_finished',
             self.doc['_id'],
             self.doc['stats'],
             self.copies,
             notify_stats2(self.doc['stats'])
-            
         )
         log.info('compacting %r', self.db)
         self.db.post(None, '_compact')
