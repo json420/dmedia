@@ -27,9 +27,9 @@ from os import path
 
 from gi.repository import GObject
 
-from microfiber import Database
 from filestore import DOTNAME
 import dmedia
+from dmedia.util import get_db
 from dmedia.units import bytes10
 from dmedia.service.api import DMedia
 from dmedia.importer import ImportManager, notify_stats
@@ -58,7 +58,7 @@ def callback(signal, args):
     elif signal == 'batch_finished':
         (batch_id, stats, copies, msg) = args
 
-        db = Database('dmedia', env)
+        db = get_db(env)
         doc = db.get(batch_id)
         print('\nFiles stored in:')
         for parentdir in sorted(doc['stores']):

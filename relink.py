@@ -3,12 +3,13 @@
 import sys
 from os import path
 
-from microfiber import Database, dc3_env, Conflict, NotFound
+from microfiber import dmedia_env, Conflict, NotFound
+from dmedia.util import get_db
 from dmedia.core import init_filestore
 
 parentdir = path.abspath(sys.argv[1])
 
-db = Database('dmedia', dc3_env())
+db = get_db(dmedia_env())
 (fs, doc) = init_filestore(parentdir)
 try:
     db.save(doc)

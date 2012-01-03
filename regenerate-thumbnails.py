@@ -4,10 +4,11 @@ from microfiber import Database, dmedia_env
 from dmedia.local import LocalSlave, FileNotLocal
 from dmedia.extractor import create_thumbnail
 from dmedia.units import bytes10
+from dmedia.schema import DB_NAME
 
 sizes = []
 env = dmedia_env()
-db = Database('dmedia', env)
+db = Database(DB_NAME, env)
 local = LocalSlave(env)
 result = db.view('user', 'ctime')
 total = result['total_rows']

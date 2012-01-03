@@ -30,6 +30,7 @@ from userwebkit import BaseApp
 from microfiber import NotFound
 
 import dmedia
+from dmedia.schema import DB_NAME
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
@@ -147,7 +148,7 @@ WELCOMED_ID = '_local/welcomed'
 
 class App(BaseApp):
     name = 'dmedia'
-    dbname = 'dmedia'
+    dbname = DB_NAME
     version = dmedia.__version__
     title = 'Dmedia'
     splash = 'splash.html'
@@ -182,8 +183,6 @@ class App(BaseApp):
 
     def choose_starting_page(self):
         _id = '_local/welcomed'
-        #doc = self.server.get('dmedia', _id)
-        #self.server.delete('dmedia', _id, rev=doc['_rev'])
         try:
             self.db.get(WELCOMED_ID)
             return self.page
