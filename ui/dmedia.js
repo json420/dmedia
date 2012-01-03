@@ -195,14 +195,13 @@ function bytes10(size) {
     var i = Math.min(ex, BYTES10.length - 1);
     var s = ((i > 0) ? size / Math.pow(1000, i) : size).toPrecision(3);
     if (s.indexOf('.') > 0) {
-        while (s.slice(-1) == '0' || s.slice(-1) == '.') {
-            if (s.slice(-1) == '.') {
-                s = s.slice(0, -1);
+        var end = s.slice(-1);
+        while (end == '0' || end == '.') {
+            s = s.slice(0, -1);
+            if (end == '.') {
                 break;
             }
-            else {
-                s = s.slice(0, -1);
-            }
+            end = s.slice(-1);
         }
     }
     return s + ' ' + BYTES10[i];
