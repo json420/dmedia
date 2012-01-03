@@ -218,6 +218,7 @@ class ImportCase(CouchCase):
         self.db = get_db(self.env)
         self.db.ensure()
         self.env['extract'] = False
+        self.env['project_id'] = random_id()
 
     def tearDown(self):
         super().tearDown()

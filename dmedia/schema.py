@@ -854,6 +854,28 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     }
 
 
+def create_project_file(_id, file_size, leaf_hashes, origin='user'):
+    """
+    Create a minimal 'dmedia/file' document.
+    """
+    return {
+        '_id': _id,
+        '_attachments': {
+            'leaf_hashes': {
+                'data': b64encode(leaf_hashes).decode('utf-8'),
+                'content_type': 'application/octet-stream',
+            }
+        },
+        'ver': VER,
+        'type': 'dmedia/file',
+        'time': time.time(),
+        'bytes': file_size,
+        'origin': origin,
+        'meta': {},
+        'tags': {},
+    }
+
+
 def create_machine():
     """
     Create a 'dmedia/machine' document.
