@@ -273,7 +273,6 @@ class ImportWorker(workers.CouchWorker):
                 merge_metadata(file.name, doc)
                 log.info('adding to %r', self.project)
                 self.project.save(doc)
-
             if need_thumbnail and 'thumbnail' in doc['_attachments']:
                 self.emit('import_thumbnail', self.id, ch.id)
                 need_thumbnail = False
