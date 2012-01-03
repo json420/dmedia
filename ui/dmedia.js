@@ -240,6 +240,24 @@ ProgressBar.prototype = {
 }
 
 
+function Project(_id) {
+    this.load(_id);
+}
+Project.prototype = {
+    load: function(_id) {
+        this._id = _id;
+        if (!_id) {
+            this.doc = null;
+            this.db = null;
+        }
+        else {
+            this.doc = db.get_sync(_id);
+            this.db = new couch.Database(this.doc['db_name']);
+        }
+    },
+}
+
+
 function Tabs() {
     function make_handler(element) {
         var id = element.id;
