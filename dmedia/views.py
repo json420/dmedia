@@ -328,12 +328,15 @@ function(key, values, rereduce) {
 """
 
 
-designs = (
-    ('doc', (
-        ('type', doc_type, _count),
-        ('time', doc_time, None),
-        #('ver', doc_ver, _count),
-    )),
+# Mostly interesting for developers, testing:
+doc_design = ('doc', (
+    ('type', doc_type, _count),
+    ('time', doc_time, None),
+))
+
+
+core = (
+    doc_design,
 
     ('batch', (
         ('time', batch_time, None),
@@ -341,7 +344,6 @@ designs = (
 
     ('import', (
         ('time', import_time, None),
-        #('partition', import_partition, None)
     )),
 
     ('file', (
@@ -370,17 +372,8 @@ designs = (
 
     ('store', (
         ('plugin', store_plugin, _count),
-        #('partition', store_partition, None)
     )),
 
-#    ('partition', (
-#        ('uuid', partition_uuid, None),
-#        ('drive', partition_drive, None)
-#    )),
-
-#    ('drive', (
-#        ('serial', drive_serial, None),
-#    ))
 )
 
 
@@ -416,7 +409,7 @@ def update_design_doc(db, doc):
         return 'new'
 
 
-def init_views(db):
+def init_views(db, designs=core):
     log.info('Initializing views in %r', db)
     for (name, views) in designs:
         doc = build_design_doc(name, views)

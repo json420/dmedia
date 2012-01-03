@@ -25,13 +25,14 @@ A few handy utility functions.
 
 import microfiber
 
-from dmedia import schema
+from dmedia import schema, views
 
 
 def get_db(env, init=False):
     db = microfiber.Database(schema.DB_NAME, env)
     if init:
         db.ensure()
+        views.init_views(db, views.core)
     return db
 
 

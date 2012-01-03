@@ -95,7 +95,7 @@ class TestCouchFunctions(CouchCase):
         db.put(None)
 
         views.init_views(db)
-        for (name, views_) in views.designs:
+        for (name, views_) in views.core:
             doc = views.build_design_doc(name, views_)
             saved = db.get(doc['_id'])
             doc['_rev'] = saved['_rev']
