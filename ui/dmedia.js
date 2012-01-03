@@ -277,6 +277,21 @@ Hub.connect('project_created',
 );
 
 
+Hub.connect('importer_started',
+    function() {
+        $hide('choose_project');
+        $show('importer');
+    }
+);
+
+Hub.connect('importer_stopped',
+    function() {
+        $hide('importer');
+        $show('choose_project');
+    }
+);
+
+
 // All the import related signals:
 Hub.connect('batch_started',
     function(batch_id) {

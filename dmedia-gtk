@@ -82,7 +82,7 @@ class Importer:
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
         )
-        self.manager = ImportManager(env, self.callback)
+        self.manager = ImportManager(env, WeakMethod(self, 'callback'))
 
     def callback(self, signal, args):
         GObject.idle_add(self.hub.send, signal, *args)
@@ -160,6 +160,9 @@ class App(BaseApp):
         'create_project': ['title'],
         'project_created': ['project_id', 'title'],
         'start_importer': ['project_id'],
+        'importer_started': [],
+        'stop_importer': [],
+        'importer_stopped': [],
 
         'welcome_complete': [],
         'batch_started': ['batch_id'],
@@ -184,6 +187,7 @@ class App(BaseApp):
         self.local = None
         hub.connect('create_project', self.on_create_project)
         hub.connect('start_importer', self.on_start_importer)
+        hub.connect('stop_importer', self.on_stop_importer)
         hub.connect('error', self.on_error)
         hub.connect('welcome_complete', self.on_welcome_complete)
 
@@ -228,15 +232,10 @@ class App(BaseApp):
         if self.options.replay:
             self.create_ux()
             self._replay = Replay('signals.json', self.hub)
-        else:
-            self.start_importer()
-
-    def start_importer(self):
-        self.importer = Importer(self.env, self.hub)
-        self.create_ux()
 
     def create_ux(self):
         self.ux = UnityImportUX(self.hub)
+        assert sys.getrefcount(self.ux) == 2
 
     def destroy_ux(self):
         self.ux = None
@@ -252,9 +251,17 @@ class App(BaseApp):
         )
         dialog.run()
         dialog.destroy()
-        
+
     def on_start_importer(self, dub, project_id):
-        print(project_id)
+        self.importer = Importer(self.env, self.hub)
+        assert sys.getrefcount(self.importer) == 2
+        self.create_ux()
+        self.hub.send('importer_started')
+
+    def on_stop_importer(self, hub):
+        self.importer = None
+        self.ux = None
+        self.hub.send('importer_stopped')
 
     def on_create_project(self, hub, title):
         print(repr(title))

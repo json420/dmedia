@@ -26,18 +26,19 @@
 
         <div id="import_target" class="content hide">
 
-        <div>
+        <div id="choose_project">
         <input placeholder="New Project Name" type="text" id="project_title">
         <button onclick="UI.create_project()">Create Project</button>
         <button onclick="UI.start_importer()" id="start_importer">Start Importer</button>
         <div id="projects"></div>
         </div>
 
-        <div class="hide">
+        <div id="importer" class="hide">
             <div class="row">
                 <div class="grid_2">
                     <textarea placeholder="comma, seperated, tags"></textarea>
                 </div>
+                <button onclick="Hub.send('stop_importer')">Stop Importer</button>
                 <div class="grid_2" id="info">
                     <p><strong>Total: </strong><span id="total"></span></p>
                     <p><strong>Completed: </strong><span id="completed"></span></p>
