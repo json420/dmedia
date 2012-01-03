@@ -252,14 +252,15 @@ import socket
 from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
 from microfiber import random_id, RANDOM_B32LEN
 
-from .constants import EXT_PAT
-
 
 # schema-compatibility version:
 VER = 0
 
 # versioned primary database name:
 DB_NAME = 'dmedia-{}'.format(VER)
+
+# Pattern that doc['ext'] must match for dmedia/file
+EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
 
 
 # Some private helper functions that don't directly define any schema.
