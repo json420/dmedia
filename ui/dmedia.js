@@ -187,9 +187,22 @@ function bytes10(size) {
     }
     var ex = Math.floor(Math.log(size) / Math.log(1000));
     var i = Math.min(ex, BYTES10.length - 1);
-    var s = (i > 0) ? size / Math.pow(1000, i) : size;
-    return s.toPrecision(3) + ' ' + BYTES10[i];
+    var s = ((i > 0) ? size / Math.pow(1000, i) : size).toPrecision(3);
+    if (s.slice(-2) == '.0') {
+        s = s.slice(0, 2);
+    }
+    else if (s.slice(-3) == '.00') {
+        s = s.slice(0, 1);
+    }
+    return s + ' ' + BYTES10[i];
 }
+
+console.assert(bytes10(100 * 1000) == '100 kB');
+console.assert(bytes10(10 * 1000) == '10 kB');
+console.assert(bytes10(1000) == '1 kB');
+console.assert(bytes10(123 * 1000) == '123 kB');
+console.assert(bytes10(123 * 100) == '12.3 kB');
+console.assert(bytes10(123 * 10) == '1.23 kB');
 
 
 function count_n_size(count, size) {
