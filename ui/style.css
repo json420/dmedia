@@ -228,3 +228,18 @@ textarea {
     border-color: #e81f3b; 
 }
 
+
+.project {
+    margin: 10px;
+    padding: 10px;
+    background-color: #333;
+    cursor: default;
+    font-size: 15px;
+    -webkit-user-select: none;
+}
+
+.project.selected {
+    background-color: #555;
+}
+
+

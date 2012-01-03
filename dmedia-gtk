@@ -30,7 +30,7 @@ from userwebkit import BaseApp
 from microfiber import NotFound
 
 import dmedia
-from dmedia.schema import DB_NAME
+from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
@@ -148,7 +148,7 @@ WELCOMED_ID = '_local/welcomed'
 
 class App(BaseApp):
     name = 'dmedia'
-    dbname = DB_NAME
+    dbname = schema.DB_NAME
     version = dmedia.__version__
     title = 'Dmedia'
     splash = 'splash.html'
@@ -157,6 +157,10 @@ class App(BaseApp):
     proxy_bus = 'org.freedesktop.DMedia'
 
     signals = {
+        'create_project': ['title'],
+        'project_created': ['project_id', 'title'],
+        'start_importer': ['project_id'],
+
         'welcome_complete': [],
         'batch_started': ['batch_id'],
         'import_started': ['basedir', 'import_id', 'extra'],
@@ -178,6 +182,8 @@ class App(BaseApp):
     def connect_hub_signals(self, hub):
         self.importer = None
         self.local = None
+        hub.connect('create_project', self.on_create_project)
+        hub.connect('start_importer', self.on_start_importer)
         hub.connect('error', self.on_error)
         hub.connect('welcome_complete', self.on_welcome_complete)
 
@@ -246,6 +252,17 @@ class App(BaseApp):
         )
         dialog.run()
         dialog.destroy()
+        
+    def on_start_importer(self, dub, project_id):
+        print(project_id)
+
+    def on_create_project(self, hub, title):
+        print(repr(title))
+        doc = schema.create_project(title)
+        self.db.post(doc)
+        self.server.put(None, doc['db_name'])
+        self.server.post(doc, doc['db_name'])
+        self.hub.send('project_created', doc['_id'], doc['title'])
 
 
 dmedia.configure_logging()      

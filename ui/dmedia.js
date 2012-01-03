@@ -1,8 +1,68 @@
 "use strict";
 
-var db = new couch.Database('dmedia');
+var db = new couch.Database('dmedia-0');
+
+
+function set_title(id, value) {
+    var el = $(id);
+    if (value) {
+        el.textContent = value;
+    }
+    else {
+        el.textContent = '';
+        el.appendChild($el('em', {textContent: 'Untitled'}));
+    }
+    return el;
+}
+
 
 var UI = {
+    project: null,
+
+    select_project: function(_id) {
+        var selected = $(UI.project);
+        if (selected) {
+            selected.classList.remove('selected');
+        }
+        UI.project = _id;
+        if (_id) {
+            $(_id).classList.add('selected');
+            $('start_importer').disabled = false;
+        }
+        else {
+            $('start_importer').disabled = true;
+        }
+    },
+
+    start_importer: function() {
+        if (UI.project) {
+            Hub.send('start_importer', UI.project);
+        }
+    },
+
+    reload_projects: function() {
+        db.view(UI.on_projects, 'project', 'title');
+    },
+
+    on_projects: function(req) {
+        var rows = req.read()['rows'];
+        var div = $('projects');
+        div.textContent = '';
+        rows.forEach(function(row) {
+            var _id = row.id;
+            var p = $el('p', {'id': _id, 'class': 'project'});
+            set_title(p, row.key);
+            p.onclick = function() {
+                UI.select_project(_id);
+            }
+            div.appendChild(p);
+        });
+        var selected = $(UI.project);
+        if (selected) {
+            selected.classList.add('selected');
+        }
+    },
+
     on_doc: function(req) {
         var doc = req.read();
         var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
@@ -53,6 +113,12 @@ var UI = {
         }
     },
 
+    create_project: function() {
+        UI.select_project(null);
+        var title = $('project_title').value;
+        Hub.send('create_project', title);
+    },
+
     tabinit: {},    
 
     on_tab_changed: function(tabs, id) {
@@ -63,7 +129,8 @@ var UI = {
     },
 
     init_import: function() {
-        console.log('init_import');
+        UI.select_project(null);
+        UI.reload_projects();
     },
 
     init_history: function() {
@@ -79,7 +146,7 @@ var UI = {
     init_storage: function() {
         console.log('init_storage'); 
     },
-    
+  
 }
 
 
@@ -197,6 +264,17 @@ Tabs.prototype = {
 
 // Lazily init-tabs so startup is faster, more responsive
 Hub.connect('tab_changed', UI.on_tab_changed);
+
+
+// Creating projects
+Hub.connect('project_created',
+    function(_id, title) {
+        console.log(_id);
+        console.log(title);
+        UI.project = _id;
+        UI.reload_projects();
+    }
+);
 
 
 // All the import related signals:
