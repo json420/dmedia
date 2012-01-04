@@ -31,6 +31,8 @@ from userwebkit import BaseApp
 from microfiber import NotFound
 
 import dmedia
+from dmedia.util import get_project_db
+from dmedia import views
 from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
@@ -226,13 +228,12 @@ class App(BaseApp):
         self.db.post({'_id': WELCOMED_ID})
         self.load_page(self.page)
 
-    def set_env(self, env):
-        super().set_env(env)
-        if env is None:
-            return
+    def post_env_init(self):
         if self.options.replay:
             self.create_ux()
             self._replay = Replay('signals.json', self.hub)
+        for row in self.db.view('project', 'atime')['rows']:
+            get_project_db(row['id'], self.env, True)
 
     def create_ux(self):
         self.ux = UnityImportUX(self.hub)
@@ -270,8 +271,8 @@ class App(BaseApp):
         print(repr(title))
         doc = schema.create_project(title)
         self.db.post(doc)
-        self.server.put(None, doc['db_name'])
-        self.server.post(doc, doc['db_name'])
+        project = get_project_db(doc['_id'], self.env, True)
+        project.save(doc)
         self.hub.send('project_created', doc['_id'], doc['title'])
 
 

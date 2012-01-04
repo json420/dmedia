@@ -40,6 +40,7 @@ var UI = {
         }
     },
 
+
     start_importer: function() {
         if (UI.project) {
             Hub.send('start_importer', UI.project);
@@ -144,9 +145,10 @@ var UI = {
     },
 
     init_browser: function() {
-        UI.player = $('player');
-        UI.player.addEventListener('ended', UI.next);
-        db.view(UI.on_view, 'user', 'video', {reduce: false});
+        UI.browser = new Browser();
+//        UI.player = $('player');
+//        UI.player.addEventListener('ended', UI.next);
+//        db.view(UI.on_view, 'user', 'video', {reduce: false});
     },
 
     init_storage: function() {
@@ -162,7 +164,7 @@ window.onload = function() {
     UI.completed = $('completed');
     UI.cards = $('cards');
     UI.tabs = new Tabs();
-    UI.tabs.show_tab('import');    
+    UI.tabs.show_tab('browser');    
 }
 
 
@@ -284,6 +286,72 @@ Project.prototype = {
             this.db.save(this.doc);
         }
     },
+}
+
+
+function Browser() {
+    this.select = $('browser_projects');
+    this.project = new Project();
+    var self = this;
+    this.select.onchange = function() {
+        self.on_change();
+    }
+    this.load_projects();
+}
+Browser.prototype = {
+    load_projects: function() {
+        var self = this;
+        var callback = function(req) {
+            self.on_projects(req);
+        }
+        db.view(callback, 'project', 'title');
+    },
+
+    load_items: function() {
+        var self = this;
+        var callback = function(req) {
+            self.on_items(req);
+        }
+        this.project.db.view(callback, 'user', 'video', {reduce: false});
+    },
+
+    on_projects: function(req) {
+        this.select.innerHTML = null;
+        var rows = req.read()['rows'];
+        rows.forEach(function(row) {
+            var option = $el('option', {value: row.id});
+            set_title(option, row.key);
+            this.select.appendChild(option);
+        }, this);
+        this.select.value = this.project._id;
+        this.load_items();
+    },
+
+    on_change: function() {
+        this.project.load(this.select.value);
+        this.load_items();
+    },
+
+    on_items: function(req) {
+        var rows = req.read()['rows'];
+        var tray = $('tray');
+        tray.innerHTML = null;
+        rows.forEach(function(row) {
+            var id = row.id;
+            console.log(id);
+            var img = $el('img',
+                {
+                    id: id,
+                    src: this.project.db.att_url(id, 'thumbnail'),
+                }
+            );
+            img.onclick = function() {
+                UI.play(id);
+            }
+            tray.appendChild(img);
+        }, this);
+    },
+
 }
 
 
