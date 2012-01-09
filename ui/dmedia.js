@@ -22,6 +22,24 @@ function time() {
 }
 
 
+function $select(id) {
+    var element = $(id);
+    if (element) {
+        element.classList.add('selected');
+    }
+    return element;
+}
+
+
+function $unselect(id) {
+    var element = $(id);
+    if (element) {
+        element.classList.remove('selected');
+    }
+    return element;
+}
+
+
 var UI = {
     project: null,
 
@@ -52,6 +70,25 @@ var UI = {
     },
 
     on_projects: function(req) {
+        var rows = req.read()['rows'];
+        var div = $('projects');
+        div.textContent = '';
+        rows.forEach(function(row) {
+            var _id = row.id;
+            var p = $el('p', {'id': _id, 'class': 'project'});
+            set_title(p, row.key);
+            p.onclick = function() {
+                UI.select_project(_id);
+            }
+            div.appendChild(p);
+        });
+        var selected = $(UI.project);
+        if (selected) {
+            selected.classList.add('selected');
+        }
+    },
+
+    on_projects_old: function(req) {
         var rows = req.read()['rows'];
         var div = $('projects');
         div.textContent = '';
@@ -146,9 +183,6 @@ var UI = {
 
     init_browser: function() {
         UI.browser = new Browser();
-//        UI.player = $('player');
-//        UI.player.addEventListener('ended', UI.next);
-//        db.view(UI.on_view, 'user', 'video', {reduce: false});
     },
 
     init_storage: function() {
@@ -289,13 +323,64 @@ Project.prototype = {
 }
 
 
+function Items(id) {
+    this.parent = $(id);
+    this.current = null;
+}
+Items.prototype = {
+    clear: function() {
+        this.parent.innerHTML = null;    
+    },
+
+    connect: function() {
+        var self = this;
+        var children = Array.prototype.slice.call(this.parent.children);
+        children.forEach(function(child) {
+            child.onclick = function() {
+                self.select(child);
+            }
+        });
+    },
+
+    select: function(id) {
+        $unselect(this.current);
+        this.current = $select(id);
+    },
+
+    next: function() {
+        if (this.current && this.current.nextSibling) {
+            this.select(this.current.nextSibling);
+        }
+    },
+ 
+    append_each: function(rows, callback) {
+        rows.forEach(function(row) {
+            var child = callback(row, this);
+            this.parent.appendChild(child);
+            console.log(child.id);
+        }, this);
+    },
+
+}
+
+
+
 function Browser() {
     this.select = $('browser_projects');
-    this.project = new Project();
+    this.player = $('player');
+    this.items = new Items('tray');
+
     var self = this;
     this.select.onchange = function() {
         self.on_change();
     }
+    this.player.addEventListener('ended',
+        function() {
+            self.on_ended();
+        }
+    );
+
+    this.project = new Project();
     this.load_projects();
 }
 Browser.prototype = {
@@ -315,6 +400,23 @@ Browser.prototype = {
         this.project.db.view(callback, 'user', 'video', {reduce: false});
     },
 
+    select_item: function(id) {
+        $unselect(this.current);
+        this.current = $select(id);
+    },
+
+    play: function(id) {
+        this.player.src = 'dmedia:' + id;
+        this.player.play();
+    },
+
+    next: function() {
+        if (UI.selected && UI.selected.nextSibling) {
+            UI.play(UI.selected.nextSibling.id);
+            UI.selected.scrollIntoView(false);
+        }
+    },
+
     on_projects: function(req) {
         this.select.innerHTML = null;
         var rows = req.read()['rows'];
@@ -328,30 +430,37 @@ Browser.prototype = {
     },
 
     on_change: function() {
+        this.player.pause();
+        this.player.src = null;
         this.project.load(this.select.value);
         this.load_items();
     },
 
-    on_items: function(req) {
-        var rows = req.read()['rows'];
-        var tray = $('tray');
-        tray.innerHTML = null;
-        rows.forEach(function(row) {
-            var id = row.id;
-            console.log(id);
-            var img = $el('img',
-                {
-                    id: id,
-                    src: this.project.db.att_url(id, 'thumbnail'),
-                }
-            );
-            img.onclick = function() {
-                UI.play(id);
-            }
-            tray.appendChild(img);
-        }, this);
+    on_ended: function() {
+        console.log('on_ended');
+        console.log(this.project._id);
     },
 
+    on_items: function(req) {
+        var rows = req.read()['rows'];
+        var project = this.project;
+        this.items.clear();
+        this.items.append_each(rows,
+            function(row, items) {
+                var id = row.id;
+                var img = $el('img',
+                    {
+                        id: id,
+                        src: project.db.att_url(id, 'thumbnail'),
+                    }
+                );
+                img.onclick = function() {
+                    items.select(id);
+                }
+                return img;
+            }
+        );
+    },
 }
 
 
