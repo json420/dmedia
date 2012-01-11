@@ -341,6 +341,18 @@ function(doc) {
 }
 """
 
+tag_letters = """
+function(doc) {
+    if(doc.type == 'dmedia/tag' && doc.key) {
+        var i;
+        for (i=0; i<doc.key.length; i++) {
+            emit(doc.key.slice(0, i + 1), doc.value);
+        }
+    }
+}
+"""
+
+
 
 # Reduce function to both count and sum in a single view (thanks manveru!)
 _both = """
@@ -447,6 +459,7 @@ project = (
 
     ('tag', (
         ('key', tag_key, _count),
+        ('letters', tag_letters, None),
     )),
 )
 
