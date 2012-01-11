@@ -142,7 +142,7 @@ def migrate_if_needed(core):
     except IndexError:    
         doc = schema.create_project(title=MIGRATED)
         core.post(doc)
-    project = get_project_db(doc['db_name'], core.env, init=True)
+    project = get_project_db(doc['_id'], core.env, init=True)
     post(project, doc)
     migrate(orig, core, project)
     return doc

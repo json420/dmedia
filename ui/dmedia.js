@@ -323,8 +323,10 @@ Project.prototype = {
 }
 
 
-function Items(id) {
+function Items(id, callback, obj) {
     this.parent = $(id);
+    this._callback = callback;
+    this._obj = obj;
     this.current = null;
 }
 Items.prototype = {
@@ -332,19 +334,12 @@ Items.prototype = {
         this.parent.innerHTML = null;    
     },
 
-    connect: function() {
-        var self = this;
-        var children = Array.prototype.slice.call(this.parent.children);
-        children.forEach(function(child) {
-            child.onclick = function() {
-                self.select(child);
-            }
-        });
-    },
-
     select: function(id) {
         $unselect(this.current);
         this.current = $select(id);
+        if (this.callback) {
+            this.callback.apply(this.obj, [this.current]);
+        }
     },
 
     next: function() {
@@ -352,7 +347,7 @@ Items.prototype = {
             this.select(this.current.nextSibling);
         }
     },
- 
+
     append_each: function(rows, callback) {
         rows.forEach(function(row) {
             var child = callback(row, this);
@@ -391,17 +386,24 @@ Browser.prototype = {
         db.view(callback, 'project', 'title');
     },
 
+    on_projects: function(req) {
+        this.select.innerHTML = null;
+        var rows = req.read()['rows'];
+        rows.forEach(function(row) {
+            var option = $el('option', {value: row.id});
+            set_title(option, row.key);
+            this.select.appendChild(option);
+        }, this);
+        this.select.value = this.project._id;
+        this.load_items();
+    },
+
     load_items: function() {
         var self = this;
         var callback = function(req) {
             self.on_items(req);
         }
         this.project.db.view(callback, 'user', 'video', {reduce: false});
-    },
-
-    select_item: function(id) {
-        $unselect(this.current);
-        this.current = $select(id);
     },
 
     play: function(id) {
@@ -414,18 +416,6 @@ Browser.prototype = {
             UI.play(UI.selected.nextSibling.id);
             UI.selected.scrollIntoView(false);
         }
-    },
-
-    on_projects: function(req) {
-        this.select.innerHTML = null;
-        var rows = req.read()['rows'];
-        rows.forEach(function(row) {
-            var option = $el('option', {value: row.id});
-            set_title(option, row.key);
-            this.select.appendChild(option);
-        }, this);
-        this.select.value = this.project._id;
-        this.load_items();
     },
 
     on_change: function() {
