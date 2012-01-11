@@ -298,7 +298,6 @@ Project.prototype = {
         }
         else {
             this.doc = db.get_sync(_id);
-            console.log(this.doc.title);
             this.db = new couch.Database(this.doc['db_name']);
         }
     },
@@ -325,8 +324,8 @@ Project.prototype = {
 
 function Items(id, callback, obj) {
     this.parent = $(id);
-    this._callback = callback;
-    this._obj = obj;
+    this.callback = callback;
+    this.obj = obj;
     this.current = null;
 }
 Items.prototype = {
@@ -335,10 +334,13 @@ Items.prototype = {
     },
 
     select: function(id) {
+        if (this.current && this.current.id == id) {
+            return;
+        }
         $unselect(this.current);
         this.current = $select(id);
         if (this.callback) {
-            this.callback.apply(this.obj, [this.current]);
+            this.callback.apply(this.obj, [id]);
         }
     },
 
@@ -362,7 +364,7 @@ Items.prototype = {
 function Browser() {
     this.select = $('browser_projects');
     this.player = $('player');
-    this.items = new Items('tray');
+    this.items = new Items('tray', this.play, this);
 
     var self = this;
     this.select.onchange = function() {
@@ -407,6 +409,7 @@ Browser.prototype = {
     },
 
     play: function(id) {
+        console.log(id);
         this.player.src = 'dmedia:' + id;
         this.player.play();
     },
