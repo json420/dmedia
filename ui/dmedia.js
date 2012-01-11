@@ -362,13 +362,25 @@ Project.prototype = {
 }
 
 
-function Items(id, callback, obj) {
+function Items(id) {
     this.parent = $(id);
-    this.callback = callback;
-    this.obj = obj;
-    this.current = null;
+    this._current = null;
+    this.onchange = null;
 }
 Items.prototype = {
+    set current(value) {
+        if (this._current !== value) {
+            this._current = value;
+            if (this.onchange) {
+                this.onchange(value);
+            }
+        }
+    },
+
+    get current(value) {
+        return this._current;
+    },
+
     clear: function() {
         this.parent.innerHTML = null;    
     },
@@ -386,6 +398,15 @@ Items.prototype = {
         }
         this.current = null;
         return false;
+    },
+
+    toggle: function(id) {
+        if (this.current == id) {
+            this.select(null);
+        }
+        else {
+            this.select(id);
+        }
     },
 
     reselect: function() {
@@ -460,8 +481,20 @@ function tag_value(tag) {
 }
 
 
-function tag_key(value) {
-    return value.replace(/[-_\s]/g, '').toLowerCase();
+function tag_key(tag) {
+    return tag.replace(/[-\s_.,]+/g, '').toLowerCase();
+}
+
+
+function create_tag(tag) {
+    return {
+        '_id': random_id(),
+        'ver': 0,
+        'type': 'dmedia/tag',
+        'time': time(),
+        'value': tag_value(tag),
+        'key': tag_key(tag),
+    }
 }
 
 
@@ -493,6 +526,8 @@ function Tag(project, input, matches) {
     this.input.onkeydown = $bind(this.on_keydown, this);
     this.input.onkeyup = $bind(this.on_keyup, this);
     this.input.onchange = $bind(this.on_change, this);
+
+    this.ontag = null;
 }
 Tag.prototype = {
     abort: function() {
@@ -551,9 +586,13 @@ Tag.prototype = {
     },
 
     on_change: function() {
-        if (this.onactivate) {
-            this.key = tag_key(this.input.value);
-            this.onactivate(this.key, this.input.value);
+        if (!this.matches.current) {
+            var doc = create_tag(this.input.value);
+            this.project.db.save(doc);
+            console.log(doc._id);
+        }
+        else {
+            console.log(this.matches.current);
         }
     },
 }
