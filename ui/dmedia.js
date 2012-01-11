@@ -605,7 +605,8 @@ Tag.prototype = {
 function Browser() {
     this.select = $('browser_projects');
     this.player = $('player');
-    this.items = new Items('tray', this.select_item, this);
+    this.items = new Items('tray');
+    this.items.onchange = $bind(this.select_item, this);
 
     var self = this;
     this.select.onchange = function() {
@@ -646,7 +647,6 @@ Browser.prototype = {
     },
 
     load_items: function() {
-        return;
         var self = this;
         var callback = function(req) {
             self.on_items(req);
@@ -655,6 +655,7 @@ Browser.prototype = {
     },
 
     select_item: function(id) {
+        console.log(id);
         this.player.src = 'dmedia:' + id;
         this.player.load();
         this.project.db.get($bind(this.on_doc, this), id);
@@ -700,8 +701,9 @@ Browser.prototype = {
         var rows = req.read()['rows'];
         var project = this.project;
         this.items.clear();
+        var do_toggle = $bind(this.items.toggle, this.items);
         this.items.append_each(rows,
-            function(row, items) {
+            function(row) {
                 var id = row.id;
                 var img = $el('img',
                     {
@@ -710,7 +712,7 @@ Browser.prototype = {
                     }
                 );
                 img.onclick = function() {
-                    items.select(id);
+                    do_toggle(id);
                 }
                 return img;
             }
