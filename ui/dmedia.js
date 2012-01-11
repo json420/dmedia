@@ -594,6 +594,10 @@ Tag.prototype = {
         else {
             console.log(this.matches.current);
         }
+        this.abort();
+        this.input.value = '';
+        this.key = null;
+        this.matches.reset();
     },
 }
 
