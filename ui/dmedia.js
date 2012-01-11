@@ -22,6 +22,28 @@ function time() {
 }
 
 
+var B32ALPHABET = '234567ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function random_b32() {
+    return B32ALPHABET[Math.floor(Math.random() * 32)];
+}
+
+function random_id(count) {    
+    count = count || 24;
+    var letters = [];
+    var i;
+    for (i=0; i<count; i++) {
+        letters.push(random_b32());
+    }
+    return letters.join('');
+}
+
+
+function random_id2() {
+    return [Math.floor(time()), random_id(16)].join('-');
+}
+
+
 function $select(id) {
     var element = $(id);
     if (element) {
@@ -380,19 +402,48 @@ function tags_to_string(tags) {
     }
     var keys = Object.keys(tags);
     keys.sort();
-    return keys.join(', ');
+    var values = [];
+    keys.forEach(function(key) {
+        if (tags[key] && tags[key].value) {
+            values.push(tags[key].value);
+        }
+        else {
+             values.push(key);
+        }
+    });
+    return values.join(', ');
 }
 
-function string_to_tags(string) {
-    var tags = {};
-    string.split(',').forEach(function(part) {
-        var key = part.trim();
-        if (key) {
-            tags[key] = null;
+
+
+function tag_value(tag) {
+    return tag.trim().replace(/\s+/g, ' ');
+}
+
+
+function tag_key(value) {
+    return value.replace(/[-_\s]/g, '').toLowerCase();
+}
+
+
+function string_to_tags(string, tags) {
+    tags = tags || {};
+    string.split(',').forEach(function(tag) {
+        var value = tag_value(tag);
+        var key = tag_key(value);
+        if (!key) {
+            return;
+        }
+        if (tags[key]) {
+            tags[key].value = value;
+        }
+        else {
+            tags[key] = {value: value};
         }
     });
     return tags;
 }
+
 
 
 function $bind(func, self) {
@@ -417,7 +468,7 @@ function Browser() {
             self.on_ended();
         }
     );
-    
+
     this.doc = null;
 
     this.project = new Project();
