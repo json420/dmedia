@@ -331,6 +331,17 @@ function(doc) {
 }
 """
 
+
+# For dmedia/tag
+tag_key = """
+function(doc) {
+    if(doc.type == 'dmedia/tag') {
+        emit(doc.key, doc.value);
+    }
+}
+"""
+
+
 # Reduce function to both count and sum in a single view (thanks manveru!)
 _both = """
 function(key, values, rereduce) {
@@ -397,6 +408,48 @@ core = (
         ('title', project_title, None),
     )),
 )
+
+
+project = (
+    doc_design,
+
+    ('batch', (
+        ('time', batch_time, None),
+    )),
+
+    ('import', (
+        ('time', import_time, None),
+    )),
+
+    ('file', (
+        ('stored', file_stored, _both),
+        ('ext', file_ext, _both),
+        ('origin', file_origin, _both),
+
+        ('fragile', file_fragile, None),
+        ('reclaimable', file_reclaimable, None),
+        ('partial', file_partial, _sum),
+        ('corrupt', file_corrupt, _sum),
+        ('bytes', file_bytes, _sum),
+        ('verified', file_verified, None),
+        ('ctime', file_ctime, None),
+    )),
+
+    ('user', (
+        ('copies', user_copies, None),
+        ('tags', user_tags, _count),
+        ('ctime', user_ctime, None),
+        ('needsproxy', user_needsproxy, None),
+        ('video', user_video, _sum),
+        ('photo', user_photo, _sum),
+        ('audio', user_audio, _sum),
+    )),
+
+    ('tag', (
+        ('key', tag_key, _count),
+    )),
+)
+
 
 
 def iter_views(views):

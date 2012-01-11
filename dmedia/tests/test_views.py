@@ -101,3 +101,14 @@ class TestCouchFunctions(CouchCase):
             saved = db.get(doc['_id'])
             doc['_rev'] = saved['_rev']
             self.assertEqual(saved, doc)
+
+        # Test core views
+        db = Database('foo', self.env)
+        db.put(None)
+        views.init_views(db, views.core)
+
+        # Test project views
+        db = Database('bar', self.env)
+        db.put(None)
+        views.init_views(db, views.project)
+        

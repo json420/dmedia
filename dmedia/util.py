@@ -40,7 +40,7 @@ def get_project_db(_id, env, init=False):
     db = microfiber.Database(schema.project_db_name(_id), env)
     if init:
         db.ensure()
-        views.init_views(db, views.core)
+        views.init_views(db, views.project)
     return db
     
 
