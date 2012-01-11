@@ -357,7 +357,6 @@ Items.prototype = {
         rows.forEach(function(row) {
             var child = callback(row, this);
             this.parent.appendChild(child);
-            console.log(child.id);
         }, this);
     },
 

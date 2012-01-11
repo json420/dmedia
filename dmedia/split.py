@@ -23,10 +23,10 @@
 Migrate from monolithic dmedia database to dmedia-0 plus project databases.
 """
 
-from microfiber import NotFound, Database
+from microfiber import Database, NotFound, Conflict
 
 from dmedia import schema
-
+from dmedia.util import get_project_db
 
 _core = (
     '_id',
@@ -92,6 +92,19 @@ def doc_to_project(doc):
     return doc
 
 
+def post(db, doc):
+    if doc is None:
+        return
+    try:
+        del doc['_rev']
+    except KeyError:
+        pass
+    try:
+        return db.post(doc)
+    except Conflict:
+        pass
+
+
 def migrate(orig, core, project):
     for row in orig.get('_all_docs')['rows']:
         _id = row['id']
@@ -100,17 +113,16 @@ def migrate(orig, core, project):
         print(_id)
         _rev = row['value']['rev']
         src = orig.get(_id, rev=_rev, attachments=True)
-        del src['_rev']
         dst = doc_to_core(src)
-        if dst is not None:
-            core.post(dst)
+        post(core, dst)
         dst = doc_to_project(src)
-        if dst is not None:
-            project.post(dst)
+        post(project, dst)
 
     for db in (core, project):
         db.post(None, '_compact')
 
+
+MIGRATED = '*Auto_Migrated_Project*'
 
 def migrate_if_needed(core):
     orig = Database('dmedia', core.env)
@@ -120,15 +132,17 @@ def migrate_if_needed(core):
         return
     try:
         loc = orig.get('_local/dmedia')
-        del loc['_rev']
-        core.post(loc)
+        post(core, loc)
     except NotFound:
         pass
-    doc = schema.create_project('Auto Migrated Project')
-    core.post(doc)
-    project = Database(doc['db_name'], core.env)
-    project.put(None)
-    project.post(doc)
+    try:
+        row = core.view('project', 'title', key=MIGRATED, limit=1)['rows'][0]
+        doc = core.get(row['id'])
+    except IndexError:    
+        doc = schema.create_project(title=MIGRATED)
+        core.post(doc)
+    project = get_project_db(doc['db_name'], core.env, init=True)
+    post(project, doc)
     migrate(orig, core, project)
     return doc
 

@@ -2,12 +2,13 @@
 
 from microfiber import Database, dc3_env
 from dmedia.split import migrate_if_needed
+from dmedia.util import get_db
 
 
-db = Database('dmedia-0', dc3_env())
-if db.ensure():
-    print(migrate_if_needed(db))
-    print(db.get('_local/dmedia'))
+env = dc3_env()
+db = get_db(env, init=True)
+print(migrate_if_needed(db))
+print(db.get('_local/dmedia'))
     
 
         
