@@ -380,16 +380,16 @@ Items.prototype = {
 
     select: function(id) {
         $unselect(this.current);
-        $select(id)
-        this.current = id;
-    },
-    
-    reselect: function() {
-        this.select(this.current);
-        if (this.current === null) {
-            return false;
+        if ($select(id)) {
+            this.current = id;
+            return true;
         }
-        return true;
+        this.current = null;
+        return false;
+    },
+
+    reselect: function() {
+        return this.select(this.current);
     },
 
     select_first: function() {
@@ -398,17 +398,30 @@ Items.prototype = {
         }
     },
 
-    next: function() {
+    select_last: function() {
+        if (this.parent.children.length > 0) {
+            var child = this.parent.children[this.parent.children.length - 1];
+            this.select(child.id);
+        }
+    },
+
+    next: function(wrap) {
         var element = $(this.current);
         if (element && element.nextSibling) {
             this.select(element.nextSibling.id);
         }
+        else if (wrap) {
+            this.select_first();
+        }
     },
 
-    previous: function() {
+    previous: function(wrap) {
         var element = $(this.current);
         if (element && element.previousSibling) {
             this.select(element.previousSibling.id);
+        }
+        else if (wrap) {
+            this.select_last();
         }
     },
 
@@ -478,7 +491,7 @@ function Tag(project, input, matches) {
     this.key = null;
     this.req = null;
     this.input.onkeydown = $bind(this.on_keydown, this);
-    this.input.onkeypress = $bind(this.on_keypress, this);
+    this.input.onkeyup = $bind(this.on_keyup, this);
     this.input.onchange = $bind(this.on_change, this);
 }
 Tag.prototype = {
@@ -511,7 +524,9 @@ Tag.prototype = {
                 return $el('li', {id: row.id, textContent: row.value});
             }
         );
-        this.matches.select_first();
+        if (! this.matches.reselect()) {
+            this.matches.select_first();
+        }
     },
 
     on_keydown: function(event) {
@@ -519,15 +534,15 @@ Tag.prototype = {
         if (keyID == 'Up' || keyID == 'Down') {
             event.preventDefault();
             if (keyID == 'Up') {
-                this.matches.previous();
+                this.matches.previous(true);
             }
             else {
-                this.matches.next();
+                this.matches.next(true);
             }      
         }
     },
 
-    on_keypress: function(event) {
+    on_keyup: function(event) {
         var key = tag_key(this.input.value);
         if (key != this.key) {
             this.key = key;
