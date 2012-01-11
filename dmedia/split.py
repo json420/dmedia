@@ -73,6 +73,7 @@ def file_to_project(doc):
         yield ('proxy_of', doc['proxyof'])
     except KeyError:
         pass
+    yield ('tags', doc.get('tags', {}))
 
 
 def doc_to_core(doc):

@@ -199,6 +199,7 @@ project_file = {
               'width': 960
          }
     },
+    'tags': {},
     'time': 1320469454.88212,
     'type': 'dmedia/file',
     'ver': 0,
@@ -298,6 +299,7 @@ project_proxy = {
     'ext': 'webm',
     'origin': 'proxy',
     'proxy_of': 'P6HD6F3H7LGSH4Z7VIW7UMLIB2GPETCVNHIIMDVHULTOOF2L',
+    'tags': {},
     'time': 1325055007.130608,
     'type': 'dmedia/file',
     'ver': 0,
