@@ -374,6 +374,34 @@ Items.prototype = {
 }
 
 
+function tags_to_string(tags) {
+    if (!tags) {
+        return '';
+    }
+    var keys = Object.keys(tags);
+    keys.sort();
+    return keys.join(', ');
+}
+
+function string_to_tags(string) {
+    var tags = {};
+    string.split(',').forEach(function(part) {
+        var key = part.trim();
+        if (key) {
+            tags[key] = null;
+        }
+    });
+    return tags;
+}
+
+
+function $bind(func, self) {
+    return function() {
+        var args = Array.prototype.slice.call(arguments);
+        return func.apply(self, args);
+    }
+}
+
 
 function Browser() {
     this.select = $('browser_projects');
@@ -389,6 +417,8 @@ function Browser() {
             self.on_ended();
         }
     );
+    
+    this.doc = null;
 
     this.project = new Project();
     this.load_projects();
@@ -425,29 +455,16 @@ Browser.prototype = {
     select_item: function(id) {
         this.player.src = 'dmedia:' + id;
         this.player.load();
-        var self = this;
-        
-        var doc = this.project.db.get_sync(id);
-        if (doc.tags) {
-            var keys = Object.keys(doc.tags);
-            keys.sort();
-        }
-        else {
-            keys = [];
-        }
-        $('tags').value = keys.join(', ');
-        
+        this.project.db.get($bind(this.on_doc, this), id);
     },
 
     on_doc: function(req) {
-        var doc = req.read();
-        var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
-        keys.forEach(function(key) {
-            var el = $(key);
-            if (el) {
-                el.textContent = doc.meta[key];
-            }
-        });
+        if (this.doc) {
+            this.doc.tags = string_to_tags($('tags').value);
+            this.project.db.save(this.doc);
+        }
+        this.doc = req.read();
+        $('tags').value = tags_to_string(this.doc.tags);
     },
 
     play: function(id) {
