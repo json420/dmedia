@@ -107,17 +107,6 @@ var UI = {
         }
     },
 
-    on_doc: function(req) {
-        var doc = req.read();
-        var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
-        keys.forEach(function(key) {
-            var el = $(key);
-            if (el) {
-                el.textContent = doc.meta[key];
-            }
-        });
-    },
-
     on_view: function(req) {
         var rows = req.read()['rows'];
         var tray = $('tray');
@@ -209,7 +198,23 @@ function files(count) {
     return count.toString() + ' files';
 }
 
+
 function bytes10(size) {
+    /*
+    Return *size* bytes to 3 significant digits in SI base-10 units.
+
+    For example:
+    >>> bytes10(1000);
+    "1 kB"
+    >>> bytes10(29481537)
+    "29.5 MB"
+    >>> bytes10(392012353)
+    "392 MB"
+
+    For additional details, see:
+
+        https://wiki.ubuntu.com/UnitsPolicy
+    */
     var BYTES10 = [
         'bytes',
         'kB',
@@ -242,6 +247,7 @@ function bytes10(size) {
     }
     return s + ' ' + BYTES10[i];
 }
+
 
 console.assert(bytes10(100 * 1000) == '100 kB');
 console.assert(bytes10(10 * 1000) == '10 kB');
@@ -281,25 +287,23 @@ ProgressBar.prototype = {
 }
 
 
-function Project(_id) {
-    if (! _id) {
+function Project(id) {
+    if (! this.load(id)) {
         this.load_recent();
-    }
-    else {
-        this.load(_id);
     }
 }
 Project.prototype = {
-    load: function(_id) {
-        this._id = _id;
-        if (!_id) {
+    load: function(id) {
+        if (!id) {
+            this.id = null;
             this.doc = null;
             this.db = null;
+            return false;
         }
-        else {
-            this.doc = db.get_sync(_id);
-            this.db = new couch.Database(this.doc['db_name']);
-        }
+        this.id = id;
+        this.doc = db.get_sync(id);
+        this.db = new couch.Database(this.doc['db_name']);
+        return true;
     },
 
     load_recent: function() {
@@ -314,9 +318,15 @@ Project.prototype = {
 
     access: function() {
         /* Update the doc.atime timestamp */
-        if (this.doc && this.db) {
+        if (this.doc) {
             this.doc.atime = time();
-            this.db.save(this.doc);
+            db.save(this.doc);
+        }
+    },
+
+    select: function(id) {
+        if (this.load(id)) {
+            this.access();
         }
     },
 }
@@ -334,18 +344,22 @@ Items.prototype = {
     },
 
     select: function(id) {
-        if (this.current && this.current.id == id) {
+        if (this.current == id) {
+            return;
+        }
+        if (! $select(id)) {
             return;
         }
         $unselect(this.current);
-        this.current = $select(id);
+        this.current = id;
         if (this.callback) {
             this.callback.apply(this.obj, [id]);
         }
     },
 
     next: function() {
-        if (this.current && this.current.nextSibling) {
+        var element = $(this.current);
+        if (element && element.nextSibling) {
             this.select(this.current.nextSibling);
         }
     },
@@ -364,7 +378,7 @@ Items.prototype = {
 function Browser() {
     this.select = $('browser_projects');
     this.player = $('player');
-    this.items = new Items('tray', this.play, this);
+    this.items = new Items('tray', this.select_item, this);
 
     var self = this;
     this.select.onchange = function() {
@@ -396,7 +410,7 @@ Browser.prototype = {
             set_title(option, row.key);
             this.select.appendChild(option);
         }, this);
-        this.select.value = this.project._id;
+        this.select.value = this.project.id;
         this.load_items();
     },
 
@@ -406,6 +420,34 @@ Browser.prototype = {
             self.on_items(req);
         }
         this.project.db.view(callback, 'user', 'video', {reduce: false});
+    },
+
+    select_item: function(id) {
+        this.player.src = 'dmedia:' + id;
+        this.player.load();
+        var self = this;
+        
+        var doc = this.project.db.get_sync(id);
+        if (doc.tags) {
+            var keys = Object.keys(doc.tags);
+            keys.sort();
+        }
+        else {
+            keys = [];
+        }
+        $('tags').value = keys.join(', ');
+        
+    },
+
+    on_doc: function(req) {
+        var doc = req.read();
+        var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
+        keys.forEach(function(key) {
+            var el = $(key);
+            if (el) {
+                el.textContent = doc.meta[key];
+            }
+        });
     },
 
     play: function(id) {
@@ -424,13 +466,13 @@ Browser.prototype = {
     on_change: function() {
         this.player.pause();
         this.player.src = null;
-        this.project.load(this.select.value);
+        this.project.select(this.select.value);
         this.load_items();
     },
 
     on_ended: function() {
         console.log('on_ended');
-        console.log(this.project._id);
+        console.log(this.project.id);
     },
 
     on_items: function(req) {
