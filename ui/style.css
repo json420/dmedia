@@ -241,4 +241,8 @@ textarea {
     background-color: #555;
 }
 
+#tag_matches li.selected {
+    background-color: #555;
+}
+
 

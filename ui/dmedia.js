@@ -3,6 +3,14 @@
 var db = new couch.Database('dmedia-0');
 
 
+function $bind(func, self) {
+    return function() {
+        var args = Array.prototype.slice.call(arguments);
+        return func.apply(self, args);
+    }
+}
+
+
 function set_title(id, value) {
     var el = $(id);
     if (value) {
@@ -365,24 +373,42 @@ Items.prototype = {
         this.parent.innerHTML = null;    
     },
 
+    reset: function() {
+        this.parent.innerHTML = null;    
+        this.current = null;
+    },
+
     select: function(id) {
-        if (this.current == id) {
-            return;
-        }
-        if (! $select(id)) {
-            return;
-        }
         $unselect(this.current);
+        $select(id)
         this.current = id;
-        if (this.callback) {
-            this.callback.apply(this.obj, [id]);
+    },
+    
+    reselect: function() {
+        this.select(this.current);
+        if (this.current === null) {
+            return false;
+        }
+        return true;
+    },
+
+    select_first: function() {
+        if (this.parent.children.length > 0) {
+            this.select(this.parent.children[0].id);
         }
     },
 
     next: function() {
         var element = $(this.current);
         if (element && element.nextSibling) {
-            this.select(this.current.nextSibling);
+            this.select(element.nextSibling.id);
+        }
+    },
+
+    previous: function() {
+        var element = $(this.current);
+        if (element && element.previousSibling) {
+            this.select(element.previousSibling.id);
         }
     },
 
@@ -445,12 +471,76 @@ function string_to_tags(string, tags) {
 }
 
 
+function Tag(project, input, matches) {
+    this.project = project;
+    this.input = $(input);
+    this.matches = new Items(matches);
+    this.key = null;
+    this.req = null;
+    this.input.onkeydown = $bind(this.on_keydown, this);
+    this.input.onkeypress = $bind(this.on_keypress, this);
+    this.input.onchange = $bind(this.on_change, this);
+}
+Tag.prototype = {
+    abort: function() {
+        if (this.req) {
+            this.req.req.abort();
+            this.req.req = null;
+            this.req = null;
+        }  
+    },
 
-function $bind(func, self) {
-    return function() {
-        var args = Array.prototype.slice.call(arguments);
-        return func.apply(self, args);
-    }
+    search: function() {
+        console.log(this.key);
+        this.abort();
+        if (!this.key) {
+            this.matches.reset();
+            return;
+        }
+        var callback = $bind(this.on_search, this);
+        this.req = this.project.db.view(callback, 'tag', 'letters',
+            {key: this.key, limit: 5}
+        );
+    },
+
+    on_search: function(req) {
+        var rows = req.read().rows;
+        this.matches.clear();
+        this.matches.append_each(rows, 
+            function(row) {
+                return $el('li', {id: row.id, textContent: row.value});
+            }
+        );
+        this.matches.select_first();
+    },
+
+    on_keydown: function(event) {
+        var keyID = event.keyIdentifier;
+        if (keyID == 'Up' || keyID == 'Down') {
+            event.preventDefault();
+            if (keyID == 'Up') {
+                this.matches.previous();
+            }
+            else {
+                this.matches.next();
+            }      
+        }
+    },
+
+    on_keypress: function(event) {
+        var key = tag_key(this.input.value);
+        if (key != this.key) {
+            this.key = key;
+            this.search();
+        }
+    },
+
+    on_change: function() {
+        if (this.onactivate) {
+            this.key = tag_key(this.input.value);
+            this.onactivate(this.key, this.input.value);
+        }
+    },
 }
 
 
@@ -473,6 +563,8 @@ function Browser() {
 
     this.project = new Project();
     this.load_projects();
+
+    this.tag = new Tag(this.project, 'tag', 'tag_matches');
 }
 Browser.prototype = {
     load_projects: function() {
@@ -496,6 +588,7 @@ Browser.prototype = {
     },
 
     load_items: function() {
+        return;
         var self = this;
         var callback = function(req) {
             self.on_items(req);
@@ -510,6 +603,8 @@ Browser.prototype = {
     },
 
     on_doc: function(req) {
+        var doc = req.read();
+        return;
         if (this.doc) {
             this.doc.tags = string_to_tags($('tags').value);
             this.project.db.save(this.doc);
@@ -564,6 +659,8 @@ Browser.prototype = {
         );
     },
 }
+
+
 
 
 function Tabs() {

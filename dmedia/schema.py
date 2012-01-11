@@ -1018,3 +1018,17 @@ def create_project(title=''):
         'db_name': project_db_name(_id),
         'title': title,
     }
+
+
+RE_KEY_STRIP = re.compile(r'[-\s_.,]+')
+
+def create_tag(tag):
+    value = tag.strip()
+    return {
+        '_id': random_id(),
+        'ver': VER,
+        'type': 'dmedia/tag',
+        'time': time.time(),
+        'value': value,
+        'key': RE_KEY_STRIP.sub('', value).lower(),
+    }
