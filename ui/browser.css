@@ -24,7 +24,7 @@
     left: 0;
     right: 212px;
     overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: visible;
     background: -webkit-linear-gradient(top, #ddd, #999);
 }
 
@@ -48,6 +48,30 @@ div.thumbnail {
     overflow: hidden;
     background-position: center center;
     background-size: cover;
+}
+
+.large #content {
+    right: 260px;
+}
+
+.large #lower {
+    right: 260px;
+}
+
+.large #right {
+    width: 260px;
+}
+
+.large div.thumbnail {
+    width: 240px;
+    height: 135px;
+}
+
+#player {
+    background-color: black;
+    position: absolute;
+    top: 10px;
+    left: 10px;
 }
 
 div.thumbnail.selected {
@@ -91,11 +115,13 @@ ul.matches {
     background-color: rgba(255, 255, 255, 0.8);
     box-shadow: 1px 2px 8px black;
     border-radius: 5px;
+    overflow: hidden;
 }
 
 ul.matches li {
     padding: 0px 5px;
     border-radius: 5px;
+    white-space: nowrap;
 }
 
 li.selected {
@@ -106,14 +132,15 @@ li.selected {
 ul.tags {
     font-size: 0;
     list-style: none;
-    background: -webkit-linear-gradient(top, #333, #444);
+    background: -webkit-linear-gradient(top, #333, #666);
     box-shadow: 1px 2px 8px black;
     border-radius: 5px;
     height: 150px;
+    padding: 2px;
 }
 
 ul.tags li {
-    margin: 2px;
+    margin-right: 4px;
     padding-left: 4px;
     border-radius: 8px;
     background-color: white;
