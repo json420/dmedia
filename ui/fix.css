@@ -88,7 +88,7 @@ ul.tags {
 
 ul.tags li {
     font-size: 14px;
-    margin: 2px;
+    margin: 3px;
     padding-left: 4px;
     border-radius: 8px;
     background-color: white;
@@ -107,6 +107,9 @@ ul.tags a:hover {
     background-color: #ddd;
     border-radius: 8px;
 }
+
+
+
 
 
 .progress {
