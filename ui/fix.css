@@ -4,98 +4,71 @@
     border-width: 0;
 }
 
+.grid_row {
+    border-top: 1px solid #51225e;
+}
+
 body, input, textarea, select, option, button {
     font-family: Ubuntu, sans-sarif;
     font-size: 15px;
 }
 
 input, textarea, select, option, button {
-    border-width: 1px;
     padding: 4px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: #000;
     border-radius: 5px;
+    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.5);
+
+    /* The transparents help make it clearer that things are working */
+    background-color: rgba(0, 0, 0, 0.3);
 }
 
 input:focus, textarea:focus, select:focus, button:focus {
     border-color: #e81f3b;
+    border-style: solid;
 }
 
-button, select {
-    box-sizing: content-box;
+p, h2, pre {
+    padding: 5px;
+
+    /* The transparents help make it clearer that things are working */
+    background-color: rgba(0, 0, 0, 0.3);
 }
+
 
 code, pre {
     font-family: 'Ubuntu Mono', monospace;
     font-size: 17px;
 }
 
-p {
-    margin: 0;
-    padding: 4px;
-}
 
 body {
     background-image: url(12_col.gif);
 }
 
-.grid_1 {
-    width: 60px;
+.progress {
+    height: 20px;
+    background: -webkit-linear-gradient(top, #444, #666);
+    border-radius: 10px;
+    box-shadow: 0px 2px 10px rgba(0,0,0,0.5);
+    position: relative;
 }
 
-.grid_2 {
-    width: 140px;
+.progress div {
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 35%;
+    border-radius: 10px;
+    background: -webkit-linear-gradient(top, #ea364f, #bd132b);
 }
 
-.grid_3 {
-    width: 220px;
-}
-
-.grid_4 {
-    width: 300px;
-}
-
-.grid_5 {
-    width: 380px;
-}
-
-.grid_6 {
-    width: 460px;
-}
-
-.grid_7 {
-    width: 540px;
-}
-
-.grid_8 {
-    width: 620px;
-}
-
-.grid_9 {
-    width: 700px;
-}
-
-.grid_10 {
-    width: 780px;
-}
-
-.grid_11 {
-    width: 860px;
-}
-
-.grid_12 {
-    width: 940px;
-}
-
-
-.grid_row {
-    font-size: 0;
-}
-
-.grid_row > * {
-    font-size: 15px;
-    background-color: rgba(0, 0, 0, 0.3);
-    display: inline-block;
-    margin: 10px;
-}
-
-
+/*
+-webkit-user-drag: auto;
+-webkit-user-select: text;
+*/
 
