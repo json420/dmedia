@@ -25,9 +25,17 @@ var UI = {
     },
 
     on_resize: function() {
+        var paused = UI.player.paused;
+        if (!paused) {
+            UI.player.pause();
+        }
         UI.content.removeChild(UI.player);
         UI.resize();
         UI.content.appendChild(UI.player);
+        if (!paused) {
+            UI.player.load();
+            UI.player.play();
+        }
     },
 }
 
@@ -46,7 +54,7 @@ window.onload = function() {
         );
         child.onclick = function() {
             UI.player.src = 'dmedia:' + id;
-            UI.player.load();
+            UI.player.play();
         }
         var url = db.att_url(row.id, 'thumbnail');
 		child.style.backgroundImage = css_url(url);
