@@ -455,27 +455,6 @@ Items.prototype = {
 
 }
 
-
-function tags_to_string(tags) {
-    if (!tags) {
-        return '';
-    }
-    var keys = Object.keys(tags);
-    keys.sort();
-    var values = [];
-    keys.forEach(function(key) {
-        if (tags[key] && tags[key].value) {
-            values.push(tags[key].value);
-        }
-        else {
-             values.push(key);
-        }
-    });
-    return values.join(', ');
-}
-
-
-
 function tag_value(tag) {
     return tag.trim().replace(/\s+/g, ' ');
 }
@@ -495,25 +474,6 @@ function create_tag(tag) {
         'value': tag_value(tag),
         'key': tag_key(tag),
     }
-}
-
-
-function string_to_tags(string, tags) {
-    tags = tags || {};
-    string.split(',').forEach(function(tag) {
-        var value = tag_value(tag);
-        var key = tag_key(value);
-        if (!key) {
-            return;
-        }
-        if (tags[key]) {
-            tags[key].value = value;
-        }
-        else {
-            tags[key] = {value: value};
-        }
-    });
-    return tags;
 }
 
 
@@ -539,7 +499,6 @@ Tag.prototype = {
     },
 
     search: function() {
-        console.log(this.key);
         this.abort();
         if (!this.key) {
             this.matches.reset();
@@ -589,15 +548,18 @@ Tag.prototype = {
         if (!this.matches.current) {
             var doc = create_tag(this.input.value);
             this.project.db.save(doc);
-            console.log(doc._id);
+            var tag_id = doc._id;
         }
         else {
-            console.log(this.matches.current);
+            var tag_id = this.matches.current;
         }
         this.abort();
         this.input.value = '';
         this.key = null;
         this.matches.reset();
+        if (this.ontag) {
+            this.ontag(tag_id);
+        }
     },
 }
 
@@ -624,8 +586,13 @@ function Browser() {
     this.load_projects();
 
     this.tag = new Tag(this.project, 'tag', 'tag_matches');
+    this.tag.ontag = $bind(this.on_tag, this);
 }
 Browser.prototype = {
+    on_tag: function(tag_id) {
+        console.log(tag_id);
+    },
+
     load_projects: function() {
         var self = this;
         var callback = function(req) {
