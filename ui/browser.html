@@ -1,32 +1,47 @@
 <!doctype html>
 <html>
+
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<link rel="stylesheet" href="browser.css"/>
-<script src="/_apps/dc3/couch.js"></script>
-<script src="/_apps/dc3/base.js"></script>
-<script src="browser.js"></script>
+<link rel="stylesheet" href="grid.css"></link>
+<link rel="stylesheet" href="browser.css"></link>
+</head>
+
 <body>
-<video width="640" height="360" id="player" controls></video>
-<div id="info">
-<table>
-<tr>
-<th>Camera:</th><td id="camera"></td>
-</tr>
-<tr>
-<th>Lens:</th><td id="lens"></td>
-</tr>
-<tr>
-<th>Aperture:</th><td id="aperture"></td>
-</tr>
-<tr>
-<th>Shutter:</th><td id="shutter"></td>
-</tr>
-<tr>
-<th>ISO:</th><td id="iso"></td>
-</tr>
-</table>
+<div id="content"></div>
+<div id="lower">
+
+<div class="grid_row">
+    <div id="add_tag" class="grid_5 grid_cell">
+        <input value="Android"></input>
+        <ul class="matches">
+            <li>Acorn</li>
+            <li>All Naughty Frogs Go To Not Heaven</li>
+            <li>Amber Graner</li>
+            <li class="selected">Android</li>
+            <li>ARM</li>
+        </ul>
+    </div>
+
+    <button class="grid_2 arrow">Tag ⇾</button>
+
+    <ul id="tags" class="grid_6 tags">
+        <li>Linaro<a href="#">x</a></li>
+        <li>UDS-Q<a href="#">x</a></li>
+        <li>Novacut<a href="#">x</a></li>
+        <li>Linaro Connect<a href="#">x</a></li>
+        <li>Ubunut TV<a href="#">x</a></li>
+        <li>Cortext-A15<a href="#">x</a></li>
+        <li>HDSLR<a href="#">x</a></li>
+        <li>Canon<a href="#">x</a></li>
+        <li>Ubuntu<a href="#">x</a></li>
+        <li>Dmedia<a href="#">x</a></li>
+    </ul>
+
 </div>
-<div id="tray"></div>
+
+</div>
+<div id="right"></div>
 </body>
+
 </html>
