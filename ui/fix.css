@@ -19,7 +19,7 @@ input, textarea, button {
     border-style: solid;
     border-color: #000;
     border-radius: 5px;
-    box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.5);
+    box-shadow: 1px 2px 8px black;
 
     /* The transparents help make it clearer that things are working */
     background-color: rgba(0, 0, 0, 0.3);
@@ -59,6 +59,22 @@ body {
     background-image: url(16_col.gif);
 }
 
+ul {
+    list-style: none;
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 1px 2px 8px black;
+    border-radius: 5px;
+}
+
+li {
+    padding: 2px 5px;
+    border-radius: 5px;
+}
+
+li.selected {
+    background-color: #e81f3b;
+}
+
 .progress {
     height: 20px;
     background: -webkit-linear-gradient(top, #444, #666);
@@ -77,6 +93,7 @@ body {
     border-radius: 10px;
     background: -webkit-linear-gradient(top, #ea364f, #bd132b);
 }
+
 
 /*
 -webkit-user-drag: auto;
