@@ -16,6 +16,6 @@ def iter_cols(grid_cols=16, base=40, margin=10):
 
 # Or iter_cols(12, 60)
 
-for t in iter_cols(12, 60):
+for t in iter_cols():
     print(grid.format(*t))
 
