@@ -88,7 +88,6 @@ var UI = {
         }
     },
 
-
     start_importer: function() {
         if (UI.project) {
             Hub.send('start_importer', UI.project);
