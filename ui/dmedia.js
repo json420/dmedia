@@ -477,7 +477,7 @@ function create_tag(tag) {
 }
 
 
-function Tag(project, input, matches) {
+function Tagger(project, input, matches) {
     this.project = project;
     this.input = $(input);
     this.matches = new Items(matches);
@@ -489,7 +489,7 @@ function Tag(project, input, matches) {
 
     this.ontag = null;
 }
-Tag.prototype = {
+Tagger.prototype = {
     abort: function() {
         if (this.req) {
             this.req.req.abort();
@@ -585,8 +585,8 @@ function Browser() {
     this.project = new Project();
     this.load_projects();
 
-    this.tag = new Tag(this.project, 'tag', 'tag_matches');
-    this.tag.ontag = $bind(this.on_tag, this);
+    this.tagger = new Tagger(this.project, 'tag', 'tag_matches');
+    this.tagger.ontag = $bind(this.on_tag, this);
 }
 Browser.prototype = {
     on_tag: function(tag_id) {
