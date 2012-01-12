@@ -2,15 +2,6 @@
 
 var db = new couch.Database('dmedia-0');
 
-
-function $bind(func, self) {
-    return function() {
-        var args = Array.prototype.slice.call(arguments);
-        return func.apply(self, args);
-    }
-}
-
-
 function set_title(id, value) {
     var el = $(id);
     if (value) {
@@ -21,52 +12,6 @@ function set_title(id, value) {
         el.appendChild($el('em', {textContent: 'Untitled'}));
     }
     return el;
-}
-
-
-function time() {
-    /* Return Unix-style timestamp like time.time() */
-    return Date.now() / 1000;
-}
-
-
-var B32ALPHABET = '234567ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-
-function random_b32() {
-    return B32ALPHABET[Math.floor(Math.random() * 32)];
-}
-
-function random_id(count) {    
-    count = count || 24;
-    var letters = [];
-    var i;
-    for (i=0; i<count; i++) {
-        letters.push(random_b32());
-    }
-    return letters.join('');
-}
-
-
-function random_id2() {
-    return [Math.floor(time()), random_id(16)].join('-');
-}
-
-
-function $select(id) {
-    var element = $(id);
-    if (element) {
-        element.classList.add('selected');
-    }
-    return element;
-}
-
-
-function $unselect(id) {
-    var element = $(id);
-    if (element) {
-        element.classList.remove('selected');
-    }
-    return element;
 }
 
 
@@ -227,68 +172,6 @@ function files(count) {
     return count.toString() + ' files';
 }
 
-
-function bytes10(size) {
-    /*
-    Return *size* bytes to 3 significant digits in SI base-10 units.
-
-    For example:
-    >>> bytes10(1000);
-    "1 kB"
-    >>> bytes10(29481537)
-    "29.5 MB"
-    >>> bytes10(392012353)
-    "392 MB"
-
-    For additional details, see:
-
-        https://wiki.ubuntu.com/UnitsPolicy
-    */
-    var BYTES10 = [
-        'bytes',
-        'kB',
-        'MB',
-        'GB',
-        'TB',
-        'PB',
-        'EB',
-        'ZB',
-        'YB',
-    ];
-    if (size == 0) {
-        return '0 bytes';
-    }
-    if (size == 1) {
-        return '1 byte';
-    }
-    var ex = Math.floor(Math.log(size) / Math.log(1000));
-    var i = Math.min(ex, BYTES10.length - 1);
-    var s = ((i > 0) ? size / Math.pow(1000, i) : size).toPrecision(3);
-    if (s.indexOf('.') > 0) {
-        var end = s.slice(-1);
-        while (end == '0' || end == '.') {
-            s = s.slice(0, -1);
-            if (end == '.') {
-                break;
-            }
-            end = s.slice(-1);
-        }
-    }
-    return s + ' ' + BYTES10[i];
-}
-
-
-console.assert(bytes10(100 * 1000) == '100 kB');
-console.assert(bytes10(10 * 1000) == '10 kB');
-console.assert(bytes10(1000) == '1 kB');
-console.assert(bytes10(123 * 1000) == '123 kB');
-console.assert(bytes10(123 * 100) == '12.3 kB');
-console.assert(bytes10(123 * 10) == '1.23 kB');
-console.assert(bytes10(120 * 1000) == '120 kB');
-console.assert(bytes10(120 * 100) == '12 kB');
-console.assert(bytes10(120 * 10) == '1.2 kB');
-
-
 function count_n_size(count, size) {
     return [files(count), bytes10(size)].join(', ');
 }
@@ -348,7 +231,7 @@ Project.prototype = {
     access: function() {
         /* Update the doc.atime timestamp */
         if (this.doc) {
-            this.doc.atime = time();
+            this.doc.atime = couch.time();
             db.save(this.doc);
         }
     },
@@ -466,10 +349,10 @@ function tag_key(tag) {
 
 function create_tag(tag) {
     return {
-        '_id': random_id(),
+        '_id': couch.random_id(),
         'ver': 0,
         'type': 'dmedia/tag',
-        'time': time(),
+        'time': couch.time(),
         'value': tag_value(tag),
         'key': tag_key(tag),
     }
