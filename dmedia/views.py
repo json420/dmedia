@@ -32,19 +32,36 @@ from microfiber import NotFound
 log = logging.getLogger()
 
 
-_sum = '_sum'
+# High performance Erlang reduce functions that don't require JSON round trip:
 _count = '_count'
+_sum = '_sum'
 
+# Reduce function to both count and sum in a single view (thanks manveru!)
+# Use with care, this is much, much slower than the above!
+_count_and_sum = """
+function(key, values, rereduce) {
+    var count = 0;
+    var sum = 0;
+    var i;
+    for (i in values) {
+        count += values[i][0];
+        sum += values[i][1];
+    }
+    return [count, sum];
+}
+"""
+
+
+# The generic 'doc' design, quite helpful for developers:
+doc_ver = """
+function(doc) {
+    emit(doc.ver, null);
+}
+"""
 
 doc_type = """
 function(doc) {
     emit(doc.type, null);
-}
-"""
-
-doc_ver = """
-function(doc) {
-    emit(doc.ver, null);
 }
 """
 
@@ -54,6 +71,15 @@ function(doc) {
 }
 """
 
+doc_design = ('doc', (
+    ('ver', doc_ver, _count),
+    ('type', doc_type, _count),
+    ('time', doc_time, None),
+))
+
+
+
+# For dmedia/batch docs:
 batch_time = """
 function(doc) {
     if (doc.type == 'dmedia/batch') {
@@ -62,6 +88,13 @@ function(doc) {
 }
 """
 
+batch_design = ('batch', (
+    ('time', batch_time, None),
+))
+
+
+
+# For dmedia/import docs:
 import_time = """
 function(doc) {
     if (doc.type == 'dmedia/import') {
@@ -70,17 +103,13 @@ function(doc) {
 }
 """
 
-import_partition = """
-function(doc) {
-    if (doc.type == 'dmedia/import') {
-        emit(doc.partition_id, null);
-    }
-}
-"""
+import_design = ('import', (
+    ('time', import_time, None),
+))
 
 
 
-# views in the 'store' design only index docs where doc.type == 'dmedia/store'
+# For dmedia/store docs:
 store_plugin = """
 function(doc) {
     if (doc.type == 'dmedia/store') {
@@ -89,19 +118,13 @@ function(doc) {
 }
 """
 
-store_partition = """
-function(doc) {
-    if (doc.type == 'dmedia/store') {
-        if (doc.plugin == 'filestore') {
-            emit(doc.partition_id, null);
-        }
-    }
-}
-"""
+store_design = ('store', (
+    ('plugin', store_plugin, _count),
+))
 
 
-###########################
-# doc.type == 'dmedia/file'
+
+# For dmedia/file docs:
 file_stored = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -213,8 +236,8 @@ function(doc) {
 """
 
 
-# views in the 'user' design only index docs for which doc.type == 'dmedia/file'
-# and doc.origin == 'user'
+
+# For dmedia/file docs where origin is 'user':
 user_copies = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -257,7 +280,6 @@ function(doc) {
 }
 """
 
-
 user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -289,32 +311,8 @@ function(doc) {
 """
 
 
-partition_uuid = """
-function(doc) {
-    if (doc.type == 'dmedia/partition') {
-        emit(doc.uuid, null)
-    }
-}
-"""
 
-partition_drive = """
-function(doc) {
-    if (doc.type == 'dmedia/partition') {
-        emit(doc.drive_id, null)
-    }
-}
-"""
-
-drive_serial = """
-function(doc) {
-    if (doc.type == 'dmedia/drive') {
-        emit(doc.serial, null)
-    }
-}
-"""
-
-
-# Project related:
+# For dmedia/project docs:
 project_atime = """
 function(doc) {
     if (doc.type == 'dmedia/project') {
@@ -332,7 +330,8 @@ function(doc) {
 """
 
 
-# For dmedia/tag
+
+# For dmedia/tag docs:
 tag_key = """
 function(doc) {
     if(doc.type == 'dmedia/tag') {
@@ -353,44 +352,16 @@ function(doc) {
 """
 
 
-
-# Reduce function to both count and sum in a single view (thanks manveru!)
-_both = """
-function(key, values, rereduce) {
-    var count = 0;
-    var sum = 0;
-    var i;
-    for (i in values) {
-        count += values[i][0];
-        sum += values[i][1];
-    }
-    return [count, sum];
-}
-"""
-
-
-# Mostly interesting for developers, testing:
-doc_design = ('doc', (
-    ('type', doc_type, _count),
-    ('time', doc_time, None),
-))
-
-
 core = (
     doc_design,
-
-    ('batch', (
-        ('time', batch_time, None),
-    )),
-
-    ('import', (
-        ('time', import_time, None),
-    )),
+    batch_design,
+    import_design,
+    store_design,
 
     ('file', (
-        ('stored', file_stored, _both),
-        ('ext', file_ext, _both),
-        ('origin', file_origin, _both),
+        ('stored', file_stored, _count_and_sum),
+        ('ext', file_ext, _count_and_sum),
+        ('origin', file_origin, _count_and_sum),
 
         ('fragile', file_fragile, None),
         ('reclaimable', file_reclaimable, None),
@@ -411,10 +382,6 @@ core = (
         ('audio', user_audio, _sum),
     )),
 
-    ('store', (
-        ('plugin', store_plugin, _count),
-    )),
-
     ('project', (
         ('atime', project_atime, None),
         ('title', project_title, None),
@@ -424,19 +391,13 @@ core = (
 
 project = (
     doc_design,
-
-    ('batch', (
-        ('time', batch_time, None),
-    )),
-
-    ('import', (
-        ('time', import_time, None),
-    )),
+    batch_design,
+    import_design,
 
     ('file', (
-        ('stored', file_stored, _both),
-        ('ext', file_ext, _both),
-        ('origin', file_origin, _both),
+        ('stored', file_stored, _count_and_sum),
+        ('ext', file_ext, _count_and_sum),
+        ('origin', file_origin, _count_and_sum),
 
         ('fragile', file_fragile, None),
         ('reclaimable', file_reclaimable, None),
