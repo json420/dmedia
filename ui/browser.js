@@ -1,6 +1,14 @@
 "use strict";
 
 
+function $prepend(child, parent) {
+    var first = parent.children[parent.children.length - 1];
+    if (first) {
+        return parent.insertBefore(child, first);
+    }
+    return parent.appendChild(child);
+}
+
 
 var UI = {
 
@@ -114,6 +122,7 @@ Browser.prototype = {
             this.doc.tags = {};
         } 
         if (!this.doc.tags[tag._id]) {
+            $prepend(make_tag_li(tag._id, tag), this.tags);
             this.doc.tags[tag._id] = {key: tag.key, value: tag.value};
         }
         else {

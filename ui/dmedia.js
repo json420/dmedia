@@ -420,15 +420,12 @@ Tagger.prototype = {
 
     on_search: function(req) {
         var rows = req.read().rows;
-        this.matches.clear();
+        this.matches.reset();
         this.matches.append_each(rows, 
             function(row) {
                 return $el('li', {id: row.id, textContent: row.value});
             }
         );
-        if (! this.matches.reselect()) {
-            this.matches.select_first();
-        }
     },
 
     on_keydown: function(event) {
