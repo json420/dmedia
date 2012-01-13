@@ -379,17 +379,20 @@ function create_tag(tag) {
 
 
 function Tagger(project, input, matches) {
-    this.project = project;
-    this.input = $(input);
-    this.matches = new Items(matches);
     this.key = null;
+    this.old_value = '';
     this.req = null;
+    this.ontag = null;
+
+    this.project = project;
+
+    this.input = $(input);
     this.input.onkeydown = $bind(this.on_keydown, this);
     this.input.onkeyup = $bind(this.on_keyup, this);
-    this.input.onchange = $bind(this.on_change, this);
 
-    this.ontag = null;
-    
+    this.matches = new Items(matches);
+    this.matches.onchange = $bind(this.on_change, this);
+
     this.focus();
 }
 Tagger.prototype = {
@@ -427,21 +430,28 @@ Tagger.prototype = {
     on_search: function(req) {
         var rows = req.read().rows;
         this.matches.reset();
+        var self = this;
         this.matches.append_each(rows, 
             function(row) {
-                return $el('li', {id: row.id, textContent: row.value});
+                var id = row.id;
+                var child = $el('li', {id: id, textContent: row.value});
+                child.onclick = function() {
+                    self.matches.toggle(id);
+                }
+                return child;
             }
         );
     },
 
     on_keydown: function(event) {
         var keyID = event.keyIdentifier;
-        if (keyID == 'Up' || keyID == 'Down') {
+        console.log(keyID);
+        if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
             event.preventDefault();
             if (keyID == 'Up') {
                 this.matches.previous(true);
             }
-            else {
+            else if (keyID == 'Down') {
                 this.matches.next(true);
             }      
         }
@@ -455,8 +465,11 @@ Tagger.prototype = {
         }
     },
 
-    on_change: function() {
+    choose: function() {
         if (!this.matches.current) {
+            if (!this.input.value) {
+                return;
+            }
             var key = tag_key(this.input.value);
             var rows = this.project.db.view_sync('tag', 'key',
                 {key: key, limit: 1, reduce: false}
@@ -476,6 +489,20 @@ Tagger.prototype = {
         if (this.ontag) {
             this.ontag(doc);
         }
+    },
+
+    on_change: function(tag_id) {
+        console.log(tag_id);
+        if (!tag_id) {
+            this.input.value = this.old_value;
+            this.key = tag_key(this.input.value);
+            return;
+        }
+        console.assert(tag_id == this.matches.current);
+        this.old_value = this.input.value;
+        var doc = this.project.db.get_sync(tag_id);
+        this.input.value = doc.value;
+        this.key = doc.key;
     },
 }
 

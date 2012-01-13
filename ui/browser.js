@@ -122,9 +122,6 @@ Browser.prototype = {
     },
 
     on_tag: function(tag) {
-        console.log(tag.value);
-        console.log(tag.key);
-        console.log(tag._id);
         if (!this.doc) {
             return;
         }

@@ -112,7 +112,7 @@ ul {
 
 ul.matches {
     list-style: none;
-    background-color: rgba(255, 255, 255, 0.8);
+    background-color: white;
     box-shadow: 1px 2px 8px black;
     border-radius: 5px;
     overflow: hidden;
@@ -122,6 +122,11 @@ ul.matches li {
     padding: 0px 5px;
     border-radius: 5px;
     white-space: nowrap;
+    cursor: pointer;
+}
+
+ul.matches li:hover {
+    background-color: #ddd;
 }
 
 li.selected {
