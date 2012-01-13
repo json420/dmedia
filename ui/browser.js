@@ -1,15 +1,8 @@
 "use strict";
 
-var db = new couch.Database('dmedia-0-77liabvfvoppxooe2wpsozsq');
-
-
-function css_url(url) {
-    return ['url(', JSON.stringify(url), ')'].join('');
-}
 
 
 var UI = {
-    timeout_id: null,
 
     init: function() {
         UI.content = $('content');
@@ -39,25 +32,46 @@ var UI = {
     },
 }
 
+
+function Browser(player, items) {
+    this.player = $(player);
+    this.items = new Items(items);
+    this.project = new Project();
+    this.load_items();
+}
+Browser.prototype = {
+    load_items: function() {
+        var callback = $bind(this.on_items, this);
+        this.project.db.view(callback, 'user', 'video', {'reduce': false});
+    },
+
+    on_items: function(req) {
+        var self = this;
+        var callback = function(row) {
+            var id = row.id;
+            var child = $el('div',
+                {
+                    'class': 'thumbnail',
+                    'id': row.id,
+                    //'textContent': row.id,
+                }
+            );
+            child.onclick = function() {
+                self.items.select(id);
+            }
+            child.style.backgroundImage = self.project.att_url(row.id);
+            return child;
+        }
+        this.items.replace(req.read().rows, callback);
+    },
+
+
+}
+
+
+
+
 window.onload = function() {
     UI.init();
-    var div = $('right');
-    div.innerHTML = null;
-    var rows = db.view_sync('user', 'video', {reduce: false, limit: 100})['rows'];
-    rows.forEach(function(row) {
-        var id = row.id;
-        var child = $el('div',
-            {
-                'class': 'thumbnail',
-                'id': row.id,
-            }
-        );
-        child.onclick = function() {
-            UI.player.src = 'dmedia:' + id;
-            UI.player.play();
-        }
-        var url = db.att_url(row.id, 'thumbnail');
-		child.style.backgroundImage = css_url(url);
-        div.appendChild(child);
-    });
+    UI.browser = new Browser(UI.player, 'right');
 }

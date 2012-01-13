@@ -155,14 +155,14 @@ var UI = {
 }
 
 
-window.onload = function() {
-    UI.progressbar = new ProgressBar('progress');
-    UI.total = $('total');
-    UI.completed = $('completed');
-    UI.cards = $('cards');
-    UI.tabs = new Tabs();
-    UI.tabs.show_tab('browser');    
-}
+//window.onload = function() {
+//    UI.progressbar = new ProgressBar('progress');
+//    UI.total = $('total');
+//    UI.completed = $('completed');
+//    UI.cards = $('cards');
+//    UI.tabs = new Tabs();
+//    UI.tabs.show_tab('browser');    
+//}
 
 
 function files(count) {
@@ -196,6 +196,11 @@ ProgressBar.prototype = {
         }
     },
 
+}
+
+
+function css_url(url) {
+    return ['url(', JSON.stringify(url), ')'].join('');
 }
 
 
@@ -241,7 +246,16 @@ Project.prototype = {
             this.access();
         }
     },
+ 
+    att_url: function(doc_or_id, name) {
+        if (!this.db) {
+            return null;
+        }
+        name = name || 'thumbnail';
+        return css_url(this.db.att_url(doc_or_id, name));
+    },
 }
+
 
 
 function Items(id) {
@@ -333,6 +347,11 @@ Items.prototype = {
             var child = callback(row, this);
             this.parent.appendChild(child);
         }, this);
+    },
+
+    replace: function(rows, callback) {
+        this.clear();
+        this.append_each(rows, callback);
     },
 
 }
@@ -446,128 +465,6 @@ Tagger.prototype = {
 }
 
 
-function Browser() {
-    this.select = $('browser_projects');
-    this.player = $('player');
-    this.items = new Items('tray');
-    this.items.onchange = $bind(this.select_item, this);
-
-    var self = this;
-    this.select.onchange = function() {
-        self.on_change();
-    }
-    this.player.addEventListener('ended',
-        function() {
-            self.on_ended();
-        }
-    );
-
-    this.doc = null;
-
-    this.project = new Project();
-    this.load_projects();
-
-    this.tagger = new Tagger(this.project, 'tag', 'tag_matches');
-    this.tagger.ontag = $bind(this.on_tag, this);
-}
-Browser.prototype = {
-    on_tag: function(tag_id) {
-        console.log(tag_id);
-    },
-
-    load_projects: function() {
-        var self = this;
-        var callback = function(req) {
-            self.on_projects(req);
-        }
-        db.view(callback, 'project', 'title');
-    },
-
-    on_projects: function(req) {
-        this.select.innerHTML = null;
-        var rows = req.read()['rows'];
-        rows.forEach(function(row) {
-            var option = $el('option', {value: row.id});
-            set_title(option, row.key);
-            this.select.appendChild(option);
-        }, this);
-        this.select.value = this.project.id;
-        this.load_items();
-    },
-
-    load_items: function() {
-        var self = this;
-        var callback = function(req) {
-            self.on_items(req);
-        }
-        this.project.db.view(callback, 'user', 'video', {reduce: false});
-    },
-
-    select_item: function(id) {
-        console.log(id);
-        this.player.src = 'dmedia:' + id;
-        this.player.load();
-        this.project.db.get($bind(this.on_doc, this), id);
-    },
-
-    on_doc: function(req) {
-        var doc = req.read();
-        return;
-        if (this.doc) {
-            this.doc.tags = string_to_tags($('tags').value);
-            this.project.db.save(this.doc);
-        }
-        this.doc = req.read();
-        $('tags').value = tags_to_string(this.doc.tags);
-    },
-
-    play: function(id) {
-        console.log(id);
-        this.player.src = 'dmedia:' + id;
-        this.player.play();
-    },
-
-    next: function() {
-        if (UI.selected && UI.selected.nextSibling) {
-            UI.play(UI.selected.nextSibling.id);
-            UI.selected.scrollIntoView(false);
-        }
-    },
-
-    on_change: function() {
-        this.player.pause();
-        this.player.src = null;
-        this.project.select(this.select.value);
-        this.load_items();
-    },
-
-    on_ended: function() {
-        console.log('on_ended');
-        console.log(this.project.id);
-    },
-
-    on_items: function(req) {
-        var rows = req.read()['rows'];
-        var project = this.project;
-        this.items.clear();
-        var do_toggle = $bind(this.items.toggle, this.items);
-        this.items.append_each(rows,
-            function(row) {
-                var id = row.id;
-                var img = $el('img',
-                    {
-                        id: id,
-                        src: project.db.att_url(id, 'thumbnail'),
-                    }
-                );
-                img.onclick = function() {
-                    do_toggle(id);
-                }
-                return img;
-            }
-        );
-    },
-}
 
 
 
@@ -615,105 +512,105 @@ Tabs.prototype = {
 }
 
 
-// Lazily init-tabs so startup is faster, more responsive
-Hub.connect('tab_changed', UI.on_tab_changed);
+//// Lazily init-tabs so startup is faster, more responsive
+//Hub.connect('tab_changed', UI.on_tab_changed);
 
 
-// Creating projects
-Hub.connect('project_created',
-    function(_id, title) {
-        console.log(_id);
-        console.log(title);
-        UI.project = _id;
-        UI.reload_projects();
-    }
-);
+//// Creating projects
+//Hub.connect('project_created',
+//    function(_id, title) {
+//        console.log(_id);
+//        console.log(title);
+//        UI.project = _id;
+//        UI.reload_projects();
+//    }
+//);
 
 
-Hub.connect('importer_started',
-    function(project_db_name) {
-        UI.pdb = new couch.Database(project_db_name);
-        $hide('choose_project');
-        $show('importer');
-    }
-);
+//Hub.connect('importer_started',
+//    function(project_db_name) {
+//        UI.pdb = new couch.Database(project_db_name);
+//        $hide('choose_project');
+//        $show('importer');
+//    }
+//);
 
-Hub.connect('importer_stopped',
-    function() {
-        $hide('importer');
-        $show('choose_project');
-    }
-);
+//Hub.connect('importer_stopped',
+//    function() {
+//        $hide('importer');
+//        $show('choose_project');
+//    }
+//);
 
 
-// All the import related signals:
-Hub.connect('batch_started',
-    function(batch_id) {
-        $hide('summary');
-        $show('info');
-        UI.cards.textContent = '';
-        UI.total.textContent = '';
-        UI.completed.textContent = '';
-        UI.progressbar.progress = 0;
-    }
-);
+//// All the import related signals:
+//Hub.connect('batch_started',
+//    function(batch_id) {
+//        $hide('summary');
+//        $show('info');
+//        UI.cards.textContent = '';
+//        UI.total.textContent = '';
+//        UI.completed.textContent = '';
+//        UI.progressbar.progress = 0;
+//    }
+//);
 
-Hub.connect('batch_progress',
-    function(count, total_count, size, total_size) {
-        UI.total.textContent = count_n_size(total_count, total_size);
-        UI.completed.textContent = count_n_size(count, size);
-        UI.progressbar.update(size, total_size);
-    }
-);
+//Hub.connect('batch_progress',
+//    function(count, total_count, size, total_size) {
+//        UI.total.textContent = count_n_size(total_count, total_size);
+//        UI.completed.textContent = count_n_size(count, size);
+//        UI.progressbar.update(size, total_size);
+//    }
+//);
 
-Hub.connect('import_started',
-    function(basedir, import_id, info) {
-        var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
-        var inner = $el('div');
-        div.appendChild(inner);
+//Hub.connect('import_started',
+//    function(basedir, import_id, info) {
+//        var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
+//        var inner = $el('div');
+//        div.appendChild(inner);
 
-        var label = $el('p', {'class': 'card-label'});
-        label.textContent = [
-            bytes10(info.partition.bytes),
-            info.partition.label
-        ].join(', ');
-        inner.appendChild(label);
+//        var label = $el('p', {'class': 'card-label'});
+//        label.textContent = [
+//            bytes10(info.partition.bytes),
+//            info.partition.label
+//        ].join(', ');
+//        inner.appendChild(label);
 
-        var info = $el('p', {textContent: '...'});
-        inner.appendChild(info);
-        div._info = info;
+//        var info = $el('p', {textContent: '...'});
+//        inner.appendChild(info);
+//        div._info = info;
 
-        UI.cards.appendChild(div);
-    }
-);
+//        UI.cards.appendChild(div);
+//    }
+//);
 
-Hub.connect('import_scanned',
-    function(basedir, import_id, total_count, total_size) {
-        $(import_id)._info.textContent = count_n_size(total_count, total_size);
-    }
-);
+//Hub.connect('import_scanned',
+//    function(basedir, import_id, total_count, total_size) {
+//        $(import_id)._info.textContent = count_n_size(total_count, total_size);
+//    }
+//);
 
-Hub.connect('import_thumbnail',
-    function(basedir, import_id, doc_id) {
-        var url = UI.pdb.att_url(doc_id, 'thumbnail');
-        $(import_id).style.backgroundImage = 'url("' + url + '")'; 
-    }
-);
+//Hub.connect('import_thumbnail',
+//    function(basedir, import_id, doc_id) {
+//        var url = UI.pdb.att_url(doc_id, 'thumbnail');
+//        $(import_id).style.backgroundImage = 'url("' + url + '")'; 
+//    }
+//);
 
-Hub.connect('batch_finalized',
-    function(batch_id, stats, copies, msg) {
-        $hide('info');
-        $show('summary');
-        $('summary_summary').textContent = msg[0];
-        var body = $('summary_body');
-        body.textContent = '';
-        msg.slice(1).forEach(function(line) {
-            body.appendChild(
-                $el('p', {textContent: line})
-            );
-        });
-    }
-);
+//Hub.connect('batch_finalized',
+//    function(batch_id, stats, copies, msg) {
+//        $hide('info');
+//        $show('summary');
+//        $('summary_summary').textContent = msg[0];
+//        var body = $('summary_body');
+//        body.textContent = '';
+//        msg.slice(1).forEach(function(line) {
+//            body.appendChild(
+//                $el('p', {textContent: line})
+//            );
+//        });
+//    }
+//);
 
 
 
