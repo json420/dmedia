@@ -21,8 +21,8 @@ var UI = {
     },
 
     resize: function() {
-        UI.player.setAttribute('width', UI.content.clientWidth - 20);
-        UI.player.setAttribute('height', UI.content.clientHeight - 20);
+        UI.player.setAttribute('width', UI.content.clientWidth);
+        UI.player.setAttribute('height', UI.content.clientHeight);
     },
 
     on_resize: function() {
@@ -65,6 +65,8 @@ function Browser(player, items) {
     
     this.tagger = new Tagger(this.project, 'tag_value', 'tag_matches');
     this.tagger.ontag = $bind(this.on_tag, this);
+    
+    $('tag_button').onclick = $bind(this.tagger.choose, this.tagger);
     
     this.load_items();
     

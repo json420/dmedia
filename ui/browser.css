@@ -12,7 +12,7 @@
     bottom: 170px;
     left: 0;
     right: 212px;
-    background-color: #333;
+    background-color: black;
     overflow-x: auto;
     overflow-y: auto;
 }
@@ -68,10 +68,9 @@ div.thumbnail {
 }
 
 #player {
-    background-color: black;
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 0px;
+    left: 0px;
 }
 
 div.thumbnail.selected {
@@ -126,7 +125,11 @@ ul.matches li {
     -webkit-user-select: none;
 }
 
-li.selected {
+ul.matches li:hover {
+    background-color: #ddd;
+}
+
+ul.matches li.selected {
     background-color: #e81f3b;
 }
 
@@ -155,7 +158,7 @@ ul.tags a {
     display: inline-block;
     color: #D8290D;
     font-weight: bold;
-    padding: 0 6px;
+    padding: 0 8px;
     cursor: pointer;
 }
 

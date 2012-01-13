@@ -473,6 +473,7 @@ Tagger.prototype = {
     },
 
     choose: function() {
+        console.log('choose');
         if (!this.matches.current) {
             if (!this.input.value) {
                 return;
