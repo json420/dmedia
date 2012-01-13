@@ -123,10 +123,7 @@ ul.matches li {
     border-radius: 5px;
     white-space: nowrap;
     cursor: pointer;
-}
-
-ul.matches li:hover {
-    background-color: #ddd;
+    -webkit-user-select: none;
 }
 
 li.selected {

@@ -122,6 +122,7 @@ Browser.prototype = {
     },
 
     on_tag: function(tag) {
+        console.log(tag);
         if (!this.doc) {
             return;
         }
@@ -129,6 +130,7 @@ Browser.prototype = {
             this.doc.tags = {};
         } 
         if (!this.doc.tags[tag._id]) {
+            console.log('should add');
             var remove = $bind(this.on_tag_remove, this);
             $prepend(make_tag_li(remove, tag), this.tags);
             this.doc.tags[tag._id] = {key: tag.key, value: tag.value};

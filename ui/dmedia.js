@@ -283,7 +283,7 @@ Items.prototype = {
 
     reset: function() {
         this.parent.innerHTML = null;    
-        this.current = null;
+        this._current = null;
     },
 
     select: function(id) {
@@ -392,8 +392,6 @@ function Tagger(project, input, matches) {
 
     this.matches = new Items(matches);
     this.matches.onchange = $bind(this.on_change, this);
-
-    this.focus();
 }
 Tagger.prototype = {
     focus: function() {
@@ -411,6 +409,7 @@ Tagger.prototype = {
     reset: function() {
         this.abort();
         this.input.value = '';
+        this.old_value = '';
         this.key = null;
         this.matches.reset();
     },
@@ -448,16 +447,24 @@ Tagger.prototype = {
         console.log(keyID);
         if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
             event.preventDefault();
+            event.stopPropagation();
             if (keyID == 'Up') {
                 this.matches.previous(true);
             }
             else if (keyID == 'Down') {
                 this.matches.next(true);
-            }      
+            }
+            else {  // keyID == 'Enter'
+                this.choose();
+            }    
         }
     },
 
     on_keyup: function(event) {
+        var keyID = event.keyIdentifier;
+        if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
+            return;
+        }
         var key = tag_key(this.input.value);
         if (key != this.key) {
             this.key = key;
@@ -492,17 +499,18 @@ Tagger.prototype = {
     },
 
     on_change: function(tag_id) {
-        console.log(tag_id);
+        console.assert(tag_id == this.matches.current);
         if (!tag_id) {
             this.input.value = this.old_value;
             this.key = tag_key(this.input.value);
-            return;
         }
-        console.assert(tag_id == this.matches.current);
-        this.old_value = this.input.value;
-        var doc = this.project.db.get_sync(tag_id);
-        this.input.value = doc.value;
-        this.key = doc.key;
+        else {
+            this.old_value = this.input.value;
+            var doc = this.project.db.get_sync(tag_id);
+            this.input.value = doc.value;
+            this.key = doc.key;
+        }
+        this.focus();
     },
 }
 
