@@ -44,7 +44,7 @@ var UI = {
 function make_tag_li(remove, doc, id) {
     var id = id || doc._id;
     var li = $el('li', {textContent: doc.value});
-    var a = $el('a', {textContent: 'x'});
+    var a = $el('a', {textContent: 'x', title: 'Click to remove tag'});
     li.appendChild(a);
     a.onclick = function() {
         remove(id, li);

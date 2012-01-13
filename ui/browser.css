@@ -145,6 +145,7 @@ ul.tags li {
     border-radius: 8px;
     background-color: white;
     display: inline-block;
+    cursor: default;
 }
 
 ul.tags a {
@@ -153,6 +154,7 @@ ul.tags a {
     color: #D8290D;
     font-weight: bold;
     padding: 0 6px;
+    cursor: pointer;
 }
 
 ul.tags a:hover {
