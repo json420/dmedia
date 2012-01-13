@@ -2,7 +2,7 @@
 
 
 function $prepend(child, parent) {
-    var first = parent.children[parent.children.length - 1];
+    var first = parent.children[0];
     if (first) {
         return parent.insertBefore(child, first);
     }
@@ -96,6 +96,7 @@ Browser.prototype = {
     },
 
     on_item_change: function(id) {
+        this.tagger.focus();
         if (!id) {
             this.doc = null;
             this.player.pause();

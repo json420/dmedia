@@ -389,8 +389,14 @@ function Tagger(project, input, matches) {
     this.input.onchange = $bind(this.on_change, this);
 
     this.ontag = null;
+    
+    this.focus();
 }
 Tagger.prototype = {
+    focus: function() {
+        this.input.focus();
+    },  
+
     abort: function() {
         if (this.req) {
             this.req.req.abort();
