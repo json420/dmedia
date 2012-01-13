@@ -451,8 +451,17 @@ Tagger.prototype = {
 
     on_change: function() {
         if (!this.matches.current) {
-            var doc = create_tag(this.input.value);
-            this.project.db.save(doc);
+            var key = tag_key(this.input.value);
+            var rows = this.project.db.view_sync('tag', 'key',
+                {key: key, limit: 1, reduce: false}
+            ).rows;
+            if (rows.length > 0) {
+                var doc = this.project.db.get_sync(rows[0].id);
+            }
+            else {         
+                var doc = create_tag(this.input.value);
+                this.project.db.save(doc);
+            }
         }
         else {
             var doc = this.project.db.get_sync(this.matches.current);
