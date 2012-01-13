@@ -109,7 +109,18 @@ Browser.prototype = {
         console.log(tag._id);
         if (!this.doc) {
             return;
-        }    
+        }
+        if (!this.doc.tags) {
+            this.doc.tags = {};
+        } 
+        if (!this.doc.tags[tag._id]) {
+            this.doc.tags[tag._id] = {key: tag.key, value: tag.value};
+        }
+        else {
+            this.doc.tags[tag._id].key = tag.key;
+            this.doc.tags[tag._id].value = tag.value;
+        }
+        this.project.db.save(this.doc);
     },
     
 }
