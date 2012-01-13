@@ -40,9 +40,15 @@ var UI = {
     },
 }
 
-function make_tag_li(tag_id, tag) {
-    var li = $el('li', {textContent: tag.value});
-    li.appendChild($el('a', {href: '#', textContent: 'x'}));
+
+function make_tag_li(remove, doc, id) {
+    var id = id || doc._id;
+    var li = $el('li', {textContent: doc.value});
+    var a = $el('a', {textContent: 'x'});
+    li.appendChild(a);
+    a.onclick = function() {
+        remove(id, li);
+    }
     return li;
 }
 
@@ -106,8 +112,11 @@ Browser.prototype = {
     on_doc: function(req) {
         this.doc = req.read();
         var keys = Object.keys(this.doc.tags);
+        var remove = $bind(this.on_tag_remove, this);
         keys.forEach(function(key) {
-            this.tags.appendChild(make_tag_li(key, this.doc.tags[key]));
+            this.tags.appendChild
+                (make_tag_li(remove, this.doc.tags[key], key)
+            );
         }, this);
     },
 
@@ -122,7 +131,8 @@ Browser.prototype = {
             this.doc.tags = {};
         } 
         if (!this.doc.tags[tag._id]) {
-            $prepend(make_tag_li(tag._id, tag), this.tags);
+            var remove = $bind(this.on_tag_remove, this);
+            $prepend(make_tag_li(remove, tag), this.tags);
             this.doc.tags[tag._id] = {key: tag.key, value: tag.value};
         }
         else {
@@ -130,6 +140,14 @@ Browser.prototype = {
             this.doc.tags[tag._id].value = tag.value;
         }
         this.project.db.save(this.doc);
+    },
+
+    on_tag_remove: function(id, li) {
+        this.tags.removeChild(li);
+        if (this.doc && this.doc.tags) {
+            delete this.doc.tags[id];
+            this.project.db.save(this.doc);
+        }
     },
     
 }
