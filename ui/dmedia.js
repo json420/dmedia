@@ -399,6 +399,13 @@ Tagger.prototype = {
         }  
     },
 
+    reset: function() {
+        this.abort();
+        this.input.value = '';
+        this.key = null;
+        this.matches.reset();
+    },
+
     search: function() {
         this.abort();
         if (!this.key) {
@@ -449,17 +456,13 @@ Tagger.prototype = {
         if (!this.matches.current) {
             var doc = create_tag(this.input.value);
             this.project.db.save(doc);
-            var tag_id = doc._id;
         }
         else {
-            var tag_id = this.matches.current;
+            var doc = this.project.db.get_sync(this.matches.current);
         }
-        this.abort();
-        this.input.value = '';
-        this.key = null;
-        this.matches.reset();
+        this.reset();
         if (this.ontag) {
-            this.ontag(tag_id);
+            this.ontag(doc);
         }
     },
 }

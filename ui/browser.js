@@ -32,12 +32,28 @@ var UI = {
     },
 }
 
+function make_tag_li(tag_id, tag) {
+    var li = $el('li', {textContent: tag.value});
+    li.appendChild($el('a', {href: '#', textContent: 'x'}));
+    return li;
+}
+
 
 function Browser(player, items) {
     this.player = $(player);
+    this.tags = $('tags');
+    this.doc = null;
+    
     this.items = new Items(items);
+    this.items.onchange = $bind(this.on_item_change, this);
+    
     this.project = new Project();
+    
+    this.tagger = new Tagger(this.project, 'tag_value', 'tag_matches');
+    this.tagger.ontag = $bind(this.on_tag, this);
+    
     this.load_items();
+    
 }
 Browser.prototype = {
     load_items: function() {
@@ -65,7 +81,37 @@ Browser.prototype = {
         this.items.replace(req.read().rows, callback);
     },
 
+    on_item_change: function(id) {
+        if (!id) {
+            this.doc = null;
+            this.player.pause();
+            this.player.src = null;
+            return;
+        }
+        this.player.src = 'dmedia:' + id;
+        this.player.play();
+        this.tagger.reset();
+        this.tags.innerHTML = null;
+        this.project.db.get($bind(this.on_doc, this), id);
+    },
 
+    on_doc: function(req) {
+        this.doc = req.read();
+        var keys = Object.keys(this.doc.tags);
+        keys.forEach(function(key) {
+            this.tags.appendChild(make_tag_li(key, this.doc.tags[key]));
+        }, this);
+    },
+
+    on_tag: function(tag) {
+        console.log(tag.value);
+        console.log(tag.key);
+        console.log(tag._id);
+        if (!this.doc) {
+            return;
+        }    
+    },
+    
 }
 
 
