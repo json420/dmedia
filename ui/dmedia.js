@@ -467,6 +467,7 @@ Tagger.prototype = {
         if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
             return;
         }
+        this.old_value = this.input.value;
         var key = tag_key(this.input.value);
         if (key != this.key) {
             this.key = key;
@@ -508,7 +509,6 @@ Tagger.prototype = {
             this.key = tag_key(this.input.value);
         }
         else {
-            this.old_value = this.input.value;
             var doc = this.project.db.get_sync(tag_id);
             this.input.value = doc.value;
             this.key = doc.key;
