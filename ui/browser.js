@@ -44,6 +44,17 @@ function make_tag_li(remove, doc, id) {
 }
 
 
+function wheel_delta(event) {
+    var delta = event.wheelDeltaY;
+    if (delta == 0) {
+        return 0;
+    }
+    var scale = (event.shiftKey) ? -10 : -1;
+    return scale * (delta / Math.abs(delta));
+}
+
+
+
 function Browser(player, items) {
     this.player = $(player);
     this.tags = $('tags');
@@ -51,6 +62,7 @@ function Browser(player, items) {
     
     this.items = new Items(items);
     this.items.onchange = $bind(this.on_item_change, this);
+    this.items.parent.onmousewheel = $bind(this.on_mousewheel, this);
     
     this.project = new Project();
     
@@ -143,6 +155,12 @@ Browser.prototype = {
             delete this.doc.tags[id];
             this.project.db.save(this.doc);
         }
+    },
+
+    on_mousewheel: function(event) {
+        event.preventDefault();
+        var delta = wheel_delta(event) * 114;  // 108px height + 3px border
+        this.items.parent.scrollTop += delta;
     },
     
 }
