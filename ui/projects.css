@@ -1,0 +1,48 @@
+* {
+    margin: 0;
+    padding: 0;
+    font-family: Ubuntu, sans-sarif;
+    font-size: 14px;
+    line-height: 25px;
+}
+
+body {
+    background-color: #bbb;
+}
+
+ul {
+    list-style: none;
+}
+
+.project {
+    margin: 10px;
+    display: inline-block;
+    background-color: #333;
+    color: white;
+    font-size: 0;
+    box-shadow: 1px 2px 8px black;
+}
+
+.project .thumbnail {
+    width: 75px;
+    height: 75px;
+    background-position: center center;
+    background-size: cover;
+    background-color: #666;
+}
+
+.project > div {
+    display: inline-block;
+    vertical-align: top;
+}
+
+.project p {
+    font-size: 14px;
+    margin: 0 8px;
+}
+
+.project .title {
+    font-weight: bold;
+}
+
+
