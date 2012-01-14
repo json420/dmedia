@@ -159,7 +159,7 @@ Browser.prototype = {
 
     on_mousewheel: function(event) {
         event.preventDefault();
-        var delta = wheel_delta(event) * 114;  // 108px height + 3px border
+        var delta = wheel_delta(event) * 112;  // 108px height + 2px border
         this.items.parent.scrollTop += delta;
     },
     

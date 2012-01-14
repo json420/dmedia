@@ -11,7 +11,7 @@
     top: 0;
     bottom: 170px;
     left: 0;
-    right: 212px;
+    right: 210px;
     background-color: black;
     overflow-x: auto;
     overflow-y: auto;
@@ -22,7 +22,7 @@
     height: 170px;
     bottom: 0;
     left: 0;
-    right: 212px;
+    right: 210px;
     overflow-x: auto;
     overflow-y: visible;
     background: -webkit-linear-gradient(top, #ddd, #999);
@@ -32,7 +32,7 @@
     position: fixed;
     top: 0;
     bottom: 0;
-    width: 212px;
+    width: 210px;
     right: 0;
     background-color: black;
     color: white;
@@ -44,7 +44,7 @@
 div.thumbnail {
     width: 192px;
     height: 108px;
-    border: 3px solid black;
+    border: 2px solid black;
     overflow: hidden;
     background-position: center center;
     background-size: cover;
