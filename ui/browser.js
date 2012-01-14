@@ -1,15 +1,6 @@
 "use strict";
 
 
-function $prepend(child, parent) {
-    var first = parent.children[0];
-    if (first) {
-        return parent.insertBefore(child, first);
-    }
-    return parent.appendChild(child);
-}
-
-
 var UI = {
 
     init: function() {
@@ -91,7 +82,7 @@ Browser.prototype = {
             child.onclick = function() {
                 self.items.select(id);
             }
-            child.style.backgroundImage = self.project.att_url(row.id);
+            child.style.backgroundImage = self.project.att_css_url(row.id);
             return child;
         }
         this.items.replace(req.read().rows, callback);
@@ -105,6 +96,8 @@ Browser.prototype = {
             this.player.src = null;
             return;
         }
+        console.log(this.project.att_url(id));
+        console.log(this.project.att_css_url(id));
         this.player.src = 'dmedia:' + id;
         this.player.play();
         this.tagger.reset();

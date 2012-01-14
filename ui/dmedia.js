@@ -199,10 +199,6 @@ ProgressBar.prototype = {
 }
 
 
-function css_url(url) {
-    return ['url(', JSON.stringify(url), ')'].join('');
-}
-
 
 function Project(id) {
     if (! this.load(id)) {
@@ -246,13 +242,19 @@ Project.prototype = {
             this.access();
         }
     },
- 
+
     att_url: function(doc_or_id, name) {
         if (!this.db) {
             return null;
         }
-        name = name || 'thumbnail';
-        return css_url(this.db.att_url(doc_or_id, name));
+        return this.db.att_url(doc_or_id, name);
+    },
+
+    att_css_url: function(doc_or_id, name) {
+        if (!this.db) {
+            return null;
+        }
+        return this.db.att_css_url(doc_or_id, name);
     },
 }
 
