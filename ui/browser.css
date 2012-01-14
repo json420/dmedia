@@ -119,7 +119,6 @@ ul.matches {
 
 ul.matches li {
     padding: 0px 5px;
-    border-radius: 5px;
     white-space: nowrap;
     cursor: pointer;
     -webkit-user-select: none;
@@ -147,10 +146,10 @@ ul.tags {
 ul.tags li {
     margin-right: 4px;
     padding-left: 4px;
-    border-radius: 8px;
     background-color: white;
     display: inline-block;
     cursor: default;
+    border-radius: 8px;
 }
 
 ul.tags a {
@@ -158,8 +157,9 @@ ul.tags a {
     display: inline-block;
     color: #D8290D;
     font-weight: bold;
-    padding: 0 8px;
+    text-align: center;
     cursor: pointer;
+    width: 25px;
 }
 
 ul.tags a:hover {

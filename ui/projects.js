@@ -18,7 +18,7 @@ var UI = {
             var thumb = $el('div', {'class': 'thumbnail'});
             thumb.style.backgroundImage = db.att_css_url(row.id);
 
-            var info = $el('div');
+            var info = $el('div', {'class': 'info'});
             info.appendChild(
                 $el('p', {'textContent': row.key, 'class': 'title'})
             );

@@ -21,6 +21,7 @@ ul {
     color: white;
     font-size: 0;
     box-shadow: 1px 2px 8px black;
+
 }
 
 .project .thumbnail {
@@ -39,6 +40,9 @@ ul {
 .project p {
     font-size: 14px;
     margin: 0 8px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 150px;
 }
 
 .project .title {
