@@ -24,8 +24,9 @@ var UI = {
             );
 
             var d = new Date(row.value * 1000);
+            //d.toLocaleDateString()
             info.appendChild(
-                $el('p', {'textContent': d.toLocaleDateString()})
+                $el('p', {'textContent': '14 January 2014'})
             );
             
             info.appendChild(

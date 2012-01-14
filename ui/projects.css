@@ -42,11 +42,13 @@ ul {
     margin: 0 8px;
     overflow: hidden;
     white-space: nowrap;
-    width: 150px;
+    width: 200px;
+    color: #ddd;
 }
 
-.project .title {
+.project p.title {
     font-weight: bold;
+    color: white;
 }
 
 
