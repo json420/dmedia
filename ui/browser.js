@@ -1,5 +1,6 @@
 "use strict";
 
+var db = new couch.Database('dmedia-0');
 
 var UI = {
 

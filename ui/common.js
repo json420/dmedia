@@ -1,0 +1,458 @@
+"use strict";
+
+/*
+Common functions and classes.
+
+Aside from defining said functions and classes, including this file should have
+no other side effects.
+*/
+
+function set_title(id, value) {
+    var el = $(id);
+    if (value) {
+        el.textContent = value;
+    }
+    else {
+        el.textContent = '';
+        el.appendChild($el('em', {textContent: 'Untitled'}));
+    }
+    return el;
+}
+
+
+// FIXME: Move this to UserWebKit base.js
+function $scroll_to(id) {
+    var child = $(id);
+    if (! (child && child.parentNode)) {
+        return;
+    }
+    var start = child.offsetTop;
+    var end = start + child.offsetHeight;
+    var vis_start = child.parentNode.scrollTop;
+    var vis_end = vis_start + child.parentNode.clientHeight;
+    if (start < vis_start) {
+        child.parentNode.scrollTop = start;
+    }
+    else if (end > vis_end) {
+        child.parentNode.scrollTop = end - child.parentNode.clientHeight;
+    }
+    
+}
+
+
+function files(count) {
+    if (count == 1) {
+        return '1 file';
+    }
+    return count.toString() + ' files';
+}
+
+function count_n_size(count, size) {
+    return [files(count), bytes10(size)].join(', ');
+}
+
+
+function ProgressBar(id) {
+    this.element = $(id);
+    this._bar = this.element.getElementsByTagName('div')[0];
+}
+ProgressBar.prototype = {
+    set progress(value) {
+        var p = Math.max(0, Math.min(value, 1));
+        this._bar.style.width = (p * 100).toFixed(0) + '%';
+    },
+
+    update: function(completed, total) {
+        if (total > 0) {
+            this.progress = completed / total;
+        }
+        else {
+            this.progress = 0;
+        }
+    },
+
+}
+
+
+
+function Project(id) {
+    if (! this.load(id)) {
+        this.load_recent();
+    }
+}
+Project.prototype = {
+    load: function(id) {
+        if (!id) {
+            this.id = null;
+            this.doc = null;
+            this.db = null;
+            return false;
+        }
+        this.id = id;
+        this.doc = db.get_sync(id);
+        this.db = new couch.Database(this.doc['db_name']);
+        return true;
+    },
+
+    load_recent: function() {
+        var rows = db.view_sync('project', 'atime', {limit: 1, descending: true})['rows'];
+        if (rows.length >= 1) {
+            this.load(rows[0].id);
+        }
+        else {
+            this.load(null);
+        }
+    },
+
+    access: function() {
+        /* Update the doc.atime timestamp */
+        if (this.doc) {
+            this.doc.atime = couch.time();
+            db.save(this.doc);
+        }
+    },
+
+    select: function(id) {
+        if (this.load(id)) {
+            this.access();
+        }
+    },
+
+    att_url: function(doc_or_id, name) {
+        if (!this.db) {
+            return null;
+        }
+        return this.db.att_url(doc_or_id, name);
+    },
+
+    att_css_url: function(doc_or_id, name) {
+        if (!this.db) {
+            return null;
+        }
+        return this.db.att_css_url(doc_or_id, name);
+    },
+}
+
+
+
+function Items(id) {
+    this.parent = $(id);
+    this._current = null;
+    this.onchange = null;
+}
+Items.prototype = {
+    set current(value) {
+        if (this._current !== value) {
+            this._current = value;
+            if (this.onchange) {
+                this.onchange(value);
+            }
+        }
+    },
+
+    get current(value) {
+        return this._current;
+    },
+
+    clear: function() {
+        this.parent.innerHTML = null;    
+    },
+
+    reset: function() {
+        this.parent.innerHTML = null;    
+        this._current = null;
+    },
+
+    select: function(id) {
+        $unselect(this.current);
+        if ($select(id)) {
+            this.current = id;
+            $scroll_to(id);
+            return true;
+        }
+        this.current = null;
+        return false;
+    },
+
+    toggle: function(id) {
+        if (this.current == id) {
+            this.select(null);
+        }
+        else {
+            this.select(id);
+        }
+    },
+
+    reselect: function() {
+        return this.select(this.current);
+    },
+
+    select_first: function() {
+        if (this.parent.children.length > 0) {
+            this.select(this.parent.children[0].id);
+        }
+    },
+
+    select_last: function() {
+        if (this.parent.children.length > 0) {
+            var child = this.parent.children[this.parent.children.length - 1];
+            this.select(child.id);
+        }
+    },
+
+    next: function(wrap) {
+        var element = $(this.current);
+        if (element && element.nextSibling) {
+            this.select(element.nextSibling.id);
+        }
+        else if (wrap) {
+            this.select_first();
+        }
+    },
+
+    previous: function(wrap) {
+        var element = $(this.current);
+        if (element && element.previousSibling) {
+            this.select(element.previousSibling.id);
+        }
+        else if (wrap) {
+            this.select_last();
+        }
+    },
+
+    append_each: function(rows, callback) {
+        rows.forEach(function(row) {
+            var child = callback(row, this);
+            this.parent.appendChild(child);
+        }, this);
+    },
+
+    replace: function(rows, callback) {
+        this.clear();
+        this.append_each(rows, callback);
+    },
+
+}
+
+function tag_value(tag) {
+    return tag.trim().replace(/\s+/g, ' ');
+}
+
+
+function tag_key(tag) {
+    return tag.replace(/[-\s_.,]+/g, '').toLowerCase();
+}
+
+
+function create_tag(tag) {
+    return {
+        '_id': couch.random_id(),
+        'ver': 0,
+        'type': 'dmedia/tag',
+        'time': couch.time(),
+        'value': tag_value(tag),
+        'key': tag_key(tag),
+    }
+}
+
+
+function Tagger(project, input, matches) {
+    this.key = null;
+    this.old_value = '';
+    this.req = null;
+    this.ontag = null;
+
+    this.project = project;
+
+    this.input = $(input);
+    this.input.onkeydown = $bind(this.on_keydown, this);
+    this.input.onkeyup = $bind(this.on_keyup, this);
+    
+    this.input.onfocus = $bind(this.on_focus, this);
+    this.input.onblur = $bind(this.on_blur, this);
+
+    this.matches = new Items(matches);
+    this.matches.onchange = $bind(this.on_change, this);
+    
+    this.focus();
+}
+Tagger.prototype = {
+    focus: function() {
+        this.input.focus();
+    },  
+
+    abort: function() {
+        if (this.req) {
+            this.req.req.abort();
+            this.req.req = null;
+            this.req = null;
+        }  
+    },
+
+    reset: function() {
+        this.abort();
+        this.input.value = '';
+        this.old_value = '';
+        this.key = null;
+        this.matches.reset();
+    },
+
+    search: function() {
+        this.abort();
+        if (!this.key) {
+            this.matches.reset();
+            return;
+        }
+        var callback = $bind(this.on_search, this);
+        this.req = this.project.db.view(callback, 'tag', 'letters',
+            {key: this.key, limit: 5}
+        );
+    },
+
+    on_search: function(req) {
+        var rows = req.read().rows;
+        this.matches.reset();
+        var self = this;
+        this.matches.append_each(rows, 
+            function(row) {
+                var id = row.id;
+                var child = $el('li', {id: id, textContent: row.value});
+                child.onclick = function() {
+                    self.matches.toggle(id);
+                }
+                return child;
+            }
+        );
+    },
+
+    on_keydown: function(event) {
+        var keyID = event.keyIdentifier;
+        if (this.input.value && ['Up', 'Enter', 'Down', 'U+0009'].indexOf(keyID) > -1) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (keyID == 'Up') {
+                this.matches.previous(true);
+            }
+            else if (keyID == 'Enter'){  // keyID == 'Enter'
+                this.choose();
+            }
+            else {  // Down or Tab
+                this.matches.next(true);
+            }
+ 
+        }
+    },
+
+    on_keyup: function(event) {
+        var keyID = event.keyIdentifier;
+        if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
+            return;
+        }
+        this.old_value = this.input.value;
+        var key = tag_key(this.input.value);
+        if (key != this.key) {
+            this.key = key;
+            this.search();
+        }
+    },
+
+    choose: function() {
+        console.log('choose');
+        if (!this.matches.current) {
+            if (!this.input.value) {
+                return;
+            }
+            var key = tag_key(this.input.value);
+            var rows = this.project.db.view_sync('tag', 'key',
+                {key: key, limit: 1, reduce: false}
+            ).rows;
+            if (rows.length > 0) {
+                var doc = this.project.db.get_sync(rows[0].id);
+            }
+            else {         
+                var doc = create_tag(this.input.value);
+                this.project.db.save(doc);
+            }
+        }
+        else {
+            var doc = this.project.db.get_sync(this.matches.current);
+        }
+        this.reset();
+        if (this.ontag) {
+            this.ontag(doc);
+        }
+    },
+
+    on_change: function(tag_id) {
+        console.assert(tag_id == this.matches.current);
+        if (!tag_id) {
+            this.input.value = this.old_value;
+            this.key = tag_key(this.input.value);
+        }
+        else {
+            var doc = this.project.db.get_sync(tag_id);
+            this.input.value = doc.value;
+            this.key = doc.key;
+        }
+    },
+
+    on_focus: function(event) {
+        this.isfocused = true;
+    },
+
+    on_blur: function(event) {
+        this.isfocused = false;
+    },
+}
+
+
+function Tabs() {
+    function make_handler(element) {
+        var id = element.id;
+        return function(event) {
+            window.location.hash = '#' + id;
+        }
+    }
+
+    var elements = document.getElementsByClassName('tab');
+    var i;
+    for (i=0; i<elements.length; i++) {
+        var element = elements[i];
+        element.onclick = make_handler(element);
+    }
+
+    var self = this;
+    window.addEventListener('hashchange', function() {
+        self.on_hashchange();
+    });
+}
+Tabs.prototype = {
+    on_hashchange: function() {
+        var id = window.location.hash.slice(1);
+        this.show_tab(id);
+    },
+
+    show_tab: function(id) {
+        if (this.tab) {
+            this.tab.classList.remove('active'); 
+        }
+        this.tab = $(id);
+        this.tab.classList.add('active');
+        if (this.target) {
+            this.target.classList.add('hide');
+        }
+        this.target = $(id + '_target');
+        this.target.classList.remove('hide');
+        Hub.emit('tab_changed', this, id);
+    },
+}
+
+
+
+
+
+
+
+
+
+
