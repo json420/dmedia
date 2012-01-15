@@ -102,7 +102,6 @@ Browser.prototype = {
         this.doc.review = value;
         this.project.db.save(this.doc);
         reset_flag(this.doc._id, value);
-        this.next_needing_review();
     },
 
     accept: function() {
@@ -117,6 +116,7 @@ Browser.prototype = {
             return;
         }
         this._review('reject');
+        this.next();
     },
 
     next_needing_review: function() {
