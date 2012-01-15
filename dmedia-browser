@@ -30,10 +30,10 @@ from dmedia import local
 class App(BaseApp):
     name = 'style'
     dbname = 'style-0'
-    title = 'Style'
+    title = 'Dmedia Browser'
 
     splash = 'splash.html'
-    page = 'style.html'
+    page = 'browser.html'
 
     proxy_bus = 'org.freedesktop.DMedia'
     local = None

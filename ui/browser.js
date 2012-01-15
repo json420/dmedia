@@ -12,6 +12,15 @@ var UI = {
         window.addEventListener('resize', UI.on_resize);
     },
 
+    load_project: function() {
+        $hide('picker');
+        $show('browser');
+        if (!UI.browser) {
+            UI.init();
+            UI.browser = new Browser(UI.picker.project, UI.player, 'right');
+        }
+    },
+
     resize: function() {
         UI.player.setAttribute('width', UI.content.clientWidth);
         UI.player.setAttribute('height', UI.content.clientHeight);
@@ -75,9 +84,62 @@ function reset_flag(id, review) {
 }
 
 
+function Picker(project) {
+    this.items = new Items('projects');
+    this.items.onchange = $bind(this.on_item_change, this);
+    this.project = project;
+    this.load_items();
+}
+Picker.prototype = {
+    load_items: function() {
+        var callback = $bind(this.on_items, this);
+        db.view(callback, 'project', 'title');
+    },
+
+    on_items: function(req) {
+        this.items.replace(req.read().rows,
+            function(row, items) {
+                var li = $el('li', {'class': 'project', 'id': row.id});
+
+                var thumb = $el('div', {'class': 'thumbnail'});
+                thumb.style.backgroundImage = db.att_css_url(row.id);
+
+                var info = $el('div', {'class': 'info'});
+                info.appendChild(
+                    $el('p', {'textContent': row.key, 'class': 'title'})
+                );
+
+                info.appendChild(
+                    $el('p', {'textContent': format_date(row.value)})
+                );
+
+                info.appendChild(
+                    $el('p', {'textContent': '38 files, 971 MB'})
+                );
+
+                li.appendChild(thumb);
+                li.appendChild(info);
+
+                li.onclick = function() {
+                    items.select(row.id);
+                }
+
+                return li;
+            }
+        );
+    },
+
+    on_item_change: function(id) {
+        this.project.load(id);
+        if (this.project.id) {
+            UI.load_project();
+        }
+    },
+}
 
 
-function Browser(player, items) {
+
+function Browser(project, player, items) {
     this.player = $(player);
     this.tags = $('tags');
     this.doc = null;
@@ -86,7 +148,7 @@ function Browser(player, items) {
     this.items.onchange = $bind(this.on_item_change, this);
     this.items.parent.onmousewheel = $bind(this.on_mousewheel, this);
 
-    this.project = new Project();
+    this.project = project;
 
     this.tagger = new Tagger(this.project, 'tag_value', 'tag_matches');
     this.tagger.ontag = $bind(this.on_tag, this);
@@ -257,9 +319,7 @@ Browser.prototype = {
 }
 
 
-
-
 window.onload = function() {
-    UI.init();
-    UI.browser = new Browser(UI.player, 'right');
+    UI.project = new Project();
+    UI.picker = new Picker(UI.project);
 }

@@ -6,6 +6,53 @@
     line-height: 24px;
 }
 
+ul {
+    list-style: none;
+}
+
+.project {
+    margin: 8px;
+    display: inline-block;
+    background-color: #333;
+    color: white;
+    font-size: 0;
+    box-shadow: 1px 2px 6px black;
+    cursor: default;
+    -webkit-user-select: none;
+}
+
+.project.selected {
+    box-shadow: 0 0 10px #e81f3b;
+}
+
+.project .thumbnail {
+    width: 80px;
+    height: 80px;
+    background-position: center center;
+    background-size: cover;
+    background-color: #666;
+}
+
+.project > div {
+    display: inline-block;
+    vertical-align: top;
+}
+
+.project p {
+    font-size: 14px;
+    padding-left: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 224px;
+    color: #ddd;
+    box-sizing: border-box !important;
+}
+
+.project p.title {
+    font-weight: bold;
+    color: white;
+}
+
 #content {
     position: fixed;
     top: 0;
@@ -41,13 +88,17 @@
     z-index: 200;
 }
 
-div.thumbnail {
+#right div.thumbnail {
     width: 192px;
     height: 108px;
     border: 2px solid black;
     overflow: hidden;
     background-position: center center;
     background-size: cover;
+}
+
+#right div.thumbnail.selected {
+    border-color: #e81f3b;
 }
 
 .large #content {
@@ -73,9 +124,6 @@ div.thumbnail {
     left: 0px;
 }
 
-div.thumbnail.selected {
-    border-color: #e81f3b;
-}
 
 input, button {
     padding-left: 4px;
