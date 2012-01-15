@@ -7,7 +7,7 @@
     display: inline-block;
     margin: 8px;
     box-sizing: border-box !important;
-    vertical-align: top;
+    vertical-align: baseline;
 }
 
 .grid_cell > * {

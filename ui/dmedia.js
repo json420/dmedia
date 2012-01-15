@@ -90,6 +90,9 @@ Importer.prototype = {
     on_item_change: function(id) {
         this.project.load(id);
         this.start_button.disabled = (!this.project.id);
+        if (this.project.doc) {
+            $('target_project').textContent = this.project.doc.title;
+        }
     },
 
     on_input: function() {

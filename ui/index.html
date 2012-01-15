@@ -10,7 +10,7 @@
 <script src="common.js"></script>
 <script src="dmedia.js"></script>
 </head>
-    
+
 <body>
 
 <div id="header" class="grid_row">
@@ -30,8 +30,8 @@
 
 <div class="content">
 
-<div id="import_target" class="hide">
-    <div id="choose_project">
+<div id="import_target" class="">
+    <div id="choose_project" class="">
         <form id="project_form"></form>
         <div class="grid_row">
             <input placeholder="New project name" type="text" id="project_title" class="grid_4" form="project_form">
@@ -42,26 +42,28 @@
     </div>
 
     <div id="importer" class="hide">
-        <div class="row">
-            <div class="grid_2">
-                <textarea placeholder="comma, seperated, tags"></textarea>
+        <div class="grid_row">
+
+            <div class="grid_3" id="info">
+                <p><span>Total: </span><span id="total"></span></p>
+                <p><span>Completed: </span><span id="completed"></span></p>
             </div>
-            <button onclick="Hub.send('stop_importer')">Stop Importer</button>
-            <div class="grid_2" id="info">
-                <p><strong>Total: </strong><span id="total"></span></p>
-                <p><strong>Completed: </strong><span id="completed"></span></p>
-            </div>
-            <div class="grid_2 hide" id="summary">
+            <div class="grid_3 hide" id="summary">
                 <p><strong id="summary_summary">Summary</strong></p>
                 <div id="summary_body"></div>
             </div>
+            <p id="target_project" class="grid_6"></p>
+            <div class="grid_1"></div>
+            <button class="grid_2" onclick="Hub.send('stop_importer')">Stop Importer</button>
         </div>
-        <div class="row">
-            <div class="grid_4">
+        
+        
+        <div class="grid_row">
+            <div class="grid_12">
                 <div class="progress" id="progress"><div></div></div>
             </div>
         </div>
-        <div class="row" id="cards"></div>
+        <div class="grid_row" id="cards"></div>
     </div>    
 </div>
 
