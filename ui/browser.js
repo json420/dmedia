@@ -70,7 +70,10 @@ function Browser(player, items) {
     this.tagger.ontag = $bind(this.on_tag, this);
     
     $('tag_button').onclick = $bind(this.tagger.choose, this.tagger);
-    
+
+    //window.addEventListener('keydown', $bind(this.on_window_keydown, this));
+    window.addEventListener('keypress', $bind(this.on_window_keypress, this));
+
     this.load_items();
     
 }
@@ -101,7 +104,6 @@ Browser.prototype = {
     },
 
     on_item_change: function(id) {
-        this.tagger.focus();
         if (!id) {
             this.doc = null;
             this.player.pause();
@@ -162,7 +164,18 @@ Browser.prototype = {
         var delta = wheel_delta(event) * 112;  // 108px height + 2px border
         this.items.parent.scrollTop += delta;
     },
-    
+
+    on_window_keypress: function(event) {
+         //console.log(['window keypress', event.which, event.keyCode].join(', '));
+        if (this.tagger.isfocused) {
+            return;   
+        }
+        // Don't focus on Backspace, Enter, Spacebar, or Delete
+        if ([8, 13, 32, 127].indexOf(event.keyCode) == -1) {
+            this.tagger.focus();
+        }
+    },
+
 }
 
 

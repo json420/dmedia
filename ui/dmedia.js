@@ -391,9 +391,14 @@ function Tagger(project, input, matches) {
     this.input = $(input);
     this.input.onkeydown = $bind(this.on_keydown, this);
     this.input.onkeyup = $bind(this.on_keyup, this);
+    
+    this.input.onfocus = $bind(this.on_focus, this);
+    this.input.onblur = $bind(this.on_blur, this);
 
     this.matches = new Items(matches);
     this.matches.onchange = $bind(this.on_change, this);
+    
+    this.focus();
 }
 Tagger.prototype = {
     focus: function() {
@@ -446,7 +451,6 @@ Tagger.prototype = {
 
     on_keydown: function(event) {
         var keyID = event.keyIdentifier;
-        console.log(keyID);
         if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
             event.preventDefault();
             event.stopPropagation();
@@ -514,6 +518,14 @@ Tagger.prototype = {
             this.key = doc.key;
         }
         this.focus();
+    },
+
+    on_focus: function(event) {
+        this.isfocused = true;
+    },
+
+    on_blur: function(event) {
+        this.isfocused = false;
     },
 }
 
