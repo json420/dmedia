@@ -118,6 +118,7 @@ Importer.prototype = {
 
     start_importer: function() {
         if (this.project.id) {
+            this.project.access();
             Hub.send('start_importer', this.project.id);
         }
     },
