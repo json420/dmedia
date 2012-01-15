@@ -36,7 +36,6 @@ function $scroll_to(id) {
     else if (end > vis_end) {
         child.parentNode.scrollTop = end - child.parentNode.clientHeight;
     }
-    
 }
 
 
@@ -58,8 +57,12 @@ function ProgressBar(id) {
 }
 ProgressBar.prototype = {
     set progress(value) {
-        var p = Math.max(0, Math.min(value, 1));
-        this._bar.style.width = (p * 100).toFixed(0) + '%';
+        this._progress = Math.max(0, Math.min(value, 1));
+        this._bar.style.width = (this._progress * 100).toFixed(0) + '%';
+    },
+
+    get progress(value) {
+        return this._progress;
     },
 
     update: function(completed, total) {
@@ -70,7 +73,6 @@ ProgressBar.prototype = {
             this.progress = 0;
         }
     },
-
 }
 
 

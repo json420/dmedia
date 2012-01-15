@@ -147,7 +147,7 @@ window.onload = function() {
     UI.completed = $('completed');
     UI.cards = $('cards');
     UI.tabs = new Tabs();
-    UI.tabs.show_tab('importer');    
+    UI.tabs.show_tab('import');    
 }
 
 
