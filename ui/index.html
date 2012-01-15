@@ -32,11 +32,11 @@
 
 <div id="import_target" class="hide">
     <div id="choose_project">
+        <form id="project_form"></form>
         <div class="grid_row">
-            <input placeholder="New project name" type="text" id="project_title" class="grid_3">
-            <button class="grid_2" onclick="UI.create_project()">Create Project</button>
-            <div class="grid_1"></div>
-            <button class="grid_2" onclick="UI.start_importer()" id="start_importer">Start Importer</button>
+            <input placeholder="New project name" type="text" id="project_title" class="grid_4" form="project_form">
+            <button id="create_project" class="grid_2" disabled  form="project_form">Create Project</button>
+            <button id="start_importer" class="grid_2" disabled>Start Importer</button>
         </div>
         <ul id="projects"></ul>
     </div>

@@ -1,107 +1,6 @@
 var db = new couch.Database('dmedia-0');
 
 var UI = {
-    project: null,
-
-    select_project: function(_id) {
-        var selected = $(UI.project);
-        if (selected) {
-            selected.classList.remove('selected');
-        }
-        UI.project = _id;
-        if (_id) {
-            $(_id).classList.add('selected');
-            $('start_importer').disabled = false;
-        }
-        else {
-            $('start_importer').disabled = true;
-        }
-    },
-
-    start_importer: function() {
-        if (UI.project) {
-            Hub.send('start_importer', UI.project);
-        }
-    },
-
-    reload_projects: function() {
-        db.view(UI.on_projects, 'project', 'title');
-    },
-
-    on_projects: function(req) {
-        var rows = req.read().rows;
-        var div = $('projects');
-        div.innerHTML = null;
-        rows.forEach(function(row) {
-            var li = $el('li', {'class': 'project', 'id': row.id});
-
-            var thumb = $el('div', {'class': 'thumbnail'});
-            thumb.style.backgroundImage = db.att_css_url(row.id);
-
-            var info = $el('div', {'class': 'info'});
-            info.appendChild(
-                $el('p', {'textContent': row.key, 'class': 'title'})
-            );
-
-            info.appendChild(
-                $el('p', {'textContent': format_date(row.value)})
-            );
-
-            info.appendChild(
-                $el('p', {'textContent': '38 files, 971 MB'})
-            );
-            
-            li.appendChild(thumb);
-            li.appendChild(info);
-            div.appendChild(li);
-        });
-    },
-
-    on_view: function(req) {
-        var rows = req.read()['rows'];
-        var tray = $('tray');
-        rows.forEach(function(row) {
-            var id = row.id;
-            var img = $el('img',
-                {
-                    id: id,
-                    src: db.att_url(id, 'thumbnail'),
-                }
-            );
-            img.onclick = function() {
-                UI.play(id);
-            }
-            tray.appendChild(img);
-        });
-    },
-
-    play: function(id) {
-        if (UI.selected) {
-            UI.selected.classList.remove('selected');
-        }
-        UI.selected = $(id);
-        UI.selected.classList.add('selected');
-        UI.player.pause();
-        UI.player.src = '';
-        db.get(UI.on_doc, id);
-        UI.player.src = 'dmedia:' + id;
-        UI.player.load();
-        UI.player.play();
-    },
-
-    next: function() {
-        if (UI.selected && UI.selected.nextSibling) {
-            UI.play(UI.selected.nextSibling.id);
-            UI.selected.scrollIntoView(false);
-        }
-    },
-
-    create_project: function() {
-        UI.select_project(null);
-        var title = $('project_title').value;
-        Hub.send('create_project', title);
-    },
-
     tabinit: {},    
 
     on_tab_changed: function(tabs, id) {
@@ -112,8 +11,7 @@ var UI = {
     },
 
     init_import: function() {
-        UI.select_project(null);
-        UI.reload_projects();
+        UI.importer = new Importer();
     },
 
     init_history: function() {
@@ -128,6 +26,99 @@ var UI = {
         console.log('init_storage'); 
     },
   
+}
+
+
+function Importer() {
+    this.create_button = $('create_project');
+
+    this.start_button = $('start_importer');
+    this.start_button.onclick = $bind(this.start_importer, this);
+
+    this.input = $('project_title');
+    this.input.oninput = $bind(this.on_input, this);
+    $('project_form').onsubmit = $bind(this.on_submit, this);
+
+    this.items = new Items('projects');
+    this.items.onchange = $bind(this.on_item_change, this);
+    this.project = new Project();
+
+    Hub.connect('project_created', $bind(this.on_project_created, this));
+
+    this.load_items();
+}
+Importer.prototype = {
+    load_items: function() {
+        var callback = $bind(this.on_items, this);
+        db.view(callback, 'project', 'title');
+    },
+
+    on_items: function(req) {
+        this.items.replace(req.read().rows,
+            function(row, items) {
+                var li = $el('li', {'class': 'project', 'id': row.id});
+
+                var thumb = $el('div', {'class': 'thumbnail'});
+                thumb.style.backgroundImage = db.att_css_url(row.id);
+
+                var info = $el('div', {'class': 'info'});
+                info.appendChild(
+                    $el('p', {'textContent': row.key, 'class': 'title'})
+                );
+
+                info.appendChild(
+                    $el('p', {'textContent': format_date(row.value)})
+                );
+
+                info.appendChild(
+                    $el('p', {'textContent': '38 files, 971 MB'})
+                );
+
+                li.appendChild(thumb);
+                li.appendChild(info);
+
+                li.onclick = function() {
+                    items.toggle(row.id);
+                }
+
+                return li;
+            }
+        );
+        this.items.select(this.project.id);
+    },
+
+    on_item_change: function(id) {
+        this.project.load(id);
+        this.start_button.disabled = (!this.project.id);
+    },
+
+    on_input: function() {
+        this.create_button.disabled = (!this.input.value);
+    },
+
+    on_submit: function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!this.input.value) {
+            return;
+        }
+        this.items.select(null);
+        Hub.send('create_project', this.input.value);
+        this.input.value = '';
+        this.create_button.disabled = true;
+    },
+
+    on_project_created: function(id, title) {
+        this.project.load(id);
+        this.load_items();
+    },
+
+    start_importer: function() {
+        if (this.project.id) {
+            Hub.send('start_importer', this.project.id);
+        }
+    },
+
 }
 
 
@@ -146,16 +137,6 @@ window.onload = function() {
 // Lazily init-tabs so startup is faster, more responsive
 Hub.connect('tab_changed', UI.on_tab_changed);
 
-
-// Creating projects
-Hub.connect('project_created',
-    function(_id, title) {
-        console.log(_id);
-        console.log(title);
-        UI.project = _id;
-        UI.reload_projects();
-    }
-);
 
 
 Hub.connect('importer_started',
