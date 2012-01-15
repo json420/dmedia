@@ -7,6 +7,43 @@ Aside from defining said functions and classes, including this file should have
 no other side effects.
 */
 
+
+var MONTHS = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+];
+
+var DAYS = [
+    'Sun',
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+];
+
+function format_date(ts) {
+    var d = new Date(ts * 1000);
+    return [
+        DAYS[d.getDay()] + ',', 
+        d.getDate(),
+        MONTHS[d.getMonth()],
+        d.getFullYear()
+    ].join(' ');
+}
+
+
 function set_title(id, value) {
     var el = $(id);
     if (value) {

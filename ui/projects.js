@@ -3,7 +3,6 @@
 
 var db = new couch.Database('dmedia-0');
 
-
 var UI = {
     init: function() {
         UI.projects = $('projects');
@@ -23,12 +22,10 @@ var UI = {
                 $el('p', {'textContent': row.key, 'class': 'title'})
             );
 
-            var d = new Date(row.value * 1000);
-            //d.toLocaleDateString()
             info.appendChild(
-                $el('p', {'textContent': '14 January 2014'})
+                $el('p', {'textContent': format_date(row.value)})
             );
-            
+
             info.appendChild(
                 $el('p', {'textContent': '38 files, 971 MB'})
             );
