@@ -54,24 +54,25 @@ function wheel_delta(event) {
 }
 
 
-function set_flag(id, status) {
+function set_flag(div, review) {
+    if (!review) {
+        return;
+    }
+    div.appendChild(
+        $el('img', {'src': review + '.png'})
+    );
+}
+
+
+function reset_flag(id, review) {
     var div = $(id);
     if (!div) {
         return;
     }
     div.innerHTML = null;
-    if (status == 'accepted') {
-        div.appendChild(
-            $el('img', {'src': 'accepted.png'})
-        );
-    }
-    else if (status == 'rejected') {
-        div.appendChild(
-            $el('img', {'src': 'rejected.png'})
-        );
-    }
-    return div;
+    set_flag(div, review);
 }
+
 
 
 
@@ -104,16 +105,16 @@ Browser.prototype = {
     },
 
     _review: function(value) {
-        this.doc.status = value;
+        this.doc.review = value;
         this.project.db.save(this.doc);
-        set_flag(this.doc._id, value);
+        reset_flag(this.doc._id, value);
     },
 
     accept: function() {
         if (!this.doc) {
             return;
         }
-        this._review('accepted');
+        this._review('accept');
         this.next();
     },
 
@@ -121,7 +122,7 @@ Browser.prototype = {
         if (!this.doc) {
             return;
         }
-        this._review('rejected');
+        this._review('reject');
         this.next();
     },
 

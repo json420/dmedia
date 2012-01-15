@@ -284,7 +284,7 @@ user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         if (doc.ext == 'mov') {
-            emit(doc.ctime, doc.status);
+            emit(doc.ctime, doc.review);
         }
     }
 }
