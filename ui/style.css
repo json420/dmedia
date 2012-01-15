@@ -32,7 +32,6 @@ body{
     height: 48px;
     background: -webkit-linear-gradient(top, rgba(40, 16, 44, 1), rgba(40, 16, 44, 1) 50%, rgba(40, 16, 44, 0));
     z-index: 100;
-    font-size: 0;
 }
 
 #header .tab {
@@ -40,8 +39,6 @@ body{
     cursor: default;
     text-align: center;
     margin: 0 8px;
-    display: inline-block;
-    width: 224px;
     font-size: 16px;
 }
 
@@ -173,7 +170,7 @@ ul {
     padding-left: 5px;
     overflow: hidden;
     white-space: nowrap;
-    width: 224px;
+    width: 384px;
     color: #ddd;
     box-sizing: border-box !important;
 }
@@ -208,7 +205,7 @@ ul {
 #tray {
     position: fixed;
     right: 0;
-    top: 25px;
+    top: 24px;
     bottom: 0;
     width: 212px;
     background-color: #000;
