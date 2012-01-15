@@ -23,7 +23,7 @@ function $scroll_to(id) {
     var start = child.offsetTop;
     var end = start + child.offsetHeight;
     var vis_start = child.parentNode.scrollTop;
-    console.log([start, end, vis_start, vis_end].join(', '));
+    var vis_end = vis_start + child.parentNode.clientHeight;
     if (start < vis_start) {
         child.parentNode.scrollTop = start;
     }
@@ -537,7 +537,6 @@ Tagger.prototype = {
             this.input.value = doc.value;
             this.key = doc.key;
         }
-        this.focus();
     },
 
     on_focus: function(event) {

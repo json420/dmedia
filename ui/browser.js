@@ -189,6 +189,7 @@ Browser.prototype = {
             return;   
         }
         var keyID = event.keyIdentifier;
+        console.log(keyID);
         if (['Up', 'Down'].indexOf(keyID) > -1) {
             event.preventDefault();
             event.stopPropagation();
