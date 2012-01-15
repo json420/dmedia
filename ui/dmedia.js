@@ -29,41 +29,32 @@ var UI = {
     },
 
     on_projects: function(req) {
-        var rows = req.read()['rows'];
+        var rows = req.read().rows;
         var div = $('projects');
-        div.textContent = '';
+        div.innerHTML = null;
         rows.forEach(function(row) {
-            var _id = row.id;
-            var p = $el('p', {'id': _id, 'class': 'project'});
-            set_title(p, row.key);
-            p.onclick = function() {
-                UI.select_project(_id);
-            }
-            div.appendChild(p);
-        });
-        var selected = $(UI.project);
-        if (selected) {
-            selected.classList.add('selected');
-        }
-    },
+            var li = $el('li', {'class': 'project', 'id': row.id});
 
-    on_projects_old: function(req) {
-        var rows = req.read()['rows'];
-        var div = $('projects');
-        div.textContent = '';
-        rows.forEach(function(row) {
-            var _id = row.id;
-            var p = $el('p', {'id': _id, 'class': 'project'});
-            set_title(p, row.key);
-            p.onclick = function() {
-                UI.select_project(_id);
-            }
-            div.appendChild(p);
+            var thumb = $el('div', {'class': 'thumbnail'});
+            thumb.style.backgroundImage = db.att_css_url(row.id);
+
+            var info = $el('div', {'class': 'info'});
+            info.appendChild(
+                $el('p', {'textContent': row.key, 'class': 'title'})
+            );
+
+            info.appendChild(
+                $el('p', {'textContent': format_date(row.value)})
+            );
+
+            info.appendChild(
+                $el('p', {'textContent': '38 files, 971 MB'})
+            );
+            
+            li.appendChild(thumb);
+            li.appendChild(info);
+            div.appendChild(li);
         });
-        var selected = $(UI.project);
-        if (selected) {
-            selected.classList.add('selected');
-        }
     },
 
     on_view: function(req) {

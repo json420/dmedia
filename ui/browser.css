@@ -3,7 +3,7 @@
     padding: 0;
     font-family: Ubuntu, sans-sarif;
     font-size: 14px;
-    line-height: 25px;
+    line-height: 24px;
 }
 
 #content {
@@ -78,13 +78,13 @@ div.thumbnail.selected {
 }
 
 input, button {
-    padding: 0 4px;
+    padding-left: 4px;
     border-width: 1px;
+    line-height: 22px;  /* 2px less becaues of 1px border */
     border-style: solid;
     border-color: #000;
     border-radius: 5px;
     box-shadow: 1px 2px 8px black;
-    line-height: 23px;
 }
 
 input {

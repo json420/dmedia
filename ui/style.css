@@ -1,6 +1,9 @@
-*{
-    margin:0px;
-    padding:0px;
+* {
+    margin: 0;
+    padding: 0;
+    font-family: Ubuntu, sans-sarif;
+    font-size: 14px;
+    line-height: 24px;
 }
 
 html{
@@ -8,47 +11,19 @@ html{
 }
 
 body{
-    font-family:Ubuntu;
-    font-size:16px;
-    line-height:1.5em;
     color:white;
-
     background:-webkit-radial-gradient(50% 90%, 400% 100%, #51225e, #28102c);
     background-attachment:fixed;
-    /*
-    background-color: #333;
-    */
 }
 
 .hide {
     display: none !important;
 }
 
-h1{
-    font-size:3em;
-    line-height:1em;
-    padding-bottom:0.5em;
-    padding-top:0em;
-    font-weight:300;
-    vertical-align:text-bottom;
+.content{
+    padding-top:3em;
 }
 
-h2{
-    font-size:2em;
-    line-height:1.5em;
-    padding-bottom:0.625em;
-    padding-top:0.125em;
-    font-weight:400;
-    vertical-align:text-bottom;
-}
-
-h3{
-    font-size:1.5em;
-    line-height:2.5em;
-    margin-bottom:0.5em;
-    margin-top: 0;
-    font-weight:400;
-}
 
 textarea {
     padding: 0.5em;
@@ -63,6 +38,28 @@ textarea {
     line-height: 1.5em;
     box-shadow: 0px 2px 10px rgba(0,0,0,0.5);
 }
+
+button {
+    border-width: 1px;
+    padding-left: 4px;  /* 1px less becaues of 1px border */
+    line-height: 22px;  /* 2px less becaues of 1px border */
+    border-style: solid;
+    border-color: white;
+    background:-webkit-linear-gradient(top, #bbb, #000);
+    font-weight: bold;
+    border-radius: 5px;
+    box-shadow: 1px 2px 8px black;
+}
+
+input {
+    padding-left: 5px;
+    color: white;
+    background: -webkit-linear-gradient(top, #444, #666);
+    border: 0px;
+    border-radius: 5px;
+    box-shadow: 0px 2px 10px rgba(0,0,0,0.5);
+}
+
 
 .progress {
     height: 20px;
@@ -83,10 +80,6 @@ textarea {
     background: -webkit-linear-gradient(top, #ea364f, #bd132b);
 }
 
-.content{
-    padding-top:3em;
-    padding-left: 10px;
-}
 
 #header {
     position: fixed;
@@ -94,7 +87,6 @@ textarea {
     left: 0;
     right: 0;
     height: 3em;
-    padding-left: 10px;
     background: -webkit-linear-gradient(top, rgba(40, 16, 44, 1), rgba(40, 16, 44, 1) 50%, rgba(40, 16, 44, 0));
     z-index: 100;
 }
@@ -103,10 +95,9 @@ textarea {
     position: relative;
     cursor: default;
     text-align: center;
-    margin-left: 10px;
-    margin-right: 10px;
+    margin: 0 8px;
     display: inline-block;
-    width: 214px;
+    width: 224px;
 }
 
 #header .tab:after{
@@ -151,7 +142,49 @@ textarea {
 }
 
 
-.thumbnail {
+ul {
+    list-style: none;
+}
+
+.project {
+    margin: 8px;
+    display: inline-block;
+    background-color: #333;
+    color: white;
+    font-size: 0;
+    box-shadow: 1px 2px 6px black;
+}
+
+.project .thumbnail {
+    width: 80px;
+    height: 80px;
+    background-position: center center;
+    background-size: cover;
+    background-color: #666;
+}
+
+.project > div {
+    display: inline-block;
+    vertical-align: top;
+}
+
+.project p {
+    font-size: 14px;
+    padding-left: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 224px;
+    color: #ddd;
+    box-sizing: border-box !important;
+}
+
+.project p.title {
+    font-weight: bold;
+    color: white;
+}
+
+
+#cards .thumbnail {
     height: 215px;
     width: 215px;
     box-shadow: 0px 2px 10px rgba(0,0,0,0.6);
@@ -161,46 +194,16 @@ textarea {
     overflow: hidden;
     position: relative;
     border-radius: 10px;
-    font-size: 15px;
+    font-size: 14px;
 }
 
-.thumbnail div {
+#cards .thumbnail div {
     background-color: rgba(0, 0, 0, 0.5);
     padding: 6px;
     position: absolute;
     width: 100%;
 }
 
-
-.row {
-    width: auto;
-}
-
-.row > div {
-    margin: 10px;
-    display: inline-block;
-    vertical-align: top;
-}
-
-.grid_1 {
-    width: 215px;
-}
-
-.grid_2 {
-    width: 450px;
-}
-
-.grid_3 {
-    width: 685px;
-}
-
-.grid_4 {
-    width: 920px;
-}
-
-#player {
-
-}
 
 #tray {
     position: fixed;
@@ -225,20 +228,6 @@ textarea {
 
 #tray img.selected {
     border-color: #e81f3b; 
-}
-
-
-.project {
-    margin: 10px;
-    padding: 10px;
-    background-color: #333;
-    cursor: default;
-    font-size: 15px;
-    -webkit-user-select: none;
-}
-
-.project.selected {
-    background-color: #555;
 }
 
 #tag_matches li.selected {

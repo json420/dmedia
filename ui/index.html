@@ -3,6 +3,7 @@
 
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="grid.css"></link>
 <link rel="stylesheet" href="style.css"></link>
 <script src="/_apps/userwebkit/couch.js"></script>
 <script src="/_apps/userwebkit/base.js"></script>
@@ -11,28 +12,32 @@
 </head>
     
 <body>
-    <div id="header">
-        <div class="tab" id="import">
-            Import 
-        </div>
-        <div class="tab" id="history">
-            History
-        </div>
-        <div class="tab" id="browser">
-            Browser
-        </div>
-        <div class="tab" id="storage">
-            Storage
-        </div>
+
+<div id="header">
+    <div class="tab grid_3" id="import">
+        Import 
     </div>
+    <div class="tab grid_3" id="history">
+        History
+    </div>
+    <div class="tab grid_3" id="browser">
+        Browser
+    </div>
+    <div class="tab grid_3" id="storage">
+        Storage
+    </div>
+</div>
 
-    <div id="import_target" class="content hide">
+<div class="content">
 
+<div id="import_target" class="hide">
     <div id="choose_project">
-    <input placeholder="New Project Name" type="text" id="project_title">
-    <button onclick="UI.create_project()">Create Project</button>
-    <button onclick="UI.start_importer()" id="start_importer">Start Importer</button>
-    <div id="projects"></div>
+        <div class="grid_row">
+            <input placeholder="New project name" type="text" id="project_title" class="grid_3">
+            <button class="grid_3" onclick="UI.create_project()">Create Project</button>
+            <button class="grid_3" onclick="UI.start_importer()" id="start_importer">Start Importer</button>
+        </div>
+        <ul id="projects"></ul>
     </div>
 
     <div id="importer" class="hide">
@@ -57,14 +62,15 @@
         </div>
         <div class="row" id="cards"></div>
     </div>    
+</div>
 
-    </div>
 
-    <div id="history_target" class="content hide">
-        <div class="row">History</div>
-    </div>
+<div id="history_target" class="hide">
+    <div class="row">History</div>
+</div>
 
-    <div id="browser_target" class="content hide">
+
+<div id="browser_target" class="hide">
         <p>
         <select id="browser_projects" class="grid_1"></select>
         <input id="tag" type="text"></input>
@@ -72,11 +78,14 @@
         </p>
         <video width="640" height="360" id="player"></video>
         <div id="tray"></div>
-    </div>
+</div>
     
-    <div id="storage_target" class="content hide">
-        <div class="row">Storage</div>
-    </div>
+
+<div id="storage_target" class="hide">
+    <div class="row">Storage</div>
+</div>
+    
+    
+</div>
 </body>
-    
 </html>
