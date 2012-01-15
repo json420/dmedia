@@ -471,18 +471,19 @@ Tagger.prototype = {
 
     on_keydown: function(event) {
         var keyID = event.keyIdentifier;
-        if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1 && this.input.value) {
+        if (this.input.value && ['Up', 'Enter', 'Down', 'U+0009'].indexOf(keyID) > -1) {
             event.preventDefault();
             event.stopPropagation();
             if (keyID == 'Up') {
                 this.matches.previous(true);
             }
-            else if (keyID == 'Down') {
+            else if (keyID == 'Enter'){  // keyID == 'Enter'
+                this.choose();
+            }
+            else {  // Down or Tab
                 this.matches.next(true);
             }
-            else {  // keyID == 'Enter'
-                this.choose();
-            }    
+ 
         }
     },
 

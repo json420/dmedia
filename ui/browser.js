@@ -80,7 +80,7 @@ function Browser(player, items) {
 Browser.prototype = {
     load_items: function() {
         var callback = $bind(this.on_items, this);
-        this.project.db.view(callback, 'user', 'video', {'reduce': false, 'limit': 200});
+        this.project.db.view(callback, 'user', 'video', {'reduce': false});
     },
 
     accept: function() {
@@ -186,7 +186,7 @@ Browser.prototype = {
 
     on_window_keydown: function(event) {
         var keyID = event.keyIdentifier;
-        if (['Up', 'Down', 'Enter', 'U+0008', 'U+007F'].indexOf(keyID) > -1) {
+        if (['Up', 'Down', 'Enter', 'U+0008', 'U+007F'].indexOf(keyID) > -1 && !this.tagger.input.value) {
             event.preventDefault();
             event.stopPropagation();
             if (keyID == 'Up') {
