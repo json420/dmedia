@@ -83,6 +83,22 @@ Browser.prototype = {
         this.project.db.view(callback, 'user', 'video', {'reduce': false});
     },
 
+    accept: function() {
+        if (!this.doc) {
+            return;
+        }
+        this.items.next();
+        //console.log('accept');
+    },
+
+    reject: function() {
+        if (!this.doc) {
+            return;
+        }
+        this.items.next();
+        //console.log('reject');
+    },
+
     on_items: function(req) {
         var self = this;
         var callback = function(row) {
@@ -110,8 +126,6 @@ Browser.prototype = {
             this.player.src = null;
             return;
         }
-        console.log(this.project.att_url(id));
-        console.log(this.project.att_css_url(id));
         this.player.src = 'dmedia:' + id;
         this.player.play();
         this.tagger.reset();
@@ -131,7 +145,7 @@ Browser.prototype = {
     },
 
     on_tag: function(tag) {
-        console.log(tag);
+        //console.log(tag);
         if (!this.doc) {
             return;
         }
@@ -139,7 +153,6 @@ Browser.prototype = {
             this.doc.tags = {};
         } 
         if (!this.doc.tags[tag._id]) {
-            console.log('should add');
             var remove = $bind(this.on_tag_remove, this);
             $prepend(make_tag_li(remove, tag), this.tags);
             this.doc.tags[tag._id] = {key: tag.key, value: tag.value};
@@ -166,13 +179,19 @@ Browser.prototype = {
     },
 
     on_window_keypress: function(event) {
-         //console.log(['window keypress', event.which, event.keyCode].join(', '));
+        //console.log(['window keypress', event.which, event.keyCode].join(', '));
         if (this.tagger.isfocused) {
             return;   
         }
         // Don't focus on Backspace, Enter, Spacebar, or Delete
         if ([8, 13, 32, 127].indexOf(event.keyCode) == -1) {
             this.tagger.focus();
+        }
+        else if (event.keyCode == 13) {
+            this.accept();
+        }
+        else if (event.keyCode == 8 || event.keyCode == 127) {
+            this.reject();
         }
     },
 
