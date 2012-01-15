@@ -471,7 +471,7 @@ Tagger.prototype = {
 
     on_keydown: function(event) {
         var keyID = event.keyIdentifier;
-        if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
+        if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1 && this.input.value) {
             event.preventDefault();
             event.stopPropagation();
             if (keyID == 'Up') {

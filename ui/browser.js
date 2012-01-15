@@ -185,20 +185,22 @@ Browser.prototype = {
     },
 
     on_window_keydown: function(event) {
-        if (this.tagger.isfocused) {
-            return;   
-        }
         var keyID = event.keyIdentifier;
-        console.log(keyID);
-        if (['Up', 'Down'].indexOf(keyID) > -1) {
+        if (['Up', 'Down', 'Enter', 'U+0008', 'U+007F'].indexOf(keyID) > -1) {
             event.preventDefault();
             event.stopPropagation();
             if (keyID == 'Up') {
                 this.previous();
             }
-            else {  // KeyID == Down
+            else if (keyID == 'Down') {
                 this.next();
-            }  
+            }
+            else if (keyID == 'Enter') {
+                this.accept();
+            }
+            else {  // Backspace or Delete
+                this.reject();
+            }
         }
     },
 
@@ -210,12 +212,6 @@ Browser.prototype = {
         // Don't focus on Backspace, Enter, Spacebar, or Delete
         if ([8, 13, 32, 127].indexOf(event.keyCode) == -1) {
             this.tagger.focus();
-        }
-        else if (event.keyCode == 13) {
-            this.accept();
-        }
-        else if (event.keyCode == 8 || event.keyCode == 127) {
-            this.reject();
         }
     },
 
