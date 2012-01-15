@@ -28,8 +28,8 @@ from dmedia import local
 
 
 class App(BaseApp):
-    name = 'style'
-    dbname = 'style-0'
+    name = 'dmedia'
+    dbname = 'dmedia-0'
     title = 'Dmedia Browser'
 
     splash = 'splash.html'
