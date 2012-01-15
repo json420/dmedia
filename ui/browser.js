@@ -80,34 +80,29 @@ function Browser(player, items) {
     this.player = $(player);
     this.tags = $('tags');
     this.doc = null;
-    
+
     this.items = new Items(items);
     this.items.onchange = $bind(this.on_item_change, this);
     this.items.parent.onmousewheel = $bind(this.on_mousewheel, this);
-    
+
     this.project = new Project();
-    
+
     this.tagger = new Tagger(this.project, 'tag_value', 'tag_matches');
     this.tagger.ontag = $bind(this.on_tag, this);
-    
+
     $('tag_button').onclick = $bind(this.tagger.choose, this.tagger);
 
     window.addEventListener('keydown', $bind(this.on_window_keydown, this));
     window.addEventListener('keypress', $bind(this.on_window_keypress, this));
 
     this.load_items();
-
 }
 Browser.prototype = {
-    load_items: function() {
-        var callback = $bind(this.on_items, this);
-        this.project.db.view(callback, 'user', 'video');
-    },
-
     _review: function(value) {
         this.doc.review = value;
         this.project.db.save(this.doc);
         reset_flag(this.doc._id, value);
+        this.next_needing_review();
     },
 
     accept: function() {
@@ -115,7 +110,6 @@ Browser.prototype = {
             return;
         }
         this._review('accept');
-        this.next();
     },
 
     reject: function() {
@@ -123,7 +117,13 @@ Browser.prototype = {
             return;
         }
         this._review('reject');
-        this.next();
+    },
+
+    next_needing_review: function() {
+        var rows = this.project.db.view_sync('user', 'video_needsreview', {'limit': 1}).rows;
+        if (rows.length == 1) {
+            this.items.select(rows[0].id);
+        }
     },
 
     next: function() {
@@ -132,6 +132,11 @@ Browser.prototype = {
 
     previous: function() {
         this.items.previous();
+    },
+
+    load_items: function() {
+        var callback = $bind(this.on_items, this);
+        this.project.db.view(callback, 'user', 'video');
     },
 
     on_items: function(req) {
@@ -155,6 +160,7 @@ Browser.prototype = {
             return child;
         }
         this.items.replace(req.read().rows, callback);
+        this.next_needing_review();
     },
 
     on_item_change: function(id) {

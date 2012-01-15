@@ -290,6 +290,16 @@ function(doc) {
 }
 """
 
+user_video_needsreview = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.ext == 'mov' && !doc.review) {
+            emit(doc.ctime, null);
+        }
+    }
+}
+"""
+
 user_audio = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -377,9 +387,9 @@ core = (
         ('tags', user_tags, _count),
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
-        ('video', user_video, _sum),
-        ('photo', user_photo, _sum),
-        ('audio', user_audio, _sum),
+        ('video', user_video, None),
+        ('photo', user_photo, None),
+        ('audio', user_audio, None),
     )),
 
     ('project', (
@@ -414,8 +424,9 @@ project = (
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
         ('video', user_video, None),
-        ('photo', user_photo, _sum),
-        ('audio', user_audio, _sum),
+        ('video_needsreview', user_video_needsreview, None),
+        ('photo', user_photo, None),
+        ('audio', user_audio, None),
     )),
 
     ('tag', (
