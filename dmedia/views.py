@@ -284,7 +284,7 @@ user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         if (doc.ext == 'mov') {
-            emit(doc.ctime, doc.bytes);
+            emit(doc.ctime, doc.status);
         }
     }
 }
@@ -413,7 +413,7 @@ project = (
         ('tags', user_tags, _count),
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
-        ('video', user_video, _sum),
+        ('video', user_video, None),
         ('photo', user_photo, _sum),
         ('audio', user_audio, _sum),
     )),

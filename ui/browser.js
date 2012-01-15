@@ -54,6 +54,26 @@ function wheel_delta(event) {
 }
 
 
+function set_flag(id, status) {
+    var div = $(id);
+    if (!div) {
+        return;
+    }
+    div.innerHTML = null;
+    if (status == 'accepted') {
+        div.appendChild(
+            $el('img', {'src': 'accepted.png'})
+        );
+    }
+    else if (status == 'rejected') {
+        div.appendChild(
+            $el('img', {'src': 'rejected.png'})
+        );
+    }
+    return div;
+}
+
+
 
 function Browser(player, items) {
     this.player = $(player);
@@ -80,13 +100,20 @@ function Browser(player, items) {
 Browser.prototype = {
     load_items: function() {
         var callback = $bind(this.on_items, this);
-        this.project.db.view(callback, 'user', 'video', {'reduce': false});
+        this.project.db.view(callback, 'user', 'video');
+    },
+
+    _review: function(value) {
+        this.doc.status = value;
+        this.project.db.save(this.doc);
+        set_flag(this.doc._id, value);
     },
 
     accept: function() {
         if (!this.doc) {
             return;
         }
+        this._review('accepted');
         this.next();
     },
 
@@ -94,6 +121,7 @@ Browser.prototype = {
         if (!this.doc) {
             return;
         }
+        this._review('rejected');
         this.next();
     },
 
@@ -120,6 +148,9 @@ Browser.prototype = {
                 self.items.select(id);
             }
             child.style.backgroundImage = self.project.att_css_url(row.id);
+            if (row.value) {
+                set_flag(child, row.value);
+            }
             return child;
         }
         this.items.replace(req.read().rows, callback);
