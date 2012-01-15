@@ -15,6 +15,25 @@ function set_title(id, value) {
 }
 
 
+function $scroll_to(id) {
+    var child = $(id);
+    if (! (child && child.parentNode)) {
+        return;
+    }
+    var start = child.offsetTop;
+    var end = start + child.offsetHeight;
+    var vis_start = child.parentNode.scrollTop;
+    console.log([start, end, vis_start, vis_end].join(', '));
+    if (start < vis_start) {
+        child.parentNode.scrollTop = start;
+    }
+    else if (end > vis_end) {
+        child.parentNode.scrollTop = end - child.parentNode.clientHeight;
+    }
+    
+}
+
+
 var UI = {
     project: null,
 
@@ -292,6 +311,7 @@ Items.prototype = {
         $unselect(this.current);
         if ($select(id)) {
             this.current = id;
+            $scroll_to(id);
             return true;
         }
         this.current = null;

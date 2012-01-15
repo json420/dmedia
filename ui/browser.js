@@ -71,32 +71,38 @@ function Browser(player, items) {
     
     $('tag_button').onclick = $bind(this.tagger.choose, this.tagger);
 
-    //window.addEventListener('keydown', $bind(this.on_window_keydown, this));
+    window.addEventListener('keydown', $bind(this.on_window_keydown, this));
     window.addEventListener('keypress', $bind(this.on_window_keypress, this));
 
     this.load_items();
-    
+
 }
 Browser.prototype = {
     load_items: function() {
         var callback = $bind(this.on_items, this);
-        this.project.db.view(callback, 'user', 'video', {'reduce': false});
+        this.project.db.view(callback, 'user', 'video', {'reduce': false, 'limit': 200});
     },
 
     accept: function() {
         if (!this.doc) {
             return;
         }
-        this.items.next();
-        //console.log('accept');
+        this.next();
     },
 
     reject: function() {
         if (!this.doc) {
             return;
         }
+        this.next();
+    },
+
+    next: function() {
         this.items.next();
-        //console.log('reject');
+    },
+
+    previous: function() {
+        this.items.previous();
     },
 
     on_items: function(req) {
@@ -176,6 +182,23 @@ Browser.prototype = {
         event.preventDefault();
         var delta = wheel_delta(event) * 112;  // 108px height + 2px border
         this.items.parent.scrollTop += delta;
+    },
+
+    on_window_keydown: function(event) {
+        if (this.tagger.isfocused) {
+            return;   
+        }
+        var keyID = event.keyIdentifier;
+        if (['Up', 'Down'].indexOf(keyID) > -1) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (keyID == 'Up') {
+                this.previous();
+            }
+            else {  // KeyID == Down
+                this.next();
+            }  
+        }
     },
 
     on_window_keypress: function(event) {
