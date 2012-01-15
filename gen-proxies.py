@@ -6,10 +6,10 @@ from microfiber import Database, dc3_env
 from filestore import FileStore
 from dmedia.local import LocalSlave
 from dmedia.core import init_filestore
-from dmedia.schema import create_file
+from dmedia.schema import create_file, DB_NAME
 
 env = dc3_env()
-db = Database('dmedia', env)
+db = Database(DB_NAME, env)
 loc = LocalSlave(env)
 (fs, fs_doc) = init_filestore('/home')
 
@@ -35,7 +35,7 @@ for row in r['rows']:
         }
     }
     proxy = create_file(ch.id, ch.file_size, ch.leaf_hashes, stored, 'proxy')
-    proxy['proxyof'] = _id
+    proxy['proxy_of'] = _id
     proxy['content_type'] = 'video/webm'
     proxy['ext'] = 'webm'
     proxy['elapsed'] = elapsed

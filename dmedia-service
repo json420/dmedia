@@ -95,7 +95,7 @@ class DMedia(dbus.service.Object):
 
         log.info('Starting %r', service3)
         self._child = Popen([service3, '--bus', bus])
-        db = Database('dmedia', env)
+        db = Database('dmedia-0', env)
         while True:
             try:
                 time.sleep(0.1)

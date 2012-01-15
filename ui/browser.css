@@ -1,38 +1,216 @@
-body {
-    background-color: #333;
-    color: #fff;
-    font-family: Ubuntu;
-    font-size: 15px;
-    padding: 0;
+* {
     margin: 0;
+    padding: 0;
+    font-family: Ubuntu, sans-sarif;
+    font-size: 14px;
+    line-height: 24px;
 }
 
-video {
-    background-color: #999;
+ul {
+    list-style: none;
 }
 
-#tray {
+.project {
+    margin: 8px;
+    display: inline-block;
+    background-color: #333;
+    color: white;
+    font-size: 0;
+    box-shadow: 1px 2px 6px black;
+    cursor: default;
+    -webkit-user-select: none;
+}
+
+.project.selected {
+    box-shadow: 0 0 10px #e81f3b;
+}
+
+.project .thumbnail {
+    width: 80px;
+    height: 80px;
+    background-position: center center;
+    background-size: cover;
+    background-color: #666;
+}
+
+.project > div {
+    display: inline-block;
+    vertical-align: top;
+}
+
+.project p {
+    font-size: 14px;
+    padding-left: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 224px;
+    color: #ddd;
+    box-sizing: border-box !important;
+}
+
+.project p.title {
+    font-weight: bold;
+    color: white;
+}
+
+#content {
     position: fixed;
-    right: 0;
+    top: 0;
+    bottom: 170px;
+    left: 0;
+    right: 210px;
+    background-color: black;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+#lower {
+    position: fixed;
+    height: 170px;
+    bottom: 0;
+    left: 0;
+    right: 210px;
+    overflow-x: auto;
+    overflow-y: visible;
+    background: -webkit-linear-gradient(top, #ddd, #999);
+}
+
+#right {
+    position: fixed;
     top: 0;
     bottom: 0;
-    width: 185px;
-    background-color: #000;
+    width: 210px;
+    right: 0;
+    background-color: black;
+    color: white;
     overflow-y: scroll;
+    overflow-x: hidden;
+    z-index: 200;
 }
 
-img {
-    display: block;
-    border: 5px solid #000;
+#right div.thumbnail {
+    width: 192px;
+    height: 108px;
+    border: 2px solid black;
+    overflow: hidden;
+    background-position: center center;
+    background-size: cover;
 }
 
-img.selected {
-    border-color: #fff; 
+#right div.thumbnail.selected {
+    border-color: #e81f3b;
+}
+
+.large #content {
+    right: 260px;
+}
+
+.large #lower {
+    right: 260px;
+}
+
+.large #right {
+    width: 260px;
+}
+
+.large div.thumbnail {
+    width: 240px;
+    height: 135px;
+}
+
+#player {
+    position: absolute;
+    top: 0px;
+    left: 0px;
 }
 
 
-th {
-    font-weight: normal;
-    text-align: right;
+input, button {
+    padding-left: 4px;
+    border-width: 1px;
+    line-height: 22px;  /* 2px less becaues of 1px border */
+    border-style: solid;
+    border-color: #000;
+    border-radius: 5px;
+    box-shadow: 1px 2px 8px black;
 }
 
+input {
+    color: black;
+    border-color: black;
+    color: white;
+    background: -webkit-linear-gradient(top, #444, #666);
+}
+
+button {
+    color: white;
+    border-color: #fff;
+    background:-webkit-linear-gradient(top, #bbb, #000);
+    font-weight: bold;
+}
+
+input:focus, button:focus {
+    border-color: #e81f3b;
+}
+
+ul {
+    list-style: none;
+}
+
+ul.matches {
+    list-style: none;
+    background-color: white;
+    box-shadow: 1px 2px 8px black;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+ul.matches li {
+    padding: 0px 5px;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-user-select: none;
+}
+
+ul.matches li:hover {
+    background-color: #ddd;
+}
+
+ul.matches li.selected {
+    background-color: #e81f3b;
+}
+
+
+ul.tags {
+    font-size: 0;
+    list-style: none;
+    background: -webkit-linear-gradient(top, #333, #666);
+    box-shadow: 1px 2px 8px black;
+    border-radius: 5px;
+    height: 150px;
+    padding: 2px;
+}
+
+ul.tags li {
+    margin-right: 4px;
+    padding-left: 4px;
+    background-color: white;
+    display: inline-block;
+    cursor: default;
+    border-radius: 8px;
+}
+
+ul.tags a {
+    text-decoration: none;
+    display: inline-block;
+    color: #D8290D;
+    font-weight: bold;
+    text-align: center;
+    cursor: pointer;
+    width: 25px;
+}
+
+ul.tags a:hover {
+    background-color: #ddd;
+    border-radius: 8px;
+}

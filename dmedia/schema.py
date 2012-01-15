@@ -245,7 +245,6 @@ When the job is completed, the document is updated like this:
 """
 
 from base64 import b32encode, b64encode
-from hashlib import sha1
 import re
 import time
 import socket
@@ -253,7 +252,15 @@ import socket
 from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
 from microfiber import random_id, RANDOM_B32LEN
 
-from .constants import EXT_PAT
+
+# schema-compatibility version:
+VER = 0
+
+# versioned primary database name:
+DB_NAME = 'dmedia-{}'.format(VER)
+
+# Pattern that doc['ext'] must match for dmedia/file
+EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
 
 
 # Some private helper functions that don't directly define any schema.
@@ -363,53 +370,6 @@ def _exists(doc, path):
         return True
     except (KeyError, IndexError):
         return False
-
-
-def _check_exist(doc, *paths):
-    """
-    Verify that each of *paths* exist in *doc*.
-    Throw a ValueError if any of them don't.
-    """
-    for path in paths:
-        if not _exists(doc, path):
-            raise(ValueError(
-                "%s does not exist" % _label(path)
-            ))
-
-
-def _isinstance(value, label, *allowed):
-    """
-    Verify that *value* is an instance of one of *allowed*.
-
-    For example:
-
-    >>> _isinstance('18', "doc['bytes']", int)
-    Traceback (most recent call last):
-      ...
-    TypeError: doc['bytes']: need a <class 'int'>; got a <class 'str'>: '18'
-
-    """
-    for a in allowed:
-        if isinstance(value, a):
-            return
-    raise TypeError('{}: need a {}; got a {!r}: {!r}'.format(
-            label, ' or '.join(map(repr, allowed)), type(value), value
-        )
-    )
-
-
-def _check_types(doc, *items):
-    """
-    An *item* is a tuple:
-        (path, *allowed)
-    For each item, verify that *path* exists in *doc* and that
-    the value at *path* is one of *allowed*.
-    """
-    for item in items:
-        path = item[0]
-        allowed = item[1:]
-        _check_exist(doc, path)
-        _isinstance(_value(doc, path), _label(path), *allowed)
 
 
 def _check(doc, path, allowed, *checks):
@@ -656,21 +616,6 @@ def _intrinsic_id(value, label):
         )
 
 
-def _drive_id(drive):
-    """
-    Generate the couchdb _id for a udisks.Device drive.
-    """
-    return b32encode(sha1(
-        "%s-%s-%s-%s-%s" % (
-            drive['DriveVendor'],
-            drive['DriveModel'],
-            drive['DriveRevision'],
-            drive['DriveSerial'],
-            drive['DriveWwn']
-        )
-    ).digest())
-
-
 ##################################
 # The schema validation functions:
 
@@ -691,11 +636,11 @@ def check_dmedia(doc):
 
     """
     _check(doc, [], dict)
-    _check(doc, ['_id'], None,
+    _check(doc, ['_id'], str,
         _any_id,
     )
     _check(doc, ['ver'], int,
-        (_equals, 0),
+        (_equals, VER),
     )
     _check(doc, ['type'], str,
         (_matches, 'dmedia/[a-z]+$'),
@@ -739,22 +684,14 @@ def check_file(doc):
     >>> check_file(doc)
 
     """
-    # Common schema:
-    _check(doc, [], dict)
-    _check(doc, ['_id'], None,
+    check_dmedia(doc)
+    _check(doc, ['_id'], str,
         _intrinsic_id,
-    )
-    _check(doc, ['ver'], int,
-        (_equals, 0),
     )
     _check(doc, ['type'], str,
         (_equals, 'dmedia/file'),
     )
-    _check(doc, ['time'], (int, float),
-        (_at_least, 0),
-    )
-    
-    # dmedia/file specific:
+
     _check(doc, ['_attachments', 'leaf_hashes'], dict,
         _nonempty,
     )
@@ -805,10 +742,6 @@ def check_file(doc):
             (_at_least, 0),
         )
 
-    check_file_optional(doc)
-
-
-def check_file_optional(doc):
     # 'ext' like 'mov'
     _check_if_exists(doc, ['ext'], str,
         (_matches, EXT_PAT),
@@ -816,6 +749,17 @@ def check_file_optional(doc):
 
     # 'content_type' like 'video/quicktime'
     _check_if_exists(doc, ['content_type'], str)
+
+    # proxy_of
+    if doc['origin'] == 'proxy':
+        _check(doc, ['proxy_of'], str,
+            _intrinsic_id,
+        )
+
+    check_file_optional(doc)
+
+
+def check_file_optional(doc):
 
     # 'content_encoding' like 'gzip'
     _check_if_exists(doc, ['content_encoding'], str,
@@ -867,162 +811,18 @@ def check_store(doc):
     >>> check_store(doc)
 
     """
-    # Common schema:
-    _check(doc, [], dict)
-    _check(doc, ['_id'], None,
+    check_dmedia(doc)
+    _check(doc, ['_id'], str,
         _random_id,
-    )
-    _check(doc, ['ver'], int,
-        (_equals, 0),
     )
     _check(doc, ['type'], str,
         (_equals, 'dmedia/store'),
     )
-    _check(doc, ['time'], (int, float),
-        (_at_least, 0),
-    )
-
-    # Specific to dmedia/store
     _check(doc, ['plugin'], str,
-        (_is_in, 'filestore', 'filestore.removable', 'ubuntuone', 's3'),
+        (_is_in, 'filestore', 'ubuntuone', 's3'),
     )
     _check(doc, ['copies'], int,
         (_at_least, 0),
-    )
-
-
-def check_partition(doc):
-    """
-    Verify that *doc* is a valid "dmedia/partition" document.
-
-    To be a valid 'dmedia/partition' record, *doc* must:
-
-        1. conform with `check_dmedia()`
-
-        2. have the following keys:
-            ('uuid', 'size', 'label', 'partition_label', 'fs', 'drive_id')
-
-        3. have 'uuid', 'fs', 'drive_id' as ``str`` strings.
-
-        4. have 'label', 'partition_label' as ``str`` strings.
-
-        5. have 'size' as an ``int`` or ``long``.
-
-        6. have 'drive_id' as a valid dmedia id.
-
-        For example, a conforming value:
-
-        >>> doc = {
-        ...     '_id': 'YU57NGTX4IPWFAR6GOOYGGLYRBP56JME',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/partition',
-        ...     'time': 1234567890,
-        ...     'size': 1073741824,
-        ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
-        ...     'fs': 'ext4',
-        ...     'label': 'Data',
-        ...     'partition_label': '',
-        ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
-        ... }
-        ...
-        >>> check_partition(doc)
-
-
-        And an invalid value:
-
-        >>> doc = {
-        ...     '_id': 'YU57NGTX4IPWFAR6GOOYGGLYRBP56JME',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/partition',
-        ...     'time': 1234567890,
-        ...     'size': 1073741824,
-        ...     'uuid': '45e8f250-b56a-11e0-aff2-0800200c9a66',
-        ...     'label': 'Data',
-        ...     'partition_label': '',
-        ...     'drive_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG'
-        ... }
-        ...
-        >>> check_partition(doc)
-        Traceback (most recent call last):
-          ...
-        ValueError: doc['fs'] does not exist
-
-    """
-    check_dmedia(doc)
-
-    _check_types(
-        doc,
-        (['uuid'], str),
-        (['size'], int),
-        (['label'], str),
-        (['partition_label'], str),
-        (['fs'], str),
-        (['drive_id'], str)
-    )
-
-    _any_id(doc['drive_id'], _label('drive_id'))
-
-
-def check_drive(doc):
-    """
-    Verify that *doc* is a valid "dmedia/drive" document.
-
-    To be a valid 'dmedia/drive' record, *doc* must:
-
-        1. conform with `check_dmedia()`
-
-        2. have the following keys:
-            ('serial', 'wwn', 'vendor', 'model', 'revision')
-
-        3. have 'serial', 'wwn', 'revision' as ``str`` strings.
-
-        4. have 'vendor', 'model' as ``str`` strings.
-
-        For example, a conforming value:
-
-        >>> doc = {
-        ...     '_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/drive',
-        ...     'time': 1234567890,
-        ...     'serial': 'A0000001B900',
-        ...     'wwn': '50014ee0016eb572',
-        ...     'revision': '1.95',
-        ...     'vendor': 'Canon',
-        ...     'model': 'EOS 7D'
-        ... }
-        ...
-        >>> check_drive(doc)
-
-
-        And an invalid value:
-
-        >>> doc = {
-        ...     '_id': 'XBBXAIVUK4LPXJMAKCT4TEM2RDGK7HNG',
-        ...     'ver': 0,
-        ...     'type': 'dmedia/drive',
-        ...     'time': 1234567890,
-        ...     'serial': 'A0000001B900',
-        ...     'wwn': '50014ee0016eb572',
-        ...     'revision': '1.95',
-        ...     'vendor': 'Canon'
-        ... }
-        ...
-        >>> check_drive(doc)
-        Traceback (most recent call last):
-          ...
-        ValueError: doc['model'] does not exist
-
-    """
-    check_dmedia(doc)
-
-    _check_types(
-        doc,
-        (['serial'], str),
-        (['wwn'], str),
-        (['vendor'], str),
-        (['model'], str),
-        (['revision'], str)
     )
 
 
@@ -1042,7 +842,7 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
                 'content_type': 'application/octet-stream',
             }
         },
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/file',
         'time': timestamp,
         'atime': timestamp,
@@ -1054,13 +854,35 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     }
 
 
+def create_project_file(_id, file_size, leaf_hashes, origin='user'):
+    """
+    Create a minimal 'dmedia/file' document.
+    """
+    return {
+        '_id': _id,
+        '_attachments': {
+            'leaf_hashes': {
+                'data': b64encode(leaf_hashes).decode('utf-8'),
+                'content_type': 'application/octet-stream',
+            }
+        },
+        'ver': VER,
+        'type': 'dmedia/file',
+        'time': time.time(),
+        'bytes': file_size,
+        'origin': origin,
+        'meta': {},
+        'tags': {},
+    }
+
+
 def create_machine():
     """
     Create a 'dmedia/machine' document.
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/machine',
         'time': time.time(),
         'hostname': socket.gethostname(),
@@ -1073,7 +895,7 @@ def create_filestore(copies=1):
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 'filestore',
@@ -1087,7 +909,7 @@ def create_s3_store(bucket, copies=2, use_ext=True):
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 's3',
@@ -1103,7 +925,7 @@ def create_batch(machine_id=None):
     """
     return {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/batch',
         'time': time.time(),
         'machine_id': machine_id,
@@ -1123,7 +945,7 @@ def create_import(basedir, machine_id, **kw):
     """
     doc = {
         '_id': random_id(),
-        'ver': 0,
+        'ver': VER,
         'type': 'dmedia/import',
         'time': time.time(),
         'basedir': basedir,
@@ -1140,41 +962,73 @@ def create_import(basedir, machine_id, **kw):
     return doc
 
 
-def create_partition(base):
+def check_project(doc):
     """
-    Create a dmedia/partition document.
+    Verify that *doc* is a valid novacut/project document.
+
+    For example, a conforming value:
+
+    >>> doc = {
+    ...     '_id': 'HB6YSCKAY27KIWUTWKGKCTNI',
+    ...     'ver': 0,
+    ...     'type': 'dmedia/project',
+    ...     'time': 1234567890,
+    ...     'db_name': 'dmedia-0-hb6ysckay27kiwutwkgkctni',
+    ...     'title': 'UDS-P',
+    ... }
+    ...
+    >>> check_project(doc)
+
     """
-    p = Device(path=base)
-    d = p.get_device()
-    uuid = str(p['IdUuid'])
+    check_dmedia(doc)
+    _check(doc, ['_id'], str,
+        _random_id,
+    )
+    _check(doc, ['type'], str,
+        (_equals, 'dmedia/project'),
+    )
+    _check(doc, ['db_name'], str,
+        (_equals, project_db_name(doc['_id'])),
+    )
+    _check(doc, ['title'], str),
+
+
+def project_db_name(_id):
+    """
+    Return the CouchDB database name for the project with *_id*.
+
+    For example:
+
+    >>> project_db_name('HB6YSCKAY27KIWUTWKGKCTNI')
+    'dmedia-0-hb6ysckay27kiwutwkgkctni'
+
+    """
+    return '-'.join(['dmedia', str(VER), _id.lower()])
+
+
+def create_project(title=''):
+    _id = random_id()
+    ts = time.time()
     return {
-        '_id': b32encode(sha1(uuid).digest()),
-        'ver': 0,
-        'type': 'dmedia/partition',
-        'time': time.time(),
-        'uuid': uuid,
-        'size': int(p['DeviceSize']),
-        'label': str(p['IdLabel']),
-        'partition_label': str(p['PartitionLabel']),
-        'fs': str(p['IdType']),
-        'drive_id': _drive_id(d)
+        '_id': _id,
+        'ver': VER,
+        'type': 'dmedia/project',
+        'time': ts,
+        'atime': ts,
+        'db_name': project_db_name(_id),
+        'title': title,
     }
 
 
-def create_drive(base):
-    """
-    Create a dmedia/drive document.
-    """
-    p = Device(path=base)
-    d = p.get_device()
+RE_KEY_STRIP = re.compile(r'[-\s_.,]+')
+
+def create_tag(tag):
+    value = tag.strip()
     return {
-        '_id': _drive_id(d),
-        'ver': 0,
-        'type': 'dmedia/drive',
+        '_id': random_id(),
+        'ver': VER,
+        'type': 'dmedia/tag',
         'time': time.time(),
-        'serial': str(d['DriveSerial']),
-        'wwn': str(d['DriveWwn']),
-        'vendor': str(d['DriveVendor']),
-        'model': str(d['DriveModel']),
-        'revision': str(d['DriveRevision'])
+        'value': value,
+        'key': RE_KEY_STRIP.sub('', value).lower(),
     }

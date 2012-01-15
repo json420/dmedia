@@ -1,58 +1,6 @@
-"use strict";
-
-var db = new couch.Database('dmedia');
+var db = new couch.Database('dmedia-0');
 
 var UI = {
-    on_doc: function(req) {
-        var doc = req.read();
-        var keys = ['camera', 'lens', 'aperture', 'shutter', 'iso'];
-        keys.forEach(function(key) {
-            var el = $(key);
-            if (el) {
-                el.textContent = doc.meta[key];
-            }
-        });
-    },
-
-    on_view: function(req) {
-        var rows = req.read()['rows'];
-        var tray = $('tray');
-        rows.forEach(function(row) {
-            var id = row.id;
-            var img = $el('img',
-                {
-                    id: id,
-                    src: db.att_url(id, 'thumbnail'),
-                }
-            );
-            img.onclick = function() {
-                UI.play(id);
-            }
-            tray.appendChild(img);
-        });
-    },
-
-    play: function(id) {
-        if (UI.selected) {
-            UI.selected.classList.remove('selected');
-        }
-        UI.selected = $(id);
-        UI.selected.classList.add('selected');
-        UI.player.pause();
-        UI.player.src = '';
-        db.get(UI.on_doc, id);
-        UI.player.src = 'dmedia:' + id;
-        UI.player.load();
-        UI.player.play();
-    },
-
-    next: function() {
-        if (UI.selected && UI.selected.nextSibling) {
-            UI.play(UI.selected.nextSibling.id);
-            UI.selected.scrollIntoView(false);
-        }
-    },
-
     tabinit: {},    
 
     on_tab_changed: function(tabs, id) {
@@ -63,7 +11,7 @@ var UI = {
     },
 
     init_import: function() {
-        console.log('init_import');
+        UI.importer = new Importer();
     },
 
     init_history: function() {
@@ -71,16 +19,112 @@ var UI = {
     },
 
     init_browser: function() {
-        UI.player = $('player');
-        UI.player.addEventListener('ended', UI.next);
-        db.view(UI.on_view, 'user', 'video', {reduce: false});
+        UI.browser = new Browser();
     },
 
     init_storage: function() {
         console.log('init_storage'); 
     },
-    
+  
 }
+
+
+function Importer() {
+    this.create_button = $('create_project');
+
+    this.start_button = $('start_importer');
+    this.start_button.onclick = $bind(this.start_importer, this);
+
+    this.input = $('project_title');
+    this.input.oninput = $bind(this.on_input, this);
+    $('project_form').onsubmit = $bind(this.on_submit, this);
+
+    this.items = new Items('projects');
+    this.items.onchange = $bind(this.on_item_change, this);
+    this.project = new Project();
+
+    Hub.connect('project_created', $bind(this.on_project_created, this));
+
+    this.load_items();
+}
+Importer.prototype = {
+    load_items: function() {
+        var callback = $bind(this.on_items, this);
+        db.view(callback, 'project', 'title');
+    },
+
+    on_items: function(req) {
+        this.items.replace(req.read().rows,
+            function(row, items) {
+                var li = $el('li', {'class': 'project', 'id': row.id});
+
+                var thumb = $el('div', {'class': 'thumbnail'});
+                thumb.style.backgroundImage = db.att_css_url(row.id);
+
+                var info = $el('div', {'class': 'info'});
+                info.appendChild(
+                    $el('p', {'textContent': row.key, 'class': 'title'})
+                );
+
+                info.appendChild(
+                    $el('p', {'textContent': format_date(row.value)})
+                );
+
+                info.appendChild(
+                    $el('p', {'textContent': '38 files, 971 MB'})
+                );
+
+                li.appendChild(thumb);
+                li.appendChild(info);
+
+                li.onclick = function() {
+                    items.toggle(row.id);
+                }
+
+                return li;
+            }
+        );
+        this.items.select(this.project.id);
+    },
+
+    on_item_change: function(id) {
+        this.project.load(id);
+        this.start_button.disabled = (!this.project.id);
+        if (this.project.doc) {
+            $('target_project').textContent = this.project.doc.title;
+        }
+    },
+
+    on_input: function() {
+        this.create_button.disabled = (!this.input.value);
+    },
+
+    on_submit: function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!this.input.value) {
+            return;
+        }
+        this.items.select(null);
+        Hub.send('create_project', this.input.value);
+        this.input.value = '';
+        this.create_button.disabled = true;
+    },
+
+    on_project_created: function(id, title) {
+        this.project.load(id);
+        this.load_items();
+    },
+
+    start_importer: function() {
+        if (this.project.id) {
+            this.project.access();
+            Hub.send('start_importer', this.project.id);
+        }
+    },
+
+}
+
 
 
 window.onload = function() {
@@ -93,110 +137,26 @@ window.onload = function() {
 }
 
 
-function files(count) {
-    if (count == 1) {
-        return '1 file';
-    }
-    return count.toString() + ' files';
-}
-
-function bytes10(size) {
-    var BYTES10 = [
-        'bytes',
-        'kB',
-        'MB',
-        'GB',
-        'TB',
-        'PB',
-        'EB',
-        'ZB',
-        'YB',
-    ];
-    if (size == 0) {
-        return '0 bytes';
-    }
-    if (size == 1) {
-        return '1 byte';
-    }
-    var ex = Math.floor(Math.log(size) / Math.log(1000));
-    var i = Math.min(ex, BYTES10.length - 1);
-    var s = (i > 0) ? size / Math.pow(1000, i) : size;
-    return s.toPrecision(3) + ' ' + BYTES10[i];
-}
-
-
-function count_n_size(count, size) {
-    return [files(count), bytes10(size)].join(', ');
-}
-
-
-function ProgressBar(id) {
-    this.element = $(id);
-    this._bar = this.element.getElementsByTagName('div')[0];
-}
-ProgressBar.prototype = {
-    set progress(value) {
-        var p = Math.max(0, Math.min(value, 1));
-        this._bar.style.width = (p * 100).toFixed(0) + '%';
-    },
-
-    update: function(completed, total) {
-        if (total > 0) {
-            this.progress = completed / total;
-        }
-        else {
-            this.progress = 0;
-        }
-    },
-
-}
-
-
-function Tabs() {
-    function make_handler(element) {
-        var id = element.id;
-        return function(event) {
-            window.location.hash = '#' + id;
-        }
-    }
-
-    var elements = document.getElementsByClassName('tab');
-    var i;
-    for (i=0; i<elements.length; i++) {
-        var element = elements[i];
-        element.onclick = make_handler(element);
-    }
-
-    var self = this;
-    window.addEventListener('hashchange', function() {
-        self.on_hashchange();
-    });
-}
-
-Tabs.prototype = {
-    on_hashchange: function() {
-        var id = window.location.hash.slice(1);
-        this.show_tab(id);
-    },
-
-    show_tab: function(id) {
-        if (this.tab) {
-            this.tab.classList.remove('active'); 
-        }
-        this.tab = $(id);
-        this.tab.classList.add('active');
-        if (this.target) {
-            this.target.classList.add('hide');
-        }
-        this.target = $(id + '_target');
-        this.target.classList.remove('hide');
-        Hub.emit('tab_changed', this, id);
-    },
-}
-
 
 // Lazily init-tabs so startup is faster, more responsive
 Hub.connect('tab_changed', UI.on_tab_changed);
+
+
+
+Hub.connect('importer_started',
+    function(project_db_name) {
+        UI.pdb = new couch.Database(project_db_name);
+        $hide('choose_project');
+        $show('importer');
+    }
+);
+
+Hub.connect('importer_stopped',
+    function() {
+        $hide('importer');
+        $show('choose_project');
+    }
+);
 
 
 // All the import related signals:
@@ -248,8 +208,8 @@ Hub.connect('import_scanned',
 
 Hub.connect('import_thumbnail',
     function(basedir, import_id, doc_id) {
-        var url = db.att_url(doc_id, 'thumbnail');
-        $(import_id).style.backgroundImage = "url(\"" + url + "\")"; 
+        var url = UI.pdb.att_url(doc_id, 'thumbnail');
+        $(import_id).style.backgroundImage = 'url("' + url + '")'; 
     }
 );
 
@@ -267,11 +227,4 @@ Hub.connect('batch_finalized',
         });
     }
 );
-
-
-
-
-
-
-
 

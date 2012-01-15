@@ -25,15 +25,16 @@ Verify integrity of files on disk.
 
 import time
 
-from microfiber import Database
 from filestore import FileStore, CorruptFile, FileNotFound
+
+from dmedia.util import get_db
 
 
 ONE_WEEK = 60 * 60 * 24 * 7
 
 
 def verify(env, parentdir, max_delta=ONE_WEEK):
-    db = Database('dmedia', env)
+    db = get_db(env)
     local = db.get('_local/dmedia')
     info = local['stores'][parentdir]
     fs = FileStore(parentdir, info['id'], info['copies'])

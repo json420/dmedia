@@ -1,70 +1,94 @@
 <!doctype html>
 <html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <script src="/_apps/userwebkit/couch.js"></script>
-        <script src="/_apps/userwebkit/base.js"></script>
-        <script src="dmedia.js"></script>
-        <title>dmedia</title>
-        <link rel="stylesheet" href="style.css"/>
-    </head>
-    <body>
-        <div id="header">
-            <div class="tab" id="import">
-                Import 
-            </div>
-            <div class="tab" id="history">
-                History
-            </div>
-            <div class="tab" id="browser">
-                Browser
-            </div>
-            <div class="tab" id="storage">
-                Storage
-            </div>
-        </div>
 
-        <div id="import_target" class="content hide">
-            <div class="row">
-                <div class="grid_2">
-                    <textarea placeholder="comma, seperated, tags"></textarea>
-                </div>
-                <div class="grid_2" id="info">
-                    <p><strong>Total: </strong><span id="total"></span></p>
-                    <p><strong>Completed: </strong><span id="completed"></span></p>
-                </div>
-                <div class="grid_2 hide" id="summary">
-                    <p><strong id="summary_summary">Summary</strong></p>
-                    <div id="summary_body"></div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="grid_4">
-                    <div class="progress" id="progress"><div></div></div>
-                </div>
-            </div>
-            <div class="row" id="cards"></div>
-        </div>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="grid.css"></link>
+<link rel="stylesheet" href="style.css"></link>
+<script src="/_apps/userwebkit/couch.js"></script>
+<script src="/_apps/userwebkit/base.js"></script>
+<script src="common.js"></script>
+<script src="dmedia.js"></script>
+</head>
 
-        <div id="history_target" class="content hide">
-            <div class="row">History</div>
+<body>
+
+<div id="header" class="grid_row">
+    <div class="tab grid_3" id="import">
+        Import 
+    </div>
+    <div class="tab grid_3" id="history">
+        History
+    </div>
+    <div class="tab grid_3" id="browser">
+        Browser
+    </div>
+    <div class="tab grid_3" id="storage">
+        Storage
+    </div>
+</div>
+
+<div class="content">
+
+<div id="import_target" class="">
+    <div id="choose_project" class="">
+        <form id="project_form"></form>
+        <div class="grid_row">
+            <input placeholder="New project name" type="text" id="project_title" class="grid_4" form="project_form">
+            <button id="create_project" class="grid_2" disabled  form="project_form">Create Project</button>
+            <button id="start_importer" class="grid_2" disabled>Start Importer</button>
         </div>
-        <div id="browser_target" class="content hide">
-        <video width="640" height="360" id="player"></video>
+        <ul id="projects"></ul>
+    </div>
+
+    <div id="importer" class="hide">
+        <div class="grid_row">
+
+            <div class="grid_3" id="info">
+                <p><span>Total: </span><span id="total"></span></p>
+                <p><span>Completed: </span><span id="completed"></span></p>
+            </div>
+            <div class="grid_3 hide" id="summary">
+                <p><strong id="summary_summary">Summary</strong></p>
+                <div id="summary_body"></div>
+            </div>
+            <p id="target_project" class="grid_6"></p>
+            <div class="grid_1"></div>
+            <button class="grid_2" onclick="Hub.send('stop_importer')">Stop Importer</button>
+        </div>
+        
+        
+        <div class="grid_row">
+            <div class="grid_12">
+                <div class="progress" id="progress"><div></div></div>
+            </div>
+        </div>
+        <div class="grid_row" id="cards"></div>
+    </div>    
+</div>
+
+
+<div id="history_target" class="hide">
+    <div class="row">History</div>
+</div>
+
+
+<div id="browser_target" class="hide">
         <p>
-        <span id="aperture"></span>
-        <span id="shutter"></span>
-        <span id="iso"></span>
+        <select id="browser_projects" class="grid_1"></select>
+        <input id="tag" type="text"></input>
+        <ul id="tag_matches"></ul>
         </p>
-        <p>
-        <span id="camera"></span>
-        <span id="lens"></span>
-        <p>
+        <video width="640" height="360" id="player"></video>
         <div id="tray"></div>
-        </div>
-        <div id="storage_target" class="content hide">
-            <div class="row">Storage</div>
-        </div>
+</div>
+    
 
-    </body>
+<div id="storage_target" class="hide">
+    <div class="row">Storage</div>
+</div>
+    
+    
+</div>
+</body>
 </html>

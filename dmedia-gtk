@@ -25,11 +25,15 @@ import json
 import logging
 import sys
 from urllib.parse import urlparse
+from copy import deepcopy
 
 from userwebkit import BaseApp
 from microfiber import NotFound
 
 import dmedia
+from dmedia.util import get_project_db
+from dmedia import views
+from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
@@ -81,7 +85,7 @@ class Importer:
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
         )
-        self.manager = ImportManager(env, self.callback)
+        self.manager = ImportManager(env, WeakMethod(self, 'callback'))
 
     def callback(self, signal, args):
         GObject.idle_add(self.hub.send, signal, *args)
@@ -147,7 +151,7 @@ WELCOMED_ID = '_local/welcomed'
 
 class App(BaseApp):
     name = 'dmedia'
-    dbname = 'dmedia'
+    dbname = schema.DB_NAME
     version = dmedia.__version__
     title = 'Dmedia'
     splash = 'splash.html'
@@ -156,6 +160,13 @@ class App(BaseApp):
     proxy_bus = 'org.freedesktop.DMedia'
 
     signals = {
+        'create_project': ['title'],
+        'project_created': ['project_id', 'title'],
+        'start_importer': ['project_id'],
+        'importer_started': ['project_db_name'],
+        'stop_importer': [],
+        'importer_stopped': [],
+
         'welcome_complete': [],
         'batch_started': ['batch_id'],
         'import_started': ['basedir', 'import_id', 'extra'],
@@ -177,13 +188,14 @@ class App(BaseApp):
     def connect_hub_signals(self, hub):
         self.importer = None
         self.local = None
+        hub.connect('create_project', self.on_create_project)
+        hub.connect('start_importer', self.on_start_importer)
+        hub.connect('stop_importer', self.on_stop_importer)
         hub.connect('error', self.on_error)
         hub.connect('welcome_complete', self.on_welcome_complete)
 
     def choose_starting_page(self):
         _id = '_local/welcomed'
-        #doc = self.server.get('dmedia', _id)
-        #self.server.delete('dmedia', _id, rev=doc['_rev'])
         try:
             self.db.get(WELCOMED_ID)
             return self.page
@@ -216,22 +228,16 @@ class App(BaseApp):
         self.db.post({'_id': WELCOMED_ID})
         self.load_page(self.page)
 
-    def set_env(self, env):
-        super().set_env(env)
-        if env is None:
-            return
+    def post_env_init(self):
         if self.options.replay:
             self.create_ux()
             self._replay = Replay('signals.json', self.hub)
-        else:
-            self.start_importer()
-
-    def start_importer(self):
-        self.importer = Importer(self.env, self.hub)
-        self.create_ux()
+        for row in self.db.view('project', 'atime')['rows']:
+            get_project_db(row['id'], self.env, True)
 
     def create_ux(self):
         self.ux = UnityImportUX(self.hub)
+        assert sys.getrefcount(self.ux) == 2
 
     def destroy_ux(self):
         self.ux = None
@@ -247,6 +253,27 @@ class App(BaseApp):
         )
         dialog.run()
         dialog.destroy()
+
+    def on_start_importer(self, dub, project_id):
+        env = deepcopy(self.env)
+        env['project_id'] = project_id
+        self.importer = Importer(env, self.hub)
+        assert sys.getrefcount(self.importer) == 2
+        self.create_ux()
+        self.hub.send('importer_started', schema.project_db_name(project_id))
+
+    def on_stop_importer(self, hub):
+        self.importer = None
+        self.ux = None
+        self.hub.send('importer_stopped')
+
+    def on_create_project(self, hub, title):
+        print(repr(title))
+        doc = schema.create_project(title)
+        self.db.post(doc)
+        project = get_project_db(doc['_id'], self.env, True)
+        project.save(doc)
+        self.hub.send('project_created', doc['_id'], doc['title'])
 
 
 dmedia.configure_logging()      

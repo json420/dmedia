@@ -1,0 +1,139 @@
+* {
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+}
+
+.grid_row {
+    border-top: 1px solid #51225e;
+}
+
+body, input, textarea, select, option, button, h2 {
+    font-family: Ubuntu, sans-sarif;
+    font-size: 15px;
+}
+
+input, textarea, button {
+    padding: 4px;
+    border-width: 1px;
+    border-style: solid;
+    border-color: #000;
+    border-radius: 5px;
+    box-shadow: 1px 2px 8px black;
+
+    /* The transparents help make it clearer that things are working */
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+select {
+    padding: 4px;
+}
+
+button {
+    /* The transparents help make it clearer that things are working */
+    color: white;
+    border-color: #fff;
+    background:-webkit-linear-gradient(top, rgba(170,170,170, 0.4), rgba(0, 0, 0, 0.8));
+    font-weight: bold;
+}
+
+input:focus, textarea:focus, select:focus, button:focus {
+    border-color: #e81f3b;
+    border-style: solid;
+}
+
+p, h2, pre {
+    padding: 5px;
+
+    /* The transparents help make it clearer that things are working */
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+
+code, pre {
+    font-family: 'Ubuntu Mono', monospace;
+    font-size: 17px;
+}
+
+
+body {
+    background-image: url(16_col.gif);
+}
+
+ul.matches {
+    list-style: none;
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 1px 2px 8px black;
+    border-radius: 5px;
+}
+
+ul.matches li {
+    padding: 2px 5px;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+li.selected {
+    background-color: #e81f3b;
+}
+
+
+ul.tags {
+    font-size: 0;
+    list-style: none;
+    background-color: rgba(0, 0, 0, 0.5);
+    box-shadow: 1px 2px 8px black;
+    border-radius: 5px;
+}
+
+ul.tags li {
+    font-size: 14px;
+    margin: 3px;
+    padding-left: 4px;
+    border-radius: 8px;
+    background-color: white;
+    display: inline-block;
+}
+
+ul.tags a {
+    text-decoration: none;
+    display: inline-block;
+    color: #D8290D;
+    font-weight: bold;
+    padding: 2px 6px;
+}
+
+ul.tags a:hover {
+    background-color: #ddd;
+    border-radius: 8px;
+}
+
+
+
+
+
+.progress {
+    height: 20px;
+    background: -webkit-linear-gradient(top, #444, #666);
+    border-radius: 10px;
+    box-shadow: 0px 2px 10px rgba(0,0,0,0.5);
+    position: relative;
+}
+
+.progress div {
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 35%;
+    border-radius: 10px;
+    background: -webkit-linear-gradient(top, #ea364f, #bd132b);
+}
+
+
+/*
+-webkit-user-drag: auto;
+-webkit-user-select: text;
+*/
+

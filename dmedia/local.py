@@ -28,6 +28,8 @@ from random import Random
 from filestore import check_id, check_root_hash, FileStore
 import microfiber
 
+from dmedia.util import get_db
+
 
 class NoSuchFile(Exception):
     def __init__(self, _id):
@@ -157,7 +159,7 @@ class LocalStores:
 
 class LocalSlave:
     def __init__(self, env):
-        self.db = microfiber.Database('dmedia', env)
+        self.db = get_db(env)
         self.last_rev = None
 
     def update_stores(self):
