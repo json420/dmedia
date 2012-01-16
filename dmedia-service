@@ -29,8 +29,6 @@ Note that because this script must be Python2, it can't import anything from the
 """
 
 import argparse
-import os
-from os import path
 import logging
 import time
 import sys
@@ -40,23 +38,23 @@ import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 from microfiber import Database, NotFound
+from gi.repository import GObject
 
 import dmedia
 
 BUS = 'org.freedesktop.DMedia'
 IFACE = BUS
 log = logging.getLogger()
-service3 = path.join(path.dirname(path.abspath(__file__)), 'dmedia-service3')
-assert path.isfile(service3)
 
+GObject.threads_init()
 DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
 
 
 class DMedia(dbus.service.Object):
-    def __init__(self, bus, mainloop):
+    def __init__(self, bus):
         self._bus = bus
-        self._mainloop = mainloop
+        self._mainloop = GObject.MainLoop()
 
         log.info('Binding to %r', bus)
         super(DMedia, self).__init__(session, object_path='/')
@@ -73,6 +71,12 @@ class DMedia(dbus.service.Object):
         env['machine_id'] = self._machine_id
         return env
 
+    def run(self):
+        self._mainloop.run()
+
+    def kill(self):
+        self._mainloop.quit()
+
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
         """
@@ -85,7 +89,7 @@ class DMedia(dbus.service.Object):
         """
         Kill the `dmedia-service` process.
         """
-        self._mainloop.quit()
+        self.kill()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
@@ -114,10 +118,9 @@ parser.add_argument('--bus',
 args = parser.parse_args()
 dmedia.configure_logging()
 
-from gi.repository import GObject
-GObject.threads_init()
 
-mainloop = GObject.MainLoop()
-service = DMedia(args.bus, mainloop)
-mainloop.run()
-service.Kill()
+service = DMedia(args.bus)
+try:
+    service.run()
+finally:
+    service.kill()
