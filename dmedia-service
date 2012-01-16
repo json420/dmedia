@@ -31,7 +31,6 @@ Note that because this script must be Python2, it can't import anything from the
 import argparse
 import os
 from os import path
-from subprocess import Popen
 import logging
 import time
 import sys
@@ -56,7 +55,6 @@ session = dbus.SessionBus()
 
 class DMedia(dbus.service.Object):
     def __init__(self, bus, mainloop):
-        self._killed = False
         self._bus = bus
         self._mainloop = mainloop
 
@@ -67,19 +65,7 @@ class DMedia(dbus.service.Object):
         self._dc3 = session.get_object('org.freedesktop.DC3', '/')
         self._machine_id = None
         env = self._get_env()
-
-        log.info('Starting %r', service3)
-        self._child = Popen([service3, '--bus', bus])
-        db = Database('dmedia-0', env)
-        while True:
-            try:
-                time.sleep(0.1)
-                doc = db.get('_local/dmedia')
-                self._machine_id = doc['machine_id']
-                log.info('machine_id = %r', self._machine_id)
-                break
-            except NotFound:
-                pass
+        self._machine_id = 'nope'
 
     def _get_env(self):
         log.info('Calling DC3.GetEnv()')
@@ -99,12 +85,6 @@ class DMedia(dbus.service.Object):
         """
         Kill the `dmedia-service` process.
         """
-        if self._killed:
-            return
-        self._killed = True
-        log.info('Killing dmedia core service on %r', self._bus)
-        self.FwdKill()
-        self._child.wait()
         self._mainloop.quit()
 
     @dbus.service.signal(IFACE, signature='')
