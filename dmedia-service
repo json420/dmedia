@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # dmedia: distributed media library
 # Copyright (C) 2011 Novacut Inc
@@ -37,11 +37,12 @@ import time
 import sys
 import json
 
-import xdg.BaseDirectory
 import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
-from dc3lib.microfiber import Database, NotFound
+from microfiber import Database, NotFound
+
+import dmedia
 
 
 __version__ = '12.01.0'
@@ -53,30 +54,6 @@ assert path.isfile(service3)
 
 DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
-
-
-def configure_logging():
-    format = [
-        '%(levelname)s',
-        '%(message)s',
-    ]
-    script = path.abspath(sys.argv[0])
-    namespace = path.basename(script)
-    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
-    if not path.exists(cache):
-        os.makedirs(cache)
-    filename = path.join(cache, namespace + '.log')
-    if path.exists(filename):
-        os.rename(filename, filename + '.previous')
-    logging.basicConfig(
-        filename=filename,
-        filemode='w',
-        level=logging.DEBUG,
-        format='\t'.join(format),
-    )
-    logging.info('script: %r', script)
-    logging.info('dmedia.__file__: %r', __file__)
-    logging.info('dmedia.__version__: %r', __version__)
 
 
 class DMedia(dbus.service.Object):
@@ -169,7 +146,7 @@ parser.add_argument('--bus',
     help='DBus bus name; default is %(default)r',
 )
 args = parser.parse_args()
-configure_logging()
+dmedia.configure_logging()
 
 from gi.repository import GObject
 GObject.threads_init()
