@@ -41,6 +41,7 @@ from microfiber import Database, NotFound
 from gi.repository import GObject
 
 import dmedia
+from dmedia.core import Core
 
 BUS = 'org.freedesktop.DMedia'
 IFACE = BUS
@@ -51,27 +52,32 @@ DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
 
 
-class DMedia(dbus.service.Object):
+class Service(dbus.service.Object):
     def __init__(self, bus):
         self._bus = bus
         self._mainloop = GObject.MainLoop()
 
         log.info('Binding to %r', bus)
-        super(DMedia, self).__init__(session, object_path='/')
+        super(Service, self).__init__(session, object_path='/')
         self._busname = dbus.service.BusName(bus, session)
-
-        self._dc3 = session.get_object('org.freedesktop.DC3', '/')
-        self._machine_id = None
-        env = self._get_env()
-        self._machine_id = 'nope'
 
     def _get_env(self):
         log.info('Calling DC3.GetEnv()')
-        env = json.loads(self._dc3.GetEnv())
+        
         env['machine_id'] = self._machine_id
         return env
 
+    def _start_core(self):
+        self._dc3 = session.get_object('org.freedesktop.DC3', '/')
+        env = json.loads(self._dc3.GetEnv())
+        print(env)
+
+        self._core = Core(env)
+        if len(self._core.stores) == 0:
+            self._core.add_filestore('/home')
+
     def run(self):
+        self._start_core()
         self._mainloop.run()
 
     def kill(self):
@@ -119,7 +125,7 @@ args = parser.parse_args()
 dmedia.configure_logging()
 
 
-service = DMedia(args.bus)
+service = Service(args.bus)
 try:
     service.run()
 finally:
