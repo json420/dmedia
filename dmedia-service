@@ -87,10 +87,6 @@ class DMedia(dbus.service.Object):
         """
         self._mainloop.quit()
 
-    @dbus.service.signal(IFACE, signature='')
-    def FwdKill(self):
-        pass
-
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
         """
@@ -100,18 +96,10 @@ class DMedia(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def AddFileStore(self, parentdir):
-        self.FwdAddFileStore(parentdir)
-
-    @dbus.service.signal(IFACE, signature='s')
-    def FwdAddFileStore(self, parentdir):
         pass
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def RemoveFileStore(self, parentdir):
-        self.FwdRemoveFileStore(parentdir)
-
-    @dbus.service.signal(IFACE, signature='s')
-    def FwdRemoveFileStore(self, parentdir):
         pass
 
 
