@@ -44,8 +44,6 @@ from microfiber import Database, NotFound
 
 import dmedia
 
-
-__version__ = '12.01.0'
 BUS = 'org.freedesktop.DMedia'
 IFACE = BUS
 log = logging.getLogger()
@@ -94,7 +92,7 @@ class DMedia(dbus.service.Object):
         """
         Return dmedia version.
         """
-        return __version__
+        return dmedia.__version__
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def Kill(self):
@@ -140,7 +138,7 @@ class DMedia(dbus.service.Object):
 parser = argparse.ArgumentParser(
     description='DBus service @{}'.format(BUS),
 )
-parser.add_argument('--version', action='version', version=__version__)
+parser.add_argument('--version', action='version', version=dmedia.__version__)
 parser.add_argument('--bus',
     default=BUS,
     help='DBus bus name; default is %(default)r',
@@ -152,6 +150,6 @@ from gi.repository import GObject
 GObject.threads_init()
 
 mainloop = GObject.MainLoop()
-dmedia = DMedia(args.bus, mainloop)
+service = DMedia(args.bus, mainloop)
 mainloop.run()
-dmedia.Kill()
+service.Kill()
