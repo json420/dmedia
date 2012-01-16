@@ -41,7 +41,8 @@ from microfiber import Database, NotFound
 from gi.repository import GObject
 
 import dmedia
-from dmedia.core import Core
+from dmedia.core import Core, start_file_server
+from dmedia.service.avahi import Avahi
 
 BUS = 'org.freedesktop.DMedia'
 IFACE = BUS
@@ -53,35 +54,41 @@ session = dbus.SessionBus()
 
 
 class Service(dbus.service.Object):
+    httpd = None
+    avahi = None
+
     def __init__(self, bus):
-        self._bus = bus
-        self._mainloop = GObject.MainLoop()
+        self.bus = bus
+        self.mainloop = GObject.MainLoop()
+        log.info('DBus: binding to %r', bus)
+        super().__init__(session, object_path='/')
+        self.busname = dbus.service.BusName(bus, session)
 
-        log.info('Binding to %r', bus)
-        super(Service, self).__init__(session, object_path='/')
-        self._busname = dbus.service.BusName(bus, session)
-
-    def _get_env(self):
-        log.info('Calling DC3.GetEnv()')
-        
-        env['machine_id'] = self._machine_id
-        return env
-
-    def _start_core(self):
-        self._dc3 = session.get_object('org.freedesktop.DC3', '/')
-        env = json.loads(self._dc3.GetEnv())
-        print(env)
-
-        self._core = Core(env)
-        if len(self._core.stores) == 0:
-            self._core.add_filestore('/home')
+    def start_core(self):
+        self.dc3 = session.get_object('org.freedesktop.DC3', '/')
+        env = json.loads(self.dc3.GetEnv())
+        self.core = Core(env)
+        self.env_s = json.dumps(self.core.env, sort_keys=True)
+        if len(self.core.stores) == 0:
+            self.core.add_filestore('/home')
+ 
+    def start_httpd(self):
+        (self.httpd, self.port) = start_file_server(self.core.env)
+        self.avahi = Avahi(self.core.env, self.port)
+        self.avahi.run()
 
     def run(self):
-        self._start_core()
-        self._mainloop.run()
+        self.start_core()
+        self.start_httpd()
+        self.mainloop.run()
 
     def kill(self):
-        self._mainloop.quit()
+        if self.avahi is not None:
+            self.avahi.free()
+        if self.httpd is not None:
+            self.httpd.terminate()
+            self.httpd.join()
+        self.mainloop.quit()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -102,7 +109,7 @@ class Service(dbus.service.Object):
         """
         Return dmedia env as JSON string.
         """
-        return json.dumps(self._get_env())
+        return self.env_s
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def AddFileStore(self, parentdir):
