@@ -28,11 +28,10 @@ Note that because this script must be Python2, it can't import anything from the
 `dmedia` package as that will only be installed under Python3.
 """
 
-import argparse
+import optparse
 import logging
-import time
-import sys
 import json
+from os import path
 
 import dbus
 import dbus.service
@@ -42,9 +41,11 @@ from gi.repository import GObject
 
 import dmedia
 from dmedia.core import Core, start_file_server
+from dmedia.service.dbus import UDisks
 from dmedia.service.avahi import Avahi
 
-BUS = 'org.freedesktop.DMedia'
+
+BUS = 'org.freedesktop.Dmedia'
 IFACE = BUS
 log = logging.getLogger()
 
@@ -53,22 +54,30 @@ DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
 
 
+def dumps(obj):
+    return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
+
+
 class Service(dbus.service.Object):
     httpd = None
     avahi = None
 
-    def __init__(self, bus):
+    def __init__(self, bus, env_s):
         self.bus = bus
+        self.env_s = env_s
         self.mainloop = GObject.MainLoop()
         log.info('DBus: binding to %r', bus)
         super().__init__(session, object_path='/')
         self.busname = dbus.service.BusName(bus, session)
 
     def start_core(self):
-        self.dc3 = session.get_object('org.freedesktop.DC3', '/')
-        env = json.loads(self.dc3.GetEnv())
+        if self.env_s is None:
+            self.dc3 = session.get_object('org.freedesktop.DC3', '/')
+            env = json.loads(self.dc3.GetEnv())
+        else:
+            env = json.loads(self.env_s)
         self.core = Core(env)
-        self.env_s = json.dumps(self.core.env, sort_keys=True)
+        self.env_s = dumps(self.core.env)
         if len(self.core.stores) == 0:
             self.core.add_filestore('/home')
  
@@ -89,6 +98,20 @@ class Service(dbus.service.Object):
             self.httpd.terminate()
             self.httpd.join()
         self.mainloop.quit()
+
+    def on_store_added(self, udisks, obj, parentdir, partition, drive):
+        log.info('UDisks store_added: %r', parentdir)
+        try:
+            self.AddFileStore(parentdir)
+        except Exception:
+            log.exception('Could not add FileStore %r', parentdir)
+
+    def on_store_removed(self, udisks, obj, parentdir):
+        log.info('UDisks store_removed: %r', parentdir)
+        try:
+            self.RemoveFileStore(parentdir)
+        except Exception:
+            log.exception('Could not remove FileStore %r', parentdir)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -111,28 +134,45 @@ class Service(dbus.service.Object):
         """
         return self.env_s
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetLocal(self):
+        """
+        Return dmedia env as JSON string.
+        """
+        return dumps(self.core.db.get('_local/dmedia'))
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetPeers(self):
+        """
+        Return dmedia env as JSON string.
+        """
+        return dumps(self.core.db.get('_local/peers')) 
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AddFileStore(self, parentdir):
-        pass
+        fs = self.core.add_filestore(path.abspath(parentdir))
+        return dumps(self.core.db.get(fs.id))
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def RemoveFileStore(self, parentdir):
-        pass
+        fs = self.core.remove_filestore(path.abspath(parentdir))
+        return self.GetLocal()
+
+parser = optparse.OptionParser(
+	version=dmedia.__version__,
+)
+parser.add_option('--env',
+    help='JSON-encoded CouchDB environment (for unit testing)',
+)
+parser.add_option('--bus',
+    help='DBus bus name; default is {!r}'.format(BUS),
+    default=BUS
+)
+(options, args) = parser.parse_args()
 
 
-parser = argparse.ArgumentParser(
-    description='DBus service @{}'.format(BUS),
-)
-parser.add_argument('--version', action='version', version=dmedia.__version__)
-parser.add_argument('--bus',
-    default=BUS,
-    help='DBus bus name; default is %(default)r',
-)
-args = parser.parse_args()
 dmedia.configure_logging()
-
-
-service = Service(args.bus)
+service = Service(options.bus, options.env)
 try:
     service.run()
 finally:
