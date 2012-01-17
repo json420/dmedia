@@ -140,14 +140,14 @@ class Service(dbus.service.Object):
         return self.env_s
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def GetLocalDmedia(self):
+    def LocalDmedia(self):
         """
         Return the _local/dmedia doc.
         """
         return dumps(self.core.db.get('_local/dmedia'))
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def GetLocalPeers(self):
+    def LocalPeers(self):
         """
         Return the _local/peers doc.
         """
@@ -156,12 +156,12 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AddFileStore(self, parentdir):
         fs = self.core.add_filestore(parentdir)
-        return self.GetLocalDmedia()
+        return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def RemoveFileStore(self, parentdir):
         fs = self.core.remove_filestore(parentdir)
-        return self.GetLocalDmedia()
+        return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def Resolve(self, _id):

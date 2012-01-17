@@ -20,8 +20,8 @@ proxy = session.get(bus, '/', 'org.freedesktop.Dmedia')
 try:
     print(proxy.Version())
     print(proxy.GetEnv())
-    print(proxy.GetLocalDmedia())
-    print(proxy.GetLocalPeers())
+    print(proxy.LocalDmedia())
+    print(proxy.LocalPeers())
     print(proxy.RemoveFileStore('(s)', '/home'))
     print(proxy.AddFileStore('(s)', '/home'))
 finally:
