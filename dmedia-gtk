@@ -157,7 +157,7 @@ class App(BaseApp):
     splash = 'splash.html'
     page = 'index.html'
     title = 'Dmedia'
-    proxy_bus = 'org.freedesktop.DMedia'
+    proxy_bus = dmedia.BUS
 
     signals = {
         'create_project': ['title'],

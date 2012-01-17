@@ -163,7 +163,7 @@ setup(
             ]
         ),
         ('share/dbus-1/services/',
-            ['share/org.freedesktop.DMedia.service']
+            ['share/org.freedesktop.Dmedia.service']
         ),
     ],
 )

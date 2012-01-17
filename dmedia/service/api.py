@@ -30,10 +30,10 @@ from . import dbus
 
 class DMedia:
     """
-    Talk to "org.freedesktop.DMedia".
+    Talk to "org.freedesktop.Dmedia".
     """
 
-    def __init__(self, bus='org.freedesktop.DMedia'):
+    def __init__(self, bus='org.freedesktop.Dmedia'):
         self.bus = bus
         self._proxy = None
 

@@ -45,7 +45,7 @@ from dmedia.service.dbus import UDisks
 from dmedia.service.avahi import Avahi
 
 
-BUS = 'org.freedesktop.Dmedia'
+BUS = dmedia.BUS
 IFACE = BUS
 log = logging.getLogger()
 
