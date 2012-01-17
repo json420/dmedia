@@ -159,7 +159,6 @@ setup(
         ('lib/dmedia',
             [
                 'dmedia-service',
-                'dmedia-service3',
                 'share/init-filestore',
             ]
         ),
