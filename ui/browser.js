@@ -287,7 +287,7 @@ Browser.prototype = {
 
     on_window_keydown: function(event) {
         var keyID = event.keyIdentifier;
-        if (['Up', 'Down', 'Enter', 'U+0008', 'U+007F'].indexOf(keyID) > -1 && !this.tagger.input.value) {
+        if (['Up', 'Down', 'Enter', 'U+007F'].indexOf(keyID) > -1 && !this.tagger.input.value) {
             event.preventDefault();
             event.stopPropagation();
             if (keyID == 'Up') {
@@ -299,7 +299,7 @@ Browser.prototype = {
             else if (keyID == 'Enter') {
                 this.accept();
             }
-            else {  // Backspace or Delete
+            else { // Delete
                 this.reject();
             }
         }
