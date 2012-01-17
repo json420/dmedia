@@ -39,6 +39,7 @@ import logging
 from microfiber import Database, NotFound, random_id2
 from filestore import FileStore, check_root_hash, check_id
 
+import dmedia
 from dmedia import schema
 from dmedia.local import LocalStores
 from dmedia.views import init_views
@@ -133,6 +134,7 @@ class Core(Base):
             self.db.save(machine)
         self.machine_id = self.local['machine_id']
         self.env['machine_id'] = self.machine_id
+        self.env['version'] = dmedia.__version__
         log.info('machine_id = %r', self.machine_id)
 
     def _init_stores(self):

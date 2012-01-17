@@ -25,6 +25,9 @@
 Dmedia DBus service on org.freedesktop.Dmedia.
 """
 
+import time
+start_time = time.time()
+
 import optparse
 import logging
 import json
@@ -121,12 +124,13 @@ class Service(dbus.service.Object):
         """
         return dmedia.__version__
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
         """
         Kill the `dmedia-service` process.
         """
         self.kill()
+        return int(time.time() - start_time)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
