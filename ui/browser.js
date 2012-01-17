@@ -150,10 +150,8 @@ function Browser(project, player, items) {
 
     this.project = project;
 
-    this.tagger = new Tagger(this.project, 'tag_value', 'tag_matches');
+    this.tagger = new Tagger(this.project, 'tag_form');
     this.tagger.ontag = $bind(this.on_tag, this);
-
-    $('tag_button').onclick = $bind(this.tagger.choose, this.tagger);
 
     window.addEventListener('keydown', $bind(this.on_window_keydown, this));
     window.addEventListener('keypress', $bind(this.on_window_keypress, this));
@@ -284,6 +282,7 @@ Browser.prototype = {
         var delta = wheel_delta(event) * 112;  // 108px height + 2px border
         this.items.parent.scrollTop += delta;
     },
+
 
     on_window_keydown: function(event) {
         var keyID = event.keyIdentifier;

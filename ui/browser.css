@@ -130,23 +130,28 @@ input, button {
     border-width: 1px;
     line-height: 22px;  /* 2px less becaues of 1px border */
     border-style: solid;
-    border-color: #000;
     border-radius: 5px;
-    box-shadow: 1px 2px 8px black;
+    box-shadow: 1px 2px 6px black;
 }
 
 input {
     color: black;
     border-color: black;
     color: white;
+    border-color: #000;
     background: -webkit-linear-gradient(top, #444, #666);
 }
 
 button {
+    border-color: #aaa;
     color: white;
-    border-color: #fff;
-    background:-webkit-linear-gradient(top, #bbb, #000);
+    background:-webkit-linear-gradient(top, #aaa, #000);
     font-weight: bold;
+}
+
+button:disabled {
+    font-weight: normal;
+    font-style: italic;
 }
 
 input:focus, button:focus {

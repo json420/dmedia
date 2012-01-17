@@ -189,8 +189,12 @@ Items.prototype = {
         }
     },
 
-    get current(value) {
+    get current() {
         return this._current;
+    },
+    
+    get length() {
+        return this.parent.children.length;
     },
 
     clear: function() {
@@ -295,7 +299,7 @@ function create_tag(tag) {
 }
 
 
-function Tagger(project, input, matches) {
+function Tagger(project, form) {
     this.key = null;
     this.old_value = '';
     this.req = null;
@@ -303,14 +307,19 @@ function Tagger(project, input, matches) {
 
     this.project = project;
 
-    this.input = $(input);
+    this.form = $(form);
+    this.input = this.form.getElementsByTagName('input')[0];
+    this.button = this.form.getElementsByTagName('button')[0];
+    var ul = this.form.getElementsByTagName('ul')[0];
+    this.matches = new Items(ul);
+
+    this.form.onsubmit = $bind(this.on_submit, this);
+
     this.input.onkeydown = $bind(this.on_keydown, this);
-    this.input.onkeyup = $bind(this.on_keyup, this);
-    
+    this.input.oninput = $bind(this.on_input, this);
     this.input.onfocus = $bind(this.on_focus, this);
     this.input.onblur = $bind(this.on_blur, this);
 
-    this.matches = new Items(matches);
     this.matches.onchange = $bind(this.on_change, this);
     
     this.focus();
@@ -333,6 +342,7 @@ Tagger.prototype = {
         this.input.value = '';
         this.old_value = '';
         this.key = null;
+        this.button.disabled = true;
         this.matches.reset();
     },
 
@@ -365,28 +375,25 @@ Tagger.prototype = {
     },
 
     on_keydown: function(event) {
+        if (! (this.input.value && this.matches.length)) {
+            return;
+        }
+        // U+0009 = Tab
         var keyID = event.keyIdentifier;
-        if (this.input.value && ['Up', 'Enter', 'Down', 'U+0009'].indexOf(keyID) > -1) {
+        if (['Up', 'Down', 'U+0009'].indexOf(keyID) > -1) {
             event.preventDefault();
             event.stopPropagation();
             if (keyID == 'Up') {
                 this.matches.previous(true);
             }
-            else if (keyID == 'Enter'){  // keyID == 'Enter'
-                this.choose();
-            }
             else {  // Down or Tab
                 this.matches.next(true);
             }
- 
         }
     },
 
-    on_keyup: function(event) {
-        var keyID = event.keyIdentifier;
-        if (['Up', 'Down', 'Enter'].indexOf(keyID) > -1) {
-            return;
-        }
+    on_input: function(event) {
+        this.button.disabled = (!this.input.value);
         this.old_value = this.input.value;
         var key = tag_key(this.input.value);
         if (key != this.key) {
@@ -395,12 +402,17 @@ Tagger.prototype = {
         }
     },
 
+    on_submit: function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.choose();
+    },
+
     choose: function() {
-        console.log('choose');
+        if (!this.input.value) {
+            return;
+        }
         if (!this.matches.current) {
-            if (!this.input.value) {
-                return;
-            }
             var key = tag_key(this.input.value);
             var rows = this.project.db.view_sync('tag', 'key',
                 {key: key, limit: 1, reduce: false}
@@ -433,6 +445,7 @@ Tagger.prototype = {
             this.input.value = doc.value;
             this.key = doc.key;
         }
+        this.focus();
     },
 
     on_focus: function(event) {
