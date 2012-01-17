@@ -319,6 +319,6 @@ Browser.prototype = {
 
 
 window.onload = function() {
-    UI.project = new Project();
+    UI.project = new Project(db);
     UI.picker = new Picker(UI.project);
 }

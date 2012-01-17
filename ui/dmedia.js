@@ -41,7 +41,7 @@ function Importer() {
 
     this.items = new Items('projects');
     this.items.onchange = $bind(this.on_item_change, this);
-    this.project = new Project();
+    this.project = new Project(db);
 
     Hub.connect('project_created', $bind(this.on_project_created, this));
 

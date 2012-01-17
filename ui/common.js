@@ -114,7 +114,8 @@ ProgressBar.prototype = {
 
 
 
-function Project(id) {
+function Project(coredb, id) {
+    this.coredb = coredb;
     if (! this.load(id)) {
         this.load_recent();
     }
@@ -128,13 +129,15 @@ Project.prototype = {
             return false;
         }
         this.id = id;
-        this.doc = db.get_sync(id);
+        this.doc = this.coredb.get_sync(id);
         this.db = new couch.Database(this.doc['db_name']);
         return true;
     },
 
     load_recent: function() {
-        var rows = db.view_sync('project', 'atime', {limit: 1, descending: true})['rows'];
+        var rows = this.coredb.view_sync('project', 'atime',
+               {limit: 1, descending: true}
+        )['rows'];
         if (rows.length >= 1) {
             this.load(rows[0].id);
         }
@@ -147,7 +150,7 @@ Project.prototype = {
         /* Update the doc.atime timestamp */
         if (this.doc) {
             this.doc.atime = couch.time();
-            db.save(this.doc);
+            this.coredb.save(this.doc);
         }
     },
 
