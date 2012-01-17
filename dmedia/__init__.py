@@ -27,6 +27,7 @@ WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
 """
 
 __version__ = '12.01.0'
+BUS = 'org.freedesktop.Dmedia'
 
 
 def configure_logging():

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # dmedia: distributed media library
 # Copyright (C) 2011 Novacut Inc
@@ -22,159 +22,168 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Hacky shim till it's possible to implement DBus servers in PyGI.
-
-Note that because this script must be Python2, it can't import anything from the
-`dmedia` package as that will only be installed under Python3.
+Dmedia DBus service on org.freedesktop.Dmedia.
 """
 
-import argparse
-import os
-from os import path
-from subprocess import Popen
-import logging
 import time
-import sys
-import json
+start_time = time.time()
 
-import xdg.BaseDirectory
+import optparse
+import logging
+import json
+from os import path
+
 import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
-from dc3lib.microfiber import Database, NotFound
+from microfiber import Database, NotFound
+from gi.repository import GObject
+
+import dmedia
+from dmedia.core import Core, start_file_server
+from dmedia.service.dbus import UDisks
+from dmedia.service.avahi import Avahi
 
 
-__version__ = '12.01.0'
-BUS = 'org.freedesktop.DMedia'
+BUS = dmedia.BUS
 IFACE = BUS
 log = logging.getLogger()
-service3 = path.join(path.dirname(path.abspath(__file__)), 'dmedia-service3')
-assert path.isfile(service3)
 
+GObject.threads_init()
 DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
 
 
-def configure_logging():
-    format = [
-        '%(levelname)s',
-        '%(message)s',
-    ]
-    script = path.abspath(sys.argv[0])
-    namespace = path.basename(script)
-    cache = path.join(xdg.BaseDirectory.xdg_cache_home, 'dmedia')
-    if not path.exists(cache):
-        os.makedirs(cache)
-    filename = path.join(cache, namespace + '.log')
-    if path.exists(filename):
-        os.rename(filename, filename + '.previous')
-    logging.basicConfig(
-        filename=filename,
-        filemode='w',
-        level=logging.DEBUG,
-        format='\t'.join(format),
-    )
-    logging.info('script: %r', script)
-    logging.info('dmedia.__file__: %r', __file__)
-    logging.info('dmedia.__version__: %r', __version__)
+def dumps(obj):
+    return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
 
 
-class DMedia(dbus.service.Object):
-    def __init__(self, bus, mainloop):
-        self._killed = False
-        self._bus = bus
-        self._mainloop = mainloop
+class Service(dbus.service.Object):
+    httpd = None
+    avahi = None
 
-        log.info('Binding to %r', bus)
-        super(DMedia, self).__init__(session, object_path='/')
-        self._busname = dbus.service.BusName(bus, session)
+    def __init__(self, bus, env_s):
+        self.bus = bus
+        self.env_s = env_s
+        self.mainloop = GObject.MainLoop()
+        log.info('DBus: binding to %r', bus)
+        super().__init__(session, object_path='/')
+        self.busname = dbus.service.BusName(bus, session)
 
-        self._dc3 = session.get_object('org.freedesktop.DC3', '/')
-        self._machine_id = None
-        env = self._get_env()
+    def start_core(self):
+        if self.env_s is None:
+            self.dc3 = session.get_object('org.freedesktop.DC3', '/')
+            env = json.loads(self.dc3.GetEnv())
+        else:
+            env = json.loads(self.env_s)
+        self.udisks = UDisks()
+        self.core = Core(env, self.udisks.get_parentdir_info)
+        self.env_s = dumps(self.core.env)
+        if len(self.core.stores) == 0:
+            self.core.add_filestore('/home')
+        self.udisks.connect('store_added', self.on_store_added)
+        self.udisks.connect('store_removed', self.on_store_removed)
+        self.udisks.monitor()
+ 
+    def start_httpd(self):
+        (self.httpd, self.port) = start_file_server(self.core.env)
+        self.avahi = Avahi(self.core.env, self.port)
+        self.avahi.run()
 
-        log.info('Starting %r', service3)
-        self._child = Popen([service3, '--bus', bus])
-        db = Database('dmedia-0', env)
-        while True:
-            try:
-                time.sleep(0.1)
-                doc = db.get('_local/dmedia')
-                self._machine_id = doc['machine_id']
-                log.info('machine_id = %r', self._machine_id)
-                break
-            except NotFound:
-                pass
+    def run(self):
+        self.start_core()
+        self.start_httpd()
+        self.mainloop.run()
 
-    def _get_env(self):
-        log.info('Calling DC3.GetEnv()')
-        env = json.loads(self._dc3.GetEnv())
-        env['machine_id'] = self._machine_id
-        return env
+    def kill(self):
+        if self.avahi is not None:
+            self.avahi.free()
+        if self.httpd is not None:
+            self.httpd.terminate()
+            self.httpd.join()
+        self.mainloop.quit()
+
+    def on_store_added(self, udisks, obj, parentdir, partition, drive):
+        log.info('UDisks store_added: %r', parentdir)
+        try:
+            self.AddFileStore(parentdir)
+        except Exception:
+            log.exception('Could not add FileStore %r', parentdir)
+
+    def on_store_removed(self, udisks, obj, parentdir):
+        log.info('UDisks store_removed: %r', parentdir)
+        try:
+            self.RemoveFileStore(parentdir)
+        except Exception:
+            log.exception('Could not remove FileStore %r', parentdir)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
         """
         Return dmedia version.
         """
-        return __version__
+        return dmedia.__version__
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
         """
         Kill the `dmedia-service` process.
         """
-        if self._killed:
-            return
-        self._killed = True
-        log.info('Killing dmedia core service on %r', self._bus)
-        self.FwdKill()
-        self._child.wait()
-        self._mainloop.quit()
-
-    @dbus.service.signal(IFACE, signature='')
-    def FwdKill(self):
-        pass
+        self.kill()
+        return int(time.time() - start_time)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
         """
         Return dmedia env as JSON string.
         """
-        return json.dumps(self._get_env())
+        return self.env_s
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def LocalDmedia(self):
+        """
+        Return the _local/dmedia doc.
+        """
+        return dumps(self.core.db.get('_local/dmedia'))
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def LocalPeers(self):
+        """
+        Return the _local/peers doc.
+        """
+        return dumps(self.core.db.get('_local/peers')) 
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AddFileStore(self, parentdir):
-        self.FwdAddFileStore(parentdir)
+        fs = self.core.add_filestore(parentdir)
+        return self.LocalDmedia()
 
-    @dbus.service.signal(IFACE, signature='s')
-    def FwdAddFileStore(self, parentdir):
-        pass
-
-    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def RemoveFileStore(self, parentdir):
-        self.FwdRemoveFileStore(parentdir)
+        fs = self.core.remove_filestore(parentdir)
+        return self.LocalDmedia()
 
-    @dbus.service.signal(IFACE, signature='s')
-    def FwdRemoveFileStore(self, parentdir):
-        pass
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def Resolve(self, _id):
+        return self.core.resolve(_id)
 
 
-parser = argparse.ArgumentParser(
-    description='DBus service @{}'.format(BUS),
+parser = optparse.OptionParser(
+	version=dmedia.__version__,
 )
-parser.add_argument('--version', action='version', version=__version__)
-parser.add_argument('--bus',
-    default=BUS,
-    help='DBus bus name; default is %(default)r',
+parser.add_option('--env',
+    help='JSON-encoded CouchDB environment (for unit testing)',
 )
-args = parser.parse_args()
-configure_logging()
+parser.add_option('--bus',
+    help='DBus bus name; default is {!r}'.format(BUS),
+    default=BUS
+)
+(options, args) = parser.parse_args()
 
-from gi.repository import GObject
-GObject.threads_init()
 
-mainloop = GObject.MainLoop()
-dmedia = DMedia(args.bus, mainloop)
-mainloop.run()
-dmedia.Kill()
+dmedia.configure_logging()
+service = Service(options.bus, options.env)
+try:
+    service.run()
+finally:
+    service.kill()

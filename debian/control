@@ -11,6 +11,8 @@ Homepage: https://launchpad.net/dmedia
 Package: dmedia
 Architecture: all
 Depends: ${misc:Depends}, python3 (>= 3.2),
+    python3-gi | python3-gobject,
+    python3-dbus,
     python3-filestore (>= 12.01),
     python3-microfiber (>= 12.01),
     python3-userwebkit (>= 12.01),

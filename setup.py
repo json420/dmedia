@@ -159,12 +159,11 @@ setup(
         ('lib/dmedia',
             [
                 'dmedia-service',
-                'dmedia-service3',
                 'share/init-filestore',
             ]
         ),
         ('share/dbus-1/services/',
-            ['share/org.freedesktop.DMedia.service']
+            ['share/org.freedesktop.Dmedia.service']
         ),
     ],
 )

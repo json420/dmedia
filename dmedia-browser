@@ -24,18 +24,20 @@
 from urllib.parse import urlparse
 
 from userwebkit import BaseApp
+import dmedia
 from dmedia import local
 
 
 class App(BaseApp):
     name = 'dmedia'
     dbname = 'dmedia-0'
+    version = dmedia.__version__
     title = 'Dmedia Browser'
 
     splash = 'splash.html'
     page = 'browser.html'
 
-    proxy_bus = 'org.freedesktop.DMedia'
+    proxy_bus = dmedia.BUS
     local = None
     
     def dmedia_resolver(self, uri):
