@@ -36,6 +36,7 @@ from os import path
 import dbus
 
 import dmedia
+from dmedia.units import minsec
 
 
 methods = OrderedDict()
@@ -72,6 +73,7 @@ class _Method(metaclass=MethodMeta):
     args = tuple()
 
     def __init__(self, bus):
+        self.bus = bus
         self.proxy = session.get_object(bus, '/')
 
     @classmethod
@@ -84,10 +86,13 @@ class _Method(metaclass=MethodMeta):
     def run(self, args):
         args = self.validate_args(*args)
         method = self.proxy.get_dbus_method(self.__class__.__name__)
-        return method(*args)
+        return self.format_output(method(*args))
 
     def validate_args(self, *args):
         return args
+
+    def format_output(self, output):
+        return output
 
 
 class Version(_Method):
@@ -96,6 +101,9 @@ class Version(_Method):
 
 class Kill(_Method):
     'Shutdown `dmedia-service`'
+    
+    def format_output(self, seconds):
+        return '{} was running for {}'.format(self.bus, minsec(seconds))
 
 
 class GetEnv(_Method):
