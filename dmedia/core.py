@@ -207,3 +207,7 @@ class Core(Base):
         assert set(self.local['stores']) == set(self.stores.parentdirs)
         assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
+    def resolve(self, _id):
+        doc = self.db.get(_id)
+        fs = self.stores.choose_local_store(doc)
+        return fs.stat(_id).name

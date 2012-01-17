@@ -152,12 +152,16 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AddFileStore(self, parentdir):
         fs = self.core.add_filestore(parentdir)
-        return dumps(self.core.db.get(fs.id))
+        return self.GetLocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def RemoveFileStore(self, parentdir):
         fs = self.core.remove_filestore(parentdir)
         return self.GetLocalDmedia()
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def Resolve(self, _id):
+        return self.core.resolve(_id)
 
 
 parser = optparse.OptionParser(
