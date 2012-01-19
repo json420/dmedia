@@ -32,6 +32,7 @@ from collections import OrderedDict
 import sys
 from gettext import ngettext
 from os import path
+import json
 
 import dbus
 
@@ -135,6 +136,28 @@ class Resolve(_Method):
     'Resolve Dmedia file ID into a regular file path'
 
     args = ['file_id']
+
+
+def get_authurl(env):
+    if 'basic' not in env:
+        return env['url']
+    return 'http://{}:{}@localhost:{}/'.format(
+        env['basic']['username'],
+        env['basic']['password'],
+        env['port']
+    )
+
+
+class Futon(_Method):
+    'Open CouchDB Futon UI in default web browser'
+
+    def run(self, args):
+        import json
+        import subprocess
+        env = json.loads(self.proxy.GetEnv())
+        url = get_authurl(env) + '_utils/'
+        subprocess.check_call(['/usr/bin/xdg-open', url])
+        return url
 
 
 parser = optparse.OptionParser(
