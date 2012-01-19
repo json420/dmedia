@@ -156,6 +156,12 @@ class LocalStores:
         store_id = choose_local_store(doc, self.fast, self.slow)
         return self.ids[store_id]
 
+    def sort_by_avail(self):
+        return sorted(self.ids.values(),
+            key=lambda fs: fs.statvfs().avail,
+            reverse=True,
+        )
+
 
 class LocalSlave:
     def __init__(self, env):

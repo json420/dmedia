@@ -31,7 +31,6 @@ start_time = time.time()
 import optparse
 import logging
 import json
-from os import path
 
 import dbus
 import dbus.service
@@ -170,6 +169,12 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def Resolve(self, _id):
         return self.core.resolve(_id)
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def AllocateTmp(self):
+        return self.core.allocate_tmp()
+        
+    
 
 
 parser = optparse.OptionParser(
