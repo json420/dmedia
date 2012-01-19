@@ -222,4 +222,11 @@ class Core(Base):
         tmp_fp = stores[0].allocate_tmp()
         tmp_fp.close()
         return tmp_fp.name
+
+    def hash_and_move(self, tmp):
+        parentdir = path.dirname(path.dirname(path.dirname(tmp)))
+        fs = self.stores.by_parentdir(parentdir)
+        tmp_fp = open(tmp, 'rb')
+        ch = fs.hash_and_move(tmp_fp)
+        return ch.id
         

@@ -139,10 +139,16 @@ class Resolve(_Method):
     'Resolve Dmedia file ID into a regular file path'
 
     args = ['file_id']
-    
-    
+
+
 class AllocateTmp(_Method):
     'Allocate a temporary file for rendering or import'
+
+
+class HashAndMove(_Method):
+    'Allocate a temporary file for rendering or import'
+
+    args = ['tmp_filename']
 
 
 def get_authurl(env):
