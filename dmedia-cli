@@ -32,7 +32,6 @@ from collections import OrderedDict
 import sys
 from gettext import ngettext
 from os import path
-import json
 
 import dbus
 
