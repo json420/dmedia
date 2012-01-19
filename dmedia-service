@@ -31,12 +31,12 @@ start_time = time.time()
 import optparse
 import logging
 import json
-from os import path
 
 import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 from microfiber import Database, NotFound
+import usercouch
 from gi.repository import GObject
 
 import dmedia
@@ -59,6 +59,7 @@ def dumps(obj):
 
 
 class Service(dbus.service.Object):
+    usercouch = None
     httpd = None
     avahi = None
 
@@ -72,8 +73,8 @@ class Service(dbus.service.Object):
 
     def start_core(self):
         if self.env_s is None:
-            self.dc3 = session.get_object('org.freedesktop.DC3', '/')
-            env = json.loads(self.dc3.GetEnv())
+            self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
+            env = self.usercouch.bootstrap()
         else:
             env = json.loads(self.env_s)
         self.udisks = UDisks()
@@ -96,6 +97,8 @@ class Service(dbus.service.Object):
         self.mainloop.run()
 
     def kill(self):
+        if self.usercouch is not None:
+            self.usercouch.kill()
         if self.avahi is not None:
             self.avahi.free()
         if self.httpd is not None:
@@ -166,6 +169,16 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def Resolve(self, _id):
         return self.core.resolve(_id)
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def AllocateTmp(self):
+        return self.core.allocate_tmp()
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def HashAndMove(self, tmp):
+        return self.core.hash_and_move(tmp)
+        
+    
 
 
 parser = optparse.OptionParser(

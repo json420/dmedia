@@ -62,3 +62,33 @@ def configure_logging():
     logging.info('script: %r', script)
     logging.info('dmedia.__file__: %r', __file__)
     logging.info('dmedia.__version__: %r', __version__)
+
+
+def get_dmedia_dir():
+    import os
+    from os import path
+    home = path.abspath(os.environ['HOME'])
+    if not path.isdir(home):
+        raise Exception('$HOME is not a directory: {!r}'.format(home))
+    share = path.join(home, '.local', 'share', 'dmedia')
+    if not path.exists(share):
+        os.makedirs(share)
+
+    # FIXME: Migration hack that should do away in 12.02:
+    databases = path.join(share, 'databases')
+    if not path.exists(databases):
+        os.mkdir(databases)
+        dc3 = path.join(home, '.local', 'share', 'dc3')
+        if path.isdir(dc3):
+            import shutil
+            for name in os.listdir(dc3):
+                if name.startswith('_') or not name.endswith('.couch'):
+                    continue
+                src = path.join(dc3, name)
+                if not path.isfile(src):
+                    continue
+                dst = path.join(databases, name)
+                if not path.exists(dst):
+                    shutil.copy2(src, dst)
+
+    return share

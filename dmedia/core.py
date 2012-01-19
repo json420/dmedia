@@ -43,6 +43,7 @@ import dmedia
 from dmedia import schema
 from dmedia.local import LocalStores
 from dmedia.views import init_views
+from dmedia.units import bytes10
 
 
 LOCAL_ID = '_local/dmedia'
@@ -213,3 +214,19 @@ class Core(Base):
         doc = self.db.get(_id)
         fs = self.stores.choose_local_store(doc)
         return fs.stat(_id).name
+
+    def allocate_tmp(self):
+        stores = self.stores.sort_by_avail()
+        if len(stores) == 0:
+            raise Exception('no filestores present')
+        tmp_fp = stores[0].allocate_tmp()
+        tmp_fp.close()
+        return tmp_fp.name
+
+    def hash_and_move(self, tmp):
+        parentdir = path.dirname(path.dirname(path.dirname(tmp)))
+        fs = self.stores.by_parentdir(parentdir)
+        tmp_fp = open(tmp, 'rb')
+        ch = fs.hash_and_move(tmp_fp)
+        return ch.id
+        
