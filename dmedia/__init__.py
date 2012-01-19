@@ -62,3 +62,15 @@ def configure_logging():
     logging.info('script: %r', script)
     logging.info('dmedia.__file__: %r', __file__)
     logging.info('dmedia.__version__: %r', __version__)
+
+
+def get_dmedia_dir():
+    import os
+    from os import path
+    home = path.abspath(os.environ['HOME'])
+    if not path.isdir(home):
+        raise Exception('$HOME is not a directory: {!r}'.format(home))
+    share = path.join(home, '.local', 'share', 'dmedia')
+    if not path.exists(share):
+        os.makedirs(share)
+    return share
