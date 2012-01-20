@@ -13,6 +13,36 @@ db = Database(DB_NAME, env)
 loc = LocalSlave(env)
 (fs, fs_doc) = init_filestore('/home')
 
+
+def default_job(src, dst):
+    return {
+        'src': src,
+        'dst': dst,
+        'mux': 'webmmux',
+        'video': {
+            'encoder': {
+                'name': 'vp8enc',
+                'props': {
+                    'quality': 10,
+                    'max-keyframe-distance': 15,
+                    'speed': 2,
+                    #'threads': 2,
+                },
+            },
+            'filter': {
+                'mime': 'video/x-raw-yuv',
+                'caps': {'width': 960, 'height': 540},
+            },
+        },
+        'audio': {
+            'encoder': {
+                'name': 'vorbisenc',
+                'props': {'quality': 0.3},
+            },
+        },
+    }
+
+
 r = db.view('user', 'needsproxy')
 for row in r['rows']:
     _id = row['id']
@@ -23,7 +53,8 @@ for row in r['rows']:
     print(src)
     tmp_fp = fs.allocate_tmp()
     start = time.time()
-    check_call(['./dmedia-transcoder', src, tmp_fp.name])
+    job = default_job(src, tmp_fp.name)
+    check_call(['./dmedia-transcoder', json.dumps(job)])
     elapsed = time.time() - start
     ch = fs.hash_and_move(tmp_fp)
     st = fs.stat(ch.id)
@@ -45,8 +76,8 @@ for row in r['rows']:
     doc['proxies'][ch.id] = {
         'bytes': st.size,
         'content_type': 'video/webm',
-        'width': 640,
-        'height': 360,
+        'width': 960,
+        'height': 540,
     }
     db.save(doc)
     print('')

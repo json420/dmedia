@@ -160,6 +160,7 @@ setup(
             [
                 'dmedia-service',
                 'share/init-filestore',
+                'dmedia-transcoder',
             ]
         ),
         ('share/dbus-1/services/',
