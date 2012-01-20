@@ -36,6 +36,14 @@ from collections import namedtuple
 
 from filestore import hash_fp
 
+import dmedia
+
+
+dmedia_extract = 'dmedia-extract'
+tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
+if path.isfile(path.join(tree, 'setup.py')):
+    dmedia_extract = path.join(tree, dmedia_extract)
+
 
 Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
@@ -82,18 +90,6 @@ EXIF_REMAP = {
     'camera_serial': ['SerialNumber'],
     'focal_length': ['FocalLength'],
 }
-
-
-TOTEM_REMAP = (
-    ('duration', 'TOTEM_INFO_DURATION'),
-    ('width', 'TOTEM_INFO_VIDEO_WIDTH'),
-    ('height', 'TOTEM_INFO_VIDEO_HEIGHT'),
-    ('codec_video', 'TOTEM_INFO_VIDEO_CODEC'),
-    ('fps', 'TOTEM_INFO_FPS'),
-    ('codec_audio', 'TOTEM_INFO_AUDIO_CODEC'),
-    ('sample_rate', 'TOTEM_INFO_AUDIO_SAMPLE_RATE'),
-    ('channels', 'TOTEM_INFO_AUDIO_CHANNELS'),
-)
 
 
 #### Utility functions that do heavy lifting:
@@ -172,16 +168,8 @@ def extract_video_info(filename):
     Attempt to extract video metadata from video at *filename*.
     """
     try:
-        cmd = ['totem-video-indexer', filename]
-        output = check_output(cmd).decode('utf-8')
-        info = {}
-        for line in output.splitlines():
-            pair = line.split('=', 1)
-            if len(pair) != 2:
-                continue
-            (key, value) = pair
-            info[key] = value
-        return info
+        cmd = [dmedia_extract, filename]
+        return json.loads(check_output(cmd).decode('utf-8'))
     except Exception:
         return {}
 
@@ -306,14 +294,8 @@ register(merge_exif, 'jpg', 'png', 'cr2')
 
 def merge_video_info(src):
     info = extract_video_info(src)
-    for (dst_key, src_key) in TOTEM_REMAP:
-        if src_key in info:
-            value = info[src_key]
-            try:
-                value = int(value)
-            except ValueError:
-                pass
-            yield (dst_key, value)
+    for item in info.items():
+        yield item
 
     if not src.endswith('.MOV'):
         return
@@ -330,4 +312,4 @@ def merge_video_info(src):
             continue
         yield (key, value)
 
-register(merge_video_info, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga', 'mts')
+register(merge_video_info, 'mov', 'mp4', 'avi', 'ogg', 'ogv', 'oga', 'mts', 'wav')

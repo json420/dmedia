@@ -260,18 +260,23 @@ sample_thm_exif2 = {
 sample_thm_exif.update(sample_thm_exif2)
 
 
-# Known video info from totem-video-indexer:
+# Known video info from dmedia-extract:
 sample_mov_info = {
-    'TOTEM_INFO_DURATION': '3',
-    'TOTEM_INFO_HAS_VIDEO': 'True',
-    'TOTEM_INFO_VIDEO_WIDTH': '1920',
-    'TOTEM_INFO_VIDEO_HEIGHT': '1080',
-    'TOTEM_INFO_VIDEO_CODEC': 'H.264 / AVC',
-    'TOTEM_INFO_FPS': '30',
-    'TOTEM_INFO_HAS_AUDIO': 'True',
-    'TOTEM_INFO_AUDIO_CODEC': 'Raw 16-bit PCM audio',
-    'TOTEM_INFO_AUDIO_SAMPLE_RATE': '48000',
-    'TOTEM_INFO_AUDIO_CHANNELS': 'Stereo',
+    "channels": 2, 
+    "content_type": "video/quicktime", 
+    "duration": {
+        "frames": 106, 
+        "ns": 3570233333, 
+        "samples": 171371, 
+        "seconds": 3.570233333
+    }, 
+    "framerate": {
+        "denom": 1001, 
+        "num": 30000
+    }, 
+    "height": 1080, 
+    "samplerate": 48000, 
+    "width": 1920
 }
 
 
@@ -361,23 +366,11 @@ class TestFunctions(SampleFilesTestCase):
 
         # Test invalid file:
         invalid = tmp.write(b'Wont work!', 'invalid.mov')
-        self.assertEqual(
-            f(invalid),
-            {
-                'TOTEM_INFO_HAS_VIDEO': 'False',
-                'TOTEM_INFO_HAS_AUDIO': 'False',
-            }
-        )
+        self.assertEqual(f(invalid), {})
 
         # Test with non-existent file:
         nope = tmp.join('nope.mov')
-        self.assertEqual(
-            f(nope),
-            {
-                'TOTEM_INFO_HAS_VIDEO': 'False',
-                'TOTEM_INFO_HAS_AUDIO': 'False',
-            }
-        )
+        self.assertEqual(f(nope), {})
 
     def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:
@@ -477,14 +470,21 @@ class TestFunctions(SampleFilesTestCase):
                 ext='mov',
                 ctime=1287520994 + 68 / 100.0,
                 meta=dict(
+                    content_type='video/quicktime',
                     width=1920,
                     height=1080,
-                    duration=3,
-                    codec_video='H.264 / AVC',
-                    codec_audio='Raw 16-bit PCM audio',
-                    sample_rate=48000,
-                    fps=30,
-                    channels='Stereo',
+                    duration={
+                        'frames': 106, 
+                        'ns': 3570233333, 
+                        'samples': 171371, 
+                        'seconds': 3.570233333,
+                    },
+                    samplerate=48000,
+                    framerate={
+                        'num': 30000,
+                        'denom': 1001,
+                    },
+                    channels=2,
                     iso=100,
                     shutter='1/100',
                     aperture=11.0,
@@ -521,18 +521,24 @@ class TestFunctions(SampleFilesTestCase):
         tmp = TempDir()
 
         merged = dict(f(self.mov))
-
         self.assertEqual(
             merged,
             dict(
+                content_type='video/quicktime',
                 width=1920,
                 height=1080,
-                duration=3,
-                codec_video='H.264 / AVC',
-                codec_audio='Raw 16-bit PCM audio',
-                sample_rate=48000,
-                fps=30,
-                channels='Stereo',
+                duration={
+                    'frames': 106, 
+                    'ns': 3570233333, 
+                    'samples': 171371, 
+                    'seconds': 3.570233333,
+                },
+                samplerate=48000,
+                framerate={
+                    'num': 30000,
+                    'denom': 1001,
+                },
+                channels=2,
                 iso=100,
                 shutter='1/100',
                 aperture=11.0,
