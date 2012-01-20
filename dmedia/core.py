@@ -223,10 +223,26 @@ class Core(Base):
         tmp_fp.close()
         return tmp_fp.name
 
-    def hash_and_move(self, tmp):
+    def hash_and_move(self, tmp, origin):
         parentdir = path.dirname(path.dirname(path.dirname(tmp)))
         fs = self.stores.by_parentdir(parentdir)
         tmp_fp = open(tmp, 'rb')
         ch = fs.hash_and_move(tmp_fp)
+        stored = {
+            fs.id: {
+                'copies': fs.copies,
+                'mtime': fs.stat(ch.id).mtime,
+                'plugin': 'filestore',
+            }
+        }
+        try:
+            doc = self.db.get(ch.id)
+            doc['stored'].update(stored)
+        except NotFound:
+            doc = schema.create_file(
+                ch.id, ch.file_size, ch.leaf_hashes, stored, origin
+            )
+        schema.check_file(doc)
+        self.db.save(doc)
         return ch.id
         
