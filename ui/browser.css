@@ -222,11 +222,5 @@ ul.tags li a {
     font-weight: bold;
     text-align: center;
     cursor: pointer;
-    width: 0px;
-    overflow:hidden;
-    -webkit-transition:width 200ms ease-in-out;
-}
-
-ul.tags li:hover a {
     width: 1.5em;
 }
