@@ -138,7 +138,8 @@ setup(
         'dmedia-browser',
         'dmedia-cli',
         'dmedia-migrate',
-        'dmedia-schema-upgrade'
+        'dmedia-schema-upgrade',
+        'dmedia-extract'
     ],
     data_files=[
         ('share/couchdb/apps/dmedia',
