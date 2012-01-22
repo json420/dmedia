@@ -19,7 +19,7 @@ var UI = {
     },
 
     init_browser: function() {
-        UI.browser = new Browser();
+        console.log('init_browser');
     },
 
     init_storage: function() {
