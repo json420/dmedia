@@ -98,10 +98,6 @@ ProgressBar.prototype = {
         this._bar.style.width = (this._progress * 100).toFixed(0) + '%';
     },
 
-    get progress(value) {
-        return this._progress;
-    },
-
     update: function(completed, total) {
         if (total > 0) {
             this.progress = completed / total;
@@ -179,24 +175,20 @@ Project.prototype = {
 
 function Items(id) {
     this.parent = $(id);
-    this._current = null;
+    this.current = null;
     this.onchange = null;
 }
 Items.prototype = {
-    set current(value) {
-        if (this._current !== value) {
-            this._current = value;
+    set_current: function(value) {
+        if (this.current !== value) {
+            this.current = value;
             if (this.onchange) {
                 this.onchange(value);
             }
         }
     },
 
-    get current() {
-        return this._current;
-    },
-    
-    get length() {
+    length: function() {
         return this.parent.children.length;
     },
 
@@ -206,17 +198,17 @@ Items.prototype = {
 
     reset: function() {
         this.parent.innerHTML = null;    
-        this._current = null;
+        this.current = null;
     },
 
     select: function(id) {
         $unselect(this.current);
         if ($select(id)) {
-            this.current = id;
+            this.set_current(id);
             $scroll_to(id);
             return true;
         }
-        this.current = null;
+        this.set_current(null);
         return false;
     },
 
@@ -378,7 +370,7 @@ Tagger.prototype = {
     },
 
     on_keydown: function(event) {
-        if (! (this.input.value && this.matches.length)) {
+        if (! (this.input.value && this.matches.length())) {
             return;
         }
         // U+0009 = Tab
