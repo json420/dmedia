@@ -145,10 +145,10 @@ setup(
             [path.join('ui', name) for name in os.listdir('ui')]
         ),
         ('share/applications',
-            ['share/dmedia.desktop']
+            ['share/dmedia.desktop', 'share/dmedia-browser.desktop']
         ),
         ('share/icons/hicolor/scalable/apps',
-            ['share/dmedia.svg']
+            ['share/dmedia.svg', 'share/dmedia-browser.svg']
         ),
         ('share/icons/hicolor/scalable/status',
             [
