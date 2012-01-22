@@ -182,7 +182,7 @@ ul.matches {
 ul.matches li {
     padding: 0px 5px;
     white-space: nowrap;
-    /*cursor: pointer;*/
+    cursor: default;
     -webkit-user-select: none;
 }
 
@@ -218,7 +218,7 @@ ul.tags li {
 ul.tags a {
     text-decoration: none;
     display: inline-block;
-    color: #301438;
+    color: #d12;
     font-weight: bold;
     text-align: center;
     cursor: pointer;
