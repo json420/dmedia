@@ -20,7 +20,7 @@ Depends: ${misc:Depends}, python3 (>= 3.2),
     libimage-exiftool-perl,
     imagemagick,
     ufraw-batch,
-    gir1.2-unity-4.0,
+    gir1.2-unity-5.0 | gir1.2-unity-4.0,
     gir1.2-notify-0.7,
     gir1.2-appindicator3-0.1,
 Description: distributed media library
