@@ -215,6 +215,15 @@ Browser.prototype = {
                 self.items.select(id);
             }
             child.style.backgroundImage = self.project.att_css_url(row.id);
+            
+            child.draggable = true;
+            child.ondragstart = function(e) {
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('Text', id);
+                var img = $el('img', {'src': self.project.att_url(id)});
+                e.dataTransfer.setDragImage(img, 0, 0);
+            }
+                
             if (row.value) {
                 set_flag(child, row.value);
             }
