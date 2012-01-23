@@ -7,9 +7,8 @@ var UI = {
     init: function() {
         UI.content = $('content');
         UI.player = $el('video', {'id': 'player'});
-        UI.resize();
+        UI.player.addEventListener('click', UI.player_click);
         UI.content.appendChild(UI.player);
-        window.addEventListener('resize', UI.on_resize);
     },
 
     load_project: function() {
@@ -20,22 +19,12 @@ var UI = {
             UI.browser = new Browser(UI.picker.project, UI.player, 'right');
         }
     },
-
-    resize: function() {
-        UI.player.setAttribute('width', UI.content.clientWidth);
-        UI.player.setAttribute('height', UI.content.clientHeight);
-    },
-
-    on_resize: function() {
-        var paused = UI.player.paused;
-        if (!paused) {
+    
+    player_click: function(event){
+        if (!UI.player.paused) {
             UI.player.pause();
         }
-        UI.content.removeChild(UI.player);
-        UI.resize();
-        UI.content.appendChild(UI.player);
-        if (!paused) {
-            UI.player.load();
+        else {
             UI.player.play();
         }
     },
