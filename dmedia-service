@@ -169,6 +169,10 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def Resolve(self, _id):
         return self.core.resolve(_id)
+        
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def ResolveURI(self, uri):
+        return self.core.resolve_uri(uri)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def AllocateTmp(self):
