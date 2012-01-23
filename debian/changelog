@@ -1,5 +1,5 @@
-dmedia (12.01.0-0~precise) precise; urgency=low
+dmedia (12.02.0-0~precise) precise; urgency=low
 
-  * Upstream 12.01.0 pre-release
+  * Upstream 12.02.0 pre-release
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Tue, 27 Dec 2011 07:20:56 +0000
+ -- Jason Gerard DeRose <jderose@novacut.com>  Mon, 23 Jan 2012 11:00:00 +0000
