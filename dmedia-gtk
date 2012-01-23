@@ -39,7 +39,6 @@ from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
 from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
 from dmedia.gtk.ubuntu import UnityImportUX
-from dmedia import local
 
 
 log = logging.getLogger()
@@ -186,7 +185,6 @@ class App(BaseApp):
 
     def connect_hub_signals(self, hub):
         self.importer = None
-        self.local = None
         hub.connect('create_project', self.on_create_project)
         hub.connect('start_importer', self.on_start_importer)
         hub.connect('stop_importer', self.on_stop_importer)
@@ -202,26 +200,7 @@ class App(BaseApp):
             return 'welcome.html'
 
     def dmedia_resolver(self, uri):
-        if self.env is None:
-            return ''
-        if self.local is None:
-            self.local = local.LocalSlave(self.env)
-        try:
-            u = urlparse(uri)
-            _id = u.path
-            doc = self.local.get_doc(_id)
-            if doc.get('proxies'):
-                proxies = doc['proxies']
-                for proxy in proxies:
-                    try:
-                        st = self.local.stat(proxy)
-                        return 'file://' + st.name
-                    except (local.NoSuchFile, local.FileNotLocal):
-                        pass
-            st = self.local.stat2(doc)
-            return 'file://' + st.name
-        except Exception:    
-            return ''
+        return self.proxy.ResolveURI('(s)', uri)
 
     def on_welcome_complete(self, hub):
         self.db.post({'_id': WELCOMED_ID})
