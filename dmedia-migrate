@@ -29,7 +29,8 @@ from gi.repository import GObject
 
 from filestore import DOTNAME
 import dmedia
-from dmedia.util import get_db
+from dmedia import schema
+from dmedia.util import get_db, get_project_db
 from dmedia.units import bytes10
 from dmedia.service.api import DMedia
 from dmedia.importer import ImportManager, notify_stats
@@ -75,7 +76,7 @@ def callback(signal, args):
         if body:
             print(body)
         print('')
-        
+ 
         mainloop.quit()
     elif signal == 'batch_progress':
         (count, total_count, size, total_size) = args
@@ -83,8 +84,14 @@ def callback(signal, args):
                 count, total_count, bytes10(size), bytes10(total_size))
         )
 
-
 dmedia.configure_logging()
+db = get_db(env)
+doc = schema.create_project('Migrated')
+db.post(doc)
+project = get_project_db(doc['_id'], env, True)
+project.save(doc)
+env['project_id'] = doc['_id']
+
 manager = ImportManager(env, callback)
 manager.start_import(basedir)
 mainloop.run()
