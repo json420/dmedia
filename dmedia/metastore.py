@@ -66,7 +66,7 @@ def mark_corrupt(doc, fs, timestamp=None):
 
 def add_to_stores(doc, *filestores):
     _id = doc['_id']
-    stored = ensure_dict(doc, 'stored')
+    stored = get_dict(doc, 'stored')
     for fs in filestores:
         new = {
             'copies': fs.copies,

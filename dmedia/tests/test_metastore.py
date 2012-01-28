@@ -34,12 +34,19 @@ from dmedia import metastore
 class DummyStat:
     def __init__(self, mtime):
         self.mtime = mtime
-        
+
 
 class DummyFileStore:
     def __init__(self):
         self.id = random_id()
         self.copies = 1
+        self._mtime = 1234567890
+
+    def stat(self, _id):
+        self._file_id = _id
+        self._mtime += 1
+        return DummyStat(self._mtime)
+
 
 class TestFunctions(TestCase):
     def test_get_dict(self):
@@ -112,6 +119,48 @@ class TestFunctions(TestCase):
             {
                 'stored': {id2: 'bar'},
                 'corrupt': {id3: 'baz', fs.id: {'time': ts}},
+            }
+        )
+
+    def test_add_to_stores(self):
+        fs1 = DummyFileStore()
+        fs2 = DummyFileStore()
+        _id = random_id(30)
+
+        doc = {'_id': _id}
+        metastore.add_to_stores(doc, fs1)
+        self.assertIs(fs1._file_id, _id)
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1.id: {
+                        'copies': 1,
+                        'mtime': 1234567891,
+                        'verified': 0,
+                    },
+                },
+            }
+        )
+
+        doc = {'_id': _id}
+        metastore.add_to_stores(doc, fs1, fs2)
+        self.assertIs(fs2._file_id, _id)
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1.id: {
+                        'copies': 1,
+                        'mtime': 1234567892,
+                        'verified': 0,
+                    },
+                    fs2.id: {
+                        'copies': 1,
+                        'mtime': 1234567891,
+                        'verified': 0,
+                    },
+                },
             }
         )
 
