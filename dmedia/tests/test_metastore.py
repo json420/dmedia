@@ -174,13 +174,60 @@ class TestFunctions(TestCase):
         doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
         metastore.remove_from_stores(doc, fs1)
         self.assertEqual(doc, {'stored': {fs2.id: 'bar'}})
-        
+
         doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
         metastore.remove_from_stores(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
-        
+
     def test_mark_verified(self):
-        pass
+        fs = DummyFileStore()
+        ts = time.time()
+        _id = random_id(30)
+
+        doc = {'_id': _id}
+        metastore.mark_verified(doc, fs, ts)
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs.id: {
+                        'copies': 1,
+                        'mtime': 1234567891,
+                        'verified': ts,      
+                    },
+                },
+            }
+        )
+        self.assertIs(fs._file_id, _id)
+
+        fs_id2 = random_id()
+        doc = {
+            '_id': _id, 
+            'stored': {
+                fs.id: {
+                    'copies': 2,
+                    'mtime': 1234567890,
+                    'verified': 4,
+                    'pin': True,
+                },
+                fs_id2: 'foo',
+            },
+        }
+        metastore.mark_verified(doc, fs, ts)
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs.id: {
+                        'copies': 1,
+                        'mtime': 1234567892,
+                        'verified': ts,    
+                        'pin': True,  
+                    },
+                    fs_id2: 'foo',
+                },
+            }
+        )
 
     def test_mark_corrupt(self):
         fs = DummyFileStore()
@@ -208,11 +255,4 @@ class TestFunctions(TestCase):
                 'corrupt': {id3: 'baz', fs.id: {'time': ts}},
             }
         )
-        
-        
-        
-        
-        
-        
-        
-        
+ 
