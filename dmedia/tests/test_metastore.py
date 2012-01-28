@@ -94,34 +94,7 @@ class TestFunctions(TestCase):
         self.assertEqual(stored,
             {'one': {'foo': 2, 'bar': 2, 'baz': 1}}
         )
-
-    def test_mark_corrupt(self):
-        fs = DummyFileStore()
-        ts = time.time()
-
-        doc = {}
-        metastore.mark_corrupt(doc, fs, ts)
-        self.assertEqual(doc, 
-            {
-                'stored': {},
-                'corrupt': {fs.id: {'time': ts}},
-            }
-        )
-
-        id2 = random_id()
-        id3 = random_id()
-        doc = {
-            'stored': {fs.id: 'foo', id2: 'bar'},
-            'corrupt': {id3: 'baz'},
-        }
-        metastore.mark_corrupt(doc, fs, ts)
-        self.assertEqual(doc, 
-            {
-                'stored': {id2: 'bar'},
-                'corrupt': {id3: 'baz', fs.id: {'time': ts}},
-            }
-        )
-
+        
     def test_add_to_stores(self):
         fs1 = DummyFileStore()
         fs2 = DummyFileStore()
@@ -164,6 +137,28 @@ class TestFunctions(TestCase):
             }
         )
 
+        doc = {'_id': _id, 'stored': {fs1.id: {'pin': True}}} 
+        metastore.add_to_stores(doc, fs1, fs2)
+        self.assertIs(fs2._file_id, _id)
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1.id: {
+                        'copies': 1,
+                        'mtime': 1234567893,
+                        'verified': 0,
+                        'pin': True,
+                    },
+                    fs2.id: {
+                        'copies': 1,
+                        'mtime': 1234567892,
+                        'verified': 0,
+                    },
+                },
+            }
+        )
+
     def test_remove_from_stores(self):
         fs1 = DummyFileStore()
         fs2 = DummyFileStore()
@@ -183,6 +178,36 @@ class TestFunctions(TestCase):
         doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
         metastore.remove_from_stores(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
+        
+    def test_mark_verified(self):
+        pass
+
+    def test_mark_corrupt(self):
+        fs = DummyFileStore()
+        ts = time.time()
+
+        doc = {}
+        metastore.mark_corrupt(doc, fs, ts)
+        self.assertEqual(doc, 
+            {
+                'stored': {},
+                'corrupt': {fs.id: {'time': ts}},
+            }
+        )
+
+        id2 = random_id()
+        id3 = random_id()
+        doc = {
+            'stored': {fs.id: 'foo', id2: 'bar'},
+            'corrupt': {id3: 'baz'},
+        }
+        metastore.mark_corrupt(doc, fs, ts)
+        self.assertEqual(doc, 
+            {
+                'stored': {id2: 'bar'},
+                'corrupt': {id3: 'baz', fs.id: {'time': ts}},
+            }
+        )
         
         
         

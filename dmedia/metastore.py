@@ -29,6 +29,18 @@ from filestore import FileStore, CorruptFile, FileNotFound
 
 
 def get_dict(d, key):
+    """
+    Force value for *key* in *d* to be a ``dict``.
+
+    For example:
+
+    >>> doc = {}
+    >>> get_dict(doc, 'foo')
+    {}
+    >>> doc
+    {'foo': {}}
+
+    """
     value = d.get(key)
     if isinstance(value, dict):
         return value
@@ -39,6 +51,27 @@ def get_dict(d, key):
 def update(d, key, new):
     old = get_dict(d, key)
     old.update(new)
+
+
+def add_to_stores(doc, *filestores):
+    _id = doc['_id']
+    stored = get_dict(doc, 'stored')
+    for fs in filestores:
+        new = {
+            'copies': fs.copies,
+            'mtime': fs.stat(_id).mtime,
+            'verified': 0,
+        }
+        update(stored, fs.id, new)
+
+
+def remove_from_stores(doc, *filestores):
+    stored = get_dict(doc, 'stored')
+    for fs in filestores:
+        try:
+            del stored[fs.id]
+        except KeyError:
+            pass
 
 
 def mark_verified(doc, fs, timestamp=None):
@@ -64,27 +97,6 @@ def mark_corrupt(doc, fs, timestamp=None):
     corrupt[fs.id] = {'time': timestamp}
 
 
-def add_to_stores(doc, *filestores):
-    _id = doc['_id']
-    stored = get_dict(doc, 'stored')
-    for fs in filestores:
-        new = {
-            'copies': fs.copies,
-            'mtime': fs.stat(_id).mtime,
-            'verified': 0,
-        }
-        update(stored, fs.id, new)
-
-
-def remove_from_stores(doc, *filestores):
-    stored = get_dict(doc, 'stored')
-    for fs in filestores:
-        try:
-            del stored[fs.id]
-        except KeyError:
-            pass
-
-
 class MetaStore:
     def verify(self, _id, fs, return_fp=False):
         doc = self.db.get(_id)
@@ -96,7 +108,8 @@ class MetaStore:
             mark_corrupt(doc, fs, time.time())
             raise e
         except FileNotFound as e:
-            remove_from_stoes(doc, fs)
+            remove_from_stores(doc, fs)
+            raise e
         finally:
             self.db.save(doc)
 
