@@ -27,12 +27,12 @@ Doodle.
 from filestore import FileStore, CorruptFile, FileNotFound
 
 
-def ensure_dict(doc, key):
-    d = doc.get(key)
-    if not isinstance(d, dict):
-        doc[key] = {}
-        return doc[key]
-    return d
+def get_dict(d, key):
+    value = d.get(key)
+    if not isinstance(value, dict):
+        d[key] = {}
+        return d[key]
+    return value
 
 
 def update(d, key, new):

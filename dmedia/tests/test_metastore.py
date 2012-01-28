@@ -29,27 +29,27 @@ from dmedia import metastore
 
 
 class TestFunctions(TestCase):
-    def test_ensure_dict(self):
+    def test_get_dict(self):
         doc = {}
-        ret = metastore.ensure_dict(doc, 'foo')
+        ret = metastore.get_dict(doc, 'foo')
         self.assertEqual(ret, {})
         self.assertEqual(doc, {'foo': {}})
         self.assertIs(doc['foo'], ret)
 
         doc = {'foo': None}
-        ret = metastore.ensure_dict(doc, 'foo')
+        ret = metastore.get_dict(doc, 'foo')
         self.assertEqual(ret, {})
         self.assertEqual(doc, {'foo': {}})
         self.assertIs(doc['foo'], ret)
 
         doc = {'foo': ['hello', 'naughty', 'nurse']}	
-        ret = metastore.ensure_dict(doc, 'foo')
+        ret = metastore.get_dict(doc, 'foo')
         self.assertEqual(ret, {})
         self.assertEqual(doc, {'foo': {}})
         self.assertIs(doc['foo'], ret)
 
         doc = {'foo': {'bar': 0, 'baz': 1}}
-        ret = metastore.ensure_dict(doc, 'foo')
+        ret = metastore.get_dict(doc, 'foo')
         self.assertEqual(ret, {'bar': 0, 'baz': 1})
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
