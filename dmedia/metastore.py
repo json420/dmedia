@@ -41,18 +41,20 @@ def update(d, key, new):
     old.update(new)
 
 
-def mark_verified(doc, fs):
+def mark_verified(doc, fs, timestamp=None):
+    timestamp = (time.time() if timestamp is None else timestamp)
     _id = doc['_id']
     stored = get_dict(doc, 'stored')
     new = {
         'copies': fs.copies,
         'mtime': fs.stat(_id).mtime,
-        'verified': time.time(),
+        'verified': timestamp,
     }
     update(stored, fs.id, new)
 
 
-def mark_corrupt(doc, fs, timestamp):
+def mark_corrupt(doc, fs, timestamp=None):
+    timestamp = (time.time() if timestamp is None else timestamp)
     stored = get_dict(doc, 'stored')
     try:
         del stored[fs.id]
@@ -74,22 +76,28 @@ def add_to_stores(doc, *filestores):
         update(stored, fs.id, new)
 
 
+def remove_from_stores(doc, *filestores):
+    stored = get_dict(doc, 'stored')
+    for fs in filestores:
+        try:
+            del stored[fs.id]
+        except KeyError:
+            pass
+
+
 class MetaStore:
     def verify(self, _id, fs, return_fp=False):
-        self.db.head(_id)
+        doc = self.db.get(_id)
         try:
             ret = fs.verify(_id, return_fp)
-            doc = self.db.get(_id)
-            mark_verified(doc, 
-            self.db.save(doc)
+            mark_verified(doc, fs, time.time())
             return ret
         except CorruptFile as e:
-            try:
-                del doc['stored'][fs.id]
-            except KeyError:
-                pass
-            corrupt = doc.get('corrupt', {})
-            
+            mark_corrupt(doc, fs, time.time())
+            raise e
+        except FileNotFound as e:
+            remove_from_stoes(doc, fs)
+        finally:
             self.db.save(doc)
 
         

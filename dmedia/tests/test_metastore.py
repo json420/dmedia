@@ -81,7 +81,7 @@ class TestFunctions(TestCase):
         self.assertEqual(stored,
             {'one': {'foo': 2, 'bar': 2}}
         )
-        
+
         stored = {'one': {'foo': 1, 'bar': 1, 'baz': 1}}
         metastore.update(stored, 'one', new)
         self.assertEqual(stored,
@@ -114,6 +114,28 @@ class TestFunctions(TestCase):
                 'corrupt': {id3: 'baz', fs.id: {'time': ts}},
             }
         )
+
+    def test_remove_from_stores(self):
+        fs1 = DummyFileStore()
+        fs2 = DummyFileStore()
+
+        doc = {}
+        metastore.remove_from_stores(doc, fs1, fs2)
+        self.assertEqual(doc, {'stored': {}})
+
+        doc = {'stored': {}}
+        metastore.remove_from_stores(doc, fs1, fs2)
+        self.assertEqual(doc, {'stored': {}})
+
+        doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
+        metastore.remove_from_stores(doc, fs1)
+        self.assertEqual(doc, {'stored': {fs2.id: 'bar'}})
+        
+        doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
+        metastore.remove_from_stores(doc, fs1, fs2)
+        self.assertEqual(doc, {'stored': {}})
+        
+        
         
         
         
