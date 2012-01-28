@@ -24,9 +24,22 @@ Unit tests for `dmedia.metastore`.
 """
 
 from unittest import TestCase
+import time
+
+from microfiber import random_id
 
 from dmedia import metastore
 
+
+class DummyStat:
+    def __init__(self, mtime):
+        self.mtime = mtime
+        
+
+class DummyFileStore:
+    def __init__(self):
+        self.id = random_id()
+        self.copies = 1
 
 class TestFunctions(TestCase):
     def test_get_dict(self):
@@ -55,7 +68,55 @@ class TestFunctions(TestCase):
         self.assertIs(doc['foo'], ret)
 
     def test_update(self):
+        new = {'foo': 2, 'bar': 2}
+
+        stored = {}
+        metastore.update(stored, 'one', new)
+        self.assertEqual(stored,
+            {'one': {'foo': 2, 'bar': 2}}
+        )
+
         stored = {'one': {'foo': 1, 'bar': 1}}
+        metastore.update(stored, 'one', new)
+        self.assertEqual(stored,
+            {'one': {'foo': 2, 'bar': 2}}
+        )
+        
+        stored = {'one': {'foo': 1, 'bar': 1, 'baz': 1}}
+        metastore.update(stored, 'one', new)
+        self.assertEqual(stored,
+            {'one': {'foo': 2, 'bar': 2, 'baz': 1}}
+        )
+
+    def test_mark_corrupt(self):
+        fs = DummyFileStore()
+        ts = time.time()
+
+        doc = {}
+        metastore.mark_corrupt(doc, fs, ts)
+        self.assertEqual(doc, 
+            {
+                'stored': {},
+                'corrupt': {fs.id: {'time': ts}},
+            }
+        )
+
+        id2 = random_id()
+        id3 = random_id()
+        doc = {
+            'stored': {fs.id: 'foo', id2: 'bar'},
+            'corrupt': {id3: 'baz'},
+        }
+        metastore.mark_corrupt(doc, fs, ts)
+        self.assertEqual(doc, 
+            {
+                'stored': {id2: 'bar'},
+                'corrupt': {id3: 'baz', fs.id: {'time': ts}},
+            }
+        )
+        
+        
+        
         
         
         

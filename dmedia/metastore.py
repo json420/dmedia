@@ -23,63 +23,64 @@
 Doodle.
 """
 
+import time
 
 from filestore import FileStore, CorruptFile, FileNotFound
 
 
 def get_dict(d, key):
     value = d.get(key)
-    if not isinstance(value, dict):
-        d[key] = {}
-        return d[key]
-    return value
+    if isinstance(value, dict):
+        return value
+    d[key] = {}
+    return d[key]
 
 
 def update(d, key, new):
-    old = ensure_dict(d, key)
+    old = get_dict(d, key)
     old.update(new)
 
 
 def mark_verified(doc, fs):
     _id = doc['_id']
-    s = {
+    stored = get_dict(doc, 'stored')
+    new = {
         'copies': fs.copies,
         'mtime': fs.stat(_id).mtime,
         'verified': time.time(),
     }
-    stored = ensure_dict(doc, 'stored')
-    update(stored, fs.id, s)
-        
-        
-def add_stores(doc, filestores):
+    update(stored, fs.id, new)
+
+
+def mark_corrupt(doc, fs, timestamp):
+    stored = get_dict(doc, 'stored')
+    try:
+        del stored[fs.id]
+    except KeyError:
+        pass
+    corrupt = get_dict(doc, 'corrupt')
+    corrupt[fs.id] = {'time': timestamp}
+
+
+def add_to_stores(doc, *filestores):
     _id = doc['_id']
-    s = {
-        'copies': fs.copies,
-        'mtime': fs.stat(_id).mtime,
-        'verified': time.time(),
-    }
     stored = ensure_dict(doc, 'stored')
-    if fs.id in stored:
-        stored[fs.id].update(s)
-    else:
-        stored[fs.id] = s
-    
+    for fs in filestores:
+        new = {
+            'copies': fs.copies,
+            'mtime': fs.stat(_id).mtime,
+            'verified': 0,
+        }
+        update(stored, fs.id, new)
 
 
 class MetaStore:
     def verify(self, _id, fs, return_fp=False):
-        doc = self.db.get(_id)
+        self.db.head(_id)
         try:
             ret = fs.verify(_id, return_fp)
-            s = {
-                'copies': fs.copies,
-                'mtime': fs.stat(_id).mtime,
-                'verified': time.time(),
-            }
-            if fs.id in doc['stored']:
-                doc['stored'][fs.id].update(s)
-            else:
-                doc['stored'][fs.id] = s
+            doc = self.db.get(_id)
+            mark_verified(doc, 
             self.db.save(doc)
             return ret
         except CorruptFile as e:
@@ -90,30 +91,7 @@ class MetaStore:
             corrupt = doc.get('corrupt', {})
             
             self.db.save(doc)
- 
-    def _verified(self, _id, fs):
-        doc = self.db.get(_id)
-        s = {
-            'copies': fs.copies,
-            'mtime': fs.stat(_id).mtime,
-            'verified': time.time(),
-        }
-        if fs.id in doc['stored']:
-            doc['stored'][fs.id].update(s)
-        else:
-            doc['stored'][fs.id] = s
-        self.db.save(doc)
 
-    def _corrupt(self, _id, fs):
-        doc = self.db.get(_id)
-        try:
-            del doc['stored'][fs.id]
-        except KeyError:
-            pass
-        doc['corrupt'][fs.id] = {
-            'time': time.time(),
-        }
-        db.save(doc)
         
         
             
