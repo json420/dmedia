@@ -25,7 +25,9 @@ Doodle.
 
 import time
 
-from filestore import FileStore, CorruptFile, FileNotFound
+from filestore import CorruptFile, FileNotFound
+
+from .util import get_db
 
 
 def get_dict(d, key):
@@ -98,7 +100,10 @@ def mark_corrupt(doc, fs, timestamp=None):
 
 
 class MetaStore:
-    def verify(self, _id, fs, return_fp=False):
+    def __init__(self, env):
+        self.db = get_db(env)
+
+    def verify(self, fs, _id, return_fp=False):
         doc = self.db.get(_id)
         try:
             ret = fs.verify(_id, return_fp)
@@ -111,10 +116,21 @@ class MetaStore:
             remove_from_stores(doc, fs)
             raise e
         finally:
+            print('saving doc')
             self.db.save(doc)
 
-        
-        
-            
-            
+    def copy(self, src, _id, *filestores):
+        doc = self.db.get(_id)
+        try:
+            src.copy(_id, *filestores)
+            mark_verified(doc, src, time.time())
+            add_to_filestores(doc, *filestores)
+        except CorruptFile as e:
+            mark_corrupt(doc, fs, time.time())
+            raise e
+        except FileNotFound as e:
+            remove_from_stores(doc, fs)
+            raise e
+        finally:
+            self.db.save(doc)
         
