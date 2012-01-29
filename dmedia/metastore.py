@@ -67,6 +67,7 @@ def add_to_stores(doc, *filestores):
             'verified': 0,
         }
         update(stored, fs.id, new)
+        
 
 
 def remove_from_stores(doc, *filestores):
@@ -144,6 +145,34 @@ class MetaStore:
             }
             s.update(new)
             self.db.save(doc)
+
+    def scan(self, fs):
+        v = self.db.view('file', 'stored', key=fs.id, reduce=False)
+        for row in v['rows']:
+            _id = row['id']
+            doc = self.db.get(_id)
+            leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
+            check_root_hash(_id, doc['bytes'], leaf_hashes)
+            try:
+                st = fs.stat(_id)
+            except FileNotFound:
+                remove_from_stores(doc, fs)
+                self.db.save(doc)
+                continue
+            if st.size != doc['bytes']:
+                fs.move_to_corrupt(open(st.name), _id)
+                mark_as_corrupt(doc, fs, time.time())
+                self.db.save(doc)
+                continue
+            stored = get_dict(doc, 'stored')
+            s = get_dict(stored, fs.id)
+            if st.mtime != s['mtime']:
+                s.update(
+                    copies=0,
+                    verified=0,
+                    mtime=st.mtime,
+                )
+                self.db.save(doc)
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
