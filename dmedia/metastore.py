@@ -123,6 +123,9 @@ class MetaStore:
     def __init__(self, env):
         self.db = get_db(env)
 
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.db)
+
     def remove(self, fs, _id):
         doc = self.db.get(_id)
         try:
