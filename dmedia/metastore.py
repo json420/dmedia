@@ -24,8 +24,9 @@ Doodle.
 """
 
 import time
+import os
 
-from filestore import CorruptFile, FileNotFound
+from filestore import CorruptFile, FileNotFound, check_root_hash
 
 from .util import get_db
 
@@ -76,8 +77,7 @@ def remove_from_stores(doc, *filestores):
             pass
 
 
-def mark_verified(doc, fs, timestamp=None):
-    timestamp = (time.time() if timestamp is None else timestamp)
+def mark_verified(doc, fs, timestamp):
     _id = doc['_id']
     stored = get_dict(doc, 'stored')
     new = {
@@ -88,8 +88,7 @@ def mark_verified(doc, fs, timestamp=None):
     update(stored, fs.id, new)
 
 
-def mark_corrupt(doc, fs, timestamp=None):
-    timestamp = (time.time() if timestamp is None else timestamp)
+def mark_corrupt(doc, fs, timestamp):
     stored = get_dict(doc, 'stored')
     try:
         del stored[fs.id]
@@ -155,7 +154,18 @@ class MetaStore:
         with VerifyContext(self.db, fs, doc):
             (b16, b64) = fs.content_md5(_id)
             doc['content_md5'] = b64
-            return b64 
+            return b64
+
+    def allocate_partial(self, fs, _id):
+        doc = self.db.get(_id)
+        (content_type, leaf_hashes) = self.db.get_att(_id, 'leaf_hashes')
+        ch = check_root_hash(_id, doc['bytes'], leaf_hashes)
+        tmp_fp = fs.allocate_partial(ch.file_size, ch.id)
+        partial = get_dict(doc, 'partial')
+        new = {'mtime': os.fstat(tmp_fp.fileno()).st_size}
+        update(partial, fs.id, new)
+        self.db.save(doc)
+        return tmp_fp
 
     def copy(self, src_filestore, _id, *dst_filestores):
         doc = self.db.get(_id)
