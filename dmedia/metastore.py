@@ -27,6 +27,7 @@ import time
 import os
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
+from microfiber import NotFound
 
 from .util import get_db
 
@@ -125,6 +126,24 @@ class MetaStore:
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
+
+    def relink(self, fs):
+        for st in fs:
+            try:
+                doc = self.db.get(st.id)
+            except NotFound:
+                continue
+            stored = get_dict(doc, 'stored')
+            s = get_dict(stored, fs.id)
+            if s.get('mtime') == st.mtime:
+                continue
+            new = {
+                'mtime': st.mtime,
+                'verified': 0,
+                'copies': (0 if 'mtime' in s else fs.copies),
+            }
+            s.update(new)
+            self.db.save(doc)
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
