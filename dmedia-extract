@@ -133,10 +133,13 @@ class AudioBin(FakeBin):
         self._callback(self)
 
     def _finalize(self):
-        self._doc['samples'] = dict(
+        d = dict(
             (n, self._rate.get_property(n))
             for n in ('in', 'out', 'add', 'drop')
         )
+        d['consistent'] = bool(d['in'] + d['add'] - d['drop'] == d['out'])
+        d['matching'] = d['in'] == d['out'] == self._doc['duration']['samples']
+        self._doc['samples'] = d
 
 
 class Extractor(object):
