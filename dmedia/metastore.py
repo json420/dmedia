@@ -162,7 +162,7 @@ class MetaStore:
         ch = check_root_hash(_id, doc['bytes'], leaf_hashes)
         tmp_fp = fs.allocate_partial(ch.file_size, ch.id)
         partial = get_dict(doc, 'partial')
-        new = {'mtime': os.fstat(tmp_fp.fileno()).st_size}
+        new = {'mtime': os.fstat(tmp_fp.fileno()).st_mtime}
         update(partial, fs.id, new)
         self.db.save(doc)
         return tmp_fp
