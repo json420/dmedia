@@ -111,10 +111,13 @@ class VideoBin(FakeBin):
             self._doc['duration']['frames'] = ns * num / denom / gst.SECOND
 
     def _finalize(self):
-        self._doc['frames'] = dict(
+        d = dict(
             (n, self._rate.get_property(n))
             for n in ('in', 'out', 'duplicate', 'drop')
         )
+        d['consistent'] = bool(d['in'] + d['duplicate'] - d['drop'] == d['out'])
+        d['matching'] = d['in'] == d['out'] == self._doc['duration']['frames']
+        self._doc['frames'] = d
 
 
 class AudioBin(FakeBin):
