@@ -32,6 +32,10 @@ from microfiber import NotFound
 from .util import get_db
 
 
+class MTimeMismatch(Exception):
+    pass
+
+
 def get_dict(d, key):
     """
     Force value for *key* in *d* to be a ``dict``.
@@ -67,7 +71,6 @@ def add_to_stores(doc, *filestores):
             'verified': 0,
         }
         update(stored, fs.id, new)
-        
 
 
 def remove_from_stores(doc, *filestores):
@@ -100,6 +103,17 @@ def mark_corrupt(doc, fs, timestamp):
     corrupt[fs.id] = {'time': timestamp}
 
 
+def mark_mismatch(doc, fs):
+    _id = doc['_id']
+    stored = get_dict(doc, 'stored')
+    new = {
+        'mtime': fs.stat(_id).mtime,
+        'copies': 0,
+        'verified': 0,
+    }
+    update(stored, fs.id, new)
+
+
 class VerifyContext:
     __slots__ = ('db', 'fs', 'doc')
 
@@ -119,6 +133,32 @@ class VerifyContext:
         elif issubclass(exc_type, FileNotFound):
             remove_from_stores(self.doc, self.fs)
         self.db.save(self.doc)
+
+
+class ScanContext:
+    __slots__ = ('db', 'fs', 'doc')
+
+    def __init__(self, db, fs, doc):
+        self.db = db
+        self.fs = fs
+        self.doc = doc
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        if exc_type is None:
+            return
+        if issubclass(exc_type, FileNotFound):
+            remove_from_stores(self.doc, self.fs)
+        elif issubclass(exc_type, CorruptFile):
+            mark_corrupt(self.doc, self.fs, time.time())
+        elif issubclass(exc_type, MTimeMismatch):
+            mark_mismatch(self.doc, self.fs)
+        else:
+            return False
+        self.db.save(self.doc)
+        return True
 
 
 class MetaStore:
@@ -153,26 +193,18 @@ class MetaStore:
             doc = self.db.get(_id)
             leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
             check_root_hash(_id, doc['bytes'], leaf_hashes)
-            try:
+            with ScanContext(self.db, fs, doc):
                 st = fs.stat(_id)
-            except FileNotFound:
-                remove_from_stores(doc, fs)
-                self.db.save(doc)
-                continue
-            if st.size != doc['bytes']:
-                fs.move_to_corrupt(open(st.name), _id)
-                mark_as_corrupt(doc, fs, time.time())
-                self.db.save(doc)
-                continue
-            stored = get_dict(doc, 'stored')
-            s = get_dict(stored, fs.id)
-            if st.mtime != s['mtime']:
-                s.update(
-                    copies=0,
-                    verified=0,
-                    mtime=st.mtime,
-                )
-                self.db.save(doc)
+                if st.size != doc['bytes']:
+                    src_fp = open(st.name, 'rb')
+                    raise fs.move_to_corrupt(src_fp, _id,
+                        file_size=doc['bytes'],
+                        bad_file_size=st.size,
+                    )
+                stored = get_dict(doc, 'stored')
+                s = get_dict(stored, fs.id)
+                if st.mtime != s['mtime']:
+                    raise MTimeMismatch()
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
