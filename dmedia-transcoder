@@ -159,12 +159,12 @@ class AudioEncoder(EncoderBin):
         )
 
     def get_stats(self):
-        return {
-            'samples': dict(
-                (n, self._rate.get_property(n))
-                for n in ('in', 'out', 'add', 'drop')
-            )
-        }
+        d = dict(
+            (n, self._rate.get_property(n))
+            for n in ('in', 'out', 'add', 'drop')
+        )
+        d['consistent'] = bool(d['in'] + d['add'] - d['drop'] == d['out'])
+        return {'samples': d}
 
 
 class VideoEncoder(EncoderBin):
@@ -180,12 +180,13 @@ class VideoEncoder(EncoderBin):
         gst.element_link_many(self._q1, self._scale, self._color, self._rate, self._q2)
 
     def get_stats(self):
-        return {
-            'frames': dict(
-                (n, self._rate.get_property(n))
-                for n in ('in', 'out', 'duplicate', 'drop')
-            )
-        }
+        d = dict(
+            (n, self._rate.get_property(n))
+            for n in ('in', 'out', 'duplicate', 'drop')
+        )
+        d['consistent'] = bool(d['in'] + d['duplicate'] - d['drop'] == d['out'])
+        return {'frames': d}
+
 
 class Transcoder(object):
     def __init__(self, job):
