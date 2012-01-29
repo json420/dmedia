@@ -99,6 +99,27 @@ def mark_corrupt(doc, fs, timestamp=None):
     corrupt[fs.id] = {'time': timestamp}
 
 
+class VerifyContext:
+    __slots__ = ('db', 'fs', 'doc')
+
+    def __init__(self, db, fs, doc):
+        self.db = db
+        self.fs = fs
+        self.doc = doc
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        if exc_type is None:
+            mark_verified(self.doc, self.fs, time.time())
+        elif issubclass(exc_type, CorruptFile):
+            mark_corrupt(self.doc, self.fs, time.time())
+        elif issubclass(exc_type, FileNotFound):
+            remove_from_stores(self.doc, self.fs)
+        self.db.save(self.doc)
+
+
 class MetaStore:
     def __init__(self, env):
         self.db = get_db(env)
@@ -113,18 +134,16 @@ class MetaStore:
 
     def verify(self, fs, _id, return_fp=False):
         doc = self.db.get(_id)
-        try:
-            ret = fs.verify(_id, return_fp)
-            mark_verified(doc, fs, time.time())
-            return ret
-        except CorruptFile as e:
-            mark_corrupt(doc, fs, time.time())
-            raise e
-        except FileNotFound as e:
-            remove_from_stores(doc, fs)
-            raise e
-        finally:
-            self.db.save(doc)
+        with VerifyContext(self.db, fs, doc):
+            return fs.verify(_id, return_fp)
+
+    def verify_iter(self, fs, _id):
+        doc = self.db.get(_id)
+        file_size = doc['bytes']
+        (content_type, leaf_hashes) = self.db.get_att(_id, 'leaf_hashes')
+        with VerifyContext(self.db, fs, doc):
+            for leaf in fs.verify_iter(_id, file_size, leaf_hashes):
+                yield leaf
 
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)
@@ -132,34 +151,16 @@ class MetaStore:
             try:
                 return doc['content_md5']
             except KeyError:
-                pass
-        try:
+                pass    
+        with VerifyContext(self.db, fs, doc):
             (b16, b64) = fs.content_md5(_id)
-            mark_verified(doc, fs, time.time())
             doc['content_md5'] = b64
-            return b64
-        except CorruptFile as e:
-            mark_corrupt(doc, fs, time.time())
-            raise e
-        except FileNotFound as e:
-            remove_from_stores(doc, fs)
-            raise e
-        finally:
-            self.db.save(doc)
+            return b64 
 
     def copy(self, src_filestore, _id, *dst_filestores):
         doc = self.db.get(_id)
-        try:
+        with VerifyContext(self.db, src_filestore, doc):
             ch = src_filestore.copy(_id, *dst_filestores)
-            mark_verified(doc, src_filestore, time.time())
             add_to_stores(doc, *dst_filestores)
             return ch
-        except CorruptFile as e:
-            mark_corrupt(doc, src_filestore, time.time())
-            raise e
-        except FileNotFound as e:
-            remove_from_stores(doc, src_filestore)
-            raise e
-        finally:
-            self.db.save(doc)
         
