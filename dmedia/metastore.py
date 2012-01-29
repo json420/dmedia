@@ -170,6 +170,18 @@ class MetaStore:
         self.db.save(doc)
         return tmp_fp
 
+    def verify_and_move(self, fs, tmp_fp, _id):
+        doc = self.db.get(_id)
+        ch = fs.verify_and_move(tmp_fp, _id)
+        partial = get_dict(doc, 'partial')
+        try:
+            del partial[fs.id]
+        except KeyError:
+            pass
+        add_to_stores(doc, fs)
+        self.db.save(doc)
+        return ch
+
     def copy(self, src_filestore, _id, *dst_filestores):
         doc = self.db.get(_id)
         with VerifyContext(self.db, src_filestore, doc):
