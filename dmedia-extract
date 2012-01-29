@@ -25,9 +25,30 @@
 A quick and dirty GStreamer extractor.
 """
 
+from __future__ import print_function
+
 import sys
 from os import path
 import json
+import optparse
+
+
+parser = optparse.OptionParser()
+parser.add_option('--full',
+    help='do full play-through do gaurantee duration in fames and samples',
+    action='store_true',
+    default=False,
+)
+(options, args) = parser.parse_args()
+
+if len(args) != 1:
+    print('takes exacly 1 argument FILENAME')
+    sys.exit(1)
+filename = path.abspath(args[0])
+if not path.isfile(filename):
+    print('not a file: {!r}'.format(filename))
+    sys.exit(1)
+
 
 import gst
 import gobject
@@ -90,7 +111,10 @@ class VideoBin(FakeBin):
             self._doc['duration']['frames'] = ns * num / denom / gst.SECOND
 
     def _finalize(self):
-        self._doc['frames2'] = self._rate.get_property('in')
+        self._doc['frames'] = dict(
+            (n, self._rate.get_property(n))
+            for n in ('in', 'out', 'duplicate', 'drop')
+        )
 
 
 class AudioBin(FakeBin):
@@ -106,13 +130,15 @@ class AudioBin(FakeBin):
         self._callback(self)
 
     def _finalize(self):
-        # FIXME: why is this so worthless?
-        if 'samples' not in self._doc:
-            self._doc['samples'] = self._rate.get_property('in')
+        self._doc['samples'] = dict(
+            (n, self._rate.get_property(n))
+            for n in ('in', 'out', 'add', 'drop')
+        )
 
 
 class Extractor(object):
-    def __init__(self, filename):
+    def __init__(self, filename, full):
+        self.full = full
         self.doc = {'video_ns': 0, 'audio_ns': 0, 'duration': {}}
         self.mainloop = gobject.MainLoop()
         self.pipeline = gst.Pipeline()
@@ -190,10 +216,13 @@ class Extractor(object):
 
     def on_callback(self, fakebin):
         self.have.add(fakebin)
-        if self.have == self.need:
+        if self.have == self.need and not self.full:
             gobject.idle_add(self.kill)
 
     def on_eos(self, bus, msg):
+        for fakebin in (self.audio, self.video):
+            if fakebin is not None:
+                fakebin._finalize()
         self.kill()
 
     def on_error(self, bus, msg):
@@ -202,16 +231,7 @@ class Extractor(object):
         sys.exit(2)
 
 
-if len(sys.argv) != 2:
-    print('takes exacly 1 argument FILENAME')
-    sys.exit(1)
-filename = path.abspath(sys.argv[1])
-if not path.isfile(filename):
-    print('not a file: {!r}'.format(filename))
-    sys.exit(1)
-    
-
-extractor = Extractor(filename)
+extractor = Extractor(filename, options.full)
 extractor.run()
 print(json.dumps(extractor.doc, sort_keys=True, indent=4))
 
