@@ -208,7 +208,7 @@ Browser.prototype = {
             child.draggable = true;
             child.ondragstart = function(e) {
                 e.dataTransfer.effectAllowed = 'copy';
-                e.dataTransfer.setData('Text', id);
+                e.dataTransfer.setData('Text', self.project.db.name + "/" + id);
                 var img = $el('img', {'src': self.project.att_url(id)});
                 e.dataTransfer.setDragImage(img, 0, 0);
             }
