@@ -23,9 +23,29 @@
 A few handy utility functions.
 """
 
-import microfiber
+import stat
+import json
+import os
+from os import path
 
-from dmedia import schema, views
+import microfiber
+from filestore import FileStore
+
+from . import schema, views
+
+
+def init_filestore(parentdir, copies=1):
+    fs = FileStore(parentdir)
+    store = path.join(fs.basedir, 'store.json')
+    try:
+        doc = json.load(open(store, 'r'))
+    except Exception:
+        doc = schema.create_filestore(copies)
+        json.dump(doc, open(store, 'w'), sort_keys=True, indent=4)
+        os.chmod(store, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+    fs.id = doc['_id']
+    fs.copies = doc['copies']
+    return (fs, doc)
 
 
 def get_db(env, init=False):

@@ -34,6 +34,7 @@ import json
 import time
 import stat
 import multiprocessing
+from urllib.parse import urlparse
 import logging
 
 from microfiber import Database, NotFound, random_id2
@@ -41,7 +42,7 @@ from filestore import FileStore, check_root_hash, check_id
 
 import dmedia
 from dmedia import schema
-from dmedia.local import LocalStores
+from dmedia.local import LocalStores, FileNotLocal
 from dmedia.views import init_views
 from dmedia.units import bytes10
 
@@ -174,12 +175,14 @@ class Core(Base):
         log.info('FileStore %r at %r', fs.id, fs.parentdir)
         return fs
 
-    def get_doc(self, _id):
-        check_id(_id)
-        try:
-            return self.db.get(_id)
-        except microfiber.NotFound:
-            raise NoSuchFile(_id)        
+    def stat(self, _id):
+        doc = self.db.get(_id)
+        fs = self.stores.choose_local_store(doc)
+        return fs.stat(_id)
+
+    def stat2(self, doc):
+        fs = self.stores.choose_local_store(doc)
+        return fs.stat(doc['_id'])       
 
     def content_hash(self, _id, unpack=True):
         doc = self.get_doc(_id)
@@ -222,6 +225,22 @@ class Core(Base):
         tmp_fp = stores[0].allocate_tmp()
         tmp_fp.close()
         return tmp_fp.name
+
+    def resolve_uri(self, uri):
+        if not uri.startswith('dmedia:'):
+            raise ValueError('not a dmedia: URI {!r}'.format(uri))
+        _id = uri[7:]
+        doc = self.db.get(_id)
+        if doc.get('proxies'):
+            proxies = doc['proxies']
+            for proxy in proxies:
+                try:
+                    st = self.stat(proxy)
+                    return 'file://' + st.name
+                except (NotFound, FileNotLocal):
+                    pass
+        st = self.stat2(doc)
+        return 'file://' + st.name
 
     def hash_and_move(self, tmp, origin):
         parentdir = path.dirname(path.dirname(path.dirname(tmp)))

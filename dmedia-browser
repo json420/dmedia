@@ -21,11 +21,8 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 
-from urllib.parse import urlparse
-
 from userwebkit import BaseApp
 import dmedia
-from dmedia import local
 
 
 class App(BaseApp):
@@ -39,28 +36,9 @@ class App(BaseApp):
 
     proxy_bus = dmedia.BUS
     local = None
-    
+
     def dmedia_resolver(self, uri):
-        if self.env is None:
-            return ''
-        if self.local is None:
-            self.local = local.LocalSlave(self.env)
-        try:
-            u = urlparse(uri)
-            _id = u.path
-            doc = self.local.get_doc(_id)
-            if doc.get('proxies'):
-                proxies = doc['proxies']
-                for proxy in proxies:
-                    try:
-                        st = self.local.stat(proxy)
-                        return 'file://' + st.name
-                    except (local.NoSuchFile, local.FileNotLocal):
-                        pass
-            st = self.local.stat2(doc)
-            return 'file://' + st.name
-        except Exception:    
-            return ''
+        return self.proxy.ResolveURI('(s)', uri)
 
 
 app = App()
