@@ -108,7 +108,9 @@ class VideoBin(FakeBin):
         self._doc['height'] = d['height']
         if ns:
             self._doc['video_ns'] = ns
-            self._doc['duration']['frames'] = ns * num / denom / gst.SECOND
+            self._doc['duration']['frames'] = int(
+                round(ns * num / denom / float(gst.SECOND))
+            )
 
     def _finalize(self):
         d = dict(
