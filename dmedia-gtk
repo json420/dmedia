@@ -91,7 +91,7 @@ class Importer:
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         Worker = (Formatter if copies >= 2 else Ejector)
         # FIXME: for now, we never use the Formatter just in case.
-        Worker = Ejector
+        #Worker = Ejector
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
