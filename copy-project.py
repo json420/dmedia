@@ -20,7 +20,7 @@ print(dst)
 
 for row in db.view('user', 'ctime')['rows']:
     _id = row['id']
-    if dst.exists(_id):
+    if dst.exists(_id) or not src.exists(_id):
         continue
     print(_id)
     ms.copy(src, _id, dst)
