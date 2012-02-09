@@ -7,14 +7,15 @@ import os
 from os import path
 import sys
 
-parentdir = path.abspath(sys.argv[1])
+src_dir = path.abspath(sys.argv[1])
+dst_dir = path.abspath(sys.argv[2])
 
 env = dmedia_env()
 
 db = Database('dmedia-0-ahgokhnaabgo4dhwtuh6d4p4', env)
 ms = MetaStore(env)
-src = init_filestore('/home')[0]
-dst = init_filestore(parentdir)[0]
+src = init_filestore(src_dir)[0]
+dst = init_filestore(dst_dir)[0]
 print(src)
 print(dst)
 
