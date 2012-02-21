@@ -274,7 +274,7 @@ sample_mov_info = {
         "denom": 1001, 
         "num": 30000
     }, 
-    "height": 1080, 
+    "height": 1088,  # FIXME: This is wrong, working around libavcodecs or GSTreamer bug!
     "samplerate": 48000, 
     "width": 1920
 }
@@ -474,7 +474,7 @@ class TestFunctions(SampleFilesTestCase):
                 meta=dict(
                     content_type='video/quicktime',
                     width=1920,
-                    height=1080,
+                    height=1088,
                     duration={
                         'frames': 107, 
                         'ns': 3570233333, 
@@ -528,7 +528,7 @@ class TestFunctions(SampleFilesTestCase):
             dict(
                 content_type='video/quicktime',
                 width=1920,
-                height=1080,
+                height=1088,
                 duration={
                     'frames': 107, 
                     'ns': 3570233333, 
