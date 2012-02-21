@@ -265,7 +265,7 @@ sample_mov_info = {
     "channels": 2, 
     "content_type": "video/quicktime", 
     "duration": {
-        "frames": 106, 
+        "frames": 107, 
         "ns": 3570233333, 
         "samples": 171371, 
         "seconds": 3.570233333
@@ -281,6 +281,8 @@ sample_mov_info = {
 
 
 class TestFunctions(SampleFilesTestCase):
+
+    maxDiff = None
 
     def test_extract_exif(self):
         f = extractor.extract_exif
@@ -474,7 +476,7 @@ class TestFunctions(SampleFilesTestCase):
                     width=1920,
                     height=1080,
                     duration={
-                        'frames': 106, 
+                        'frames': 107, 
                         'ns': 3570233333, 
                         'samples': 171371, 
                         'seconds': 3.570233333,
@@ -528,7 +530,7 @@ class TestFunctions(SampleFilesTestCase):
                 width=1920,
                 height=1080,
                 duration={
-                    'frames': 106, 
+                    'frames': 107, 
                     'ns': 3570233333, 
                     'samples': 171371, 
                     'seconds': 3.570233333,
