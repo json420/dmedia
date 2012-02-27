@@ -56,6 +56,14 @@ Importer.prototype = {
     on_items: function(req) {
         this.items.replace(req.read().rows,
             function(row, items) {
+                var pdb = new couch.Database("dmedia-0-" + row.id.toLowerCase());
+                try{
+                    var filecount = pdb.view_sync('doc', 'type', {key: 'dmedia/file'}).rows[0].value;
+                }
+                catch(e){
+                    var filecount = 0;
+                }
+                
                 var li = $el('li', {'class': 'project', 'id': row.id});
 
                 var thumb = $el('div', {'class': 'thumbnail'});
@@ -71,7 +79,7 @@ Importer.prototype = {
                 );
 
                 info.appendChild(
-                    $el('p', {'textContent': '38 files, 971 MB'})
+                    $el('p', {'textContent': filecount + ' files'})
                 );
 
                 li.appendChild(thumb);

@@ -29,8 +29,9 @@ body{
     top: 0;
     left: 0;
     right: 0;
-    height: 48px;
-    background: -webkit-linear-gradient(top, rgba(40, 16, 44, 1), rgba(40, 16, 44, 1) 50%, rgba(40, 16, 44, 0));
+    height: 24px;
+    background: -webkit-linear-gradient(top, #402448, #301438);
+    text-shadow:0px -1px 0px rgba(0,0,0,0.6);
     z-index: 100;
 }
 
