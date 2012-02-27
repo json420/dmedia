@@ -1,0 +1,110 @@
+body{
+    background:#333;
+}
+
+video{
+    background:black;
+}
+
+.project {
+    margin: 8px;
+    display: inline-block;
+    background: -webkit-linear-gradient(top, #555, #444);
+    color: white;
+    font-size: 0;
+    box-shadow: 0px 2px 5px 1px rgba(0,0,0,0.3);
+    border-radius:3px;
+    border-top:1px solid #666;
+    cursor: default;
+    -webkit-user-select: none;
+    padding:3px;
+    padding-top:2px;
+}
+
+.project.selected {
+    background: -webkit-linear-gradient(top, #666, #555);
+    border-top:1px solid #777;
+    box-shadow: 0px 0px 20px -10px #e81f3b;
+}
+
+.project .thumbnail {
+    width: 80px;
+    height: 80px;
+    background-position: center center;
+    background-size: cover;
+    background-color: #222;
+}
+
+.project > div {
+    display: inline-block;
+    vertical-align: top;
+}
+
+.project p {
+    font-size: 14px;
+    padding-left: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 218px;
+    color: #ddd;
+    box-sizing: border-box !important;
+}
+
+.project p.title {
+    font-weight: bold;
+    color: white;
+}
+
+input, button {
+    padding-left: 4px;
+    line-height: 22px;  /* 2px less becaues of 1px border */
+    border-radius: 3px;
+    box-shadow: 0px 2px 5px 1px rgba(0,0,0,0.3);
+    -webkit-transition:background-image 1000ms ease-in-out;
+}
+
+input {
+    color: #ddd;
+    border:1px solid transparent;
+    border-top:1px solid #555 !important;
+    background-image: -webkit-linear-gradient(top, #444, #666);
+}
+
+button {
+    border:none;
+    border-top: 1px solid #555;
+    color: #ddd;
+    text-shadow:0px 2px 1px rgba(0,0,0,0.6);
+    background-image:-webkit-linear-gradient(top, #444, #333);
+    font-weight: bold;
+}
+
+button:hover{
+    color:#fff;
+    background-image:-webkit-linear-gradient(top, #555, #444);
+    border-top:1px solid #666;
+}
+
+button:disabled:hover{
+    color:rgba(255,255,255,0.4);
+    background-image:-webkit-linear-gradient(top, #444, #333);
+    border-top:1px solid #555;
+}
+
+button:disabled {
+    font-weight: normal;
+    font-style:normal;
+    color:rgba(255,255,255,0.4);
+    text-shadow:0px -1px rgba(0,0,0,0.4);
+}
+
+button:active{
+    background-image:-webkit-linear-gradient(top, #333, #222);
+    text-shadow:0px -2px 1px rgba(0,0,0,0.3);
+    color:#ccc;
+}
+
+input:focus, button:focus {
+    box-shadow: 0px 2px 5px 1px rgba(0,0,0,0.3), 0px 0px 0px 1px #e81f3b;
+    outline:none;
+}
