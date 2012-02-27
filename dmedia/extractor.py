@@ -276,6 +276,10 @@ def merge_metadata(src, doc):
         doc['_attachments'] = attachments
     if meta and 'meta' not in doc:
         doc['meta'] = meta
+    if 'meta' in doc:
+        for key in ('duration', 'framerate', 'samplerate'):
+            if key in doc['meta']:
+                doc[key] = doc['meta'][key]
 
 
 def merge_exif(src):

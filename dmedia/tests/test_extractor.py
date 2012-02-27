@@ -471,6 +471,17 @@ class TestFunctions(SampleFilesTestCase):
             dict(
                 ext='mov',
                 ctime=1287520994 + 68 / 100.0,
+                duration={
+                    'frames': 107, 
+                    'ns': 3570233333, 
+                    'samples': 171371, 
+                    'seconds': 3.570233333,
+                },
+                samplerate=48000,
+                framerate={
+                    'num': 30000,
+                    'denom': 1001,
+                },
                 meta=dict(
                     content_type='video/quicktime',
                     width=1920,
