@@ -361,7 +361,6 @@ function(doc) {
 }
 """
 
-
 # For dmedia/file docs in a project
 media_framerate = """
 function(doc) {
@@ -379,10 +378,32 @@ function(doc) {
 }
 """
 
+media_size = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.width && doc.height) {
+            emit([doc.width, doc.height].join('x'), null);
+        }
+    }
+}
+"""
+
+media_seconds = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.duration && doc.duration.seconds) {
+            emit(doc.meta.camera_serial, doc.duration.seconds);
+        }
+    }
+}
+"""
+
 
 media_design = ('media', (
     ('framerate', media_framerate, _count),
     ('samplerate', media_samplerate, _count),
+    ('size', media_size, _count),
+    ('seconds', media_seconds, _sum),
 ))
 
 
