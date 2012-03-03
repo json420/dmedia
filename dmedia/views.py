@@ -362,6 +362,102 @@ function(doc) {
 """
 
 
+# For dmedia/file docs in a project
+media_framerate = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.framerate) {
+        emit(doc.framerate, null);   
+    }
+}
+"""
+
+media_samplerate = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.samplerate) {
+        emit(doc.samplerate, null); 
+    }
+}
+"""
+
+
+media_design = ('media', (
+    ('framerate', media_framerate, _count),
+    ('samplerate', media_samplerate, _count),
+))
+
+
+# For dmedia/file doc with interesting camera/photographic metadata
+camera_serial = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.camera_serial) {
+            emit(doc.meta.camera_serial, null);
+        }
+    }
+}
+"""
+
+camera_model = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.camera) {
+            emit(doc.meta.camera, null);
+        }
+    }
+}
+"""
+
+camera_lens = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.lens) {
+            emit(doc.meta.lens, null);
+        }
+    }
+}
+"""
+
+camera_aperture = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.aperture) {
+            emit(doc.meta.aperture, null);
+        }
+    }
+}
+"""
+
+camera_shutter = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.shutter) {
+            emit(doc.meta.shutter, null);
+        }
+    }
+}
+"""
+
+camera_iso = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.iso) {
+            emit(doc.meta.iso, null);
+        }
+    }
+}
+"""
+
+camera_design = ('camera', (
+    ('model', camera_model, _count),
+    ('serial', camera_serial, _count),
+    ('lens', camera_lens, _count),
+    ('aperture', camera_aperture, _count),
+    ('shutter', camera_shutter, _count),
+    ('iso', camera_iso, _count),
+))
+
+
+
 core = (
     doc_design,
     batch_design,
@@ -403,6 +499,8 @@ project = (
     doc_design,
     batch_design,
     import_design,
+    media_design,
+    camera_design,
 
     ('file', (
         ('stored', file_stored, _count_and_sum),
