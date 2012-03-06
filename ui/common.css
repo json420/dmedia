@@ -7,13 +7,14 @@
 body{
     background:#333;
     color:white;
+    overflow:hidden;
 }
 
 video{
     background:black;
 }
 
-.menu {
+.head {
     height: 39px;
     background: -webkit-linear-gradient(top, #301438, #200428);
     border-bottom:1px solid #222;
@@ -36,9 +37,9 @@ video{
 }
 
 .project.selected {
-    background: -webkit-linear-gradient(top, #666, #555);
+    background: -webkit-linear-gradient(top, #8c5159, #555);
     border-top:1px solid #777;
-    box-shadow: 0px 0px 20px -10px #e81f3b;
+    box-shadow: 0px 2px 5px 1px rgba(0,0,0,0.3), 0px 0px 1px 0px #e81f3b;
 }
 
 .project .thumbnail {
@@ -69,20 +70,46 @@ video{
     color: white;
 }
 
-input, button {
+.darkbar{
+    background: -webkit-linear-gradient(top, #222, #111);
+    border-top: 1px solid #333;
+    text-shadow: 0px -1px rgba(0,0,0,0.6);
+}
+
+.bar{
+    background: -webkit-linear-gradient(top, #444, #333);
+    border-top: 1px solid #555;
+    text-shadow: 0px -1px rgba(0,0,0,0.5);
+}
+
+.lightbar{
+    background: -webkit-linear-gradient(top, #666, #555);
+    border-top: 1px solid #777;
+    text-shadow: 0px -1px rgba(0,0,0,0.4);
+}
+
+.lower{
+    background: -webkit-linear-gradient(top, #222, #333);
+    border-top: 1px solid #282828;
+}
+
+input, button, textarea, .inset {
     padding-left: 4px;
     line-height: 22px;  /* 2px less becaues of 1px border */
     color: #ddd;
     border:1px solid transparent;
     border-top:1px solid #555;
     border-bottom:1px solid #383838;
-    border-radius: 1px;
+    border-radius: 2px;
     box-shadow: 0px 1px 1px rgba(0,0,0,0.7);
     -webkit-transition:background 100ms ease-in-out;
 }
 
-input {
-    background: -webkit-linear-gradient(top, #444, #666);
+input, textarea, .inset {
+    background: -webkit-linear-gradient(top, #333, #444);
+    box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7), 0px 1px 1px rgba(0,0,0,0.7);
+    border-bottom:1px solid #555;
+    border-top:1px solid #333;
 }
 
 button {
@@ -117,8 +144,13 @@ button:active{
     color:#ccc;
 }
 
-input:focus, button:focus {
+button:focus {
     box-shadow: 0px 1px 1px rgba(0,0,0,0.7), 0px 0px 1px #e81f3b;
+    outline:none;
+}
+
+input:focus, textarea:focus, .inset:focus{
+    box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7), 0px 0px 1px #e81f3b;
     outline:none;
 }
 

@@ -1,21 +1,19 @@
 <!DOCTYPE html>
 <html>
-<head>
-<style>
-body {
-    background-color: #333;
-    color: #fff;
-    font-family: Ubuntu;
-    font-size: 16px;
-}
-</style>
-<script src="/_apps/userwebkit/base.js"></script>
-</head>
-<body>
-<p>
-This will welcome the user to Dmedia and walk them through setting up their
-default file-stores.
-</p>
-<button onclick="Hub.send('welcome_complete')">Okay, I feel welcomed!</button>
-</body>
+    <head>
+        <link rel="stylesheet" href="grid.css"></link>
+        <link rel="stylesheet" href="common.css"></link>
+        <script src="/_apps/userwebkit/base.js"></script>
+    </head>
+    <body>
+        <div class="grid_row head"></div>
+        <div class="grid_row lower"></div>
+            <p class="grid_6">
+                This will welcome the user to Dmedia and walk them through setting up their
+                default file-stores.
+            </p>
+            <button class="grid_2" onclick="Hub.send('welcome_complete')">Okay, I feel welcomed!</button>
+        </div>
+    </body>
 </html>
+
