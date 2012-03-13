@@ -15,9 +15,9 @@ parser.add_option('--leaf',
     type='int',
 )
 parser.add_option('--count',
-    help='Number of leaves to hash; default=256',
+    help='Number of leaves to hash; default=64',
     metavar='N',
-    default=256,
+    default=64,
     type='int',
 )
 
