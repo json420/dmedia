@@ -23,10 +23,10 @@ def default_job(src, dst):
             'encoder': {
                 'name': 'vp8enc',
                 'props': {
-                    'quality': 10,
+                    'quality': 8,
+                    'tune': 1,  # Tune for SSIM
                     'max-keyframe-distance': 15,
                     'speed': 2,
-                    #'threads': 2,
                 },
             },
             'filter': {
@@ -43,8 +43,9 @@ def default_job(src, dst):
     }
 
 
-r = db.view('user', 'needsproxy')
-for row in r['rows']:
+rows = db.view('user', 'needsproxy')['rows']
+#rows = [{'id': 'ACKMVX7YBD5CXAFPL7W27WALOWJMVCSIPNZ7A5ELKDJR4Y5B'}]
+for row in rows:
     _id = row['id']
     try:
         src = loc.stat(_id).name
