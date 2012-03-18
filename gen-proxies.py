@@ -26,7 +26,7 @@ def default_job(src, dst):
                     'quality': 8,
                     'tune': 1,  # Tune for SSIM
                     'max-keyframe-distance': 15,
-                    'speed': 2,
+                    'speed': 4,
                 },
             },
             'filter': {
