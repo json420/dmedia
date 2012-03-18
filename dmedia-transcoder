@@ -265,7 +265,7 @@ class Transcoder(object):
 
     def on_eos(self, bus, msg):
         for bin in (self.video, self.audio):
-            if bin is not None:
+            if isinstance(bin, EncoderBin):
                 self.doc.update(bin.get_stats())
         self.kill()
 
