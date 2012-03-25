@@ -75,6 +75,8 @@ class Service(dbus.service.Object):
         if self.env_s is None:
             self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
             env = self.usercouch.bootstrap()
+            interval = 5 * 60 * 1000  # Autocompact every 5 minutes
+            self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         else:
             env = json.loads(self.env_s)
         self.udisks = UDisks()
@@ -95,6 +97,15 @@ class Service(dbus.service.Object):
         self.start_core()
         self.start_httpd()
         self.mainloop.run()
+
+    def _autocompact(self):
+        log.info('UserCouch.autocompact()...')
+        try:
+            for name in self.usercouch.autocompact():
+                log.info('compacting %r', name)
+        except Exception as e:
+            log.exception('Error calling UserCouch.autocompact():')
+        return True  # Repeat timeout call
 
     def kill(self):
         if self.usercouch is not None:

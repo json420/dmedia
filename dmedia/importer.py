@@ -356,8 +356,6 @@ class ImportManager(workers.CouchManager):
             self.copies,
             notify_stats2(self.doc['stats'])
         )
-        log.info('compacting %r', self.db)
-        self.db.post(None, '_compact')
         self.doc = None
 
     def on_error(self, basedir, exception, message):
