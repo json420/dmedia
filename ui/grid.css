@@ -1,5 +1,7 @@
 .grid_row {
+    white-space: nowrap;
     font-size: 0;
+    line-height: 0;
 }
 
 .grid_row > * {
