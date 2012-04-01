@@ -174,6 +174,17 @@ def extract_video_info(filename):
         return {}
 
 
+def extract(filename):
+    """
+    Extract video/audio/image properties using GStreamer.
+    """
+    try:
+        cmd = [dmedia_extract, filename]
+        return json.loads(check_output(cmd).decode('utf-8'))
+    except Exception:
+        return {}
+
+
 def thumbnail_image(src, tmp):
     """
     Generate thumbnail for image with filename *src*.

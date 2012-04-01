@@ -375,6 +375,52 @@ class TestFunctions(SampleFilesTestCase):
         nope = tmp.join('nope.mov')
         self.assertEqual(f(nope), {})
 
+    def test_extract(self):
+        tmp = TempDir()
+
+        # Test with sample MOV file from 5D Mark II:
+        self.assertEqual(
+            extractor.extract(self.mov),
+            {
+                'channels': 2, 
+                'content_type': 'video/quicktime', 
+                'duration': {
+                    'frames': 107, 
+                    'nanoseconds': 3570233333, 
+                    'samples': 171371, 
+                    'seconds': 3.570233333
+                }, 
+                'framerate': {
+                    'denom': 1001, 
+                    'num': 30000
+                }, 
+                'media': 'video',
+                'height': 1088,  # FIXME: This is wrong, working around libavcodecs bug!
+                'samplerate': 48000, 
+                'width': 1920
+            }
+        )
+
+        # Test with sample THM file from 5D Mark II:
+        self.assertEqual(
+            extractor.extract(self.thm),
+            {
+                'content_type': 'image/jpeg, width=(int)160, height=(int)120, sof-marker=(int)0',
+                'media': 'image',
+                'height': 120,
+                'width': 160,
+            
+            }
+        )
+
+        # Test invalid file:
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
+        self.assertEqual(extractor.extract(invalid), {})
+
+        # Test with non-existent file:
+        nope = tmp.join('nope.mov')
+        self.assertEqual(extractor.extract(nope), {})
+
     def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:
         tmp = TempDir()
