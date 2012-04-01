@@ -266,7 +266,7 @@ sample_mov_info = {
     "content_type": "video/quicktime", 
     "duration": {
         "frames": 107, 
-        "ns": 3570233333, 
+        "nanoseconds": 3570233333, 
         "samples": 171371, 
         "seconds": 3.570233333
     }, 
@@ -274,6 +274,7 @@ sample_mov_info = {
         "denom": 1001, 
         "num": 30000
     }, 
+    "media": "video",
     "height": 1088,  # FIXME: This is wrong, working around libavcodecs or GSTreamer bug!
     "samplerate": 48000, 
     "width": 1920
@@ -473,7 +474,7 @@ class TestFunctions(SampleFilesTestCase):
                 ctime=1287520994 + 68 / 100.0,
                 duration={
                     'frames': 107, 
-                    'ns': 3570233333, 
+                    'nanoseconds': 3570233333, 
                     'samples': 171371, 
                     'seconds': 3.570233333,
                 },
@@ -488,7 +489,7 @@ class TestFunctions(SampleFilesTestCase):
                     height=1088,
                     duration={
                         'frames': 107, 
-                        'ns': 3570233333, 
+                        'nanoseconds': 3570233333, 
                         'samples': 171371, 
                         'seconds': 3.570233333,
                     },
@@ -497,6 +498,7 @@ class TestFunctions(SampleFilesTestCase):
                         'num': 30000,
                         'denom': 1001,
                     },
+                    media='video',
                     channels=2,
                     iso=100,
                     shutter='1/100',
@@ -542,7 +544,7 @@ class TestFunctions(SampleFilesTestCase):
                 height=1088,
                 duration={
                     'frames': 107, 
-                    'ns': 3570233333, 
+                    'nanoseconds': 3570233333, 
                     'samples': 171371, 
                     'seconds': 3.570233333,
                 },
@@ -551,6 +553,7 @@ class TestFunctions(SampleFilesTestCase):
                     'num': 30000,
                     'denom': 1001,
                 },
+                media='video',
                 channels=2,
                 iso=100,
                 shutter='1/100',
