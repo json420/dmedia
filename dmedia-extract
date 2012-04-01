@@ -203,9 +203,9 @@ class Extractor(object):
             if self.video is not None:
                 self.doc['media'] = 'image'
         self.mainloop.quit()
-        
+
     def on_have_type(self, element, prop, caps):
-        self.doc['content_type'] = caps.to_string()
+        self.doc['content_type'] = caps.to_string().split(',')[0]
 
     def link_pad(self, pad, name):
         cls = {'audio': AudioBin, 'video': VideoBin}[name]

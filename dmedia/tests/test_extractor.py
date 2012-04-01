@@ -405,7 +405,7 @@ class TestFunctions(SampleFilesTestCase):
         self.assertEqual(
             extractor.extract(self.thm),
             {
-                'content_type': 'image/jpeg, width=(int)160, height=(int)120, sof-marker=(int)0',
+                'content_type': 'image/jpeg',
                 'media': 'image',
                 'height': 120,
                 'width': 160,
