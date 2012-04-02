@@ -32,7 +32,7 @@ from gettext import gettext as _
 from gettext import ngettext
 
 from dmedia.util import get_db, get_project_db
-from dmedia.extractor import extract
+from dmedia.extractor import extract, merge_thumbnail
 
 import dbus
 
@@ -48,6 +48,8 @@ def re_extract(project):
     for row in project.view('user', 'ctime')['rows']:
         _id = row['id']
         doc = project.get(_id)
+        if doc.get('ext') in ('thm', 'jpg', 'cr2'):
+            continue
         try:
             src = Dmedia.Resolve(_id)
         except Exception:
@@ -58,6 +60,9 @@ def re_extract(project):
             doc['meta'] = {}
         extract(src, doc)
         #print(json.dumps(doc, sort_keys=True, indent=4))
+        if doc.get('media') == 'video' and 'thumbnail' not in doc['_attachments']:
+            print('thumbnail', _id, doc.get('ext'))
+            merge_thumbnail(src, doc)
         project.save(doc)
         count += 1
     msg = ngettext('re-extracted {} file', 're-extracted {} files', count)
