@@ -192,14 +192,20 @@ class Extractor(object):
         self.pipeline.get_state()
         ns = max(self.doc.pop('video_ns'), self.doc.pop('audio_ns'))
         if self.doc['duration']:
-            self.doc['duration']['ns'] = ns
+            self.doc['duration']['nanoseconds'] = ns
             self.doc['duration']['seconds'] = float(ns) / gst.SECOND
+            if self.video is not None:
+                self.doc['media'] = 'video'
+            elif self.audio is not None:
+                self.doc['media'] = 'audio'
         else:
             del self.doc['duration']
+            if self.video is not None:
+                self.doc['media'] = 'image'
         self.mainloop.quit()
-        
+
     def on_have_type(self, element, prop, caps):
-        self.doc['content_type'] = caps.to_string()
+        self.doc['content_type'] = caps.to_string().split(',')[0]
 
     def link_pad(self, pad, name):
         cls = {'audio': AudioBin, 'video': VideoBin}[name]

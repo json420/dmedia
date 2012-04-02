@@ -139,6 +139,7 @@ setup(
         'dmedia-cli',
         'dmedia-migrate',
         'dmedia-schema-upgrade',
+        'dmedia-re-extract',
     ],
     data_files=[
         ('bin', ['dmedia-extract']),

@@ -273,7 +273,7 @@ function(doc) {
 user_needsproxy = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'mov' && !doc.proxies) {
+        if (doc.media == 'video' && !doc.proxies) {
             emit(doc.time, null);
         }
     }
@@ -283,7 +283,7 @@ function(doc) {
 user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'mov') {
+        if (doc.media == 'video') {
             emit(doc.ctime, doc.review);
         }
     }
@@ -293,7 +293,7 @@ function(doc) {
 user_video_needsreview = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'mov' && !doc.review) {
+        if (doc.media == 'video' && !doc.review) {
             emit(doc.ctime, null);
         }
     }
@@ -303,18 +303,18 @@ function(doc) {
 user_audio = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'wav') {
-            emit(doc.ctime, doc.bytes);
+        if (doc.media == 'audio') {
+            emit(doc.ctime, doc.review);
         }
     }
 }
 """
 
-user_photo = """
+user_image = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (['cr2', 'jpg'].indexOf(doc.ext) >= 0) {
-            emit(doc.ctime, doc.bytes);
+        if (doc.media == 'image') {
+            emit(doc.ctime, doc.review);
         }
     }
 }
@@ -505,7 +505,7 @@ core = (
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
         ('video', user_video, None),
-        ('photo', user_photo, None),
+        ('image', user_image, None),
         ('audio', user_audio, None),
     )),
 
@@ -544,7 +544,7 @@ project = (
         ('needsproxy', user_needsproxy, None),
         ('video', user_video, None),
         ('video_needsreview', user_video_needsreview, None),
-        ('photo', user_photo, None),
+        ('image', user_image, None),
         ('audio', user_audio, None),
     )),
 
