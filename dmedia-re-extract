@@ -48,21 +48,16 @@ def re_extract(project):
     for row in project.view('user', 'ctime')['rows']:
         _id = row['id']
         doc = project.get(_id)
-        if doc.get('ext') in ('cr2', 'jpg'):
-            continue
         try:
             src = Dmedia.Resolve(_id)
         except Exception:
             print(_('not local:'), _id, doc.get('ext'))
             continue
         assert path.isfile(src)
-        info = extract(src)
-        if info:
-            doc.update(info)
-            project.save(doc)
-            count += 1
-        else:
-            print(_('failed:'), _id, doc.get('ext'))
+        extract(src, doc)
+        #print(json.dumps(doc, sort_keys=True, indent=4))
+        project.save(doc)
+        count += 1
     msg = ngettext('re-extracted {} file', 're-extracted {} files', count)
     print(msg.format(count))
     return count
