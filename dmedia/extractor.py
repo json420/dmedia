@@ -243,8 +243,6 @@ def extract(src, doc):
         doc.update(info)
         if src.endswith('.MOV'):
             merge_mov_exif(src, doc)
-            
-        
 
 
 
@@ -318,3 +316,48 @@ def create_thumbnail(filename, ext):
             shutil.rmtree(tmp)
 
 
+def wrap_thumbnail_func(func, filename):
+    tmp = tempfile.mkdtemp(prefix='dmedia.')
+    try:
+        return func(filename, tmp)
+    except Exception:
+        return None
+    finally:
+        if path.isdir(tmp):
+            shutil.rmtree(tmp)
+
+
+def to_attachment(thm):
+    assert isinstance(thm, Thumbnail)
+    return {
+        'content_type': thm.content_type,
+        'data': b64encode(thm.data).decode('utf-8'),
+    }
+
+
+def get_thumbnail_func(doc):
+    media = doc.get('media')
+    if media not in ('video', 'image'):
+        return None
+    if media == 'video':
+        return thumbnail_video
+    elif doc.get('ext') in ('cr2',):
+        return thumbnail_raw
+    return thumbnail_image
+    
+
+
+def merge_thumbnail(src, doc):
+    func = get_thumbnail_func(doc)
+    if func is None:
+        return False
+    thm = wrap_thumbnail_func(func, src)
+    if thm is None:
+        return False
+    doc['_attachments']['thumbnail'] = to_attachment(thm)
+    return True
+    
+    
+    
+    
+    

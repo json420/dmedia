@@ -23,7 +23,7 @@
 Unit tests for `dmedia.extractor` module.
 """
 
-import base64
+from base64 import b64encode
 import os
 from os import path
 from subprocess import CalledProcessError
@@ -34,9 +34,6 @@ from .base import TempDir, SampleFilesTestCase
 
 from dmedia import extractor
 
-
-def b64decode(data):
-    return base64.b64decode(data.encode('utf-8'))
 
 
 # Known EXIF data as returned be exiftool:
@@ -680,7 +677,7 @@ class TestFunctions(SampleFilesTestCase):
 
         # Test when ext is unknown
         self.assertIsNone(extractor.create_thumbnail(self.mov, 'nope'))
-        
+
         # Test invalid file:
         tmp = TempDir()
         invalid = tmp.write(b'Wont work!', 'invalid.mov')
@@ -689,3 +686,132 @@ class TestFunctions(SampleFilesTestCase):
         # Test with non-existent file:
         nope = tmp.join('nope.mov')
         self.assertIsNone(extractor.create_thumbnail(nope, 'mov'))
+
+    def test_create_thumbnail(self):
+        # Test with sample_mov from 5D Mark II:
+        t = extractor.create_thumbnail(self.mov, 'mov')
+        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertEqual(t.content_type, 'image/jpeg')
+        self.assertIsInstance(t.data, bytes)
+        self.assertGreater(len(t.data), 5000)
+
+        # Test when ext is None:
+        self.assertIsNone(extractor.create_thumbnail(self.mov, None))
+
+        # Test when ext is unknown
+        self.assertIsNone(extractor.create_thumbnail(self.mov, 'nope'))
+
+        # Test invalid file:
+        tmp = TempDir()
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
+        self.assertIsNone(extractor.create_thumbnail(invalid, 'mov'))
+
+        # Test with non-existent file:
+        nope = tmp.join('nope.mov')
+        self.assertIsNone(extractor.create_thumbnail(nope, 'mov'))
+
+    def test_to_attachment(self):
+        data = os.urandom(2000)
+        thm = extractor.Thumbnail('image/png', data)
+        d = extractor.to_attachment(thm)
+        self.assertIsInstance(d, dict)
+        self.assertEqual(set(d), set(['content_type', 'data']))
+        self.assertEqual(d['content_type'], 'image/png')
+        self.assertEqual(d['data'], b64encode(data).decode('utf-8'))
+
+    def test_get_thumbnail_func(self):
+        f = extractor.get_thumbnail_func
+        self.assertIsNone(f({}))
+        self.assertIsNone(f({'media': 'audio'}))
+        self.assertIs(
+            f({'media': 'video'}),
+            extractor.thumbnail_video
+        )
+        self.assertIs(
+            f({'media': 'image'}),
+            extractor.thumbnail_image
+        )
+        self.assertIs(
+            f({'media': 'image', 'ext': 'cr2'}),
+            extractor.thumbnail_raw
+        )
+
+    def test_merge_thumbnail(self):
+        # Test with sample_mov from 5D Mark II:
+  
+        doc = {
+            '_attachments': {},
+            'media': 'video',
+            'ext': 'mov',
+        }
+        self.assertTrue(extractor.merge_thumbnail(self.mov, doc))
+        self.assertEqual(set(doc['_attachments']), set(['thumbnail']))
+
+        t = doc['_attachments']['thumbnail']
+        self.assertIsInstance(t, dict)
+        self.assertEqual(set(t), set(['content_type', 'data']))
+        self.assertEqual(t['content_type'], 'image/jpeg')
+        self.assertIsInstance(t['data'], str)
+        self.assertGreater(len(t['data']), 5000)
+
+        # Test when media is missing
+        doc = {
+            '_attachments': {},
+            'ext': 'mov',
+        }
+        self.assertFalse(extractor.merge_thumbnail(self.mov, doc))
+        self.assertEqual(doc,
+            {
+                '_attachments': {},
+                'ext': 'mov',
+            }
+        )
+
+        # Test when media is 'audio'
+        doc = {
+            '_attachments': {},
+            'media': 'audio',
+            'ext': 'mov',
+        }
+        self.assertFalse(extractor.merge_thumbnail(self.mov, doc))
+        self.assertEqual(doc,
+            {
+                '_attachments': {},
+                'media': 'audio',
+                'ext': 'mov',
+            }
+        )
+
+        # Test invalid file:
+        tmp = TempDir()
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
+        doc = {
+            '_attachments': {},
+            'media': 'video',
+            'ext': 'mov',
+        }
+        self.assertFalse(extractor.merge_thumbnail(invalid, doc))
+        self.assertEqual(doc,
+            {
+                '_attachments': {},
+                'media': 'video',
+                'ext': 'mov',
+            }
+        )
+
+        # Test with non-existent file:
+        nope = tmp.join('nope.mov')
+        doc = {
+            '_attachments': {},
+            'media': 'video',
+            'ext': 'mov',
+        }
+        self.assertFalse(extractor.merge_thumbnail(nope, doc))
+        self.assertEqual(doc,
+            {
+                '_attachments': {},
+                'media': 'video',
+                'ext': 'mov',
+            }
+        )
+        

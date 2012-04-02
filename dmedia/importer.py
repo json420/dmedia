@@ -40,7 +40,7 @@ from filestore import FileStore, scandir, batch_import_iter, statvfs
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-from dmedia.extractor import extract
+from dmedia.extractor import extract, merge_thumbnail
 
 
 log = logging.getLogger()
@@ -269,7 +269,7 @@ class ImportWorker(workers.CouchWorker):
                     ch.id, ch.file_size, ch.leaf_hashes
                 )
                 doc.update(common)
-                #merge_metadata(file.name, doc)
+                merge_thumbnail(file.name, doc)
                 log.info('adding to %r', self.project)
                 self.project.save(doc)
             if need_thumbnail and 'thumbnail' in doc['_attachments']:
