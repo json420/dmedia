@@ -47,13 +47,15 @@ def re_extract(project):
     count = 0
     for row in project.view('user', 'ctime')['rows']:
         _id = row['id']
-        doc = project.get(_id)
         try:
             src = Dmedia.Resolve(_id)
         except Exception:
             print(_('not local:'), _id, doc.get('ext'))
             continue
         assert path.isfile(src)
+        doc = project.get(_id)
+        if 'meta' not in doc:
+            doc['meta'] = {}
         extract(src, doc)
         #print(json.dumps(doc, sort_keys=True, indent=4))
         project.save(doc)
