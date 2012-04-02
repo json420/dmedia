@@ -28,6 +28,8 @@ import os
 from os import path
 from subprocess import CalledProcessError
 
+from microfiber import random_id
+
 from .base import TempDir, SampleFilesTestCase
 
 from dmedia import extractor
@@ -284,7 +286,7 @@ sample_mov_info = {
         "nanoseconds": 3570233333, 
         "samples": 171371, 
         "seconds": 3.570233333
-    }, 
+    },
     "framerate": {
         "denom": 1001, 
         "num": 30000
@@ -315,14 +317,14 @@ class TestFunctions(SampleFilesTestCase):
         tmp = TempDir()
         data = b'Foo Bar\n' * 1000
         jpg = tmp.write(data, 'sample.jpg')
-        self.assertEqual(
-            f(jpg),
-            {'Error': 'File format error'}
-        )
+        exif = extractor.raw_exiftool_extract(jpg)
+        for key in EXIFTOOL_IGNORE:
+            exif.pop(key, None)
+        self.assertEqual(exif, {'Error': 'File format error'})
 
         # Test with non-existent file:
         nope = tmp.join('nope.jpg')
-        self.assertEqual(f(nope), {})
+        self.assertEqual(extractor.raw_exiftool_extract(nope), {})
 
     def test_raw_gst_extract(self):
         tmp = TempDir()
@@ -407,8 +409,8 @@ class TestFunctions(SampleFilesTestCase):
         )
         self.assertEqual(f('2010:10:21 01:44:37'), 1287625477)
 
-    def test_extract_mtime_from_exif(self):
-        f = extractor.extract_mtime_from_exif
+    def test_ctime_from_exif(self):
+        f = extractor.ctime_from_exif
         self.assertEqual(
             f(sample_thm_exif),
             (1287520994 + 68 / 100.0)
@@ -421,21 +423,93 @@ class TestFunctions(SampleFilesTestCase):
         del d['SubSecModifyDate']
         self.assertEqual(f(d), None)
 
-    def test_extract_video_info(self):
-        f = extractor.extract_video_info
-        tmp = TempDir()
+    def test_iter_exif(self):
+        exif = extractor.raw_exiftool_extract(self.thm)
+        self.assertEqual(
+            dict(extractor.iter_exif(exif, extractor.REMAP_EXIF)),
+            {
+                'aperture': 11.0,
+                'shutter': '1/100',
+                'iso': 100,
 
-        # Test with sample_mov from 5D Mark II:
-        info = f(self.mov)
-        self.assertEqual(sample_mov_info, info)
+                'camera_serial': '0820500998',
+                'camera': 'Canon EOS 5D Mark II',
+                'lens': 'Canon EF 70-200mm f/4L IS',
+                'focal_length': '138.0 mm',
 
-        # Test invalid file:
-        invalid = tmp.write(b'Wont work!', 'invalid.mov')
-        self.assertEqual(f(invalid), {})
+                'ctime': 1287520994.68,
 
-        # Test with non-existent file:
-        nope = tmp.join('nope.mov')
-        self.assertEqual(f(nope), {})
+                'height': 120,
+                'width': 160,
+            }
+        )
+
+        self.assertEqual(
+            dict(extractor.iter_exif(exif, extractor.REMAP_EXIF_THM)),
+            {
+                'aperture': 11.0,
+                'shutter': '1/100',
+                'iso': 100,
+
+                'camera_serial': '0820500998',
+                'camera': 'Canon EOS 5D Mark II',
+                'lens': 'Canon EF 70-200mm f/4L IS',
+                'focal_length': '138.0 mm',
+
+                'ctime': 1287520994.68,
+            }
+        )
+
+    def test_merge_metadata(self):
+        exif = extractor.raw_exiftool_extract(self.thm)
+
+        items = tuple(extractor.iter_exif(exif, extractor.REMAP_EXIF))
+        value1 = random_id()
+        value2 = random_id()
+        doc = {'foo': value1, 'meta': {'bar': value2}}
+        self.assertIsNone(extractor.merge_metadata(doc, items))
+        self.assertEqual(
+            doc,
+            {
+                'foo': value1,
+                'ctime': 1287520994.68,
+                'height': 120,
+                'width': 160,
+                'meta': {
+                    'bar': value2,
+                    'aperture': 11.0,
+                    'shutter': '1/100',
+                    'iso': 100,
+                    'camera_serial': '0820500998',
+                    'camera': 'Canon EOS 5D Mark II',
+                    'lens': 'Canon EF 70-200mm f/4L IS',
+                    'focal_length': '138.0 mm',
+                },
+            }
+        )
+
+        items = tuple(extractor.iter_exif(exif, extractor.REMAP_EXIF_THM))
+        value1 = random_id()
+        value2 = random_id()
+        doc = {'foo': value1, 'meta': {'bar': value2}}
+        self.assertIsNone(extractor.merge_metadata(doc, items))
+        self.assertEqual(
+            doc,
+            {
+                'foo': value1,
+                'ctime': 1287520994.68,
+                'meta': {
+                    'bar': value2,
+                    'aperture': 11.0,
+                    'shutter': '1/100',
+                    'iso': 100,
+                    'camera_serial': '0820500998',
+                    'camera': 'Canon EOS 5D Mark II',
+                    'lens': 'Canon EF 70-200mm f/4L IS',
+                    'focal_length': '138.0 mm',
+                },
+            }
+        )
 
     def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:
@@ -510,127 +584,3 @@ class TestFunctions(SampleFilesTestCase):
         # Test with non-existent file:
         nope = tmp.join('nope.mov')
         self.assertIsNone(extractor.create_thumbnail(nope, 'mov'))
-
-    def test_merge_metadata(self):
-        f = extractor.merge_metadata
-        tmp = TempDir()
-
-        doc = dict(ext='mov')
-        f(self.mov, doc)
-
-        # Check canon.thm attachment
-        att = doc.pop('_attachments')
-        self.assertEqual(set(att), set(['thumbnail']))
-
-        # Check thumbnail
-        thm = att['thumbnail']
-        self.assertTrue(isinstance(thm, dict))
-        self.assertEqual(sorted(thm), ['content_type', 'data'])
-        self.assertEqual(thm['content_type'], 'image/jpeg')
-        data = b64decode(thm['data'])
-
-        self.assertEqual(
-            doc,
-            dict(
-                ext='mov',
-                ctime=1287520994 + 68 / 100.0,
-                duration={
-                    'frames': 107, 
-                    'nanoseconds': 3570233333, 
-                    'samples': 171371, 
-                    'seconds': 3.570233333,
-                },
-                samplerate=48000,
-                framerate={
-                    'num': 30000,
-                    'denom': 1001,
-                },
-                meta=dict(
-                    content_type='video/quicktime',
-                    width=1920,
-                    height=1088,
-                    duration={
-                        'frames': 107, 
-                        'nanoseconds': 3570233333, 
-                        'samples': 171371, 
-                        'seconds': 3.570233333,
-                    },
-                    samplerate=48000,
-                    framerate={
-                        'num': 30000,
-                        'denom': 1001,
-                    },
-                    media='video',
-                    channels=2,
-                    iso=100,
-                    shutter='1/100',
-                    aperture=11.0,
-                    lens='Canon EF 70-200mm f/4L IS',
-                    camera='Canon EOS 5D Mark II',
-                    camera_serial='0820500998',
-                    focal_length='138.0 mm',
-                    canon_thm=self.thm_ch.id,
-                ),
-            )
-        )
-
-    def test_merge_exif(self):
-        f = extractor.merge_exif
-        self.assertTrue(self.thm.endswith('.THM'))
-        self.assertEqual(
-            dict(f(self.thm)),
-            dict(
-                width=160,
-                height=120,
-                iso=100,
-                shutter='1/100',
-                aperture=11.0,
-                lens='Canon EF 70-200mm f/4L IS',
-                camera='Canon EOS 5D Mark II',
-                camera_serial='0820500998',
-                focal_length='138.0 mm',
-                mtime=1287520994 + 68 / 100.0,
-            ),
-        )
-
-    def test_merge_video_info(self):
-        f = extractor.merge_video_info
-        tmp = TempDir()
-
-        merged = dict(f(self.mov))
-        self.assertEqual(
-            merged,
-            dict(
-                content_type='video/quicktime',
-                width=1920,
-                height=1088,
-                duration={
-                    'frames': 107, 
-                    'nanoseconds': 3570233333, 
-                    'samples': 171371, 
-                    'seconds': 3.570233333,
-                },
-                samplerate=48000,
-                framerate={
-                    'num': 30000,
-                    'denom': 1001,
-                },
-                media='video',
-                channels=2,
-                iso=100,
-                shutter='1/100',
-                aperture=11.0,
-                lens='Canon EF 70-200mm f/4L IS',
-                camera='Canon EOS 5D Mark II',
-                camera_serial='0820500998',
-                focal_length='138.0 mm',
-                mtime=1287520994 + 68 / 100.0,
-                canon_thm=self.thm_ch.id,
-            )
-        )
-
-        # Test invalid file:
-        invalid_mov = tmp.write(b'Wont work!', 'invalid.mov')
-        invalid_thm = tmp.write(b'Wont work either!', 'invalid.thm')
-        merged = dict(f(invalid_mov))
-        self.assertEqual(merged, {})
