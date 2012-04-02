@@ -304,7 +304,7 @@ user_audio = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         if (doc.media == 'audio') {
-            emit(doc.ctime, doc.bytes);
+            emit(doc.ctime, doc.review);
         }
     }
 }
@@ -314,7 +314,7 @@ user_image = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         if (doc.media == 'image') {
-            emit(doc.ctime, doc.bytes);
+            emit(doc.ctime, doc.review);
         }
     }
 }
