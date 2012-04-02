@@ -1,0 +1,83 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2012 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+
+"""
+Re-extract metadata for all dmedia projects.
+"""
+
+import json
+from os import path
+from gettext import gettext as _
+from gettext import ngettext
+
+from dmedia.util import get_db, get_project_db
+from dmedia.extractor import extract
+
+import dbus
+
+
+session = dbus.SessionBus()
+Dmedia = session.get_object('org.freedesktop.Dmedia', '/')
+env = json.loads(Dmedia.GetEnv())
+db = get_db(env, init=True)
+
+
+def re_extract(project):
+    count = 0
+    for row in project.view('user', 'ctime')['rows']:
+        _id = row['id']
+        doc = project.get(_id)
+        if doc.get('ext') in ('cr2', 'jpg'):
+            continue
+        try:
+            src = Dmedia.Resolve(_id)
+        except Exception:
+            print(_('not local:'), _id, doc.get('ext'))
+            continue
+        assert path.isfile(src)
+        info = extract(src)
+        if info:
+            doc.update(info)
+            project.save(doc)
+            count += 1
+        else:
+            print(_('failed:'), _id, doc.get('ext'))
+    msg = ngettext('re-extracted {} file', 're-extracted {} files', count)
+    print(msg.format(count))
+    return count
+
+
+count = 0
+for row in db.view('project', 'title')['rows']:
+    print('')
+    print(row['id'], row['key'])
+    print('-' * 80)
+    project = get_project_db(row['id'], env, init=True)
+    count += re_extract(project)
+
+print('')
+print('=' * 80)
+msg = ngettext('re-extracted {} file total', 're-extracted {} files total', count)
+print(msg.format(count))
+
