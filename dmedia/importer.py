@@ -40,7 +40,7 @@ from filestore import FileStore, scandir, batch_import_iter, statvfs
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-#from dmedia.extractor import merge_metadata
+from dmedia.extractor import extract
 
 
 log = logging.getLogger()
@@ -252,15 +252,14 @@ class ImportWorker(workers.CouchWorker):
                     'src': file.name,
                     'mtime': file.mtime,
                 },
+                'meta': {},
+                'ctime': file.mtime,
+                'name': path.basename(file.name),
             }
-            common['ctime'] = file.mtime
-            common['name'] = path.basename(file.name)
             ext = normalize_ext(file.name)
             if ext:
                 common['ext'] = ext
-            (mime, encoding) = mimetypes.guess_type(file.name)
-            if mime:
-                common['content_type'] = mime
+            extract(file.name, common)
 
             # Project doc
             try:

@@ -871,7 +871,6 @@ def create_project_file(_id, file_size, leaf_hashes, origin='user'):
         'time': time.time(),
         'bytes': file_size,
         'origin': origin,
-        'meta': {},
         'tags': {},
     }
 
