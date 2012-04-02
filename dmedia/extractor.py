@@ -39,13 +39,13 @@ from filestore import hash_fp
 import dmedia
 
 
+Thumbnail = namedtuple('Thumbnail', 'content_type data')
+
 dmedia_extract = 'dmedia-extract'
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 if path.isfile(path.join(tree, 'setup.py')):
     dmedia_extract = path.join(tree, dmedia_extract)
 
-
-Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
 # Why 288x288 box for thumbnail size?  To preserve exact aspect ratio for
 # common aspect-ratios we care about:
@@ -90,6 +90,31 @@ EXIF_REMAP = {
     'camera_serial': ['SerialNumber'],
     'focal_length': ['FocalLength'],
 }
+
+
+#### RAW extractors that call a script with check_output()
+def raw_exiftool_extract(filename):
+    """
+    Extract EXIF metadata using `exiftool`.
+    """
+    try:
+        cmd = ['exiftool', '-j', filename]
+        return json.loads(check_output(cmd).decode('utf-8'))[0]
+    except Exception:
+        return {}
+
+
+def raw_gst_extract(filename):
+    """
+    Extract video/audio/image properties using GStreamer.
+
+    Extractions is done using the `dmedia-extract` script.
+    """
+    try:
+        cmd = [dmedia_extract, filename]
+        return json.loads(check_output(cmd).decode('utf-8'))
+    except Exception:
+        return {}
 
 
 #### Utility functions that do heavy lifting:
@@ -172,6 +197,19 @@ def extract_video_info(filename):
         return json.loads(check_output(cmd).decode('utf-8'))
     except Exception:
         return {}
+
+
+media_image = {
+    'cr2': {
+        'content_type': 'image/x-canon-cr2',
+        'media': 'image',
+    },
+    'jpg': {
+        'content_type': 'image/jpeg',
+        'media': 'image',
+    }
+}
+
 
 
 def extract(filename):
@@ -323,6 +361,35 @@ def merge_video_info(src):
         yield ('canon_thm', ch.id)
     target = (thm if path.isfile(thm) else src)
     for (key, value) in merge_exif(target):
+        if key in ('width', 'height'):
+            continue
+        yield (key, value)
+
+
+def iter_exif(src):
+    exif = extract_exif(src)
+    for (key, values) in EXIF_REMAP.items():
+        for v in values:
+            if v in exif:
+                yield (key, exif[v])
+                break
+    ctime = extract_mtime_from_exif(exif)
+    if ctime is not None:
+        yield ('ctime', ctime)
+
+
+def iter_mov_info(src):
+    if not src.endswith('.MOV'):
+        return
+
+    # Extract EXIF metadata from Canon .THM file if present, otherwise try from
+    # MOV (for 60D, T3i, etc):
+    thm = src[:-3] + 'THM'
+    if path.isfile(thm):
+        ch = hash_fp(open(thm, 'rb'))
+        yield ('canon_thm', ch.id)
+    target = (thm if path.isfile(thm) else src)
+    for (key, value) in iter_exif(target):
         if key in ('width', 'height'):
             continue
         yield (key, value)

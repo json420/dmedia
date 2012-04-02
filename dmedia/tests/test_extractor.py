@@ -260,6 +260,21 @@ sample_thm_exif2 = {
 sample_thm_exif.update(sample_thm_exif2)
 
 
+# exiftool adds some metadata that doesn't make sense to test
+EXIFTOOL_IGNORE = (
+    'SourceFile',  # 'dmedia/tests/data/MVI_5751.THM'
+    'ExifToolVersion',  # 8.15
+    'FileName',  # 'MVI_5751.THM'
+    'Directory',  # 'dmedia/tests/data',
+    'FileSize',  # '27 kB'
+    'FileModifyDate',  # '2010:10:19 20:43:18-06:00'
+    'FilePermissions',  # 'rw-r--r--'
+    'FileType',  # 'JPEG'
+    'MIMEType',  # 'image/jpeg'
+    'ExifByteOrder',  # 'Little-endian (Intel, II)'
+)
+
+
 # Known video info from dmedia-extract:
 sample_mov_info = {
     "channels": 2, 
@@ -285,9 +300,10 @@ class TestFunctions(SampleFilesTestCase):
 
     maxDiff = None
 
-    def test_extract_exif(self):
-        f = extractor.extract_exif
-        exif = f(self.thm)
+    def test_raw_exiftool_extract(self):
+        exif = extractor.raw_exiftool_extract(self.thm)
+        for key in EXIFTOOL_IGNORE:
+            exif.pop(key)
         self.assertEqual(set(sample_thm_exif), set(exif))
         for key in sample_thm_exif:
             v1 = sample_thm_exif[key]
@@ -307,6 +323,52 @@ class TestFunctions(SampleFilesTestCase):
         # Test with non-existent file:
         nope = tmp.join('nope.jpg')
         self.assertEqual(f(nope), {})
+
+    def test_raw_gst_extract(self):
+        tmp = TempDir()
+
+        # Test with sample MOV file from 5D Mark II:
+        self.assertEqual(
+            extractor.raw_gst_extract(self.mov),
+            {
+                'channels': 2, 
+                'content_type': 'video/quicktime', 
+                'duration': {
+                    'frames': 107, 
+                    'nanoseconds': 3570233333, 
+                    'samples': 171371, 
+                    'seconds': 3.570233333
+                }, 
+                'framerate': {
+                    'denom': 1001, 
+                    'num': 30000
+                }, 
+                'media': 'video',
+                'height': 1088,  # FIXME: This is wrong, working around libavcodecs bug!
+                'samplerate': 48000, 
+                'width': 1920
+            }
+        )
+
+        # Test with sample THM file from 5D Mark II:
+        self.assertEqual(
+            extractor.raw_gst_extract(self.thm),
+            {
+                'content_type': 'image/jpeg',
+                'media': 'image',
+                'height': 120,
+                'width': 160,
+            
+            }
+        )
+
+        # Test invalid file:
+        invalid = tmp.write(b'Wont work!', 'invalid.mov')
+        self.assertEqual(extractor.raw_gst_extract(invalid), {})
+
+        # Test with non-existent file:
+        nope = tmp.join('nope.mov')
+        self.assertEqual(extractor.raw_gst_extract(nope), {})
 
     def test_parse_subsec_datetime(self):
         f = extractor.parse_subsec_datetime
@@ -374,52 +436,6 @@ class TestFunctions(SampleFilesTestCase):
         # Test with non-existent file:
         nope = tmp.join('nope.mov')
         self.assertEqual(f(nope), {})
-
-    def test_extract(self):
-        tmp = TempDir()
-
-        # Test with sample MOV file from 5D Mark II:
-        self.assertEqual(
-            extractor.extract(self.mov),
-            {
-                'channels': 2, 
-                'content_type': 'video/quicktime', 
-                'duration': {
-                    'frames': 107, 
-                    'nanoseconds': 3570233333, 
-                    'samples': 171371, 
-                    'seconds': 3.570233333
-                }, 
-                'framerate': {
-                    'denom': 1001, 
-                    'num': 30000
-                }, 
-                'media': 'video',
-                'height': 1088,  # FIXME: This is wrong, working around libavcodecs bug!
-                'samplerate': 48000, 
-                'width': 1920
-            }
-        )
-
-        # Test with sample THM file from 5D Mark II:
-        self.assertEqual(
-            extractor.extract(self.thm),
-            {
-                'content_type': 'image/jpeg',
-                'media': 'image',
-                'height': 120,
-                'width': 160,
-            
-            }
-        )
-
-        # Test invalid file:
-        invalid = tmp.write(b'Wont work!', 'invalid.mov')
-        self.assertEqual(extractor.extract(invalid), {})
-
-        # Test with non-existent file:
-        nope = tmp.join('nope.mov')
-        self.assertEqual(extractor.extract(nope), {})
 
     def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:
