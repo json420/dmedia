@@ -161,7 +161,7 @@ sample_thm_exif = {
     'MeasuredEV': 12.5,
     'MeasuredEV2': 13,
     'MeteringMode': 'Center-weighted average',
-    #'MIMEType': 'image/jpeg',
+    'MIMEType': 'image/jpeg',
     'MinAperture': 32,
     'MirrorLockup': 'Disable',
     'Model': 'Canon EOS 5D Mark II',
@@ -272,31 +272,8 @@ EXIFTOOL_IGNORE = (
     'FileModifyDate',  # '2010:10:19 20:43:18-06:00'
     'FilePermissions',  # 'rw-r--r--'
     'FileType',  # 'JPEG'
-    'MIMEType',  # 'image/jpeg'
     'ExifByteOrder',  # 'Little-endian (Intel, II)'
 )
-
-
-# Known video info from dmedia-extract:
-sample_mov_info = {
-    "channels": 2, 
-    "content_type": "video/quicktime", 
-    "duration": {
-        "frames": 107, 
-        "nanoseconds": 3570233333, 
-        "samples": 171371, 
-        "seconds": 3.570233333
-    },
-    "framerate": {
-        "denom": 1001, 
-        "num": 30000
-    }, 
-    "media": "video",
-    "height": 1088,  # FIXME: This is wrong, working around libavcodecs or GSTreamer bug!
-    "samplerate": 48000, 
-    "width": 1920
-}
-
 
 class TestFunctions(SampleFilesTestCase):
 
@@ -439,6 +416,7 @@ class TestFunctions(SampleFilesTestCase):
 
                 'ctime': 1287520994.68,
 
+                'content_type': 'image/jpeg',
                 'height': 120,
                 'width': 160,
             }
@@ -473,6 +451,7 @@ class TestFunctions(SampleFilesTestCase):
             {
                 'foo': value1,
                 'ctime': 1287520994.68,
+                'content_type': 'image/jpeg',
                 'height': 120,
                 'width': 160,
                 'meta': {
@@ -510,6 +489,132 @@ class TestFunctions(SampleFilesTestCase):
                 },
             }
         )
+
+    def test_merge_exif(self):
+        value1 = random_id()
+        value2 = random_id()
+        doc = {'foo': value1, 'meta': {'bar': value2}}
+        self.assertIsNone(
+            extractor.merge_exif(self.thm, doc, extractor.REMAP_EXIF)
+        )
+        self.assertEqual(
+            doc,
+            {
+                'foo': value1,
+                'ctime': 1287520994.68,
+                'content_type': 'image/jpeg',
+                'height': 120,
+                'width': 160,
+                'meta': {
+                    'bar': value2,
+                    'aperture': 11.0,
+                    'shutter': '1/100',
+                    'iso': 100,
+                    'camera_serial': '0820500998',
+                    'camera': 'Canon EOS 5D Mark II',
+                    'lens': 'Canon EF 70-200mm f/4L IS',
+                    'focal_length': '138.0 mm',
+                },
+            }
+        )
+
+        value1 = random_id()
+        value2 = random_id()
+        doc = {'foo': value1, 'meta': {'bar': value2}}
+        self.assertIsNone(
+            extractor.merge_exif(self.thm, doc, extractor.REMAP_EXIF_THM)
+        )
+        self.assertEqual(
+            doc,
+            {
+                'foo': value1,
+                'ctime': 1287520994.68,
+                'meta': {
+                    'bar': value2,
+                    'aperture': 11.0,
+                    'shutter': '1/100',
+                    'iso': 100,
+                    'camera_serial': '0820500998',
+                    'camera': 'Canon EOS 5D Mark II',
+                    'lens': 'Canon EF 70-200mm f/4L IS',
+                    'focal_length': '138.0 mm',
+                },
+            }
+        )
+
+    def test_merge_mov_exif(self):
+        value1 = random_id()
+        value2 = random_id()
+        doc = {'foo': value1, 'meta': {'bar': value2}}
+        self.assertIsNone(
+            extractor.merge_mov_exif(self.mov, doc)
+        )
+        self.assertEqual(
+            doc,
+            {
+                'foo': value1,
+                'ctime': 1287520994.68,
+                'meta': {
+                    'bar': value2,
+                    'canon_thm': 'MXPCFNUNPDAWHQWC5QNTPP2U5OF2J267QQVALXX6B5TRJKJB',
+                    'aperture': 11.0,
+                    'shutter': '1/100',
+                    'iso': 100,
+                    'camera_serial': '0820500998',
+                    'camera': 'Canon EOS 5D Mark II',
+                    'lens': 'Canon EF 70-200mm f/4L IS',
+                    'focal_length': '138.0 mm',
+                },
+            }
+        )
+
+    def test_extract(self):
+        # Test with sample MOV file from 5D Mark II:
+        value1 = random_id()
+        value2 = random_id()
+        doc = {
+            'ext': 'mov',
+            'foo': value1,
+            'meta': {'bar': value2},
+        }
+        self.assertIsNone(extractor.extract(self.mov, doc))
+        self.assertEqual(
+            doc,
+            {
+                'ext': 'mov',
+                'foo': value1,
+                'meta': {},
+                'channels': 2, 
+                'content_type': 'video/quicktime', 
+                'duration': {
+                    'frames': 107, 
+                    'nanoseconds': 3570233333, 
+                    'samples': 171371, 
+                    'seconds': 3.570233333
+                }, 
+                'framerate': {
+                    'denom': 1001, 
+                    'num': 30000
+                }, 
+                'media': 'video',
+                'height': 1088,  # FIXME: This is wrong, working around libavcodecs bug!
+                'samplerate': 48000, 
+                'width': 1920,
+                'ctime': 1287520994.68,
+                'meta': {
+                    'bar': value2,
+                    'canon_thm': 'MXPCFNUNPDAWHQWC5QNTPP2U5OF2J267QQVALXX6B5TRJKJB',
+                    'aperture': 11.0,
+                    'shutter': '1/100',
+                    'iso': 100,
+                    'camera_serial': '0820500998',
+                    'camera': 'Canon EOS 5D Mark II',
+                    'lens': 'Canon EF 70-200mm f/4L IS',
+                    'focal_length': '138.0 mm',
+                },
+            }
+        )
+
 
     def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:

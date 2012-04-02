@@ -87,6 +87,9 @@ REMAP_EXIF = REMAP_EXIF_THM + (
     ('height',
         ('ImageHeight',)
     ),
+    ('content_type',
+        ('MIMEType',)
+    ),
 )
 
 EXIF_CTIME_KEYS = (
@@ -123,8 +126,6 @@ def raw_gst_extract(filename):
 
 
 #### EXIF related utility functions:
-
-
 def parse_subsec_datetime(string):
     """
     For example:
@@ -191,26 +192,28 @@ def iter_exif(exif, remap=REMAP_EXIF):
 
 def merge_metadata(doc, items):
     for (key, value) in items:
-        if key in ('width', 'height', 'ctime'):
+        if key in ('width', 'height', 'ctime', 'content_type'):
             doc[key] = value
         else:
             doc['meta'][key] = value
-            
-        
 
 
-def iter_mov_info(src):
+def merge_exif(src, doc, remap=REMAP_EXIF):
+    exif = raw_exiftool_extract(src)
+    merge_metadata(doc, iter_exif(exif, remap))
+
+
+def merge_mov_exif(src, doc):
+    if not src.endswith('.MOV'):
+        return
     # Extract EXIF metadata from Canon .THM file if present, otherwise try from
     # MOV (for 60D, T3i, etc):
     thm = src[:-3] + 'THM'
     if path.isfile(thm):
         ch = hash_fp(open(thm, 'rb'))
-        yield ('canon_thm', ch.id)
+        doc['meta']['canon_thm'] = ch.id
     target = (thm if path.isfile(thm) else src)
-    for (key, value) in iter_exif(target):
-        if key in ('width', 'height'):
-            continue
-        yield (key, value)      
+    merge_exif(target, doc, REMAP_EXIF_THM)     
 
 
 media_image = {
@@ -225,16 +228,23 @@ media_image = {
 }
 
 
-
-def extract(filename):
+def extract(src, doc):
     """
-    Extract video/audio/image properties using GStreamer.
+    Extract 'physical' properties and metadata
     """
-    try:
-        cmd = [dmedia_extract, filename]
-        return json.loads(check_output(cmd).decode('utf-8'))
-    except Exception:
-        return {}
+    ext = doc.get('ext')
+    if ext == 'thm':
+        return
+    if ext in ('cr2', 'jpg'):
+        merge_exif(src, doc)
+        doc['media'] = 'image'
+    else:
+        info = raw_gst_extract(src)
+        doc.update(info)
+        if src.endswith('.MOV'):
+            merge_mov_exif(src, doc)
+            
+        
 
 
 
