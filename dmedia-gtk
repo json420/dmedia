@@ -38,7 +38,11 @@ from dmedia.gtk.util import Timer
 from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
 from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
-from dmedia.gtk.ubuntu import UnityImportUX
+
+try:
+    from dmedia.gtk.ubuntu import UnityImportUX
+except ImportError:
+    UnityImportUX = None
 
 
 log = logging.getLogger()
@@ -214,8 +218,9 @@ class App(BaseApp):
             get_project_db(row['id'], self.env, True)
 
     def create_ux(self):
-        self.ux = UnityImportUX(self.hub)
-        assert sys.getrefcount(self.ux) == 2
+        if UnityImportUX is not None:
+            self.ux = UnityImportUX(self.hub)
+            assert sys.getrefcount(self.ux) == 2
 
     def destroy_ux(self):
         self.ux = None
