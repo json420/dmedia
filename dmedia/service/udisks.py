@@ -48,10 +48,9 @@ def usable_mount(mounts):
         if mount.startswith('/media/') or mount[:4] in ('/srv', '/mnt'):
             return mount
 
-  
+
 def partition_info(d, mount=None):
     return {
-        'drive': d.drive,
         'mount': mount,
         'info': {
             'label': d['IdLabel'],
@@ -214,7 +213,7 @@ class UDisks(GObject.GObject):
             if mount is None:
                 return
             part = partition_info(d, mount)
-            drive = self.get_drive(part['drive'])
+            drive = self.get_drive(d.drive)
             drive['partitions'][obj] = part
             store_id = get_filestore_id(mount)
             if store_id:
