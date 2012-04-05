@@ -13,6 +13,7 @@ from microfiber import Database, dmedia_env
 from dmedia.units import bytes10
 
 GObject.threads_init()
+TYPE_PYOBJECT = GObject.TYPE_PYOBJECT
 PROPS = 'org.freedesktop.DBus.Properties'
 
 
@@ -70,6 +71,10 @@ class Props:
     def ispartition(self):
         return self['DeviceIsPartition']
 
+    @property
+    def ismounted(self):
+        return self['DeviceIsMounted']
+
     def get_all(self):
         return self.proxy.GetAll('(s)', 'org.freedesktop.UDisks.Device')
 
@@ -86,22 +91,21 @@ class WeakMethod:
         return getattr(self.proxy, self.method)(*args)
 
 
-def partition_info(props, mount, stores):
+def partition_info(props, mount):
     return {
         'mount': mount,
-        'stores': stores,
         'drive': props['PartitionSlave'],
+        'label': props['IdLabel'],
     }
 
     return {
         'stores': {},
-        'mounts': partition['DeviceMountPaths'],
         'uuid': partition['IdUuid'],
         'bytes': partition['DeviceSize'],
         'size': bytes10(partition['DeviceSize']),
         'filesystem': partition['IdType'],
         'filesystem_version': partition['IdVersion'],
-        'label': partition['IdLabel'],
+        
         'number': partition['PartitionNumber'],
     }
 
@@ -125,7 +129,7 @@ def drive_info(drive):
         'model': drive['DriveModel'],
         #'revision': drive['DriveRevision'],
         #'partition_scheme': drive['PartitionTableScheme'],
-        #'removable': not drive['DeviceIsSystemInternal'],
+        'removable': not drive['DeviceIsSystemInternal'],
         #'connection': drive['DriveConnectionInterface'],
         #'connection_rate': drive['DriveConnectionSpeed'],
         'text': drive_text(drive),
@@ -149,30 +153,51 @@ def get_filestore_id(parentdir):
         pass
 
 
-class UDisks:
+class UDisks(GObject.GObject):
+    __gsignals__ = {
+        'card_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'card_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'store_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'store_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+    }
+
     def __init__(self):
+        super().__init__()
         self.devices = {}
         self.props = {}
         self.drives = {}
+        self.cards = {}
+        self.stores = {}
         self.proxy = system.get(
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
 
     def monitor(self):
-        user = path.abspath(os.environ['HOME'])
-        home = path.dirname(user)
-        self.home = Store(home, self.find(home))
-        try:
-            self.user = Store(user, self.find(user))
-        except Exception:
-            self.user = Store(user, self.find(home))
-        self.standard = (self.home.partition, self.user.partition)
+#        user = path.abspath(os.environ['HOME'])
+#        home = path.dirname(user)
+#        self.home = Store(home, self.find(home))
+#        try:
+#            self.user = Store(user, self.find(user))
+#        except Exception:
+#            self.user = Store(user, self.find(home))
+#        self.standard = (self.home.partition, self.user.partition)
         self.proxy.connect('g-signal', WeakMethod(self, 'on_g_signal'))
         for obj in self.proxy.EnumerateDevices():
             self.change_device(obj)
 
     def find(self, parentdir):
+        """
+        Return DBus object path of partition containing *parentdir*.
+        """
         (major, minor) = major_minor(parentdir)
         return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor) 
 
@@ -201,59 +226,49 @@ class UDisks:
         props.reset()
         if not props.ispartition:
             return
-        if props['DeviceIsMounted']:
-            if obj in self.standard:
-                mount = props['DeviceMountPaths'][0]
-                stores = {}
-                if obj == self.home.partition:
-                    stores[self.home.parentdir] = get_filestore_id(self.home.parentdir)
-                if obj == self.user.partition:
-                    stores[self.user.parentdir] = get_filestore_id(self.user.parentdir)
-            else:
-                mount = usable_mount(props['DeviceMountPaths'])
-                if mount is None:
-                    return
-                stores = {mount: get_filestore_id(mount)}
-            part = partition_info(props, mount, stores)
+        if props.ismounted:
+            mount = usable_mount(props['DeviceMountPaths'])
+            if mount is None:
+                return
+            part = partition_info(props, mount)
             drive = self.get_drive(part['drive'])
             drive['partitions'][obj] = part
-
-    def change_device_old(self, obj):
-        return
-        if props['DeviceIsMounted']:
-            if obj not in self.standard:
-                parentdir = usable_mount(props['DeviceMountPaths'])
-                if not parentdir:
-                    return
-                stores = {
-                    parentdir: {},
-                }
-            else:
-                stores = {}
-                if obj == self.home.partition:
-                    stores[self.home.parentdir] = {}
-                if obj == self.user.partition:
-                    stores[self.user.parentdir] = {}
-            if props.drive not in self.drives:
-                self.drives[props.drive] = drive_info(
-                    self.get_props(props.drive)
-                )
-            d = self.drives[props.drive]
-            d['partitions'][obj] = partition_info(props)
-            d['partitions'][obj]['stores'].update(stores)
-            for key in stores:
-                if path.isdir(path.join(key, DOTNAME)):
-                    stores[key]['dmedia'] = True
+            store_id = get_filestore_id(mount)
+            if store_id:
+                self.add_store(obj, mount, store_id)
+            elif drive['removable']:
+                self.add_card(obj, mount)
         else:
-            try:
-                del self.drives[props.drive]['partitions'][obj]
-                if not self.drives[props.drive]['partitions']:
-                    del self.drives[props.drive]
-            except KeyError:
-                pass
+            self.remove_store(obj)
+            self.remove_card(obj)
+
+    def add_card(self, obj, mount):
+        if obj in self.cards:
+            return
+        self.cards[obj] = mount
+        self.emit('card_added', obj, mount)
+
+    def remove_card(self, obj):
+        try:
+            mount = self.cards.pop(obj)
+            self.emit('card_removed', obj, mount)
+        except KeyError:
+            pass
+
+    def add_store(self, obj, mount, store_id):
+        if obj in self.stores:
+            return
+        self.stores[obj] = (mount, store_id)
+        self.emit('store_added', obj, mount, store_id)
+
+    def remove_store(self, obj):
+        try:
+            (mount, store_id) = self.stores.pop(obj)
+            self.emit('store_removed', obj, mount, store_id)
+        except KeyError:
+            pass
 
     def remove_device(self, obj):
-        print('remove', obj)
         try:
             del self.props[obj]
         except KeyError:
@@ -261,11 +276,17 @@ class UDisks:
             
     def json(self):
         return json.dumps(self.drives, sort_keys=True, indent=4)
+        
+def on_signal(u, *args):
+    print(args[-1], args[:-1])
 
 start = time.time()
 udisks = UDisks()
-udisks.monitor()
+    
+for signal in ('store_added', 'store_removed', 'card_added', 'card_removed'):
+    udisks.connect(signal, on_signal, signal)
 
+udisks.monitor()
 print(udisks.json())
 
 #for dkey in sorted(udisks.drives):
@@ -283,6 +304,9 @@ print(time.time() - start)
 #    print(p, major_minor(p))
 
 
-#mainloop = GObject.MainLoop()
-#mainloop.run()
+
+
+
+mainloop = GObject.MainLoop()
+mainloop.run()
 
