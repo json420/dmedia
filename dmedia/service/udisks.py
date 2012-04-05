@@ -1,20 +1,41 @@
-import weakref
-import time
+# dmedia: distributed media library
+# Copyright (C) 2011 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+"""
+Attempts to tame the UDisks beast.
+"""
+
 import json
 import os
 from os import path
-from collections import namedtuple
 from gettext import gettext as _
 
-from gi.repository import GObject, Gio
+from gi.repository import GObject
 from filestore import DOTNAME
-from microfiber import Database, dmedia_env
 
 from dmedia.units import bytes10
+from dmedia.service.dbus import system
 
-GObject.threads_init()
+
 TYPE_PYOBJECT = GObject.TYPE_PYOBJECT
-PROPS = 'org.freedesktop.DBus.Properties'
 
 
 def major_minor(parentdir):
@@ -22,76 +43,12 @@ def major_minor(parentdir):
     return (os.major(st_dev), os.minor(st_dev))
 
 
-class DBus:
-    def __init__(self, conn):
-        self.conn = conn
+def usable_mount(mounts):
+    for mount in mounts:
+        if mount.startswith('/media/') or mount[:4] in ('/srv', '/mnt'):
+            return mount
 
-    def get(self, bus, obj, iface=None):
-        if iface is None:
-            iface = bus
-        return Gio.DBusProxy.new_sync(
-            self.conn, 0, None, bus, obj, iface, None
-        )
-
-    def get_async(self, callback, bus, obj, iface=None):
-        if iface is None:
-            iface = bus
-        Gio.DBusProxy.new(
-            self.conn, 0, None, bus, obj, iface, None, callback, None
-        )
-
-
-system = DBus(Gio.bus_get_sync(Gio.BusType.SYSTEM, None))
-
-
-class Device:
-    __slots__ = ('obj', 'proxy', 'cache', 'ispartition', 'drive')
-
-    def __init__(self, obj):
-        self.obj = obj
-        self.proxy = system.get(
-            'org.freedesktop.UDisks',
-            obj,
-            'org.freedesktop.DBus.Properties'
-        )
-        self.cache = {}
-        self.ispartition = self['DeviceIsPartition']
-        if self.ispartition:
-            self.drive = self['PartitionSlave']
-        else:
-            self.drive = None
-
-    def __repr__(self):
-        return '{}({!r})'.format(self.__class__.__name__, self.obj)
-
-    def __getitem__(self, key):
-        try:
-            return self.cache[key]
-        except KeyError:
-            value = self.proxy.Get('(ss)', 'org.freedesktop.UDisks.Device', key)
-            self.cache[key] = value
-            return value
-
-    @property
-    def ismounted(self):
-        return self['DeviceIsMounted']
-
-    def get_all(self):
-        return self.proxy.GetAll('(s)', 'org.freedesktop.UDisks.Device')
-
-    def reset(self):
-        self.cache.clear()
-
-
-class WeakMethod:
-    def __init__(self, inst, method):
-        self.proxy = weakref.proxy(inst)
-        self.method = method
-
-    def __call__(self, *args):
-        return getattr(self.proxy, self.method)(*args)
-
-
+  
 def partition_info(d, mount=None):
     return {
         'drive': d.drive,
@@ -131,21 +88,52 @@ def drive_info(d):
     }
 
 
-Special = namedtuple('Store', 'parentdir partition')
-
-
-def usable_mount(mounts):
-    for mount in mounts:
-        if mount.startswith('/media/') or mount[:4] in ('/srv', '/mnt'):
-            return mount
-
-
 def get_filestore_id(parentdir):
-    store = path.join(parentdir, '.dmedia', 'store.json') 
+    store = path.join(parentdir, DOTNAME, 'store.json') 
     try:
         return json.load(open(store, 'r'))['_id']
     except Exception:
         pass
+
+
+
+class Device:
+    __slots__ = ('obj', 'proxy', 'cache', 'ispartition', 'drive')
+
+    def __init__(self, obj):
+        self.obj = obj
+        self.proxy = system.get(
+            'org.freedesktop.UDisks',
+            obj,
+            'org.freedesktop.DBus.Properties'
+        )
+        self.cache = {}
+        self.ispartition = self['DeviceIsPartition']
+        if self.ispartition:
+            self.drive = self['PartitionSlave']
+        else:
+            self.drive = None
+
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.obj)
+
+    def __getitem__(self, key):
+        try:
+            return self.cache[key]
+        except KeyError:
+            value = self.proxy.Get('(ss)', 'org.freedesktop.UDisks.Device', key)
+            self.cache[key] = value
+            return value
+
+    @property
+    def ismounted(self):
+        return self['DeviceIsMounted']
+
+    def get_all(self):
+        return self.proxy.GetAll('(s)', 'org.freedesktop.UDisks.Device')
+
+    def reset(self):
+        self.cache.clear()
 
 
 class UDisks(GObject.GObject):
@@ -292,31 +280,4 @@ class UDisks(GObject.GObject):
             'special': self.special,
         }
         return json.dumps(d, sort_keys=True, indent=4)
-  
-def on_signal(u, *args):
-    print(args[-1], args[:-1])
-
-start = time.time()
-udisks = UDisks()
-    
-for signal in ('store_added', 'store_removed', 'card_added', 'card_removed'):
-    udisks.connect(signal, on_signal, signal)
-
-udisks.monitor()
-print(udisks.json())
-
-        
-       
-print('')
-print(time.time() - start)
-
-#for p in ('/', '/tmp', '/home', '/home/jderose'):
-#    print(p, major_minor(p))
-
-
-
-
-
-mainloop = GObject.MainLoop()
-mainloop.run()
 
