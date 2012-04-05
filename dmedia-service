@@ -88,7 +88,6 @@ class Service(dbus.service.Object):
         self.udisks.connect('store_removed', self.on_store_removed)
         self.udisks.connect('card_added', self.on_card_added)
         self.udisks.connect('card_removed', self.on_card_removed)
-        self.udisks.monitor()
 
     def start_httpd(self):
         (self.httpd, self.port) = start_file_server(self.core.env)
@@ -97,8 +96,13 @@ class Service(dbus.service.Object):
 
     def run(self):
         self.start_core()
-        self.start_httpd()
+        GObject.idle_add(self.on_idle)
         self.mainloop.run()
+        
+    def on_idle(self):
+        self.udisks.monitor()
+        self.start_httpd()
+        return False  # Don't repeat idle call
 
     def _autocompact(self):
         log.info('UserCouch.autocompact()...')
@@ -136,7 +140,7 @@ class Service(dbus.service.Object):
 
     def on_card_removed(self, udisks, obj, mount):
         self.CardRemoved(obj, mount)
-            
+   
     @dbus.service.signal(IFACE, signature='ss')
     def CardAdded(self, obj, mount):
         pass
