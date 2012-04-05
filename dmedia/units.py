@@ -68,3 +68,16 @@ def bytes10(size):
     return (
         '{:.3g} {}'.format(s, BYTES10[i])
     )
+
+
+def minsec(seconds):
+    """
+    Format *seconds* as a M:SS string with minutes and seconds.
+    
+    For example:
+    
+    >>> minsec(123)
+    '2:03'
+    
+    """
+    return '{:d}:{:02d}'.format(seconds // 60, seconds % 60)

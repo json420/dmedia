@@ -200,7 +200,7 @@ class TestLocalStores(TestCase):
 
 
 class TestLocalSlave(CouchCase):
-    create_databases = ['dmedia', 'dmedia_log']
+    create_databases = [schema.DB_NAME]
 
     def test_get_doc(self):
         inst = local.LocalSlave(self.env)

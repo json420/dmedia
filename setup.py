@@ -133,16 +133,24 @@ setup(
     license='AGPLv3+',
     cmdclass={'test': Test},
     packages=['dmedia', 'dmedia.service', 'dmedia.gtk'],
-    scripts=['dmedia-gtk', 'dmedia-cli', 'dmedia-migrate'],
+    scripts=[
+        'dmedia-gtk',
+        'dmedia-browser',
+        'dmedia-cli',
+        'dmedia-migrate',
+        'dmedia-schema-upgrade',
+        'dmedia-re-extract',
+    ],
     data_files=[
+        ('bin', ['dmedia-extract']),
         ('share/couchdb/apps/dmedia',
             [path.join('ui', name) for name in os.listdir('ui')]
         ),
         ('share/applications',
-            ['share/dmedia.desktop']
+            ['share/dmedia.desktop', 'share/dmedia-browser.desktop']
         ),
         ('share/icons/hicolor/scalable/apps',
-            ['share/dmedia.svg']
+            ['share/dmedia.svg', 'share/dmedia-browser.svg']
         ),
         ('share/icons/hicolor/scalable/status',
             [
@@ -153,12 +161,12 @@ setup(
         ('lib/dmedia',
             [
                 'dmedia-service',
-                'dmedia-service3',
                 'share/init-filestore',
+                'dmedia-transcoder',
             ]
         ),
         ('share/dbus-1/services/',
-            ['share/org.freedesktop.DMedia.service']
+            ['share/org.freedesktop.Dmedia.service']
         ),
     ],
 )

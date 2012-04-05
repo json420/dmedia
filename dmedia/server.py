@@ -42,6 +42,7 @@ But this is not okay:
 """
 
 import json
+import socket
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 
@@ -244,6 +245,7 @@ class ReadOnlyApp(BaseWSGI):
             'Dmedia': 'Welcome',
             'version': __version__,
             'machine_id': env.get('machine_id'),
+            'hostname': socket.gethostname(),
         }
         self._info = json.dumps(info, sort_keys=True).encode('utf-8')
 

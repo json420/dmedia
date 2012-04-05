@@ -1,0 +1,170 @@
+* {
+    margin: 0px;
+    padding: 0px;
+    line-height: 1.5;
+}
+
+body{
+    background:#333;
+    color:white;
+    overflow:hidden;
+}
+
+video{
+    background:black;
+}
+
+.head {
+    height: 39px;
+    background: -webkit-linear-gradient(top, #301438, #200428);
+    border-bottom:1px solid #222;
+}
+
+.project {
+    margin: 8px;
+    display: inline-block;
+    background: -webkit-linear-gradient(top, #555, #444);
+    color: white;
+    font-size: 0;
+    box-shadow: 0px 2px 5px 1px rgba(0,0,0,0.3);
+    border-radius:3px;
+    border-top:1px solid #666;
+    cursor: default;
+    -webkit-user-select: none;
+    padding:3px;
+    padding-top:2px;
+    -webkit-animation:appear 100ms ease-in-out 1;
+}
+
+.project.selected {
+    background: -webkit-linear-gradient(top, #8c5159, #555);
+    border-top:1px solid #777;
+    box-shadow: 0px 2px 5px 1px rgba(0,0,0,0.3), 0px 0px 1px 0px #e81f3b;
+}
+
+.project .thumbnail {
+    width: 80px;
+    height: 80px;
+    background-position: center center;
+    background-size: cover;
+    background-color: #222;
+}
+
+.project > div {
+    display: inline-block;
+    vertical-align: top;
+}
+
+.project p {
+    font-size: 14px;
+    padding-left: 5px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 218px;
+    color: #ddd;
+    box-sizing: border-box !important;
+}
+
+.project p.title {
+    font-weight: bold;
+    color: white;
+}
+
+.darkbar{
+    background: -webkit-linear-gradient(top, #222, #111);
+    border-top: 1px solid #333;
+    text-shadow: 0px -1px rgba(0,0,0,0.6);
+}
+
+.bar{
+    background: -webkit-linear-gradient(top, #444, #333);
+    border-top: 1px solid #555;
+    text-shadow: 0px -1px rgba(0,0,0,0.5);
+}
+
+.lightbar{
+    background: -webkit-linear-gradient(top, #666, #555);
+    border-top: 1px solid #777;
+    text-shadow: 0px -1px rgba(0,0,0,0.4);
+}
+
+.lower{
+    background: -webkit-linear-gradient(top, #222, #333);
+    border-top: 1px solid #282828;
+}
+
+input, button, textarea, .inset {
+    padding-left: 4px;
+    line-height: 22px;  /* 2px less becaues of 1px border */
+    color: #ddd;
+    border:1px solid transparent;
+    border-top:1px solid #555;
+    border-bottom:1px solid #383838;
+    border-radius: 2px;
+    box-shadow: 0px 1px 1px rgba(0,0,0,0.7);
+    -webkit-transition:background 100ms ease-in-out;
+}
+
+input, textarea, .inset {
+    background: -webkit-linear-gradient(top, #333, #444);
+    box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7), 0px 1px 1px rgba(0,0,0,0.7);
+    border-bottom:1px solid #555;
+    border-top:1px solid #333;
+}
+
+button {
+    text-shadow:0px -1px 0px rgba(0,0,0,0.5);
+    background:-webkit-linear-gradient(top, #444, #333);
+    font-weight: normal;
+}
+
+button:hover{
+    color:#fff;
+    background:-webkit-linear-gradient(top, #555, #444);
+    border-top:1px solid #666;
+    border-bottom:1px solid #484848;
+}
+
+button:disabled:hover{
+    color:rgba(255,255,255,0.4);
+    background:-webkit-linear-gradient(top, #444, #333);
+    border-top:1px solid #555;
+}
+
+button:disabled {
+    font-weight: normal;
+    font-style:normal;
+    color:rgba(255,255,255,0.4);
+    text-shadow:0px -1px rgba(0,0,0,0.4);
+}
+
+button:active{
+    background:-webkit-linear-gradient(top, #333, #222);
+    text-shadow:0px -1px 1px rgba(0,0,0,0.3);
+    color:#ccc;
+}
+
+button:focus {
+    box-shadow: 0px 1px 1px rgba(0,0,0,0.7), 0px 0px 1px #e81f3b;
+    outline:none;
+}
+
+input:focus, textarea:focus, .inset:focus{
+    box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7), 0px 0px 1px #e81f3b;
+    outline:none;
+}
+
+button:focus{
+    background:-webkit-linear-gradient(top, #5d2b32, #333);
+}
+
+@-webkit-keyframes appear{
+    0% {
+        -webkit-transform: scale(1) translate(0px, -2px);
+        opacity:0;
+    }
+    100% {
+        -webkit-transform: scale(1) translate(0px, 0px);
+        opacity:1;
+    }
+}

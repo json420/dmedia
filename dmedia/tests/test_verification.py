@@ -28,13 +28,13 @@ import time
 from os import path
 
 from filestore import FileStore, DIGEST_BYTES
-from microfiber import Database, random_id
+from microfiber import random_id
 
 from .couch import CouchCase
 from .base import TempDir, random_file
 
-from dmedia.views import init_views
 from dmedia.schema import create_file
+from dmedia.util import get_db
 from dmedia import verification
 
 
@@ -50,10 +50,8 @@ class TestFunctions(CouchCase):
                 self.tmp.dir: {'id': self.store_id, 'copies': 1},
             },
         }
-        self.db = Database('dmedia', self.env)
-        self.db.ensure()
+        self.db = get_db(self.env, True)
         self.db.save(local)
-        init_views(self.db)
 
     def tearDown(self):
         super().tearDown()

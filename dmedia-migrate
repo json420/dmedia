@@ -23,30 +23,74 @@
 
 
 import sys
+import optparse
 from os import path
+from datetime import date
+from gettext import gettext as _
 
 from gi.repository import GObject
 
-from microfiber import Database
 from filestore import DOTNAME
 import dmedia
+from dmedia import schema
+from dmedia.util import get_db, get_project_db
 from dmedia.units import bytes10
 from dmedia.service.api import DMedia
 from dmedia.importer import ImportManager, notify_stats
 
 
-if len(sys.argv) != 2:
+# Default project name if project_id isn't supplied
+name = _('Migrated {date}').format(date=date.today().strftime('%a, %d %b %Y'))
+
+parser = optparse.OptionParser(
+    usage='%prog DIRECTORY',
+)
+parser.add_option('--project',
+    metavar='ID',
+    help='ID of existing project (otherwise creates new one)',
+    default=None,
+)
+parser.add_option('--name',
+    help='name of new project; default is {!r}'.format(name),
+    default=name,
+)
+parser.add_option('--list',
+    help='list existing projects and exit',
+    action='store_true',
+    default=False,
+)
+(options, args) = parser.parse_args()
+
+
+if options.list:
+    api = DMedia()
+    db = get_db(api.GetEnv())
+    for row in db.view('project', 'title')['rows']:
+        print('  {}  {}'.format(row['id'], row['key']))
+    sys.exit(0)
+if len(args) != 1:
     print('takes exactly one argument DIRECTORY')
     sys.exit(1)
-basedir = path.abspath(sys.argv[1])
+basedir = path.abspath(args[0])
 if not path.isdir(basedir):
     print('not a directory: {!r}'.format(basedir))
     sys.exit(1)
 
 
-GObject.threads_init()
 api = DMedia()
 env = api.GetEnv()
+if options.project:
+    project_id = options.project
+else:
+    doc = schema.create_project(options.name)
+    project_id = doc['_id']
+    db = get_db(env)
+    db.post(doc)
+    project = get_project_db(doc['_id'], env, True)
+    project.save(doc)
+env['project_id'] = project_id
+
+GObject.threads_init()
 mainloop = GObject.MainLoop()
 
 
@@ -56,9 +100,9 @@ def callback(signal, args):
         mainloop.quit()
 
     elif signal == 'batch_finished':
-        (batch_id, stats, copies) = args
+        (batch_id, stats, copies, msg) = args
 
-        db = Database('dmedia', env)
+        db = get_db(env)
         doc = db.get(batch_id)
         print('\nFiles stored in:')
         for parentdir in sorted(doc['stores']):
@@ -75,14 +119,14 @@ def callback(signal, args):
         if body:
             print(body)
         print('')
-        
+        print('Imported into project {}'.format(project_id))
+ 
         mainloop.quit()
     elif signal == 'batch_progress':
         (count, total_count, size, total_size) = args
         print('File {} of {}, {} of {}'.format(
                 count, total_count, bytes10(size), bytes10(total_size))
         )
-
 
 dmedia.configure_logging()
 manager = ImportManager(env, callback)

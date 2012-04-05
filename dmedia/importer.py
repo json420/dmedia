@@ -37,9 +37,10 @@ import mimetypes
 import microfiber
 from filestore import FileStore, scandir, batch_import_iter, statvfs
 
+from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-from dmedia.extractor import merge_metadata
+from dmedia.extractor import extract, merge_thumbnail
 
 
 log = logging.getLogger()
@@ -147,6 +148,17 @@ def sum_progress(progress):
     )
 
 
+def get_rate(doc):
+    try:
+        elapsed = doc['time_end'] - doc['time']
+        rate = doc['stats']['total']['bytes'] / elapsed
+        return bytes10(rate) + '/s'
+    except Exception:
+        pass
+    
+    
+
+
 class ImportWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
@@ -155,6 +167,8 @@ class ImportWorker(workers.CouchWorker):
         self.id = None
         self.doc = None
         self.extract = self.env.get('extract', True)
+        self.project = get_project_db(self.env['project_id'], self.env)
+        self.project.ensure()
 
     def execute(self, basedir, extra=None):
         self.extra = extra
@@ -205,7 +219,6 @@ class ImportWorker(workers.CouchWorker):
 
     def import_all(self):
         stores = self.get_filestores()
-        need_thumbnail = True
         try:
             for (status, file, doc) in self.import_iter(*stores):
                 self.doc['stats'][status]['count'] += 1
@@ -214,20 +227,14 @@ class ImportWorker(workers.CouchWorker):
                 if doc is not None:
                     self.db.save(doc)
                     self.doc['files'][file.name]['id'] = doc['_id']
-                    if need_thumbnail and 'thumbnail' in doc['_attachments']:
-                        self.emit('thumbnail', self.id, doc['_id'])
-                        need_thumbnail = False
             self.doc['time_end'] = time.time()
+            self.doc['rate'] = get_rate(self.doc)
         finally:
             self.db.save(self.doc)
         self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
-        common = {
-            'import_id': self.id,
-            'machine_id': self.env.get('machine_id'),
-            'batch_id': self.env.get('batch_id'),
-        }
+        need_thumbnail = True
         for (file, ch) in batch_import_iter(self.batch, *filestores,
             callback=self.progress_callback
         ):
@@ -235,6 +242,41 @@ class ImportWorker(workers.CouchWorker):
                 assert file.size == 0
                 yield ('empty', file, None)
                 continue
+
+            common = {
+                'import': {
+                    'import_id': self.id,
+                    'machine_id': self.env.get('machine_id'),
+                    'batch_id': self.env.get('batch_id'),
+                    'project_id': self.env.get('project_id'),
+                    'src': file.name,
+                    'mtime': file.mtime,
+                },
+                'meta': {},
+                'ctime': file.mtime,
+                'name': path.basename(file.name),
+            }
+            ext = normalize_ext(file.name)
+            if ext:
+                common['ext'] = ext
+            extract(file.name, common)
+
+            # Project doc
+            try:
+                doc = self.project.get(ch.id)
+            except microfiber.NotFound:
+                doc = schema.create_project_file(
+                    ch.id, ch.file_size, ch.leaf_hashes
+                )
+                doc.update(common)
+                merge_thumbnail(file.name, doc)
+                log.info('adding to %r', self.project)
+                self.project.save(doc)
+            if need_thumbnail and 'thumbnail' in doc['_attachments']:
+                self.emit('import_thumbnail', self.id, ch.id)
+                need_thumbnail = False
+
+            # Core doc
             stored = dict(
                 (fs.id, 
                     {
@@ -253,21 +295,7 @@ class ImportWorker(workers.CouchWorker):
                 doc = schema.create_file(
                     ch.id, ch.file_size, ch.leaf_hashes, stored
                 )
-                doc['import'] = {
-                    'src': file.name,
-                    'mtime': file.mtime,
-                }
-                doc['import'].update(common)
-                doc['ctime'] = file.mtime
-                doc['name'] = path.basename(file.name)
-                ext = normalize_ext(file.name)
-                if ext:
-                    doc['ext'] = ext
-                (mime, encoding) = mimetypes.guess_type(file.name)
-                if mime:
-                    doc['content_type'] = mime
-                if self.extract:
-                    merge_metadata(file.name, doc)
+                doc.update(common)
                 yield ('new', file, doc)
 
     def progress_callback(self, count, size):
@@ -275,6 +303,7 @@ class ImportWorker(workers.CouchWorker):
             count, self.batch.count,
             size, self.batch.size
         )
+
 
 
 class ImportManager(workers.CouchManager):
@@ -318,16 +347,14 @@ class ImportManager(workers.CouchManager):
         check_call(['/bin/sync'])
         log.info('sync done')
         self.doc['time_end'] = time.time()
+        self.doc['rate'] = get_rate(self.doc)
         self.db.save(self.doc)
         self.emit('batch_finished',
             self.doc['_id'],
             self.doc['stats'],
             self.copies,
             notify_stats2(self.doc['stats'])
-            
         )
-        log.info('compacting %r', self.db)
-        self.db.post(None, '_compact')
         self.doc = None
 
     def on_error(self, basedir, exception, message):

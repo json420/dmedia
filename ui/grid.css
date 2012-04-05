@@ -1,0 +1,67 @@
+.grid_row {
+    white-space: nowrap;
+    font-size: 0;
+    line-height: 0;
+}
+
+.grid_row > * {
+    font-size: 14px;
+    display: inline-block;
+    margin: 8px;
+    box-sizing: border-box !important;
+    vertical-align: top;
+}
+
+.grid_cell > * {
+    display: block;
+    width: 100%;
+    box-sizing: border-box !important;
+}
+
+.grid_1 {
+    width: 64px;
+}
+
+.grid_2 {
+    width: 144px;
+}
+
+.grid_3 {
+    width: 224px;
+}
+
+.grid_4 {
+    width: 304px;
+}
+
+.grid_5 {
+    width: 384px;
+}
+
+.grid_6 {
+    width: 464px;
+}
+
+.grid_7 {
+    width: 544px;
+}
+
+.grid_8 {
+    width: 624px;
+}
+
+.grid_9 {
+    width: 704px;
+}
+
+.grid_10 {
+    width: 784px;
+}
+
+.grid_11 {
+    width: 864px;
+}
+
+.grid_12 {
+    width: 944px;
+}

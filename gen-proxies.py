@@ -2,19 +2,50 @@ from subprocess import check_call
 import json
 import time
 
-from microfiber import Database, dc3_env
+from microfiber import Database, dmedia_env
 from filestore import FileStore
 from dmedia.local import LocalSlave
 from dmedia.core import init_filestore
-from dmedia.schema import create_file
+from dmedia.schema import create_file, DB_NAME
 
-env = dc3_env()
-db = Database('dmedia', env)
+env = dmedia_env()
+db = Database(DB_NAME, env)
 loc = LocalSlave(env)
 (fs, fs_doc) = init_filestore('/home')
 
-r = db.view('user', 'needsproxy')
-for row in r['rows']:
+
+def default_job(src, dst):
+    return {
+        'src': src,
+        'dst': dst,
+        'mux': 'webmmux',
+        'video': {
+            'encoder': {
+                'name': 'vp8enc',
+                'props': {
+                    'quality': 8,
+                    'tune': 1,  # Tune for SSIM
+                    'max-keyframe-distance': 15,
+                    'speed': 4,
+                },
+            },
+            'filter': {
+                'mime': 'video/x-raw-yuv',
+                'caps': {'width': 960, 'height': 540},
+            },
+        },
+        'audio': {
+            'encoder': {
+                'name': 'vorbisenc',
+                'props': {'quality': 0.3},
+            },
+        },
+    }
+
+
+rows = db.view('user', 'needsproxy')['rows']
+#rows = [{'id': 'ACKMVX7YBD5CXAFPL7W27WALOWJMVCSIPNZ7A5ELKDJR4Y5B'}]
+for row in rows:
     _id = row['id']
     try:
         src = loc.stat(_id).name
@@ -23,7 +54,8 @@ for row in r['rows']:
     print(src)
     tmp_fp = fs.allocate_tmp()
     start = time.time()
-    check_call(['./dmedia-transcoder', src, tmp_fp.name])
+    job = default_job(src, tmp_fp.name)
+    check_call(['./dmedia-transcoder', json.dumps(job)])
     elapsed = time.time() - start
     ch = fs.hash_and_move(tmp_fp)
     st = fs.stat(ch.id)
@@ -35,7 +67,7 @@ for row in r['rows']:
         }
     }
     proxy = create_file(ch.id, ch.file_size, ch.leaf_hashes, stored, 'proxy')
-    proxy['proxyof'] = _id
+    proxy['proxy_of'] = _id
     proxy['content_type'] = 'video/webm'
     proxy['ext'] = 'webm'
     proxy['elapsed'] = elapsed
@@ -45,8 +77,8 @@ for row in r['rows']:
     doc['proxies'][ch.id] = {
         'bytes': st.size,
         'content_type': 'video/webm',
-        'width': 640,
-        'height': 360,
+        'width': 960,
+        'height': 540,
     }
     db.save(doc)
     print('')

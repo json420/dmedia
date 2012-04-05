@@ -32,19 +32,36 @@ from microfiber import NotFound
 log = logging.getLogger()
 
 
-_sum = '_sum'
+# High performance Erlang reduce functions that don't require JSON round trip:
 _count = '_count'
+_sum = '_sum'
 
+# Reduce function to both count and sum in a single view (thanks manveru!)
+# Use with care, this is much, much slower than the above!
+_count_and_sum = """
+function(key, values, rereduce) {
+    var count = 0;
+    var sum = 0;
+    var i;
+    for (i in values) {
+        count += values[i][0];
+        sum += values[i][1];
+    }
+    return [count, sum];
+}
+"""
+
+
+# The generic 'doc' design, quite helpful for developers:
+doc_ver = """
+function(doc) {
+    emit(doc.ver, null);
+}
+"""
 
 doc_type = """
 function(doc) {
     emit(doc.type, null);
-}
-"""
-
-doc_ver = """
-function(doc) {
-    emit(doc.ver, null);
 }
 """
 
@@ -54,6 +71,15 @@ function(doc) {
 }
 """
 
+doc_design = ('doc', (
+    ('ver', doc_ver, _count),
+    ('type', doc_type, _count),
+    ('time', doc_time, None),
+))
+
+
+
+# For dmedia/batch docs:
 batch_time = """
 function(doc) {
     if (doc.type == 'dmedia/batch') {
@@ -62,6 +88,13 @@ function(doc) {
 }
 """
 
+batch_design = ('batch', (
+    ('time', batch_time, None),
+))
+
+
+
+# For dmedia/import docs:
 import_time = """
 function(doc) {
     if (doc.type == 'dmedia/import') {
@@ -70,17 +103,13 @@ function(doc) {
 }
 """
 
-import_partition = """
-function(doc) {
-    if (doc.type == 'dmedia/import') {
-        emit(doc.partition_id, null);
-    }
-}
-"""
+import_design = ('import', (
+    ('time', import_time, None),
+))
 
 
 
-# views in the 'store' design only index docs where doc.type == 'dmedia/store'
+# For dmedia/store docs:
 store_plugin = """
 function(doc) {
     if (doc.type == 'dmedia/store') {
@@ -89,19 +118,13 @@ function(doc) {
 }
 """
 
-store_partition = """
-function(doc) {
-    if (doc.type == 'dmedia/store') {
-        if (doc.plugin == 'filestore') {
-            emit(doc.partition_id, null);
-        }
-    }
-}
-"""
+store_design = ('store', (
+    ('plugin', store_plugin, _count),
+))
 
 
-###########################
-# doc.type == 'dmedia/file'
+
+# For dmedia/file docs:
 file_stored = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -213,8 +236,8 @@ function(doc) {
 """
 
 
-# views in the 'user' design only index docs for which doc.type == 'dmedia/file'
-# and doc.origin == 'user'
+
+# For dmedia/file docs where origin is 'user':
 user_copies = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -250,19 +273,28 @@ function(doc) {
 user_needsproxy = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'mov' && !doc.proxies) {
+        if (doc.media == 'video' && !doc.proxies) {
             emit(doc.time, null);
         }
     }
 }
 """
 
-
 user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'mov') {
-            emit(doc.ctime, doc.bytes);
+        if (doc.media == 'video') {
+            emit(doc.ctime, doc.review);
+        }
+    }
+}
+"""
+
+user_video_needsreview = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'video' && !doc.review) {
+            emit(doc.ctime, null);
         }
     }
 }
@@ -271,83 +303,192 @@ function(doc) {
 user_audio = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.ext == 'wav') {
-            emit(doc.ctime, doc.bytes);
+        if (doc.media == 'audio') {
+            emit(doc.ctime, doc.review);
         }
     }
 }
 """
 
-user_photo = """
+user_image = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (['cr2', 'jpg'].indexOf(doc.ext) >= 0) {
-            emit(doc.ctime, doc.bytes);
+        if (doc.media == 'image') {
+            emit(doc.ctime, doc.review);
         }
     }
 }
 """
 
 
-partition_uuid = """
+
+# For dmedia/project docs:
+project_atime = """
 function(doc) {
-    if (doc.type == 'dmedia/partition') {
-        emit(doc.uuid, null)
+    if (doc.type == 'dmedia/project') {
+        emit(doc.atime, doc.title);
     }
 }
 """
 
-partition_drive = """
+project_title = """
 function(doc) {
-    if (doc.type == 'dmedia/partition') {
-        emit(doc.drive_id, null)
+    if (doc.type == 'dmedia/project') {
+        emit(doc.title, doc.atime);
     }
 }
 """
 
-drive_serial = """
+
+
+# For dmedia/tag docs:
+tag_key = """
 function(doc) {
-    if (doc.type == 'dmedia/drive') {
-        emit(doc.serial, null)
+    if(doc.type == 'dmedia/tag') {
+        emit(doc.key, doc.value);
     }
 }
 """
 
-# Reduce function to both count and sum in a single view (thanks manveru!)
-_both = """
-function(key, values, rereduce) {
-    var count = 0;
-    var sum = 0;
-    var i;
-    for (i in values) {
-        count += values[i][0];
-        sum += values[i][1];
+tag_letters = """
+function(doc) {
+    if(doc.type == 'dmedia/tag' && doc.key) {
+        var i;
+        for (i=0; i<doc.key.length; i++) {
+            emit(doc.key.slice(0, i + 1), doc.value);
+        }
     }
-    return [count, sum];
+}
+"""
+
+# For dmedia/file docs in a project
+media_framerate = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.framerate) {
+        emit(doc.framerate, null);   
+    }
+}
+"""
+
+media_samplerate = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.samplerate) {
+        emit(doc.samplerate, null); 
+    }
+}
+"""
+
+media_size = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.width && doc.height) {
+            emit([doc.width, doc.height].join('x'), null);
+        }
+    }
+}
+"""
+
+media_seconds = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.duration && doc.duration.seconds) {
+            emit(doc.meta.camera_serial, doc.duration.seconds);
+        }
+    }
 }
 """
 
 
-designs = (
-    ('doc', (
-        ('type', doc_type, _count),
-        ('time', doc_time, None),
-        #('ver', doc_ver, _count),
-    )),
+media_design = ('media', (
+    ('framerate', media_framerate, _count),
+    ('samplerate', media_samplerate, _count),
+    ('size', media_size, _count),
+    ('seconds', media_seconds, _sum),
+))
 
-    ('batch', (
-        ('time', batch_time, None),
-    )),
 
-    ('import', (
-        ('time', import_time, None),
-        #('partition', import_partition, None)
-    )),
+# For dmedia/file doc with interesting camera/photographic metadata
+camera_serial = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.camera_serial) {
+            emit(doc.meta.camera_serial, null);
+        }
+    }
+}
+"""
+
+camera_model = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.camera) {
+            emit(doc.meta.camera, null);
+        }
+    }
+}
+"""
+
+camera_lens = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.lens) {
+            emit(doc.meta.lens, null);
+        }
+    }
+}
+"""
+
+camera_aperture = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.aperture) {
+            emit(doc.meta.aperture, null);
+        }
+    }
+}
+"""
+
+camera_shutter = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.shutter) {
+            emit(doc.meta.shutter, null);
+        }
+    }
+}
+"""
+
+camera_iso = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.meta) {
+        if (doc.meta.iso) {
+            emit(doc.meta.iso, null);
+        }
+    }
+}
+"""
+
+camera_design = ('camera', (
+    ('model', camera_model, _count),
+    ('serial', camera_serial, _count),
+    ('lens', camera_lens, _count),
+    ('aperture', camera_aperture, _count),
+    ('shutter', camera_shutter, _count),
+    ('iso', camera_iso, _count),
+))
+
+
+
+core = (
+    doc_design,
+    batch_design,
+    import_design,
+    store_design,
 
     ('file', (
-        ('stored', file_stored, _both),
-        ('ext', file_ext, _both),
-        ('origin', file_origin, _both),
+        ('stored', file_stored, _count_and_sum),
+        ('ext', file_ext, _count_and_sum),
+        ('origin', file_origin, _count_and_sum),
 
         ('fragile', file_fragile, None),
         ('reclaimable', file_reclaimable, None),
@@ -363,25 +504,56 @@ designs = (
         ('tags', user_tags, _count),
         ('ctime', user_ctime, None),
         ('needsproxy', user_needsproxy, None),
-        ('video', user_video, _sum),
-        ('photo', user_photo, _sum),
-        ('audio', user_audio, _sum),
+        ('video', user_video, None),
+        ('image', user_image, None),
+        ('audio', user_audio, None),
     )),
 
-    ('store', (
-        ('plugin', store_plugin, _count),
-        #('partition', store_partition, None)
+    ('project', (
+        ('atime', project_atime, None),
+        ('title', project_title, None),
     )),
-
-#    ('partition', (
-#        ('uuid', partition_uuid, None),
-#        ('drive', partition_drive, None)
-#    )),
-
-#    ('drive', (
-#        ('serial', drive_serial, None),
-#    ))
 )
+
+
+project = (
+    doc_design,
+    batch_design,
+    import_design,
+    media_design,
+    camera_design,
+
+    ('file', (
+        ('stored', file_stored, _count_and_sum),
+        ('ext', file_ext, _count_and_sum),
+        ('origin', file_origin, _count_and_sum),
+
+        ('fragile', file_fragile, None),
+        ('reclaimable', file_reclaimable, None),
+        ('partial', file_partial, _sum),
+        ('corrupt', file_corrupt, _sum),
+        ('bytes', file_bytes, _sum),
+        ('verified', file_verified, None),
+        ('ctime', file_ctime, None),
+    )),
+
+    ('user', (
+        ('copies', user_copies, None),
+        ('tags', user_tags, _count),
+        ('ctime', user_ctime, None),
+        ('needsproxy', user_needsproxy, None),
+        ('video', user_video, None),
+        ('video_needsreview', user_video_needsreview, None),
+        ('image', user_image, None),
+        ('audio', user_audio, None),
+    )),
+
+    ('tag', (
+        ('key', tag_key, _count),
+        ('letters', tag_letters, None),
+    )),
+)
+
 
 
 def iter_views(views):
@@ -416,7 +588,7 @@ def update_design_doc(db, doc):
         return 'new'
 
 
-def init_views(db):
+def init_views(db, designs=core):
     log.info('Initializing views in %r', db)
     for (name, views) in designs:
         doc = build_design_doc(name, views)

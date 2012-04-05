@@ -27,8 +27,6 @@ Various constants conveniently located in one place.
 import mimetypes
 mimetypes.init()
 
-DBNAME = 'dmedia'
-
 # Standard read/write buffer size:
 CHUNK_SIZE = 2**20  # 1 MiB
 
@@ -47,10 +45,8 @@ EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
 
 
 # D-Bus releated:
-BUS = 'org.freedesktop.DMedia'
+BUS = 'org.freedesktop.Dmedia'
 IFACE = BUS
-IMPORT_BUS = 'org.freedesktop.DMediaImporter'
-IMPORT_IFACE = IMPORT_BUS
 DC_BUS = 'org.desktopcouch.CouchDB'
 DC_INTERFACE = DC_BUS
 

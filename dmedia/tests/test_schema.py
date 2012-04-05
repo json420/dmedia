@@ -358,36 +358,57 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
         )
 
-    def test_file_optional(self):
-
-        f = schema.check_file_optional
-        f({})
-        
         # ext
-        self.assertIsNone(f({'ext': 'ogv'}))
+        copy = deepcopy(good)
+        copy['ext'] = 'ogv'
+        self.assertIsNone(f(copy))
+        copy['ext'] = 42
         with self.assertRaises(TypeError) as cm:
-            f({'ext': 42})
+            f(copy)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format("doc['ext']", str, int, 42)
         )
+        copy['ext'] = '.mov'
         with self.assertRaises(ValueError) as cm:
-            f({'ext': '.mov'})
+            f(copy)
         self.assertEqual(
             str(cm.exception),
             "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
         )
 
-
         # content_type
-        self.assertIsNone(f({'content_type': 'video/quicktime'}))
+        copy = deepcopy(good)
+        copy['content_type'] = 'video/quicktime'
+        self.assertIsNone(f(copy))
+        copy['content_type'] = 42
         with self.assertRaises(TypeError) as cm:
-            f({'content_type': 42})
+            f(copy)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format("doc['content_type']", str, int, 42)
         )
 
+        # proxy_of
+        copy = deepcopy(good)
+        copy['origin'] = 'proxy'
+        bad_id = random_id()
+        copy['proxy_of'] = bad_id
+        with self.assertRaises(ValueError) as cm:
+            f(copy)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['proxy_of']: intrinsic ID must be 48 characters, got 24: {!r}".format(bad_id)
+        )
+        good_id = random_id(DIGEST_BYTES)
+        copy['proxy_of'] = good_id
+        self.assertIsNone(f(copy))
+
+    def test_file_optional(self):
+
+        f = schema.check_file_optional
+        f({})
+        
         # content_encoding
         self.assertIsNone(f({'content_encoding': 'gzip'}))
         self.assertIsNone(f({'content_encoding': 'deflate'}))
@@ -520,7 +541,7 @@ class TestFunctions(TestCase):
         bad['plugin'] = 'foo'
         with self.assertRaises(ValueError) as cm:
             schema.check_store(bad)
-        plugins = ('filestore', 'filestore.removable', 'ubuntuone', 's3')
+        plugins = ('filestore', 'ubuntuone', 's3')
         self.assertEqual(
             str(cm.exception),
             "doc['plugin'] value %r not in %r" % ('foo', plugins)
@@ -602,6 +623,7 @@ class TestFunctions(TestCase):
         doc = schema.create_file(_id, file_size, leaf_hashes, stored,
             origin='proxy'
         )
+        doc['proxy_of'] = random_id(DIGEST_BYTES)
         schema.check_file(doc)
         self.assertEqual(doc['origin'], 'proxy')
 
@@ -694,3 +716,23 @@ class TestFunctions(TestCase):
                 'empty': {'count': 0, 'bytes': 0},
             }
         )
+
+    def test_project_db_name(self):
+        self.assertEqual(
+            schema.project_db_name('AAAAAAAAAAAAAAAAAAAAAAAA'),
+            'dmedia-0-aaaaaaaaaaaaaaaaaaaaaaaa',
+        )
+        _id = random_id()
+        self.assertEqual(
+            schema.project_db_name(_id),
+            'dmedia-0-{}'.format(_id.lower())
+        )
+
+    def test_create_project(self):
+        doc = schema.create_project()
+        schema.check_project(doc)
+        self.assertEqual(doc['title'], '')
+
+        doc = schema.create_project(title='Hobo Spaceship')
+        schema.check_project(doc)
+        self.assertEqual(doc['title'], 'Hobo Spaceship')

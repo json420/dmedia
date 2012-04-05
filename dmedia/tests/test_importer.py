@@ -35,6 +35,7 @@ from microfiber import random_id, Database
 from .couch import CouchCase
 from .base import TempDir, DummyQueue
 
+from dmedia.util import get_db
 from dmedia import importer, schema
 
 
@@ -214,9 +215,10 @@ class ImportCase(CouchCase):
             self.dst1.dir: {'id': self.store1_id, 'copies': 1},
             self.dst2.dir: {'id': self.store2_id, 'copies': 2},
         }
-        self.db = Database('dmedia', self.env)
+        self.db = get_db(self.env)
         self.db.ensure()
         self.env['extract'] = False
+        self.env['project_id'] = random_id()
 
     def tearDown(self):
         super().tearDown()
@@ -466,6 +468,7 @@ class TestImportManager(ImportCase):
                 '_rev',
                 'stats',
                 'time_end',
+                'rate',
             ])
         )
         self.assertLessEqual(doc['time_end'], time.time())

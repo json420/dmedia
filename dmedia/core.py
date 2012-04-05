@@ -34,14 +34,17 @@ import json
 import time
 import stat
 import multiprocessing
+from urllib.parse import urlparse
 import logging
 
 from microfiber import Database, NotFound, random_id2
 from filestore import FileStore, check_root_hash, check_id
 
+import dmedia
 from dmedia import schema
-from dmedia.local import LocalStores
+from dmedia.local import LocalStores, FileNotLocal
 from dmedia.views import init_views
+from dmedia.units import bytes10
 
 
 LOCAL_ID = '_local/dmedia'
@@ -95,7 +98,7 @@ def init_filestore(parentdir, copies=1):
 class Base:
     def __init__(self, env):
         self.env = env
-        self.db = Database('dmedia', env)
+        self.db = Database(schema.DB_NAME, env)
         self.logdb = Database('dmedia_log', env)
 
     def log(self, doc):
@@ -133,6 +136,7 @@ class Core(Base):
             self.db.save(machine)
         self.machine_id = self.local['machine_id']
         self.env['machine_id'] = self.machine_id
+        self.env['version'] = dmedia.__version__
         log.info('machine_id = %r', self.machine_id)
 
     def _init_stores(self):
@@ -171,12 +175,14 @@ class Core(Base):
         log.info('FileStore %r at %r', fs.id, fs.parentdir)
         return fs
 
-    def get_doc(self, _id):
-        check_id(_id)
-        try:
-            return self.db.get(_id)
-        except microfiber.NotFound:
-            raise NoSuchFile(_id)        
+    def stat(self, _id):
+        doc = self.db.get(_id)
+        fs = self.stores.choose_local_store(doc)
+        return fs.stat(_id)
+
+    def stat2(self, doc):
+        fs = self.stores.choose_local_store(doc)
+        return fs.stat(doc['_id'])       
 
     def content_hash(self, _id, unpack=True):
         doc = self.get_doc(_id)
@@ -207,3 +213,55 @@ class Core(Base):
         assert set(self.local['stores']) == set(self.stores.parentdirs)
         assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
 
+    def resolve(self, _id):
+        doc = self.db.get(_id)
+        fs = self.stores.choose_local_store(doc)
+        return fs.stat(_id).name
+
+    def allocate_tmp(self):
+        stores = self.stores.sort_by_avail()
+        if len(stores) == 0:
+            raise Exception('no filestores present')
+        tmp_fp = stores[0].allocate_tmp()
+        tmp_fp.close()
+        return tmp_fp.name
+
+    def resolve_uri(self, uri):
+        if not uri.startswith('dmedia:'):
+            raise ValueError('not a dmedia: URI {!r}'.format(uri))
+        _id = uri[7:]
+        doc = self.db.get(_id)
+        if doc.get('proxies'):
+            proxies = doc['proxies']
+            for proxy in proxies:
+                try:
+                    st = self.stat(proxy)
+                    return 'file://' + st.name
+                except (NotFound, FileNotLocal):
+                    pass
+        st = self.stat2(doc)
+        return 'file://' + st.name
+
+    def hash_and_move(self, tmp, origin):
+        parentdir = path.dirname(path.dirname(path.dirname(tmp)))
+        fs = self.stores.by_parentdir(parentdir)
+        tmp_fp = open(tmp, 'rb')
+        ch = fs.hash_and_move(tmp_fp)
+        stored = {
+            fs.id: {
+                'copies': fs.copies,
+                'mtime': fs.stat(ch.id).mtime,
+                'plugin': 'filestore',
+            }
+        }
+        try:
+            doc = self.db.get(ch.id)
+            doc['stored'].update(stored)
+        except NotFound:
+            doc = schema.create_file(
+                ch.id, ch.file_size, ch.leaf_hashes, stored, origin
+            )
+        schema.check_file(doc)
+        self.db.save(doc)
+        return ch.id
+        

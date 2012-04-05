@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from microfiber import dc3_env
+from microfiber import dmedia_env
 from filestore import FileStore
 import time
 
@@ -10,7 +10,7 @@ from dmedia.client import HTTPClient, threaded_response_iter
 from dmedia.client import DownloadWriter, DownloadComplete
 from dmedia.local import LocalSlave
 
-core = Core(dc3_env())
+core = Core(dmedia_env())
 (httpd, port) = start_file_server(core.env)
 
 url = 'http://localhost:{}/'.format(port)

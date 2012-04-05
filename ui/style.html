@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="grid.css"></link>
+<link rel="stylesheet" href="fix.css"></link>
+</head>
+<body>
+
+<div class="grid_row">
+    <p class="grid_8">This is a sample paragraph</p>
+    <img class="grid_1" src="dmedia.png">
+    <h2 class="grid_7">Sample H2</h2>
+</div>
+
+<div class="grid_row">
+    <input class="grid_4" type="text" value="Text input"></input>
+    <button class="grid_4">Sample Button</button>
+    <div class="grid_2"></div>
+    <select class="grid_6">
+        <option value="foo">A select with many options</option>
+        <option value="bar">Well, 2 options, you called my bluff!</option>
+    </select>
+</div>
+
+<div class="grid_row">
+    <div class="grid_4 grid_cell">
+        <input type="text" value="Text input in .grid_cell"></input>
+        <textarea>Text area in .grid_cell</textarea>
+    </div>
+    <div class="grid_4 grid_cell">
+        <button>Button in .grid_cell</button>
+        <p>Paragraph in .grid_cell</p>
+    </div>
+    <p class="grid_8">Ubuntu (play /ʊˈbʊntuː/ oo-boon-too)[5][6] is a computer operating system based on the Debian Linux distribution and distributed as free and open source software. It is named after the Southern African philosophy of Ubuntu ("humanity towards others").[7] Ubuntu is designed primarily for use on personal computers, although a server edition also exists.</p>
+</div>
+
+
+<div class="grid_row">
+    <textarea class="grid_4">Text area</textarea>
+    <img class="grid_2" src="novacut-avatar-192.png">
+<pre class="grid_10">
+def bytes10(size):
+    if size is None:
+        return None
+    if size < 0:
+        raise ValueError('size must be >= 0; got {!r}'.format(size))
+    if size == 0:
+        return '0 bytes'
+    if size == 1:
+        return '1 byte'
+    i = min(int(math.floor(math.log(size, 1000))), len(BYTES10) - 1)
+    s = (size / (1000 ** i) if i > 0 else size)
+    return (
+        '{:.3g} {}'.format(s, BYTES10[i])
+    )
+</pre>
+</div>
+
+<div class="grid_row">
+    <div class="grid_3"></div>
+    <div class="grid_13 grid_cell">
+        <div class="progress"><div></div></div>
+    </div>
+</div>
+
+
+<div class="grid_row">
+    <div class="grid_16 progress"><div></div></div>
+</div>
+
+
+<div class="grid_row">
+    <div id="add_tag" class="grid_5 grid_cell">
+        <input value="Android"></input>
+        <ul class="matches">
+            <li>Acorn</li>
+            <li>All Naughty Frogs Go To Not Heaven</li>
+            <li>Amber Graner</li>
+            <li class="selected">Android</li>
+            <li>ARM</li>
+        </ul>
+    </div>
+
+    <button class="grid_2 arrow">Tag ⇾</button>
+
+    <ul id="tags" class="grid_6 tags">
+        <li>Linaro<a href="#">x</a></li>
+        <li>UDS-Q<a href="#">x</a></li>
+        <li>Novacut<a href="#">x</a></li>
+        <li>Linaro Connect<a href="#">x</a></li>
+        <li>Ubunut TV<a href="#">x</a></li>
+        <li>Cortext-A15<a href="#">x</a></li>
+        <li>HDSLR<a href="#">x</a></li>
+        <li>Canon<a href="#">x</a></li>
+        <li>Ubuntu<a href="#">x</a></li>
+        <li>Dmedia<a href="#">x</a></li>
+    </ul>
+
+</div>
+    
+</div>
+
+</body>
+</html>

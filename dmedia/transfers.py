@@ -41,7 +41,7 @@ log = logging.getLogger()
 _uploaders = {}
 _downloaders = {}
 
-# Note: should probably export each download on the org.freedesktop.DMedia bus
+# Note: should probably export each download on the org.freedesktop.Dmedia bus
 # at the object path /downloads/FILE_ID
 
 def download_key(file_id, store_id):
@@ -63,7 +63,7 @@ def download_key(file_id, store_id):
     """
     return '/downloads/' + file_id
 
-# Note: should probably export each upload on the org.freedesktop.DMedia bus
+# Note: should probably export each upload on the org.freedesktop.Dmedia bus
 # at the object path /uploads/FILE_ID/REMOTE_ID
 
 def upload_key(file_id, store_id):
