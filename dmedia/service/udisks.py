@@ -44,8 +44,19 @@ def major_minor(parentdir):
 
 
 def usable_mount(mounts):
+    """
+    Return mount point at which Dmedia will look for file-stores.
+
+    For example:
+    
+    >>> usable_mount(['/', '/tmp']) is None
+    True
+    >>> usable_mount(['/', '/tmp', '/media/foo'])
+    '/media/foo'
+
+    """
     for mount in mounts:
-        if mount.startswith('/media/') or mount[:4] in ('/srv', '/mnt'):
+        if mount.startswith('/media/') or mount.startswith('/srv/'):
             return mount
 
 
