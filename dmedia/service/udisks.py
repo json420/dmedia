@@ -1,13 +1,10 @@
-# Authors:
-#   David Green <david4dev@gmail.com>
-#
 # dmedia: distributed media library
-# Copyright (C) 2011 Jason Gerard DeRose <jderose@novacut.com>
+# Copyright (C) 2012 Novacut Inc
 #
 # This file is part of `dmedia`.
 #
-# `dmedia` is free software: you can redistribute it and/or modify it under the
-# terms of the GNU Affero General Public License as published by the Free
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
 # later version.
 #
@@ -18,129 +15,285 @@
 #
 # You should have received a copy of the GNU Affero General Public License along
 # with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Simple wrapper over the udisks dbus API to provide information about
-devices.
+Attempts to tame the UDisks beast.
 """
 
-import dbus
+import json
 import os
+from os import path
+from gettext import gettext as _
+import logging
+
+from gi.repository import GObject
+from filestore import DOTNAME
+
+from dmedia.units import bytes10
+from dmedia.service.dbus import system
 
 
-class DeviceNotFoundError(Exception):
-	pass
+log = logging.getLogger()
+TYPE_PYOBJECT = GObject.TYPE_PYOBJECT
 
 
-class Device(object):
+def major_minor(parentdir):
+    st_dev = os.stat(parentdir).st_dev
+    return (os.major(st_dev), os.minor(st_dev))
+
+
+def usable_mount(mounts):
     """
-    Instances of this class represent udisks devices, providing a simple
-    way to get device information.
+    Return mount point at which Dmedia will look for file-stores.
 
-    For a Device instance `device` you can access information like so:
-        device[property]
-    eg.
-        device = Device(path="/media/EOS_DIGITAL/image.jpg")
-        size = device["DeviceSize"]
+    For example:
+    
+    >>> usable_mount(['/', '/tmp']) is None
+    True
+    >>> usable_mount(['/', '/tmp', '/media/foo'])
+    '/media/foo'
+
     """
+    for mount in mounts:
+        if mount.startswith('/media/') or mount.startswith('/srv/'):
+            return mount
 
-    @classmethod
-    def enumerate_devices(cls):
-        """
-        Iterate through udisks devices.
-        Yield dbus properties interfaces (dbus.PROPERTIES_IFACE).
-        """
-        bus = dbus.SystemBus()
-        ud_manager_obj = bus.get_object("org.freedesktop.UDisks", "/org/freedesktop/UDisks")
-        ud_manager = dbus.Interface(ud_manager_obj, 'org.freedesktop.UDisks')
-        for dev in ud_manager.EnumerateDevices():
-            device_obj = bus.get_object("org.freedesktop.UDisks", dev)
-            yield dbus.Interface(device_obj, dbus.PROPERTIES_IFACE)
 
-    @classmethod
-    def get_by_dev(cls, dev):
-        """
-        Return the udisks dbus properties interface for a device which
-        has the UNIX special device file `dev`. eg. /dev/sdb1.
-        """
-        for d in cls.enumerate_devices():
-            if d.Get("org.freedesktop.UDisks.Device", "DeviceFile") == dev:
-                return d
+def partition_info(d, mount=None):
+    return {
+        'mount': mount,
+        'info': {
+            'label': d['IdLabel'],
+            'uuid': d['IdUuid'],
+            'bytes': d['DeviceSize'],
+            'size': bytes10(d['DeviceSize']),
+            'filesystem': d['IdType'],
+            'filesystem_version': d['IdVersion'],
+            'number': d['PartitionNumber'],
+        },
+    }
 
-    @classmethod
-    def get_by_path(cls, path):
-        """
-        Return the udisks dbus properties interface for a device on
-        which resides the file at `path`.
-        """
-        path = os.path.abspath(path)
-        st_dev = os.stat(path).st_dev
-        major = os.major(st_dev)
-        minor = os.minor(st_dev)
-        for d in cls.enumerate_devices():
-            if int(
-                d.Get("org.freedesktop.UDisks.Device", "DeviceMajor")
-            ) == major and int(
-                d.Get("org.freedesktop.UDisks.Device", "DeviceMinor")
-            ) == minor:
-                return d
 
-    def __init__(self, dev=None, path=None):
-        """
-        Either `dev` or `path` should be specified and they mustn't both
-        be specified. When specified, `dev` and `path` should be strings
-        (either str or unicode).
+def drive_text(d):
+    if d['DeviceIsSystemInternal']:
+        template = _('{size} Drive')
+    else:
+        template = _('{size} Removable Drive')
+    return template.format(size=bytes10(d['DeviceSize']))
 
-        If `dev` is specified, the device will be looked up by /dev/*
-        device. For example, `dev` could be "/dev/sdb1".
 
-        If `path` is specified, the device will be looked up for the
-        device that the file or folder represented by `path` is on.
-        """
-        if (dev == None and path == None) or (dev != None and path != None):
-            raise(Exception("You need to specify exactly one of `dev` or `path`."))
-        if (dev == None):
-            if type(path) == str or type(path) == unicode:
-                self._d = self.__class__.get_by_path(path)
-                if self._d == None:
-                    raise(DeviceNotFoundError(
-                        "No device found for file path {!r}.".format(path)
-                    ))
-            else:
-                raise(TypeError("`path` must be a string."))
+def drive_info(d):
+    return {
+        'partitions': {},
+        'info': {
+            'serial': d['DriveSerial'],
+            'bytes': d['DeviceSize'],
+            'size': bytes10(d['DeviceSize']),
+            'model': d['DriveModel'],
+            'removable': not d['DeviceIsSystemInternal'],
+            'connection': d['DriveConnectionInterface'],
+            'text': drive_text(d),
+        }
+    }
+
+
+def get_filestore_id(parentdir):
+    store = path.join(parentdir, DOTNAME, 'store.json') 
+    try:
+        return json.load(open(store, 'r'))['_id']
+    except Exception:
+        pass
+
+
+
+class Device:
+    __slots__ = ('obj', 'proxy', 'cache', 'ispartition', 'drive')
+
+    def __init__(self, obj):
+        self.obj = obj
+        self.proxy = system.get(
+            'org.freedesktop.UDisks',
+            obj,
+            'org.freedesktop.DBus.Properties'
+        )
+        self.cache = {}
+        self.ispartition = self['DeviceIsPartition']
+        if self.ispartition:
+            self.drive = self['PartitionSlave']
         else:
-            if type(dev) == str or type(dev) == unicode:
-                self._d = self.__class__.get_by_dev(dev)
-                if self._d == None:
-                    raise(DeviceNotFoundError(
-                        "Device {!r} not found.".format(dev)
-                    ))
-            else:
-                raise(TypeError("`dev` must be a string."))
+            self.drive = None
 
-    def exists(self):
-        """
-        Return True if the udisks lookup was successful, False otherwise.
-        """
-        return self._d and True
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.obj)
 
-    def is_partition(self):
-        """
-        Return True if the device is a partition, False otherwise.
-        """
-        return self["DeviceIsPartition"]
+    def __getitem__(self, key):
+        try:
+            return self.cache[key]
+        except KeyError:
+            value = self.proxy.Get('(ss)', 'org.freedesktop.UDisks.Device', key)
+            self.cache[key] = value
+            return value
 
-    def get_device(self):
+    @property
+    def ismounted(self):
+        return self['DeviceIsMounted']
+
+    def get_all(self):
+        return self.proxy.GetAll('(s)', 'org.freedesktop.UDisks.Device')
+
+    def reset(self):
+        self.cache.clear()
+
+
+class UDisks(GObject.GObject):
+    __gsignals__ = {
+        'card_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'card_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'store_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'store_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.devices = {}
+        self.drives = {}
+        self.cards = {}
+        self.stores = {}
+        self.proxy = system.get(
+            'org.freedesktop.UDisks',
+            '/org/freedesktop/UDisks'
+        )
+
+    def monitor(self):
+        user = path.abspath(os.environ['HOME'])
+        home = path.dirname(user)
+
+        home_p = self.find(home)
+        try:
+            user_p = self.find(user)
+        except Exception:
+            user_p = home_p
+        self.special = {
+            home: home_p,
+            user: user_p,
+        }
+        self.proxy.connect('g-signal', self.on_g_signal)
+        for obj in self.proxy.EnumerateDevices():
+            self.change_device(obj)
+
+    def find(self, parentdir):
         """
-        Return the physical device for this device.
+        Return DBus object path of partition containing *parentdir*.
         """
-        if self.is_partition():
-            return self.__class__(
-                dev=str(self["DeviceFile"]).rstrip('0123456789')
-            )
+        (major, minor) = major_minor(parentdir)
+        return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor)
+
+    def on_g_signal(self, proxy, sender, signal, params):
+        if signal == 'DeviceChanged':
+            self.change_device(params.unpack()[0])
+        elif signal == 'DeviceRemoved':
+            self.remove_device(params.unpack()[0])
+
+    def get_device(self, obj):
+        if obj not in self.devices:
+            self.devices[obj] = Device(obj)
+        return self.devices[obj]
+
+    def get_drive(self, obj):
+        if obj not in self.drives:
+            d = self.get_device(obj)
+            self.drives[obj] = drive_info(d)
+        return self.drives[obj]
+
+    def change_device(self, obj):
+        d = self.get_device(obj)
+        if not d.ispartition:
+            return
+        d.reset()
+        if d.ismounted:
+            mount = usable_mount(d['DeviceMountPaths'])
+            if mount is None:
+                return
+            part = partition_info(d, mount)
+            drive = self.get_drive(d.drive)
+            drive['partitions'][obj] = part
+            store_id = get_filestore_id(mount)
+            if store_id:
+                self.add_store(obj, mount, store_id)
+            elif drive['info']['removable']:
+                self.add_card(obj, mount)
         else:
-            return self
+            try:
+                del self.drives[d.drive]['partitions'][obj]
+                if not self.drives[d.drive]['partitions']:
+                    del self.drives[d.drive]
+            except KeyError:
+                pass
+            self.remove_store(obj)
+            self.remove_card(obj)
 
-    def __getitem__(self, prop):
-        return self._d.Get("org.freedesktop.UDisks.Device", prop)
+    def add_card(self, obj, mount):
+        if obj in self.cards:
+            return
+        self.cards[obj] = mount
+        log.info('card_added %r %r', obj, mount)
+        self.emit('card_added', obj, mount)
+
+    def remove_card(self, obj):
+        try:
+            mount = self.cards.pop(obj)
+            log.info('card_removed %r %r', obj, mount)
+            self.emit('card_removed', obj, mount)
+        except KeyError:
+            pass
+
+    def add_store(self, obj, mount, store_id):
+        if obj in self.stores:
+            return
+        self.stores[obj] = {'parentdir': mount, 'id': store_id}
+        log.info('store_added %r %r %r', obj, mount, store_id)
+        self.emit('store_added', obj, mount, store_id)
+
+    def remove_store(self, obj):
+        try:
+            d = self.stores.pop(obj)
+            log.info('store_removed %r %r %r', obj, d['parentdir'], d['id'])
+            self.emit('store_removed', obj, d['parentdir'], d['id'])
+        except KeyError:
+            pass
+
+    def remove_device(self, obj):
+        try:
+            del self.devices[obj]
+        except KeyError:
+            pass
+
+    def get_parentdir_info(self, parentdir):
+        obj = self.find(parentdir)
+        d = self.get_device(obj)
+        return {
+            'parentdir': parentdir,
+            'partition': partition_info(d)['info'],
+            'drive': self.get_drive(d.drive)['info'],
+        }
+  
+    def json(self):
+        d = {
+            'drives': self.drives,
+            'stores': self.stores,
+            'cards': self.cards,
+            'special': self.special,
+        }
+        return json.dumps(d, sort_keys=True, indent=4)
 

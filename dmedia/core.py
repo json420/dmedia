@@ -98,7 +98,6 @@ def init_filestore(parentdir, copies=1):
 class Base:
     def __init__(self, env):
         self.env = env
-        self.db = Database(schema.DB_NAME, env)
         self.logdb = Database('dmedia_log', env)
 
     def log(self, doc):
@@ -107,9 +106,10 @@ class Base:
         return self.logdb.post(doc, batch='ok')
 
 
-class Core(Base):
+class Core:
     def __init__(self, env, get_parentdir_info=None, bootstrap=True):
-        super().__init__(env)
+        self.env = env
+        self.db = Database(schema.DB_NAME, env)
         self.stores = LocalStores()
         self._get_parentdir_info = get_parentdir_info
         if bootstrap:
@@ -117,7 +117,6 @@ class Core(Base):
 
     def _bootstrap(self):
         self.db.ensure()
-        self.logdb.ensure()
         init_views(self.db)
         self._init_local()
         self._init_stores()
@@ -169,8 +168,8 @@ class Core(Base):
         doc['connected'] = time.time()
         doc['connected_to'] = self.machine_id
         doc['statvfs'] = fs.statvfs()._asdict()
-        if callable(self._get_parentdir_info):
-            doc.update(self._get_parentdir_info(parentdir))
+        #if callable(self._get_parentdir_info):
+        #    doc.update(self._get_parentdir_info(parentdir))
         self.db.save(doc)
         log.info('FileStore %r at %r', fs.id, fs.parentdir)
         return fs

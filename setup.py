@@ -63,10 +63,7 @@ def pynames_iter(pkdir, pkname=None):
         elif stat.S_ISDIR(st.st_mode):
             dirs.append((fullname, name))
     for (fullname, name) in dirs:
-        subpkname = '.'.join([pkname, name])
-        if subpkname != 'dmedia.tests':  # FIXME: Remove after core refactor
-            continue
-        for n in pynames_iter(fullname, subpkname):
+        for n in pynames_iter(fullname, '.'.join([pkname, name])):
             yield n
 
 
@@ -91,10 +88,6 @@ class Test(Command):
 
     def run(self):
         pynames = list(self._pynames_iter())
-        pynames.append('dmedia.gtk.ubuntu')
-        pynames.append('dmedia.gtk.tests.test_ubuntu')
-        pynames.append('dmedia.gtk.util')
-        pynames.append('dmedia.gtk.tests.test_util')
 
         # Add unit-tests:
         if self.no_unittest:
