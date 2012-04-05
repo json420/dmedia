@@ -75,8 +75,6 @@ class Service(dbus.service.Object):
         if self.env_s is None:
             self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
             env = self.usercouch.bootstrap()
-            interval = 5 * 60 * 1000  # Autocompact every 5 minutes
-            self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         else:
             env = json.loads(self.env_s)
         self.udisks = UDisks()
@@ -96,12 +94,14 @@ class Service(dbus.service.Object):
 
     def run(self):
         self.start_core()
-        GObject.idle_add(self.on_idle)
+        GObject.timeout_add(500, self.on_idle)
         self.mainloop.run()
         
     def on_idle(self):
         self.udisks.monitor()
         self.start_httpd()
+        interval = 5 * 60 * 1000  # Autocompact every 5 minutes
+        self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call
 
     def _autocompact(self):
@@ -169,6 +169,7 @@ class Service(dbus.service.Object):
         """
         Return dmedia env as JSON string.
         """
+        log.info('GetEnv')
         return self.env_s
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
