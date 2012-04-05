@@ -44,6 +44,8 @@ system = DBus(Gio.bus_get_sync(Gio.BusType.SYSTEM, None))
 
 
 class Props:
+    __slots__ = ('obj', 'proxy', 'cache')
+
     def __init__(self, obj):
         self.obj = obj
         self.proxy = system.get(
@@ -52,9 +54,6 @@ class Props:
             'org.freedesktop.DBus.Properties'
         )
         self.cache = {}
-        self.ispartition = self.get('DeviceIsPartition')
-        if self.ispartition:
-            self.drive = self.get('PartitionSlave')
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
@@ -63,12 +62,13 @@ class Props:
         try:
             return self.cache[key]
         except KeyError:
-            value = self.get(key)
+            value = self.proxy.Get('(ss)', 'org.freedesktop.UDisks.Device', key)
             self.cache[key] = value
             return value
 
-    def get(self, key):
-        return self.proxy.Get('(ss)', 'org.freedesktop.UDisks.Device', key)
+    @property
+    def ispartition(self):
+        return self['DeviceIsPartition']
 
     def get_all(self):
         return self.proxy.GetAll('(s)', 'org.freedesktop.UDisks.Device')
@@ -86,7 +86,13 @@ class WeakMethod:
         return getattr(self.proxy, self.method)(*args)
 
 
-def partition_info(partition):
+def partition_info(props, mount, stores):
+    return {
+        'mount': mount,
+        'stores': stores,
+        'drive': props['PartitionSlave'],
+    }
+
     return {
         'stores': {},
         'mounts': partition['DeviceMountPaths'],
@@ -108,18 +114,19 @@ def drive_text(drive):
     return template.format(size=bytes10(drive['DeviceSize']))
 
 
+
 def drive_info(drive):
     return {
         'partitions': {},
-        'serial': drive['DriveSerial'],
-        'bytes': drive['DeviceSize'],
-        'size': bytes10(drive['DeviceSize']),
+        #'serial': drive['DriveSerial'],
+        #'bytes': drive['DeviceSize'],
+        #'size': bytes10(drive['DeviceSize']),
         #'vendor': drive['DriveVendor'],
         'model': drive['DriveModel'],
-        'revision': drive['DriveRevision'],
-        'partition_scheme': drive['PartitionTableScheme'],
-        'internal': drive['DeviceIsSystemInternal'],
-        'connection': drive['DriveConnectionInterface'],
+        #'revision': drive['DriveRevision'],
+        #'partition_scheme': drive['PartitionTableScheme'],
+        #'removable': not drive['DeviceIsSystemInternal'],
+        #'connection': drive['DriveConnectionInterface'],
         #'connection_rate': drive['DriveConnectionSpeed'],
         'text': drive_text(drive),
     }
@@ -132,6 +139,14 @@ def usable_mount(mounts):
     for mount in mounts:
         if mount.startswith('/media/') or mount[:4] in ('/srv', '/mnt'):
             return mount
+
+
+def get_filestore_id(parentdir):
+    store = path.join(parentdir, '.dmedia', 'store.json') 
+    try:
+        return json.load(open(store, 'r'))['_id']
+    except Exception:
+        pass
 
 
 class UDisks:
@@ -172,11 +187,39 @@ class UDisks:
             self.props[obj] = Props(obj)
         return self.props[obj]
 
+    def get_drive(self, obj):
+        try:
+            return self.drives[obj]
+        except KeyError:
+            props = self.get_props(obj)
+            info = drive_info(props)
+            self.drives[obj] = info
+            return info
+
     def change_device(self, obj):
         props = self.get_props(obj)
+        props.reset()
         if not props.ispartition:
             return
-        props.reset()
+        if props['DeviceIsMounted']:
+            if obj in self.standard:
+                mount = props['DeviceMountPaths'][0]
+                stores = {}
+                if obj == self.home.partition:
+                    stores[self.home.parentdir] = get_filestore_id(self.home.parentdir)
+                if obj == self.user.partition:
+                    stores[self.user.parentdir] = get_filestore_id(self.user.parentdir)
+            else:
+                mount = usable_mount(props['DeviceMountPaths'])
+                if mount is None:
+                    return
+                stores = {mount: get_filestore_id(mount)}
+            part = partition_info(props, mount, stores)
+            drive = self.get_drive(part['drive'])
+            drive['partitions'][obj] = part
+
+    def change_device_old(self, obj):
+        return
         if props['DeviceIsMounted']:
             if obj not in self.standard:
                 parentdir = usable_mount(props['DeviceMountPaths'])
@@ -215,19 +258,22 @@ class UDisks:
             del self.props[obj]
         except KeyError:
             pass
+            
+    def json(self):
+        return json.dumps(self.drives, sort_keys=True, indent=4)
 
 start = time.time()
 udisks = UDisks()
 udisks.monitor()
 
-print(json.dumps(udisks.drives, sort_keys=True, indent=4))
+print(udisks.json())
 
-for dkey in sorted(udisks.drives):
-    print(dkey)
-    drive = udisks.drives[dkey]
-    for pkey in drive['partitions']:
-        print('    {}'.format(pkey))
-        partition = drive['partitions'][pkey]
+#for dkey in sorted(udisks.drives):
+#    print(dkey)
+#    drive = udisks.drives[dkey]
+#    for pkey in drive['partitions']:
+#        print('    {}'.format(pkey))
+#        partition = drive['partitions'][pkey]
         
        
 print('')
