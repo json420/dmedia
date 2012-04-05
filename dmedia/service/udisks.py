@@ -1,5 +1,5 @@
 # dmedia: distributed media library
-# Copyright (C) 2011 Novacut Inc
+# Copyright (C) 2012 Novacut Inc
 #
 # This file is part of `dmedia`.
 #
@@ -27,6 +27,7 @@ import json
 import os
 from os import path
 from gettext import gettext as _
+import logging
 
 from gi.repository import GObject
 from filestore import DOTNAME
@@ -35,6 +36,7 @@ from dmedia.units import bytes10
 from dmedia.service.dbus import system
 
 
+log = logging.getLogger()
 TYPE_PYOBJECT = GObject.TYPE_PYOBJECT
 
 
@@ -245,11 +247,13 @@ class UDisks(GObject.GObject):
         if obj in self.cards:
             return
         self.cards[obj] = mount
+        log.info('card_added %r %r', obj, mount)
         self.emit('card_added', obj, mount)
 
     def remove_card(self, obj):
         try:
             mount = self.cards.pop(obj)
+            log.info('card_removed %r %r', obj, mount)
             self.emit('card_removed', obj, mount)
         except KeyError:
             pass
@@ -258,11 +262,13 @@ class UDisks(GObject.GObject):
         if obj in self.stores:
             return
         self.stores[obj] = {'parentdir': mount, 'id': store_id}
+        log.info('store_added %r %r %r', obj, mount, store_id)
         self.emit('store_added', obj, mount, store_id)
 
     def remove_store(self, obj):
         try:
             d = self.stores.pop(obj)
+            log.info('store_removed %r %r %r', obj, d['parentdir'], d['id'])
             self.emit('store_removed', obj, d['parentdir'], d['id'])
         except KeyError:
             pass
