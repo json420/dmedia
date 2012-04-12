@@ -59,10 +59,6 @@ def re_extract(project):
         if 'meta' not in doc:
             doc['meta'] = {}
         extract(src, doc)
-        #print(json.dumps(doc, sort_keys=True, indent=4))
-        if doc.get('media') == 'video' and 'thumbnail' not in doc['_attachments']:
-            print('thumbnail', _id, doc.get('ext'))
-            merge_thumbnail(src, doc)
         project.save(doc)
         count += 1
     msg = ngettext('re-extracted {} file', 're-extracted {} files', count)
@@ -71,6 +67,9 @@ def re_extract(project):
 
 
 count = 0
+print(db)
+print('-' * 80)
+count += re_extract(db)
 for row in db.view('project', 'title')['rows']:
     print('')
     print(row['id'], row['key'])
