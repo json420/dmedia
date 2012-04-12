@@ -27,6 +27,7 @@ def default_job(src, dst):
                     'tune': 1,  # Tune for SSIM
                     'max-keyframe-distance': 15,
                     'speed': 4,
+                    'threads': 2,
                 },
             },
             'filter': {
