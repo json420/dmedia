@@ -38,9 +38,17 @@ class DummyDevice:
     def __init__(self, d):
         self.__d = d
         self.drive = random_id()
-    
+
     def __getitem__(self, key):
         return self.__d[key]
+
+
+class DummyCallback:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, *args):
+        self.calls.append(args)
 
 
 class TestFunctions(TestCase):
@@ -191,5 +199,115 @@ class TestFunctions(TestCase):
 
         # Test when '_id' is missed from dict:
         json.dump({'id': _id}, open(store, 'w'))
-        self.assertIsNone(udisks.get_filestore_id(tmp.dir)) 
+        self.assertIsNone(udisks.get_filestore_id(tmp.dir))
+
+
+class TestUDisks(TestCase):
+    def test_init(self):
+        inst = udisks.UDisks()
+        self.assertEqual(inst.devices, {})
+        self.assertEqual(inst.drives, {})
+        self.assertEqual(inst.partitions, {})
+        self.assertEqual(inst.stores, {})
+        self.assertEqual(inst.cards, {})
+        self.assertEqual(inst.info,
+            {
+                'drives': {},
+                'partitions': {},
+                'stores': {},
+                'cards': {},
+            }
+        )
+        self.assertIs(inst.info['drives'], inst.drives)
+        self.assertIs(inst.info['partitions'], inst.partitions)
+        self.assertIs(inst.info['stores'], inst.stores)
+        self.assertIs(inst.info['cards'], inst.cards)
+
+    def test_add_card(self):
+        inst = udisks.UDisks()
+        cb = DummyCallback()
+        inst.connect('card_added', cb)
+
+        obj = random_id()
+        mount = random_id()
+        partition = random_id()
+        drive = random_id()
+        info = {'mount': mount, 'partition': partition, 'drive': drive}
+
+        # Make sure nothing is done when obj is already in cards:
+        inst.cards[obj] = None
+        self.assertIsNone(
+            inst.add_card(obj, mount, {'info': partition}, {'info': drive})
+        )
+        self.assertEqual(cb.calls, [])
+        self.assertEqual(inst.cards, {obj: None})
+
+        # Now test when obj is *not* in cards:
+        inst.cards.clear()
+        self.assertEqual(inst.cards, {})
+        self.assertIsNone(
+            inst.add_card(obj, mount, {'info': partition}, {'info': drive})
+        )
+        self.assertEqual(cb.calls,
+            [
+                (inst, obj, mount, info),
+            ]
+        )
+        self.assertEqual(inst.cards, {obj: info})
+
+        # Test with another new card:
+        obj2 = random_id()
+        mount2 = random_id()
+        partition2 = random_id()
+        drive2 = random_id()
+        info2 = {'mount': mount2, 'partition': partition2, 'drive': drive2}
+        self.assertIsNone(
+            inst.add_card(obj2, mount2, {'info': partition2}, {'info': drive2})
+        )
+        self.assertEqual(cb.calls,
+            [
+                (inst, obj, mount, info),
+                (inst, obj2, mount2, info2),
+            ]
+        )
+        self.assertEqual(inst.cards, {obj: info, obj2: info2})
+
+    def test_remove_card(self):
+        inst = udisks.UDisks()
+        cb = DummyCallback()
+        inst.connect('card_removed', cb)
+
+        obj = random_id()
+        mount = random_id()
+        info = {'mount': mount}
+        obj2 = random_id()
+        mount2 = random_id()
+        info2 = {'mount': mount2}
+
+        # Make sure nothing is done when obj is *not* in cards:
+        self.assertIsNone(inst.remove_card(obj))
+        self.assertEqual(cb.calls, [])
+        self.assertEqual(inst.cards, {})
+
+        # Now test with obj *is* in cards:
+        inst.cards[obj] = info
+        inst.cards[obj2] = info2
+        self.assertIsNone(inst.remove_card(obj))
+        self.assertEqual(cb.calls,
+            [
+                (inst, obj, mount),
+            ]
+        )
+        self.assertEqual(inst.cards, {obj2: info2})
+
+        # Remove the 2nd card:
+        self.assertIsNone(inst.remove_card(obj2))
+        self.assertEqual(cb.calls,
+            [
+                (inst, obj, mount),
+                (inst, obj2, mount2),
+            ]
+        )
+        self.assertEqual(inst.cards, {})
+
 

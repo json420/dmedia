@@ -175,21 +175,21 @@ class UDisks(GObject.GObject):
         self.devices = {}
         self.drives = {}
         self.partitions = {}
-        self.cards = {}
         self.stores = {}
-        self.__info = {
+        self.cards = {}
+        self.info = {
             'drives': self.drives,
             'partitions': self.partitions,
             'stores': self.stores,
             'cards': self.cards,
             #'special': self.special,
         }
+
+    def monitor(self):
         self.proxy = system.get_object(
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
-
-    def monitor(self):
         user = path.abspath(os.environ['HOME'])
         home = path.dirname(user)
 
@@ -329,5 +329,5 @@ class UDisks(GObject.GObject):
         }
 
     def get_info(self):
-        return self.__info
+        return self.info
 
