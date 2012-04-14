@@ -36,8 +36,7 @@ from dmedia import views
 from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
-#from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
-#from dmedia.service.dbus import extra_info, session
+from dmedia.service.dbus import Ejector, Formatter, WeakMethod
 from dmedia.importer import ImportManager
 
 try:
@@ -59,11 +58,15 @@ class WeakMethod:
 
 
 class Importer:
-    def __init__(self, env, hub):
+    def __init__(self, env, proxy, hub):
         super().__init__()
         self.env = env
         self.blocking = False
         self.cards = []
+        self.proxy = proxy
+        self.proxy.connect_to_signal('CardAdded',
+            WeakMethod(self, 'on_CardAdded')
+        )
         self.hub = hub
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
@@ -101,14 +104,13 @@ class Importer:
                 self.batch_id, self.stats, self.copies, self.msg
             )
 
-    def on_card_inserted(self, udisks, obj, parentdir, partition, drive):
+    def on_CardAdded(self, obj, mount):
         if self.blocking:
             log.warning('Blocking, ignoring card-insert %r', obj)
             return
-        log.info('card-insert %r', obj)
+        log.info('CardAdded %r %r', obj, mount)
         self.cards.append(obj)
-        info = extra_info(partition, drive)
-        self.manager.start_import(parentdir, info)
+        self.manager.start_import(mount)
 
 
 class Replay:
@@ -221,7 +223,7 @@ class App(BaseApp):
     def on_start_importer(self, dub, project_id):
         env = deepcopy(self.env)
         env['project_id'] = project_id
-        self.importer = Importer(env, self.hub)
+        self.importer = Importer(env, self.proxy, self.hub)
         assert sys.getrefcount(self.importer) == 2
         self.create_ux()
         self.hub.send('importer_started', schema.project_db_name(project_id))
