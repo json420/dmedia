@@ -106,6 +106,10 @@ def get_filestore_id(parentdir):
         return json.load(open(store, 'r'))['_id']
     except Exception:
         pass
+        
+
+def dumps(obj):
+    return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
 
 
 
@@ -287,7 +291,7 @@ class UDisks(GObject.GObject):
             'partition': partition_info(d)['info'],
             'drive': self.get_drive(d.drive)['info'],
         }
-  
+
     def json(self):
         d = {
             'drives': self.drives,
@@ -295,5 +299,5 @@ class UDisks(GObject.GObject):
             'cards': self.cards,
             'special': self.special,
         }
-        return json.dumps(d, sort_keys=True, indent=4)
+        return dumps(d)
 

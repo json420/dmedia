@@ -173,6 +173,13 @@ class Service(dbus.service.Object):
         return self.env_s
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetDiskInfo(self):
+        """
+        Return Dmedia-friendly info on disks from UDisks, as a JSON string.
+        """
+        return self.udisks.json()
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def LocalDmedia(self):
         """
         Return the _local/dmedia doc.
