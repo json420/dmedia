@@ -149,17 +149,24 @@ class Device:
 
 class UDisks(GObject.GObject):
     __gsignals__ = {
+        'store_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            # obj, mount, store_id, info
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
+        'store_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            # obj, mount, store_id
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        ),
         'card_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            # obj, mount, info
             [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'card_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            # obj, mount
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
-        'store_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
-        ),
-        'store_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
+        'init_done': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            [TYPE_PYOBJECT]
         ),
     }
 
@@ -170,6 +177,13 @@ class UDisks(GObject.GObject):
         self.partitions = {}
         self.cards = {}
         self.stores = {}
+        self.__info = {
+            'drives': self.drives,
+            'partitions': self.partitions,
+            'stores': self.stores,
+            'cards': self.cards,
+            #'special': self.special,
+        }
         self.proxy = system.get_object(
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
@@ -236,8 +250,10 @@ class UDisks(GObject.GObject):
             drive['partitions'] = sorted(partitions)
             store_id = get_filestore_id(mount)
             if store_id:
-                self.add_store(obj, mount, store_id)
+                part['store_id'] = store_id
+                self.add_store(obj, mount, store_id, part, drive)
             elif drive['info']['removable']:
+                part['card'] = True
                 self.add_card(obj, mount, part, drive)
         else:
             try:
@@ -276,12 +292,18 @@ class UDisks(GObject.GObject):
         except KeyError:
             pass
 
-    def add_store(self, obj, mount, store_id):
+    def add_store(self, obj, mount, store_id, part, drive):
         if obj in self.stores:
             return
-        self.stores[obj] = {'parentdir': mount, 'id': store_id}
+        info = {
+            'parentdir': mount,
+            'id': store_id,
+            'partition': part['info'],
+            'drive': drive['info'],
+        }
+        self.stores[obj] = info
         log.info('store_added %r %r %r', obj, mount, store_id)
-        self.emit('store_added', obj, mount, store_id)
+        self.emit('store_added', obj, mount, store_id, info)
 
     def remove_store(self, obj):
         try:
@@ -307,12 +329,5 @@ class UDisks(GObject.GObject):
         }
 
     def get_info(self):
-        d = {
-            'drives': self.drives,
-            'partitions': self.partitions,
-            'stores': self.stores,
-            'cards': self.cards,
-            #'special': self.special,
-        }
-        return d
+        return self.__info
 

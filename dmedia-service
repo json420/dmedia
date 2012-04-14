@@ -123,7 +123,7 @@ class Service(dbus.service.Object):
             self.httpd.join()
         self.mainloop.quit()
 
-    def on_store_added(self, udisks, obj, parentdir, store_id):
+    def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
             self.AddFileStore(parentdir)
         except Exception:
