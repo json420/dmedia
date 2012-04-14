@@ -34,6 +34,15 @@ from dmedia.tests.base import TempDir
 from dmedia.service import udisks
 
 
+class DummyDevice:
+    def __init__(self, d):
+        self.__d = d
+        self.drive = random_id()
+    
+    def __getitem__(self, key):
+        return self.__d[key]
+
+
 class TestFunctions(TestCase):
     def test_major_minor(self):
         tmp = TempDir()
@@ -88,9 +97,11 @@ class TestFunctions(TestCase):
             'PartitionNumber': 1, 
             'IdUuid': '89E3-CE4D',
         }
-        self.assertEqual(udisks.partition_info(d),
+        device = DummyDevice(d)
+        self.assertEqual(udisks.partition_info(device),
             {
                 'mount': None,
+                'drive': device.drive,
                 'info': {
                     'bytes': 16130244608, 
                     'filesystem': 'vfat', 
@@ -102,9 +113,10 @@ class TestFunctions(TestCase):
                 },
             }
         ) 
-        self.assertEqual(udisks.partition_info(d, '/media/foo'),
+        self.assertEqual(udisks.partition_info(device, '/media/foo'),
             {
                 'mount': '/media/foo',
+                'drive': device.drive,
                 'info': {
                     'bytes': 16130244608, 
                     'filesystem': 'vfat', 
@@ -127,7 +139,7 @@ class TestFunctions(TestCase):
         }
         self.assertEqual(udisks.drive_info(d),
             {
-                'partitions': {},
+                'partitions': [],
                 'info': {
                     'bytes': 16134438912, 
                     'connection': 'usb', 
@@ -143,7 +155,7 @@ class TestFunctions(TestCase):
         d['DeviceIsSystemInternal'] = True 
         self.assertEqual(udisks.drive_info(d),
             {
-                'partitions': {},
+                'partitions': [],
                 'info': {
                     'bytes': 16134438912, 
                     'connection': 'usb', 

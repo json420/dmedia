@@ -64,6 +64,7 @@ def usable_mount(mounts):
 
 def partition_info(d, mount=None):
     return {
+        'drive': d.drive,
         'mount': mount,
         'info': {
             'label': d['IdLabel'],
@@ -87,7 +88,7 @@ def drive_text(d):
 
 def drive_info(d):
     return {
-        'partitions': {},
+        'partitions': [],
         'info': {
             'serial': d['DriveSerial'],
             'bytes': d['DeviceSize'],
@@ -106,11 +107,6 @@ def get_filestore_id(parentdir):
         return json.load(open(store, 'r'))['_id']
     except Exception:
         pass
-        
-
-def dumps(obj):
-    return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
-
 
 
 class Device:
@@ -172,6 +168,7 @@ class UDisks(GObject.GObject):
         super().__init__()
         self.devices = {}
         self.drives = {}
+        self.partitions = {}
         self.cards = {}
         self.stores = {}
         self.proxy = system.get(
@@ -230,8 +227,11 @@ class UDisks(GObject.GObject):
             if mount is None:
                 return
             part = partition_info(d, mount)
+            self.partitions[obj] = part
             drive = self.get_drive(d.drive)
-            drive['partitions'][obj] = part
+            partitions = set(drive['partitions'])
+            partitions.add(obj)
+            drive['partitions'] = sorted(partitions)
             store_id = get_filestore_id(mount)
             if store_id:
                 self.add_store(obj, mount, store_id)
@@ -239,9 +239,16 @@ class UDisks(GObject.GObject):
                 self.add_card(obj, mount)
         else:
             try:
-                del self.drives[d.drive]['partitions'][obj]
-                if not self.drives[d.drive]['partitions']:
+                partitions = set(self.drives[d.drive]['partitions'])
+                partitions.remove(obj)
+                if len(partitions) == 0:
                     del self.drives[d.drive]
+                else:
+                    self.drives[d.drive]['partitions'] = sorted(partitions)
+            except KeyError:
+                pass
+            try:
+                del self.partitions[obj]
             except KeyError:
                 pass
             self.remove_store(obj)
@@ -292,12 +299,13 @@ class UDisks(GObject.GObject):
             'drive': self.get_drive(d.drive)['info'],
         }
 
-    def json(self):
+    def get_info(self):
         d = {
             'drives': self.drives,
+            'partitions': self.partitions,
             'stores': self.stores,
             'cards': self.cards,
-            'special': self.special,
+            #'special': self.special,
         }
-        return dumps(d)
+        return d
 
