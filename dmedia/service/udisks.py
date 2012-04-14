@@ -328,6 +328,3 @@ class UDisks(GObject.GObject):
             'drive': self.get_drive(d.drive)['info'],
         }
 
-    def get_info(self):
-        return self.info
-
