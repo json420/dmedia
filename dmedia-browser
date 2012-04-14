@@ -30,8 +30,6 @@ class App(BaseApp):
     dbname = 'dmedia-0'
     version = dmedia.__version__
     title = 'Dmedia Browser'
-
-    splash = 'splash.html'
     page = 'browser.html'
 
     proxy_bus = dmedia.BUS

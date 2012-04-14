@@ -139,7 +139,6 @@ class App(BaseApp):
     dbname = schema.DB_NAME
     version = dmedia.__version__
     title = 'Dmedia'
-    splash = 'splash.html'
     page = 'index.html'
     title = 'Dmedia'
     proxy_bus = dmedia.BUS
