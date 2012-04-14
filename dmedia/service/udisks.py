@@ -270,9 +270,9 @@ class UDisks(GObject.GObject):
 
     def remove_card(self, obj):
         try:
-            mount = self.cards.pop(obj)
-            log.info('card_removed %r %r', obj, mount)
-            self.emit('card_removed', obj, mount)
+            d = self.cards.pop(obj)
+            log.info('card_removed %r %r', obj, d['mount'])
+            self.emit('card_removed', obj, d['mount'])
         except KeyError:
             pass
 
