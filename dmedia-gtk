@@ -204,7 +204,7 @@ class App(BaseApp):
             return 'welcome.html'
 
     def dmedia_resolver(self, uri):
-        return self.proxy.ResolveURI('(s)', uri)
+        return self.proxy.ResolveURI(uri)
 
     def on_welcome_complete(self, hub):
         self.db.post({'_id': WELCOMED_ID})

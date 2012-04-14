@@ -38,7 +38,7 @@ class App(BaseApp):
     local = None
 
     def dmedia_resolver(self, uri):
-        return self.proxy.ResolveURI('(s)', uri)
+        return self.proxy.ResolveURI(uri)
 
 
 app = App()
