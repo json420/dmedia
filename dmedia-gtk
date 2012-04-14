@@ -25,6 +25,7 @@ import json
 import logging
 import sys
 from copy import deepcopy
+import weakref
 
 from userwebkit import BaseApp
 from microfiber import NotFound
@@ -35,8 +36,8 @@ from dmedia import views
 from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
-from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
-from dmedia.service.dbus import extra_info, session
+#from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
+#from dmedia.service.dbus import extra_info, session
 from dmedia.importer import ImportManager
 
 try:
@@ -48,39 +49,19 @@ except ImportError:
 log = logging.getLogger()
 
 
-class ActiveImport(Gtk.VBox):
-    def __init__(self):
-        super().__init__()
-        self._progressbar = Gtk.ProgressBar()
-        self.pack_start(self._progressbar, False, False, 2)
+class WeakMethod:
+    def __init__(self, inst, method):
+        self.proxy = weakref.proxy(inst)
+        self.method = method
 
-    def _set_gmanager(self, gmanager):
-        gmanager.connect('batch_progress', self._on_batch_progress)
-
-    def _on_batch_progress(self, gm, count, total_count, size, total_size):
-        progress = (0.0 if total_size == 0 else size / total_size)
-        self._progressbar.set_property('fraction', progress)
-
-
-s = """
-After starting the importer, dmedia will automatically import all files from any cards you insert.
-
-If you have multiple card readers, you can import multiple cards at the same time.
-
-NOTE THAT DMEDIA IS NOT YET PRODUCTION READY!
-THERE WILL STILL BE CHANGES THAT WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
-"""
+    def __call__(self, *args):
+        return getattr(self.proxy, self.method)(*args)
 
 
 class Importer:
     def __init__(self, env, hub):
         super().__init__()
         self.env = env
-        self.udisks = UDisks()
-        self.udisks.monitor()
-        self.udisks.connect('card_inserted',
-            WeakMethod(self, 'on_card_inserted')
-        )
         self.blocking = False
         self.cards = []
         self.hub = hub
