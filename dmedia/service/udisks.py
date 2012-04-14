@@ -150,7 +150,7 @@ class Device:
 class UDisks(GObject.GObject):
     __gsignals__ = {
         'card_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            [TYPE_PYOBJECT, TYPE_PYOBJECT]
+            [TYPE_PYOBJECT, TYPE_PYOBJECT, TYPE_PYOBJECT]
         ),
         'card_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [TYPE_PYOBJECT, TYPE_PYOBJECT]
@@ -238,7 +238,7 @@ class UDisks(GObject.GObject):
             if store_id:
                 self.add_store(obj, mount, store_id)
             elif drive['info']['removable']:
-                self.add_card(obj, mount)
+                self.add_card(obj, mount, part, drive)
         else:
             try:
                 partitions = set(self.drives[d.drive]['partitions'])
@@ -256,12 +256,17 @@ class UDisks(GObject.GObject):
             self.remove_store(obj)
             self.remove_card(obj)
 
-    def add_card(self, obj, mount):
+    def add_card(self, obj, mount, part, drive):
         if obj in self.cards:
             return
-        self.cards[obj] = mount
+        info = {
+            'mount': mount,
+            'partition': part['info'],
+            'drive': drive['info'],
+        }
+        self.cards[obj] = info
         log.info('card_added %r %r', obj, mount)
-        self.emit('card_added', obj, mount)
+        self.emit('card_added', obj, mount, info)
 
     def remove_card(self, obj):
         try:

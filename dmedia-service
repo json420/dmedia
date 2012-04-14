@@ -135,14 +135,14 @@ class Service(dbus.service.Object):
         except Exception:
             log.exception('Could not remove FileStore %r', parentdir)
 
-    def on_card_added(self, udisks, obj, mount):
-        self.CardAdded(obj, mount)
+    def on_card_added(self, udisks, obj, mount, info):
+        self.CardAdded(obj, mount, dumps(info))
 
     def on_card_removed(self, udisks, obj, mount):
         self.CardRemoved(obj, mount)
-   
-    @dbus.service.signal(IFACE, signature='ss')
-    def CardAdded(self, obj, mount):
+
+    @dbus.service.signal(IFACE, signature='sss')
+    def CardAdded(self, obj, mount, info):
         pass
 
     @dbus.service.signal(IFACE, signature='ss')
