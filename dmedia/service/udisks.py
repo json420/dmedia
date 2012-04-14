@@ -29,15 +29,16 @@ from os import path
 from gettext import gettext as _
 import logging
 
+import dbus
 from gi.repository import GObject
 from filestore import DOTNAME
 
 from dmedia.units import bytes10
-from dmedia.service.dbus import system
 
 
 log = logging.getLogger()
 TYPE_PYOBJECT = GObject.TYPE_PYOBJECT
+system = dbus.SystemBus()
 
 
 def major_minor(parentdir):
@@ -114,11 +115,7 @@ class Device:
 
     def __init__(self, obj):
         self.obj = obj
-        self.proxy = system.get(
-            'org.freedesktop.UDisks',
-            obj,
-            'org.freedesktop.DBus.Properties'
-        )
+        self.proxy = system.get_object('org.freedesktop.UDisks', obj)
         self.cache = {}
         self.ispartition = self['DeviceIsPartition']
         if self.ispartition:
@@ -133,7 +130,9 @@ class Device:
         try:
             return self.cache[key]
         except KeyError:
-            value = self.proxy.Get('(ss)', 'org.freedesktop.UDisks.Device', key)
+            value = self.proxy.Get('org.freedesktop.UDisks.Device', key,
+                dbus_interface='org.freedesktop.DBus.Properties'
+            )
             self.cache[key] = value
             return value
 
@@ -171,7 +170,7 @@ class UDisks(GObject.GObject):
         self.partitions = {}
         self.cards = {}
         self.stores = {}
-        self.proxy = system.get(
+        self.proxy = system.get_object(
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
@@ -189,22 +188,25 @@ class UDisks(GObject.GObject):
             home: home_p,
             user: user_p,
         }
-        self.proxy.connect('g-signal', self.on_g_signal)
+        self.proxy.connect_to_signal('DeviceChanged', self.on_DeviceChanged)
+        self.proxy.connect_to_signal('DeviceRemoved', self.on_DeviceRemoved)
         for obj in self.proxy.EnumerateDevices():
             self.change_device(obj)
+
+    def on_DeviceChanged(self, obj):
+        self.change_device(obj)
+
+    def on_DeviceRemoved(self, obj):
+        self.remove_device(obj)
 
     def find(self, parentdir):
         """
         Return DBus object path of partition containing *parentdir*.
         """
         (major, minor) = major_minor(parentdir)
-        return self.proxy.FindDeviceByMajorMinor('(xx)', major, minor)
-
-    def on_g_signal(self, proxy, sender, signal, params):
-        if signal == 'DeviceChanged':
-            self.change_device(params.unpack()[0])
-        elif signal == 'DeviceRemoved':
-            self.remove_device(params.unpack()[0])
+        return self.proxy.FindDeviceByMajorMinor(major, minor,
+            dbus_interface='org.freedesktop.UDisks'
+        )
 
     def get_device(self, obj):
         if obj not in self.devices:
