@@ -74,40 +74,38 @@ class Avahi:
             dbus_interface='org.freedesktop.Avahi.EntryGroup'
         )
         self.group.Commit(dbus_interface='org.freedesktop.Avahi.EntryGroup')
-#        browser_path = self.avahi.ServiceBrowserNew('(iissu)',
-#            -1,  # Interface
-#            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
-#            '_dmedia._tcp',
-#            'local',
-#            0  # Flags
-#        )
-#        self.browser = system.get(
-#            'org.freedesktop.Avahi',
-#            browser_path,
-#            'org.freedesktop.Avahi.ServiceBrowser'
-#        )
-        #self.browser.connect('g-signal', self.on_g_signal)
+        browser_path = self.avahi.ServiceBrowserNew(
+            -1,  # Interface
+            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            '_dmedia._tcp',
+            'local',
+            0,  # Flags
+            dbus_interface='org.freedesktop.Avahi.Server'
+        )
+        self.browser = system.get_object('org.freedesktop.Avahi', browser_path)
+        self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
+        self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
 
     def free(self):
         if self.group is not None:
-            self.group.Reset()
- 
-    def on_g_signal(self, proxy, sender, signal, params):
-        if signal == 'ItemNew':
-            (interface, protocol, name, _type, domain, flags) = params.unpack()
-            if name != self.machine_id:  # Ignore what we publish ourselves
-                (ip, port) = self.avahi.ResolveService('(iisssiu)',
-                    interface, protocol, name, _type, domain, -1, 0
-                )[7:9]
-                url = 'http://{}:{}/'.format(ip, port)
-                log.info('Avahi: new peer %r at %r', name, url)
-                self.peers['peers'][name] = url
-                self.db.save(self.peers)
-        elif signal == 'ItemRemove':
-            (interface, protocol, name, _type, domain, flags) = params.unpack()
-            log.info('Avahi: removing peer %r', name)
-            try:
-                del self.peers['peers'][name]
-                self.db.save(self.peers)
-            except KeyError:
-                pass
+            self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
+
+    def on_ItemNew(self, interface, protocol, name, _type, domain, flags):
+        if name == self.machine_id:  # Ignore what we publish ourselves
+            return
+        (ip, port) = self.avahi.ResolveService(
+            interface, protocol, name, _type, domain, -1, 0,
+            dbus_interface='org.freedesktop.Avahi.Server'
+        )[7:9]
+        url = 'http://{}:{}/'.format(ip, port)
+        log.info('Avahi: new peer %s at %s', name, url)
+        self.peers['peers'][name] = url
+        self.db.save(self.peers)
+
+    def on_ItemRemove(self, interface, protocol, name, _type, domain, flags):
+        log.info('Avahi: removing peer %s', name)
+        try:
+            del self.peers['peers'][name]
+            self.db.save(self.peers)
+        except KeyError:
+            pass
