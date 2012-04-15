@@ -26,23 +26,18 @@ Advertise Dmedia HTTP server over Avahi, discover other peers.
 import logging
 
 from microfiber import Database, NotFound
-
-from dmedia.service.dbus import system
+import dbus
 
 
 PEERS = '_local/peers'
 log = logging.getLogger()
-
+system = dbus.SystemBus()
 
 class Avahi:
     group = None
 
     def __init__(self, env, port):
-        self.avahi = system.get(
-            'org.freedesktop.Avahi',
-            '/',
-            'org.freedesktop.Avahi.Server'
-        )
+        self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.db = Database('dmedia-0', env)
         self.machine_id = env['machine_id']
         self.port = port
@@ -59,13 +54,14 @@ class Avahi:
         except NotFound:
             self.peers = {'_id': PEERS, 'peers': {}}
             self.db.save(self.peers)
-        self.group = system.get(
+        self.group = system.get_object(
             'org.freedesktop.Avahi',
-            self.avahi.EntryGroupNew(),
-            'org.freedesktop.Avahi.EntryGroup'
+            self.avahi.EntryGroupNew(
+                dbus_interface='org.freedesktop.Avahi.Server'
+            )
         )
         log.info('Avahi: advertising %r on port %r', self.machine_id, self.port)
-        self.group.AddService('(iiussssqaay)',
+        self.group.AddService(
             -1,  # Interface
             0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
@@ -74,22 +70,23 @@ class Avahi:
             '',  # Domain, default to .local
             '',  # Host, default to localhost
             self.port,  # Port
-            None  # TXT record
+            b'',  # TXT record
+            dbus_interface='org.freedesktop.Avahi.EntryGroup'
         )
-        self.group.Commit()
-        browser_path = self.avahi.ServiceBrowserNew('(iissu)',
-            -1,  # Interface
-            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
-            '_dmedia._tcp',
-            'local',
-            0  # Flags
-        )
-        self.browser = system.get(
-            'org.freedesktop.Avahi',
-            browser_path,
-            'org.freedesktop.Avahi.ServiceBrowser'
-        )
-        self.browser.connect('g-signal', self.on_g_signal)
+        self.group.Commit(dbus_interface='org.freedesktop.Avahi.EntryGroup')
+#        browser_path = self.avahi.ServiceBrowserNew('(iissu)',
+#            -1,  # Interface
+#            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+#            '_dmedia._tcp',
+#            'local',
+#            0  # Flags
+#        )
+#        self.browser = system.get(
+#            'org.freedesktop.Avahi',
+#            browser_path,
+#            'org.freedesktop.Avahi.ServiceBrowser'
+#        )
+        #self.browser.connect('g-signal', self.on_g_signal)
 
     def free(self):
         if self.group is not None:
