@@ -27,15 +27,16 @@ import optparse
 from os import path
 from datetime import date
 from gettext import gettext as _
+import json
 
 from gi.repository import GObject
-
 from filestore import DOTNAME
+
 import dmedia
 from dmedia import schema
 from dmedia.util import get_db, get_project_db
 from dmedia.units import bytes10
-from dmedia.service.api import DMedia
+from dmedia.service import get_proxy
 from dmedia.importer import ImportManager, notify_stats
 
 
@@ -62,9 +63,13 @@ parser.add_option('--list',
 (options, args) = parser.parse_args()
 
 
+def get_env():
+    Dmedia = get_proxy()
+    return json.loads(Dmedia.GetEnv())
+
+
 if options.list:
-    api = DMedia()
-    db = get_db(api.GetEnv())
+    db = get_db(get_env())
     for row in db.view('project', 'title')['rows']:
         print('  {}  {}'.format(row['id'], row['key']))
     sys.exit(0)
@@ -77,8 +82,7 @@ if not path.isdir(basedir):
     sys.exit(1)
 
 
-api = DMedia()
-env = api.GetEnv()
+env = get_env()
 if options.project:
     project_id = options.project
 else:

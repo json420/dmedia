@@ -25,9 +25,15 @@ Functionality that requires DBus and is generally Linux-specific.
 Code that is portable should go in dmedia/*.py (the dmedia core). 
 """
 
+import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
 
 GObject.threads_init()
 DBusGMainLoop(set_as_default=True)
+
+
+def get_proxy():
+    session = dbus.SessionBus()
+    return session.get_object('org.freedesktop.Dmedia', '/')
 
