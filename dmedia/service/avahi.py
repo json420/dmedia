@@ -33,10 +33,10 @@ PEERS = '_local/peers'
 log = logging.getLogger()
 system = dbus.SystemBus()
 
-class Avahi:
-    group = None
 
+class Avahi:
     def __init__(self, env, port):
+        group = None
         self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.db = Database('dmedia-0', env)
         self.machine_id = env['machine_id']
