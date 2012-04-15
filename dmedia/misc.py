@@ -1,5 +1,5 @@
 # dmedia: distributed media library
-# Copyright (C) 2011 Novacut Inc
+# Copyright (C) 2012 Novacut Inc
 #
 # This file is part of `dmedia`.
 #
@@ -20,20 +20,22 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Functionality that requires DBus and is generally Linux-specific.
-
-Code that is portable should go in dmedia/*.py (the dmedia core). 
+Don't know where else to put this stuff.
 """
 
-import dbus
-from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GObject
-
-GObject.threads_init()
-DBusGMainLoop(set_as_default=True)
+import weakref
 
 
-def get_proxy():
-    session = dbus.SessionBus()
-    return session.get_object('org.freedesktop.Dmedia', '/')
+class WeakMethod:
+    __slots__ = ('proxy', 'method_name')
 
+    def __init__(self, inst, method_name):
+        if not callable(getattr(inst, method_name)):
+            raise TypeError(
+                '{!r} attribute is not callable'.format(method_name)
+            )
+        self.proxy = weakref.proxy(inst)
+        self.method_name = method_name
+
+    def __call__(self, *args):
+        return getattr(self.proxy, self.method_name)(*args)

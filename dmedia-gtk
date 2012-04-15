@@ -31,12 +31,12 @@ from microfiber import NotFound
 
 import dmedia
 from dmedia.util import get_project_db
+from dmedia.misc import WeakMethod
 from dmedia import views
 from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
-from dmedia.service.dbus import Ejector, Formatter, UDisks, WeakMethod
-from dmedia.service.dbus import extra_info, session
+from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager
 
 try:
@@ -48,41 +48,16 @@ except ImportError:
 log = logging.getLogger()
 
 
-class ActiveImport(Gtk.VBox):
-    def __init__(self):
-        super().__init__()
-        self._progressbar = Gtk.ProgressBar()
-        self.pack_start(self._progressbar, False, False, 2)
-
-    def _set_gmanager(self, gmanager):
-        gmanager.connect('batch_progress', self._on_batch_progress)
-
-    def _on_batch_progress(self, gm, count, total_count, size, total_size):
-        progress = (0.0 if total_size == 0 else size / total_size)
-        self._progressbar.set_property('fraction', progress)
-
-
-s = """
-After starting the importer, dmedia will automatically import all files from any cards you insert.
-
-If you have multiple card readers, you can import multiple cards at the same time.
-
-NOTE THAT DMEDIA IS NOT YET PRODUCTION READY!
-THERE WILL STILL BE CHANGES THAT WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
-"""
-
-
 class Importer:
-    def __init__(self, env, hub):
+    def __init__(self, env, proxy, hub):
         super().__init__()
         self.env = env
-        self.udisks = UDisks()
-        self.udisks.monitor()
-        self.udisks.connect('card_inserted',
-            WeakMethod(self, 'on_card_inserted')
-        )
         self.blocking = False
         self.cards = []
+        self.proxy = proxy
+        self.proxy.connect_to_signal('CardAdded',
+            WeakMethod(self, 'on_CardAdded')
+        )
         self.hub = hub
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
@@ -120,14 +95,13 @@ class Importer:
                 self.batch_id, self.stats, self.copies, self.msg
             )
 
-    def on_card_inserted(self, udisks, obj, parentdir, partition, drive):
+    def on_CardAdded(self, obj, mount, info):
         if self.blocking:
             log.warning('Blocking, ignoring card-insert %r', obj)
             return
-        log.info('card-insert %r', obj)
+        log.info('CardAdded %r %r', obj, mount)
         self.cards.append(obj)
-        info = extra_info(partition, drive)
-        self.manager.start_import(parentdir, info)
+        self.manager.start_import(mount, json.loads(info))
 
 
 class Replay:
@@ -156,7 +130,6 @@ class App(BaseApp):
     dbname = schema.DB_NAME
     version = dmedia.__version__
     title = 'Dmedia'
-    splash = 'splash.html'
     page = 'index.html'
     title = 'Dmedia'
     proxy_bus = dmedia.BUS
@@ -240,7 +213,7 @@ class App(BaseApp):
     def on_start_importer(self, dub, project_id):
         env = deepcopy(self.env)
         env['project_id'] = project_id
-        self.importer = Importer(env, self.hub)
+        self.importer = Importer(env, self.proxy, self.hub)
         assert sys.getrefcount(self.importer) == 2
         self.create_ux()
         self.hub.send('importer_started', schema.project_db_name(project_id))

@@ -123,7 +123,7 @@ class Service(dbus.service.Object):
             self.httpd.join()
         self.mainloop.quit()
 
-    def on_store_added(self, udisks, obj, parentdir, store_id):
+    def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
             self.AddFileStore(parentdir)
         except Exception:
@@ -135,14 +135,14 @@ class Service(dbus.service.Object):
         except Exception:
             log.exception('Could not remove FileStore %r', parentdir)
 
-    def on_card_added(self, udisks, obj, mount):
-        self.CardAdded(obj, mount)
+    def on_card_added(self, udisks, obj, mount, info):
+        self.CardAdded(obj, mount, dumps(info))
 
     def on_card_removed(self, udisks, obj, mount):
         self.CardRemoved(obj, mount)
-   
-    @dbus.service.signal(IFACE, signature='ss')
-    def CardAdded(self, obj, mount):
+
+    @dbus.service.signal(IFACE, signature='sss')
+    def CardAdded(self, obj, mount, info):
         pass
 
     @dbus.service.signal(IFACE, signature='ss')
@@ -171,6 +171,13 @@ class Service(dbus.service.Object):
         """
         log.info('GetEnv')
         return self.env_s
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def GetDiskInfo(self):
+        """
+        Return Dmedia-friendly info on disks from UDisks, as a JSON string.
+        """
+        return dumps(self.udisks.info)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def LocalDmedia(self):
