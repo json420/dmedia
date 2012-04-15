@@ -25,18 +25,18 @@ import json
 import logging
 import sys
 from copy import deepcopy
-import weakref
 
 from userwebkit import BaseApp
 from microfiber import NotFound
 
 import dmedia
 from dmedia.util import get_project_db
+from dmedia.misc import WeakMethod
 from dmedia import views
 from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
-from dmedia.service.dbus import Ejector, Formatter, WeakMethod
+from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager
 
 try:
@@ -46,15 +46,6 @@ except ImportError:
 
 
 log = logging.getLogger()
-
-
-class WeakMethod:
-    def __init__(self, inst, method):
-        self.proxy = weakref.proxy(inst)
-        self.method = method
-
-    def __call__(self, *args):
-        return getattr(self.proxy, self.method)(*args)
 
 
 class Importer:

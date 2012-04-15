@@ -23,6 +23,7 @@
 Attempts to tame the UDisks beast.
 """
 
+import sys
 import json
 import os
 from os import path
@@ -34,6 +35,7 @@ from gi.repository import GObject
 from filestore import DOTNAME
 
 from dmedia.units import bytes10
+from dmedia.misc import WeakMethod
 
 
 log = logging.getLogger()
@@ -114,7 +116,7 @@ class Device:
     __slots__ = ('obj', 'proxy', 'cache', 'ispartition', 'drive')
 
     def __init__(self, obj):
-        self.obj = obj
+        self.obj = str(obj)
         self.proxy = system.get_object('org.freedesktop.UDisks', obj)
         self.cache = {}
         self.ispartition = self['DeviceIsPartition']
@@ -145,6 +147,99 @@ class Device:
 
     def reset(self):
         self.cache.clear()
+
+
+empty_options = dbus.Array(signature='s')
+
+class Drive(Device):
+
+    def DriveEject(self):
+        log.info('Ejecting %r', self)
+        return self.proxy.DriveEject(empty_options)
+
+    def DriveDetach(self):
+        """
+        Worthless, don't use this!
+        """
+        log.info('Detaching %r', self)
+        return self.proxy.DriveDetach(empty_options)
+
+
+class Partition(Device):
+    def __init__(self, obj):
+        super().__init__(obj)
+        assert self.ispartition
+
+    def get_drive(self):
+        return Drive(self.drive)
+
+    def FilesystemUnmount(self):
+        log.info('Unmounting %r', self)
+        return self.proxy.FilesystemUnmount(empty_options)
+
+    def FilesystemCreate(self, fstype=None, options=None):
+        if fstype is None:
+            fstype = str(self['IdType'])
+        if options is None:
+            options = ['label={}'.format(self['IdLabel'])]
+        log.info('Formating %r as %r with %r', self, fstype, options)
+        return self.proxy.FilesystemCreate(fstype, options)
+
+
+class DeviceWorker:
+    def __init__(self, obj, callback):
+        self.obj = str(obj)
+        self.callback = callback
+        self.partition = Partition(obj)
+        self.drive = self.partition.get_drive()
+        callback = WeakMethod(self, 'on_JobChanged')
+        self.partition.proxy.connect_to_signal('JobChanged', callback)
+        self.drive.proxy.connect_to_signal('JobChanged', callback)
+        self.next = None
+
+    def __repr__(self):
+        return '{}({!r})'.format(self.__class__.__name__, self.obj)
+
+    def on_JobChanged(self, *args):
+        job_in_progress = args[0]
+        if not (job_in_progress or self.next is None):
+            next = self.next
+            self.next = None
+            # FIXME: This wait is to work around UDisks issues: when we get the
+            # JobChanged signal, it seems that often UDisks isn't actually ready
+            # for the next step
+            GObject.timeout_add(1000, self.on_timeout, next)
+
+    def on_timeout(self, next):
+        next()
+        return False  # Do not repeat timeout call
+
+    def run(self):
+        self.unmount()
+
+    def eject(self):
+        self.next = self.finish
+        self.drive.DriveEject()
+
+    def finish(self):
+        self.callback(self, self.obj)
+
+
+class Ejector(DeviceWorker):
+    def unmount(self):
+        self.next = self.eject
+        self.partition.FilesystemUnmount()
+
+
+class Formatter(DeviceWorker):
+    def unmount(self):
+        self.next = self.format
+        self.partition.FilesystemUnmount()
+
+    def format(self):
+        self.next = self.eject
+        self.partition.FilesystemCreate()
+
 
 
 class UDisks(GObject.GObject):
