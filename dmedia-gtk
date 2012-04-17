@@ -155,11 +155,11 @@ class App(BaseApp):
     }
 
     def extend_parser(self, parser):
-        parser.add_option('--replay',
-            help='replay import',
-            action='store_true',
-            default=False,
-        )
+#        parser.add_option('--replay',
+#            help='replay import',
+#            action='store_true',
+#            default=False,
+#        )
         parser.add_option('--onboard',
             help='force run of onboarding experience',
             action='store_true',
@@ -202,9 +202,6 @@ class App(BaseApp):
         self.load_page(self.page)
 
     def post_env_init(self):
-        if self.options.replay:
-            self.create_ux()
-            self._replay = Replay('signals.json', self.hub)
         for row in self.db.view('project', 'atime')['rows']:
             get_project_db(row['id'], self.env, True)
 
