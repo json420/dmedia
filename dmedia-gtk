@@ -123,6 +123,7 @@ class Replay:
 
 
 WELCOMED_ID = '_local/welcomed'
+SETTINGS_ID = '_local/settings'
 
 
 class App(BaseApp):
@@ -142,7 +143,7 @@ class App(BaseApp):
         'stop_importer': [],
         'importer_stopped': [],
 
-        'welcome_complete': [],
+        'onboard_complete': [],
         'batch_started': ['batch_id'],
         'import_started': ['basedir', 'import_id', 'extra'],
         'import_scanned': ['basedir', 'import_id', 'total_count', 'total_size'],
@@ -159,6 +160,11 @@ class App(BaseApp):
             action='store_true',
             default=False,
         )
+        parser.add_option('--onboard',
+            help='force run of onboarding experience',
+            action='store_true',
+            default=False,
+        )
 
     def connect_hub_signals(self, hub):
         self.importer = None
@@ -166,21 +172,33 @@ class App(BaseApp):
         hub.connect('start_importer', self.on_start_importer)
         hub.connect('stop_importer', self.on_stop_importer)
         hub.connect('error', self.on_error)
-        hub.connect('welcome_complete', self.on_welcome_complete)
+        hub.connect('onboard_complete', self.on_onboard_complete)
 
     def choose_starting_page(self):
-        _id = '_local/welcomed'
         try:
-            self.db.get(WELCOMED_ID)
-            return self.page
+            doc = self.db.get(SETTINGS_ID)
         except NotFound:
-            return 'welcome.html'
+            doc = {
+                '_id': SETTINGS_ID,
+                'onboarded': False,
+            }
+            self.db.save(doc)
+        if self.options.onboard:
+            doc['onboarded'] = False
+            self.db.save(doc)
+        if doc.get('onboarded'):
+            return self.page
+        else:
+            return 'dont_panic.html'
 
     def dmedia_resolver(self, uri):
         return self.proxy.ResolveURI(uri)
 
-    def on_welcome_complete(self, hub):
-        self.db.post({'_id': WELCOMED_ID})
+    def on_onboard_complete(self, hub):
+        print('onboard_complete')
+        doc = self.db.get(SETTINGS_ID)
+        doc['onboarded'] = True
+        self.db.save(doc)
         self.load_page(self.page)
 
     def post_env_init(self):
