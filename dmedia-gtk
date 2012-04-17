@@ -195,15 +195,10 @@ class App(BaseApp):
         return self.proxy.ResolveURI(uri)
 
     def on_onboard_complete(self, hub):
-        print('onboard_complete')
         doc = self.db.get(SETTINGS_ID)
         doc['onboarded'] = True
         self.db.save(doc)
         self.load_page(self.page)
-
-    def post_env_init(self):
-        for row in self.db.view('project', 'atime')['rows']:
-            get_project_db(row['id'], self.env, True)
 
     def create_ux(self):
         if UnityImportUX is not None:

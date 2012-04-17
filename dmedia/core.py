@@ -44,6 +44,7 @@ import dmedia
 from dmedia import schema
 from dmedia.local import LocalStores, FileNotLocal
 from dmedia.views import init_views
+from dmedia.util import get_project_db
 from dmedia.units import bytes10
 
 
@@ -173,6 +174,10 @@ class Core:
         self.db.save(doc)
         log.info('FileStore %r at %r', fs.id, fs.parentdir)
         return fs
+
+    def init_project_views(self):
+        for row in self.db.view('project', 'atime')['rows']:
+            get_project_db(row['id'], self.env, True)
 
     def stat(self, _id):
         doc = self.db.get(_id)

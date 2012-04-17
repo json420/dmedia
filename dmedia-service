@@ -96,8 +96,9 @@ class Service(dbus.service.Object):
         self.start_core()
         GObject.timeout_add(500, self.on_idle)
         self.mainloop.run()
-        
+
     def on_idle(self):
+        self.core.init_project_views()
         self.udisks.monitor()
         self.start_httpd()
         interval = 5 * 60 * 1000  # Autocompact every 5 minutes
