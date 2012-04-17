@@ -38,6 +38,7 @@ from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
 from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager
+from gi.repository import GConf
 
 try:
     from dmedia.gtk.ubuntu import UnityImportUX
@@ -46,6 +47,7 @@ except ImportError:
 
 
 log = logging.getLogger()
+GCONF_KEY = '/apps/nautilus/preferences/media_autorun_never'
 
 
 class Importer:
@@ -63,6 +65,17 @@ class Importer:
             WeakMethod(self, 'on_batch_finished')
         )
         self.manager = ImportManager(env, WeakMethod(self, 'callback'))
+        self.gconf = GConf.Client.get_default()
+        self.media_autorun_never = self.gconf.get_bool(GCONF_KEY)
+        if not self.media_autorun_never:
+            self.gconf.set_bool(GCONF_KEY, True)
+
+    def __del__(self):
+        self.reset()
+
+    def reset(self):
+        if not self.media_autorun_never:
+            self.gconf.set_bool(GCONF_KEY, False)
 
     def callback(self, signal, args):
         GObject.idle_add(self.hub.send, signal, *args)
@@ -134,6 +147,7 @@ class App(BaseApp):
     page = 'index.html'
     title = 'Dmedia'
     proxy_bus = dmedia.BUS
+    importer = None
 
     signals = {
         'create_project': ['title'],
@@ -167,7 +181,6 @@ class App(BaseApp):
         )
 
     def connect_hub_signals(self, hub):
-        self.importer = None
         hub.connect('create_project', self.on_create_project)
         hub.connect('start_importer', self.on_start_importer)
         hub.connect('stop_importer', self.on_stop_importer)
@@ -244,4 +257,8 @@ class App(BaseApp):
 
 dmedia.configure_logging()      
 app = App()
-app.run()
+try:
+    app.run()
+finally:
+    if app.importer is not None:
+        app.importer.reset()
