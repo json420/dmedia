@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="960"
+   height="540"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.3.1 r9886"
+   sodipodi:docname="dont-panic.svg"
+   inkscape:export-filename="/home/jderose/dont-panic.png"
+   inkscape:export-xdpi="90"
+   inkscape:export-ydpi="90">
+  <defs
+     id="defs4">
+    <filter
+       id="filter3910"
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Drop Shadow">
+      <feFlood
+         id="feFlood3912"
+         flood-opacity="0.5"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         in2="SourceGraphic"
+         id="feComposite3914"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur3916"
+         in="composite"
+         stdDeviation="2"
+         result="blur" />
+      <feOffset
+         id="feOffset3918"
+         dx="4"
+         dy="4"
+         result="offset" />
+      <feComposite
+         in2="offset"
+         id="feComposite3920"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
+    <filter
+       id="filter3959"
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Drop Shadow">
+      <feFlood
+         id="feFlood3961"
+         flood-opacity="0.5"
+         flood-color="rgb(0,0,0)"
+         result="flood" />
+      <feComposite
+         id="feComposite3963"
+         in2="SourceGraphic"
+         in="flood"
+         operator="in"
+         result="composite1" />
+      <feGaussianBlur
+         id="feGaussianBlur3965"
+         in="composite"
+         stdDeviation="2"
+         result="blur" />
+      <feOffset
+         id="feOffset3967"
+         dx="4"
+         dy="4"
+         result="offset" />
+      <feComposite
+         id="feComposite3969"
+         in2="offset"
+         in="SourceGraphic"
+         operator="over"
+         result="composite2" />
+    </filter>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="1"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1"
+     inkscape:cx="476.82073"
+     inkscape:cy="270"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     showguides="false"
+     inkscape:window-width="1247"
+     inkscape:window-height="1548"
+     inkscape:window-x="66"
+     inkscape:window-y="24"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-512.36218)">
+    <text
+       xml:space="preserve"
+       style="font-size:98.86667633px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;filter:url(#filter3959);font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
+       x="341.08923"
+       y="589.48248"
+       id="text2985"
+       sodipodi:linespacing="125%"
+       transform="matrix(0.94915248,0,0,1.0535715,0,-3)"><tspan
+         sodipodi:role="line"
+         id="tspan2987"
+         x="341.08923"
+         y="589.48248"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Lato;-inkscape-font-specification:Lato Bold">DON'T PANIC</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:38.85352707px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
+       x="140.55702"
+       y="673.81146"
+       id="text2989"
+       sodipodi:linespacing="125%"
+       transform="scale(1.0180958,0.98222584)"><tspan
+         sodipodi:role="line"
+         x="140.55702"
+         y="673.81146"
+         style="font-style:italic;text-align:center;text-anchor:middle;-inkscape-font-specification:Lato Italic"
+         id="tspan3001">“Dmedia,</tspan><tspan
+         sodipodi:role="line"
+         x="140.55702"
+         y="722.37836"
+         style="font-style:italic;text-align:center;text-anchor:middle;-inkscape-font-specification:Lato Italic"
+         id="tspan3308">because</tspan><tspan
+         sodipodi:role="line"
+         x="140.55702"
+         y="770.94525"
+         style="font-style:italic;text-align:center;text-anchor:middle;-inkscape-font-specification:Lato Italic"
+         id="tspan3298">I'm a</tspan><tspan
+         sodipodi:role="line"
+         x="140.55702"
+         y="819.51221"
+         style="font-style:italic;text-align:center;text-anchor:middle;-inkscape-font-specification:Lato Italic"
+         id="tspan3300">storyteller,</tspan><tspan
+         sodipodi:role="line"
+         x="140.55702"
+         y="868.0791"
+         style="font-style:italic;text-align:center;text-anchor:middle;-inkscape-font-specification:Lato Italic"
+         id="tspan3302">not a</tspan><tspan
+         sodipodi:role="line"
+         x="140.55702"
+         y="916.646"
+         style="font-style:italic;text-align:center;text-anchor:middle;-inkscape-font-specification:Lato Italic"
+         id="tspan3304">robot,</tspan><tspan
+         sodipodi:role="line"
+         x="140.55702"
+         y="965.21289"
+         style="font-style:italic;text-align:center;text-anchor:middle;-inkscape-font-specification:Lato Italic"
+         id="tspan3306">damnit.”</tspan></text>
+    <g
+       id="g3936"
+       transform="translate(-2.05,-15)">
+      <text
+         sodipodi:linespacing="125%"
+         id="text3007"
+         y="745.58771"
+         x="424.19592"
+         style="font-size:36px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
+         xml:space="preserve"><tspan
+           style="font-size:22px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Lato;-inkscape-font-specification:Lato"
+           y="745.58771"
+           x="424.19592"
+           id="tspan3009"
+           sodipodi:role="line">Dmedia will do the right thing automatically,</tspan><tspan
+           id="tspan3934"
+           style="font-size:22px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Lato;-inkscape-font-specification:Lato"
+           y="773.08771"
+           x="424.19592"
+           sodipodi:role="line">without me babysitting it</tspan></text>
+      <text
+         sodipodi:linespacing="125%"
+         id="text3051"
+         y="745.58771"
+         x="391"
+         style="font-size:24px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Sans Bold"
+         xml:space="preserve"><tspan
+           style="font-size:28px"
+           y="745.58771"
+           x="391"
+           id="tspan3053"
+           sodipodi:role="line">1.</tspan></text>
+    </g>
+    <g
+       id="g3943"
+       transform="translate(-0.916,14)">
+      <text
+         sodipodi:linespacing="125%"
+         id="text3011"
+         y="794.36218"
+         x="424.19592"
+         style="font-size:22px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
+         xml:space="preserve"><tspan
+           id="tspan3015"
+           y="794.36218"
+           x="424.19592"
+           sodipodi:role="line">Dmedia wont even give me the <tspan
+   style="font-style:italic;-inkscape-font-specification:Lato Italic"
+   id="tspan3973">opportunity</tspan></tspan><tspan
+           id="tspan3023"
+           y="821.86218"
+           x="424.19592"
+           sodipodi:role="line">to make silly mistakes</tspan></text>
+      <text
+         sodipodi:linespacing="125%"
+         id="text3067"
+         y="794.36218"
+         x="391"
+         style="font-size:28px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Sans Bold"
+         xml:space="preserve"><tspan
+           y="794.36218"
+           x="391"
+           id="tspan3069"
+           sodipodi:role="line">2.</tspan></text>
+    </g>
+    <g
+       id="g3951"
+       transform="translate(-1,27)">
+      <text
+         sodipodi:linespacing="125%"
+         id="text3033"
+         y="862.36218"
+         x="424.19592"
+         style="font-size:22px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
+         xml:space="preserve"><tspan
+           id="tspan3037"
+           y="862.36218"
+           x="424.19592"
+           sodipodi:role="line">Dmedia will be honest and tell me</tspan><tspan
+           id="tspan3884"
+           y="889.86218"
+           x="424.19592"
+           sodipodi:role="line">when I <tspan
+   id="tspan3041"
+   style="font-style:italic;-inkscape-font-specification:Lato Italic">should</tspan> PANIC</tspan></text>
+      <text
+         sodipodi:linespacing="125%"
+         id="text3071"
+         y="862.36218"
+         x="391"
+         style="font-size:28px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Sans Bold"
+         xml:space="preserve"><tspan
+           y="862.36218"
+           x="391"
+           id="tspan3073"
+           sodipodi:role="line">3.</tspan></text>
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:32px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato Bold"
+       x="326.7457"
+       y="679.36218"
+       id="text3087"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan3089"
+         x="326.7457"
+         y="679.36218"
+         style="font-size:36px">Take <tspan
+   style="font-size:36px;font-style:italic;-inkscape-font-specification:Lato Bold Italic"
+   id="tspan3093">three</tspan> deep breaths:</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:36px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Sans"
+       x="323"
+       y="439"
+       id="text3096"
+       sodipodi:linespacing="125%"
+       transform="translate(0,512.36218)"><tspan
+         sodipodi:role="line"
+         id="tspan3098"
+         x="323"
+         y="439" /></text>
+    <g
+       id="g3876"
+       transform="matrix(0.98324958,0,0,1,22.838879,15)"
+       style="filter:url(#filter3910)">
+      <rect
+         y="934.36218"
+         x="313"
+         height="70"
+         width="597"
+         id="rect3106"
+         style="fill:#dddddd;fill-opacity:1;stroke:none" />
+      <text
+         sodipodi:linespacing="125%"
+         id="text3100"
+         y="979.36218"
+         x="331.74573"
+         style="font-size:32px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Sans"
+         xml:space="preserve"><tspan
+           style="font-size:36px;font-weight:bold;-inkscape-font-specification:Lato Bold"
+           y="979.36218"
+           x="331.74573"
+           id="tspan3102"
+           sodipodi:role="line">I'm calm now, import my media files </tspan></text>
+    </g>
+  </g>
+</svg>
