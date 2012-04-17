@@ -257,6 +257,8 @@ class App(BaseApp):
 
 dmedia.configure_logging()      
 app = App()
-app.run()
-if app.importer is not None:
-    app.importer.reset()
+try:
+    app.run()
+finally:
+    if app.importer is not None:
+        app.importer.reset()
