@@ -195,7 +195,7 @@ class Service(dbus.service.Object):
         try:
             return dumps(self.core.db.get('_local/peers'))
         except NotFound:
-            return {}
+            return '{}'
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AddFileStore(self, parentdir):
