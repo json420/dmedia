@@ -219,11 +219,9 @@ class Service(dbus.service.Object):
     def AllocateTmp(self):
         return self.core.allocate_tmp()
 
-    @dbus.service.method(IFACE, in_signature='ss', out_signature='s')
+    @dbus.service.method(IFACE, in_signature='ss', out_signature='a{ss}')
     def HashAndMove(self, tmp, origin):
         return self.core.hash_and_move(tmp, origin)
-        
-    
 
 
 parser = optparse.OptionParser(

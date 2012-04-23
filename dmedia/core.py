@@ -267,5 +267,8 @@ class Core:
             )
         schema.check_file(doc)
         self.db.save(doc)
-        return ch.id
+        return {
+            'file_id': ch.id,
+            'file_path': fs.path(ch.id),
+        }
         
