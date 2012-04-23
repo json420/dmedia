@@ -23,6 +23,7 @@ Depends: ${misc:Depends}, python3 (>= 3.2),
     gir1.2-unity-5.0 | gir1.2-unity-4.0,
     gir1.2-notify-0.7,
     gir1.2-appindicator3-0.1,
+    gir1.2-gconf-2.0,
     python-gst0.10,
 Description: distributed media library
  A user-experienced-focused technology aimed at making file management go away
