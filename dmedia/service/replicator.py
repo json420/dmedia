@@ -56,11 +56,10 @@ def get_peer(url, dbname, tokens):
 class Replicator:
     def __init__(self, env, config):
         self.group = None
+        self.env = env
         self.server = Server(env)
         self.library_id = config['library_id']
         self.base_id = self.library_id + '-'
-        self.machine_id = env['machine_id']
-        self.id = self.base_id + self.machine_id
         self.port = env['port']
         self.tokens = config['tokens']
         self.peers = {}
@@ -69,6 +68,8 @@ class Replicator:
         self.free()
 
     def run(self):
+        self.machine_id = self.env['machine_id']
+        self.id = self.base_id + self.machine_id
         self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.group = system.get_object(
             'org.freedesktop.Avahi',
@@ -118,7 +119,7 @@ class Replicator:
         url = 'http://{}:{}/'.format(ip, port)
         log.info('Replicator: new peer %s at %s', name, url)
         self.peers[name] = url
-        self.replicate(url, 'foo') 
+        self.replicate(url, 'dmedia-0') 
 
     def on_ItemRemove(self, interface, protocol, name, _type, domain, flags):
         log.info('Replicator: removing peer %s', name)

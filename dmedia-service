@@ -31,6 +31,7 @@ start_time = time.time()
 import optparse
 import logging
 import json
+from os import path
 
 import dbus
 import dbus.service
@@ -43,6 +44,7 @@ import dmedia
 from dmedia.core import Core, start_file_server
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Avahi
+from dmedia.service.replicator import Replicator
 
 
 BUS = dmedia.BUS
@@ -56,12 +58,21 @@ session = dbus.SessionBus()
 
 def dumps(obj):
     return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
+    
+    
+def get_config(f):
+    print(f)
+    try:
+        return json.load(open(f, 'r'))
+    except Exception:
+        pass
 
 
 class Service(dbus.service.Object):
     usercouch = None
     httpd = None
     avahi = None
+    replicator = None
 
     def __init__(self, bus, env_s):
         self.bus = bus
@@ -74,8 +85,14 @@ class Service(dbus.service.Object):
     def start_core(self):
         if self.env_s is None:
             self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
-            env = self.usercouch.bootstrap()
+            f = path.join(self.usercouch.basedir, 'library.json')
+            self.config = get_config(f)
+            if self.config is None:
+                env = self.usercouch.bootstrap()
+            else:
+                env = self.usercouch.bootstrap2(self.config['tokens'])
         else:
+            self.config = None
             env = json.loads(self.env_s)
         self.udisks = UDisks()
         self.core = Core(env, self.udisks.get_parentdir_info)
@@ -91,6 +108,9 @@ class Service(dbus.service.Object):
         (self.httpd, self.port) = start_file_server(self.core.env)
         self.avahi = Avahi(self.core.env, self.port)
         self.avahi.run()
+        if self.config is not None:
+            self.replicator = Replicator(self.core.env, self.config)
+            self.replicator.run()
 
     def run(self):
         self.start_core()
@@ -119,6 +139,8 @@ class Service(dbus.service.Object):
             self.usercouch.kill()
         if self.avahi is not None:
             self.avahi.free()
+        if self.replicator is not None:
+            self.replicator.free()
         if self.httpd is not None:
             self.httpd.terminate()
             self.httpd.join()
