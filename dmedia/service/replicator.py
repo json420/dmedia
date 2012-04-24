@@ -119,7 +119,7 @@ class Replicator:
         url = 'http://{}:{}/'.format(ip, port)
         log.info('Replicator: new peer %s at %s', name, url)
         self.peers[name] = url
-        self.replicate(url, 'dmedia-0') 
+        self.replicate_all(url)
 
     def on_ItemRemove(self, interface, protocol, name, _type, domain, flags):
         log.info('Replicator: removing peer %s', name)
@@ -128,23 +128,30 @@ class Replicator:
         except KeyError:
             pass
 
-    def replicate(self, url, dbname):
-        # Create local DB if needed
-        try:
-            self.server.put(None, dbname)
-        except PreconditionFailed:
-            pass
-
-        # Create remote DB if needed
+    def replicate_all(self, url):
         env = {'url': url, 'oauth': self.tokens}
-        db = Database(dbname, env)
-        db.ensure() 
+        remote = Server(env)
+        for name in self.server.get('_all_dbs'):
+            if name.startswith('_'):
+                continue
+            if not (name.startswith('dmedia-0') or name.startswith('novacut-0')):
+                continue
+            # Create remote DB if needed
+            try:
+                remote.put(None, name)
+            except PreconditionFailed:
+                pass
 
+            # Start replication
+            self.replicate(url, name)
+
+    def replicate(self, url, dbname):
+        log.info('Replicating %r with %r', dbname, url)
         peer = get_peer(url, dbname, self.tokens)
         local_to_remote = get_body(dbname, peer)
         remote_to_local = get_body(peer, dbname)
         for obj in (local_to_remote, remote_to_local):
-            self.server.post(obj, '_replicate')
+            log.info('%r', self.server.post(obj, '_replicate'))
         
         
         
