@@ -189,6 +189,10 @@ ul {
     padding: 5px;
     position: absolute;
     width: 100%;
+    overflow: hidden;
+    font-size: 16px;
+    color: white;
+    text-shadow: 0 0 1px black;
 }
 
 
