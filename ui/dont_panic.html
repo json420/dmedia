@@ -16,9 +16,11 @@ body {
     cursor: pointer;
 }
 </style>
+<script src="/_apps/userwebkit/base.js"></script>
 <script>
 function next() {
-    window.location.assign('default_stores.html');
+    Hub.send('onboard_complete');
+    //window.location.assign('default_stores.html');
 }
 </script>
 </head>
