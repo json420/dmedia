@@ -131,14 +131,14 @@ class Replicator:
     def replicate_all(self, url):
         env = {'url': url, 'oauth': self.tokens}
         remote = Server(env)
-        for name in self.server.get('_all_dbs'):
+        for name in remote.get('_all_dbs'):
             if name.startswith('_'):
                 continue
             if not (name.startswith('dmedia-0') or name.startswith('novacut-0')):
                 continue
-            # Create remote DB if needed
+            # Create local DB if needed
             try:
-                remote.put(None, name)
+                self.server.put(None, name)
             except PreconditionFailed:
                 pass
 
@@ -148,10 +148,9 @@ class Replicator:
     def replicate(self, url, dbname):
         log.info('Replicating %r with %r', dbname, url)
         peer = get_peer(url, dbname, self.tokens)
-        local_to_remote = get_body(dbname, peer)
+        #local_to_remote = get_body(dbname, peer)
         remote_to_local = get_body(peer, dbname)
-        for obj in (local_to_remote, remote_to_local):
-            log.info('%r', self.server.post(obj, '_replicate'))
+        self.server.post(remote_to_local, '_replicate')
         
         
         
