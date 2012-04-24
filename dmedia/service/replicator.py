@@ -44,25 +44,25 @@ def get_body(source, target):
     }
 
 
-def get_peer(url, dbname, oauth):
+def get_peer(url, dbname, tokens):
     return {
         'url': url + dbname,
         'auth': {
-            'oauth': oauth,
+            'oauth': tokens,
         },
     }
 
 
 class Replicator:
-    def __init__(self, env, library_id):
+    def __init__(self, env, config):
         self.group = None
         self.server = Server(env)
-        self.library_id = library_id
+        self.library_id = config['library_id']
         self.base_id = self.library_id + '-'
         self.machine_id = env['machine_id']
         self.id = self.base_id + self.machine_id
         self.port = env['port']
-        self.oauth = env['oauth']
+        self.tokens = config['tokens']
         self.peers = {}
 
     def __del__(self):
@@ -126,14 +126,23 @@ class Replicator:
             del self.peers[name]
         except KeyError:
             pass
-        print(json.dumps(self.peers, sort_keys=True, indent=4))
 
     def replicate(self, url, dbname):
-        peer = get_peer(url, dbname, self.oauth)
-        to = get_body(dbname, peer)
-        fro = get_body(peer, dbname)
-        for obj in (to, fro):
-            print(json.dumps(obj, sort_keys=True, indent=4))
+        # Create local DB if needed
+        try:
+            self.server.put(None, dbname)
+        except PreconditionFailed:
+            pass
+
+        # Create remote DB if needed
+        env = {'url': url, 'oauth': self.tokens}
+        db = Database(dbname, env)
+        db.ensure() 
+
+        peer = get_peer(url, dbname, self.tokens)
+        local_to_remote = get_body(dbname, peer)
+        remote_to_local = get_body(peer, dbname)
+        for obj in (local_to_remote, remote_to_local):
             self.server.post(obj, '_replicate')
         
         
