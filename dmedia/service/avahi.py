@@ -36,7 +36,7 @@ system = dbus.SystemBus()
 
 class Avahi:
     def __init__(self, env, port):
-        group = None
+        self.group = None
         self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.db = Database('dmedia-0', env)
         self.machine_id = env['machine_id']
