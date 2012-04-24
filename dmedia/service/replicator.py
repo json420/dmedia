@@ -130,8 +130,8 @@ class Replicator:
         #self.replicate_all(key)
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
-        log.info('Replicator: removing peer %s', key)
-        self.cancel_all(key)
+        log.info('Replicator: peer removed %s', key)
+        self.cancel_all(str(key))
 
     def cancel_all(self, key):
         p = self.peers.pop(key, None)
