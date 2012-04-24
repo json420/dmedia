@@ -25,6 +25,7 @@ Advertise CouchDB HTTP server over Avahi, discover other peers in same library.
 
 import logging
 import json
+from collections import namedtuple
 
 from microfiber import Server, Database, PreconditionFailed
 import dbus
@@ -32,16 +33,19 @@ import dbus
 
 log = logging.getLogger()
 system = dbus.SystemBus()
-
+Peer = namedtuple('Peer', 'url names')
 SERVICE = '_usercouch._tcp'
 
 
-def get_body(source, target):
-    return {
+def get_body(source, target, cancel=False):
+    body = {
         'source': source,
         'target': target,
         'continuous': True,
     }
+    if cancel:
+        body['cancel'] = True
+    return body
 
 
 def get_peer(url, dbname, tokens):
@@ -107,29 +111,36 @@ class Replicator:
         if self.group is not None:
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
 
-    def on_ItemNew(self, interface, protocol, name, _type, domain, flags):
-        if name == self.id:  # Ignore what we publish ourselves
+    def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
+        if key == self.id:  # Ignore what we publish ourselves
             return
-        if not name.startswith(self.base_id):  # Ignore other libraries
+        if not key.startswith(self.base_id):  # Ignore other libraries
             return
         (ip, port) = self.avahi.ResolveService(
-            interface, protocol, name, _type, domain, -1, 0,
+            interface, protocol, key, _type, domain, -1, 0,
             dbus_interface='org.freedesktop.Avahi.Server'
         )[7:9]
         url = 'http://{}:{}/'.format(ip, port)
-        log.info('Replicator: new peer %s at %s', name, url)
-        self.peers[name] = url
-        self.replicate_all(url)
+        log.info('Replicator: new peer %s at %s', key, url)
+        self.cancel_all(key)
+        self.peers[key] = Peer(url, [])
+        self.replicate_all(key)
 
-    def on_ItemRemove(self, interface, protocol, name, _type, domain, flags):
-        log.info('Replicator: removing peer %s', name)
-        try:
-            del self.peers[name]
-        except KeyError:
-            pass
+    def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
+        log.info('Replicator: removing peer %s', key)
+        self.cancel_all(key)
 
-    def replicate_all(self, url):
-        env = {'url': url, 'oauth': self.tokens}
+    def cancel_all(self, key):
+        p = self.peers.pop(key, None)
+        if p is None:
+            return
+        log.info('Canceling replications for %r', key)
+        for name in p.names:
+            self.replicate(p.url, name, cancel=True)
+
+    def replicate_all(self, key):
+        p = self.peers[key]
+        env = {'url': p.url, 'oauth': self.tokens}
         remote = Server(env)
         for name in remote.get('_all_dbs'):
             if name.startswith('_'):
@@ -143,13 +154,17 @@ class Replicator:
                 pass
 
             # Start replication
-            self.replicate(url, name)
+            p.names.append(name)
+            self.replicate(p.url, name)
 
-    def replicate(self, url, dbname):
-        log.info('Replicating %r with %r', dbname, url)
-        peer = get_peer(url, dbname, self.tokens)
+    def replicate(self, url, name, cancel=False):
+        if cancel:
+            log.info('Canceling sync of %r with %r', name, url)
+        else:
+            log.info('Starting sync of %r with %r', name, url)
+        peer = get_peer(url, name, self.tokens)
         #local_to_remote = get_body(dbname, peer)
-        remote_to_local = get_body(peer, dbname)
+        remote_to_local = get_body(peer, name, cancel)
         self.server.post(remote_to_local, '_replicate')
         
         
