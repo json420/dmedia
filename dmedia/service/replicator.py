@@ -123,8 +123,11 @@ class Replicator:
         url = 'http://{}:{}/'.format(ip, port)
         log.info('Replicator: new peer %s at %s', key, url)
         self.cancel_all(key)
-        self.peers[key] = Peer(url, [])
-        self.replicate_all(key)
+        p = Peer(url, ['dmedia-0'])
+        self.peers[key] = p
+        for name in p.names:
+            self.replicate(p.url, name)
+        #self.replicate_all(key)
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Replicator: removing peer %s', key)
@@ -158,14 +161,23 @@ class Replicator:
             self.replicate(p.url, name)
 
     def replicate(self, url, name, cancel=False):
+        """
+        Start or cancel push replication of database *name* to peer at *url*.
+
+        Security note: we only do push replication because pull replication
+        would allow unauthorized peers to write to our databases via their
+        changes feed.  For both push and pull, there is currently no privacy
+        whatsoever... everything is in cleartext and uses oauth 1.0a. But push
+        replication is the only way to at least prevent malicious data
+        corruption.
+        """
         if cancel:
-            log.info('Canceling sync of %r with %r', name, url)
+            log.info('Canceling push of %r to %r', name, url)
         else:
-            log.info('Starting sync of %r with %r', name, url)
+            log.info('Starting push of %r to %r', name, url)
         peer = get_peer(url, name, self.tokens)
-        #local_to_remote = get_body(dbname, peer)
-        remote_to_local = get_body(peer, name, cancel)
-        self.server.post(remote_to_local, '_replicate')
+        push = get_body(name, peer, cancel)
+        self.server.post(push, '_replicate')
         
         
         
