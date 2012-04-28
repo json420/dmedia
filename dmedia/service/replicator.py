@@ -123,11 +123,8 @@ class Replicator:
         url = 'http://{}:{}/'.format(ip, port)
         log.info('Replicator: new peer %s at %s', key, url)
         self.cancel_all(key)
-        p = Peer(url, ['dmedia-0'])
-        self.peers[key] = p
-        for name in p.names:
-            self.replicate(p.url, name)
-        #self.replicate_all(key)
+        self.peers[key] = Peer(url, [])
+        self.replicate_all(key)
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Replicator: peer removed %s', key)
@@ -145,14 +142,14 @@ class Replicator:
         p = self.peers[key]
         env = {'url': p.url, 'oauth': self.tokens}
         remote = Server(env)
-        for name in remote.get('_all_dbs'):
+        for name in self.server.get('_all_dbs'):
             if name.startswith('_'):
                 continue
             if not (name.startswith('dmedia-0') or name.startswith('novacut-0')):
                 continue
-            # Create local DB if needed
+            # Create remote DB if needed
             try:
-                self.server.put(None, name)
+                remote.put(None, name)
             except PreconditionFailed:
                 pass
 
