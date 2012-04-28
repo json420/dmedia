@@ -61,7 +61,6 @@ def dumps(obj):
     
     
 def get_config(f):
-    print(f)
     try:
         return json.load(open(f, 'r'))
     except Exception:
