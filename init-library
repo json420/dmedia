@@ -1,0 +1,25 @@
+#!/usr/bin/python3
+
+import json
+from os import path
+
+from microfiber import random_id
+from usercouch import random_oauth
+
+import dmedia
+
+
+def dumps(obj):
+    return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
+
+
+obj = {
+    'library_id': random_id(),
+    'tokens': random_oauth(),
+}
+obj_s = dumps(obj)
+
+f = path.join(dmedia.get_dmedia_dir(), 'library.json')
+open(f, 'w').write(obj_s)
+print(obj_s)
+

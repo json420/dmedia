@@ -25,6 +25,7 @@ Advertise CouchDB HTTP server over Avahi, discover other peers in same library.
 
 import logging
 import json
+from collections import namedtuple
 
 from microfiber import Server, Database, PreconditionFailed
 import dbus
@@ -32,16 +33,19 @@ import dbus
 
 log = logging.getLogger()
 system = dbus.SystemBus()
-
+Peer = namedtuple('Peer', 'url names')
 SERVICE = '_usercouch._tcp'
 
 
-def get_body(source, target):
-    return {
+def get_body(source, target, cancel=False):
+    body = {
         'source': source,
         'target': target,
         'continuous': True,
     }
+    if cancel:
+        body['cancel'] = True
+    return body
 
 
 def get_peer(url, dbname, tokens):
@@ -56,11 +60,10 @@ def get_peer(url, dbname, tokens):
 class Replicator:
     def __init__(self, env, config):
         self.group = None
+        self.env = env
         self.server = Server(env)
         self.library_id = config['library_id']
         self.base_id = self.library_id + '-'
-        self.machine_id = env['machine_id']
-        self.id = self.base_id + self.machine_id
         self.port = env['port']
         self.tokens = config['tokens']
         self.peers = {}
@@ -69,6 +72,8 @@ class Replicator:
         self.free()
 
     def run(self):
+        self.machine_id = self.env['machine_id']
+        self.id = self.base_id + self.machine_id
         self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.group = system.get_object(
             'org.freedesktop.Avahi',
@@ -106,44 +111,70 @@ class Replicator:
         if self.group is not None:
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
 
-    def on_ItemNew(self, interface, protocol, name, _type, domain, flags):
-        if name == self.id:  # Ignore what we publish ourselves
+    def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
+        if key == self.id:  # Ignore what we publish ourselves
             return
-        if not name.startswith(self.base_id):  # Ignore other libraries
+        if not key.startswith(self.base_id):  # Ignore other libraries
             return
         (ip, port) = self.avahi.ResolveService(
-            interface, protocol, name, _type, domain, -1, 0,
+            interface, protocol, key, _type, domain, -1, 0,
             dbus_interface='org.freedesktop.Avahi.Server'
         )[7:9]
         url = 'http://{}:{}/'.format(ip, port)
-        log.info('Replicator: new peer %s at %s', name, url)
-        self.peers[name] = url
-        self.replicate(url, 'foo') 
+        log.info('Replicator: new peer %s at %s', key, url)
+        self.cancel_all(key)
+        self.peers[key] = Peer(url, [])
+        self.replicate_all(key)
 
-    def on_ItemRemove(self, interface, protocol, name, _type, domain, flags):
-        log.info('Replicator: removing peer %s', name)
-        try:
-            del self.peers[name]
-        except KeyError:
-            pass
+    def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
+        log.info('Replicator: peer removed %s', key)
+        self.cancel_all(str(key))
 
-    def replicate(self, url, dbname):
-        # Create local DB if needed
-        try:
-            self.server.put(None, dbname)
-        except PreconditionFailed:
-            pass
+    def cancel_all(self, key):
+        p = self.peers.pop(key, None)
+        if p is None:
+            return
+        log.info('Canceling replications for %r', key)
+        for name in p.names:
+            self.replicate(p.url, name, cancel=True)
 
-        # Create remote DB if needed
-        env = {'url': url, 'oauth': self.tokens}
-        db = Database(dbname, env)
-        db.ensure() 
+    def replicate_all(self, key):
+        p = self.peers[key]
+        env = {'url': p.url, 'oauth': self.tokens}
+        remote = Server(env)
+        for name in self.server.get('_all_dbs'):
+            if name.startswith('_'):
+                continue
+            if not (name.startswith('dmedia-0') or name.startswith('novacut-0')):
+                continue
+            # Create remote DB if needed
+            try:
+                remote.put(None, name)
+            except PreconditionFailed:
+                pass
 
-        peer = get_peer(url, dbname, self.tokens)
-        local_to_remote = get_body(dbname, peer)
-        remote_to_local = get_body(peer, dbname)
-        for obj in (local_to_remote, remote_to_local):
-            self.server.post(obj, '_replicate')
+            # Start replication
+            p.names.append(name)
+            self.replicate(p.url, name)
+
+    def replicate(self, url, name, cancel=False):
+        """
+        Start or cancel push replication of database *name* to peer at *url*.
+
+        Security note: we only do push replication because pull replication
+        would allow unauthorized peers to write to our databases via their
+        changes feed.  For both push and pull, there is currently no privacy
+        whatsoever... everything is in cleartext and uses oauth 1.0a. But push
+        replication is the only way to at least prevent malicious data
+        corruption.
+        """
+        if cancel:
+            log.info('Canceling push of %r to %r', name, url)
+        else:
+            log.info('Starting push of %r to %r', name, url)
+        peer = get_peer(url, name, self.tokens)
+        push = get_body(name, peer, cancel)
+        self.server.post(push, '_replicate')
         
         
         
