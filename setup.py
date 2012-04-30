@@ -161,5 +161,8 @@ setup(
         ('share/dbus-1/services/',
             ['share/org.freedesktop.Dmedia.service']
         ),
+        ('/etc/xdg/autostart/',
+            ['share/dmedia-autostart.desktop'],
+        ),
     ],
 )
