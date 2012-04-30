@@ -11,20 +11,23 @@ Homepage: https://launchpad.net/dmedia
 Package: dmedia
 Architecture: all
 Depends: ${misc:Depends}, python3 (>= 3.2),
-    python3-gi | python3-gobject,
+    python3-gi,
     python3-dbus,
-    python3-filestore (>= 12.04),
-    python3-microfiber (>= 12.04),
-    python3-userwebkit (>= 12.04),
-    python3-usercouch (>= 12.04),
+    python3-filestore (>= 12.05),
+    python3-microfiber (>= 12.05),
+    python3-userwebkit (>= 12.05),
+    python3-usercouch (>= 12.05),
     libimage-exiftool-perl,
     imagemagick,
     ufraw-batch,
-    gir1.2-unity-5.0 | gir1.2-unity-4.0,
+    gir1.2-unity-5.0,
     gir1.2-notify-0.7,
     gir1.2-appindicator3-0.1,
     gir1.2-gconf-2.0,
     python-gst0.10,
+Provides: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia
+Conflicts: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia
+Replaces: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia
 Description: distributed media library
  A user-experienced-focused technology aimed at making file management go away
  for both content-creation and content-consumption.
