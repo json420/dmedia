@@ -133,17 +133,21 @@ class Service(dbus.service.Object):
             log.exception('Error calling UserCouch.autocompact():')
         return True  # Repeat timeout call
 
-    def kill(self):
+    def shutdown(self):
+        log.info('Service.shutdown()')
         if self.usercouch is not None:
+            log.info('killing usercouch')
             self.usercouch.kill()
         if self.avahi is not None:
+            log.info('freeing avahi')
             self.avahi.free()
         if self.replicator is not None:
+            log.info('freeing replicator')
             self.replicator.free()
         if self.httpd is not None:
+            log.info('killing httpd')
             self.httpd.terminate()
             self.httpd.join()
-        self.mainloop.quit()
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
@@ -183,7 +187,8 @@ class Service(dbus.service.Object):
         """
         Kill the `dmedia-service` process.
         """
-        self.kill()
+        log.info('Service.Kill()')
+        self.mainloop.quit()
         return int(time.time() - start_time)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
@@ -191,7 +196,7 @@ class Service(dbus.service.Object):
         """
         Return dmedia env as JSON string.
         """
-        log.info('GetEnv')
+        log.info('Service.GetEnv()')
         return self.env_s
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
@@ -263,4 +268,4 @@ service = Service(options.bus, options.env)
 try:
     service.run()
 finally:
-    service.kill()
+    service.shutdown()
