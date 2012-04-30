@@ -299,8 +299,16 @@ class UDisks(GObject.GObject):
         }
         self.proxy.connect_to_signal('DeviceChanged', self.on_DeviceChanged)
         self.proxy.connect_to_signal('DeviceRemoved', self.on_DeviceRemoved)
-        for obj in self.proxy.EnumerateDevices():
-            self.change_device(obj)
+        try:
+            devices = self.proxy.EnumerateDevices()
+        except Exception as e:
+            log.exception('Exception calling UDisks.EnumerateDevices()')
+            devices = []  
+        for obj in devices:
+            try:
+                self.change_device(obj)
+            except Exception as e:
+                log.exception('Exception calling change_device(%r)', obj)
 
     def on_DeviceChanged(self, obj):
         self.change_device(obj)
