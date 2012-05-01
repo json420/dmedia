@@ -1,4 +1,5 @@
 #!/usr/bin/make -f
+
 PYTHON3=$(shell py3versions -vr)
 
 %:
