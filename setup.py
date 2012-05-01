@@ -92,6 +92,11 @@ class Test(Command):
 
     def run(self):
         pynames = list(self._pynames_iter())
+        
+        if self.core_only:
+            # FIXME: This is just till we drop totem-video-thumbnailer
+            pynames.remove('dmedia.extractor')
+            pynames.remove('dmedia.tests.test_extractor')
 
         # Add unit-tests:
         if self.no_unittest:
