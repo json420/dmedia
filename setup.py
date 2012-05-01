@@ -39,7 +39,7 @@ import dmedia
 packagedir = path.dirname(path.abspath(dmedia.__file__))
 
 
-def pynames_iter(pkdir, pkname=None):
+def pynames_iter(pkdir, pkname=None, core_only=False):
     """
     Recursively yield dotted names for *.py files in directory *pydir*.
     """
@@ -50,7 +50,7 @@ def pynames_iter(pkdir, pkname=None):
     yield pkname
     dirs = []
     for name in sorted(os.listdir(pkdir)):
-        if name == '__init__.py':
+        if name in ('__init__.py', '__pycache__'):
             continue
         if name.startswith('.') or name.endswith('~'):
             continue
@@ -63,7 +63,10 @@ def pynames_iter(pkdir, pkname=None):
         elif stat.S_ISDIR(st.st_mode):
             dirs.append((fullname, name))
     for (fullname, name) in dirs:
-        for n in pynames_iter(fullname, '.'.join([pkname, name])):
+        subpkg = '.'.join([pkname, name])
+        if core_only and subpkg != 'dmedia.tests':
+            continue
+        for n in pynames_iter(fullname, subpkg, core_only):
             yield n
 
 
@@ -74,10 +77,11 @@ class Test(Command):
         ('no-doctest', None, 'do not run doc-tests'),
         ('no-unittest', None, 'do not run unit-tests'),
         ('names=', None, 'comma-sperated list of modules to test'),
+        ('core-only', None, 'only run core tests (no Gtk, no DBus)'),
     ]
 
     def _pynames_iter(self):
-        for pyname in pynames_iter(packagedir):
+        for pyname in pynames_iter(packagedir, core_only=self.core_only):
             if not self.names:
                 yield pyname
             else:
@@ -110,6 +114,7 @@ class Test(Command):
     def initialize_options(self):
         self.no_doctest = 0
         self.no_unittest = 0
+        self.core_only = 0
         self.names = ''
 
     def finalize_options(self):
