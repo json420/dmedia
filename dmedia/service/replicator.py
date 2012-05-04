@@ -148,14 +148,15 @@ class Replicator:
         if start:
             remote = Server(start.env)
             for name in start.names:
-                # Create remote DB if needed
-                try:
-                    remote.put(None, name)
-                    log.info('Created %s in %r', name, remote)
-                except PreconditionFailed:
-                    pass
-                except Exception as e:
-                    log.exception('Error creating %s in %r', name, remote)
+                if name != 'dmedia-0':
+                    # Create remote DB if needed
+                    try:
+                        remote.put(None, name)
+                        log.info('Created %s in %r', name, remote)
+                    except PreconditionFailed:
+                        pass
+                    except Exception as e:
+                        log.exception('Error creating %s in %r', name, remote)
                 time.sleep(0.25)
                 self.replicate(start.env, name)
         log.info('replication_worker() done')
