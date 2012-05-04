@@ -818,7 +818,7 @@ class TestFunctions(SampleFilesTestCase):
 
 class TestMagicLantern(MagicLanternTestCase):
     """
-    Test extrator with files from a typical Magic Lantern install.
+    Test extractor with files from a typical Magic Lantern install.
     """
 
     def test_extract(self):
