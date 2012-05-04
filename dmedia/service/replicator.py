@@ -27,13 +27,14 @@ import logging
 import json
 from collections import namedtuple
 
+from filestore import _start_thread
 from microfiber import Server, Database, PreconditionFailed
 import dbus
 
 
 log = logging.getLogger()
 system = dbus.SystemBus()
-Peer = namedtuple('Peer', 'url names')
+Peer = namedtuple('Peer', 'env names')
 SERVICE = '_usercouch._tcp'
 
 
@@ -48,11 +49,11 @@ def get_body(source, target, cancel=False):
     return body
 
 
-def get_peer(url, dbname, tokens):
+def get_peer(env, dbname):
     return {
-        'url': url + dbname,
+        'url': env['url'] + dbname,
         'auth': {
-            'oauth': tokens,
+            'oauth': env['oauth'],
         },
     }
 
@@ -122,42 +123,38 @@ class Replicator:
         )[7:9]
         url = 'http://{}:{}/'.format(ip, port)
         log.info('Replicator: new peer %s at %s', key, url)
-        self.cancel_all(key)
-        self.peers[key] = Peer(url, [])
-        self.replicate_all(key)
+        env = {'url': url, 'oauth': self.tokens}
+        cancel = self.peers.pop(key, None)
+        start = Peer(env, list(self.get_names()))
+        self.peers[key] = start
+        _start_thread(self.replication_worker, cancel, start)
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Replicator: peer removed %s', key)
-        self.cancel_all(str(key))
+        cancel = self.peers.pop(key, None)
+        if cancel:
+            _start_thread(self.replication_worker, cancel, None)
 
-    def cancel_all(self, key):
-        p = self.peers.pop(key, None)
-        if p is None:
-            return
-        log.info('Canceling replications for %r', key)
-        for name in p.names:
-            self.replicate(p.url, name, cancel=True)
-
-    def replicate_all(self, key):
-        p = self.peers[key]
-        env = {'url': p.url, 'oauth': self.tokens}
-        remote = Server(env)
+    def get_names(self):
         for name in self.server.get('_all_dbs'):
-            if name.startswith('_'):
-                continue
-            if not (name.startswith('dmedia-0') or name.startswith('novacut-0')):
-                continue
-            # Create remote DB if needed
-            try:
-                remote.put(None, name)
-            except PreconditionFailed:
-                pass
+            if name.startswith('dmedia-0') or name.startswith('novacut-0'):
+                yield name
 
-            # Start replication
-            p.names.append(name)
-            self.replicate(p.url, name)
+    def replication_worker(self, cancel, start):
+        if cancel:
+            for name in cancel.names:
+                self.replicate(cancel.env, name, cancel=True)
+        if start:
+            remote = Server(start.env)
+            for name in start.names:
+                # Create remote DB if needed
+                try:
+                    remote.put(None, name)
+                except PreconditionFailed:
+                    pass
+                self.replicate(start.env, name)
 
-    def replicate(self, url, name, cancel=False):
+    def replicate(self, env, name, cancel=False):
         """
         Start or cancel push replication of database *name* to peer at *url*.
 
@@ -169,12 +166,13 @@ class Replicator:
         corruption.
         """
         if cancel:
-            log.info('Canceling push of %r to %r', name, url)
+            log.info('Canceling push of %r to %r', name, env['url'])
         else:
-            log.info('Starting push of %r to %r', name, url)
-        peer = get_peer(url, name, self.tokens)
+            log.info('Starting push of %r to %r', name, env['url'])
+        peer = get_peer(env, name)
         push = get_body(name, peer, cancel)
         self.server.post(push, '_replicate')
+
         
         
         

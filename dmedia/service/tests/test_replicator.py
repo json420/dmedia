@@ -42,13 +42,23 @@ class TestFunctions(TestCase):
                 'continuous': True,
             }
         )
+        self.assertEqual(
+            replicator.get_body('foo', 'bar', cancel=True),
+            {
+                'source': 'foo',
+                'target': 'bar',
+                'continuous': True,
+                'cancel': True,
+            }
+        )
 
     def test_get_peer(self):
         url = 'http://192.168.20.118:60492/'
         dbname = 'novacut-0' + random_id().lower()
         oauth = random_oauth()
+        env = {'url': url, 'oauth': oauth}
         self.assertEqual(
-            replicator.get_peer(url, dbname, deepcopy(oauth)),
+            replicator.get_peer(deepcopy(env), dbname),
             {
                 'url': url + dbname,
                 'auth': {
