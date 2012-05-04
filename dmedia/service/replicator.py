@@ -150,8 +150,11 @@ class Replicator:
                 # Create remote DB if needed
                 try:
                     remote.put(None, name)
+                    log.info('Created %s in %r', name, remote)
                 except PreconditionFailed:
                     pass
+                except Exception as e:
+                    log.exception('Error creating %s in %r', name, remote)
                 self.replicate(start.env, name)
 
     def replicate(self, env, name, cancel=False):
@@ -166,12 +169,19 @@ class Replicator:
         corruption.
         """
         if cancel:
-            log.info('Canceling push of %r to %r', name, env['url'])
+            log.info('Canceling push of %s to %s', name, env['url'])
         else:
-            log.info('Starting push of %r to %r', name, env['url'])
+            log.info('Starting push of %s to %s', name, env['url'])
         peer = get_peer(env, name)
         push = get_body(name, peer, cancel)
-        self.server.post(push, '_replicate')
+        try:
+            self.server.post(push, '_replicate')
+        except Exception as e:
+            if cancel:
+                log.exception('Error canceling push of %s to %s', name, env['url'])
+            else:
+                log.exception('Error starting push of %s to %s', name, env['url'])
+            
 
         
         
