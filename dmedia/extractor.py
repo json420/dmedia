@@ -233,7 +233,9 @@ def extract(src, doc):
     Extract 'physical' properties and metadata
     """
     ext = doc.get('ext')
-    if ext == 'thm':
+    # For performance and sanity, we don't try to extract files with no
+    # extension, THM files, or files from Magic Lantern: 
+    if ext in (None, 'thm', 'bmp', 'dat', 'cfg', 'lut', 'bin', 'fir'):
         return
     if ext in ('cr2', 'jpg'):
         merge_exif(src, doc)

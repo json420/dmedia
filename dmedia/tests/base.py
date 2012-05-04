@@ -78,6 +78,16 @@ class SampleFilesTestCase(TestCase):
         for filename in (self.mov, self.thm):
             if not path.isfile(filename):
                 self.skipTest('Missing file {!r}'.format(filename))
+                
+                
+class MagicLanternTestCase(TestCase):
+    sample_zip = path.join(datadir, 'EOS_DIGITAL 550D ML Dump.zip')
+
+    def setUp(self):
+        for filename in [self.sample_zip]:
+            if not path.isfile(filename):
+                self.skipTest('Missing file {!r}'.format(filename))
+    
 
 
 def random_leaves(file_size):
