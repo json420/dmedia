@@ -178,6 +178,7 @@ class Core:
     def init_project_views(self):
         for row in self.db.view('project', 'atime')['rows']:
             get_project_db(row['id'], self.env, True)
+        log.info('Core.init_project_views() complete')
 
     def stat(self, _id):
         doc = self.db.get(_id)

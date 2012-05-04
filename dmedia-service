@@ -37,6 +37,7 @@ import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 from microfiber import Database, NotFound
+from filestore import _start_thread
 import usercouch
 from gi.repository import GObject
 
@@ -117,7 +118,7 @@ class Service(dbus.service.Object):
         self.mainloop.run()
 
     def on_idle(self):
-        self.core.init_project_views()
+        _start_thread(self.core.init_project_views)
         self.udisks.monitor()
         self.start_httpd()
         interval = 5 * 60 * 1000  # Autocompact every 5 minutes
