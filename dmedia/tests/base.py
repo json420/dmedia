@@ -31,8 +31,10 @@ from os import path
 import tempfile
 import shutil
 from random import SystemRandom
+from zipfile import ZipFile
 
 from filestore import File, Leaf, ContentHash, Batch, Hasher, LEAF_SIZE
+from filestore import scandir
 from microfiber import random_id
 
 
@@ -78,8 +80,8 @@ class SampleFilesTestCase(TestCase):
         for filename in (self.mov, self.thm):
             if not path.isfile(filename):
                 self.skipTest('Missing file {!r}'.format(filename))
-                
-                
+
+
 class MagicLanternTestCase(TestCase):
     sample_zip = path.join(datadir, 'EOS_DIGITAL 550D ML Dump.zip')
 
@@ -87,7 +89,22 @@ class MagicLanternTestCase(TestCase):
         for filename in [self.sample_zip]:
             if not path.isfile(filename):
                 self.skipTest('Missing file {!r}'.format(filename))
-    
+        z = ZipFile(self.sample_zip)
+        self.tmp = TempDir()
+        z.extractall(path=self.tmp.dir)
+        self.assertEqual(
+            sorted(os.listdir(self.tmp.dir)),
+            ['EOS_DIGITAL 550D ML Dump', '__MACOSX']
+        )
+        d = self.tmp.join('EOS_DIGITAL 550D ML Dump')
+        self.assertTrue(path.isdir(d))
+        self.batch = scandir(d)
+        self.assertEqual(self.batch.count, 155)
+        self.assertEqual(self.batch.size, 10326392)
+
+    def tearDown(self):
+        self.tmp = None
+        self.batch = None
 
 
 def random_leaves(file_size):

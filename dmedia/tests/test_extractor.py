@@ -30,7 +30,7 @@ from subprocess import CalledProcessError
 
 from microfiber import random_id
 
-from .base import TempDir, SampleFilesTestCase
+from .base import TempDir, SampleFilesTestCase, MagicLanternTestCase
 
 from dmedia import extractor
 
@@ -814,4 +814,10 @@ class TestFunctions(SampleFilesTestCase):
                 'ext': 'mov',
             }
         )
+        
+        
+        
+class TestMagicLantern(MagicLanternTestCase):
+    def test_extract(self):
+        pass
         
