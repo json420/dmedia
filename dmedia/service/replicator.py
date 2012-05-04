@@ -25,6 +25,7 @@ Advertise CouchDB HTTP server over Avahi, discover other peers in same library.
 
 import logging
 import json
+import time
 from collections import namedtuple
 
 from filestore import _start_thread
@@ -155,7 +156,9 @@ class Replicator:
                     pass
                 except Exception as e:
                     log.exception('Error creating %s in %r', name, remote)
+                time.sleep(0.25)
                 self.replicate(start.env, name)
+        log.info('replication_worker() done')
 
     def replicate(self, env, name, cancel=False):
         """
