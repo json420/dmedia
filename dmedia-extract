@@ -236,7 +236,10 @@ class Extractor(object):
     def on_eos(self, bus, msg):
         for fakebin in (self.audio, self.video):
             if fakebin is not None:
-                fakebin._finalize()
+                try:
+                    fakebin._finalize()
+                except Exception:
+                    pass
         self.kill()
 
     def on_error(self, bus, msg):
