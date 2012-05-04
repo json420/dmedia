@@ -32,8 +32,8 @@ from microfiber import random_id
 
 from .base import TempDir, SampleFilesTestCase, MagicLanternTestCase
 
+from dmedia.importer import normalize_ext
 from dmedia import extractor
-
 
 
 # Known EXIF data as returned be exiftool:
@@ -813,11 +813,26 @@ class TestFunctions(SampleFilesTestCase):
                 'media': 'video',
                 'ext': 'mov',
             }
-        )
-        
-        
-        
+        )        
+
+
 class TestMagicLantern(MagicLanternTestCase):
+    """
+    Test extrator with files from a typical Magic Lantern install.
+    """
+
     def test_extract(self):
-        pass
+        extensions = set()
+        for file in self.batch.files:
+            ext = normalize_ext(file.name)
+            extensions.add(ext)
+            doc = {'ext': ext}
+            self.assertIsNone(extractor.extract(file.name, doc))
+            self.assertEqual(doc, {'ext': ext})
+        self.assertEqual(
+            extensions,
+            set(extractor.NO_EXTRACT)
+        )
+            
+            
         
