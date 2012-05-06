@@ -28,12 +28,14 @@ Unit tests for `dmedia.importer` module.
 from unittest import TestCase
 import time
 from copy import deepcopy
+import os
+from os import path
 
 import filestore
 from microfiber import random_id, Database
 
 from .couch import CouchCase
-from .base import TempDir, DummyQueue
+from .base import TempDir, DummyQueue, MagicLanternTestCase
 
 from dmedia.util import get_db
 from dmedia import importer, schema
@@ -944,3 +946,14 @@ class TestImportManager(ImportCase):
                 continue
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
+
+            
+class TestMagicLanternRestore(MagicLanternTestCase):
+    def test_has_magic_lantern(self):
+        self.assertTrue(importer.has_magic_lantern(self.basedir))
+        autoexec = path.join(self.basedir, 'autoexec.bin')
+        os.remove(autoexec)
+        self.assertFalse(importer.has_magic_lantern(self.basedir))
+        open(autoexec, 'wb').close()
+        self.assertTrue(importer.has_magic_lantern(self.basedir))
+        

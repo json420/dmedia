@@ -96,9 +96,9 @@ class MagicLanternTestCase(TestCase):
             sorted(os.listdir(self.tmp.dir)),
             ['EOS_DIGITAL 550D ML Dump', '__MACOSX']
         )
-        d = self.tmp.join('EOS_DIGITAL 550D ML Dump')
-        self.assertTrue(path.isdir(d))
-        self.batch = scandir(d)
+        self.basedir = self.tmp.join('EOS_DIGITAL 550D ML Dump')
+        self.assertTrue(path.isdir(self.basedir))
+        self.batch = scandir(self.basedir)
         self.assertEqual(self.batch.count, 155)
         self.assertEqual(self.batch.size, 10326392)
 
