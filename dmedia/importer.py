@@ -398,10 +398,9 @@ class ImportManager(workers.CouchManager):
 
     def start_import(self, base, extra=None):
         return self.start_job('ImportWorker', base, base, extra)
-        
-        
-        
+
+
 def has_magic_lantern(basedir):
     dcim = path.join(basedir, 'DCIM')
-    autoexec = path.join(basedir, 'autoexec.bin')
+    autoexec = path.join(basedir, 'AUTOEXEC.BIN')
     return path.isdir(dcim) and path.isfile(autoexec)
