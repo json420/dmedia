@@ -55,7 +55,7 @@ class Importer:
         super().__init__()
         self.env = env
         self.blocking = False
-        self.cards = []
+        self.cards = {}
         self.proxy = proxy
         self.proxy.connect_to_signal('CardAdded',
             WeakMethod(self, 'on_CardAdded')
@@ -93,7 +93,7 @@ class Importer:
             (obj, Worker(obj, self.on_complete))
             for obj in self.cards
         )
-        self.cards = []
+        self.cards.clear()
         for worker in self.workers.values():
             worker.run()
 
@@ -113,7 +113,7 @@ class Importer:
             log.warning('Blocking, ignoring card-insert %r', obj)
             return
         log.info('CardAdded %r %r', obj, mount)
-        self.cards.append(obj)
+        self.cards[obj] = mount
         self.manager.start_import(mount, json.loads(info))
 
 
