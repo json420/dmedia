@@ -34,6 +34,7 @@ from gettext import ngettext
 from subprocess import check_call
 import logging
 import mimetypes
+import shutil
 
 import microfiber
 from filestore import FileStore, scandir, batch_import_iter, statvfs
@@ -422,5 +423,18 @@ def get_magic_lantern_names(basedir):
         yield tup
     for tup in iter_names(basedir, 'DOC'):
         yield tup
+
+
+def copy_magic_lantern(src, dst):
+    assert has_magic_lantern(src)
+    for name in ('CROPMKS', 'DCIM', 'DOC'):
+        os.mkdir(path.join(dst, name))
+    names = get_magic_lantern_names(src)
+    for tup in names:
+        shutil.copy2(path.join(src, *tup), path.join(dst, *tup))
+    
+    
+    
+    
 
 
