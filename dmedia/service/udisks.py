@@ -208,7 +208,7 @@ class DeviceWorker:
             # FIXME: This wait is to work around UDisks issues: when we get the
             # JobChanged signal, it seems that often UDisks isn't actually ready
             # for the next step
-            GObject.timeout_add(1000, self.on_timeout, next)
+            GObject.timeout_add(500, self.on_timeout, next)
 
     def on_timeout(self, next):
         next()

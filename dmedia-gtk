@@ -37,7 +37,7 @@ from dmedia import schema
 from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
 from dmedia.service.udisks import Ejector, Formatter
-from dmedia.importer import ImportManager
+from dmedia.importer import ImportManager, has_magic_lantern
 from gi.repository import GConf
 
 try:
@@ -55,7 +55,7 @@ class Importer:
         super().__init__()
         self.env = env
         self.blocking = False
-        self.cards = []
+        self.cards = {}
         self.proxy = proxy
         self.proxy.connect_to_signal('CardAdded',
             WeakMethod(self, 'on_CardAdded')
@@ -81,19 +81,17 @@ class Importer:
         GObject.idle_add(self.hub.send, signal, *args)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
-        Worker = (Formatter if copies >= 2 else Ejector)
-        # FIXME: for now, we never use the Formatter just in case.
-        Worker = Ejector
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
         self.stats = stats
         self.msg = msg
-        self.workers = dict(
-            (obj, Worker(obj, self.on_complete))
-            for obj in self.cards
-        )
-        self.cards = []
+        self.workers = {}
+        for (obj, mount) in self.cards.items():
+            Worker = (Ejector if has_magic_lantern(mount) else Formatter)
+            w = Worker(obj, self.on_complete)
+            self.workers[obj] = w
+        self.cards.clear()
         for worker in self.workers.values():
             worker.run()
 
@@ -113,7 +111,7 @@ class Importer:
             log.warning('Blocking, ignoring card-insert %r', obj)
             return
         log.info('CardAdded %r %r', obj, mount)
-        self.cards.append(obj)
+        self.cards[obj] = mount
         self.manager.start_import(mount, json.loads(info))
 
 

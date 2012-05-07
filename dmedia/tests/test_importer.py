@@ -28,12 +28,14 @@ Unit tests for `dmedia.importer` module.
 from unittest import TestCase
 import time
 from copy import deepcopy
+import os
+from os import path
 
 import filestore
 from microfiber import random_id, Database
 
 from .couch import CouchCase
-from .base import TempDir, DummyQueue
+from .base import TempDir, DummyQueue, MagicLanternTestCase2
 
 from dmedia.util import get_db
 from dmedia import importer, schema
@@ -944,3 +946,175 @@ class TestImportManager(ImportCase):
                 continue
             self.assertEqual(fs1.verify(ch.id), ch)
             self.assertEqual(fs2.verify(ch.id), ch)
+            
+            
+MAGIC_LANTERN = (
+    ('AUTOEXEC.BIN',),
+    ('FONTS.DAT',),
+    ('INSTALL.PDF',),
+    ('MAGIC.CFG',),
+    ('ML-500~1.FIR',),
+    ('ML-50D~1.FIR',),
+    ('ML-550~1.FIR',),
+    ('ML-600~1.FIR',),
+    ('ML-60D~1.FIR',),
+    ('README',),
+    ('RECTILIN.LUT',),
+    ('USERGU~1.PDF',),
+    ('CROPMKS', 'CINESCO2.BMP'),
+    ('CROPMKS', 'CRSSMTR1.BMP'),
+    ('CROPMKS', 'HD_TA.BMP'),
+    ('CROPMKS', 'PASSPORT.BMP'),
+    ('CROPMKS', 'PHIPHOTO.BMP'),
+    ('CROPMKS', 'PHIVIDEO.BMP'),
+    ('DOC', 'MENUIDX.DAT'),
+    ('DOC', 'PAGE-001.BMP'),
+    ('DOC', 'PAGE-002.BMP'),
+    ('DOC', 'PAGE-003.BMP'),
+    ('DOC', 'PAGE-004.BMP'),
+    ('DOC', 'PAGE-005.BMP'),
+    ('DOC', 'PAGE-006.BMP'),
+    ('DOC', 'PAGE-007.BMP'),
+    ('DOC', 'PAGE-008.BMP'),
+    ('DOC', 'PAGE-009.BMP'),
+    ('DOC', 'PAGE-010.BMP'),
+    ('DOC', 'PAGE-011.BMP'),
+    ('DOC', 'PAGE-012.BMP'),
+    ('DOC', 'PAGE-013.BMP'),
+    ('DOC', 'PAGE-014.BMP'),
+    ('DOC', 'PAGE-015.BMP'),
+    ('DOC', 'PAGE-016.BMP'),
+    ('DOC', 'PAGE-017.BMP'),
+    ('DOC', 'PAGE-018.BMP'),
+    ('DOC', 'PAGE-019.BMP'),
+    ('DOC', 'PAGE-020.BMP'),
+    ('DOC', 'PAGE-021.BMP'),
+    ('DOC', 'PAGE-022.BMP'),
+    ('DOC', 'PAGE-023.BMP'),
+    ('DOC', 'PAGE-024.BMP'),
+    ('DOC', 'PAGE-025.BMP'),
+    ('DOC', 'PAGE-026.BMP'),
+    ('DOC', 'PAGE-027.BMP'),
+    ('DOC', 'PAGE-028.BMP'),
+    ('DOC', 'PAGE-029.BMP'),
+    ('DOC', 'PAGE-030.BMP'),
+    ('DOC', 'PAGE-031.BMP'),
+    ('DOC', 'PAGE-032.BMP'),
+    ('DOC', 'PAGE-033.BMP'),
+    ('DOC', 'PAGE-034.BMP'),
+    ('DOC', 'PAGE-035.BMP'),
+    ('DOC', 'PAGE-036.BMP'),
+    ('DOC', 'PAGE-037.BMP'),
+    ('DOC', 'PAGE-038.BMP'),
+    ('DOC', 'PAGE-039.BMP'),
+    ('DOC', 'PAGE-040.BMP'),
+    ('DOC', 'PAGE-041.BMP'),
+    ('DOC', 'PAGE-042.BMP'),
+    ('DOC', 'PAGE-043.BMP'),
+    ('DOC', 'PAGE-044.BMP'),
+    ('DOC', 'PAGE-045.BMP'),
+    ('DOC', 'PAGE-046.BMP'),
+    ('DOC', 'PAGE-047.BMP'),
+    ('DOC', 'PAGE-048.BMP'),
+    ('DOC', 'PAGE-049.BMP'),
+    ('DOC', 'PAGE-050.BMP'),
+    ('DOC', 'PAGE-051.BMP'),
+    ('DOC', 'PAGE-052.BMP'),
+    ('DOC', 'PAGE-053.BMP'),
+    ('DOC', 'PAGE-054.BMP'),
+    ('DOC', 'PAGE-055.BMP'),
+    ('DOC', 'PAGE-056.BMP'),
+    ('DOC', 'PAGE-057.BMP'),
+    ('DOC', 'PAGE-058.BMP'),
+    ('DOC', 'PAGE-059.BMP'),
+    ('DOC', 'PAGE-060.BMP'),
+    ('DOC', 'PAGE-061.BMP'),
+    ('DOC', 'PAGE-062.BMP'),
+    ('DOC', 'PAGE-063.BMP'),
+    ('DOC', 'PAGE-064.BMP'),
+    ('DOC', 'PAGE-065.BMP'),
+    ('DOC', 'PAGE-066.BMP'),
+    ('DOC', 'PAGE-067.BMP'),
+    ('DOC', 'PAGE-068.BMP'),
+    ('DOC', 'PAGE-069.BMP'),
+    ('DOC', 'PAGE-070.BMP'),
+    ('DOC', 'PAGE-071.BMP'),
+    ('DOC', 'PAGE-072.BMP'),
+    ('DOC', 'PAGE-073.BMP'),
+    ('DOC', 'PAGE-074.BMP'),
+    ('DOC', 'PAGE-075.BMP'),
+    ('DOC', 'PAGE-076.BMP'),
+    ('DOC', 'PAGE-077.BMP'),
+    ('DOC', 'PAGE-078.BMP'),
+    ('DOC', 'PAGE-079.BMP'),
+    ('DOC', 'PAGE-080.BMP'),
+    ('DOC', 'PAGE-081.BMP'),
+    ('DOC', 'PAGE-082.BMP'),
+    ('DOC', 'PAGE-083.BMP'),
+    ('DOC', 'PAGE-084.BMP'),
+    ('DOC', 'PAGE-085.BMP'),
+    ('DOC', 'PAGE-086.BMP'),
+    ('DOC', 'PAGE-087.BMP'),
+    ('DOC', 'PAGE-088.BMP'),
+    ('DOC', 'PAGE-089.BMP'),
+    ('DOC', 'PAGE-090.BMP'),
+    ('DOC', 'PAGE-091.BMP'),
+    ('DOC', 'PAGE-092.BMP'),
+    ('DOC', 'PAGE-093.BMP'),
+    ('DOC', 'PAGE-094.BMP'),
+    ('DOC', 'PAGE-095.BMP'),
+    ('DOC', 'PAGE-096.BMP'),
+    ('DOC', 'PAGE-097.BMP'),
+    ('DOC', 'PAGE-098.BMP'),
+    ('DOC', 'PAGE-099.BMP'),
+    ('DOC', 'PAGE-100.BMP'),
+    ('DOC', 'PAGE-101.BMP'),
+    ('DOC', 'PAGE-102.BMP'),
+    ('DOC', 'PAGE-103.BMP'),
+    ('DOC', 'PAGE-104.BMP'),
+    ('DOC', 'PAGE-105.BMP'),
+    ('DOC', 'PAGE-106.BMP'),
+    ('DOC', 'PAGE-107.BMP'),
+    ('DOC', 'PAGE-108.BMP'),
+    ('DOC', 'PAGE-109.BMP'),
+    ('DOC', 'PAGE-110.BMP'),
+    ('DOC', 'PAGE-111.BMP'),
+    ('DOC', 'PAGE-112.BMP'),
+    ('DOC', 'PAGE-113.BMP'),
+    ('DOC', 'PAGE-114.BMP'),
+    ('DOC', 'PAGE-115.BMP'),
+    ('DOC', 'PAGE-116.BMP'),
+    ('DOC', 'PAGE-117.BMP'),
+    ('DOC', 'PAGE-118.BMP')
+)
+
+
+class TestMagicLanternRestore(MagicLanternTestCase2):
+    def test_has_magic_lantern(self):
+        self.assertTrue(importer.has_magic_lantern(self.basedir))
+        autoexec = path.join(self.basedir, 'AUTOEXEC.BIN')
+        os.remove(autoexec)
+        self.assertFalse(importer.has_magic_lantern(self.basedir))
+        open(autoexec, 'wb').close()
+        self.assertTrue(importer.has_magic_lantern(self.basedir))
+
+    def test_get_magic_lantern_names(self):
+        self.maxDiff = None
+        self.assertEqual(
+            tuple(importer.get_magic_lantern_names(self.basedir)),
+            MAGIC_LANTERN
+        )
+
+    def test_copy_magic_lantern(self):
+        tmp = TempDir()
+        importer.copy_magic_lantern(self.basedir, tmp.dir)
+        self.assertEqual(
+            tuple(importer.get_magic_lantern_names(self.basedir)),
+            MAGIC_LANTERN
+        )
+        self.assertTrue(path.isdir(path.join(tmp.dir, 'DCIM')))
+        for tup in MAGIC_LANTERN:
+            src = path.join(self.basedir, *tup)
+            dst = path.join(tmp.dir, *tup)
+            self.assertTrue(path.isfile(dst))
+            self.assertEqual(path.getsize(src), path.getsize(dst))

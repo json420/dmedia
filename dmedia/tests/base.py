@@ -96,11 +96,36 @@ class MagicLanternTestCase(TestCase):
             sorted(os.listdir(self.tmp.dir)),
             ['EOS_DIGITAL 550D ML Dump', '__MACOSX']
         )
-        d = self.tmp.join('EOS_DIGITAL 550D ML Dump')
-        self.assertTrue(path.isdir(d))
-        self.batch = scandir(d)
+        self.basedir = self.tmp.join('EOS_DIGITAL 550D ML Dump')
+        self.assertTrue(path.isdir(self.basedir))
+        self.batch = scandir(self.basedir)
         self.assertEqual(self.batch.count, 155)
         self.assertEqual(self.batch.size, 10326392)
+
+    def tearDown(self):
+        self.tmp = None
+        self.batch = None
+  
+
+class MagicLanternTestCase2(TestCase):
+    sample_zip = path.join(datadir, 'DavidFulde.zip')
+
+    def setUp(self):
+        for filename in [self.sample_zip]:
+            if not path.isfile(filename):
+                self.skipTest('Missing file {!r}'.format(filename))
+        z = ZipFile(self.sample_zip)
+        self.tmp = TempDir()
+        z.extractall(path=self.tmp.dir)
+        self.assertEqual(
+            sorted(os.listdir(self.tmp.dir)),
+            ['DavidFulde']
+        )
+        self.basedir = self.tmp.join('DavidFulde')
+        self.assertTrue(path.isdir(self.basedir))
+        self.batch = scandir(self.basedir)
+        self.assertEqual(self.batch.count, 137)
+        self.assertEqual(self.batch.size, 10559868)
 
     def tearDown(self):
         self.tmp = None

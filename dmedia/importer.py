@@ -28,11 +28,13 @@ Store media files based on content-hash.
 import time
 from copy import deepcopy
 from os import path
+import os
 from gettext import gettext as _
 from gettext import ngettext
 from subprocess import check_call
 import logging
 import mimetypes
+import shutil
 
 import microfiber
 from filestore import FileStore, scandir, batch_import_iter, statvfs
@@ -155,8 +157,6 @@ def get_rate(doc):
         return bytes10(rate) + '/s'
     except Exception:
         pass
-    
-    
 
 
 class ImportWorker(workers.CouchWorker):
@@ -400,3 +400,36 @@ class ImportManager(workers.CouchManager):
 
     def start_import(self, base, extra=None):
         return self.start_job('ImportWorker', base, base, extra)
+
+
+def has_magic_lantern(basedir):
+    dcim = path.join(basedir, 'DCIM')
+    autoexec = path.join(basedir, 'AUTOEXEC.BIN')
+    return path.isdir(dcim) and path.isfile(autoexec)
+
+
+def iter_names(basedir, *parents):
+    d = path.join(basedir, *parents)
+    for name in sorted(os.listdir(d)):
+        f = path.join(d, name)
+        if path.isfile(f):
+            yield parents + (name,)
+
+
+def get_magic_lantern_names(basedir):
+    for tup in iter_names(basedir):
+        yield tup
+    for tup in iter_names(basedir, 'CROPMKS'):
+        yield tup
+    for tup in iter_names(basedir, 'DOC'):
+        yield tup
+
+
+def copy_magic_lantern(src, dst):
+    assert has_magic_lantern(src)
+    for name in ('CROPMKS', 'DCIM', 'DOC'):
+        os.mkdir(path.join(dst, name))
+    names = get_magic_lantern_names(src)
+    for tup in names:
+        shutil.copy2(path.join(src, *tup), path.join(dst, *tup))
+
