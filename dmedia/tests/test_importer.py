@@ -1112,4 +1112,9 @@ class TestMagicLanternRestore(MagicLanternTestCase2):
             tuple(importer.get_magic_lantern_names(self.basedir)),
             MAGIC_LANTERN
         )
-            
+        self.assertTrue(path.isdir(path.join(tmp.dir, 'DCIM')))
+        for tup in MAGIC_LANTERN:
+            src = path.join(self.basedir, *tup)
+            dst = path.join(tmp.dir, *tup)
+            self.assertTrue(path.isfile(dst))
+            self.assertEqual(path.getsize(src), path.getsize(dst))

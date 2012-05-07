@@ -432,9 +432,4 @@ def copy_magic_lantern(src, dst):
     names = get_magic_lantern_names(src)
     for tup in names:
         shutil.copy2(path.join(src, *tup), path.join(dst, *tup))
-    
-    
-    
-    
-
 
