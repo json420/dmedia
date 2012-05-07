@@ -405,13 +405,20 @@ def has_magic_lantern(basedir):
     dcim = path.join(basedir, 'DCIM')
     autoexec = path.join(basedir, 'AUTOEXEC.BIN')
     return path.isdir(dcim) and path.isfile(autoexec)
- 
-    
-def get_magic_lantern_names(basedir):
-    for name in sorted(os.listdir(basedir)):
-        f = path.join(basedir, name)
+
+
+def iter_names(basedir, *parents):
+    d = path.join(basedir, *parents)
+    for name in sorted(os.listdir(d)):
+        f = path.join(d, name)
         if path.isfile(f):
-            yield (name,)
-    
-        
-    
+            yield parents + (name,)
+
+
+def get_magic_lantern_names(basedir):
+    for tup in iter_names(basedir):
+        yield tup
+    for tup in iter_names(basedir, 'CROPMKS'):
+        yield tup
+
+

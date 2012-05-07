@@ -973,6 +973,12 @@ class TestMagicLanternRestore(MagicLanternTestCase2):
                 ('README',),
                 ('RECTILIN.LUT',),
                 ('USERGU~1.PDF',),
+                ('CROPMKS', 'CINESCO2.BMP'),
+                ('CROPMKS', 'CRSSMTR1.BMP'),
+                ('CROPMKS', 'HD_TA.BMP'),
+                ('CROPMKS', 'PASSPORT.BMP'),
+                ('CROPMKS', 'PHIPHOTO.BMP'),
+                ('CROPMKS', 'PHIVIDEO.BMP'),
             ]
         )
 
