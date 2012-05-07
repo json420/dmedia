@@ -420,5 +420,7 @@ def get_magic_lantern_names(basedir):
         yield tup
     for tup in iter_names(basedir, 'CROPMKS'):
         yield tup
+    for tup in iter_names(basedir, 'DOC'):
+        yield tup
 
 
