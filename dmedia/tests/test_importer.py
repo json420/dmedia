@@ -956,4 +956,24 @@ class TestMagicLanternRestore(MagicLanternTestCase2):
         self.assertFalse(importer.has_magic_lantern(self.basedir))
         open(autoexec, 'wb').close()
         self.assertTrue(importer.has_magic_lantern(self.basedir))
+
+    def test_get_magic_lantern_names(self):
+        self.assertEqual(
+            list(importer.get_magic_lantern_names(self.basedir)),
+            [
+                ('AUTOEXEC.BIN',),
+                ('FONTS.DAT',),
+                ('INSTALL.PDF',),
+                ('MAGIC.CFG',),
+                ('ML-500~1.FIR',),
+                ('ML-50D~1.FIR',),
+                ('ML-550~1.FIR',),
+                ('ML-600~1.FIR',),
+                ('ML-60D~1.FIR',),
+                ('README',),
+                ('RECTILIN.LUT',),
+                ('USERGU~1.PDF',),
+            ]
+        )
+
         

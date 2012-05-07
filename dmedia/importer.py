@@ -28,6 +28,7 @@ Store media files based on content-hash.
 import time
 from copy import deepcopy
 from os import path
+import os
 from gettext import gettext as _
 from gettext import ngettext
 from subprocess import check_call
@@ -404,3 +405,13 @@ def has_magic_lantern(basedir):
     dcim = path.join(basedir, 'DCIM')
     autoexec = path.join(basedir, 'AUTOEXEC.BIN')
     return path.isdir(dcim) and path.isfile(autoexec)
+ 
+    
+def get_magic_lantern_names(basedir):
+    for name in sorted(os.listdir(basedir)):
+        f = path.join(basedir, name)
+        if path.isfile(f):
+            yield (name,)
+    
+        
+    
