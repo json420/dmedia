@@ -105,9 +105,9 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_removed', self.on_card_removed)
 
     def start_httpd(self):
-        (self.httpd, self.port) = start_file_server(self.core.env)
-        self.avahi = Avahi(self.core.env, self.port)
-        self.avahi.run()
+        #(self.httpd, self.port) = start_file_server(self.core.env)
+        #self.avahi = Avahi(self.core.env, self.port)
+        #self.avahi.run()
         if self.config is not None:
             self.replicator = Replicator(self.core.env, self.config)
             self.replicator.run()
