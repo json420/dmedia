@@ -232,12 +232,16 @@ class App(BaseApp):
         dialog.destroy()
 
     def on_start_importer(self, dub, project_id):
-        env = deepcopy(self.env)
-        env['project_id'] = project_id
-        self.importer = Importer(env, self.proxy, self.hub)
-        assert sys.getrefcount(self.importer) == 2
-        self.create_ux()
-        self.hub.send('importer_started', schema.project_db_name(project_id))
+        try:
+            env = deepcopy(self.env)
+            env['project_id'] = project_id
+            self.importer = Importer(env, self.proxy, self.hub)
+            assert sys.getrefcount(self.importer) == 2
+            self.create_ux()
+            self.hub.send('importer_started', schema.project_db_name(project_id))
+        except Exception as e:
+            log.exception('exception in on_start_importer()')
+            raise e
 
     def on_stop_importer(self, hub):
         self.importer = None
