@@ -73,9 +73,9 @@ class FakeBin(Gst.Bin):
         self._rate.link(self._sink)
 
         # Ghost Pads
-        pad = self._q.get_pad('sink')
+        pad = self._q.get_static_pad('sink')
         self.add_pad(
-            Gst.GhostPad('sink', pad)
+            Gst.GhostPad.new('sink', pad)
         )
         pad.connect('notify::caps', self._on_notify_caps)
 
