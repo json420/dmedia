@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # dmedia: distributed media library
 # Copyright (C) 2011 Novacut Inc
@@ -24,8 +24,6 @@
 """
 A quick and dirty GStreamer extractor.
 """
-
-from __future__ import print_function
 
 import sys
 from os import path
@@ -134,7 +132,7 @@ class AudioBin(FakeBin):
         self._doc['channels'] = d.get_int('channels')[1]
         if ns:
             self._doc['audio_ns'] = ns
-            self._doc['duration']['samples'] = samplerate * ns / Gst.SECOND
+            self._doc['duration']['samples'] = samplerate * ns // Gst.SECOND
         self._callback(self)
 
     def _finalize(self):
