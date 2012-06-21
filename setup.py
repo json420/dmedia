@@ -143,9 +143,9 @@ setup(
         'dmedia-migrate',
         'dmedia-schema-upgrade',
         'dmedia-re-extract',
+        'dmedia-extract',
     ],
     data_files=[
-        ('bin', ['dmedia-extract']),
         ('share/couchdb/apps/dmedia',
             [path.join('ui', name) for name in os.listdir('ui')]
         ),
