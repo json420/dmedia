@@ -243,7 +243,6 @@ class Transcoder(object):
 
     def kill(self):
         self.pipeline.set_state(Gst.State.NULL)
-        self.pipeline.get_state()
         self.mainloop.quit()
 
     def link_pad(self, pad, key):
