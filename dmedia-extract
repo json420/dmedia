@@ -87,7 +87,7 @@ class FakeBin(Gst.Bin):
                 return duration
 
     def _on_notify_caps(self, pad, args):
-        caps = pad.get_negotiated_caps()
+        caps = pad.get_current_caps()
         if not caps:
             return
         ns = self._query_duration(pad)
