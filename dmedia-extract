@@ -80,10 +80,10 @@ class FakeBin(Gst.Bin):
         pad.connect('notify::caps', self._on_notify_caps)
 
     def _query_duration(self, pad):
-        q = Gst.query_new_duration(Gst.FORMAT_TIME)
+        q = Gst.Query.new_duration(Gst.Format.TIME)
         if pad.get_peer().query(q):
             (format, duration) = q.parse_duration()
-            if format == Gst.FORMAT_TIME:
+            if format == Gst.Format.TIME:
                 return duration
 
     def _on_notify_caps(self, pad, args):
@@ -91,7 +91,7 @@ class FakeBin(Gst.Bin):
         if not caps:
             return
         ns = self._query_duration(pad)
-        self._extract(caps[0], ns)
+        self._extract(caps.get_structure(0), ns)
         self._callback(self)
 
 
