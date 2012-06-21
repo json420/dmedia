@@ -100,15 +100,14 @@ class VideoBin(FakeBin):
         super(VideoBin, self).__init__(callback, doc, 'videorate')
 
     def _extract(self, d, ns):
-        num = d['framerate'].num
-        denom = d['framerate'].denom
+        (success, num, denom) = d.get_fraction('framerate')
         if num != 0:
             self._doc['framerate'] = {
                 'num': num,
                 'denom': denom,
             }
-        self._doc['width'] = d['width']
-        self._doc['height'] = d['height']
+        self._doc['width'] = d.get_int('width')[1]
+        self._doc['height'] = d.get_int('height')[1]
         if ns:
             self._doc['video_ns'] = ns
             self._doc['duration']['frames'] = int(
@@ -130,11 +129,12 @@ class AudioBin(FakeBin):
         super(AudioBin, self).__init__(callback, doc, 'audiorate')
 
     def _extract(self, d, ns):
-        self._doc['samplerate'] = d['rate']
-        self._doc['channels'] = d['channels']
+        samplerate = d.get_int('rate')[1]
+        self._doc['samplerate'] = samplerate
+        self._doc['channels'] = d.get_int('channels')[1]
         if ns:
             self._doc['audio_ns'] = ns
-            self._doc['duration']['samples'] = d['rate'] * ns / Gst.SECOND
+            self._doc['duration']['samples'] = samplerate * ns / Gst.SECOND
         self._callback(self)
 
     def _finalize(self):
