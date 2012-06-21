@@ -31,11 +31,13 @@ import sys
 from os import path
 import json
 
-import gobject
-import gst
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import GObject, Gst
 
 
-gobject.threads_init()
+GObject.threads_init()
+Gst.init(None)
 
 
 def make_element(desc):
@@ -55,7 +57,7 @@ def make_element(desc):
     40
 
     """
-    el = gst.element_factory_make(desc['name'])
+    el = Gst.element_factory_make(desc['name'])
     if desc.get('props'):
         for (key, value) in desc['props'].iteritems():
             el.set_property(key, value)
@@ -94,10 +96,10 @@ def caps_string(desc):
 def make_caps(desc):
     if not desc:
         return None
-    return gst.caps_from_string(caps_string(desc))
+    return Gst.caps_from_string(caps_string(desc))
 
 
-class EncoderBin(gst.Bin):
+class EncoderBin(Gst.Bin):
     """
     Base class for `AudioEncoder` and `VideoEncoder`.
     """
@@ -124,10 +126,10 @@ class EncoderBin(gst.Bin):
 
         # Ghost Pads
         self.add_pad(
-            gst.GhostPad('sink', self._q1.get_pad('sink'))
+            Gst.GhostPad('sink', self._q1.get_pad('sink'))
         )
         self.add_pad(
-            gst.GhostPad('src', self._q3.get_pad('src'))
+            Gst.GhostPad('src', self._q3.get_pad('src'))
         )
 
     def __repr__(self):
@@ -154,7 +156,7 @@ class AudioEncoder(EncoderBin):
         self._rate = self._make('audiorate')
 
         # Link elements:
-        gst.element_link_many(
+        Gst.element_link_many(
             self._q1, self._conv, self._rsp, self._rate, self._q2
         )
 
@@ -177,7 +179,7 @@ class VideoEncoder(EncoderBin):
         self._rate = self._make('videorate')
 
         # Link elements:
-        gst.element_link_many(self._q1, self._scale, self._color, self._rate, self._q2)
+        Gst.element_link_many(self._q1, self._scale, self._color, self._rate, self._q2)
 
     def get_stats(self):
         d = dict(
@@ -198,8 +200,8 @@ class Transcoder(object):
         """
         assert isinstance(job, dict)
         self.job = job
-        self.mainloop = gobject.MainLoop()
-        self.pipeline = gst.Pipeline()
+        self.mainloop = GObject.MainLoop()
+        self.pipeline = Gst.Pipeline()
         self.doc = {}
 
         # Create bus and connect several handlers
@@ -209,10 +211,10 @@ class Transcoder(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = gst.element_factory_make('filesrc')
-        self.dec = gst.element_factory_make('decodebin2')
-        self.mux = gst.element_factory_make(job['mux'])
-        self.sink = gst.element_factory_make('filesink')
+        self.src = Gst.element_factory_make('filesrc')
+        self.dec = Gst.element_factory_make('decodebin2')
+        self.mux = Gst.element_factory_make(job['mux'])
+        self.sink = Gst.element_factory_make('filesink')
 
         # Set properties
         self.src.set_property('location', job['src'])
@@ -233,11 +235,11 @@ class Transcoder(object):
         self.video = None
 
     def run(self):
-        self.pipeline.set_state(gst.STATE_PLAYING)
+        self.pipeline.set_state(Gst.STATE_PLAYING)
         self.mainloop.run()
 
     def kill(self):
-        self.pipeline.set_state(gst.STATE_NULL)
+        self.pipeline.set_state(Gst.STATE_NULL)
         self.pipeline.get_state()
         self.mainloop.quit()
 
@@ -246,12 +248,12 @@ class Transcoder(object):
             klass = {'audio': AudioEncoder, 'video': VideoEncoder}[key]
             el = klass(self.job[key])
         else:
-            el = gst.element_factory_make('fakesink')
+            el = Gst.element_factory_make('fakesink')
         self.pipeline.add(el)
         pad.link(el.get_pad('sink'))
         if key in self.job:
             el.link(self.mux)
-        el.set_state(gst.STATE_PLAYING)
+        el.set_state(Gst.STATE_PLAYING)
         return el
 
     def on_pad_added(self, element, pad):
