@@ -212,7 +212,7 @@ class Transcoder(object):
 
         # Create elements
         self.src = Gst.ElementFactory.make('filesrc', None)
-        self.dec = Gst.ElementFactory.make('decodebin2', None)
+        self.dec = Gst.ElementFactory.make('decodebin', None)
         self.mux = Gst.ElementFactory.make(job['mux'], None)
         self.sink = Gst.ElementFactory.make('filesink', None)
 
