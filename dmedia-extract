@@ -215,7 +215,7 @@ class Extractor(object):
         cls = {'audio': AudioBin, 'video': VideoBin}[name]
         fakebin = cls(self.on_callback, self.doc)
         self.pipeline.add(fakebin)
-        pad.link(fakebin.get_pad('sink'))
+        pad.link(fakebin.get_static_pad('sink'))
         fakebin.set_state(Gst.State.PLAYING)
         return fakebin
 
