@@ -246,7 +246,7 @@ class Transcoder(object):
         self.pipeline.get_state()
         self.mainloop.quit()
 
-    def link_pad(self, pad, name, key):
+    def link_pad(self, pad, key):
         if key in self.job:
             klass = {'audio': AudioEncoder, 'video': VideoEncoder}[key]
             el = klass(self.job[key])
@@ -260,13 +260,13 @@ class Transcoder(object):
         return el
 
     def on_pad_added(self, element, pad):
-        name = pad.get_caps()[0].get_name()
-        if name.startswith('audio/'):
+        string = pad.query_caps(None).to_string()
+        if string.startswith('audio/'):
             assert self.audio is None
-            self.audio = self.link_pad(pad, name, 'audio')
-        elif name.startswith('video/'):
+            self.audio = self.link_pad(pad, 'audio')
+        elif string.startswith('video/'):
             assert self.video is None
-            self.video = self.link_pad(pad, name, 'video')
+            self.video = self.link_pad(pad, 'video')
 
     def on_eos(self, bus, msg):
         for bin in (self.video, self.audio):
