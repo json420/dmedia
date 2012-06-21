@@ -183,14 +183,14 @@ class Extractor(object):
         self._killed = False
 
     def run(self):
-        self.pipeline.set_state(Gst.STATE_PLAYING)
+        self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
 
     def kill(self):
         if self._killed:
             return
         self._killed = True
-        self.pipeline.set_state(Gst.STATE_NULL)
+        self.pipeline.set_state(Gst.State.NULL)
         self.pipeline.get_state()
         ns = max(self.doc.pop('video_ns'), self.doc.pop('audio_ns'))
         if self.doc['duration']:
@@ -214,7 +214,7 @@ class Extractor(object):
         fakebin = cls(self.on_callback, self.doc)
         self.pipeline.add(fakebin)
         pad.link(fakebin.get_pad('sink'))
-        fakebin.set_state(Gst.STATE_PLAYING)
+        fakebin.set_state(Gst.State.PLAYING)
         return fakebin
 
     def on_pad_added(self, element, pad):
