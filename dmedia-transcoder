@@ -66,39 +66,16 @@ def make_element(desc):
     return el
 
 
-def caps_string(desc):
-    """
-    Build a GStreamer caps string.
-
-    For example:
-
-    >>> desc = {'mime': 'video/x-raw-yuv'}
-    >>> caps_string(desc)
-    'video/x-raw-yuv'
-
-    Or with specific caps:
-
-    >>> desc = {
-    ...     'mime': 'video/x-raw-yuv',
-    ...     'caps': {'width': 800, 'height': 450},
-    ... }
-    ...
-    >>> caps_string(desc)
-    'video/x-raw-yuv, height=450, width=800'
-
-    """
-    accum = [desc['mime']]
-    if desc.get('caps'):
-        caps = desc['caps']
+def caps_string(mime, caps):
+    accum = [mime]
+    if caps:
         for key in sorted(caps):
             accum.append('{}={}'.format(key, caps[key]))
     return ', '.join(accum)
 
 
-def make_caps(desc):
-    if not desc:
-        return None
-    return Gst.caps_from_string(caps_string(desc))
+def make_caps(mime, caps):
+    return Gst.caps_from_string(caps_string(mime, caps))
 
 
 class EncoderBin(Gst.Bin):
@@ -116,14 +93,13 @@ class EncoderBin(Gst.Bin):
         self._q3 = self._make('queue')
         self._enc = self._make(d['encoder'])
 
-        # Create the filter caps
-        self._caps = make_caps(d.get('filter'))
+        caps = d.get('caps')
 
         # Link elements
-        if self._caps is None:
+        if caps is None:
             self._q2.link(self._enc)
         else:
-            self._q2.link_filtered(self._enc, self._caps)
+            self._q2.link_filtered(self._enc, make_caps(self._mime, caps))
         self._enc.link(self._q3)
 
         # Ghost Pads
@@ -149,6 +125,8 @@ class EncoderBin(Gst.Bin):
 
 
 class AudioEncoder(EncoderBin):
+    _mime = 'audio/x-raw'
+
     def __init__(self, d):
         super(AudioEncoder, self).__init__(d)
 
@@ -173,6 +151,8 @@ class AudioEncoder(EncoderBin):
 
 
 class VideoEncoder(EncoderBin):
+    _mime = 'video/x-raw'
+
     def __init__(self, d):
         super(VideoEncoder, self).__init__(d)
 
