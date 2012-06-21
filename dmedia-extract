@@ -191,7 +191,7 @@ class Extractor(object):
             return
         self._killed = True
         self.pipeline.set_state(Gst.State.NULL)
-        self.pipeline.get_state()
+        #self.pipeline.get_state()  # FIXME: Would this have any benifit?
         ns = max(self.doc.pop('video_ns'), self.doc.pop('audio_ns'))
         if self.doc['duration']:
             self.doc['duration']['nanoseconds'] = ns
