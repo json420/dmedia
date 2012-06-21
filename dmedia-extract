@@ -50,21 +50,22 @@ if not path.isfile(filename):
     sys.exit(1)
 
 
-import gst
-import gobject
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import GObject, Gst
+
+GObject.threads_init()
+Gst.init(None)
 
 
-gobject.threads_init()
-
-
-class FakeBin(gst.Bin):
+class FakeBin(Gst.Bin):
     def __init__(self, callback, doc, rate):
         super(FakeBin, self).__init__()
         self._callback = callback
         self._doc = doc
-        self._q = gst.element_factory_make('queue')
-        self._rate = gst.element_factory_make(rate)
-        self._sink = gst.element_factory_make('fakesink')
+        self._q = Gst.element_factory_make('queue')
+        self._rate = Gst.element_factory_make(rate)
+        self._sink = Gst.element_factory_make('fakesink')
         self.add(self._q, self._rate, self._sink)
         self._q.link(self._rate)
         self._rate.link(self._sink)
@@ -72,15 +73,15 @@ class FakeBin(gst.Bin):
         # Ghost Pads
         pad = self._q.get_pad('sink')
         self.add_pad(
-            gst.GhostPad('sink', pad)
+            Gst.GhostPad('sink', pad)
         )
         pad.connect('notify::caps', self._on_notify_caps)
 
     def _query_duration(self, pad):
-        q = gst.query_new_duration(gst.FORMAT_TIME)
+        q = Gst.query_new_duration(Gst.FORMAT_TIME)
         if pad.get_peer().query(q):
             (format, duration) = q.parse_duration()
-            if format == gst.FORMAT_TIME:
+            if format == Gst.FORMAT_TIME:
                 return duration
 
     def _on_notify_caps(self, pad, args):
@@ -109,7 +110,7 @@ class VideoBin(FakeBin):
         if ns:
             self._doc['video_ns'] = ns
             self._doc['duration']['frames'] = int(
-                round(ns * num / denom / float(gst.SECOND))
+                round(ns * num / denom / float(Gst.SECOND))
             )
 
     def _finalize(self):
@@ -131,7 +132,7 @@ class AudioBin(FakeBin):
         self._doc['channels'] = d['channels']
         if ns:
             self._doc['audio_ns'] = ns
-            self._doc['duration']['samples'] = d['rate'] * ns / gst.SECOND
+            self._doc['duration']['samples'] = d['rate'] * ns / Gst.SECOND
         self._callback(self)
 
     def _finalize(self):
@@ -148,8 +149,8 @@ class Extractor(object):
     def __init__(self, filename, full):
         self.full = full
         self.doc = {'video_ns': 0, 'audio_ns': 0, 'duration': {}}
-        self.mainloop = gobject.MainLoop()
-        self.pipeline = gst.Pipeline()
+        self.mainloop = GObject.MainLoop()
+        self.pipeline = Gst.Pipeline()
 
         # Create bus and connect several handlers
         self.bus = self.pipeline.get_bus()
@@ -158,8 +159,8 @@ class Extractor(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = gst.element_factory_make('filesrc')
-        self.dec = gst.element_factory_make('decodebin2')
+        self.src = Gst.element_factory_make('filesrc')
+        self.dec = Gst.element_factory_make('decodebin2')
 
         # Set properties
         self.src.set_property('location', filename)
@@ -181,19 +182,19 @@ class Extractor(object):
         self._killed = False
 
     def run(self):
-        self.pipeline.set_state(gst.STATE_PLAYING)
+        self.pipeline.set_state(Gst.STATE_PLAYING)
         self.mainloop.run()
 
     def kill(self):
         if self._killed:
             return
         self._killed = True
-        self.pipeline.set_state(gst.STATE_NULL)
+        self.pipeline.set_state(Gst.STATE_NULL)
         self.pipeline.get_state()
         ns = max(self.doc.pop('video_ns'), self.doc.pop('audio_ns'))
         if self.doc['duration']:
             self.doc['duration']['nanoseconds'] = ns
-            self.doc['duration']['seconds'] = float(ns) / gst.SECOND
+            self.doc['duration']['seconds'] = float(ns) / Gst.SECOND
             if self.video is not None:
                 self.doc['media'] = 'video'
             elif self.audio is not None:
@@ -212,7 +213,7 @@ class Extractor(object):
         fakebin = cls(self.on_callback, self.doc)
         self.pipeline.add(fakebin)
         pad.link(fakebin.get_pad('sink'))
-        fakebin.set_state(gst.STATE_PLAYING)
+        fakebin.set_state(Gst.STATE_PLAYING)
         return fakebin
 
     def on_pad_added(self, element, pad):
@@ -231,7 +232,7 @@ class Extractor(object):
     def on_callback(self, fakebin):
         self.have.add(fakebin)
         if self.have == self.need and not self.full:
-            gobject.idle_add(self.kill)
+            GObject.idle_add(self.kill)
 
     def on_eos(self, bus, msg):
         for fakebin in (self.audio, self.video):
