@@ -160,7 +160,7 @@ class Extractor(object):
 
         # Create elements
         self.src = Gst.ElementFactory.make('filesrc', None)
-        self.dec = Gst.ElementFactory.make('decodebin2', None)
+        self.dec = Gst.ElementFactory.make('decodebin', None)
 
         # Set properties
         self.src.set_property('location', filename)
