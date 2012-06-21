@@ -63,9 +63,9 @@ class FakeBin(Gst.Bin):
         super(FakeBin, self).__init__()
         self._callback = callback
         self._doc = doc
-        self._q = Gst.element_factory_make('queue')
-        self._rate = Gst.element_factory_make(rate)
-        self._sink = Gst.element_factory_make('fakesink')
+        self._q = Gst.ElementFactory.make('queue', None)
+        self._rate = Gst.ElementFactory.make(rate, None)
+        self._sink = Gst.ElementFactory.make('fakesink', None)
         self.add(self._q, self._rate, self._sink)
         self._q.link(self._rate)
         self._rate.link(self._sink)
@@ -159,8 +159,8 @@ class Extractor(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = Gst.element_factory_make('filesrc')
-        self.dec = Gst.element_factory_make('decodebin2')
+        self.src = Gst.ElementFactory.make('filesrc', None)
+        self.dec = Gst.ElementFactory.make('decodebin2', None)
 
         # Set properties
         self.src.set_property('location', filename)
