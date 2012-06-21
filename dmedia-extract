@@ -218,11 +218,11 @@ class Extractor(object):
         return fakebin
 
     def on_pad_added(self, element, pad):
-        name = pad.get_caps()[0].get_name()
-        if name.startswith('audio/'):
+        string = pad.query_caps(None).to_string()
+        if string.startswith('audio/'):
             assert self.audio is None
             self.audio = self.link_pad(pad, 'audio')
-        elif name.startswith('video/'):
+        elif string.startswith('video/'):
             assert self.video is None
             self.video = self.link_pad(pad, 'video')
 
