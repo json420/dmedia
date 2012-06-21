@@ -172,7 +172,8 @@ class Extractor(object):
         self.typefind.connect('have-type', self.on_have_type)
 
         # Add elements to pipeline
-        self.pipeline.add(self.src, self.dec)
+        self.pipeline.add(self.src)
+        self.pipeline.add(self.dec)
 
         # Link elements
         self.src.link(self.dec)
