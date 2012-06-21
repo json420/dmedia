@@ -126,10 +126,10 @@ class EncoderBin(Gst.Bin):
 
         # Ghost Pads
         self.add_pad(
-            Gst.GhostPad('sink', self._q1.get_pad('sink'))
+            Gst.GhostPad('sink', self._q1.get_static_pad('sink'))
         )
         self.add_pad(
-            Gst.GhostPad('src', self._q3.get_pad('src'))
+            Gst.GhostPad('src', self._q3.get_static_pad('src'))
         )
 
     def __repr__(self):
@@ -252,7 +252,7 @@ class Transcoder(object):
         else:
             el = Gst.ElementFactory.make('fakesink', None)
         self.pipeline.add(el)
-        pad.link(el.get_pad('sink'))
+        pad.link(el.get_static_pad('sink'))
         if key in self.job:
             el.link(self.mux)
         el.set_state(Gst.State.PLAYING)
