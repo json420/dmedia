@@ -58,6 +58,8 @@ def make_element(desc):
 
     """
     el = Gst.ElementFactory.make(desc['name'], None)
+    if el is None:
+        raise Exception(desc['name'])
     if desc.get('props'):
         for (key, value) in desc['props'].iteritems():
             el.set_property(key, value)
@@ -175,8 +177,8 @@ class VideoEncoder(EncoderBin):
         super(VideoEncoder, self).__init__(d)
 
         # Create elements:
-        self._scale = self._make('ffvideoscale', {'method': 10})
-        self._color = self._make('ffmpegcolorspace')
+        self._scale = self._make('videoscale', {'method': 3})
+        self._color = self._make('videoconvert')
         self._rate = self._make('videorate')
 
         # Link elements:
