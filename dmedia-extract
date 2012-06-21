@@ -66,7 +66,9 @@ class FakeBin(Gst.Bin):
         self._q = Gst.ElementFactory.make('queue', None)
         self._rate = Gst.ElementFactory.make(rate, None)
         self._sink = Gst.ElementFactory.make('fakesink', None)
-        self.add(self._q, self._rate, self._sink)
+        self.add(self._q)
+        self.add(self._rate)
+        self.add(self._sink)
         self._q.link(self._rate)
         self._rate.link(self._sink)
 
