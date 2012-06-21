@@ -224,7 +224,10 @@ class Transcoder(object):
         self.dec.connect('pad-added', self.on_pad_added)
 
         # Add elements to pipeline
-        self.pipeline.add(self.src, self.dec, self.mux, self.sink)
+        self.pipeline.add(self.src)
+        self.pipeline.add(self.dec)
+        self.pipeline.add(self.mux)
+        self.pipeline.add(self.sink)
 
         # Link *some* elements
         # This is completed in self.on_new_decoded_pad()
