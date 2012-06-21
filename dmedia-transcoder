@@ -57,7 +57,7 @@ def make_element(desc):
     40
 
     """
-    el = Gst.element_factory_make(desc['name'])
+    el = Gst.ElementFactory.make(desc['name'], None)
     if desc.get('props'):
         for (key, value) in desc['props'].iteritems():
             el.set_property(key, value)
@@ -211,10 +211,10 @@ class Transcoder(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = Gst.element_factory_make('filesrc')
-        self.dec = Gst.element_factory_make('decodebin2')
-        self.mux = Gst.element_factory_make(job['mux'])
-        self.sink = Gst.element_factory_make('filesink')
+        self.src = Gst.ElementFactory.make('filesrc', None)
+        self.dec = Gst.ElementFactory.make('decodebin2', None)
+        self.mux = Gst.ElementFactory.make(job['mux'], None)
+        self.sink = Gst.ElementFactory.make('filesink', None)
 
         # Set properties
         self.src.set_property('location', job['src'])
@@ -248,7 +248,7 @@ class Transcoder(object):
             klass = {'audio': AudioEncoder, 'video': VideoEncoder}[key]
             el = klass(self.job[key])
         else:
-            el = Gst.element_factory_make('fakesink')
+            el = Gst.ElementFactory.make('fakesink', None)
         self.pipeline.add(el)
         pad.link(el.get_pad('sink'))
         if key in self.job:
