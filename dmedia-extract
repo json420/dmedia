@@ -58,7 +58,7 @@ Gst.init(None)
 
 class FakeBin(Gst.Bin):
     def __init__(self, callback, doc, rate):
-        super(FakeBin, self).__init__()
+        super().__init__()
         self._callback = callback
         self._doc = doc
         self._q = Gst.ElementFactory.make('queue', None)
@@ -95,7 +95,7 @@ class FakeBin(Gst.Bin):
 
 class VideoBin(FakeBin):
     def __init__(self, callback, doc):
-        super(VideoBin, self).__init__(callback, doc, 'videorate')
+        super().__init__(callback, doc, 'videorate')
 
     def _extract(self, d, ns):
         (success, num, denom) = d.get_fraction('framerate')
@@ -124,7 +124,7 @@ class VideoBin(FakeBin):
 
 class AudioBin(FakeBin):
     def __init__(self, callback, doc):
-        super(AudioBin, self).__init__(callback, doc, 'audiorate')
+        super().__init__(callback, doc, 'audiorate')
 
     def _extract(self, d, ns):
         samplerate = d.get_int('rate')[1]
