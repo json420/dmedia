@@ -27,7 +27,12 @@ Depends: ${misc:Depends}, python3 (>= 3.2),
     gir1.2-notify-0.7,
     gir1.2-appindicator3-0.1,
     gir1.2-gconf-2.0,
-    python-gst0.10,
+    gir1.2-gstreamer-1.0,
+    gir1.2-gst-plugins-base-1.0,
+    gstreamer1.0-plugins-good,
+    gstreamer1.0-plugins-ugly,
+    gstreamer1.0-plugins-bad,
+    gstreamer1.0-libav
 Provides: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia
 Conflicts: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia
 Replaces: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia

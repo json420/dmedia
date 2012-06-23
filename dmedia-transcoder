@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
@@ -25,17 +25,17 @@
 GStreamer-based transcoder.
 """
 
-from __future__ import print_function
-
 import sys
 from os import path
 import json
 
-import gobject
-import gst
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import GObject, Gst
 
 
-gobject.threads_init()
+GObject.threads_init()
+Gst.init(None)
 
 
 def make_element(desc):
@@ -55,55 +55,34 @@ def make_element(desc):
     40
 
     """
-    el = gst.element_factory_make(desc['name'])
+    el = Gst.ElementFactory.make(desc['name'], None)
+    if el is None:
+        raise Exception(desc['name'])
     if desc.get('props'):
-        for (key, value) in desc['props'].iteritems():
+        for (key, value) in desc['props'].items():
             el.set_property(key, value)
     return el
 
 
-def caps_string(desc):
-    """
-    Build a GStreamer caps string.
-
-    For example:
-
-    >>> desc = {'mime': 'video/x-raw-yuv'}
-    >>> caps_string(desc)
-    'video/x-raw-yuv'
-
-    Or with specific caps:
-
-    >>> desc = {
-    ...     'mime': 'video/x-raw-yuv',
-    ...     'caps': {'width': 800, 'height': 450},
-    ... }
-    ...
-    >>> caps_string(desc)
-    'video/x-raw-yuv, height=450, width=800'
-
-    """
-    accum = [desc['mime']]
-    if desc.get('caps'):
-        caps = desc['caps']
+def caps_string(mime, caps):
+    accum = [mime]
+    if caps:
         for key in sorted(caps):
             accum.append('{}={}'.format(key, caps[key]))
     return ', '.join(accum)
 
 
-def make_caps(desc):
-    if not desc:
-        return None
-    return gst.caps_from_string(caps_string(desc))
+def make_caps(mime, caps):
+    return Gst.caps_from_string(caps_string(mime, caps))
 
 
-class EncoderBin(gst.Bin):
+class EncoderBin(Gst.Bin):
     """
     Base class for `AudioEncoder` and `VideoEncoder`.
     """
 
     def __init__(self, d):
-        super(EncoderBin, self).__init__()
+        super().__init__()
         self._d = d
 
         # Create elements
@@ -112,22 +91,19 @@ class EncoderBin(gst.Bin):
         self._q3 = self._make('queue')
         self._enc = self._make(d['encoder'])
 
-        # Create the filter caps
-        self._caps = make_caps(d.get('filter'))
-
-        # Link elements
-        if self._caps is None:
+        f = d.get('filter')
+        if f is None:
             self._q2.link(self._enc)
         else:
-            self._q2.link(self._enc, self._caps)
+            self._q2.link_filtered(self._enc, make_caps(self._mime, f))
         self._enc.link(self._q3)
 
         # Ghost Pads
         self.add_pad(
-            gst.GhostPad('sink', self._q1.get_pad('sink'))
+            Gst.GhostPad.new('sink', self._q1.get_static_pad('sink'))
         )
         self.add_pad(
-            gst.GhostPad('src', self._q3.get_pad('src'))
+            Gst.GhostPad.new('src', self._q3.get_static_pad('src'))
         )
 
     def __repr__(self):
@@ -137,7 +113,7 @@ class EncoderBin(gst.Bin):
         """
         Create gst element, set properties, and add to this bin.
         """
-        if isinstance(desc, basestring):
+        if isinstance(desc, str):
             desc = {'name': desc, 'props': props}
         el = make_element(desc)
         self.add(el)
@@ -145,8 +121,10 @@ class EncoderBin(gst.Bin):
 
 
 class AudioEncoder(EncoderBin):
+    _mime = 'audio/x-raw'
+
     def __init__(self, d):
-        super(AudioEncoder, self).__init__(d)
+        super().__init__(d)
 
         # Create elements:
         self._conv = self._make('audioconvert')
@@ -154,9 +132,10 @@ class AudioEncoder(EncoderBin):
         self._rate = self._make('audiorate')
 
         # Link elements:
-        gst.element_link_many(
-            self._q1, self._conv, self._rsp, self._rate, self._q2
-        )
+        self._q1.link(self._conv)
+        self._conv.link(self._rsp)
+        self._rsp.link(self._rate)
+        self._rate.link(self._q2)
 
     def get_stats(self):
         d = dict(
@@ -168,18 +147,25 @@ class AudioEncoder(EncoderBin):
 
 
 class VideoEncoder(EncoderBin):
+    _mime = 'video/x-raw'
+
     def __init__(self, d):
-        super(VideoEncoder, self).__init__(d)
+        super().__init__(d)
 
         # Create elements:
-        self._scale = self._make('ffvideoscale', {'method': 10})
-        self._color = self._make('ffmpegcolorspace')
-        self._rate = self._make('videorate')
+        self._scale = self._make('videoscale', {'method': 3})
+        self._color = self._make('videoconvert')
+        #self._rate = self._make('videorate')
 
         # Link elements:
-        gst.element_link_many(self._q1, self._scale, self._color, self._rate, self._q2)
+        self._q1.link(self._scale)
+        self._scale.link(self._color)
+        self._color.link(self._q2)
+#        self._color.link(self._rate)
+#        self._rate.link(self._q2)
 
     def get_stats(self):
+        return {'frames': {}}
         d = dict(
             (n, self._rate.get_property(n))
             for n in ('in', 'out', 'duplicate', 'drop')
@@ -198,8 +184,8 @@ class Transcoder(object):
         """
         assert isinstance(job, dict)
         self.job = job
-        self.mainloop = gobject.MainLoop()
-        self.pipeline = gst.Pipeline()
+        self.mainloop = GObject.MainLoop()
+        self.pipeline = Gst.Pipeline()
         self.doc = {}
 
         # Create bus and connect several handlers
@@ -209,10 +195,10 @@ class Transcoder(object):
         self.bus.connect('message::error', self.on_error)
 
         # Create elements
-        self.src = gst.element_factory_make('filesrc')
-        self.dec = gst.element_factory_make('decodebin2')
-        self.mux = gst.element_factory_make(job['mux'])
-        self.sink = gst.element_factory_make('filesink')
+        self.src = Gst.ElementFactory.make('filesrc', None)
+        self.dec = Gst.ElementFactory.make('decodebin', None)
+        self.mux = Gst.ElementFactory.make(job['mux'], None)
+        self.sink = Gst.ElementFactory.make('filesink', None)
 
         # Set properties
         self.src.set_property('location', job['src'])
@@ -222,7 +208,10 @@ class Transcoder(object):
         self.dec.connect('pad-added', self.on_pad_added)
 
         # Add elements to pipeline
-        self.pipeline.add(self.src, self.dec, self.mux, self.sink)
+        self.pipeline.add(self.src)
+        self.pipeline.add(self.dec)
+        self.pipeline.add(self.mux)
+        self.pipeline.add(self.sink)
 
         # Link *some* elements
         # This is completed in self.on_new_decoded_pad()
@@ -233,35 +222,34 @@ class Transcoder(object):
         self.video = None
 
     def run(self):
-        self.pipeline.set_state(gst.STATE_PLAYING)
+        self.pipeline.set_state(Gst.State.PLAYING)
         self.mainloop.run()
 
     def kill(self):
-        self.pipeline.set_state(gst.STATE_NULL)
-        self.pipeline.get_state()
+        self.pipeline.set_state(Gst.State.NULL)
         self.mainloop.quit()
 
-    def link_pad(self, pad, name, key):
+    def link_pad(self, pad, key):
         if key in self.job:
             klass = {'audio': AudioEncoder, 'video': VideoEncoder}[key]
             el = klass(self.job[key])
         else:
-            el = gst.element_factory_make('fakesink')
+            el = Gst.ElementFactory.make('fakesink', None)
         self.pipeline.add(el)
-        pad.link(el.get_pad('sink'))
+        pad.link(el.get_static_pad('sink'))
         if key in self.job:
             el.link(self.mux)
-        el.set_state(gst.STATE_PLAYING)
+        el.set_state(Gst.State.PLAYING)
         return el
 
     def on_pad_added(self, element, pad):
-        name = pad.get_caps()[0].get_name()
-        if name.startswith('audio/'):
+        string = pad.query_caps(None).to_string()
+        if string.startswith('audio/'):
             assert self.audio is None
-            self.audio = self.link_pad(pad, name, 'audio')
-        elif name.startswith('video/'):
+            self.audio = self.link_pad(pad, 'audio')
+        elif string.startswith('video/'):
             assert self.video is None
-            self.video = self.link_pad(pad, name, 'video')
+            self.video = self.link_pad(pad, 'video')
 
     def on_eos(self, bus, msg):
         for bin in (self.video, self.audio):

@@ -18,7 +18,7 @@ def default_job(src, dst):
     return {
         'src': src,
         'dst': dst,
-        'mux': 'webmmux',
+        'mux': 'oggmux',
         'video': {
             'encoder': {
                 'name': 'vp8enc',
@@ -30,10 +30,7 @@ def default_job(src, dst):
                     'threads': 2,
                 },
             },
-            'filter': {
-                'mime': 'video/x-raw-yuv',
-                'caps': {'width': 960, 'height': 540},
-            },
+            'filter': {'width': 960, 'height': 540},
         },
         'audio': {
             'encoder': {
