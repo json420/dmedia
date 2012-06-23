@@ -159,15 +159,17 @@ class VideoEncoder(EncoderBin):
         # Create elements:
         self._scale = self._make('videoscale', {'method': 3})
         self._color = self._make('videoconvert')
-        self._rate = self._make('videorate')
+        #self._rate = self._make('videorate')
 
         # Link elements:
         self._q1.link(self._scale)
         self._scale.link(self._color)
-        self._color.link(self._rate)
-        self._rate.link(self._q2)
+        self._color.link(self._q2)
+#        self._color.link(self._rate)
+#        self._rate.link(self._q2)
 
     def get_stats(self):
+        return {'frames': {}}
         d = dict(
             (n, self._rate.get_property(n))
             for n in ('in', 'out', 'duplicate', 'drop')
