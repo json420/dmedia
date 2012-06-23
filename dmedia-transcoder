@@ -93,13 +93,11 @@ class EncoderBin(Gst.Bin):
         self._q3 = self._make('queue')
         self._enc = self._make(d['encoder'])
 
-        caps = d.get('caps')
-
-        # Link elements
-        if caps is None:
+        f = d.get('filter')
+        if f is None:
             self._q2.link(self._enc)
         else:
-            self._q2.link_filtered(self._enc, make_caps(self._mime, caps))
+            self._q2.link_filtered(self._enc, make_caps(self._mime, f))
         self._enc.link(self._q3)
 
         # Ghost Pads
