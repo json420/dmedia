@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
@@ -61,7 +61,7 @@ def make_element(desc):
     if el is None:
         raise Exception(desc['name'])
     if desc.get('props'):
-        for (key, value) in desc['props'].iteritems():
+        for (key, value) in desc['props'].items():
             el.set_property(key, value)
     return el
 
@@ -115,7 +115,7 @@ class EncoderBin(Gst.Bin):
         """
         Create gst element, set properties, and add to this bin.
         """
-        if isinstance(desc, basestring):
+        if isinstance(desc, str):
             desc = {'name': desc, 'props': props}
         el = make_element(desc)
         self.add(el)
