@@ -89,7 +89,7 @@ class Importer:
         self.workers = {}
         for (obj, mount) in self.cards.items():
             Worker = (Ejector if has_magic_lantern(mount) else Formatter)
-            #Worker = Ejector
+            Worker = Ejector
             w = Worker(obj, self.on_complete)
             self.workers[obj] = w
         self.cards.clear()
