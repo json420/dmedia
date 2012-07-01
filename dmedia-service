@@ -122,13 +122,14 @@ class Service(dbus.service.Object):
     def on_idle1(self):
         log.info('[idle1]')
         self.udisks.monitor()
-        GObject.timeout_add(3000, self.on_idle2)
+        _start_thread(self.core.init_project_views)
+        GObject.timeout_add(4000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
-        _start_thread(self.core.init_project_views)
+        self.core.start_background_tasks()
         interval = 10 * 60 * 1000  # Autocompact every 10 minutes
         self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call
@@ -145,16 +146,16 @@ class Service(dbus.service.Object):
     def shutdown(self):
         log.info('Service.shutdown()')
         if self.usercouch is not None:
-            log.info('killing usercouch')
+            log.info('* killing usercouch')
             self.usercouch.kill()
         if self.avahi is not None:
-            log.info('freeing avahi')
+            log.info('* freeing avahi')
             self.avahi.free()
         if self.replicator is not None:
-            log.info('freeing replicator')
+            log.info('* freeing replicator')
             self.replicator.free()
         if self.httpd is not None:
-            log.info('killing httpd')
+            log.info('* killing httpd')
             self.httpd.terminate()
             self.httpd.join()
 

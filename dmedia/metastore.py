@@ -25,11 +25,15 @@ Doodle.
 
 import time
 import os
+import logging
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound
 
 from .util import get_db
+
+
+log = logging.getLogger()
 
 
 class MTimeMismatch(Exception):
@@ -162,13 +166,14 @@ class ScanContext:
 
 
 class MetaStore:
-    def __init__(self, env):
-        self.db = get_db(env)
+    def __init__(self, db):
+        self.db = db
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
 
     def relink(self, fs):
+        log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
         for st in fs:
             try:
                 doc = self.db.get(st.id)
@@ -187,6 +192,7 @@ class MetaStore:
             self.db.save(doc)
 
     def scan(self, fs):
+        log.info('Scanning FileStore %r at %r', fs.id, fs.parentdir)
         v = self.db.view('file', 'stored', key=fs.id, reduce=False)
         for row in v['rows']:
             _id = row['id']

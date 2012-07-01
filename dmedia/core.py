@@ -31,23 +31,24 @@ For background, please see:
 import os
 from os import path
 import json
-import time
 import stat
 import multiprocessing
 from urllib.parse import urlparse
 import logging
+from queue import Queue
 
 from microfiber import Database, NotFound, Conflict, random_id2
-from filestore import FileStore, check_root_hash, check_id
+from filestore import FileStore, check_root_hash, check_id, _start_thread
 
 import dmedia
 from dmedia import util, schema
+from dmedia.metastore import MetaStore
 from dmedia.local import LocalStores, FileNotLocal
 from dmedia.views import init_views
 
 
-LOCAL_ID = '_local/dmedia'
 log = logging.getLogger()
+LOCAL_ID = '_local/dmedia'
 SHARED = '/home'
 PRIVATE = path.abspath(os.environ['HOME'])
 
@@ -87,9 +88,12 @@ class Core:
     def __init__(self, env, private=None, shared=None, bootstrap=True):
         self.env = env
         self.db = util.get_db(env, init=True)
+        self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self._private = (PRIVATE if private is None else private)
         self._shared = (SHARED if shared is None else shared)
+        self.queue = Queue()
+        self.thread = None
         if bootstrap:
             self._init_local()
             self._init_default_store()
@@ -135,10 +139,25 @@ class Core:
         except Conflict:
             pass
         self._sync_stores()
+        self.queue.put(fs)
 
     def _remove_filestore(self, fs):
         self.stores.remove(fs)
         self._sync_stores()
+
+    def _background_worker(self):
+        log.info('Background worker listing to queue...')
+        while True:
+            try:
+                fs = self.queue.get()
+                self.ms.scan(fs)
+                self.ms.relink(fs)
+            except Exception as e:
+                log.exception('Error in background worker:')
+
+    def start_background_tasks(self):
+        assert self.thread is None
+        self.thread = _start_thread(self._background_worker)
 
     def init_project_views(self):
         for row in self.db.view('project', 'atime')['rows']:
