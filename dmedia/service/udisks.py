@@ -309,6 +309,7 @@ class UDisks(GObject.GObject):
                 self.change_device(obj)
             except Exception as e:
                 log.exception('Exception calling change_device(%r)', obj)
+        log.info('Finished UDisks device enumeration')
 
     def on_DeviceChanged(self, obj):
         self.change_device(obj)
@@ -405,13 +406,13 @@ class UDisks(GObject.GObject):
             'drive': drive['info'],
         }
         self.stores[obj] = info
-        log.info('store_added %r %r %r', obj, mount, store_id)
+        #log.info('store_added %r %r %r', obj, mount, store_id)
         self.emit('store_added', obj, mount, store_id, info)
 
     def remove_store(self, obj):
         try:
             d = self.stores.pop(obj)
-            log.info('store_removed %r %r %r', obj, d['parentdir'], d['id'])
+            #log.info('store_removed %r %r %r', obj, d['parentdir'], d['id'])
             self.emit('store_removed', obj, d['parentdir'], d['id'])
         except KeyError:
             pass
