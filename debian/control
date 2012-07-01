@@ -3,9 +3,9 @@ Section: python
 Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
 Build-Depends: debhelper (>= 8.9), python3 (>= 3.2),
-    python3-filestore (>= 12.05),
-    python3-microfiber (>= 12.05),
-    python3-usercouch (>= 12.05),
+    python3-filestore (>= 12.07,
+    python3-microfiber (>= 12.07),
+    python3-usercouch (>= 12.07),
 Standards-Version: 3.9.2
 X-Python-Version: 3.2
 X-Python3-Version: 3.2
@@ -16,10 +16,10 @@ Architecture: all
 Depends: ${misc:Depends}, python3 (>= 3.2),
     python3-gi,
     python3-dbus,
-    python3-filestore (>= 12.05),
-    python3-microfiber (>= 12.05),
-    python3-userwebkit (>= 12.05),
-    python3-usercouch (>= 12.05),
+    python3-filestore (>= 12.07),
+    python3-microfiber (>= 12.07),
+    python3-userwebkit (>= 12.07),
+    python3-usercouch (>= 12.07),
     libimage-exiftool-perl,
     imagemagick,
     ufraw-batch,
