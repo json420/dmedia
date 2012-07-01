@@ -134,7 +134,10 @@ class Core:
             self.db.save(self.local)
 
     def _add_filestore(self, fs, doc):
-        fs.purge_tmp()
+        try:
+            fs.purge_tmp()
+        except Exception:
+            log.exception('Error calling FileStore.purge_tmp():')
         self.stores.add(fs)
         try:
             self.db.save(doc)
