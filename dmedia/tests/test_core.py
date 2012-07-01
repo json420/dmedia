@@ -27,11 +27,12 @@ Unit tests for `dmedia.core` module.
 from unittest import TestCase
 
 import microfiber
+from microfiber import random_id
 import filestore
 
 from dmedia.local import LocalStores
 from dmedia.schema import DB_NAME
-from dmedia import core
+from dmedia import util, core
 
 from .couch import CouchCase
 from .base import TempDir
@@ -129,4 +130,127 @@ class TestCore(CouchCase):
         )
         self.assertEqual(set(inst.stores.ids), set([fs.id]))
         self.assertEqual(set(inst.stores.parentdirs), set([tmp.dir]))
+
+
+
+class TestCore2(CouchCase):
+    def test_init(self):
+        inst = core.Core2(self.env)
+        self.assertIsInstance(inst.db, microfiber.Database)
+        self.assertEqual(inst.db.name, DB_NAME)
+        self.assertEqual(inst.local['stores'], {})
+
+    def test_init_default_store(self):
+        private = TempDir()
+        shared = TempDir()
+        machine_id = random_id()
+
+        # Test when default_store is missing
+        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst.local = {
+            '_id': '_local/dmedia',
+            'machine_id': machine_id,
+        }
+
+        inst._init_default_store()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'machine_id': machine_id,
+                'stores': {},
+            }
+        )
+
+        # Test when default_store is 'private'
+        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst._init_local()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'machine_id': machine_id,
+                'stores': {},
+            }
+        )
+        inst.local['default_store'] = 'private'
+
+        self.assertFalse(util.isfilestore(private.dir))
+        inst._init_default_store()
+        self.assertEqual(
+            set(inst.local['stores']),
+            set([private.dir])
+        )
+        store_id = inst.local['stores'][private.dir]['id']
+        (fs1, doc) = util.get_filestore(private.dir, store_id)
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {
+                        'id': fs1.id,
+                        'copies': fs1.copies,
+                    }
+                }
+            }
+        )
+
+        # Again test when default_store is 'private' to make sure local isn't
+        # updated needlessly
+        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst._init_local()
+        inst._init_default_store()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {
+                        'id': fs1.id,
+                        'copies': fs1.copies,
+                    }
+                }
+            }
+        )
+
+        # Test when default_store is 'shared' (which we're assuming exists)
+        self.assertFalse(util.isfilestore(shared.dir))
+        (fs2, doc) = util.init_filestore(shared.dir)
+        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst._init_local()
+        inst.local['default_store'] = 'shared'
+        inst._init_default_store()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': machine_id,
+                'default_store': 'shared',
+                'stores': {
+                    fs2.parentdir: {
+                        'id': fs2.id,
+                        'copies': fs2.copies,
+                    }
+                }
+            }
+        )
+
+        
 

@@ -29,9 +29,23 @@ import os
 from os import path
 
 import microfiber
-from filestore import FileStore
+from filestore import FileStore, DOTNAME
 
 from . import schema, views
+
+
+def isfilestore(parentdir):
+    return path.isdir(path.join(parentdir, DOTNAME))
+
+
+def get_filestore(parentdir, store_id, copies=None):
+    store = path.join(parentdir, DOTNAME, 'store.json')
+    doc = json.load(open(store, 'r'))
+    assert doc['_id'] == store_id
+    if copies is not None:
+        doc['copies'] = copies
+    fs = FileStore(parentdir, doc['_id'], doc['copies'])
+    return (fs, doc)
 
 
 def init_filestore(parentdir, copies=1):

@@ -37,14 +37,14 @@ import multiprocessing
 from urllib.parse import urlparse
 import logging
 
-from microfiber import Database, NotFound, random_id2
+from microfiber import Database, NotFound, Conflict, random_id2
 from filestore import FileStore, check_root_hash, check_id
 
 import dmedia
 from dmedia import schema
 from dmedia.local import LocalStores, FileNotLocal
 from dmedia.views import init_views
-from dmedia.util import get_project_db
+from dmedia.util import get_db, get_project_db, init_filestore
 from dmedia.units import bytes10
 
 
@@ -274,7 +274,58 @@ class Core:
         }
 
 
+SHARED = '/home'
+PRIVATE = path.abspath(os.environ['HOME'])
+
+
 class Core2:
+    def __init__(self, env, private=None, shared=None, bootstrap=True):
+        self.env = env
+        self.db = get_db(env, init=True)
+        self._private = (PRIVATE if private is None else private)
+        self._shared = (SHARED if shared is None else shared)
+        if bootstrap:
+            self._init_local()
+            self._init_default_store()
+
+    def _init_local(self):
+        try:
+            self.local = self.db.get(LOCAL_ID)
+        except NotFound:
+            machine = schema.create_machine()
+            self.local = {
+                '_id': LOCAL_ID,
+                'machine_id': machine['_id'],
+                'stores': {},
+            }
+            self.db.save(self.local)
+            self.db.save(machine)
+        self.machine_id = self.local['machine_id']
+        self.env['machine_id'] = self.machine_id
+        self.env['version'] = dmedia.__version__
+        log.info('machine_id = %r', self.machine_id)
+
+    def _init_default_store(self):
+        default = self.local.get('default_store')
+        if default in ('private', 'shared'):
+            pdir = (self._private if default == 'private' else self._shared)
+            (fs, doc) = init_filestore(pdir)
+            stores = {
+                fs.parentdir: {
+                    'id': fs.id,
+                    'copies': fs.copies, 
+                }
+            }
+            try:
+                self.db.save(doc)
+            except Conflict:
+                pass
+        else:
+            stores = {}
+        if self.local.get('stores') != stores:
+            self.local['stores'] = stores
+            self.db.save(self.local)
+
     def create_filestore(self, parentdir, label):
         """
         Create a new file-store in *parentdir*.

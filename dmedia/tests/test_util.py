@@ -24,6 +24,7 @@ Unit tests for `dmedia.util`.
 """
 
 from unittest import TestCase
+from .base import TempDir
 from .couch import CouchCase
 
 import microfiber
@@ -33,7 +34,15 @@ from dmedia import schema
 from dmedia import util
 
 
-class TestFunctions(CouchCase):
+class TestFunctions(TestCase):
+    def test_isfilestore(self):
+        tmp = TempDir()
+        self.assertFalse(util.isfilestore(tmp.dir))
+        tmp.makedirs('.dmedia')
+        self.assertTrue(util.isfilestore(tmp.dir))
+
+
+class TestDBFunctions(CouchCase):
     def test_get_db(self):
         db = util.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)
