@@ -138,6 +138,7 @@ class TestCore2(CouchCase):
         inst = core.Core2(self.env)
         self.assertIsInstance(inst.db, microfiber.Database)
         self.assertEqual(inst.db.name, DB_NAME)
+        self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.local['stores'], {})
 
     def test_init_default_store(self):

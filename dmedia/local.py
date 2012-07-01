@@ -162,6 +162,13 @@ class LocalStores:
             reverse=True,
         )
 
+    def local_stores(self):
+        stores = {}
+        for fs in self.ids.values():
+            stores[fs.parentdir] = {'id': fs.id, 'copies': fs.copies}
+        return stores
+        
+
 
 class LocalSlave:
     def __init__(self, env):

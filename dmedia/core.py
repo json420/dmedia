@@ -282,6 +282,7 @@ class Core2:
     def __init__(self, env, private=None, shared=None, bootstrap=True):
         self.env = env
         self.db = get_db(env, init=True)
+        self.stores = LocalStores()
         self._private = (PRIVATE if private is None else private)
         self._shared = (SHARED if shared is None else shared)
         if bootstrap:
@@ -307,21 +308,22 @@ class Core2:
 
     def _init_default_store(self):
         default = self.local.get('default_store')
-        if default in ('private', 'shared'):
-            pdir = (self._private if default == 'private' else self._shared)
-            (fs, doc) = init_filestore(pdir)
-            stores = {
-                fs.parentdir: {
-                    'id': fs.id,
-                    'copies': fs.copies, 
-                }
-            }
-            try:
-                self.db.save(doc)
-            except Conflict:
-                pass
-        else:
-            stores = {}
+        if default not in ('private', 'shared'):
+            if self.local.get('stores') != {}:
+                self.local['stores'] = {}
+                self.db.save(self.local)
+            return
+        parentdir = (self._private if default == 'private' else self._shared)
+        (fs, doc) = init_filestore(parentdir)
+        self._add_filestore(fs, doc)
+
+    def _add_filestore(self, fs, doc):
+        self.stores.add(fs)
+        try:
+            self.db.save(doc)
+        except Conflict:
+            pass
+        stores = self.stores.local_stores()
         if self.local.get('stores') != stores:
             self.local['stores'] = stores
             self.db.save(self.local)
