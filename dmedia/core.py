@@ -283,7 +283,7 @@ PRIVATE = path.abspath(os.environ['HOME'])
 class Core2:
     def __init__(self, env, private=None, shared=None, bootstrap=True):
         self.env = env
-        self.db = get_db(env, init=True)
+        self.db = util.get_db(env, init=True)
         self.stores = LocalStores()
         self._private = (PRIVATE if private is None else private)
         self._shared = (SHARED if shared is None else shared)
@@ -311,13 +311,17 @@ class Core2:
     def _init_default_store(self):
         default = self.local.get('default_store')
         if default not in ('private', 'shared'):
-            if self.local.get('stores') != {}:
-                self.local['stores'] = {}
-                self.db.save(self.local)
+            self._sync_stores()
             return
         parentdir = (self._private if default == 'private' else self._shared)
         (fs, doc) = util.init_filestore(parentdir)
         self._add_filestore(fs, doc)
+
+    def _sync_stores(self):
+        stores = self.stores.local_stores()
+        if self.local.get('stores') != stores:
+            self.local['stores'] = stores
+            self.db.save(self.local)
 
     def _add_filestore(self, fs, doc):
         self.stores.add(fs)
@@ -325,10 +329,11 @@ class Core2:
             self.db.save(doc)
         except Conflict:
             pass
-        stores = self.stores.local_stores()
-        if self.local.get('stores') != stores:
-            self.local['stores'] = stores
-            self.db.save(self.local)
+        self._sync_stores()
+
+    def _remove_filestore(self, fs):
+        self.stores.remove(fs)
+        self._sync_stores()
 
     def create_filestore(self, parentdir, label):
         """
@@ -348,6 +353,10 @@ class Core2:
         """
         Remove an existing file-store from the local storage pool.
         """
+        log.info('Distconnecting FileStore %r at %r', store_id, parentdir)
+        fs = self.stores.by_parentdir(parentdir)
+        self._remove_filestore(fs)
+        return fs
 
     def downgrade_store(self, store_id):
         """

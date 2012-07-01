@@ -334,6 +334,71 @@ class TestCore2(CouchCase):
                 }
             }
         )
+
+    def test_disconnect_filestore(self):
+        inst = core.Core2(self.env)
+
+        tmp1 = TempDir()
+        (fs1, doc1) = util.init_filestore(tmp1.dir)
+        tmp2 = TempDir()
+        (fs2, doc2) = util.init_filestore(tmp2.dir)
+
+        # Test when not connected:
+        with self.assertRaises(KeyError) as cm:
+            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        self.assertEqual(str(cm.exception), repr(fs1.parentdir))
+
+        # Connect both, then disconnect one by one
+        inst.connect_filestore(fs1.parentdir, fs1.id)
+        inst.connect_filestore(fs2.parentdir, fs2.id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
+                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                }
+            }
+        )
+
+        # Disconnect fs1
+        inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-4',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                }
+            }
+        )
+
+        # Disconnect fs2
+        inst.disconnect_filestore(fs2.parentdir, fs2.id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-5',
+                'machine_id': inst.machine_id,
+                'stores': {},
+            }
+        )
+
+        # Again test when not connected:
+        with self.assertRaises(KeyError) as cm:
+            inst.disconnect_filestore(fs2.parentdir, fs2.id)
+        self.assertEqual(str(cm.exception), repr(fs2.parentdir))
+        with self.assertRaises(KeyError) as cm:
+            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        self.assertEqual(str(cm.exception), repr(fs1.parentdir))
         
-
-
+        
+        
+        
+        
