@@ -39,9 +39,9 @@ from .couch import CouchCase
 from .base import TempDir
 
 
-class TestCore2(CouchCase):
+class TestCore(CouchCase):
     def test_init(self):
-        inst = core.Core2(self.env)
+        inst = core.Core(self.env)
         self.assertIsInstance(inst.db, microfiber.Database)
         self.assertEqual(inst.db.name, DB_NAME)
         self.assertIsInstance(inst.stores, LocalStores)
@@ -53,7 +53,7 @@ class TestCore2(CouchCase):
         machine_id = random_id()
 
         # Test when default_store is missing
-        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
@@ -73,7 +73,7 @@ class TestCore2(CouchCase):
         )
 
         # Test when default_store is 'private'
-        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
@@ -113,7 +113,7 @@ class TestCore2(CouchCase):
 
         # Again test when default_store is 'private' to make sure local isn't
         # updated needlessly
-        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
@@ -137,7 +137,7 @@ class TestCore2(CouchCase):
         # Test when default_store is 'shared' (which we're assuming exists)
         self.assertFalse(util.isfilestore(shared.dir))
         (fs2, doc) = util.init_filestore(shared.dir)
-        inst = core.Core2(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
@@ -160,7 +160,7 @@ class TestCore2(CouchCase):
         )
 
     def test_connect_filestore(self):
-        inst = core.Core2(self.env)
+        inst = core.Core(self.env)
         tmp = TempDir()
         doc = create_filestore(1)
 
@@ -241,7 +241,7 @@ class TestCore2(CouchCase):
         )
 
     def test_disconnect_filestore(self):
-        inst = core.Core2(self.env)
+        inst = core.Core(self.env)
 
         tmp1 = TempDir()
         (fs1, doc1) = util.init_filestore(tmp1.dir)

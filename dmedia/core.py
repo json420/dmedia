@@ -83,7 +83,7 @@ def start_file_server(env):
 
 
 
-class Core2:
+class Core:
     def __init__(self, env, private=None, shared=None, bootstrap=True):
         self.env = env
         self.db = util.get_db(env, init=True)

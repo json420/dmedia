@@ -42,7 +42,7 @@ import usercouch
 from gi.repository import GObject
 
 import dmedia
-from dmedia.core import Core2, start_file_server
+from dmedia.core import Core, start_file_server
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Avahi
 from dmedia.service.replicator import Replicator
@@ -59,8 +59,8 @@ session = dbus.SessionBus()
 
 def dumps(obj):
     return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
-    
-    
+
+
 def get_config(f):
     try:
         return json.load(open(f, 'r'))
@@ -99,7 +99,7 @@ class Service(dbus.service.Object):
         else:
             self.config = None
             env = json.loads(self.env_s)
-        self.core = Core2(env)
+        self.core = Core(env)
         self.env_s = dumps(self.core.env)
 
     def start_httpd(self):
