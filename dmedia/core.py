@@ -335,6 +335,11 @@ class Core2:
         self.stores.remove(fs)
         self._sync_stores()
 
+    def init_project_views(self):
+        for row in self.db.view('project', 'atime')['rows']:
+            get_project_db(row['id'], self.env, True)
+        log.info('Core.init_project_views() complete')
+
     def create_filestore(self, parentdir, label):
         """
         Create a new file-store in *parentdir*.
@@ -353,7 +358,7 @@ class Core2:
         """
         Remove an existing file-store from the local storage pool.
         """
-        log.info('Distconnecting FileStore %r at %r', store_id, parentdir)
+        log.info('Disconnecting FileStore %r at %r', store_id, parentdir)
         fs = self.stores.by_parentdir(parentdir)
         self._remove_filestore(fs)
         return fs

@@ -62,7 +62,7 @@ def usable_mount(mounts):
     """
     for mount in mounts:
         if mount.startswith('/media/') or mount.startswith('/srv/'):
-            return mount
+            return str(mount)
 
 
 def partition_info(d, mount=None):
