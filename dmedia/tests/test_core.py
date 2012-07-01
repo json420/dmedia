@@ -159,6 +159,51 @@ class TestCore(CouchCase):
             }
         )
 
+    def test_create_filestore(self):
+        inst = core.Core(self.env)
+
+        # Test when a filestore already exists
+        tmp = TempDir()
+        (fs, doc) = util.init_filestore(tmp.dir)
+        with self.assertRaises(Exception) as cm:
+            inst.create_filestore(tmp.dir)
+        self.assertEqual(
+            str(cm.exception),
+            'Already contains a FileStore: {!r}'.format(tmp.dir)
+        )
+
+        # Test when .dmedia doesn't exist
+        tmp = TempDir()
+        fs = inst.create_filestore(tmp.dir)
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.copies, 1)
+        self.assertIs(inst.stores.by_id(fs.id), fs)
+        self.assertIs(inst.stores.by_parentdir(fs.parentdir), fs)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs.parentdir: {'id': fs.id, 'copies': fs.copies},
+                }
+            }
+        )
+
+        # Make sure we can disconnect a store that was just created
+        inst.disconnect_filestore(fs.parentdir, fs.id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'stores': {},
+            }
+        )
+
     def test_connect_filestore(self):
         inst = core.Core(self.env)
         tmp = TempDir()
