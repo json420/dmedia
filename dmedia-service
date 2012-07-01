@@ -235,7 +235,7 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def CreateFileStore(self, parentdir):
-        fs = self.core.create_filestore(parentdir)
+        self.core.create_filestore(str(parentdir))
         return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')

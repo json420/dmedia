@@ -31,6 +31,7 @@ For background, please see:
 import os
 from os import path
 import json
+import time
 import stat
 import multiprocessing
 from urllib.parse import urlparse
@@ -150,8 +151,10 @@ class Core:
         while True:
             try:
                 fs = self.queue.get()
+                start = time.time()
                 self.ms.scan(fs)
                 self.ms.relink(fs)
+                log.info('...checked %r in %r', fs, time.time() - start)
             except Exception as e:
                 log.exception('Error in background worker:')
 
@@ -164,10 +167,17 @@ class Core:
             util.get_project_db(row['id'], self.env, True)
         log.info('Core.init_project_views() complete')
 
-    def create_filestore(self, parentdir, label):
+    def create_filestore(self, parentdir):
         """
         Create a new file-store in *parentdir*.
         """
+        if util.isfilestore(parentdir):
+            raise Exception(
+                'Already contains a FileStore: {!r}'.format(parentdir)
+            )
+        log.info('Creating a new FileStore in %r', parentdir)
+        (fs, doc) = util.init_filestore(parentdir)
+        return self.connect_filestore(parentdir, fs.id)
 
     def connect_filestore(self, parentdir, store_id):
         """

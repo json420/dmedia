@@ -125,17 +125,13 @@ class LocalPeers(_Method):
     'Get the _local/peers document'
 
 
-class AddFileStore(_Method):
-    'Add a file storage location'
+class CreateFileStore(_Method):
+    'Create a new FileStore'
 
     args = ['directory']
     
     def validate_args(self, directory):
         return [path.abspath(directory)]
-
-
-class RemoveFileStore(AddFileStore):
-    'Add a file storage location'
 
 
 class Resolve(_Method):
