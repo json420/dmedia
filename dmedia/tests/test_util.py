@@ -24,11 +24,14 @@ Unit tests for `dmedia.util`.
 """
 
 from unittest import TestCase
-from .base import TempDir
-from .couch import CouchCase
+import json
 
+import filestore
 import microfiber
 from microfiber import random_id
+
+from .base import TempDir
+from .couch import CouchCase
 
 from dmedia import schema
 from dmedia import util
@@ -40,6 +43,47 @@ class TestFunctions(TestCase):
         self.assertFalse(util.isfilestore(tmp.dir))
         tmp.makedirs('.dmedia')
         self.assertTrue(util.isfilestore(tmp.dir))
+
+    def test_getfilestore(self):
+        tmp = TempDir()
+        doc = schema.create_filestore(1)
+
+        # Test when .dmedia/ doesn't exist
+        with self.assertRaises(IOError) as cm:
+            util.get_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/ exists, but store.json doesn't:
+        tmp.makedirs('.dmedia')
+        with self.assertRaises(IOError) as cm:
+            util.get_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/store.json exists
+        store = tmp.join('.dmedia', 'store.json')
+        json.dump(doc, open(store, 'w'))
+
+        (fs, doc2) = util.get_filestore(tmp.dir, doc['_id'])
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, doc['_id'])
+        self.assertEqual(fs.copies, 1)
+        self.assertEqual(doc2, doc)
+
+        # Test when you override copies
+        (fs, doc2) = util.get_filestore(tmp.dir, doc['_id'], copies=2)
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, doc['_id'])
+        self.assertEqual(fs.copies, 2)
+        self.assertEqual(doc2['copies'], 2)
+
+        # Test when store_id doesn't match
+        store_id = random_id()
+        with self.assertRaises(Exception) as cm:
+            util.get_filestore(tmp.dir, store_id)
+        self.assertEqual(
+            str(cm.exception),
+            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
+        )
 
 
 class TestDBFunctions(CouchCase):
@@ -66,7 +110,7 @@ class TestDBFunctions(CouchCase):
         self.assertEqual(db.name, db_name)
         self.assertTrue(db.ensure())
         self.assertEqual(db.get()['db_name'], db_name)
-        
+
         # Test with init=True
         _id = random_id()
         db_name = schema.project_db_name(_id)

@@ -44,7 +44,9 @@ import dmedia
 from dmedia import schema
 from dmedia.local import LocalStores, FileNotLocal
 from dmedia.views import init_views
-from dmedia.util import get_db, get_project_db, init_filestore
+from dmedia.util import get_db, get_project_db
+from dmedia.util import init_filestore, get_filestore
+from dmedia import util
 from dmedia.units import bytes10
 
 
@@ -314,7 +316,7 @@ class Core2:
                 self.db.save(self.local)
             return
         parentdir = (self._private if default == 'private' else self._shared)
-        (fs, doc) = init_filestore(parentdir)
+        (fs, doc) = util.init_filestore(parentdir)
         self._add_filestore(fs, doc)
 
     def _add_filestore(self, fs, doc):
@@ -337,6 +339,10 @@ class Core2:
         """
         Put an existing file-store into the local storage pool.
         """
+        log.info('Connecting FileStore %r at %r', store_id, parentdir)
+        (fs, doc) = util.get_filestore(parentdir, store_id)
+        self._add_filestore(fs, doc)
+        return fs
 
     def disconnect_filestore(self, parentdir, store_id):
         """

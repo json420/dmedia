@@ -41,7 +41,10 @@ def isfilestore(parentdir):
 def get_filestore(parentdir, store_id, copies=None):
     store = path.join(parentdir, DOTNAME, 'store.json')
     doc = json.load(open(store, 'r'))
-    assert doc['_id'] == store_id
+    if doc['_id'] != store_id:
+        raise Exception(
+            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
+        )
     if copies is not None:
         doc['copies'] = copies
     fs = FileStore(parentdir, doc['_id'], doc['copies'])

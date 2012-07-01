@@ -25,13 +25,14 @@ Unit tests for `dmedia.core` module.
 """
 
 from unittest import TestCase
+import json
 
 import microfiber
 from microfiber import random_id
 import filestore
 
 from dmedia.local import LocalStores
-from dmedia.schema import DB_NAME
+from dmedia.schema import DB_NAME, create_filestore
 from dmedia import util, core
 
 from .couch import CouchCase
@@ -253,5 +254,86 @@ class TestCore2(CouchCase):
             }
         )
 
+    def test_connect_filestore(self):
+        inst = core.Core2(self.env)
+        tmp = TempDir()
+        doc = create_filestore(1)
+
+        # Test when .dmedia/ doesn't exist
+        with self.assertRaises(IOError) as cm:
+            inst.connect_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/ exists, but store.json doesn't:
+        tmp.makedirs('.dmedia')
+        with self.assertRaises(IOError) as cm:
+            inst.connect_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/store.json exists
+        store = tmp.join('.dmedia', 'store.json')
+        json.dump(doc, open(store, 'w'))
+
+        fs = inst.connect_filestore(tmp.dir, doc['_id'])
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, doc['_id'])
+        self.assertEqual(fs.copies, 1)
+        self.assertIs(inst.stores.by_id(fs.id), fs)
+        self.assertIs(inst.stores.by_parentdir(fs.parentdir), fs)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs.parentdir: {'id': fs.id, 'copies': fs.copies},
+                }
+            }
+        )
+
+        # Test when store_id doesn't match
+        store_id = random_id()
+        with self.assertRaises(Exception) as cm:
+            inst.connect_filestore(tmp.dir, store_id)
+        self.assertEqual(
+            str(cm.exception),
+            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
+        )
+
+        # Test when store is already connected:
+        with self.assertRaises(Exception) as cm:
+            inst.connect_filestore(tmp.dir, doc['_id'])
+        self.assertEqual(
+            str(cm.exception),
+            'already have ID {!r}'.format(doc['_id'])
+        )
+
+        # Connect another store
+        tmp2 = TempDir()
+        doc2 = create_filestore(0)
+        tmp2.makedirs('.dmedia')
+        store2 = tmp2.join('.dmedia', 'store.json')
+        json.dump(doc2, open(store2, 'w'))
+
+        fs2 = inst.connect_filestore(tmp2.dir, doc2['_id'])
+        self.assertIsInstance(fs2, filestore.FileStore)
+        self.assertEqual(fs2.parentdir, tmp2.dir)
+        self.assertEqual(fs2.id, doc2['_id'])
+        self.assertEqual(fs2.copies, 0)
+        self.assertIs(inst.stores.by_id(fs2.id), fs2)
+        self.assertIs(inst.stores.by_parentdir(fs2.parentdir), fs2)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs.parentdir: {'id': fs.id, 'copies': 1},
+                    fs2.parentdir: {'id': fs2.id, 'copies': 0},
+                }
+            }
+        )
         
+
 
