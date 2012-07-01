@@ -84,9 +84,8 @@ def start_file_server(env):
     return (httpd, port)
 
 
-
 class Core:
-    def __init__(self, env, private=None, shared=None, bootstrap=True):
+    def __init__(self, env, private=None, shared=None, full_init=True):
         self.env = env
         self.db = util.get_db(env, init=True)
         self.ms = MetaStore(self.db)
@@ -95,7 +94,7 @@ class Core:
         self._shared = (SHARED if shared is None else shared)
         self.queue = Queue()
         self.thread = None
-        if bootstrap:
+        if full_init:
             self._init_local()
             self._init_default_store()
 

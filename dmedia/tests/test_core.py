@@ -53,7 +53,7 @@ class TestCore(CouchCase):
         machine_id = random_id()
 
         # Test when default_store is missing
-        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
@@ -74,7 +74,7 @@ class TestCore(CouchCase):
         )
 
         # Test when default_store is 'private'
-        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
@@ -114,7 +114,7 @@ class TestCore(CouchCase):
 
         # Again test when default_store is 'private' to make sure local isn't
         # updated needlessly
-        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
@@ -138,7 +138,7 @@ class TestCore(CouchCase):
         # Test when default_store is 'shared' (which we're assuming exists)
         self.assertFalse(util.isfilestore(shared.dir))
         (fs2, doc) = util.init_filestore(shared.dir)
-        inst = core.Core(self.env, private.dir, shared.dir, bootstrap=False)
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
