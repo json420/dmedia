@@ -134,6 +134,12 @@ class CreateFileStore(_Method):
         return [path.abspath(directory)]
 
 
+class SetDefaultStore(_Method):
+    "Set default store to 'private', 'shared', or 'none'"
+
+    args = ['value']
+
+
 class Resolve(_Method):
     'Resolve Dmedia file ID into a regular file path'
 

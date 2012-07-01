@@ -235,12 +235,16 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def CreateFileStore(self, parentdir):
-        self.core.create_filestore(str(parentdir))
+        parentdir = str(parentdir)
+        log.info('Dmedia.CreateFileStore(%r)', parentdir)
+        self.core.create_filestore(parentdir)
         return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def SetDefaultStore(self, default):
-        self.core.create_filestore(str(parentdir))
+    def SetDefaultStore(self, value):
+        value = str(value)
+        log.info('Dmedia.SetDefaultStore(%r)', value)
+        self.core.set_default_store(value)
         return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
