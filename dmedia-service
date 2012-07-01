@@ -92,10 +92,13 @@ class Service(dbus.service.Object):
             self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
             f = path.join(self.usercouch.basedir, 'library.json')
             self.config = get_config(f)
+            start = time.time()
             if self.config is None:
                 env = self.usercouch.bootstrap()
             else:
                 env = self.usercouch.bootstrap2(self.config['tokens'])
+            log.info('Starting CouchDB took %r', time.time() - start)
+            log.info(repr(self.usercouch.server.get()))
         else:
             self.config = None
             env = json.loads(self.env_s)
@@ -112,20 +115,21 @@ class Service(dbus.service.Object):
 
     def run(self):
         self.start_core()
-        GObject.timeout_add(1000, self.on_idle1)
+        log.info('Finished core startup in %r', time.time() - start_time)
+        GObject.timeout_add(2000, self.on_idle1)
         self.mainloop.run()
 
     def on_idle1(self):
         log.info('[idle1]')
         self.udisks.monitor()
-        GObject.timeout_add(2000, self.on_idle2)
+        GObject.timeout_add(3000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
         _start_thread(self.core.init_project_views)
-        interval = 5 * 60 * 1000  # Autocompact every 5 minutes
+        interval = 10 * 60 * 1000  # Autocompact every 10 minutes
         self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call
 

@@ -29,6 +29,7 @@ import os
 from os import path
 from gettext import gettext as _
 import logging
+import time
 
 import dbus
 from gi.repository import GObject
@@ -281,6 +282,8 @@ class UDisks(GObject.GObject):
         }
 
     def monitor(self):
+        start = time.time()
+        log.info('Starting UDisks device enumeration...')
         self.proxy = system.get_object(
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
@@ -299,7 +302,6 @@ class UDisks(GObject.GObject):
         }
         self.proxy.connect_to_signal('DeviceChanged', self.on_DeviceChanged)
         self.proxy.connect_to_signal('DeviceRemoved', self.on_DeviceRemoved)
-        log.info('Starting UDisks device enumeration...')
         try:
             devices = self.proxy.EnumerateDevices()
         except Exception as e:
@@ -310,7 +312,7 @@ class UDisks(GObject.GObject):
                 self.change_device(obj)
             except Exception as e:
                 log.exception('Exception calling change_device(%r)', obj)
-        log.info('Finished UDisks device enumeration.')
+        log.info('Finished UDisks device enumeration in %r', time.time() - start)
 
     def on_DeviceChanged(self, obj):
         self.change_device(obj)
