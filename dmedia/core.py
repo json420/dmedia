@@ -272,4 +272,69 @@ class Core:
             'file_id': ch.id,
             'file_path': fs.path(ch.id),
         }
+
+
+class Core2:
+    def create_filestore(self, parentdir, label):
+        """
+        Create a new file-store in *parentdir*.
+        """
+
+    def connect_filestore(self, parentdir, store_id):
+        """
+        Put an existing file-store into the local storage pool.
+        """
+
+    def disconnect_filestore(self, parentdir, store_id):
+        """
+        Remove an existing file-store from the local storage pool.
+        """
+
+    def downgrade_store(self, store_id):
+        """
+        Mark all files in *store_id* as counting for zero copies.
+
+        This method downgrades our confidence in a particular store.  Files are
+        still tracked in this store, but they are all updated to have zero
+        copies worth of durability in this store.  Some scenarios in which you
+        might do this:
+
+            1. It's been too long since a particular HDD has connected, so we
+               play it safe and work from the assumption the HHD wont contain
+               the expected files, or was run over by a bus.
+
+            2. We're about to format a removable drive, so we first downgrade
+               all the files it contains so addition copies can be created if
+               needed, and so other nodes know not to count on these copies.
+
+        Note that this method makes sense for remote cloud stores as well as for
+        local file-stores.
+        """
+
+    def purge_store(self, store_id):
+        """
+        Purge all record of files in *store_id*.
+
+        This method completely erases the record of a particular store, at least
+        from the file persecutive.  This store will no longer count in the
+        durability of any files, nor will Dmedia consider this store as a source
+        for any files.
+
+        Specifically, all of these will be deleted if they exist:
+
+            * ``doc['stored'][store_id]``
+            * ``doc['corrupt'][store_id]``
+            * ``doc['partial'][store_id]``
+
+        Some scenarios in which you might want to do this:
+        
+            1. The HDD was run over by a bus, the data is gone.  We need to
+               embrace reality, the sooner the better.
+
+            2. We're going to format or otherwise repurpose an HDD.  Ideally, we
+               would have called `Core2.downgrade_store()` first.
+ 
+        Note that this method makes sense for remote cloud stores as well as for
+        local file-stores
+        """
         
