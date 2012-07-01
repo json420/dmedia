@@ -134,6 +134,7 @@ class Core:
             self.db.save(self.local)
 
     def _add_filestore(self, fs, doc):
+        fs.purge_tmp()
         self.stores.add(fs)
         try:
             self.db.save(doc)
