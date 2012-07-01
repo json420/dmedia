@@ -103,9 +103,9 @@ class Service(dbus.service.Object):
         self.env_s = dumps(self.core.env)
 
     def start_httpd(self):
-        #(self.httpd, self.port) = start_file_server(self.core.env)
-        #self.avahi = Avahi(self.core.env, self.port)
-        #self.avahi.run()
+        (self.httpd, self.port) = start_file_server(self.core.env)
+        self.avahi = Avahi(self.core.env, self.port)
+        self.avahi.run()
         if self.config is not None:
             self.replicator = Replicator(self.core.env, self.config)
             self.replicator.run()
@@ -116,13 +116,15 @@ class Service(dbus.service.Object):
         self.mainloop.run()
 
     def on_idle1(self):
+        log.info('[idle1]')
         self.udisks.monitor()
-        _start_thread(self.core.init_project_views)
-        GObject.timeout_add(5000, self.on_idle2)
+        GObject.timeout_add(2000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
+        log.info('[idle2]')
         self.start_httpd()
+        _start_thread(self.core.init_project_views)
         interval = 5 * 60 * 1000  # Autocompact every 5 minutes
         self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call

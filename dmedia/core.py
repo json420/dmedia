@@ -114,10 +114,12 @@ class Core:
     def _init_default_store(self):
         default = self.local.get('default_store')
         if default not in ('private', 'shared'):
+            log.info('no default FileStore')
             self._sync_stores()
             return
         parentdir = (self._private if default == 'private' else self._shared)
         (fs, doc) = util.init_filestore(parentdir)
+        log.info('Connecting default FileStore %r at %r', fs.id, fs.parentdir)
         self._add_filestore(fs, doc)
 
     def _sync_stores(self):
