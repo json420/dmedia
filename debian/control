@@ -3,7 +3,7 @@ Section: python
 Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
 Build-Depends: debhelper (>= 8.9), python3 (>= 3.2),
-    python3-filestore (>= 12.07,
+    python3-filestore (>= 12.07),
     python3-microfiber (>= 12.07),
     python3-usercouch (>= 12.07),
 Standards-Version: 3.9.2
