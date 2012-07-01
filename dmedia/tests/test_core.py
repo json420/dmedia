@@ -63,6 +63,7 @@ class TestCore(CouchCase):
         }
 
         inst._init_default_store()
+        self.assertIsNone(inst.default)
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
@@ -156,6 +157,70 @@ class TestCore(CouchCase):
                         'copies': fs2.copies,
                     }
                 }
+            }
+        )
+
+    def test_set_default_store(self):
+        private = TempDir()
+        shared = TempDir()
+        (fs1, doc1) = util.init_filestore(private.dir)
+        (fs2, doc2) = util.init_filestore(shared.dir)
+        inst = core.Core(self.env, private.dir, shared.dir)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+
+        with self.assertRaises(ValueError) as cm:
+            inst.set_default_store('foobar')
+        self.assertEqual(
+            str(cm.exception),
+            "need 'private', 'shared', or 'none'; got 'foobar'"
+        )
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'machine_id': inst.machine_id,
+                'stores': {},
+            }
+        )
+
+        # Test with 'private'
+        inst.set_default_store('private')
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
+                },
+            }
+        )
+
+        # Test with 'shared'
+        inst.set_default_store('shared')
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-6',
+                'machine_id': inst.machine_id,
+                'default_store': 'shared',
+                'stores': {
+                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                },
+            }
+        )
+
+        # Test with 'none'
+        inst.set_default_store('none')
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-8',
+                'machine_id': inst.machine_id,
+                'default_store': 'none',
+                'stores': {},
             }
         )
 

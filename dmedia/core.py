@@ -117,13 +117,15 @@ class Core:
         log.info('machine_id = %r', self.machine_id)
 
     def _init_default_store(self):
-        default = self.local.get('default_store')
-        if default not in ('private', 'shared'):
+        value = self.local.get('default_store')
+        if value not in ('private', 'shared'):
             log.info('no default FileStore')
+            self.default = None
             self._sync_stores()
             return
-        parentdir = (self._private if default == 'private' else self._shared)
+        parentdir = (self._private if value == 'private' else self._shared)
         (fs, doc) = util.init_filestore(parentdir)
+        self.default = fs
         log.info('Connecting default FileStore %r at %r', fs.id, fs.parentdir)
         self._add_filestore(fs, doc)
 
@@ -134,11 +136,11 @@ class Core:
             self.db.save(self.local)
 
     def _add_filestore(self, fs, doc):
+        self.stores.add(fs)
         try:
             fs.purge_tmp()
         except Exception:
             log.exception('Error calling FileStore.purge_tmp():')
-        self.stores.add(fs)
         try:
             self.db.save(doc)
         except Conflict:
@@ -170,6 +172,19 @@ class Core:
         for row in self.db.view('project', 'atime')['rows']:
             util.get_project_db(row['id'], self.env, True)
         log.info('Core.init_project_views() complete')
+
+    def set_default_store(self, value):
+        if value not in ('private', 'shared', 'none'):
+            raise ValueError(
+                "need 'private', 'shared', or 'none'; got {!r}".format(value)
+            )
+        if self.local.get('default_store') != value:
+            self.local['default_store'] = value
+            self.db.save(self.local)
+        if self.default is not None:
+            self.disconnect_filestore(self.default.parentdir, self.default.id)
+            self.default = None
+        self._init_default_store()
 
     def create_filestore(self, parentdir):
         """
