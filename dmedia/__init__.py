@@ -60,13 +60,14 @@ def configure_logging():
         level=logging.DEBUG,
         format='\t'.join(format),
     )
-    logging.info('======== Process Start ========')
+    logging.info('======== Dmedia Process Start ========')
     logging.info('script: %r', script)
     logging.info('__file__: %r', __file__)
     logging.info('__version__: %r', __version__)
     logging.info('Python: %s, %s, %s',
         platform.python_version(), platform.machine(), platform.system()
     )
+    logging.info('======================================')
 
 
 def get_dmedia_dir():
