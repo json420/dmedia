@@ -23,6 +23,8 @@
 Unit tests for `dmedia.util`.
 """
 
+from os import path
+from subprocess import check_call, CalledProcessError
 from unittest import TestCase
 import json
 
@@ -33,8 +35,13 @@ from microfiber import random_id
 from .base import TempDir
 from .couch import CouchCase
 
+import dmedia
 from dmedia import schema
 from dmedia import util
+
+
+tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
+script = path.join(tree, 'share', 'init-filestore')
 
 
 class TestFunctions(TestCase):
@@ -84,6 +91,21 @@ class TestFunctions(TestCase):
             str(cm.exception),
             'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
         )
+
+    def test_init_filestore_script(self):
+        if not path.isfile(script):
+            self.skipTest('no file {!r}'.format(script))
+        tmp = TempDir()
+
+        # Try without arguments
+        with self.assertRaises(CalledProcessError) as cm:
+            check_call([script])
+        self.assertFalse(util.isfilestore(tmp.dir))
+
+        # Try it with correct arguments
+        check_call([script, tmp.dir])
+        self.assertTrue(util.isfilestore(tmp.dir))
+
 
 
 class TestDBFunctions(CouchCase):
