@@ -41,7 +41,7 @@ from dmedia import util
 
 
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
-script = path.join(tree, 'share', 'init-filestore')
+script = path.join(tree, 'init-filestore')
 
 
 class TestFunctions(TestCase):

@@ -164,7 +164,7 @@ setup(
         ('lib/dmedia',
             [
                 'dmedia-service',
-                'share/init-filestore',
+                'init-filestore',
                 'dmedia-transcoder',
             ]
         ),
