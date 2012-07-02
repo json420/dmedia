@@ -2,7 +2,7 @@
 
 import sys
 from os import path
-from dmedia.core import init_filestore
+from dmedia.util import init_filestore
 
 if len(sys.argv) != 2:
     print('takes exactly one argument PARENTDIR')

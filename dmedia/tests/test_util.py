@@ -23,17 +23,92 @@
 Unit tests for `dmedia.util`.
 """
 
+from os import path
+from subprocess import check_call, CalledProcessError
 from unittest import TestCase
-from .couch import CouchCase
+import json
 
+import filestore
 import microfiber
 from microfiber import random_id
 
+from .base import TempDir
+from .couch import CouchCase
+
+import dmedia
 from dmedia import schema
 from dmedia import util
 
 
-class TestFunctions(CouchCase):
+tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
+script = path.join(tree, 'share', 'init-filestore')
+
+
+class TestFunctions(TestCase):
+    def test_isfilestore(self):
+        tmp = TempDir()
+        self.assertFalse(util.isfilestore(tmp.dir))
+        tmp.makedirs('.dmedia')
+        self.assertTrue(util.isfilestore(tmp.dir))
+
+    def test_getfilestore(self):
+        tmp = TempDir()
+        doc = schema.create_filestore(1)
+
+        # Test when .dmedia/ doesn't exist
+        with self.assertRaises(IOError) as cm:
+            util.get_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/ exists, but store.json doesn't:
+        tmp.makedirs('.dmedia')
+        with self.assertRaises(IOError) as cm:
+            util.get_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/store.json exists
+        store = tmp.join('.dmedia', 'store.json')
+        json.dump(doc, open(store, 'w'))
+
+        (fs, doc2) = util.get_filestore(tmp.dir, doc['_id'])
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, doc['_id'])
+        self.assertEqual(fs.copies, 1)
+        self.assertEqual(doc2, doc)
+
+        # Test when you override copies
+        (fs, doc2) = util.get_filestore(tmp.dir, doc['_id'], copies=2)
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, doc['_id'])
+        self.assertEqual(fs.copies, 2)
+        self.assertEqual(doc2['copies'], 2)
+
+        # Test when store_id doesn't match
+        store_id = random_id()
+        with self.assertRaises(Exception) as cm:
+            util.get_filestore(tmp.dir, store_id)
+        self.assertEqual(
+            str(cm.exception),
+            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
+        )
+
+    def test_init_filestore_script(self):
+        if not path.isfile(script):
+            self.skipTest('no file {!r}'.format(script))
+        tmp = TempDir()
+
+        # Try without arguments
+        with self.assertRaises(CalledProcessError) as cm:
+            check_call([script])
+        self.assertFalse(util.isfilestore(tmp.dir))
+
+        # Try it with correct arguments
+        check_call([script, tmp.dir])
+        self.assertTrue(util.isfilestore(tmp.dir))
+
+
+
+class TestDBFunctions(CouchCase):
     def test_get_db(self):
         db = util.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)
@@ -57,7 +132,7 @@ class TestFunctions(CouchCase):
         self.assertEqual(db.name, db_name)
         self.assertTrue(db.ensure())
         self.assertEqual(db.get()['db_name'], db_name)
-        
+
         # Test with init=True
         _id = random_id()
         db_name = schema.project_db_name(_id)

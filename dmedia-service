@@ -59,8 +59,8 @@ session = dbus.SessionBus()
 
 def dumps(obj):
     return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
-    
-    
+
+
 def get_config(f):
     try:
         return json.load(open(f, 'r'))
@@ -81,52 +81,55 @@ class Service(dbus.service.Object):
         log.info('DBus: binding to %r', bus)
         super().__init__(session, object_path='/')
         self.busname = dbus.service.BusName(bus, session)
+        self.udisks = UDisks()
+        self.udisks.connect('store_added', self.on_store_added)
+        self.udisks.connect('store_removed', self.on_store_removed)
+        self.udisks.connect('card_added', self.on_card_added)
+        self.udisks.connect('card_removed', self.on_card_removed)
 
     def start_core(self):
         if self.env_s is None:
             self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
             f = path.join(self.usercouch.basedir, 'library.json')
             self.config = get_config(f)
+            start = time.time()
             if self.config is None:
                 env = self.usercouch.bootstrap()
             else:
                 env = self.usercouch.bootstrap2(self.config['tokens'])
+            log.info('Starting CouchDB took %r', time.time() - start)
+            log.info(repr(self.usercouch.server.get()))
         else:
             self.config = None
             env = json.loads(self.env_s)
-        self.udisks = UDisks()
-        self.core = Core(env, self.udisks.get_parentdir_info)
+        self.core = Core(env)
         self.env_s = dumps(self.core.env)
-        if len(self.core.stores) == 0:
-            self.core.add_filestore('/home')
-        self.udisks.connect('store_added', self.on_store_added)
-        self.udisks.connect('store_removed', self.on_store_removed)
-        self.udisks.connect('card_added', self.on_card_added)
-        self.udisks.connect('card_removed', self.on_card_removed)
 
     def start_httpd(self):
-        #(self.httpd, self.port) = start_file_server(self.core.env)
-        #self.avahi = Avahi(self.core.env, self.port)
-        #self.avahi.run()
+        (self.httpd, self.port) = start_file_server(self.core.env)
+        self.avahi = Avahi(self.core.env, self.port)
+        self.avahi.run()
         if self.config is not None:
             self.replicator = Replicator(self.core.env, self.config)
             self.replicator.run()
 
     def run(self):
         self.start_core()
-        GObject.timeout_add(1000, self.on_idle1)
+        log.info('Finished core startup in %r', time.time() - start_time)
+        GObject.timeout_add(2000, self.on_idle1)
         self.mainloop.run()
 
     def on_idle1(self):
-        print('idle1')
+        log.info('[idle1]')
         self.udisks.monitor()
         _start_thread(self.core.init_project_views)
-        GObject.timeout_add(5000, self.on_idle2)
+        GObject.timeout_add(4000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
-        print('idle2')
+        log.info('[idle2]')
         self.start_httpd()
+        self.core.start_background_tasks()
         interval = 5 * 60 * 1000  # Autocompact every 5 minutes
         self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call
@@ -143,30 +146,30 @@ class Service(dbus.service.Object):
     def shutdown(self):
         log.info('Service.shutdown()')
         if self.usercouch is not None:
-            log.info('killing usercouch')
+            log.info('* killing usercouch')
             self.usercouch.kill()
         if self.avahi is not None:
-            log.info('freeing avahi')
+            log.info('* freeing avahi')
             self.avahi.free()
         if self.replicator is not None:
-            log.info('freeing replicator')
+            log.info('* freeing replicator')
             self.replicator.free()
         if self.httpd is not None:
-            log.info('killing httpd')
+            log.info('* killing httpd')
             self.httpd.terminate()
             self.httpd.join()
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
-            self.AddFileStore(parentdir)
+            self.core.connect_filestore(parentdir, store_id)
         except Exception:
-            log.exception('Could not add FileStore %r', parentdir)
+            log.exception('Could not connect FileStore %r', parentdir)
 
     def on_store_removed(self, udisks, obj, parentdir, store_id):
         try:
-            self.RemoveFileStore(parentdir)
+            self.core.disconnect_filestore(parentdir, store_id)
         except Exception:
-            log.exception('Could not remove FileStore %r', parentdir)
+            log.exception('Could not disconnect FileStore %r', parentdir)
 
     def on_card_added(self, udisks, obj, mount, info):
         self.CardAdded(obj, mount, dumps(info))
@@ -231,13 +234,17 @@ class Service(dbus.service.Object):
             return '{}'
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def AddFileStore(self, parentdir):
-        fs = self.core.add_filestore(parentdir)
+    def CreateFileStore(self, parentdir):
+        parentdir = str(parentdir)
+        log.info('Dmedia.CreateFileStore(%r)', parentdir)
+        self.core.create_filestore(parentdir)
         return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def RemoveFileStore(self, parentdir):
-        fs = self.core.remove_filestore(parentdir)
+    def SetDefaultStore(self, value):
+        value = str(value)
+        log.info('Dmedia.SetDefaultStore(%r)', value)
+        self.core.set_default_store(value)
         return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')

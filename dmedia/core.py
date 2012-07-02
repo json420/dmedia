@@ -36,20 +36,22 @@ import stat
 import multiprocessing
 from urllib.parse import urlparse
 import logging
+from queue import Queue
 
-from microfiber import Database, NotFound, random_id2
-from filestore import FileStore, check_root_hash, check_id
+from microfiber import Database, NotFound, Conflict, random_id2
+from filestore import FileStore, check_root_hash, check_id, _start_thread
 
 import dmedia
-from dmedia import schema
+from dmedia import util, schema
+from dmedia.metastore import MetaStore
 from dmedia.local import LocalStores, FileNotLocal
 from dmedia.views import init_views
-from dmedia.util import get_project_db
-from dmedia.units import bytes10
 
 
-LOCAL_ID = '_local/dmedia'
 log = logging.getLogger()
+LOCAL_ID = '_local/dmedia'
+SHARED = '/home'
+PRIVATE = path.abspath(os.environ['HOME'])
 
 
 def file_server(env, queue):
@@ -82,45 +84,19 @@ def start_file_server(env):
     return (httpd, port)
 
 
-def init_filestore(parentdir, copies=1):
-    fs = FileStore(parentdir)
-    store = path.join(fs.basedir, 'store.json')
-    try:
-        doc = json.load(open(store, 'r'))
-    except Exception:
-        doc = schema.create_filestore(copies)
-        json.dump(doc, open(store, 'w'), sort_keys=True, indent=4)
-        os.chmod(store, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-    fs.id = doc['_id']
-    fs.copies = doc['copies']
-    return (fs, doc)
-
-
-class Base:
-    def __init__(self, env):
-        self.env = env
-        self.logdb = Database('dmedia_log', env)
-
-    def log(self, doc):
-        doc['_id'] = random_id2()
-        doc['machine_id'] = self.env.get('machine_id')
-        return self.logdb.post(doc, batch='ok')
-
-
 class Core:
-    def __init__(self, env, get_parentdir_info=None, bootstrap=True):
+    def __init__(self, env, private=None, shared=None, full_init=True):
         self.env = env
-        self.db = Database(schema.DB_NAME, env)
+        self.db = util.get_db(env, init=True)
+        self.ms = MetaStore(self.db)
         self.stores = LocalStores()
-        self._get_parentdir_info = get_parentdir_info
-        if bootstrap:
-            self._bootstrap()
-
-    def _bootstrap(self):
-        self.db.ensure()
-        init_views(self.db)
-        self._init_local()
-        self._init_stores()
+        self._private = (PRIVATE if private is None else private)
+        self._shared = (SHARED if shared is None else shared)
+        self.queue = Queue()
+        self.thread = None
+        if full_init:
+            self._init_local()
+            self._init_default_store()
 
     def _init_local(self):
         try:
@@ -139,47 +115,154 @@ class Core:
         self.env['version'] = dmedia.__version__
         log.info('machine_id = %r', self.machine_id)
 
-    def _init_stores(self):
-        if not self.local['stores']:
+    def _init_default_store(self):
+        value = self.local.get('default_store')
+        if value not in ('private', 'shared'):
+            log.info('no default FileStore')
+            self.default = None
+            self._sync_stores()
             return
-        dirs = sorted(self.local['stores'])
-        log.info('Adding previous FileStore in _local/dmedia')
-        for parentdir in dirs:
-            try:
-                fs = self._init_filestore(parentdir)
-                self.stores.add(fs)
-                self.local['stores'][parentdir] = {
-                    'id': fs.id,
-                    'copies': fs.copies,
-                }
-            except Exception:
-                log.exception('Failed to init FileStore %r', parentdir)
-                del self.local['stores'][parentdir]
-                log.info('Removed %r from _local/dmedia', parentdir)
-        self.db.save(self.local)
-        assert set(self.local['stores']) == set(self.stores.parentdirs)
-        assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
+        parentdir = (self._private if value == 'private' else self._shared)
+        (fs, doc) = util.init_filestore(parentdir)
+        self.default = fs
+        log.info('Connecting default FileStore %r at %r', fs.id, fs.parentdir)
+        self._add_filestore(fs, doc)
 
-    def _init_filestore(self, parentdir, copies=1):
-        (fs, doc) = init_filestore(parentdir, copies)
+    def _sync_stores(self):
+        stores = self.stores.local_stores()
+        if self.local.get('stores') != stores:
+            self.local['stores'] = stores
+            self.db.save(self.local)
+
+    def _add_filestore(self, fs, doc):
+        self.stores.add(fs)
         try:
-            doc = self.db.get(doc['_id'])
-        except NotFound:
+            fs.purge_tmp()
+        except Exception:
+            log.exception('Error calling FileStore.purge_tmp():')
+        try:
+            self.db.save(doc)
+        except Conflict:
             pass
-        doc['connected'] = time.time()
-        doc['connected_to'] = self.machine_id
-        doc['statvfs'] = fs.statvfs()._asdict()
-        #if callable(self._get_parentdir_info):
-        #    doc.update(self._get_parentdir_info(parentdir))
-        self.db.save(doc)
-        log.info('FileStore %r at %r', fs.id, fs.parentdir)
-        return fs
+        self._sync_stores()
+        self.queue.put(fs)
+
+    def _remove_filestore(self, fs):
+        self.stores.remove(fs)
+        self._sync_stores()
+
+    def _background_worker(self):
+        log.info('Background worker listing to queue...')
+        while True:
+            try:
+                fs = self.queue.get()
+                start = time.time()
+                self.ms.scan(fs)
+                self.ms.relink(fs)
+                log.info('...checked %r in %r', fs, time.time() - start)
+            except Exception as e:
+                log.exception('Error in background worker:')
+
+    def start_background_tasks(self):
+        assert self.thread is None
+        self.thread = _start_thread(self._background_worker)
 
     def init_project_views(self):
         for row in self.db.view('project', 'atime')['rows']:
-            get_project_db(row['id'], self.env, True)
+            util.get_project_db(row['id'], self.env, True)
         log.info('Core.init_project_views() complete')
 
+    def set_default_store(self, value):
+        if value not in ('private', 'shared', 'none'):
+            raise ValueError(
+                "need 'private', 'shared', or 'none'; got {!r}".format(value)
+            )
+        if self.local.get('default_store') != value:
+            self.local['default_store'] = value
+            self.db.save(self.local)
+        if self.default is not None:
+            self.disconnect_filestore(self.default.parentdir, self.default.id)
+            self.default = None
+        self._init_default_store()
+
+    def create_filestore(self, parentdir):
+        """
+        Create a new file-store in *parentdir*.
+        """
+        if util.isfilestore(parentdir):
+            raise Exception(
+                'Already contains a FileStore: {!r}'.format(parentdir)
+            )
+        log.info('Creating a new FileStore in %r', parentdir)
+        (fs, doc) = util.init_filestore(parentdir)
+        return self.connect_filestore(parentdir, fs.id)
+
+    def connect_filestore(self, parentdir, store_id):
+        """
+        Put an existing file-store into the local storage pool.
+        """
+        log.info('Connecting FileStore %r at %r', store_id, parentdir)
+        (fs, doc) = util.get_filestore(parentdir, store_id)
+        self._add_filestore(fs, doc)
+        return fs
+
+    def disconnect_filestore(self, parentdir, store_id):
+        """
+        Remove an existing file-store from the local storage pool.
+        """
+        log.info('Disconnecting FileStore %r at %r', store_id, parentdir)
+        fs = self.stores.by_parentdir(parentdir)
+        self._remove_filestore(fs)
+        return fs
+
+    def downgrade_store(self, store_id):
+        """
+        Mark all files in *store_id* as counting for zero copies.
+
+        This method downgrades our confidence in a particular store.  Files are
+        still tracked in this store, but they are all updated to have zero
+        copies worth of durability in this store.  Some scenarios in which you
+        might do this:
+
+            1. It's been too long since a particular HDD has connected, so we
+               play it safe and work from the assumption the HHD wont contain
+               the expected files, or was run over by a bus.
+
+            2. We're about to format a removable drive, so we first downgrade
+               all the files it contains so addition copies can be created if
+               needed, and so other nodes know not to count on these copies.
+
+        Note that this method makes sense for remote cloud stores as well as for
+        local file-stores.
+        """
+
+    def purge_store(self, store_id):
+        """
+        Purge all record of files in *store_id*.
+
+        This method completely erases the record of a particular store, at least
+        from the file persecutive.  This store will no longer count in the
+        durability of any files, nor will Dmedia consider this store as a source
+        for any files.
+
+        Specifically, all of these will be deleted if they exist:
+
+            * ``doc['stored'][store_id]``
+            * ``doc['corrupt'][store_id]``
+            * ``doc['partial'][store_id]``
+
+        Some scenarios in which you might want to do this:
+        
+            1. The HDD was run over by a bus, the data is gone.  We need to
+               embrace reality, the sooner the better.
+
+            2. We're going to format or otherwise repurpose an HDD.  Ideally, we
+               would have called `Core2.downgrade_store()` first.
+ 
+        Note that this method makes sense for remote cloud stores as well as for
+        local file-stores
+        """
+ 
     def stat(self, _id):
         doc = self.db.get(_id)
         fs = self.stores.choose_local_store(doc)
@@ -187,49 +270,12 @@ class Core:
 
     def stat2(self, doc):
         fs = self.stores.choose_local_store(doc)
-        return fs.stat(doc['_id'])       
-
-    def content_hash(self, _id, unpack=True):
-        doc = self.get_doc(_id)
-        leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
-        return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
-
-    def add_filestore(self, parentdir, copies=1):
-        log.info('add_filestore(%r, copies=%r)', parentdir, copies)
-        if parentdir in self.local['stores']:
-            raise Exception('already have parentdir {!r}'.format(parentdir))
-        fs = self._init_filestore(parentdir, copies)
-        self.stores.add(fs)
-        self.local['stores'][parentdir] = {
-            'id': fs.id,
-            'copies': fs.copies,
-        }
-        self.db.save(self.local)
-        assert set(self.local['stores']) == set(self.stores.parentdirs)
-        assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
-        return fs
-
-    def remove_filestore(self, parentdir):
-        log.info('remove_filestore(%r)', parentdir)
-        fs = self.stores.by_parentdir(parentdir)
-        self.stores.remove(fs)
-        del self.local['stores'][parentdir]
-        self.db.save(self.local)
-        assert set(self.local['stores']) == set(self.stores.parentdirs)
-        assert set(s['id'] for s in self.local['stores'].values()) == set(self.stores.ids)
+        return fs.stat(doc['_id'])
 
     def resolve(self, _id):
         doc = self.db.get(_id)
         fs = self.stores.choose_local_store(doc)
         return fs.stat(_id).name
-
-    def allocate_tmp(self):
-        stores = self.stores.sort_by_avail()
-        if len(stores) == 0:
-            raise Exception('no filestores present')
-        tmp_fp = stores[0].allocate_tmp()
-        tmp_fp.close()
-        return tmp_fp.name
 
     def resolve_uri(self, uri):
         if not uri.startswith('dmedia:'):
@@ -246,6 +292,14 @@ class Core:
                     pass
         st = self.stat2(doc)
         return 'file://' + st.name
+
+    def allocate_tmp(self):
+        stores = self.stores.sort_by_avail()
+        if len(stores) == 0:
+            raise Exception('no filestores present')
+        tmp_fp = stores[0].allocate_tmp()
+        tmp_fp.close()
+        return tmp_fp.name
 
     def hash_and_move(self, tmp, origin):
         parentdir = path.dirname(path.dirname(path.dirname(tmp)))

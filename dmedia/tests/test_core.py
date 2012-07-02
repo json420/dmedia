@@ -25,13 +25,15 @@ Unit tests for `dmedia.core` module.
 """
 
 from unittest import TestCase
+import json
 
 import microfiber
+from microfiber import random_id
 import filestore
 
 from dmedia.local import LocalStores
-from dmedia.schema import DB_NAME
-from dmedia import core
+from dmedia.schema import DB_NAME, create_filestore
+from dmedia import util, core
 
 from .couch import CouchCase
 from .base import TempDir
@@ -45,88 +47,373 @@ class TestCore(CouchCase):
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.local['stores'], {})
 
-        # Add some filestores
-        tmp1 = TempDir()
-        tmp2 = TempDir()
-        fs1 = inst.add_filestore(tmp1.dir, copies=2)
-        fs2 = inst.add_filestore(tmp2.dir)
+    def test_init_default_store(self):
+        private = TempDir()
+        shared = TempDir()
+        machine_id = random_id()
 
-        # Test that these filestores are brought up next time
-        inst = core.Core(self.env)
-        self.assertEqual(inst.local['stores'],
-            {
-                tmp1.dir: {'id': fs1.id, 'copies': 2},
-                tmp2.dir: {'id': fs2.id, 'copies': 1},
-            }
-        )
-        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
-        
-        # Test that startup works even when a store is missing:
-        tmp1.rmtree()
-        inst = core.Core(self.env)
-        self.assertEqual(inst.local['stores'],
-            {
-                tmp2.dir: {'id': fs2.id, 'copies': 1},
-            }
-        )
-        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
-
-        # Test that startup works when store is missing and it brings us down to
-        # zero stores
-        tmp2.rmtree()
-        inst = core.Core(self.env)
-        self.assertEqual(inst.local['stores'], {})
-        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
-
-    def test_init_local(self):
-        inst = core.Core(self.env, bootstrap=False)
-        self.assertTrue(inst.db.ensure())
+        # Test when default_store is missing
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
         self.assertFalse(hasattr(inst, 'local'))
-        self.assertIsNone(inst._init_local())
-        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
+        inst.local = {
+            '_id': '_local/dmedia',
+            'machine_id': machine_id,
+        }
 
-    def test_add_filestore(self):
+        inst._init_default_store()
+        self.assertIsNone(inst.default)
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'machine_id': machine_id,
+                'stores': {},
+            }
+        )
+
+        # Test when default_store is 'private'
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst._init_local()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'machine_id': machine_id,
+                'stores': {},
+            }
+        )
+        inst.local['default_store'] = 'private'
+
+        self.assertFalse(util.isfilestore(private.dir))
+        inst._init_default_store()
+        self.assertEqual(
+            set(inst.local['stores']),
+            set([private.dir])
+        )
+        store_id = inst.local['stores'][private.dir]['id']
+        (fs1, doc) = util.get_filestore(private.dir, store_id)
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {
+                        'id': fs1.id,
+                        'copies': fs1.copies,
+                    }
+                }
+            }
+        )
+
+        # Again test when default_store is 'private' to make sure local isn't
+        # updated needlessly
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst._init_local()
+        inst._init_default_store()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {
+                        'id': fs1.id,
+                        'copies': fs1.copies,
+                    }
+                }
+            }
+        )
+
+        # Test when default_store is 'shared' (which we're assuming exists)
+        self.assertFalse(util.isfilestore(shared.dir))
+        (fs2, doc) = util.init_filestore(shared.dir)
+        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst._init_local()
+        inst.local['default_store'] = 'shared'
+        inst._init_default_store()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': machine_id,
+                'default_store': 'shared',
+                'stores': {
+                    fs2.parentdir: {
+                        'id': fs2.id,
+                        'copies': fs2.copies,
+                    }
+                }
+            }
+        )
+
+    def test_set_default_store(self):
+        private = TempDir()
+        shared = TempDir()
+        (fs1, doc1) = util.init_filestore(private.dir)
+        (fs2, doc2) = util.init_filestore(shared.dir)
+        inst = core.Core(self.env, private.dir, shared.dir)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, shared.dir)
+
+        with self.assertRaises(ValueError) as cm:
+            inst.set_default_store('foobar')
+        self.assertEqual(
+            str(cm.exception),
+            "need 'private', 'shared', or 'none'; got 'foobar'"
+        )
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'machine_id': inst.machine_id,
+                'stores': {},
+            }
+        )
+
+        # Test with 'private'
+        inst.set_default_store('private')
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
+                },
+            }
+        )
+
+        # Test with 'shared'
+        inst.set_default_store('shared')
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-6',
+                'machine_id': inst.machine_id,
+                'default_store': 'shared',
+                'stores': {
+                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                },
+            }
+        )
+
+        # Test with 'none'
+        inst.set_default_store('none')
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-8',
+                'machine_id': inst.machine_id,
+                'default_store': 'none',
+                'stores': {},
+            }
+        )
+
+    def test_create_filestore(self):
         inst = core.Core(self.env)
-        tmp = TempDir()
 
-        # Test adding new
-        fs = inst.add_filestore(tmp.dir)
+        # Test when a filestore already exists
+        tmp = TempDir()
+        (fs, doc) = util.init_filestore(tmp.dir)
+        with self.assertRaises(Exception) as cm:
+            inst.create_filestore(tmp.dir)
+        self.assertEqual(
+            str(cm.exception),
+            'Already contains a FileStore: {!r}'.format(tmp.dir)
+        )
+
+        # Test when .dmedia doesn't exist
+        tmp = TempDir()
+        fs = inst.create_filestore(tmp.dir)
         self.assertIsInstance(fs, filestore.FileStore)
         self.assertEqual(fs.parentdir, tmp.dir)
         self.assertEqual(fs.copies, 1)
+        self.assertIs(inst.stores.by_id(fs.id), fs)
+        self.assertIs(inst.stores.by_parentdir(fs.parentdir), fs)
         self.assertEqual(
-            inst.local['stores'],
-            {tmp.dir: {'id': fs.id, 'copies': 1}}
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs.parentdir: {'id': fs.id, 'copies': fs.copies},
+                }
+            }
         )
-        self.assertEqual(inst.stores.ids, {fs.id: fs})
-        self.assertEqual(inst.stores.parentdirs, {tmp.dir: fs})
 
-        # Test adding a duplicate
-        with self.assertRaises(Exception) as cm:
-            inst.add_filestore(tmp.dir)
+        # Make sure we can disconnect a store that was just created
+        inst.disconnect_filestore(fs.parentdir, fs.id)
         self.assertEqual(
-            str(cm.exception),
-            'already have parentdir {!r}'.format(tmp.dir)
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'stores': {},
+            }
         )
-        self.assertEqual(
-            inst.local['stores'],
-            {tmp.dir: {'id': fs.id, 'copies': 1}}
-        )
-        self.assertEqual(inst.stores.ids, {fs.id: fs})
-        self.assertEqual(inst.stores.parentdirs, {tmp.dir: fs})
 
-        # Test adding a duplicate on next startup
+    def test_connect_filestore(self):
         inst = core.Core(self.env)
+        tmp = TempDir()
+        doc = create_filestore(1)
+
+        # Test when .dmedia/ doesn't exist
+        with self.assertRaises(IOError) as cm:
+            inst.connect_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/ exists, but store.json doesn't:
+        tmp.makedirs('.dmedia')
+        with self.assertRaises(IOError) as cm:
+            inst.connect_filestore(tmp.dir, doc['_id'])
+
+        # Test when .dmedia/store.json exists
+        store = tmp.join('.dmedia', 'store.json')
+        json.dump(doc, open(store, 'w'))
+
+        fs = inst.connect_filestore(tmp.dir, doc['_id'])
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, doc['_id'])
+        self.assertEqual(fs.copies, 1)
+        self.assertIs(inst.stores.by_id(fs.id), fs)
+        self.assertIs(inst.stores.by_parentdir(fs.parentdir), fs)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs.parentdir: {'id': fs.id, 'copies': fs.copies},
+                }
+            }
+        )
+
+        # Test when store_id doesn't match
+        store_id = random_id()
         with self.assertRaises(Exception) as cm:
-            inst.add_filestore(tmp.dir)
+            inst.connect_filestore(tmp.dir, store_id)
         self.assertEqual(
             str(cm.exception),
-            'already have parentdir {!r}'.format(tmp.dir)
+            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
         )
-        self.assertEqual(
-            inst.local['stores'],
-            {tmp.dir: {'id': fs.id, 'copies': 1}}
-        )
-        self.assertEqual(set(inst.stores.ids), set([fs.id]))
-        self.assertEqual(set(inst.stores.parentdirs), set([tmp.dir]))
 
+        # Test when store is already connected:
+        with self.assertRaises(Exception) as cm:
+            inst.connect_filestore(tmp.dir, doc['_id'])
+        self.assertEqual(
+            str(cm.exception),
+            'already have ID {!r}'.format(doc['_id'])
+        )
+
+        # Connect another store
+        tmp2 = TempDir()
+        doc2 = create_filestore(0)
+        tmp2.makedirs('.dmedia')
+        store2 = tmp2.join('.dmedia', 'store.json')
+        json.dump(doc2, open(store2, 'w'))
+
+        fs2 = inst.connect_filestore(tmp2.dir, doc2['_id'])
+        self.assertIsInstance(fs2, filestore.FileStore)
+        self.assertEqual(fs2.parentdir, tmp2.dir)
+        self.assertEqual(fs2.id, doc2['_id'])
+        self.assertEqual(fs2.copies, 0)
+        self.assertIs(inst.stores.by_id(fs2.id), fs2)
+        self.assertIs(inst.stores.by_parentdir(fs2.parentdir), fs2)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs.parentdir: {'id': fs.id, 'copies': 1},
+                    fs2.parentdir: {'id': fs2.id, 'copies': 0},
+                }
+            }
+        )
+
+    def test_disconnect_filestore(self):
+        inst = core.Core(self.env)
+
+        tmp1 = TempDir()
+        (fs1, doc1) = util.init_filestore(tmp1.dir)
+        tmp2 = TempDir()
+        (fs2, doc2) = util.init_filestore(tmp2.dir)
+
+        # Test when not connected:
+        with self.assertRaises(KeyError) as cm:
+            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        self.assertEqual(str(cm.exception), repr(fs1.parentdir))
+
+        # Connect both, then disconnect one by one
+        inst.connect_filestore(fs1.parentdir, fs1.id)
+        inst.connect_filestore(fs2.parentdir, fs2.id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
+                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                }
+            }
+        )
+
+        # Disconnect fs1
+        inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-4',
+                'machine_id': inst.machine_id,
+                'stores': {
+                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                }
+            }
+        )
+
+        # Disconnect fs2
+        inst.disconnect_filestore(fs2.parentdir, fs2.id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-5',
+                'machine_id': inst.machine_id,
+                'stores': {},
+            }
+        )
+
+        # Again test when not connected:
+        with self.assertRaises(KeyError) as cm:
+            inst.disconnect_filestore(fs2.parentdir, fs2.id)
+        self.assertEqual(str(cm.exception), repr(fs2.parentdir))
+        with self.assertRaises(KeyError) as cm:
+            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        self.assertEqual(str(cm.exception), repr(fs1.parentdir))
+        
+        
+        
+        
+        

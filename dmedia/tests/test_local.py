@@ -198,6 +198,33 @@ class TestLocalStores(TestCase):
         self.assertEqual(inst.fast, set())
         self.assertEqual(inst.slow, set())
 
+    def test_local_stores(self):
+        tmp1 = TempDir()
+        tmp2 = TempDir()
+        id1 = random_id()
+        id2 = random_id()
+        fs1 = FileStore(tmp1.dir, id1, 1)
+        fs2 = FileStore(tmp2.dir, id2, 0)
+        inst = local.LocalStores()
+
+        self.assertEqual(inst.local_stores(), {})
+        
+        inst.add(fs1)
+        self.assertEqual(inst.local_stores(),
+            {
+                fs1.parentdir: {'id': fs1.id, 'copies': 1},
+            }
+        )
+        
+        inst.add(fs2)
+        self.assertEqual(inst.local_stores(),
+            {
+                fs1.parentdir: {'id': fs1.id, 'copies': 1},
+                fs2.parentdir: {'id': fs2.id, 'copies': 0},  
+            }
+        )
+        
+
 
 class TestLocalSlave(CouchCase):
     create_databases = [schema.DB_NAME]

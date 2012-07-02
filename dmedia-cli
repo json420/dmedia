@@ -125,8 +125,8 @@ class LocalPeers(_Method):
     'Get the _local/peers document'
 
 
-class AddFileStore(_Method):
-    'Add a file storage location'
+class CreateFileStore(_Method):
+    'Create a new FileStore'
 
     args = ['directory']
     
@@ -134,8 +134,10 @@ class AddFileStore(_Method):
         return [path.abspath(directory)]
 
 
-class RemoveFileStore(AddFileStore):
-    'Add a file storage location'
+class SetDefaultStore(_Method):
+    "Set default store to 'private', 'shared', or 'none'"
+
+    args = ['value']
 
 
 class Resolve(_Method):
