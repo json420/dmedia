@@ -1045,6 +1045,10 @@ def check_job(doc):
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
     ...     'status': 'waiting',
+    ...     'worker': 'novacut-renderer',
+    ...     'files': [
+    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...     ],
     ... }
     ...
     >>> check_job(doc)
@@ -1057,8 +1061,26 @@ def check_job(doc):
     _check(doc, ['type'], str,
         (_equals, 'dmedia/job'),
     )
+
     _check(doc, ['status'], str,
         (_is_in, 'waiting', 'executing', 'complete', 'failed'),
+    )
+    _check(doc, ['worker'], str,
+        _nonempty,
+    )
+    _check(doc, ['files'], list,
+        _nonempty,
+    )
+    for i in range(len(doc['files'])):
+        _check(doc, ['files', i], str,
+            _intrinsic_id,
+        )
+
+    _check_if_exists(doc, ['time_start'], (int, float),
+        (_at_least, 0),
+    )
+    _check_if_exists(doc, ['time_end'], (int, float),
+        (_at_least, 0),
     )
 
 
@@ -1071,5 +1093,5 @@ def create_job(worker, files, job):
         'status': 'waiting',
         'worker': worker,
         'files': files,
-        'details': details,
+        'job': job,
     }
