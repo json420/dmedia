@@ -1031,3 +1031,45 @@ def create_tag(tag):
         'value': value,
         'key': RE_KEY_STRIP.sub('', value).lower(),
     }
+
+
+def check_job(doc):
+    """
+    Verify that *doc* is a valid "dmedia/job" document.
+
+    For example, a conforming value:
+
+    >>> doc = {
+    ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+    ...     'ver': 0,
+    ...     'type': 'dmedia/job',
+    ...     'time': 1234567890,
+    ...     'status': 'waiting',
+    ... }
+    ...
+    >>> check_job(doc)
+
+    """
+    check_dmedia(doc)
+    _check(doc, ['_id'], str,
+        _random_id,
+    )
+    _check(doc, ['type'], str,
+        (_equals, 'dmedia/job'),
+    )
+    _check(doc, ['status'], str,
+        (_is_in, 'waiting', 'executing', 'complete', 'failed'),
+    )
+
+
+def create_job(worker, files, job):
+    return {
+        '_id': random_id(),
+        'ver': VER,
+        'type': 'dmedia/job',
+        'time': time.time(),
+        'status': 'waiting',
+        'worker': worker,
+        'files': files,
+        'details': details,
+    }
