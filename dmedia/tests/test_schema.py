@@ -870,5 +870,4 @@ class TestFunctions(TestCase):
         self.assertEqual(job['worker'], worker)
         self.assertEqual(job['files'], [file_id])
         self.assertEqual(job['job'], {'ignored': marker})
-            
-        
+
