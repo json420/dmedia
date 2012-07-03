@@ -736,3 +736,139 @@ class TestFunctions(TestCase):
         doc = schema.create_project(title='Hobo Spaceship')
         schema.check_project(doc)
         self.assertEqual(doc['title'], 'Hobo Spaceship')
+
+    def test_check_job(self):
+        good = {
+            '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+            'ver': 0,
+            'type': 'dmedia/job',
+            'time': 1234567890,
+            'status': 'waiting',
+            'worker': 'novacut-renderer',
+            'files': [
+                'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+            ],
+            'job': {
+                'Dmedia': 'ignores everything in job',
+            },
+        }
+        self.assertIsNone(schema.check_job(good))
+
+        # Test all posible status:
+        for status in ('waiting', 'executing', 'complete', 'failed'):
+            doc = deepcopy(good)
+            doc['staus'] = status
+            schema.check_job(doc)
+
+        # Test with a bad status:
+        doc = deepcopy(good)
+        doc['status'] = 'vacationing'
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['status'] value 'vacationing' not in ('waiting', 'executing', 'complete', 'failed')"
+        )
+
+        # Test with missing worker
+        doc = deepcopy(good)
+        del doc['worker']
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['worker'] does not exist"
+        )
+
+        # Test with bad file IDs
+        id1 = random_id(DIGEST_BYTES)
+        id2 = random_id()
+        doc = deepcopy(good)
+        doc['files'] = [id1, id2]
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['files'][1]: intrinsic ID must be 48 characters, got 24: {!r}".format(id2)
+        )
+
+        # Test with an empty job
+        doc = deepcopy(good)
+        doc['job'] = {}
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['job'] cannot be empty; got {}"
+        )
+
+        # Test with a bad machine_id
+        doc = deepcopy(good)
+        doc['machine_id'] = 'foobar'
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['machine_id']: random ID must be 24 characters, got 6: 'foobar'"
+        )
+
+        # Test with bad time_start
+        doc = deepcopy(good)
+        doc['time_start'] = -1
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['time_start'] must be >= 0; got -1"
+        )
+
+        # Test with bad time_end
+        doc = deepcopy(good)
+        doc['time_end'] = -17
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['time_end'] must be >= 0; got -17"
+        )
+
+        # Test with an empty result
+        doc = deepcopy(good)
+        doc['result'] = ''
+        with self.assertRaises(ValueError) as cm:
+            schema.check_job(doc)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['result'] cannot be empty; got ''"
+        )
+
+    def test_create_job(self):
+        worker = 'novacut-' + random_id().lower()
+        file_id = random_id(DIGEST_BYTES)
+        marker = random_id()
+        job = schema.create_job(
+            worker,
+            [file_id],
+            {'ignored': marker},
+        )
+        schema.check_job(job)
+        schema.check_dmedia(job)
+        self.assertEqual(
+            set(job),
+            set([
+                '_id',
+                'ver',
+                'type',
+                'time',
+                'status',
+                'worker',
+                'files',
+                'job',
+            ])
+        )
+        self.assertEqual(job['status'], 'waiting')
+        self.assertEqual(job['worker'], worker)
+        self.assertEqual(job['files'], [file_id])
+        self.assertEqual(job['job'], {'ignored': marker})
+            
+        

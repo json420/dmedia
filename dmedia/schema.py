@@ -1049,10 +1049,58 @@ def check_job(doc):
     ...     'files': [
     ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
     ...     ],
+    ...     'job': {
+    ...         'Dmedia': 'ignores everything in job',
+    ...     },
     ... }
     ...
     >>> check_job(doc)
 
+    Once a job is running, it will be updated like this:
+
+    >>> doc = {
+    ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+    ...     'ver': 0,
+    ...     'type': 'dmedia/job',
+    ...     'time': 1234567890,
+    ...     'status': 'executing',
+    ...     'worker': 'novacut-renderer',
+    ...     'files': [
+    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...     ],
+    ...     'job': {
+    ...         'Dmedia': 'ignores everything in job',
+    ...     },
+    ...     'machine_id': '2VQ27USKA4U776JIEP7WQJEH',
+    ...     'time_start': 1240000000,
+    ... }
+    ...
+    >>> check_job(doc)
+
+    Finally, when a job in finished, it will be updated like this:
+
+    >>> doc = {
+    ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+    ...     'ver': 0,
+    ...     'type': 'dmedia/job',
+    ...     'time': 1234567890,
+    ...     'status': 'complete',
+    ...     'worker': 'novacut-renderer',
+    ...     'files': [
+    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...     ],
+    ...     'job': {
+    ...         'Dmedia': 'ignores everything in job',
+    ...     },
+    ...     'machine_id': '2VQ27USKA4U776JIEP7WQJEH',
+    ...     'time_start': 1240000000,
+    ...     'time_end': 1240000000,
+    ...     'result': {
+    ...         'Dmedia': 'also ignores everything in result',
+    ...     },
+    ... }
+    ...
+    >>> check_job(doc)
     """
     check_dmedia(doc)
     _check(doc, ['_id'], str,
@@ -1075,12 +1123,21 @@ def check_job(doc):
         _check(doc, ['files', i], str,
             _intrinsic_id,
         )
+    _check(doc, ['job'], (dict, str),
+        _nonempty,
+    )
 
+    _check_if_exists(doc, ['machine_id'], str,
+        _random_id,
+    )
     _check_if_exists(doc, ['time_start'], (int, float),
         (_at_least, 0),
     )
     _check_if_exists(doc, ['time_end'], (int, float),
         (_at_least, 0),
+    )
+    _check_if_exists(doc, ['result'], (dict, str),
+        _nonempty,
     )
 
 
