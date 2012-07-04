@@ -137,7 +137,7 @@ class Service(dbus.service.Object):
         log.info('[idle3]')
         _start_thread(self.core.init_project_views)
         self.core.start_background_tasks()
-        interval = 5 * 60 * 1000  # Autocompact every 5 minutes
+        interval = 10 * 60 * 1000  # Autocompact every 10 minutes
         self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call
 
