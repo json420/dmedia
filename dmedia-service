@@ -44,8 +44,7 @@ from gi.repository import GObject
 import dmedia
 from dmedia.core import Core, start_file_server
 from dmedia.service.udisks import UDisks
-from dmedia.service.avahi import Avahi
-from dmedia.service.replicator import Replicator
+from dmedia.service.replicator import Replicator, FileServer
 
 
 BUS = dmedia.BUS
@@ -107,8 +106,10 @@ class Service(dbus.service.Object):
 
     def start_httpd(self):
         (self.httpd, self.port) = start_file_server(self.core.env)
-        self.avahi = Avahi(self.core.env, self.port)
+        self.avahi = FileServer(self.core.env, self.port)
         self.avahi.run()
+
+    def start_replicator(self):
         if self.config is not None:
             self.replicator = Replicator(self.core.env, self.config)
             self.replicator.run()
@@ -122,13 +123,19 @@ class Service(dbus.service.Object):
     def on_idle1(self):
         log.info('[idle1]')
         self.udisks.monitor()
-        _start_thread(self.core.init_project_views)
         GObject.timeout_add(4000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
+        self.start_replicator()
+        GObject.timeout_add(6000, self.on_idle3)
+        return False  # Don't repeat idle call
+
+    def on_idle3(self):
+        log.info('[idle3]')
+        _start_thread(self.core.init_project_views)
         self.core.start_background_tasks()
         interval = 5 * 60 * 1000  # Autocompact every 5 minutes
         self._timeout_id = GObject.timeout_add(interval, self._autocompact)
