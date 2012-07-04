@@ -51,12 +51,10 @@ def get_body(source, target, cancel=False):
 
 
 def get_peer(env, dbname):
-    return {
-        'url': env['url'] + dbname,
-        'auth': {
-            'oauth': env['oauth'],
-        },
-    }
+    peer =  {'url': env['url'] + dbname}
+    if env.get('oauth'):
+        peer['auth'] = {'oauth': env['oauth']}
+    return peer
 
 
 class Avahi:
@@ -201,7 +199,7 @@ class Replicator(Avahi):
         self.server = Server(env)
         self.peers = {}
         self.base_id = config['library_id'] + '-'
-        self.tokens = config['tokens']
+        self.tokens = config.get('tokens')
         _id = self.base_id + env['machine_id']
         port = env['port']
         super().__init__(_id, port)

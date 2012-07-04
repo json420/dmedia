@@ -66,7 +66,16 @@ class TestFunctions(TestCase):
                     'oauth': oauth,
                 }
             }
-        ) 
+        )
+
+        # Try it with no oauth
+        env = {'url': url}
+        self.assertEqual(
+            replicator.get_peer(deepcopy(env), dbname),
+            {
+                'url': url + dbname,
+            }
+        )
 
 
 class TestAvahi(TestCase):
