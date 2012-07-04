@@ -60,8 +60,7 @@ def dumps(obj):
     return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
 
 
-def get_config():
-    f = path.join(dmedia.get_dmedia_dir(), 'library.json')
+def get_config(f):
     try:
         return json.load(open(f, 'r'))
     except Exception:
@@ -74,10 +73,9 @@ class Service(dbus.service.Object):
     avahi = None
     replicator = None
 
-    def __init__(self, bus, env_s, config):
+    def __init__(self, bus, env_s):
         self.bus = bus
         self.env_s = env_s
-        self.config = config
         self.mainloop = GObject.MainLoop()
         log.info('DBus: binding to %r', bus)
         super().__init__(session, object_path='/')
@@ -89,12 +87,10 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_removed', self.on_card_removed)
 
     def start_core(self):
-        if self.env_s:
-            env = json.loads(self.env_s)
-        elif self.config and self.config.get('env'):
-            env = self.config['env']
-        else:
+        if self.env_s is None:
             self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
+            f = path.join(self.usercouch.basedir, 'library.json')
+            self.config = get_config(f)
             start = time.time()
             if self.config is None:
                 env = self.usercouch.bootstrap()
@@ -102,6 +98,9 @@ class Service(dbus.service.Object):
                 env = self.usercouch.bootstrap2(self.config['tokens'])
             log.info('Starting CouchDB took %r', time.time() - start)
             log.info(repr(self.usercouch.server.get()))
+        else:
+            self.config = None
+            env = json.loads(self.env_s)
         self.core = Core(env)
         self.env_s = dumps(self.core.env)
 
@@ -286,7 +285,7 @@ parser.add_option('--bus',
 
 
 dmedia.configure_logging()
-service = Service(options.bus, options.env, get_config())
+service = Service(options.bus, options.env)
 try:
     service.run()
 finally:
