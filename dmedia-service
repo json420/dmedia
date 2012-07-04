@@ -94,8 +94,10 @@ class Service(dbus.service.Object):
             start = time.time()
             if self.config is None:
                 env = self.usercouch.bootstrap()
-            else:
+            elif self.config.get('tokens'):
                 env = self.usercouch.bootstrap2(self.config['tokens'])
+            else:
+                env = self.usercouch.bootstrap(auth='open', address='0.0.0.0')
             log.info('Starting CouchDB took %r', time.time() - start)
             log.info(repr(self.usercouch.server.get()))
         else:

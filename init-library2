@@ -14,7 +14,7 @@ def dumps(obj):
 
 obj = {
     'library_id': random_id(),
-    'env': {'url': 'http://localhost:5984/', 'port': 5984},
+    #'env': {'url': 'http://localhost:5984/', 'port': 5984},
 }
 obj_s = dumps(obj)
 
