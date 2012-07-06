@@ -219,6 +219,8 @@ class Replicator(Avahi):
         self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
 
     def on_timeout(self):
+        if not self.peers:
+            return
         current = set(self.get_names())
         for (key, peer) in self.peers.items():
             new = current - set(peer.names)
