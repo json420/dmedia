@@ -202,9 +202,12 @@ class Replicator(Avahi):
 
     def on_timeout(self):
         if not self.peers:
+            log.info('on_timeout: no peers')
             return
         current = set(self.get_names())
+        log.info('current: %r', len(current))
         for (key, peer) in self.peers.items():
+            log.info('%s: %r', key, len(peer.names))
             new = current - set(peer.names)
             if new:
                 log.info('New databases: %r', sorted(new))
