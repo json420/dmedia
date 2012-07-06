@@ -29,33 +29,14 @@ import time
 from collections import namedtuple
 
 from filestore import _start_thread
-from microfiber import Server, Database, NotFound, PreconditionFailed
+from microfiber import Server, Database, NotFound
 import dbus
 from gi.repository import GObject
 
 
 log = logging.getLogger()
-system = dbus.SystemBus()
 Peer = namedtuple('Peer', 'env names')
 PEERS = '_local/peers'
-
-
-def get_body(source, target, cancel=False):
-    body = {
-        'source': source,
-        'target': target,
-        'continuous': True,
-    }
-    if cancel:
-        body['cancel'] = True
-    return body
-
-
-def get_peer(env, dbname):
-    peer =  {'url': env['url'] + dbname}
-    if env.get('oauth'):
-        peer['auth'] = {'oauth': env['oauth']}
-    return peer
 
 
 class Avahi:
@@ -74,6 +55,7 @@ class Avahi:
         self.free()
 
     def run(self):
+        system = dbus.SystemBus()
         self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.group = system.get_object(
             'org.freedesktop.Avahi',
@@ -227,8 +209,8 @@ class Replicator(Avahi):
             if new:
                 log.info('New databases: %r', new)
                 tmp = Peer(peer.env, tuple(new))
-                _start_thread(self.replication_worker, None, tmp)
                 peer.names.extend(new)
+                _start_thread(self.replication_worker, None, tmp)
         return True  # Repeat timeout call
 
     def ignore_peer(self, interface, protocol, key, _type, domain, flags):
@@ -249,30 +231,20 @@ class Replicator(Avahi):
 
     def get_names(self):
         for name in self.server.get('_all_dbs'):
-            if not name.startswith('_'):
+            if name.startswith('dmedia-0') or name.startswith('novacut-0'):
                 yield name
 
     def replication_worker(self, cancel, start):
         if cancel:
             for name in cancel.names:
-                self.replicate(cancel.env, name, cancel=True)
+                self.replicate(name, cancel.env, cancel=True)
         if start:
-            remote = Server(start.env)
             for name in start.names:
-                if name != 'dmedia-0':
-                    # Create remote DB if needed
-                    try:
-                        remote.put(None, name)
-                        log.info('Created %s in %r', name, remote)
-                    except PreconditionFailed:
-                        pass
-                    except Exception as e:
-                        log.exception('Error creating %s in %r', name, remote)
-                time.sleep(0.25)
-                self.replicate(start.env, name)
+                #time.sleep(0.25)
+                self.replicate(name, start.env)
         log.info('replication_worker() done')
 
-    def replicate(self, env, name, cancel=False):
+    def replicate(self, name, env, cancel=False):
         """
         Start or cancel push replication of database *name* to peer at *url*.
 
@@ -283,14 +255,17 @@ class Replicator(Avahi):
         replication is the only way to at least prevent malicious data
         corruption.
         """
+        kw = {
+            'continuous': True,
+            'create_target': True,
+        }
         if cancel:
+            kw['cancel'] = True
             log.info('Canceling push of %s to %s', name, env['url'])
         else:
             log.info('Starting push of %s to %s', name, env['url'])
-        peer = get_peer(env, name)
-        push = get_body(name, peer, cancel)
         try:
-            self.server.post(push, '_replicate')
+            self.server.push(name, env, **kw)
         except Exception as e:
             if cancel:
                 log.exception('Error canceling push of %s to %s', name, env['url'])

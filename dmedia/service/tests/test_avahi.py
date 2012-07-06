@@ -32,52 +32,6 @@ from usercouch import random_oauth
 from dmedia.service import avahi
 
 
-
-class TestFunctions(TestCase):
-    def test_get_body(self):
-        self.assertEqual(
-            avahi.get_body('foo', 'bar'),
-            {
-                'source': 'foo',
-                'target': 'bar',
-                'continuous': True,
-            }
-        )
-        self.assertEqual(
-            avahi.get_body('foo', 'bar', cancel=True),
-            {
-                'source': 'foo',
-                'target': 'bar',
-                'continuous': True,
-                'cancel': True,
-            }
-        )
-
-    def test_get_peer(self):
-        url = 'http://192.168.20.118:60492/'
-        dbname = 'novacut-0' + random_id().lower()
-        oauth = random_oauth()
-        env = {'url': url, 'oauth': oauth}
-        self.assertEqual(
-            avahi.get_peer(deepcopy(env), dbname),
-            {
-                'url': url + dbname,
-                'auth': {
-                    'oauth': oauth,
-                }
-            }
-        )
-
-        # Try it with no oauth
-        env = {'url': url}
-        self.assertEqual(
-            avahi.get_peer(deepcopy(env), dbname),
-            {
-                'url': url + dbname,
-            }
-        )
-
-
 class TestAvahi(TestCase):
     def test_init(self):
         _id = random_id()
