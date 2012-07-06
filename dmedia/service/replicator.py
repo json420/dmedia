@@ -31,6 +31,7 @@ from collections import namedtuple
 from filestore import _start_thread
 from microfiber import Server, Database, NotFound, PreconditionFailed
 import dbus
+from gi.repository import GObject
 
 
 log = logging.getLogger()
@@ -204,6 +205,23 @@ class Replicator(Avahi):
         port = env['port']
         super().__init__(_id, port)
 
+    def run(self):
+        super().run()
+        # Every 15 seconds we check for database created since the replicator
+        # started
+        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
+
+    def on_timeout(self):
+        current = set(self.get_names())
+        for (key, peer) in self.peers.items():
+            new = current - set(peer.names)
+            if new:
+                log.info('New databases: %r', new)
+                tmp = Peer(peer.env, tuple(new))
+                _start_thread(self.replication_worker, None, tmp)
+                peer.names.extend(new)
+        return True  # Repeat timeout call
+
     def ignore_peer(self, interface, protocol, key, _type, domain, flags):
         # Ignore peers in other libraries:
         return not key.startswith(self.base_id)
@@ -222,7 +240,7 @@ class Replicator(Avahi):
 
     def get_names(self):
         for name in self.server.get('_all_dbs'):
-            if name.startswith('dmedia-0') or name.startswith('novacut-0'):
+            if not name.startswith('_'):
                 yield name
 
     def replication_worker(self, cancel, start):
