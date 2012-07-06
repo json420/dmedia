@@ -207,7 +207,7 @@ class Replicator(Avahi):
         for (key, peer) in self.peers.items():
             new = current - set(peer.names)
             if new:
-                log.info('New databases: %r', new)
+                log.info('New databases: %r', sorted(new))
                 tmp = Peer(peer.env, tuple(new))
                 peer.names.extend(new)
                 _start_thread(self.replication_worker, None, tmp)
