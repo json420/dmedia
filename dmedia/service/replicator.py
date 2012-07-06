@@ -20,7 +20,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Advertise CouchDB HTTP server over Avahi, discover other peers in same library.
+Advertise Dmedia HTTP services over Avahi, discover other peers.
 """
 
 import logging
@@ -162,6 +162,9 @@ class Avahi:
 
 
 class FileServer(Avahi):
+    """
+    Advertise HTTP file server server over Avahi, discover other peers.
+    """
     service = '_dmedia._tcp'
 
     def __init__(self, env, port):
@@ -193,6 +196,10 @@ class FileServer(Avahi):
 
 
 class Replicator(Avahi):
+    """
+    Advertise CouchDB over Avahi, discover other peers in same library.
+    """
+
     service = '_usercouch._tcp'
 
     def __init__(self, env, config):
