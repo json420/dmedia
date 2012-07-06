@@ -44,7 +44,7 @@ from gi.repository import GObject
 import dmedia
 from dmedia.core import Core, start_file_server
 from dmedia.service.udisks import UDisks
-from dmedia.service.replicator import Replicator, FileServer
+from dmedia.service.avahi import Replicator, FileServer
 
 
 BUS = dmedia.BUS
