@@ -250,6 +250,17 @@ function(doc) {
 """
 
 
+file_design = {
+    '_id': '_design/file',
+    'views': {
+        'stored': {'map': file_stored},
+        'fragile': {'map': file_fragile},
+        'reclaimable': {'map': file_reclaimable},
+        'verified': {'map': file_verified},
+    },
+}
+
+
 
 # For dmedia/file docs where origin is 'user':
 user_copies = """
@@ -532,6 +543,7 @@ core = (
 
 core = (
     doc_design,
+    file_design,
 )
 
 
