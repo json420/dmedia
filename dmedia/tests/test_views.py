@@ -25,7 +25,8 @@ Unit tests for `dmedia.views` module.
 
 from unittest import TestCase
 
-from microfiber import Database
+from microfiber import Database, random_id
+from filestore import DIGEST_BYTES
 
 from dmedia.tests.couch import CouchCase
 from dmedia.util import get_db
@@ -72,4 +73,61 @@ class TestDesignValues(TestCase):
         for doc in views.project:
             self.check_design(doc)
 
+
+def build(design, view, map_func, reduce_func=None):
+    value = {'map': map_func}
+    if reduce_func is not None:
+        value['reduce'] = reduce_func
+    return {
+        '_id': '_design/' + design,
+        'views': {
+            view: value,
+        }
+    }
+
+
+class TestFileDesign(CouchCase):
+    def test_stored(self):
+        db = get_db(self.env)
+        db.ensure()
+        design = build('file', 'stored', views.file_stored)
+        db.save(design)
+
+        self.assertEqual(
+            db.view('file', 'stored'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        (store_id1, store_id2) = sorted(random_id() for i in range(2))
+        _id = random_id(DIGEST_BYTES)
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+            'stored': {
+                store_id1: None,
+                store_id2: None,
+            },
+        }
+        db.save(doc)
+
+        self.assertEqual(
+            db.view('file', 'stored'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': store_id1, 'id': _id, 'value': None},
+                    {'key': store_id2, 'id': _id, 'value': None},
+                ]
+            },
+        )
+
+        # Make sure view func checks doc.type
+        doc['type'] = 'dmedia/file2'
+        db.save(doc)
         
+        self.assertEqual(
+            db.view('file', 'stored'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
