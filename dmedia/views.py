@@ -93,99 +93,14 @@ doc_design = {
 }
 
 
-# For dmedia/batch docs:
-batch_time = """
-function(doc) {
-    if (doc.type == 'dmedia/batch') {
-        emit(doc.time, null);
-    }
-}
-"""
 
-batch_design = ('batch', (
-    ('time', batch_time, None),
-))
-
-
-
-# For dmedia/import docs:
-import_time = """
-function(doc) {
-    if (doc.type == 'dmedia/import') {
-        emit(doc.time, null);
-    }
-}
-"""
-
-import_design = ('import', (
-    ('time', import_time, None),
-))
-
-
-
-# For dmedia/store docs:
-store_plugin = """
-function(doc) {
-    if (doc.type == 'dmedia/store') {
-        emit(doc.plugin, null);
-    }
-}
-"""
-
-store_design = ('store', (
-    ('plugin', store_plugin, _count),
-))
-
-
-
-# For dmedia/file docs:
+# The _design/file design, for dmedia/file docs:
 file_stored = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
         for (key in doc.stored) {
             emit(key, null);
-        }
-    }
-}
-"""
-
-file_corrupt = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.corrupt) {
-        var key;
-        for (key in doc.corrupt) {
-            emit(key, null);
-        }
-    }
-}
-"""
-
-file_partial = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.partial) {
-        var key;
-        for (key in doc.partial) {
-            emit(key, null);
-        }
-    }
-}
-"""
-
-file_origin = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.origin, null);
-    }
-}
-"""
-
-file_verified = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        var key;
-        for (key in doc.stored) {
-            emit([key, doc.stored[key].verified], null);
         }
     }
 }
@@ -225,30 +140,16 @@ function(doc) {
 }
 """
 
-file_bytes = """
+file_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.bytes, doc.bytes);
+        var key;
+        for (key in doc.stored) {
+            emit([key, doc.stored[key].verified], null);
+        }
     }
 }
 """
-
-file_ctime = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.ctime, null);
-    }
-}
-"""
-
-file_ext = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.ext, null);
-    }
-}
-"""
-
 
 file_design = {
     '_id': '_design/file',
@@ -506,84 +407,9 @@ camera_design = ('camera', (
 
 core = (
     doc_design,
-    batch_design,
-    import_design,
-    store_design,
-
-    ('file', (
-        ('stored', file_stored, _count_and_sum),
-        ('ext', file_ext, _count_and_sum),
-        ('origin', file_origin, _count_and_sum),
-
-        ('fragile', file_fragile, None),
-        ('reclaimable', file_reclaimable, None),
-        ('partial', file_partial, _sum),
-        ('corrupt', file_corrupt, _sum),
-        ('bytes', file_bytes, _sum),
-        ('verified', file_verified, None),
-        ('ctime', file_ctime, None),
-    )),
-
-    ('user', (
-        ('copies', user_copies, None),
-        ('tags', user_tags, _count),
-        ('ctime', user_ctime, None),
-        ('needsproxy', user_needsproxy, None),
-        ('video', user_video, None),
-        ('image', user_image, None),
-        ('audio', user_audio, None),
-    )),
-
-    ('project', (
-        ('atime', project_atime, None),
-        ('title', project_title, None),
-    )),
-)
-
-
-core = (
-    doc_design,
     file_design,
 )
 
-
-project = (
-    doc_design,
-    batch_design,
-    import_design,
-    media_design,
-    camera_design,
-
-    ('file', (
-        ('stored', file_stored, _count_and_sum),
-        ('ext', file_ext, _count_and_sum),
-        ('origin', file_origin, _count_and_sum),
-
-        ('fragile', file_fragile, None),
-        ('reclaimable', file_reclaimable, None),
-        ('partial', file_partial, _sum),
-        ('corrupt', file_corrupt, _sum),
-        ('bytes', file_bytes, _sum),
-        ('verified', file_verified, None),
-        ('ctime', file_ctime, None),
-    )),
-
-    ('user', (
-        ('copies', user_copies, None),
-        ('tags', user_tags, _count),
-        ('ctime', user_ctime, None),
-        ('needsproxy', user_needsproxy, None),
-        ('video', user_video, None),
-        ('video_needsreview', user_video_needsreview, None),
-        ('image', user_image, None),
-        ('audio', user_audio, None),
-    )),
-
-    ('tag', (
-        ('key', tag_key, _count),
-        ('letters', tag_letters, None),
-    )),
-)
 
 project = (
     doc_design,
