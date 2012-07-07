@@ -160,6 +160,54 @@ class TestDBFunctions(CouchCase):
         )
         self.assertNotIn('_rev', doc)
 
+    def test_init_views(self):
+        db = util.get_db(self.env)
+        db.put(None)
+
+        doc1 = {
+            '_id': '_design/doc',
+            'views': {
+                'type': {'map': doc_type},
+            },
+        }
+        doc2 = {
+            '_id': '_design/stuff',
+            'views': {
+                'junk': {'map': doc_type, 'reduce': '_count'},
+            },
+        }
+        designs = (doc1, doc2)
+ 
+        self.assertEqual(util.init_views(db, designs),
+            [
+                ('new', '_design/doc'),
+                ('new', '_design/stuff'),   
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+
+        self.assertEqual(util.init_views(db, designs),
+            [
+                ('same', '_design/doc'),
+                ('same', '_design/stuff'),   
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+
     def test_get_db(self):
         db = util.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)

@@ -28,11 +28,15 @@ import json
 import os
 from os import path
 from copy import deepcopy
+import logging
 
 import microfiber
 from filestore import FileStore, DOTNAME
 
 from . import schema, views
+
+
+log = logging.getLogger()
 
 
 def isfilestore(parentdir):
@@ -80,6 +84,15 @@ def update_design_doc(db, doc):
     except microfiber.NotFound:
         db.save(doc)
         return 'new'
+
+
+def init_views(db, designs):
+    log.info('Initializing views in %r', db)
+    result = []
+    for doc in designs:
+        action = update_design_doc(db, doc)
+        result.append((action, doc['_id']))
+    return result
 
 
 def get_db(env, init=False):
