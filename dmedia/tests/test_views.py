@@ -25,90 +25,51 @@ Unit tests for `dmedia.views` module.
 
 from unittest import TestCase
 
+from microfiber import Database
+
+from dmedia.tests.couch import CouchCase
 from dmedia.util import get_db
 from dmedia import views
 
-from microfiber import Database
 
-from .couch import CouchCase
+class TestDesignValues(TestCase):
+    def check_design(self, doc):
+        self.assertIsInstance(doc, dict)
+        self.assertTrue(set(doc).issuperset(['_id', 'views']))
+        self.assertTrue(set(doc).issubset(['_id', 'views', 'filters']))
 
+        _id = doc['_id']
+        self.assertIsInstance(_id, str)
+        self.assertTrue(_id.startswith('_design/'))
 
-class test_functions(TestCase):
-    def test_build_design_doc(self):
-        f = views.build_design_doc
-        views_ = (
-            ('bytes', 'foo', '_sum'),
-            ('mtime', 'bar', None),
-        )
-        self.assertEqual(f('file', views_),
-            {
-                '_id': '_design/file',
-                'language': 'javascript',
-                'views': {
-                    'bytes': {
-                        'map': 'foo',
-                        'reduce': '_sum',
-                    },
-                    'mtime': {
-                        'map': 'bar',
-                    },
-                }
-            }
-        )
+        views = doc['views']
+        self.assertIsInstance(views, dict)
+        self.assertGreater(len(views), 0)
+        for (key, value) in views.items():
+            self.assertIsInstance(key, str)
+            self.assertIsInstance(value, dict)
+            self.assertTrue(set(value).issuperset(['map']))
+            self.assertTrue(set(value).issubset(['map', 'reduce']))
+            self.assertIsInstance(value['map'], str)
+            if 'reduce' in value:
+                self.assertIsInstance(value['reduce'], str)
 
+        if 'filters' not in doc:
+            return
 
-class TestCouchFunctions(CouchCase):
-    def test_update_design_doc(self):
-        f = views.update_design_doc
-        db = get_db(self.env)
-        db.put(None)
+        filters = doc['filters']
+        self.assertIsInstance(filters, dict)
+        self.assertGreater(len(filters), 0)
+        for (key, value) in filters.items():
+            self.assertIsInstance(key, str)
+            self.assertIsInstance(value, str)
 
-        # Test when design doesn't exist:
-        doc = views.build_design_doc('file',
-            [('stored', views.file_stored, '_sum')]
-        )
-        self.assertEqual(f(db, doc), 'new')
-        self.assertTrue(db.get('_design/file')['_rev'].startswith('1-'))
+    def test_core(self):
+        for doc in views.core:
+            self.check_design(doc)
 
-        # Test when design is same:
-        doc = views.build_design_doc('file',
-            [('stored', views.file_stored, '_sum')]
-        )
-        self.assertEqual(f(db, doc), 'same')
-        self.assertTrue(db.get('_design/file')['_rev'].startswith('1-'))
+    def test_project(self):
+        for doc in views.project:
+            self.check_design(doc)
 
-        # Test when design is changed:
-        doc = views.build_design_doc('file',
-            [('stored', views.file_bytes, '_sum')]
-        )
-        self.assertEqual(f(db, doc), 'changed')
-        self.assertTrue(db.get('_design/file')['_rev'].startswith('2-'))
-
-        # Again test when design is same:
-        doc = views.build_design_doc('file',
-            [('stored', views.file_bytes, '_sum')]
-        )
-        self.assertEqual(f(db, doc), 'same')
-        self.assertTrue(db.get('_design/file')['_rev'].startswith('2-'))
-
-    def test_init_views(self):
-        db = get_db(self.env)
-        db.put(None)
-
-        views.init_views(db)
-        for (name, views_) in views.core:
-            doc = views.build_design_doc(name, views_)
-            saved = db.get(doc['_id'])
-            doc['_rev'] = saved['_rev']
-            self.assertEqual(saved, doc)
-
-        # Test core views
-        db = Database('foo', self.env)
-        db.put(None)
-        views.init_views(db, views.core)
-
-        # Test project views
-        db = Database('bar', self.env)
-        db.put(None)
-        views.init_views(db, views.project)
         

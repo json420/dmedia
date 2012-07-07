@@ -24,13 +24,6 @@
 Defines the dmedia CouchDB views.
 """
 
-import logging
-
-from microfiber import NotFound
-
-
-log = logging.getLogger()
-
 
 # High performance Erlang reduce functions that don't require JSON round trip:
 _count = '_count'
@@ -71,12 +64,33 @@ function(doc) {
 }
 """
 
-doc_design = ('doc', (
-    ('ver', doc_ver, _count),
-    ('type', doc_type, _count),
-    ('time', doc_time, None),
-))
+filter_doc_normal = """
+function(doc, req) {
+    return doc._id[0] != '_';
+}
+"""
 
+filter_doc_type = """
+function(doc, req) {
+    if (doc.type && doc.type == req.query.value) {
+        return true;
+    }
+    return false;
+}
+"""
+
+doc_design = {
+    '_id': '_design/doc',
+    'views': {
+        'ver': {'map': doc_ver, 'reduce': _count},
+        'type': {'map': doc_type, 'reduce': _count},
+        'time': {'map': doc_time},
+    },
+    'filters': {
+        'normal': filter_doc_normal,
+        'type': filter_doc_type,
+    },
+}
 
 
 # For dmedia/batch docs:
@@ -130,7 +144,29 @@ function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
         for (key in doc.stored) {
-            emit(key, [1, doc.bytes]);
+            emit(key, null);
+        }
+    }
+}
+"""
+
+file_corrupt = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.corrupt) {
+        var key;
+        for (key in doc.corrupt) {
+            emit(key, null);
+        }
+    }
+}
+"""
+
+file_partial = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.partial) {
+        var key;
+        for (key in doc.partial) {
+            emit(key, null);
         }
     }
 }
@@ -139,7 +175,7 @@ function(doc) {
 file_origin = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.origin, [1, doc.bytes]);
+        emit(doc.origin, null);
     }
 }
 """
@@ -178,34 +214,12 @@ function(doc) {
         for (key in doc.stored) {
             copies += doc.stored[key].copies;
         }
-        if (copies > 3) {
+        if (copies >= 3) {
             for (key in doc.stored) {
                 if (copies - doc.stored[key].copies >= 3) {
                     emit([key, doc.atime], null);
                 }
             }
-        }
-    }
-}
-"""
-
-file_corrupt = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        var key;
-        for (key in doc.corrupt) {
-            emit(key, doc.bytes);
-        }
-    }
-}
-"""
-
-file_partial = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        var key;
-        for (key in doc.partial) {
-            emit(key, doc.bytes);
         }
     }
 }
@@ -230,7 +244,7 @@ function(doc) {
 file_ext = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        emit(doc.ext, [1, doc.bytes]);
+        emit(doc.ext, null);
     }
 }
 """
@@ -516,6 +530,11 @@ core = (
 )
 
 
+core = (
+    doc_design,
+)
+
+
 project = (
     doc_design,
     batch_design,
@@ -554,42 +573,6 @@ project = (
     )),
 )
 
-
-
-def iter_views(views):
-    for (name, map_, reduce_) in views:
-        if reduce_ is None:
-            yield (name, {'map': map_.strip()})
-        else:
-            yield (name, {'map': map_.strip(), 'reduce': reduce_.strip()})
-
-
-def build_design_doc(design, views):
-    doc = {
-        '_id': '_design/' + design,
-        'language': 'javascript',
-        'views': dict(iter_views(views)),
-    }
-    return doc
-
-
-def update_design_doc(db, doc):
-    assert '_rev' not in doc
-    try:
-        old = db.get(doc['_id'])
-        doc['_rev'] = old['_rev']
-        if doc != old:
-            db.save(doc)
-            return 'changed'
-        else:
-            return 'same'
-    except NotFound:
-        db.save(doc)
-        return 'new'
-
-
-def init_views(db, designs=core):
-    log.info('Initializing views in %r', db)
-    for (name, views) in designs:
-        doc = build_design_doc(name, views)
-        update_design_doc(db, doc)
+project = (
+    doc_design,
+)
