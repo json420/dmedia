@@ -27,6 +27,7 @@ import stat
 import json
 import os
 from os import path
+from copy import deepcopy
 
 import microfiber
 from filestore import FileStore, DOTNAME
@@ -63,6 +64,22 @@ def init_filestore(parentdir, copies=1):
     fs.id = doc['_id']
     fs.copies = doc['copies']
     return (fs, doc)
+
+
+def update_design_doc(db, doc):
+    assert '_rev' not in doc
+    doc = deepcopy(doc)
+    try:
+        old = db.get(doc['_id'])
+        doc['_rev'] = old['_rev']
+        if doc != old:
+            db.save(doc)
+            return 'changed'
+        else:
+            return 'same'
+    except microfiber.NotFound:
+        db.save(doc)
+        return 'new'
 
 
 def get_db(env, init=False):

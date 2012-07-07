@@ -107,8 +107,59 @@ class TestFunctions(TestCase):
         self.assertTrue(util.isfilestore(tmp.dir))
 
 
+ 
+doc_type = """
+function(doc) {
+    emit(doc.type, null);
+}
+"""
+
 
 class TestDBFunctions(CouchCase):
+    def test_update_design_doc(self):
+        f = util.update_design_doc
+        db = util.get_db(self.env)
+        db.put(None)
+
+        # Test when design doesn't exist:
+        doc = {
+            '_id': '_design/doc',
+            'views': {
+                'type': {'map': doc_type},
+            },
+        }
+        self.assertEqual(f(db, doc), 'new')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertNotIn('_rev', doc)
+
+        # Test when design is same:
+        self.assertEqual(f(db, doc), 'same')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertNotIn('_rev', doc)
+
+        # Test when design has changed:
+        doc['views']['type'] = {'map': doc_type, 'reduce': '_count'}
+        self.assertEqual(f(db, doc), 'changed')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '2-a55f77029023bffaf68c19bb618d7b7a'
+        )
+        self.assertNotIn('_rev', doc)
+
+        # Again test when design is same:
+        self.assertEqual(f(db, doc), 'same')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '2-a55f77029023bffaf68c19bb618d7b7a'
+        )
+        self.assertNotIn('_rev', doc)
+
     def test_get_db(self):
         db = util.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)
