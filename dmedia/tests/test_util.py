@@ -256,6 +256,22 @@ class TestDBFunctions(CouchCase):
         with self.assertRaises(NotFound) as cm:
             db.get('_design/doc')
 
+        # Test restoring a deleted design:            
+        self.assertEqual(util.init_views(db, designs),
+            [
+                ('new', '_design/doc'),
+                ('same', '_design/stuff'),   
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '3-3aeaa09b6fda4bf8cf1a0286d72fbdf5'
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+
     def test_get_db(self):
         db = util.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)
