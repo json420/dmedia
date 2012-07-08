@@ -143,7 +143,7 @@ class TestFileDesign(CouchCase):
         )
 
         # Schema-wise, doc['stored'] is supposed to be present and non-empty,
-        # but lets still make sure files are reported as fragil when this
+        # but lets still make sure files are reported as fragile when this
         # isn't the case.
         _id = random_id(DIGEST_BYTES)
         doc = {
@@ -389,4 +389,85 @@ class TestFileDesign(CouchCase):
         self.assertEqual(
             db.view('file', 'reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+    def test_verified(self):
+        db = get_db(self.env)
+        db.ensure()
+        design = self.build_view('verified')
+        db.save(design)
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Make sure things are well behaved even when doc['stored'] is missed:
+        id1 = random_id(DIGEST_BYTES)
+        doc1 = {
+            '_id': id1,
+            'type': 'dmedia/file',
+        }
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # And when doc['stored'] is empty:
+        doc1['stored'] = {}
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Add another doc
+        id2 = random_id(DIGEST_BYTES)
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/file',
+        }
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test sort order within the same store: None < 0
+        store_id = random_id()
+        doc1['stored'] = {
+            store_id: {},
+        }
+        db.save(doc1)
+        doc2['stored'] = {
+            store_id: {'verified': 0},
+        }
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': [store_id, None], 'id': id1, 'value': None},
+                    {'key': [store_id, 0], 'id': id2, 'value': None},
+                ]
+            },
+        )
+
+        # Test sort order within the same store: 0 < 1234567890
+        doc1['stored'] = {
+            store_id: {'verified': 1234567890},
+        }
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': [store_id, 0], 'id': id2, 'value': None},
+                    {'key': [store_id, 1234567890], 'id': id1, 'value': None},
+                ]
+            },
         )
