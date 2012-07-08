@@ -30,7 +30,7 @@ _count = '_count'
 _sum = '_sum'
 
 # Reduce function to both count and sum in a single view (thanks manveru!)
-# Use with care, this is much, much slower than the above!
+# However, this is unusably slow in CouchDB 1.1.1.  Revisit in 1.2.0.
 _count_and_sum = """
 function(key, values, rereduce) {
     var count = 0;
@@ -166,21 +166,7 @@ file_design = {
 }
 
 
-
-# For dmedia/file docs where origin is 'user':
-user_copies = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var copies = 0;
-        var key;
-        for (key in doc.stored) {
-            copies += doc.stored[key].copies;
-        }
-        emit(copies, null);
-    }
-}
-"""
-
+# The _design/user design, for dmedia/file docs where origin == 'user':
 user_tags = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.tags) {
@@ -196,16 +182,6 @@ user_ctime = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.ext != 'thm') {
         emit(doc.ctime, null);
-    }
-}
-"""
-
-user_needsproxy = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'video' && !doc.proxies) {
-            emit(doc.time, null);
-        }
     }
 }
 """
@@ -250,6 +226,16 @@ function(doc) {
 }
 """
 
+user_design = {
+    '_id': '_design/user',
+    'views': {
+        'ctime': {'map': user_ctime},
+        'video': {'map': user_video},
+        'audio': {'map': user_audio},
+        'image': {'map': user_image},
+    },
+}
+
 
 
 # For dmedia/project docs:
@@ -268,6 +254,14 @@ function(doc) {
     }
 }
 """
+
+project_design = {
+    '_id': '_design/project',
+    'views': {
+        'atime': {'map': project_atime},
+        'title': {'map': project_title},
+    },
+}
 
 
 
@@ -412,9 +406,11 @@ camera_design = ('camera', (
 core = (
     doc_design,
     file_design,
+    project_design,
 )
 
 
 project = (
     doc_design,
+    user_design,
 )
