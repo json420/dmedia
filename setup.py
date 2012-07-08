@@ -141,8 +141,6 @@ setup(
         'dmedia-browser',
         'dmedia-cli',
         'dmedia-migrate',
-        'dmedia-schema-upgrade',
-        'dmedia-re-extract',
         'dmedia-extract',
     ],
     data_files=[
