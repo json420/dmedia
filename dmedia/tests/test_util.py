@@ -30,7 +30,7 @@ import json
 
 import filestore
 import microfiber
-from microfiber import random_id, Database
+from microfiber import random_id, Database, NotFound
 
 from .base import TempDir
 from .couch import CouchCase
@@ -241,6 +241,20 @@ class TestDBFunctions(CouchCase):
             db.get('_design/stuff')['_rev'],
             '1-f2fc40529084795118edaa583a0cc89b'
         )
+
+        # Test that old designs get deleted
+        self.assertEqual(util.init_views(db, [doc2]),
+            [
+                ('same', '_design/stuff'),   
+                ('deleted', '_design/doc'),
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+        with self.assertRaises(NotFound) as cm:
+            db.get('_design/doc')
 
     def test_get_db(self):
         db = util.get_db(self.env)

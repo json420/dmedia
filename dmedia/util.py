@@ -96,9 +96,19 @@ def update_design_doc(db, doc):
 def init_views(db, designs):
     log.info('Initializing views in %r', db)
     result = []
+    current = set()
     for doc in designs:
         action = update_design_doc(db, doc)
-        result.append((action, doc['_id']))
+        _id = doc['_id']
+        result.append((action, _id))
+        current.add(_id)
+    for (_id, rev) in get_designs(db).items():
+        if _id not in current:
+            log.info('Deleting unused %r in %r', _id, db)
+            db.delete(_id, rev=rev)
+            result.append(('deleted', _id))
+    # Cleanup old view files:
+    db.post(None, '_view_cleanup')
     return result
 
 
