@@ -70,7 +70,7 @@ def init_filestore(parentdir, copies=1):
     return (fs, doc)
 
 
-def current_designs(db):
+def get_designs(db):
     rows = db.get('_all_docs', startkey='_design/', endkey='_design0')['rows']
     return dict(
         (row['id'], row['value']['rev']) for row in rows

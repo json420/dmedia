@@ -116,10 +116,10 @@ function(doc) {
 
 
 class TestDBFunctions(CouchCase):
-    def test_current_designs(self):
+    def test_get_designs(self):
         db = Database('hello', self.env)
         db.put(None)
-        self.assertEqual(util.current_designs(db), {})
+        self.assertEqual(util.get_designs(db), {})
 
         foo = {
             '_id': '_design/foo',
@@ -129,7 +129,7 @@ class TestDBFunctions(CouchCase):
         }
         db.save(foo)
         self.assertEqual(
-            util.current_designs(db),
+            util.get_designs(db),
             {
                 '_design/foo': foo['_rev'],
             }
@@ -143,7 +143,7 @@ class TestDBFunctions(CouchCase):
         }
         db.save(bar)
         self.assertEqual(
-            util.current_designs(db),
+            util.get_designs(db),
             {
                 '_design/foo': foo['_rev'],
                 '_design/bar': bar['_rev'],
