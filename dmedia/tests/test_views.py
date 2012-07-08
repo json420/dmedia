@@ -42,6 +42,7 @@ class TestDesignValues(TestCase):
     the Python perspective.  But it can't tell you if you have JavaScript syntax
     errors.  For that, there is `TestDesignsLive`.
     """
+
     def check_design(self, doc):
         self.assertIsInstance(doc, dict)
         self.assertTrue(set(doc).issuperset(['_id', 'views']))

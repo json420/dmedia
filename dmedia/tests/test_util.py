@@ -30,7 +30,7 @@ import json
 
 import filestore
 import microfiber
-from microfiber import random_id
+from microfiber import random_id, Database
 
 from .base import TempDir
 from .couch import CouchCase
@@ -116,6 +116,40 @@ function(doc) {
 
 
 class TestDBFunctions(CouchCase):
+    def test_current_designs(self):
+        db = Database('hello', self.env)
+        db.put(None)
+        self.assertEqual(util.current_designs(db), {})
+
+        foo = {
+            '_id': '_design/foo',
+            'views': {
+                'foo': {'map': doc_type},
+            },
+        }
+        db.save(foo)
+        self.assertEqual(
+            util.current_designs(db),
+            {
+                '_design/foo': foo['_rev'],
+            }
+        )
+
+        bar = {
+            '_id': '_design/bar',
+            'views': {
+                'bar': {'map': doc_type, 'reduce': '_count'},
+            },
+        }
+        db.save(bar)
+        self.assertEqual(
+            util.current_designs(db),
+            {
+                '_design/foo': foo['_rev'],
+                '_design/bar': bar['_rev'],
+            }
+        )
+
     def test_update_design_doc(self):
         f = util.update_design_doc
         db = util.get_db(self.env)
