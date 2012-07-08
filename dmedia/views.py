@@ -285,6 +285,16 @@ function(doc) {
 }
 """
 
+tag_design = {
+    '_id': '_design/tag',
+    'views': {
+        'key': {'map': tag_key, 'reduce': _count},
+        'letters': {'map': tag_letters},
+    },
+}
+
+
+
 # For dmedia/file docs in a project
 media_framerate = """
 function(doc) {
@@ -322,13 +332,15 @@ function(doc) {
 }
 """
 
-
-media_design = ('media', (
-    ('framerate', media_framerate, _count),
-    ('samplerate', media_samplerate, _count),
-    ('size', media_size, _count),
-    ('seconds', media_seconds, _sum),
-))
+media_design = {
+    '_id': '_design/media',
+    'views': {
+        'framerate': {'map': media_framerate, 'reduce': _count},
+        'samplerate': {'map': media_samplerate, 'reduce': _count},
+        'size': {'map': media_size, 'reduce': _count},
+        'seconds': {'map': media_seconds, 'reduce': _sum},
+    },
+}
 
 
 # For dmedia/file doc with interesting camera/photographic metadata
@@ -392,14 +404,17 @@ function(doc) {
 }
 """
 
-camera_design = ('camera', (
-    ('model', camera_model, _count),
-    ('serial', camera_serial, _count),
-    ('lens', camera_lens, _count),
-    ('aperture', camera_aperture, _count),
-    ('shutter', camera_shutter, _count),
-    ('iso', camera_iso, _count),
-))
+camera_design = {
+    '_id': '_design/camera',
+    'views': {
+        'model': {'map': camera_model, 'reduce': _count},
+        'serial': {'map': camera_serial, 'reduce': _count},
+        'lens': {'map': camera_lens, 'reduce': _count},
+        'aperture': {'map': camera_aperture, 'reduce': _count},
+        'shutter': {'map': camera_shutter, 'reduce': _count},
+        'iso': {'map': camera_iso, 'reduce': _count},
+    },
+}
 
 
 
@@ -413,4 +428,7 @@ core = (
 project = (
     doc_design,
     user_design,
+    tag_design,
+    media_design,
+    camera_design,
 )
