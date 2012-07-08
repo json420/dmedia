@@ -24,6 +24,7 @@ Unit tests for `dmedia.views` module.
 """
 
 from unittest import TestCase
+import time
 
 from microfiber import Database, random_id
 from filestore import DIGEST_BYTES
@@ -161,7 +162,7 @@ class TestFileDesign(CouchCase):
             },
         )
 
-        # Make sure copies is being checked
+        # Make things work even if copies is missing
         doc['stored'] = {
             random_id(): {},
             random_id(): {},
@@ -179,6 +180,7 @@ class TestFileDesign(CouchCase):
             },
         )
 
+        # Make sure copies is being properly summed
         doc['stored'] = {
             random_id(): {'copies': 1},
             random_id(): {'copies': 0},
@@ -218,5 +220,124 @@ class TestFileDesign(CouchCase):
             db.view('file', 'fragile'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
-        
-        
+
+    def test_reclaimable(self):
+        db = get_db(self.env)
+        db.ensure()
+        design = self.build_view('reclaimable')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Make sure things are well behaved even when doc['stored'] is missed
+        _id = random_id(DIGEST_BYTES)
+        atime = time.time()
+        stores = sorted(random_id() for i in range(4))
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'atime': atime,
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Should only emit specific stores such that sufficient durability is
+        # maintained if that copy was removed:
+
+        # In this case, nothing can be reclaimed, even though total durability
+        # is 4
+        doc['stored'] = {
+            stores[0]: {'copies': 2},
+            stores[1]: {'copies': 2},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # But any one of these could be reclaimed
+        doc['stored'] = {
+            stores[0]: {'copies': 2},
+            stores[1]: {'copies': 2},
+            stores[2]: {'copies': 2},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 3,
+                'rows': [
+                    {'key': [stores[0], atime], 'id': _id, 'value': None},
+                    {'key': [stores[1], atime], 'id': _id, 'value': None},
+                    {'key': [stores[2], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # And any one of these could be reclaimed
+        doc['stored'] = {
+            stores[0]: {'copies': 1},
+            stores[1]: {'copies': 1},
+            stores[2]: {'copies': 1},
+            stores[3]: {'copies': 1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 4,
+                'rows': [
+                    {'key': [stores[0], atime], 'id': _id, 'value': None},
+                    {'key': [stores[1], atime], 'id': _id, 'value': None},
+                    {'key': [stores[2], atime], 'id': _id, 'value': None},
+                    {'key': [stores[3], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # One of these can be reclaimed
+        doc['stored'] = {
+            stores[0]: {'copies': 3},
+            stores[1]: {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': [stores[1], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Two of these can be reclaimed (just not at once):
+        doc['stored'] = {
+            stores[0]: {'copies': 1},
+            stores[1]: {'copies': 2},
+            stores[2]: {'copies': 1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 2,
+                'rows': [
+                    {'key': [stores[0], atime], 'id': _id, 'value': None},
+                    {'key': [stores[2], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+

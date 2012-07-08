@@ -133,7 +133,7 @@ function(doc) {
         }
         if (copies >= 3) {
             for (key in doc.stored) {
-                if (copies - doc.stored[key].copies >= 3) {
+                if ((copies - doc.stored[key].copies) >= 3) {
                     emit([key, doc.atime], null);
                 }
             }
