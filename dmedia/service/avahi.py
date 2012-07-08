@@ -33,6 +33,7 @@ from microfiber import Server, Database, NotFound
 import dbus
 from gi.repository import GObject
 
+from dmedia import util, views
 
 log = logging.getLogger()
 Peer = namedtuple('Peer', 'env names')
@@ -258,12 +259,15 @@ class Replicator(Avahi):
         kw = {
             'continuous': True,
             'create_target': True,
+            'filter': 'doc/normal',
         }
         if cancel:
             kw['cancel'] = True
             log.info('Canceling push of %s to %s', name, env['url'])
         else:
             log.info('Starting push of %s to %s', name, env['url'])
+            db = self.server.database(name)
+            util.update_design_doc(db, views.doc_design)
         try:
             self.server.push(name, env, **kw)
         except Exception as e:
