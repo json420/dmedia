@@ -129,11 +129,13 @@ function(doc) {
         var copies = 0;
         var key;
         for (key in doc.stored) {
-            copies += doc.stored[key].copies;
+            if (doc.stored[key].copies) {
+                copies += doc.stored[key].copies;
+            }
         }
         if (copies >= 3) {
             for (key in doc.stored) {
-                if ((copies - doc.stored[key].copies) >= 3) {
+                if (copies - doc.stored[key].copies >= 3) {
                     emit([key, doc.atime], null);
                 }
             }

@@ -25,6 +25,7 @@ Unit tests for `dmedia.views` module.
 
 from unittest import TestCase
 import time
+from copy import deepcopy
 
 from microfiber import Database, random_id
 from filestore import DIGEST_BYTES
@@ -232,7 +233,7 @@ class TestFileDesign(CouchCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        # Make sure things are well behaved even when doc['stored'] is missed
+        # Make sure things are well behaved even when doc['stored'] is missed:
         _id = random_id(DIGEST_BYTES)
         atime = time.time()
         stores = sorted(random_id() for i in range(4))
@@ -248,11 +249,43 @@ class TestFileDesign(CouchCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
+        # And when doc['stored'] is empty:
+        doc['stored'] = {}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+        
+        # Test when copies is missing:
+        doc['stored'] = {
+            stores[0]: {'copies': 3},
+            stores[1]: {},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Again test when copies is missing
+        doc['stored'] = {
+            stores[0]: {},
+            stores[1]: {},
+            stores[2]: {},
+            stores[3]: {},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
         # Should only emit specific stores such that sufficient durability is
-        # maintained if that copy was removed:
+        # maintained if that copy was removed.
 
         # In this case, nothing can be reclaimed, even though total durability
-        # is 4
+        # is 4:
         doc['stored'] = {
             stores[0]: {'copies': 2},
             stores[1]: {'copies': 2},
@@ -263,7 +296,7 @@ class TestFileDesign(CouchCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        # But any one of these could be reclaimed
+        # But any one of these could be reclaimed:
         doc['stored'] = {
             stores[0]: {'copies': 2},
             stores[1]: {'copies': 2},
@@ -283,7 +316,7 @@ class TestFileDesign(CouchCase):
             },
         )
 
-        # And any one of these could be reclaimed
+        # And any one of these could be reclaimed:
         doc['stored'] = {
             stores[0]: {'copies': 1},
             stores[1]: {'copies': 1},
@@ -305,7 +338,7 @@ class TestFileDesign(CouchCase):
             },
         )
 
-        # One of these can be reclaimed
+        # One of these can be reclaimed:
         doc['stored'] = {
             stores[0]: {'copies': 3},
             stores[1]: {'copies': 0},
@@ -341,3 +374,19 @@ class TestFileDesign(CouchCase):
             },
         )
 
+        # Test that doc['type'] is considered
+        doc['type'] = 'dmedia/file2'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test that doc['origin'] must be 'user'
+        doc['type'] = 'dmedia/file'
+        doc['origin'] = 'render'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
