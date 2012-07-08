@@ -24,20 +24,13 @@
 Defines the dmedia CouchDB views.
 """
 
-import logging
-
-from microfiber import NotFound
-
-
-log = logging.getLogger()
-
 
 # High performance Erlang reduce functions that don't require JSON round trip:
 _count = '_count'
 _sum = '_sum'
 
 # Reduce function to both count and sum in a single view (thanks manveru!)
-# Use with care, this is much, much slower than the above!
+# However, this is unusably slow in CouchDB 1.1.1.  Revisit in 1.2.0.
 _count_and_sum = """
 function(key, values, rereduce) {
     var count = 0;
@@ -52,7 +45,7 @@ function(key, values, rereduce) {
 """
 
 
-# The generic 'doc' design, quite helpful for developers:
+# The generic _design/doc design, quite helpful for developers:
 doc_ver = """
 function(doc) {
     emit(doc.ver, null);
@@ -71,75 +64,82 @@ function(doc) {
 }
 """
 
-doc_design = ('doc', (
-    ('ver', doc_ver, _count),
-    ('type', doc_type, _count),
-    ('time', doc_time, None),
-))
-
-
-
-# For dmedia/batch docs:
-batch_time = """
-function(doc) {
-    if (doc.type == 'dmedia/batch') {
-        emit(doc.time, null);
-    }
+filter_doc_normal = """
+function(doc, req) {
+    return doc._id[0] != '_';
 }
 """
 
-batch_design = ('batch', (
-    ('time', batch_time, None),
-))
-
-
-
-# For dmedia/import docs:
-import_time = """
-function(doc) {
-    if (doc.type == 'dmedia/import') {
-        emit(doc.time, null);
+filter_doc_type = """
+function(doc, req) {
+    if (doc.type && doc.type == req.query.value) {
+        return true;
     }
+    return false;
 }
 """
 
-import_design = ('import', (
-    ('time', import_time, None),
-))
-
-
-
-# For dmedia/store docs:
-store_plugin = """
-function(doc) {
-    if (doc.type == 'dmedia/store') {
-        emit(doc.plugin, null);
-    }
+doc_design = {
+    '_id': '_design/doc',
+    'views': {
+        'ver': {'map': doc_ver, 'reduce': _count},
+        'type': {'map': doc_type, 'reduce': _count},
+        'time': {'map': doc_time},
+    },
+    'filters': {
+        'normal': filter_doc_normal,
+        'type': filter_doc_type,
+    },
 }
-"""
-
-store_design = ('store', (
-    ('plugin', store_plugin, _count),
-))
 
 
 
-# For dmedia/file docs:
+# The _design/file design, for dmedia/file docs:
 file_stored = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
         for (key in doc.stored) {
-            emit(key, [1, doc.bytes]);
+            emit(key, null);
         }
     }
 }
 """
 
-file_origin = """
+file_fragile = """
 function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.origin, [1, doc.bytes]);
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            if (doc.stored[key].copies) {
+                copies += doc.stored[key].copies;
+            }
+        }
+        if (copies < 3) {
+            emit(copies, null);
+        }
+    }
+}
+"""
+
+file_reclaimable = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key;
+        for (key in doc.stored) {
+            if (doc.stored[key].copies) {
+                copies += doc.stored[key].copies;
+            }
+        }
+        if (copies >= 3) {
+            for (key in doc.stored) {
+                if (copies - doc.stored[key].copies >= 3) {
+                    emit([key, doc.atime], null);
+                }
+            }
+        }
     }
 }
 """
@@ -155,102 +155,18 @@ function(doc) {
 }
 """
 
-file_fragile = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var copies = 0;
-        var key;
-        for (key in doc.stored) {
-            copies += doc.stored[key].copies;
-        }
-        if (copies < 3) {
-            emit(copies, null);
-        }
-    }
+file_design = {
+    '_id': '_design/file',
+    'views': {
+        'stored': {'map': file_stored},
+        'fragile': {'map': file_fragile},
+        'reclaimable': {'map': file_reclaimable},
+        'verified': {'map': file_verified},
+    },
 }
-"""
-
-file_reclaimable = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var copies = 0;
-        var key;
-        for (key in doc.stored) {
-            copies += doc.stored[key].copies;
-        }
-        if (copies > 3) {
-            for (key in doc.stored) {
-                if (copies - doc.stored[key].copies >= 3) {
-                    emit([key, doc.atime], null);
-                }
-            }
-        }
-    }
-}
-"""
-
-file_corrupt = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        var key;
-        for (key in doc.corrupt) {
-            emit(key, doc.bytes);
-        }
-    }
-}
-"""
-
-file_partial = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        var key;
-        for (key in doc.partial) {
-            emit(key, doc.bytes);
-        }
-    }
-}
-"""
-
-file_bytes = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.bytes, doc.bytes);
-    }
-}
-"""
-
-file_ctime = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.ctime, null);
-    }
-}
-"""
-
-file_ext = """
-function(doc) {
-    if (doc.type == 'dmedia/file') {
-        emit(doc.ext, [1, doc.bytes]);
-    }
-}
-"""
 
 
-
-# For dmedia/file docs where origin is 'user':
-user_copies = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var copies = 0;
-        var key;
-        for (key in doc.stored) {
-            copies += doc.stored[key].copies;
-        }
-        emit(copies, null);
-    }
-}
-"""
-
+# The _design/user design, for dmedia/file docs where origin == 'user':
 user_tags = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.tags) {
@@ -266,16 +182,6 @@ user_ctime = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.ext != 'thm') {
         emit(doc.ctime, null);
-    }
-}
-"""
-
-user_needsproxy = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        if (doc.media == 'video' && !doc.proxies) {
-            emit(doc.time, null);
-        }
     }
 }
 """
@@ -320,6 +226,16 @@ function(doc) {
 }
 """
 
+user_design = {
+    '_id': '_design/user',
+    'views': {
+        'ctime': {'map': user_ctime},
+        'video': {'map': user_video},
+        'audio': {'map': user_audio},
+        'image': {'map': user_image},
+    },
+}
+
 
 
 # For dmedia/project docs:
@@ -338,6 +254,14 @@ function(doc) {
     }
 }
 """
+
+project_design = {
+    '_id': '_design/project',
+    'views': {
+        'atime': {'map': project_atime},
+        'title': {'map': project_title},
+    },
+}
 
 
 
@@ -360,6 +284,16 @@ function(doc) {
     }
 }
 """
+
+tag_design = {
+    '_id': '_design/tag',
+    'views': {
+        'key': {'map': tag_key, 'reduce': _count},
+        'letters': {'map': tag_letters},
+    },
+}
+
+
 
 # For dmedia/file docs in a project
 media_framerate = """
@@ -398,13 +332,15 @@ function(doc) {
 }
 """
 
-
-media_design = ('media', (
-    ('framerate', media_framerate, _count),
-    ('samplerate', media_samplerate, _count),
-    ('size', media_size, _count),
-    ('seconds', media_seconds, _sum),
-))
+media_design = {
+    '_id': '_design/media',
+    'views': {
+        'framerate': {'map': media_framerate, 'reduce': _count},
+        'samplerate': {'map': media_samplerate, 'reduce': _count},
+        'size': {'map': media_size, 'reduce': _count},
+        'seconds': {'map': media_seconds, 'reduce': _sum},
+    },
+}
 
 
 # For dmedia/file doc with interesting camera/photographic metadata
@@ -468,128 +404,31 @@ function(doc) {
 }
 """
 
-camera_design = ('camera', (
-    ('model', camera_model, _count),
-    ('serial', camera_serial, _count),
-    ('lens', camera_lens, _count),
-    ('aperture', camera_aperture, _count),
-    ('shutter', camera_shutter, _count),
-    ('iso', camera_iso, _count),
-))
+camera_design = {
+    '_id': '_design/camera',
+    'views': {
+        'model': {'map': camera_model, 'reduce': _count},
+        'serial': {'map': camera_serial, 'reduce': _count},
+        'lens': {'map': camera_lens, 'reduce': _count},
+        'aperture': {'map': camera_aperture, 'reduce': _count},
+        'shutter': {'map': camera_shutter, 'reduce': _count},
+        'iso': {'map': camera_iso, 'reduce': _count},
+    },
+}
 
 
 
 core = (
     doc_design,
-    batch_design,
-    import_design,
-    store_design,
-
-    ('file', (
-        ('stored', file_stored, _count_and_sum),
-        ('ext', file_ext, _count_and_sum),
-        ('origin', file_origin, _count_and_sum),
-
-        ('fragile', file_fragile, None),
-        ('reclaimable', file_reclaimable, None),
-        ('partial', file_partial, _sum),
-        ('corrupt', file_corrupt, _sum),
-        ('bytes', file_bytes, _sum),
-        ('verified', file_verified, None),
-        ('ctime', file_ctime, None),
-    )),
-
-    ('user', (
-        ('copies', user_copies, None),
-        ('tags', user_tags, _count),
-        ('ctime', user_ctime, None),
-        ('needsproxy', user_needsproxy, None),
-        ('video', user_video, None),
-        ('image', user_image, None),
-        ('audio', user_audio, None),
-    )),
-
-    ('project', (
-        ('atime', project_atime, None),
-        ('title', project_title, None),
-    )),
+    file_design,
+    project_design,
 )
 
 
 project = (
     doc_design,
-    batch_design,
-    import_design,
+    user_design,
+    tag_design,
     media_design,
     camera_design,
-
-    ('file', (
-        ('stored', file_stored, _count_and_sum),
-        ('ext', file_ext, _count_and_sum),
-        ('origin', file_origin, _count_and_sum),
-
-        ('fragile', file_fragile, None),
-        ('reclaimable', file_reclaimable, None),
-        ('partial', file_partial, _sum),
-        ('corrupt', file_corrupt, _sum),
-        ('bytes', file_bytes, _sum),
-        ('verified', file_verified, None),
-        ('ctime', file_ctime, None),
-    )),
-
-    ('user', (
-        ('copies', user_copies, None),
-        ('tags', user_tags, _count),
-        ('ctime', user_ctime, None),
-        ('needsproxy', user_needsproxy, None),
-        ('video', user_video, None),
-        ('video_needsreview', user_video_needsreview, None),
-        ('image', user_image, None),
-        ('audio', user_audio, None),
-    )),
-
-    ('tag', (
-        ('key', tag_key, _count),
-        ('letters', tag_letters, None),
-    )),
 )
-
-
-
-def iter_views(views):
-    for (name, map_, reduce_) in views:
-        if reduce_ is None:
-            yield (name, {'map': map_.strip()})
-        else:
-            yield (name, {'map': map_.strip(), 'reduce': reduce_.strip()})
-
-
-def build_design_doc(design, views):
-    doc = {
-        '_id': '_design/' + design,
-        'language': 'javascript',
-        'views': dict(iter_views(views)),
-    }
-    return doc
-
-
-def update_design_doc(db, doc):
-    assert '_rev' not in doc
-    try:
-        old = db.get(doc['_id'])
-        doc['_rev'] = old['_rev']
-        if doc != old:
-            db.save(doc)
-            return 'changed'
-        else:
-            return 'same'
-    except NotFound:
-        db.save(doc)
-        return 'new'
-
-
-def init_views(db, designs=core):
-    log.info('Initializing views in %r', db)
-    for (name, views) in designs:
-        doc = build_design_doc(name, views)
-        update_design_doc(db, doc)

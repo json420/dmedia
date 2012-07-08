@@ -30,7 +30,7 @@ import json
 
 import filestore
 import microfiber
-from microfiber import random_id
+from microfiber import random_id, Database, NotFound
 
 from .base import TempDir
 from .couch import CouchCase
@@ -107,8 +107,171 @@ class TestFunctions(TestCase):
         self.assertTrue(util.isfilestore(tmp.dir))
 
 
+ 
+doc_type = """
+function(doc) {
+    emit(doc.type, null);
+}
+"""
+
 
 class TestDBFunctions(CouchCase):
+    def test_get_designs(self):
+        db = Database('hello', self.env)
+        db.put(None)
+        self.assertEqual(util.get_designs(db), {})
+
+        foo = {
+            '_id': '_design/foo',
+            'views': {
+                'foo': {'map': doc_type},
+            },
+        }
+        db.save(foo)
+        self.assertEqual(
+            util.get_designs(db),
+            {
+                '_design/foo': foo['_rev'],
+            }
+        )
+
+        bar = {
+            '_id': '_design/bar',
+            'views': {
+                'bar': {'map': doc_type, 'reduce': '_count'},
+            },
+        }
+        db.save(bar)
+        self.assertEqual(
+            util.get_designs(db),
+            {
+                '_design/foo': foo['_rev'],
+                '_design/bar': bar['_rev'],
+            }
+        )
+
+    def test_update_design_doc(self):
+        f = util.update_design_doc
+        db = util.get_db(self.env)
+        db.put(None)
+
+        # Test when design doesn't exist:
+        doc = {
+            '_id': '_design/doc',
+            'views': {
+                'type': {'map': doc_type},
+            },
+        }
+        self.assertEqual(f(db, doc), 'new')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertNotIn('_rev', doc)
+
+        # Test when design is same:
+        self.assertEqual(f(db, doc), 'same')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertNotIn('_rev', doc)
+
+        # Test when design has changed:
+        doc['views']['type'] = {'map': doc_type, 'reduce': '_count'}
+        self.assertEqual(f(db, doc), 'changed')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '2-a55f77029023bffaf68c19bb618d7b7a'
+        )
+        self.assertNotIn('_rev', doc)
+
+        # Again test when design is same:
+        self.assertEqual(f(db, doc), 'same')
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '2-a55f77029023bffaf68c19bb618d7b7a'
+        )
+        self.assertNotIn('_rev', doc)
+
+    def test_init_views(self):
+        db = util.get_db(self.env)
+        db.put(None)
+
+        doc1 = {
+            '_id': '_design/doc',
+            'views': {
+                'type': {'map': doc_type},
+            },
+        }
+        doc2 = {
+            '_id': '_design/stuff',
+            'views': {
+                'junk': {'map': doc_type, 'reduce': '_count'},
+            },
+        }
+        designs = (doc1, doc2)
+ 
+        self.assertEqual(util.init_views(db, designs),
+            [
+                ('new', '_design/doc'),
+                ('new', '_design/stuff'),   
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+
+        self.assertEqual(util.init_views(db, designs),
+            [
+                ('same', '_design/doc'),
+                ('same', '_design/stuff'),   
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '1-98e283762b239249fc0cfc4159d84797'
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+
+        # Test that old designs get deleted
+        self.assertEqual(util.init_views(db, [doc2]),
+            [
+                ('same', '_design/stuff'),   
+                ('deleted', '_design/doc'),
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+        with self.assertRaises(NotFound) as cm:
+            db.get('_design/doc')
+
+        # Test restoring a deleted design:            
+        self.assertEqual(util.init_views(db, designs),
+            [
+                ('new', '_design/doc'),
+                ('same', '_design/stuff'),   
+            ]
+        )
+        self.assertEqual(
+            db.get('_design/doc')['_rev'],
+            '3-3aeaa09b6fda4bf8cf1a0286d72fbdf5'
+        )
+        self.assertEqual(
+            db.get('_design/stuff')['_rev'],
+            '1-f2fc40529084795118edaa583a0cc89b'
+        )
+
     def test_get_db(self):
         db = util.get_db(self.env)
         self.assertIsInstance(db, microfiber.Database)

@@ -45,7 +45,6 @@ import dmedia
 from dmedia import util, schema
 from dmedia.metastore import MetaStore
 from dmedia.local import LocalStores, FileNotLocal
-from dmedia.views import init_views
 
 
 log = logging.getLogger()

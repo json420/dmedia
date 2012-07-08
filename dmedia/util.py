@@ -27,11 +27,16 @@ import stat
 import json
 import os
 from os import path
+from copy import deepcopy
+import logging
 
 import microfiber
 from filestore import FileStore, DOTNAME
 
 from . import schema, views
+
+
+log = logging.getLogger()
 
 
 def isfilestore(parentdir):
@@ -65,11 +70,53 @@ def init_filestore(parentdir, copies=1):
     return (fs, doc)
 
 
+def get_designs(db):
+    rows = db.get('_all_docs', startkey='_design/', endkey='_design0')['rows']
+    return dict(
+        (row['id'], row['value']['rev']) for row in rows
+    )
+
+
+def update_design_doc(db, doc):
+    assert '_rev' not in doc
+    doc = deepcopy(doc)
+    try:
+        old = db.get(doc['_id'])
+        doc['_rev'] = old['_rev']
+        if doc != old:
+            db.save(doc)
+            return 'changed'
+        else:
+            return 'same'
+    except microfiber.NotFound:
+        db.save(doc)
+        return 'new'
+
+
+def init_views(db, designs):
+    log.info('Initializing views in %r', db)
+    result = []
+    current = set()
+    for doc in designs:
+        action = update_design_doc(db, doc)
+        _id = doc['_id']
+        result.append((action, _id))
+        current.add(_id)
+    for (_id, rev) in get_designs(db).items():
+        if _id not in current:
+            log.info('Deleting unused %r in %r', _id, db)
+            db.delete(_id, rev=rev)
+            result.append(('deleted', _id))
+    # Cleanup old view files:
+    db.post(None, '_view_cleanup')
+    return result
+
+
 def get_db(env, init=False):
     db = microfiber.Database(schema.DB_NAME, env)
     if init:
         db.ensure()
-        views.init_views(db, views.core)
+        init_views(db, views.core)
     return db
 
 
@@ -77,7 +124,7 @@ def get_project_db(_id, env, init=False):
     db = microfiber.Database(schema.project_db_name(_id), env)
     if init:
         db.ensure()
-        views.init_views(db, views.project)
+        init_views(db, views.project)
     return db
     
 
