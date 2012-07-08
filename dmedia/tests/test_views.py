@@ -84,10 +84,10 @@ class TestDesignValues(TestCase):
 
 class TestDesignsLive(CouchCase):
     """
-    Do a sanity check on all design docs.
+    Do a sanity check on all design docs using a live CouchDB.
 
     This is mostly a check for JavaScript syntax errors, or other things that
-    would make a design fail immediately.
+    would make a design or view fail immediately.
     """
 
     def check_views1(self, db, doc):
