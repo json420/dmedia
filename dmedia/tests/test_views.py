@@ -74,23 +74,21 @@ class TestDesignValues(TestCase):
             self.check_design(doc)
 
 
-def build(design, view, map_func, reduce_func=None):
-    value = {'map': map_func}
-    if reduce_func is not None:
-        value['reduce'] = reduce_func
-    return {
-        '_id': '_design/' + design,
-        'views': {
-            view: value,
-        }
-    }
-
-
 class TestFileDesign(CouchCase):
+    design = views.file_design
+
+    def build_view(self, view):
+        return {
+            '_id': self.design['_id'],
+            'views': {
+                view: self.design['views'][view],   
+            }
+        }
+
     def test_stored(self):
         db = get_db(self.env)
         db.ensure()
-        design = build('file', 'stored', views.file_stored)
+        design = self.build_view('stored')
         db.save(design)
 
         self.assertEqual(
@@ -131,3 +129,94 @@ class TestFileDesign(CouchCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
+    def test_fragile(self):
+        db = get_db(self.env)
+        db.ensure()
+        design = self.build_view('fragile')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Schema-wise, doc['stored'] is supposed to be present and non-empty,
+        # but lets still make sure files are reported as fragil when this
+        # isn't the case.
+        _id = random_id(DIGEST_BYTES)
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+            'origin': 'user',
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Make sure copies is being checked
+        doc['stored'] = {
+            random_id(): {},
+            random_id(): {},
+            random_id(): {},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        doc['stored'] = {
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 2, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Check when one store provides 3 copies
+        doc['stored'] = {
+            random_id(): {'copies': 3},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Check when each store provides 1 copy
+        doc['stored'] = {
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+        
+        

@@ -45,7 +45,7 @@ function(key, values, rereduce) {
 """
 
 
-# The generic 'doc' design, quite helpful for developers:
+# The generic _design/doc design, quite helpful for developers:
 doc_ver = """
 function(doc) {
     emit(doc.ver, null);
@@ -112,7 +112,9 @@ function(doc) {
         var copies = 0;
         var key;
         for (key in doc.stored) {
-            copies += doc.stored[key].copies;
+            if (doc.stored[key].copies) {
+                copies += doc.stored[key].copies;
+            }
         }
         if (copies < 3) {
             emit(copies, null);
