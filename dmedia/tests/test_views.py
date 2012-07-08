@@ -31,11 +31,17 @@ from microfiber import Database, random_id
 from filestore import DIGEST_BYTES
 
 from dmedia.tests.couch import CouchCase
-from dmedia.util import get_db
-from dmedia import views
+from dmedia import util, views
 
 
 class TestDesignValues(TestCase):
+    """
+    Do a Python value sanity check on all design docs.
+
+    This is a fast test to make sure all the design docs are well-formed from
+    the Python perspective.  But it can't tell you if you have JavaScript syntax
+    errors.  For that, there is `TestDesignsLive`.
+    """
     def check_design(self, doc):
         self.assertIsInstance(doc, dict)
         self.assertTrue(set(doc).issuperset(['_id', 'views']))
@@ -76,7 +82,68 @@ class TestDesignValues(TestCase):
             self.check_design(doc)
 
 
+class TestDesignsLive(CouchCase):
+    """
+    Do a sanity check on all design docs.
+
+    This is mostly a check for JavaScript syntax errors, or other things that
+    would make a design fail immediately.
+    """
+
+    def check_views1(self, db, doc):
+        """
+        Test views when database is empty.
+        """
+        design = doc['_id'].split('/')[1]
+        for view in doc['views']:
+            if 'reduce' in doc['views'][view]:
+                expected = {'rows': []}
+            else:
+                expected = {'rows': [], 'offset': 0, 'total_rows': 0}
+            self.assertEqual(db.view(design, view), expected,
+                '_design/{}/_view/{}'.format(design, view)
+            )
+
+    def check_views2(self, db, doc):
+        """
+        Test views when database is *not* empty.
+        """
+        design = doc['_id'].split('/')[1]
+        for view in doc['views']:
+            db.view(design, view)
+            if 'reduce' in doc['views'][view]:
+                db.view(design, view, reduce=True)
+
+    def check_designs(self, designs):
+        db = Database('foo', self.env)
+        db.put(None)
+        ids = [doc['_id'] for doc in designs]
+        self.assertEqual(
+            util.init_views(db, designs),
+            [('new', _id) for _id in ids],
+        )
+
+        # Test all designs when database is empty
+        for doc in designs:
+            self.check_views1(db, doc)
+
+        # Add 100 random docs and test all designs again
+        for i in range(100):
+            db.post({'_id': random_id()})
+        for doc in designs:
+            self.check_views2(db, doc)
+
+    def test_core(self):
+        self.check_designs(views.core)
+
+    def test_project(self):
+        self.check_designs(views.project)
+
+
 class TestFileDesign(CouchCase):
+    """
+    Test each view function in the _design/file design.
+    """
     design = views.file_design
 
     def build_view(self, view):
@@ -88,8 +155,8 @@ class TestFileDesign(CouchCase):
         }
 
     def test_stored(self):
-        db = get_db(self.env)
-        db.ensure()
+        db = Database('foo', self.env)
+        db.put(None)
         design = self.build_view('stored')
         db.save(design)
 
@@ -132,8 +199,8 @@ class TestFileDesign(CouchCase):
         )
 
     def test_fragile(self):
-        db = get_db(self.env)
-        db.ensure()
+        db = Database('foo', self.env)
+        db.put(None)
         design = self.build_view('fragile')
         db.save(design)
 
@@ -223,8 +290,8 @@ class TestFileDesign(CouchCase):
         )
 
     def test_reclaimable(self):
-        db = get_db(self.env)
-        db.ensure()
+        db = Database('foo', self.env)
+        db.put(None)
         design = self.build_view('reclaimable')
         db.save(design)
 
@@ -392,8 +459,8 @@ class TestFileDesign(CouchCase):
         )
 
     def test_verified(self):
-        db = get_db(self.env)
-        db.ensure()
+        db = Database('foo', self.env)
+        db.put(None)
         design = self.build_view('verified')
         db.save(design)
         self.assertEqual(
