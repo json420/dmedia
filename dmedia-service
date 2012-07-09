@@ -99,7 +99,6 @@ class Service(dbus.service.Object):
             else:
                 env = self.usercouch.bootstrap(auth='open', address='0.0.0.0')
             log.info('Starting CouchDB took %r', time.time() - start)
-            log.info(repr(self.usercouch.server.get()))
         else:
             self.config = None
             env = json.loads(self.env_s)
@@ -143,19 +142,19 @@ class Service(dbus.service.Object):
 
     def shutdown(self):
         log.info('Service.shutdown()')
-        if self.usercouch is not None:
-            log.info('* killing usercouch')
-            self.usercouch.kill()
-        if self.avahi is not None:
-            log.info('* freeing avahi')
-            self.avahi.free()
         if self.replicator is not None:
             log.info('* freeing replicator')
             self.replicator.free()
+        if self.avahi is not None:
+            log.info('* freeing avahi')
+            self.avahi.free()
         if self.httpd is not None:
             log.info('* killing httpd')
             self.httpd.terminate()
             self.httpd.join()
+        if self.usercouch is not None:
+            log.info('* killing usercouch')
+            self.usercouch.kill()
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
