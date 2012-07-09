@@ -139,18 +139,7 @@ class Service(dbus.service.Object):
         log.info('[idle3]')
         _start_thread(self.core.init_project_views)
         self.core.start_background_tasks()
-        interval = 10 * 60 * 1000  # Autocompact every 10 minutes
-        self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call
-
-    def _autocompact(self):
-        log.info('UserCouch.autocompact()...')
-        try:
-            for name in self.usercouch.autocompact():
-                log.info('compacting %r', name)
-        except Exception as e:
-            log.exception('Error calling UserCouch.autocompact():')
-        return True  # Repeat timeout call
 
     def shutdown(self):
         log.info('Service.shutdown()')
