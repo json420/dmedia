@@ -33,7 +33,7 @@ from microfiber import random_id
 from .base import TempDir
 from .couch import CouchCase
 
-from dmedia import local, schema
+from dmedia import local, schema, util
 
 
 class TestFunctions(TestCase):
@@ -227,7 +227,9 @@ class TestLocalStores(TestCase):
 
 
 class TestLocalSlave(CouchCase):
-    create_databases = [schema.DB_NAME]
+    def setUp(self):
+        super().setUp()
+        util.get_db(self.env, True)
 
     def test_get_doc(self):
         inst = local.LocalSlave(self.env)
