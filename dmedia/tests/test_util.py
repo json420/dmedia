@@ -265,7 +265,7 @@ class TestDBFunctions(CouchCase):
         )
         self.assertEqual(
             db.get('_design/doc')['_rev'],
-            '3-3aeaa09b6fda4bf8cf1a0286d72fbdf5'
+            '3-52fa486f718f1f929eebd96339796904'
         )
         self.assertEqual(
             db.get('_design/stuff')['_rev'],
