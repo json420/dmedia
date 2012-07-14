@@ -92,24 +92,7 @@ class TestDesignsLive(CouchCase):
     would make a design or view fail immediately.
     """
 
-    def check_views1(self, db, doc):
-        """
-        Test views when database is empty.
-        """
-        design = doc['_id'].split('/')[1]
-        for view in doc['views']:
-            if 'reduce' in doc['views'][view]:
-                expected = {'rows': []}
-            else:
-                expected = {'rows': [], 'offset': 0, 'total_rows': 0}
-            self.assertEqual(db.view(design, view), expected,
-                '_design/{}/_view/{}'.format(design, view)
-            )
-
-    def check_views2(self, db, doc):
-        """
-        Test views when database is *not* empty.
-        """
+    def check_views(self, db, doc):
         design = doc['_id'].split('/')[1]
         for view in doc['views']:
             db.view(design, view)
@@ -127,13 +110,13 @@ class TestDesignsLive(CouchCase):
 
         # Test all designs when database is empty
         for doc in designs:
-            self.check_views1(db, doc)
+            self.check_views(db, doc)
 
         # Add 100 random docs and test all designs again
         for i in range(100):
             db.post({'_id': random_id()})
         for doc in designs:
-            self.check_views2(db, doc)
+            self.check_views(db, doc)
 
     def test_core(self):
         self.check_designs(views.core)

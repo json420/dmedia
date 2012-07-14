@@ -99,7 +99,6 @@ class Service(dbus.service.Object):
             else:
                 env = self.usercouch.bootstrap(auth='open', address='0.0.0.0')
             log.info('Starting CouchDB took %r', time.time() - start)
-            log.info(repr(self.usercouch.server.get()))
         else:
             self.config = None
             env = json.loads(self.env_s)
@@ -139,34 +138,23 @@ class Service(dbus.service.Object):
         log.info('[idle3]')
         _start_thread(self.core.init_project_views)
         self.core.start_background_tasks()
-        interval = 10 * 60 * 1000  # Autocompact every 10 minutes
-        self._timeout_id = GObject.timeout_add(interval, self._autocompact)
         return False  # Don't repeat idle call
-
-    def _autocompact(self):
-        log.info('UserCouch.autocompact()...')
-        try:
-            for name in self.usercouch.autocompact():
-                log.info('compacting %r', name)
-        except Exception as e:
-            log.exception('Error calling UserCouch.autocompact():')
-        return True  # Repeat timeout call
 
     def shutdown(self):
         log.info('Service.shutdown()')
-        if self.usercouch is not None:
-            log.info('* killing usercouch')
-            self.usercouch.kill()
-        if self.avahi is not None:
-            log.info('* freeing avahi')
-            self.avahi.free()
         if self.replicator is not None:
             log.info('* freeing replicator')
             self.replicator.free()
+        if self.avahi is not None:
+            log.info('* freeing avahi')
+            self.avahi.free()
         if self.httpd is not None:
             log.info('* killing httpd')
             self.httpd.terminate()
             self.httpd.join()
+        if self.usercouch is not None:
+            log.info('* killing usercouch')
+            self.usercouch.kill()
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
