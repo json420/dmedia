@@ -106,6 +106,7 @@ class Service(dbus.service.Object):
                 # CouchDB accepting non-local connections!
                 overrides = {'address': '0.0.0.0'}
                 env = self.usercouch.bootstrap('open', overrides)
+            log.info('%r', self.usercouch._welcome)
             log.info('Starting CouchDB took %r', time.time() - start)
         else:
             self.config = None
