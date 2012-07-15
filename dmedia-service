@@ -112,6 +112,8 @@ class Service(dbus.service.Object):
             self.config = None
             env = json.loads(self.env_s)
         self.core = Core(env)
+        if self.core.local.get('default_store', 'none') == 'none':
+            self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env)
 
     def start_httpd(self):
