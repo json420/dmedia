@@ -67,6 +67,14 @@ def get_config(f):
         pass
 
 
+def on_disconnection(*args):
+    log.info('disconnection: %r', args)
+
+
+session.call_on_disconnection(on_disconnection)
+
+
+
 class Service(dbus.service.Object):
     usercouch = None
     httpd = None
