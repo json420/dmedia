@@ -162,16 +162,20 @@ class Service(dbus.service.Object):
         if self.replicator is not None:
             log.info('* freeing replicator')
             self.replicator.free()
+            self.replicator = None
         if self.avahi is not None:
             log.info('* freeing avahi')
             self.avahi.free()
+            self.avahi = None
         if self.httpd is not None:
             log.info('* killing httpd')
             self.httpd.terminate()
             self.httpd.join()
+            self.httpd = None
         if self.usercouch is not None:
             log.info('* killing usercouch')
             self.usercouch.kill()
+            self.usercouch = None
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
