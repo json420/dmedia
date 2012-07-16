@@ -80,6 +80,7 @@ class Service(dbus.service.Object):
         log.info('DBus: binding to %r', bus)
         super().__init__(session, object_path='/')
         self.busname = dbus.service.BusName(bus, session)
+        session.call_on_disconnection(self.on_disconnection)
         self.udisks = UDisks()
         self.udisks.connect('store_added', self.on_store_added)
         self.udisks.connect('store_removed', self.on_store_removed)
@@ -151,21 +152,29 @@ class Service(dbus.service.Object):
         self.core.start_background_tasks()
         return False  # Don't repeat idle call
 
+    def on_disconnection(self, bus):
+        log.info('<DBus disconnection>')
+        self.shutdown()
+
     def shutdown(self):
         log.info('Service.shutdown()')
         if self.replicator is not None:
             log.info('* freeing replicator')
             self.replicator.free()
+            self.replicator = None
         if self.avahi is not None:
             log.info('* freeing avahi')
             self.avahi.free()
+            self.avahi = None
         if self.httpd is not None:
             log.info('* killing httpd')
             self.httpd.terminate()
             self.httpd.join()
+            self.httpd = None
         if self.usercouch is not None:
             log.info('* killing usercouch')
             self.usercouch.kill()
+            self.usercouch = None
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
