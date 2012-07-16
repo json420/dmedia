@@ -153,9 +153,8 @@ class Service(dbus.service.Object):
         return False  # Don't repeat idle call
 
     def on_disconnection(self, bus):
-        log.info('on_disconnection')
+        log.info('<DBus disconnection>')
         self.shutdown()
-        self.mainloop.quit()
 
     def shutdown(self):
         log.info('Service.shutdown()')
