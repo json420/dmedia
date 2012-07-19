@@ -60,12 +60,38 @@ example, a dmedia/job document in CouchDB would look something like this:
 
 """
 
+import os
+from os import path
 
-def get_worker_script(name):
-    return    
+from filestore import check_path
+
+
+class PathTraversal(Exception):
+    """
+    Raised when a worker script path is outside of `TaskMaster.workersdir`.
+    """
+    def __init__(self, untrusted, abspath, workersdir):
+        self.untrusted = untrusted
+        self.abspath = abspath
+        self.workersdir = workersdir
+        super().__init__('{!r} outside of {!r}'.format(abspath, workersdir))
 
 
 class TaskMaster:
+    def __init__(self, workersdir):
+        self.workersdir = check_path(workersdir)
+        if not path.isdir(self.workersdir):
+            raise ValueError(
+                'workersdir not a directory: {!r}'.format(self.workersdir)
+            )
+
+    def get_worker_script(self, name):
+        untrusted = path.join(self.workersdir, name)
+        abspath = path.abspath(untrusted)
+        if abspath.startswith(self.workersdir + os.sep):
+            return abspath
+        raise PathTraversal(untrusted, abspath, self.workersdir)
+
     def run_job(self, doc):
         doc['time_start'] = time.time()
         doc['status'] = 'executing'
