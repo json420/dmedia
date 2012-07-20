@@ -62,7 +62,7 @@ def usable_mount(mounts):
 
     """
     for mount in mounts:
-        if mount.startswith('/media/') or mount.startswith('/srv/'):
+        if mount.startswith('/run/media/') or mount.startswith('/media/') or mount.startswith('/srv/'):
             return str(mount)
 
 

@@ -95,6 +95,10 @@ class TestFunctions(TestCase):
             udisks.usable_mount(['/', '/home', '/home/user', '/tmp', '/media/foo']),
             '/media/foo'
         )
+        self.assertEqual(
+            udisks.usable_mount(['/run/media', '/run/media/jderose/EOS_DIGITAL']),
+            '/run/media/jderose/EOS_DIGITAL'
+        )
 
     def test_partition_info(self):
         d = {
