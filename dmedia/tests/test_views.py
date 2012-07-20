@@ -125,11 +125,11 @@ class TestDesignsLive(CouchCase):
         self.check_designs(views.project)
 
 
-class TestFileDesign(CouchCase):
+class DesignTestCase(CouchCase):
     """
     Test each view function in the _design/file design.
     """
-    design = views.file_design
+    design = views.file_design  # Override this is subclasses
 
     def build_view(self, view):
         return {
@@ -138,6 +138,13 @@ class TestFileDesign(CouchCase):
                 view: self.design['views'][view],   
             }
         }
+
+
+class TestFileDesign(DesignTestCase):
+    """
+    Test each view function in the _design/file design.
+    """
+    design = views.file_design
 
     def test_stored(self):
         db = Database('foo', self.env)
@@ -522,4 +529,84 @@ class TestFileDesign(CouchCase):
                     {'key': [store_id, 1234567890], 'id': id1, 'value': None},
                 ]
             },
+        )
+
+
+class TestJobDesign(DesignTestCase):
+    """
+    Test each view function in the _design/job design.
+    """
+    design = views.job_design
+
+    def test_waiting(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('waiting')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('job', 'waiting'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        id1 = random_id()
+        doc1 = {
+            '_id': id1,
+            'time': 17,
+            'type': 'dmedia/job',
+            'status': 'waiting',
+        }
+        db.save(doc1)
+        self.assertEqual(
+            db.view('job', 'waiting'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'key': 17, 'id': id1, 'value': None},
+                ]
+            },
+        )
+
+        # Add another doc, make sure the sort order is correct
+        id2 = random_id()
+        doc2 = {
+            '_id': id2,
+            'time': 19,
+            'type': 'dmedia/job',
+            'status': 'waiting',
+        }
+        db.save(doc2)
+        self.assertEqual(
+            db.view('job', 'waiting'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': 17, 'id': id1, 'value': None},
+                    {'key': 19, 'id': id2, 'value': None},
+                ]
+            },
+        )
+
+        # Make sure doc['status'] is considered
+        doc1['status'] = 'executing'
+        db.save(doc1)
+        self.assertEqual(
+            db.view('job', 'waiting'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'key': 19, 'id': id2, 'value': None},
+                ]
+            },
+        )
+
+        # Make sure doc['type'] is considered
+        doc2['type'] = 'dmedia/jobs'
+        db.save(doc2)
+        self.assertEqual(
+            db.view('job', 'waiting'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
         )
