@@ -134,7 +134,7 @@ class TestTaskMaster(CouchCase):
             'worker': 'echo-script',
             'status': 'waiting',
             'job': {
-                'delay': 1,
+                'delay': 0.5,
             },
             'files': [],
         }
@@ -148,7 +148,7 @@ class TestTaskMaster(CouchCase):
             'worker': 'echo-script',
             'status': 'waiting',
             'job': {
-                'delay': 1,
+                'delay': 0.5,
                 'fail': True,
             },
             'files': [],
@@ -163,7 +163,7 @@ class TestTaskMaster(CouchCase):
             'worker': 'echo-script',
             'status': 'waiting',
             'job': {
-                'delay': 1,
+                'delay': 0.5,
             },
             'files': [],
         }
