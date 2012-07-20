@@ -108,6 +108,14 @@ class TaskMaster:
             return abspath
         raise PathTraversal(untrusted, abspath, self.workersdir)
 
+    def run(self):
+        while True:
+            rows = self.db.view('job', 'waiting', limit=1)['rows']
+            if not rows:
+                return
+            doc = self.db.get(rows[0]['id'])
+            self.run_job(doc)
+
     def run_job(self, doc):
         assert doc['status'] == 'waiting'
         doc['time_start'] = time.time()

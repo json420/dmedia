@@ -32,6 +32,7 @@ import microfiber
 
 from dmedia.tests.base import TempDir
 from dmedia.tests.couch import CouchCase
+from dmedia.views import job_design
 from dmedia import jobs
 
 
@@ -117,6 +118,61 @@ class TestTaskMaster(CouchCase):
 
         inst = jobs.TaskMaster(dummy_workers, self.env)
         self.assertEqual(inst.get_worker_script('echo-script'), echo_script)
+
+    def test_run(self):
+        inst = jobs.TaskMaster(dummy_workers, self.env)
+        inst.db.ensure()
+        inst.db.post(job_design)
+
+        inst.run()
+
+        id1 = microfiber.random_id()
+        doc1 = {
+            '_id': id1,
+            'type': 'dmedia/job',
+            'time': 17,
+            'worker': 'echo-script',
+            'status': 'waiting',
+            'job': {
+                'delay': 1,
+            },
+            'files': [],
+        }
+        inst.db.save(doc1)
+
+        id2 = microfiber.random_id()
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/job',
+            'time': 19,
+            'worker': 'echo-script',
+            'status': 'waiting',
+            'job': {
+                'delay': 1,
+                'fail': True,
+            },
+            'files': [],
+        }
+        inst.db.save(doc2)
+
+        id3 = microfiber.random_id()
+        doc3 = {
+            '_id': id3,
+            'type': 'dmedia/job',
+            'time': 21,
+            'worker': 'echo-script',
+            'status': 'waiting',
+            'job': {
+                'delay': 1,
+            },
+            'files': [],
+        }
+        inst.db.save(doc3)
+
+        inst.run()
+        self.assertEqual(inst.db.get(id1)['status'], 'completed')
+        self.assertEqual(inst.db.get(id2)['status'], 'failed')
+        self.assertEqual(inst.db.get(id3)['status'], 'completed')
 
     def test_run_job(self):
         inst = jobs.TaskMaster(dummy_workers, self.env)
