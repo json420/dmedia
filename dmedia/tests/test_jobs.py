@@ -27,30 +27,46 @@ from unittest import TestCase
 from os import path
 
 import filestore
+import microfiber
 
 from dmedia.tests.base import TempDir
+from dmedia.tests.couch import CouchCase
 from dmedia import jobs
 
 
+dummy_workers = path.join(path.dirname(path.abspath(__file__)), 'workers')
+assert path.isdir(dummy_workers)
+echo_script = path.join(dummy_workers, 'echo-script')
+assert path.isfile(echo_script)
 
 
-class TestTaskMaster(TestCase):
+class TestPathTraversal(TestCase):
+    def test_init(self):
+        inst = jobs.PathTraversal('foo', 'bar', 'baz')
+        self.assertEqual(inst.untrusted, 'foo')
+        self.assertEqual(inst.abspath, 'bar')
+        self.assertEqual(inst.workersdir, 'baz')
+        self.assertEqual(str(inst), "'bar' is outside of 'baz'")
+
+
+class TestTaskMaster(CouchCase):
     def test_init(self):
         tmp = TempDir()
 
         good = tmp.makedirs('good')
-        inst = jobs.TaskMaster(good)
+        inst = jobs.TaskMaster(good, self.env)
         self.assertEqual(inst.workersdir, good)
+        self.assertIsInstance(inst.db, microfiber.Database)
 
         bad = tmp.join('good', '..', 'bad')
         with self.assertRaises(filestore.PathError) as cm:
-            inst = jobs.TaskMaster(bad)
+            inst = jobs.TaskMaster(bad, self.env)
         self.assertEqual(cm.exception.untrusted, bad)
         self.assertEqual(cm.exception.abspath, tmp.join('bad'))
 
         nope = tmp.join('nope')
         with self.assertRaises(ValueError) as cm:
-            inst = jobs.TaskMaster(nope)
+            inst = jobs.TaskMaster(nope, self.env)
         self.assertEqual(
             str(cm.exception),
             'workersdir not a directory: {!r}'.format(nope)
@@ -58,7 +74,7 @@ class TestTaskMaster(TestCase):
 
         afile = tmp.touch('afile')
         with self.assertRaises(ValueError) as cm:
-            inst = jobs.TaskMaster(nope)
+            inst = jobs.TaskMaster(nope, self.env)
         self.assertEqual(
             str(cm.exception),
             'workersdir not a directory: {!r}'.format(nope)
@@ -67,7 +83,7 @@ class TestTaskMaster(TestCase):
     def test_get_worker_scripts(self):
         tmp = TempDir()
         workersdir = tmp.makedirs('workers')
-        inst = jobs.TaskMaster(workersdir)
+        inst = jobs.TaskMaster(workersdir, self.env)
 
         self.assertEqual(
             inst.get_worker_script('foo'),
@@ -79,5 +95,19 @@ class TestTaskMaster(TestCase):
         self.assertEqual(cm.exception.untrusted, tmp.dir + '/workers/../foo')
         self.assertEqual(cm.exception.abspath, tmp.dir + '/foo')
         self.assertEqual(cm.exception.workersdir, workersdir)
-        
-    
+
+        inst = jobs.TaskMaster(dummy_workers, self.env)
+        self.assertEqual(inst.get_worker_script('echo-script'), echo_script)
+
+    def test_run_job(self):
+        inst = jobs.TaskMaster(dummy_workers, self.env)
+        inst.db.ensure()
+        doc = {
+            '_id': microfiber.random_id(),
+            'worker': 'echo-script',
+            'job': microfiber.random_id(),
+            'files': [],
+        }
+        inst.db.save(doc)
+        inst.run_job(doc)
+

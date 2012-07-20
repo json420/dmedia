@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+
+import sys
+import json
+
+job = json.loads(sys.argv[1])
+print(json.dumps(job))
+
+

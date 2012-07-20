@@ -62,8 +62,14 @@ example, a dmedia/job document in CouchDB would look something like this:
 
 import os
 from os import path
+import time
+import json
+import subprocess
 
 from filestore import check_path
+from microfiber import Conflict
+
+from .util import get_db
 
 
 class PathTraversal(Exception):
@@ -74,16 +80,18 @@ class PathTraversal(Exception):
         self.untrusted = untrusted
         self.abspath = abspath
         self.workersdir = workersdir
-        super().__init__('{!r} outside of {!r}'.format(abspath, workersdir))
+        super().__init__('{!r} is outside of {!r}'.format(abspath, workersdir))
 
 
 class TaskMaster:
-    def __init__(self, workersdir):
+    def __init__(self, workersdir, env):
         self.workersdir = check_path(workersdir)
         if not path.isdir(self.workersdir):
             raise ValueError(
                 'workersdir not a directory: {!r}'.format(self.workersdir)
             )
+        self.db = get_db(env)
+        self.machine_id = env['machine_id']
 
     def get_worker_script(self, name):
         untrusted = path.join(self.workersdir, name)
@@ -100,13 +108,16 @@ class TaskMaster:
             self.db.save(doc)
         except Conflict:
             return False
-        script = get_worker_script(doc['worker'])
-        obj_s = json.dumps({'job': doc['job'], 'files': doc['files']})
+        script = self.get_worker_script(doc['worker'])
+        job = {
+            'job': doc['job'],
+            'file': doc['files'],
+        }
         try:
-            result = check_output([script, obj_s])
+            result = subprocess.check_output([script, json.dumps(job)])
             doc['result'] = json.loads(result.decode('utf-8'))
             doc['status'] = 'completed'
-        except CalledProcessError:
+        except subprocess.CalledProcessError:
             doc['status'] = 'failed'
         doc['time_end'] = time.time()
         self.db.save(doc)
