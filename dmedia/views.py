@@ -417,11 +417,29 @@ camera_design = {
 }
 
 
+# For dmedia/job docs
+job_waiting = """
+function(doc) {
+    if (doc.type == 'dmedia/job' && doc.status == 'waiting') {
+        emit(doc.time, null);
+    }
+}
+"""
+
+job_design = {
+    '_id': '_design/job',
+    'views': {
+        'waiting': {'map': job_waiting},
+    }
+}
+
+
 
 core = (
     doc_design,
     file_design,
     project_design,
+    job_design,
 )
 
 
