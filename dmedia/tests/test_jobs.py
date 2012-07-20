@@ -81,6 +81,24 @@ class TestTaskMaster(CouchCase):
             'workersdir not a directory: {!r}'.format(nope)
         )
 
+    def test_iter_workers(self):
+        tmp = TempDir()
+        inst = jobs.TaskMaster(tmp.dir, self.env)
+
+        self.assertEqual(list(inst.iter_workers()), [])
+
+        # Should ignore directories
+        tmp.makedirs('some-dir')
+        self.assertEqual(list(inst.iter_workers()), [])
+
+        # Add a file
+        tmp.touch('foo')
+        self.assertEqual(list(inst.iter_workers()), ['foo'])
+
+        # Add another file, should sort alphabetically
+        tmp.touch('bar')
+        self.assertEqual(list(inst.iter_workers()), ['bar', 'foo'])
+
     def test_get_worker_scripts(self):
         tmp = TempDir()
         workersdir = tmp.makedirs('workers')

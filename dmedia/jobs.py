@@ -93,6 +93,14 @@ class TaskMaster:
         self.db = get_db(env)
         self.machine_id = env['machine_id']
 
+    def iter_workers(self):
+        """
+        Iterate through the currently installed worker script names.
+        """
+        for name in sorted(os.listdir(self.workersdir)):
+            if path.isfile(path.join(self.workersdir, name)):
+                yield name
+
     def get_worker_script(self, name):
         untrusted = path.join(self.workersdir, name)
         abspath = path.abspath(untrusted)
