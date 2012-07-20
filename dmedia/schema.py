@@ -1084,7 +1084,7 @@ def check_job(doc):
     ...     'ver': 0,
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
-    ...     'status': 'complete',
+    ...     'status': 'completed',
     ...     'worker': 'novacut-renderer',
     ...     'files': [
     ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
@@ -1111,7 +1111,7 @@ def check_job(doc):
     )
 
     _check(doc, ['status'], str,
-        (_is_in, 'waiting', 'executing', 'complete', 'failed'),
+        (_is_in, 'waiting', 'executing', 'completed', 'failed'),
     )
     _check(doc, ['worker'], str,
         _nonempty,

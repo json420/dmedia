@@ -755,7 +755,7 @@ class TestFunctions(TestCase):
         self.assertIsNone(schema.check_job(good))
 
         # Test all posible status:
-        for status in ('waiting', 'executing', 'complete', 'failed'):
+        for status in ('waiting', 'executing', 'completed', 'failed'):
             doc = deepcopy(good)
             doc['staus'] = status
             schema.check_job(doc)
@@ -767,7 +767,7 @@ class TestFunctions(TestCase):
             schema.check_job(doc)
         self.assertEqual(
             str(cm.exception),
-            "doc['status'] value 'vacationing' not in ('waiting', 'executing', 'complete', 'failed')"
+            "doc['status'] value 'vacationing' not in ('waiting', 'executing', 'completed', 'failed')"
         )
 
         # Test with missing worker
