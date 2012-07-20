@@ -101,6 +101,7 @@ class TaskMaster:
         raise PathTraversal(untrusted, abspath, self.workersdir)
 
     def run_job(self, doc):
+        assert doc['status'] == 'waiting'
         doc['time_start'] = time.time()
         doc['status'] = 'executing'
         doc['machine_id'] = self.machine_id
@@ -111,7 +112,7 @@ class TaskMaster:
         script = self.get_worker_script(doc['worker'])
         job = {
             'job': doc['job'],
-            'file': doc['files'],
+            'files': doc['files'],
         }
         try:
             result = subprocess.check_output([script, json.dumps(job)])

@@ -2,8 +2,16 @@
 
 import sys
 import json
+import time
 
 job = json.loads(sys.argv[1])
+j = job['job']
+
+if j.get('delay'):
+    time.sleep(j['delay'])
+if j.get('fail'):
+    sys.exit(1)
+
 print(json.dumps(job))
 
 

@@ -25,6 +25,7 @@ Unit tests for `dmedia.jobs`.
 
 from unittest import TestCase
 from os import path
+import time
 
 import filestore
 import microfiber
@@ -102,12 +103,84 @@ class TestTaskMaster(CouchCase):
     def test_run_job(self):
         inst = jobs.TaskMaster(dummy_workers, self.env)
         inst.db.ensure()
-        doc = {
-            '_id': microfiber.random_id(),
-            'worker': 'echo-script',
-            'job': microfiber.random_id(),
-            'files': [],
-        }
-        inst.db.save(doc)
-        inst.run_job(doc)
 
+        # Test when it's all good
+        job_id = microfiber.random_id()
+        marker = microfiber.random_id()
+        file_id = microfiber.random_id(filestore.DIGEST_BYTES)
+        doc = {
+            '_id': job_id,
+            'worker': 'echo-script',
+            'status': 'waiting',
+            'job': {
+                'delay': 1.25,
+                'marker': marker,
+            },
+            'files': [file_id],
+        }
+        start = time.time()
+        self.assertTrue(inst.run_job(doc))
+        doc = inst.db.get(job_id)
+        self.assertEqual(doc['_rev'][:2], '2-')
+        self.assertGreaterEqual(doc['time_start'], start)
+        self.assertGreaterEqual(doc['time_end'], doc['time_start'] + 1)
+        self.assertEqual(doc['status'], 'completed')
+        self.assertEqual(doc['result'],
+            {
+                'job': {
+                    'delay': 1.25,
+                    'marker': marker,
+                },
+                'files': [file_id],
+            }
+        )
+
+        # Test when the worker exists with a non-zero status
+        job_id = microfiber.random_id()
+        marker = microfiber.random_id()
+        file_id = microfiber.random_id(filestore.DIGEST_BYTES)
+        doc = {
+            '_id': job_id,
+            'worker': 'echo-script',
+            'status': 'waiting',
+            'job': {
+                'delay': 1.25,
+                'marker': marker,
+                'fail': True,
+            },
+            'files': [file_id],
+        }
+        start = time.time()
+        self.assertTrue(inst.run_job(doc))
+        doc = inst.db.get(job_id)
+        self.assertEqual(doc['_rev'][:2], '2-')
+        self.assertGreaterEqual(doc['time_start'], start)
+        self.assertGreaterEqual(doc['time_end'], doc['time_start'] + 1)
+        self.assertEqual(doc['status'], 'failed')
+        self.assertNotIn('result', doc)
+
+        # Test with a naughty
+        job_id = microfiber.random_id()
+        marker = microfiber.random_id()
+        file_id = microfiber.random_id(filestore.DIGEST_BYTES)
+        doc = {
+            '_id': job_id,
+            'worker': '../sneaky',
+            'status': 'waiting',
+            'job': {
+                'delay': 1.25,
+                'marker': marker,
+            },
+            'files': [file_id],
+        }
+        start = time.time()
+        with self.assertRaises(jobs.PathTraversal) as cm:
+            self.assertTrue(inst.run_job(doc))
+        self.assertEqual(cm.exception.untrusted, dummy_workers + '/../sneaky')
+        self.assertEqual(cm.exception.untrusted, dummy_workers + '/../sneaky')
+        doc = inst.db.get(job_id)
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertGreaterEqual(doc['time_start'], start)
+        self.assertEqual(doc['status'], 'executing')
+        self.assertNotIn('time_end', doc)
+        self.assertNotIn('result', doc)
