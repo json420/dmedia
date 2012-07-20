@@ -1,4 +1,8 @@
 #!/bin/sh
-set -e
 
-/usr/lib/dmedia/init-filestore /home
+case $1 in
+    configure)
+        /usr/lib/dmedia/init-filestore /home
+esac
+
+#DEBHELPER#
