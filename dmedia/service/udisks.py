@@ -216,7 +216,12 @@ class DeviceWorker:
         return False  # Do not repeat timeout call
 
     def run(self):
-        self.unmount()
+        try:
+            self.unmount()
+        except Exception as e:
+            log.exception('Error unmounting %r', self)
+            self.next = None
+            self.finish()
 
     def eject(self):
         self.next = self.finish
