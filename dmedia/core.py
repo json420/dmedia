@@ -121,6 +121,11 @@ class Core:
             self.default = None
             self._sync_stores()
             return
+        if value == 'shared' and not util.isfilestore(self._shared):
+            log.warning('Switching to private, no shared FileStore at %r', self._shared)
+            value = 'private'
+            self.local['default_store'] = value
+            self.db.save(self.local)
         parentdir = (self._private if value == 'private' else self._shared)
         (fs, doc) = util.init_filestore(parentdir)
         self.default = fs

@@ -160,6 +160,31 @@ class TestCore(CouchCase):
             }
         )
 
+        # Test when default_store is 'shared' and it doesn't exist, in which
+        # case it should automatically switch to 'private' instead
+        nope = TempDir()
+        inst = core.Core(self.env, private.dir, nope.dir, full_init=False)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, nope.dir)
+        self.assertFalse(hasattr(inst, 'local'))
+        inst._init_local()
+        inst.local['default_store'] = 'shared'
+        inst._init_default_store()
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-5',
+                'machine_id': machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {
+                        'id': fs1.id,
+                        'copies': fs1.copies,
+                    }
+                }
+            }
+        )
+
     def test_set_default_store(self):
         private = TempDir()
         shared = TempDir()
@@ -221,6 +246,24 @@ class TestCore(CouchCase):
                 'machine_id': inst.machine_id,
                 'default_store': 'none',
                 'stores': {},
+            }
+        )
+
+        # Test with 'shared' when it doesn't exist
+        nope = TempDir()
+        inst = core.Core(self.env, private.dir, nope.dir)
+        self.assertEqual(inst._private, private.dir)
+        self.assertEqual(inst._shared, nope.dir)
+        inst.set_default_store('shared')
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-11',
+                'machine_id': inst.machine_id,
+                'default_store': 'private',
+                'stores': {
+                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
+                },
             }
         )
 
