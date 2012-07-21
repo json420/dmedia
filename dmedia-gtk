@@ -34,11 +34,10 @@ from dmedia.util import get_project_db
 from dmedia.misc import WeakMethod
 from dmedia import views
 from dmedia import schema
-from dmedia.gtk import GObject, Gtk
 from dmedia.gtk.util import Timer
 from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager, has_magic_lantern
-from gi.repository import GConf
+from gi.repository import GObject, Gtk, Gio
 
 try:
     from dmedia.gtk.ubuntu import UnityImportUX
@@ -47,7 +46,6 @@ except ImportError:
 
 
 log = logging.getLogger()
-GCONF_KEY = '/apps/nautilus/preferences/media_autorun_never'
 
 
 class Importer:
@@ -65,17 +63,17 @@ class Importer:
             WeakMethod(self, 'on_batch_finished')
         )
         self.manager = ImportManager(env, WeakMethod(self, 'callback'))
-        self.gconf = GConf.Client.get_default()
-        self.media_autorun_never = self.gconf.get_bool(GCONF_KEY)
-        if not self.media_autorun_never:
-            self.gconf.set_bool(GCONF_KEY, True)
+        self.settings = Gio.Settings('org.gnome.desktop.media-handling')
+        self.autorun_never = self.settings.get_boolean('autorun-never')
+        if not self.autorun_never:
+            self.settings.set_boolean('autorun-never', True)
 
     def __del__(self):
         self.reset()
 
     def reset(self):
-        if not self.media_autorun_never:
-            self.gconf.set_bool(GCONF_KEY, False)
+        if not self.autorun_never:
+            self.settings.set_boolean('autorun-never', False)
 
     def callback(self, signal, args):
         GObject.idle_add(self.hub.send, signal, *args)
