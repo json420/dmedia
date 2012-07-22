@@ -199,6 +199,11 @@ class Core:
             )
         log.info('Creating a new FileStore in %r', parentdir)
         (fs, doc) = util.init_filestore(parentdir)
+        if path.ismount(parentdir) and (parentdir.startswith('/media/') or parentdir.startswith('/run/media/')):
+            try:
+                os.chmod(parentdir, 0o777)
+            except Exception as e:
+                pass
         return self.connect_filestore(parentdir, fs.id)
 
     def connect_filestore(self, parentdir, store_id):
