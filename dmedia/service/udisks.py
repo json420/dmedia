@@ -283,7 +283,6 @@ class UDisks(GObject.GObject):
             'partitions': self.partitions,
             'stores': self.stores,
             'cards': self.cards,
-            #'special': self.special,
         }
 
     def monitor(self):
@@ -293,18 +292,6 @@ class UDisks(GObject.GObject):
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
-        user = path.abspath(os.environ['HOME'])
-        home = path.dirname(user)
-
-        home_p = self.find(home)
-        try:
-            user_p = self.find(user)
-        except Exception:
-            user_p = home_p
-        self.special = {
-            home: home_p,
-            user: user_p,
-        }
         self.proxy.connect_to_signal('DeviceChanged', self.on_DeviceChanged)
         self.proxy.connect_to_signal('DeviceRemoved', self.on_DeviceRemoved)
         try:
