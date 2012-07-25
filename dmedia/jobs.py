@@ -42,9 +42,9 @@ Dmedia ignores the details of both the job and the result.  Dmedia only cares
 about which worker script and which files are needed to execute a job.  For
 example, a dmedia/job document in CouchDB would look something like this:
 
+>>> from dmedia.schema import check_job
 >>> doc = {
 ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
-...     'ver': 0,
 ...     'type': 'dmedia/job',
 ...     'time': 1234567890,
 ...     'status': 'waiting',
@@ -56,6 +56,7 @@ example, a dmedia/job document in CouchDB would look something like this:
 ...         'Dmedia': 'ignores everything in job',
 ...     },
 ... }
+>>> check_job(doc)
 
 
 """
