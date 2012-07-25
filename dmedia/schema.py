@@ -34,7 +34,6 @@ For example:
 
 >>> good = {
 ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
-...     'ver': 0,
 ...     'type': 'dmedia/foo',
 ...     'time': 1234567890,
 ... }
@@ -42,7 +41,6 @@ For example:
 >>> check_dmedia(good)  # Returns None
 >>> bad = {
 ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
-...     'ver': 0,
 ...     'kind': 'dmedia/foo',  # Changed!
 ...     'time': 1234567890,
 ... }
