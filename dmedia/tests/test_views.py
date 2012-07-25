@@ -127,7 +127,7 @@ class TestDesignsLive(CouchCase):
 
 class DesignTestCase(CouchCase):
     """
-    Test each view function in the _design/file design.
+    Base class for CouchDB design/view tests.
     """
     design = views.file_design  # Override this is subclasses
 
@@ -138,6 +138,120 @@ class DesignTestCase(CouchCase):
                 view: self.design['views'][view],   
             }
         }
+
+
+class TestDocDesign(DesignTestCase):
+    """
+    Test each view function in the _design/doc design.
+    """
+    design = views.doc_design
+
+    def test_type(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('type')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('doc', 'type'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+        self.assertEqual(
+            db.view('doc', 'type', reduce=True),
+            {'rows': []}
+        )
+
+        id1 = random_id()
+        doc1 = {
+            '_id': id1,
+            'type': 'misc',
+        }
+        db.save(doc1)
+        self.assertEqual(
+            db.view('doc', 'type'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'key': 'misc', 'id': id1, 'value': None}, 
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('doc', 'type', reduce=True),
+            {
+                'rows': [
+                    {'key': None, 'value': 1}, 
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('doc', 'type', reduce=True, group=True),
+            {
+                'rows': [
+                    {'key': 'misc', 'value': 1}, 
+                ]
+            },
+        )
+
+        id2 = random_id()
+        doc2 = {
+            '_id': id2,
+            'type': 'abba',
+        }
+        db.save(doc2)
+        self.assertEqual(
+            db.view('doc', 'type'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': 'abba', 'id': id2, 'value': None},
+                    {'key': 'misc', 'id': id1, 'value': None}, 
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('doc', 'type', reduce=True),
+            {
+                'rows': [
+                    {'key': None, 'value': 2}, 
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('doc', 'type', reduce=True, group=True),
+            {
+                'rows': [
+                    {'key': 'abba', 'value': 1},
+                    {'key': 'misc', 'value': 1}, 
+                ]
+            },
+        )
+
+        id3 = random_id()
+        doc3 = {
+            '_id': id3,
+            'type': 'misc',
+        }
+        db.save(doc3)
+        self.assertEqual(
+            db.view('doc', 'type', reduce=True),
+            {
+                'rows': [
+                    {'key': None, 'value': 3}, 
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('doc', 'type', reduce=True, group=True),
+            {
+                'rows': [
+                    {'key': 'abba', 'value': 1},
+                    {'key': 'misc', 'value': 2}, 
+                ]
+            },
+        )
 
 
 class TestFileDesign(DesignTestCase):
