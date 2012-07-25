@@ -160,7 +160,6 @@ example:
 
 >>> doc = {
 ...     '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
-...     'ver': 0,
 ...     'type': 'dmedia/batch',
 ...     'time': 1234567890,
 ... }
@@ -627,7 +626,6 @@ def check_dmedia(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
-    ...     'ver': 0,
     ...     'type': 'dmedia/foo',
     ...     'time': 1234567890,
     ... }
@@ -638,9 +636,6 @@ def check_dmedia(doc):
     _check(doc, [], dict)
     _check(doc, ['_id'], str,
         _any_id,
-    )
-    _check(doc, ['ver'], int,
-        (_equals, VER),
     )
     _check(doc, ['type'], str,
         (_matches, 'dmedia/[a-z]+$'),
@@ -664,7 +659,6 @@ def check_file(doc):
     ...             'content_type': 'application/octet-stream',
     ...         },
     ...     },
-    ...     'ver': 0,
     ...     'type': 'dmedia/file',
     ...     'time': 1234567890,
     ...     'atime': 1318399431,
@@ -801,7 +795,6 @@ def check_store(doc):
 
     >>> doc = {
     ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
-    ...     'ver': 0,
     ...     'type': 'dmedia/store',
     ...     'time': 1234567890,
     ...     'plugin': 'filestore',
@@ -842,7 +835,6 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
                 'content_type': 'application/octet-stream',
             }
         },
-        'ver': VER,
         'type': 'dmedia/file',
         'time': timestamp,
         'atime': timestamp,
@@ -866,7 +858,6 @@ def create_project_file(_id, file_size, leaf_hashes, origin='user'):
                 'content_type': 'application/octet-stream',
             }
         },
-        'ver': VER,
         'type': 'dmedia/file',
         'time': time.time(),
         'bytes': file_size,
@@ -881,7 +872,6 @@ def create_machine():
     """
     return {
         '_id': random_id(),
-        'ver': VER,
         'type': 'dmedia/machine',
         'time': time.time(),
         'hostname': socket.gethostname(),
@@ -894,7 +884,6 @@ def create_filestore(copies=1):
     """
     return {
         '_id': random_id(),
-        'ver': VER,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 'filestore',
@@ -908,7 +897,6 @@ def create_s3_store(bucket, copies=2, use_ext=True):
     """
     return {
         '_id': random_id(),
-        'ver': VER,
         'type': 'dmedia/store',
         'time': time.time(),
         'plugin': 's3',
@@ -924,7 +912,6 @@ def create_batch(machine_id=None):
     """
     return {
         '_id': random_id(),
-        'ver': VER,
         'type': 'dmedia/batch',
         'time': time.time(),
         'machine_id': machine_id,
@@ -944,7 +931,6 @@ def create_import(basedir, machine_id, **kw):
     """
     doc = {
         '_id': random_id(),
-        'ver': VER,
         'type': 'dmedia/import',
         'time': time.time(),
         'basedir': basedir,
@@ -969,7 +955,6 @@ def check_project(doc):
 
     >>> doc = {
     ...     '_id': 'HB6YSCKAY27KIWUTWKGKCTNI',
-    ...     'ver': 0,
     ...     'type': 'dmedia/project',
     ...     'time': 1234567890,
     ...     'db_name': 'dmedia-0-hb6ysckay27kiwutwkgkctni',
@@ -1010,7 +995,6 @@ def create_project(title=''):
     ts = time.time()
     return {
         '_id': _id,
-        'ver': VER,
         'type': 'dmedia/project',
         'time': ts,
         'atime': ts,
@@ -1025,7 +1009,6 @@ def create_tag(tag):
     value = tag.strip()
     return {
         '_id': random_id(),
-        'ver': VER,
         'type': 'dmedia/tag',
         'time': time.time(),
         'value': value,
@@ -1041,7 +1024,6 @@ def check_job(doc):
 
     >>> doc = {
     ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
-    ...     'ver': 0,
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
     ...     'status': 'waiting',
@@ -1060,7 +1042,6 @@ def check_job(doc):
 
     >>> doc = {
     ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
-    ...     'ver': 0,
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
     ...     'status': 'executing',
@@ -1081,7 +1062,6 @@ def check_job(doc):
 
     >>> doc = {
     ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
-    ...     'ver': 0,
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
     ...     'status': 'completed',
@@ -1144,7 +1124,6 @@ def check_job(doc):
 def create_job(worker, files, job):
     return {
         '_id': random_id(),
-        'ver': VER,
         'type': 'dmedia/job',
         'time': time.time(),
         'status': 'waiting',
