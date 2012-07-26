@@ -406,7 +406,6 @@ class TestImportManager(ImportCase):
             set([
                 '_id',
                 '_rev',
-                'ver',
                 'type',
                 'time',
                 'imports',

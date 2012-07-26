@@ -46,12 +46,6 @@ function(key, values, rereduce) {
 
 
 # The generic _design/doc design, quite helpful for developers:
-doc_ver = """
-function(doc) {
-    emit(doc.ver, null);
-}
-"""
-
 doc_type = """
 function(doc) {
     emit(doc.type, null);
@@ -82,7 +76,6 @@ function(doc, req) {
 doc_design = {
     '_id': '_design/doc',
     'views': {
-        'ver': {'map': doc_ver, 'reduce': _count},
         'type': {'map': doc_type, 'reduce': _count},
         'time': {'map': doc_time},
     },

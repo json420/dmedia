@@ -56,7 +56,6 @@ class TestFunctions(TestCase):
 
         good = {
             '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
-            'ver': 0,
             'type': 'dmedia/foo',
             'time': 1234567890,
             'foo': 'bar',
@@ -92,25 +91,6 @@ class TestFunctions(TestCase):
         self.assertEqual(
             str(cm.exception),
             "doc['_id']: length of ID (23) not multiple of 8: '2HOFUVDSAYHM74JKVKP4AKQ'"
-        )
-
-        # Check with bad "ver" type:
-        bad = deepcopy(good)
-        bad['ver'] = 0.0
-        with self.assertRaises(TypeError) as cm:
-            f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            TYPE_ERROR.format("doc['ver']", int, float, 0.0)
-        )
-
-        # Check with bad "ver" value
-        bad['ver'] = 1
-        with self.assertRaises(ValueError) as cm:
-            f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['ver'] must equal 0; got 1"
         )
 
         # Check with bad "type" type:
@@ -154,7 +134,7 @@ class TestFunctions(TestCase):
         )
 
         # Check with a missing key:
-        for key in ['_id', 'ver', 'type', 'time']:
+        for key in ['_id', 'type', 'time']:
             bad = deepcopy(good)
             del bad[key]
             with self.assertRaises(ValueError) as cm:
@@ -176,7 +156,6 @@ class TestFunctions(TestCase):
                     'content_type': 'application/octet-stream',
                 },
             },
-            'ver': 0,
             'type': 'dmedia/file',
             'time': 1234567890,
             'atime': 1234567890,
@@ -196,7 +175,6 @@ class TestFunctions(TestCase):
 
         required = [
             '_id',
-            'ver',
             'type',
             'time',
             
@@ -508,7 +486,6 @@ class TestFunctions(TestCase):
         _id = random_id()
         good = {
             '_id': _id,
-            'ver': 0,
             'type': 'dmedia/store',
             'time': 1234567890,
             'plugin': 'filestore',
@@ -581,7 +558,6 @@ class TestFunctions(TestCase):
             set([
                 '_id',
                 '_attachments',
-                'ver',
                 'type',
                 'time',
                 'atime',
@@ -602,7 +578,6 @@ class TestFunctions(TestCase):
                 }
             }
         )
-        self.assertEqual(doc['ver'], 0)
         self.assertEqual(doc['type'], 'dmedia/file')
         self.assertLessEqual(doc['time'], time.time())
         self.assertEqual(doc['time'], doc['atime'])
@@ -635,7 +610,6 @@ class TestFunctions(TestCase):
             set(doc),
             set([
                 '_id',
-                'ver',
                 'type',
                 'time',
                 'plugin',
@@ -661,7 +635,6 @@ class TestFunctions(TestCase):
             set(doc),
             set([
                 '_id',
-                'ver',
                 'type',
                 'time',
                 'imports',
@@ -693,7 +666,6 @@ class TestFunctions(TestCase):
         self.assertEqual(set(doc),
             set([
                 '_id',
-                'ver',
                 'type',
                 'time',
                 'basedir',
@@ -740,7 +712,6 @@ class TestFunctions(TestCase):
     def test_check_job(self):
         good = {
             '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
-            'ver': 0,
             'type': 'dmedia/job',
             'time': 1234567890,
             'status': 'waiting',
@@ -857,7 +828,6 @@ class TestFunctions(TestCase):
             set(job),
             set([
                 '_id',
-                'ver',
                 'type',
                 'time',
                 'status',
