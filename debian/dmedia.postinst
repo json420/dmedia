@@ -2,9 +2,9 @@
 
 case $1 in
     configure)
-        # Shutdown any running dmedia-service
-        kill -s HUP `pidof -x dmedia-service` >/dev/null 2>&1 || true
+        # Initalize shared file-store in /home
         /usr/lib/dmedia/init-filestore /home
 esac
+
 
 #DEBHELPER#
