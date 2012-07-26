@@ -1,8 +1,10 @@
-#!/bin/sh
+#!/bin/sh -e
 
 case $1 in
     configure)
+        # Initalize shared file-store in /home
         /usr/lib/dmedia/init-filestore /home
 esac
+
 
 #DEBHELPER#

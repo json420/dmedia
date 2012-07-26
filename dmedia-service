@@ -32,6 +32,7 @@ import optparse
 import logging
 import json
 from os import path
+import signal
 
 import dbus
 import dbus.service
@@ -54,6 +55,7 @@ log = logging.getLogger()
 GObject.threads_init()
 DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
+mainloop = GObject.MainLoop()
 
 
 def dumps(obj):
@@ -67,6 +69,13 @@ def get_config(f):
         pass
 
 
+def on_sighup(signum, frame):
+    log.info('<SIGHUP>')
+    mainloop.quit()
+
+signal.signal(signal.SIGHUP, on_sighup)
+
+
 class Service(dbus.service.Object):
     usercouch = None
     httpd = None
@@ -76,7 +85,6 @@ class Service(dbus.service.Object):
     def __init__(self, bus, env_s):
         self.bus = bus
         self.env_s = env_s
-        self.mainloop = GObject.MainLoop()
         log.info('DBus: binding to %r', bus)
         super().__init__(session, object_path='/')
         self.busname = dbus.service.BusName(bus, session)
@@ -131,7 +139,7 @@ class Service(dbus.service.Object):
         self.start_core()
         log.info('Finished core startup in %r', time.time() - start_time)
         GObject.timeout_add(2000, self.on_idle1)
-        self.mainloop.run()
+        mainloop.run()
 
     def on_idle1(self):
         log.info('[idle1]')
@@ -215,7 +223,7 @@ class Service(dbus.service.Object):
         Kill the `dmedia-service` process.
         """
         log.info('Service.Kill()')
-        self.mainloop.quit()
+        mainloop.quit()
         return int(time.time() - start_time)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')

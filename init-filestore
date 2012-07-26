@@ -9,5 +9,8 @@ if len(sys.argv) != 2:
     sys.exit(1)
 
 parentdir = path.abspath(sys.argv[1])
-(fs, doc) = init_filestore(parentdir)
-fs.init_dirs()  # Force init_dirs() to make sure layout is correct
+try:
+    (fs, doc) = init_filestore(parentdir)
+    fs.init_dirs()  # Force init_dirs() to make sure layout is correct
+except Exception:
+    pass
