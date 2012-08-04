@@ -184,14 +184,17 @@ class Extractor(object):
 
     def run(self):
         self.pipeline.set_state(Gst.State.PLAYING)
+        GObject.timeout_add(2000, self.on_timeout)
         self.mainloop.run()
+
+    def on_timeout(self):
+        self.kill()
 
     def kill(self):
         if self._killed:
             return
         self._killed = True
         self.pipeline.set_state(Gst.State.NULL)
-        #self.pipeline.get_state()  # FIXME: Would this have any benifit?
         ns = max(self.doc.pop('video_ns'), self.doc.pop('audio_ns'))
         if self.doc['duration']:
             self.doc['duration']['nanoseconds'] = ns
