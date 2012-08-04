@@ -23,4 +23,30 @@
 Unit tests for `dmedia` package.
 """
 
+from unittest import TestCase
+import os
+from os import path
+import logging
 
+from .base import TempHome
+
+import dmedia
+
+
+class TestFunctions(TestCase):
+    def test_configure_logging(self):
+        tmp = TempHome()
+        cache = tmp.join('.cache', 'dmedia')
+        self.assertFalse(path.isdir(cache))
+        log = dmedia.configure_logging()
+        self.assertIsInstance(log, logging.RootLogger)
+        self.assertTrue(path.isdir(cache))
+        self.assertEqual(os.listdir(cache), ['setup.py.log'])
+        self.assertTrue(path.isfile(path.join(cache, 'setup.py.log')))
+ 
+    def test_get_dmedia_dir(self):
+        tmp = TempHome()
+        d = dmedia.get_dmedia_dir()
+        self.assertEqual(d, tmp.join('.local', 'share', 'dmedia'))
+        self.assertTrue(path.isdir(d))
+        self.assertEqual(os.listdir(d), [])

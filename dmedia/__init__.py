@@ -60,14 +60,16 @@ def configure_logging():
         level=logging.DEBUG,
         format='\t'.join(format),
     )
-    logging.info('======== Dmedia Process Start ========')
-    logging.info('script: %r', script)
-    logging.info('__file__: %r', __file__)
-    logging.info('__version__: %r', __version__)
-    logging.info('Python: %s, %s, %s',
+    log = logging.getLogger()
+    log.info('======== Dmedia Process Start ========')
+    log.info('script: %r', script)
+    log.info('__file__: %r', __file__)
+    log.info('__version__: %r', __version__)
+    log.info('Python: %s, %s, %s',
         platform.python_version(), platform.machine(), platform.system()
     )
-    logging.info('======================================')
+    log.info('======================================')
+    return log
 
 
 def get_dmedia_dir():
@@ -79,22 +81,4 @@ def get_dmedia_dir():
     share = path.join(home, '.local', 'share', 'dmedia')
     if not path.exists(share):
         os.makedirs(share)
-
-    # FIXME: Migration hack that should do away in 12.02:
-    databases = path.join(share, 'databases')
-    if not path.exists(databases):
-        os.mkdir(databases)
-        dc3 = path.join(home, '.local', 'share', 'dc3')
-        if path.isdir(dc3):
-            import shutil
-            for name in os.listdir(dc3):
-                if name.startswith('_') or not name.endswith('.couch'):
-                    continue
-                src = path.join(dc3, name)
-                if not path.isfile(src):
-                    continue
-                dst = path.join(databases, name)
-                if not path.exists(dst):
-                    shutil.copy2(src, dst)
-
     return share
