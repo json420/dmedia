@@ -320,7 +320,7 @@ class TestFunctions(SampleFilesTestCase):
                     'num': 30000
                 }, 
                 'media': 'video',
-                'height': 1088,  # FIXME: This is wrong, working around libavcodecs bug!
+                'height': 1080,
                 'samplerate': 48000, 
                 'width': 1920
             }
@@ -594,7 +594,7 @@ class TestFunctions(SampleFilesTestCase):
                     'num': 30000
                 }, 
                 'media': 'video',
-                'height': 1088,  # FIXME: This is wrong, working around libavcodecs bug!
+                'height': 1080,
                 'samplerate': 48000, 
                 'width': 1920,
                 'ctime': 1287520994.68,
