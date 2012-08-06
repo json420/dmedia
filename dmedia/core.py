@@ -319,7 +319,6 @@ class Core:
             fs.id: {
                 'copies': fs.copies,
                 'mtime': fs.stat(ch.id).mtime,
-                'plugin': 'filestore',
             }
         }
         try:
