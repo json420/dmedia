@@ -666,7 +666,6 @@ def check_file(doc):
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'copies': 2,
     ...             'mtime': 1234567890,
-    ...             'plugin': 'filestore',
     ...         },
     ...     },
     ...     'partial': {},
@@ -712,6 +711,9 @@ def check_file(doc):
         )
         _check_if_exists(doc, ['stored', key, 'verified'], (int, float),
             (_at_least, 0),
+        )
+        _check_if_exists(doc, ['stored', key, 'pinned'], bool,
+            (_equals, True)
         )
 
     _check(doc, ['partial'], dict)

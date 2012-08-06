@@ -336,6 +336,16 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
         )
 
+        # Test with invalid stored "pinned":
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] = False
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] must equal True; got False"
+        )
+
         # ext
         copy = deepcopy(good)
         copy['ext'] = 'ogv'
