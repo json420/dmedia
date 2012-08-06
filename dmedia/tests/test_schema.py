@@ -167,8 +167,6 @@ class TestFunctions(TestCase):
                     'mtime': 1234567890,
                 },
             },
-            'partial': {},
-            'corrupt': {},
         }
         g = deepcopy(good)
         self.assertEqual(f(g), None)
@@ -183,8 +181,6 @@ class TestFunctions(TestCase):
             'bytes',
             'origin',
             'stored',
-            'partial',
-            'corrupt',
         ]
         # Test with missing attributes:
         for key in required:
@@ -344,6 +340,26 @@ class TestFunctions(TestCase):
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] must equal True; got False"
+        )
+
+        # Test with empty partial
+        bad = deepcopy(good)
+        bad['partial'] = {}
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['partial'] cannot be empty; got {}"
+        )
+
+        # Test with empty corrupt
+        bad = deepcopy(good)
+        bad['corrupt'] = {}
+        with self.assertRaises(ValueError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'] cannot be empty; got {}"
         )
 
         # ext
@@ -574,8 +590,6 @@ class TestFunctions(TestCase):
                 'bytes',
                 'origin',
                 'stored',
-                'partial',
-                'corrupt',
             ])
         )
         self.assertEqual(doc['_id'], _id)
@@ -601,9 +615,6 @@ class TestFunctions(TestCase):
         self.assertEqual(set(s[store_id]), set(['copies', 'mtime']))
         self.assertEqual(s[store_id]['copies'], 2)
         self.assertEqual(s[store_id]['mtime'], 1234567890)
-        
-        self.assertEqual(doc['partial'], {})
-        self.assertEqual(doc['corrupt'], {})
 
         doc = schema.create_file(_id, file_size, leaf_hashes, stored,
             origin='proxy'
