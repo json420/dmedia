@@ -551,7 +551,38 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # And any one of these could be reclaimed:
+        # Pin one copy, make sure it's not reclaimable
+        doc['stored'] = {
+            stores[0]: {'copies': 2},
+            stores[1]: {'copies': 2, 'pinned': True},
+            stores[2]: {'copies': 2},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 2,
+                'rows': [
+                    {'key': [stores[0], atime], 'id': _id, 'value': None},
+                    {'key': [stores[2], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Pin all copies, make sure none are reclaimable
+        doc['stored'] = {
+            stores[0]: {'copies': 2, 'pinned': True},
+            stores[1]: {'copies': 2, 'pinned': True},
+            stores[2]: {'copies': 2, 'pinned': True},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Any one of these could be reclaimed:
         doc['stored'] = {
             stores[0]: {'copies': 1},
             stores[1]: {'copies': 1},

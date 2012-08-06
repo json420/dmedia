@@ -122,13 +122,13 @@ function(doc) {
         var copies = 0;
         var key;
         for (key in doc.stored) {
-            if (doc.stored[key].copies) {
-                copies += doc.stored[key].copies;
-            }
+            copies += doc.stored[key].copies;
         }
         if (copies >= 3) {
+            var value;
             for (key in doc.stored) {
-                if (copies - doc.stored[key].copies >= 3) {
+                value = doc.stored[key];
+                if (!value.pinned && (copies - value.copies >= 3)) {
                     emit([key, doc.atime], null);
                 }
             }
