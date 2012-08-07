@@ -126,7 +126,7 @@ class TestFunctions(CouchCase):
             self.assertIsInstance(verified, (int, float))
             self.assertLessEqual(start, verified)
             self.assertLessEqual(verified, end)
-            self.assertEqual(doc['corrupt'], {})
+            self.assertNotIn('corrupt', doc)
         for _id in bad:
             doc = self.db.get(_id)
             self.assertEqual(doc['stored'], {})
@@ -139,11 +139,11 @@ class TestFunctions(CouchCase):
         for _id in empty:
             doc = self.db.get(_id)
             self.assertEqual(doc['stored'], {})
-            self.assertEqual(doc['corrupt'], {})
+            self.assertNotIn('corrupt', doc)
         for _id in missing:
             doc = self.db.get(_id)
             self.assertEqual(doc['stored'], {})
-            self.assertEqual(doc['corrupt'], {})
+            self.assertNotIn('corrupt', doc)
         
             
 
