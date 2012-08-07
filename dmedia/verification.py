@@ -33,6 +33,38 @@ from dmedia.util import get_db
 ONE_WEEK = 60 * 60 * 24 * 7
 
 
+def get_dict(d, key):
+    """
+    Force value for *key* in *d* to be a ``dict``.
+
+    For example:
+
+    >>> doc = {}
+    >>> get_dict(doc, 'foo')
+    {}
+    >>> doc
+    {'foo': {}}
+
+    """
+    value = d.get(key)
+    if isinstance(value, dict):
+        return value
+    d[key] = {}
+    return d[key]
+
+
+def mark_corrupt(doc, fs):
+    stored = get_dict(doc, 'stored')
+    try:
+        del stored[fs.id]
+    except KeyError:
+        pass
+    corrupt = get_dict(doc, 'corrupt')
+    doc['corrupt'][fs.id] = {
+        'time': time.time(),
+    }
+
+
 def verify(env, parentdir, max_delta=ONE_WEEK):
     db = get_db(env)
     local = db.get('_local/dmedia')
@@ -55,10 +87,7 @@ def verify(env, parentdir, max_delta=ONE_WEEK):
                 'verified': time.time(),
             }
         except CorruptFile:
-            del doc['stored'][fs.id]
-            doc['corrupt'][fs.id] = {
-                'time': time.time(),
-            }
+            mark_corrupt(doc, fs)
         except FileNotFound:
             del doc['stored'][fs.id]
         db.save(doc)

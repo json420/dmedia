@@ -357,7 +357,6 @@ class TestImportWorker(ImportCase):
                 {
                     'mtime': fs1.stat(ch.id).mtime,
                     'copies': 1,
-                    'plugin': 'filestore',
                 }
             )
             self.assertEqual(
@@ -365,7 +364,6 @@ class TestImportWorker(ImportCase):
                 {
                     'mtime': fs2.stat(ch.id).mtime,
                     'copies': 2,
-                    'plugin': 'filestore',
                 }
             )
 
@@ -831,7 +829,6 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs1.stat(ch.id).mtime,
                     'copies': 1,
-                    'plugin': 'filestore',
                 }
             )
             self.assertEqual(
@@ -839,7 +836,6 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs2.stat(ch.id).mtime,
                     'copies': 2,
-                    'plugin': 'filestore',
                 }
             )
 
@@ -927,7 +923,6 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs1.stat(ch.id).mtime,
                     'copies': 1,
-                    'plugin': 'filestore',
                 }
             )
             self.assertEqual(
@@ -935,7 +930,6 @@ class TestImportManager(ImportCase):
                 {
                     'mtime': fs2.stat(ch.id).mtime,
                     'copies': 2,
-                    'plugin': 'filestore',
                 }
             )
 

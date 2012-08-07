@@ -282,7 +282,6 @@ class ImportWorker(workers.CouchWorker):
                     {
                         'copies': fs.copies,
                         'mtime': fs.stat(ch.id).mtime,
-                        'plugin': 'filestore',
                     }
                 )
                 for fs in filestores

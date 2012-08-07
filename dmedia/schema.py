@@ -666,11 +666,8 @@ def check_file(doc):
     ...         'MZZG2ZDSOQVSW2TEMVZG643F': {
     ...             'copies': 2,
     ...             'mtime': 1234567890,
-    ...             'plugin': 'filestore',
     ...         },
     ...     },
-    ...     'partial': {},
-    ...     'corrupt': {},
     ... }
     ...
     >>> check_file(doc)
@@ -713,26 +710,31 @@ def check_file(doc):
         _check_if_exists(doc, ['stored', key, 'verified'], (int, float),
             (_at_least, 0),
         )
-
-    _check(doc, ['partial'], dict)
-    for key in doc['partial']:
-        _check(doc, ['partial', key], dict)
-        _check(doc, ['partial', store, 'time'], (int, float),
-            (_at_least, 0),
-        )
-        _check(doc, ['partial', store, 'mtime'], (int, float),
-            (_at_least, 0),
+        _check_if_exists(doc, ['stored', key, 'pinned'], bool,
+            (_equals, True)
         )
 
-    _check(doc, ['corrupt'], dict)
-    for key in doc['corrupt']:
-        _check(doc, ['corrupt', key], dict)
-        _check(doc, ['corrupt', store, 'time'], (int, float),
-            (_at_least, 0),
-        )
-        _check(doc, ['corrupt', store, 'mtime'], (int, float),
-            (_at_least, 0),
-        )
+    _check_if_exists(doc, ['partial'], dict, _nonempty)
+    if 'partial' in doc:
+        for key in doc['partial']:
+            _check(doc, ['partial', key], dict)
+            _check(doc, ['partial', store, 'time'], (int, float),
+                (_at_least, 0),
+            )
+            _check(doc, ['partial', store, 'mtime'], (int, float),
+                (_at_least, 0),
+            )
+
+    _check_if_exists(doc, ['corrupt'], dict, _nonempty)
+    if 'corrupt' in doc:
+        for key in doc['corrupt']:
+            _check(doc, ['corrupt', key], dict)
+            _check(doc, ['corrupt', store, 'time'], (int, float),
+                (_at_least, 0),
+            )
+            _check(doc, ['corrupt', store, 'mtime'], (int, float),
+                (_at_least, 0),
+            )
 
     # 'ext' like 'mov'
     _check_if_exists(doc, ['ext'], str,
@@ -839,8 +841,6 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
         'bytes': file_size,
         'origin': origin,
         'stored': stored,
-        'partial': {},
-        'corrupt': {},
     }
 
 
