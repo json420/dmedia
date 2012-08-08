@@ -5,7 +5,7 @@ import time
 from microfiber import Database, dmedia_env
 from filestore import FileStore
 from dmedia.local import LocalSlave, FileNotLocal
-from dmedia.core import init_filestore
+from dmedia.util import init_filestore
 from dmedia.schema import create_file, DB_NAME
 
 env = dmedia_env()
