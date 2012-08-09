@@ -179,6 +179,16 @@ function(doc) {
 }
 """
 
+user_needsproxy = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc.media == 'video' && !doc.proxies) {
+            emit(doc.time, null);
+        }
+    }
+}
+"""
+
 user_video = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -223,6 +233,7 @@ user_design = {
     '_id': '_design/user',
     'views': {
         'ctime': {'map': user_ctime},
+        'needsproxy': {'map': user_needsproxy},
         'video': {'map': user_video},
         'audio': {'map': user_audio},
         'image': {'map': user_image},
@@ -433,6 +444,7 @@ core = (
     file_design,
     project_design,
     job_design,
+    user_design,
 )
 
 
