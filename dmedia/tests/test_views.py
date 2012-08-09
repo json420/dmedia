@@ -264,11 +264,6 @@ class TestDocDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        self.assertEqual(
-            db.view('doc', 'time'),
-            {'rows': [], 'offset': 0, 'total_rows': 0},
-        )
-
         id1 = random_id()
         doc1 = {
             '_id': id1,
