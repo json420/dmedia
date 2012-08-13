@@ -38,7 +38,7 @@ from urllib.parse import urlparse
 import logging
 from queue import Queue
 
-from microfiber import Database, NotFound, Conflict, random_id2
+from microfiber import Server, Database, NotFound, Conflict
 from filestore import FileStore, check_root_hash, check_id, _start_thread
 
 import dmedia
@@ -81,6 +81,17 @@ def start_file_server(env):
     if isinstance(port, Exception):
         raise port
     return (httpd, port)
+
+
+def projects_iter(env):
+    server = Server(env)
+    for name in server.get('_all_dbs'):
+        if name.startswith('_'):
+            continue
+        _id = schema.get_project_id(name)
+        if _id is None:
+            continue
+        yield (name, _id)
 
 
 class Core:
@@ -172,8 +183,20 @@ class Core:
         self.thread = _start_thread(self._background_worker)
 
     def init_project_views(self):
-        for row in self.db.view('project', 'atime')['rows']:
-            util.get_project_db(row['id'], self.env, True)
+        try:
+            for (name, _id) in projects_iter(self.env):
+                db = util.get_project_db(_id, self.env, True)
+                try:
+                    doc = self.db.get(_id)
+                except NotFound:
+                    log.info('missing project doc for %s', _id)
+                    doc = db.get(_id)
+                    del doc['_rev']
+                    self.db.save(doc)
+        except Exception:
+            log.exception('Error in Core.init_project_views():')
+        log.info('prepping project/atime view...')
+        self.db.view('project', 'atime')
         log.info('Core.init_project_views() complete')
 
     def set_default_store(self, value):

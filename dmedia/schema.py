@@ -259,6 +259,9 @@ DB_NAME = 'dmedia-{}'.format(VER)
 # Pattern that doc['ext'] must match for dmedia/file
 EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
 
+# Pattern to match a project DB name
+PROJECT_DB_PAT = '^dmedia-0-([234567abcdefghijklmnopqrstuvwxyz]{24})$'
+
 
 # Some private helper functions that don't directly define any schema.
 #
@@ -984,8 +987,31 @@ def project_db_name(_id):
     >>> project_db_name('HB6YSCKAY27KIWUTWKGKCTNI')
     'dmedia-0-hb6ysckay27kiwutwkgkctni'
 
+    Also see `get_project_id()`.
     """
     return '-'.join(['dmedia', str(VER), _id.lower()])
+
+
+def get_project_id(db_name):
+    """
+    Return project ID from CouchDB database name.
+
+    For example:
+
+    >>> get_project_id('dmedia-0-hb6ysckay27kiwutwkgkctni')
+    'HB6YSCKAY27KIWUTWKGKCTNI'
+
+    If *db_name* doesn't match the expected naming convention, ``None`` is
+    returned:
+
+    >>> get_project_id('dmedia-hb6ysckay27kiwutwkgkctni') is None
+    True
+
+    Also see `project_db_name()`.
+    """
+    match = re.match(PROJECT_DB_PAT, db_name)
+    if match:
+        return match.group(1).upper()
 
 
 def create_project(title=''):
