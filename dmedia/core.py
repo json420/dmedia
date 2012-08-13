@@ -183,8 +183,8 @@ class Core:
         self.thread = _start_thread(self._background_worker)
 
     def init_project_views(self):
-        for row in self.db.view('project', 'atime')['rows']:
-            util.get_project_db(row['id'], self.env, True)
+        for (name, _id) in projects_iter(self.env):
+            util.get_project_db(_id, self.env, True)
         log.info('Core.init_project_views() complete')
 
     def set_default_store(self, value):
