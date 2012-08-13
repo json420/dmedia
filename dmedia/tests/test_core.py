@@ -32,11 +32,25 @@ from microfiber import random_id
 import filestore
 
 from dmedia.local import LocalStores
-from dmedia.schema import DB_NAME, create_filestore
+from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia import util, core
 
 from .couch import CouchCase
 from .base import TempDir
+
+
+class TestCouchFunctions(CouchCase):
+    def test_projects_iter(self):
+        self.assertEqual(list(core.projects_iter(self.env)), [])
+        ids = tuple(random_id() for i in range(20))
+        server = microfiber.Server(self.env)
+        for _id in ids:
+            db_name = project_db_name(_id)
+            server.put(None, db_name)
+        self.assertEqual(
+            list(core.projects_iter(self.env)),
+            [(project_db_name(_id), _id) for _id in sorted(ids)]
+        )
 
 
 class TestCore(CouchCase):

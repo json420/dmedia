@@ -38,7 +38,7 @@ from urllib.parse import urlparse
 import logging
 from queue import Queue
 
-from microfiber import Database, NotFound, Conflict, random_id2
+from microfiber import Server, Database, NotFound, Conflict
 from filestore import FileStore, check_root_hash, check_id, _start_thread
 
 import dmedia
@@ -81,6 +81,17 @@ def start_file_server(env):
     if isinstance(port, Exception):
         raise port
     return (httpd, port)
+
+
+def projects_iter(env):
+    server = Server(env)
+    for name in server.get('_all_dbs'):
+        if name.startswith('_'):
+            continue
+        _id = schema.get_project_id(name)
+        if _id is None:
+            continue
+        yield (name, _id)
 
 
 class Core:

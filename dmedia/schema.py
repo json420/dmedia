@@ -995,18 +995,18 @@ def project_db_name(_id):
 def get_project_id(db_name):
     """
     Return project ID from CouchDB database name.
-    
+
     For example:
-    
+
     >>> get_project_id('dmedia-0-hb6ysckay27kiwutwkgkctni')
     'HB6YSCKAY27KIWUTWKGKCTNI'
-    
+
     If *db_name* doesn't match the expected naming convention, ``None`` is
     returned:
 
     >>> get_project_id('dmedia-hb6ysckay27kiwutwkgkctni') is None
     True
-    
+
     Also see `project_db_name()`.
     """
     match = re.match(PROJECT_DB_PAT, db_name)
