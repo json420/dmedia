@@ -195,6 +195,8 @@ class Core:
                     self.db.save(doc)
         except Exception:
             log.exception('Error in Core.init_project_views():')
+        log.info('prepping project/atime view...')
+        self.db.view('project', 'atime')
         log.info('Core.init_project_views() complete')
 
     def set_default_store(self, value):
