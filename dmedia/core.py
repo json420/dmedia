@@ -183,8 +183,18 @@ class Core:
         self.thread = _start_thread(self._background_worker)
 
     def init_project_views(self):
-        for (name, _id) in projects_iter(self.env):
-            util.get_project_db(_id, self.env, True)
+        try:
+            for (name, _id) in projects_iter(self.env):
+                db = util.get_project_db(_id, self.env, True)
+                try:
+                    doc = self.db.get(_id)
+                except NotFound:
+                    log.info('missing project doc for %s', _id)
+                    doc = db.get(_id)
+                    del doc['_rev']
+                    self.db.save(doc)
+        except Exception:
+            log.exception('Error in Core.init_project_views():')
         log.info('Core.init_project_views() complete')
 
     def set_default_store(self, value):
