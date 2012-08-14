@@ -18,10 +18,10 @@ override_dh_auto_build:
 	done
 
 override_dh_auto_install:
-	for pyvers in $(shell py3versions -vr); do \
-		python$$pyvers setup.py install \
+	set -ex; for python in $(shell py3versions -r); do \
+		$$python setup.py install \
 				--install-layout=deb \
-				--root $(CURDIR)/debian/dmedia; \
+				--root=$(CURDIR)/debian/dmedia; \
 	done
 
 override_dh_auto_test: $(PYTHON3:%=test-python%)
