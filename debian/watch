@@ -1,0 +1,2 @@
+version=3
+https://launchpad.net/dmedia/+download https://launchpad.net/dmedia/.*/dmedia-(.+).tar.gz

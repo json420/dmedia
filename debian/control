@@ -2,27 +2,24 @@ Source: dmedia
 Section: python
 Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
-Build-Depends: debhelper (>= 8.9), python3 (>= 3.2),
-    python3-filestore (>= 12.07),
-    python3-microfiber (>= 12.07),
-    python3-usercouch (>= 12.07),
-Standards-Version: 3.9.2
-X-Python-Version: 3.2
-X-Python3-Version: 3.2
+Build-Depends: debhelper (>= 9),
+    python3-all (>= 3.2.3),
+    python3-filestore (>= 12.08),
+    python3-microfiber (>= 12.08),
+    python3-usercouch (>= 12.08),
+Standards-Version: 3.9.3
+X-Python3-Version: >= 3.2
 Homepage: https://launchpad.net/dmedia
 
 Package: dmedia
 Architecture: all
-Depends: ${misc:Depends}, python3 (>= 3.2),
-    python3-gi,
+Depends: ${python3:Depends}, ${misc:Depends},
+    python3-filestore (>= 12.08),
+    python3-microfiber (>= 12.08),
+    python3-userwebkit (>= 12.08),
+    python3-usercouch (>= 12.08),
     python3-dbus,
-    python3-filestore (>= 12.07),
-    python3-microfiber (>= 12.07),
-    python3-userwebkit (>= 12.07),
-    python3-usercouch (>= 12.07),
-    libimage-exiftool-perl,
-    imagemagick,
-    ufraw-batch,
+    python3-gi,
     gir1.2-unity-5.0,
     gir1.2-notify-0.7,
     gir1.2-appindicator3-0.1,
@@ -30,7 +27,10 @@ Depends: ${misc:Depends}, python3 (>= 3.2),
     gir1.2-gst-plugins-base-1.0,
     gstreamer1.0-plugins-good,
     gstreamer1.0-plugins-ugly,
-    gstreamer1.0-libav
+    gstreamer1.0-libav,
+    libimage-exiftool-perl,
+    imagemagick,
+    ufraw-batch,
 Provides: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia
 Conflicts: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia
 Replaces: dmedia-gtk, dmedia-importer, dmedia-service, dmedia-webui, python-dmedia

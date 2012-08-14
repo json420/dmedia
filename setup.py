@@ -26,6 +26,10 @@
 Install `dmedia`
 """
 
+import sys
+if sys.version_info < (3, 2):
+    sys.exit('Dmedia requires Python 3.2 or newer')
+
 import os
 from os import path
 import stat
