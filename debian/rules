@@ -8,6 +8,15 @@ PYTHON3=$(shell py3versions -vr)
 test-python%:
 	python$* setup.py test --core-only
 
+override_dh_auto_clean:
+	rm -rf build/
+
+override_dh_auto_build:
+	set -ex; for python in $(shell py3versions -r); do \
+		$$python setup.py build \
+				--executable=/usr/bin/python3; \
+	done
+
 override_dh_auto_install:
 	for pyvers in $(shell py3versions -vr); do \
 		python$$pyvers setup.py install \

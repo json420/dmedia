@@ -7,7 +7,6 @@ Build-Depends: debhelper (>= 8.9), python3 (>= 3.2),
     python3-microfiber (>= 12.07),
     python3-usercouch (>= 12.07),
 Standards-Version: 3.9.2
-X-Python-Version: 3.2
 X-Python3-Version: 3.2
 Homepage: https://launchpad.net/dmedia
 
