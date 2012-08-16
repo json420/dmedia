@@ -183,6 +183,7 @@ class App(BaseApp):
         hub.connect('stop_importer', self.on_stop_importer)
         hub.connect('error', self.on_error)
         hub.connect('onboard_complete', self.on_onboard_complete)
+        hub.connect('batch_finalized', self.on_batch_finalized)
 
     def choose_starting_page(self):
         try:
@@ -246,6 +247,9 @@ class App(BaseApp):
         self.importer = None
         self.ux = None
         self.hub.send('importer_stopped')
+
+    def on_batch_finalized(self, hub, *args):
+        self.proxy.Snapshot('dmedia-0')
 
     def on_create_project(self, hub, title):
         print(repr(title))
