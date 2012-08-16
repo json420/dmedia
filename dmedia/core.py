@@ -98,7 +98,7 @@ def snapshot_db(env, dumpdir, dbname):
         pass
     check_call(['bzr', 'add', filename])
     msg = 'Snapshot of {!r}'.format(dbname)
-    check_call(['bzr', 'commit', filename, '-m', msg])
+    check_call(['bzr', 'commit', filename, '-m', msg, '--unchanged'])
     log.info('Committed snapshot of %r', dbname)
 
 
