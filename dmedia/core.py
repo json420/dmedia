@@ -90,7 +90,7 @@ def snapshot_db(env, dumpdir, dbname):
     log.info('Dumping %r to %r', dbname, filename)
     start = time.time()
     db.dump(filename)
-    log.info('** %.3f to dump %r', time.time() - start, dbname)
+    log.info('** %.2f to dump %r', time.time() - start, dbname)
     try:
         check_call(['bzr', 'init', dumpdir])
         log.info('Initialized bzr branch in %r', dumpdir)
@@ -110,7 +110,7 @@ def snapshot_all_dbs(env, dumpdir):
         if dbname.startswith('_') or dbname == 'thumbnails':
             continue
         snapshot_db(env, dumpdir, dbname)
-    log.info('** %.3f to snapshot all database', time.time() - start)
+    log.info('** %.2f to snapshot all database', time.time() - start)
 
 
 def projects_iter(env):
