@@ -28,6 +28,7 @@ For background, please see:
 
 """
 
+import logging
 import os
 from os import path
 import json
@@ -35,8 +36,8 @@ import time
 import stat
 import multiprocessing
 from urllib.parse import urlparse
-import logging
 from queue import Queue
+from subprocess import check_call, CalledProcessError
 
 from microfiber import Server, Database, NotFound, Conflict
 from filestore import FileStore, check_root_hash, check_id, _start_thread
@@ -67,8 +68,8 @@ def file_server(env, queue):
         queue.put(e)
 
 
-def _start_process(target, *args):
-    process = multiprocessing.Process(target=target, args=args)
+def start_process(target, *args, **kwargs):
+    process = multiprocessing.Process(target=target, args=args, kwargs=kwargs)
     process.daemon = True
     process.start()
     return process
@@ -76,11 +77,29 @@ def _start_process(target, *args):
 
 def start_file_server(env):
     q = multiprocessing.Queue()
-    httpd = _start_process(file_server, env, q)
+    httpd = start_process(file_server, env, q)
     port = q.get()
     if isinstance(port, Exception):
         raise port
     return (httpd, port)
+
+
+def snapshot_db(env, dumpdir, dbname):
+    db = Database(dbname, env)
+    filename = path.join(dumpdir, dbname + '.json')  
+    log.info('Dumping %r to %r', db, filename)
+    start = time.time()
+    db.dump(filename)
+    log.info('** %.3f to dump %r', time.time() - start, db)
+    try:
+        check_call(['bzr', 'init', dumpdir])
+        log.info('Initalized bzr branch in %r', dumpdir)
+    except CalledProcessError:
+        pass
+    check_call(['bzr', 'add', filename])
+    msg = 'Snapshot of {!r}'.format(dbname)
+    check_call(['bzr', 'commit', filename, '-m', msg])
+    log.info('Committed snapshot of %r', dbname)
 
 
 def projects_iter(env):
