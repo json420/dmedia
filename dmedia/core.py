@@ -93,7 +93,7 @@ def snapshot_db(env, dumpdir, dbname):
     log.info('** %.3f to dump %r', time.time() - start, db)
     try:
         check_call(['bzr', 'init', dumpdir])
-        log.info('Initalized bzr branch in %r', dumpdir)
+        log.info('Initialized bzr branch in %r', dumpdir)
     except CalledProcessError:
         pass
     check_call(['bzr', 'add', filename])
@@ -217,6 +217,9 @@ class Core:
         log.info('prepping project/atime view...')
         self.db.view('project', 'atime')
         log.info('Core.init_project_views() complete')
+
+    def snapshot(self, dumpdir, dbname):
+        start_process(snapshot_db, self.env, dumpdir, dbname)
 
     def set_default_store(self, value):
         if value not in ('private', 'shared', 'none'):

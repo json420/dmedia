@@ -160,6 +160,12 @@ class HashAndMove(_Method):
     'Allocate a temporary file for rendering or import'
 
     args = ['tmp_filename']
+    
+    
+class Snapshot(_Method):
+    'Create a snapshot of a database [EXPERIMENTAL]'
+
+    args = ['dbname']
 
 
 def get_authurl(env):

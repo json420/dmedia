@@ -288,6 +288,10 @@ class Service(dbus.service.Object):
     def HashAndMove(self, tmp, origin):
         return self.core.hash_and_move(tmp, origin)
 
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def Snapshot(self, dbname):
+        self.core.snapshot(self.usercouch.paths.bzr, str(dbname))
+
 
 parser = optparse.OptionParser(
 	version=dmedia.__version__,
