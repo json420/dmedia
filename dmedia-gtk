@@ -79,6 +79,10 @@ class Importer:
         GObject.idle_add(self.hub.send, signal, *args)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
+        log.info("batch_finished: %s, calling Dmedia.Snapshot('dmedia-0')",
+            batch_id
+        )
+        self.proxy.Snapshot('dmedia-0')
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
@@ -93,7 +97,7 @@ class Importer:
         self.cards.clear()
         for worker in self.workers.values():
             worker.run()
-
+ 
     def on_complete(self, worker, obj):
         log.info('Completed: %r', worker)
         w = self.workers.pop(obj)
@@ -106,6 +110,8 @@ class Importer:
             )
 
     def on_CardAdded(self, obj, mount, info):
+        obj = str(obj)
+        mount = str(mount)
         if self.blocking:
             log.warning('Blocking, ignoring card-insert %r', obj)
             return
@@ -183,7 +189,6 @@ class App(BaseApp):
         hub.connect('stop_importer', self.on_stop_importer)
         hub.connect('error', self.on_error)
         hub.connect('onboard_complete', self.on_onboard_complete)
-        hub.connect('batch_finalized', self.on_batch_finalized)
 
     def choose_starting_page(self):
         try:
@@ -247,9 +252,6 @@ class App(BaseApp):
         self.importer = None
         self.ux = None
         self.hub.send('importer_stopped')
-
-    def on_batch_finalized(self, hub, *args):
-        self.proxy.Snapshot('dmedia-0')
 
     def on_create_project(self, hub, title):
         print(repr(title))
