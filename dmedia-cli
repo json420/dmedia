@@ -168,6 +168,10 @@ class Snapshot(_Method):
     args = ['dbname']
 
 
+class SnapshotAll(_Method):
+    'Snapshot all databases [EXPERIMENTAL]'
+
+
 def get_authurl(env):
     if 'basic' not in env:
         return env['url']

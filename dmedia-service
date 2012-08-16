@@ -292,6 +292,10 @@ class Service(dbus.service.Object):
     def Snapshot(self, dbname):
         self.core.snapshot(self.usercouch.paths.bzr, str(dbname))
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def SnapshotAll(self):
+        self.core.snapshot_all(self.usercouch.paths.bzr)
+
 
 parser = optparse.OptionParser(
 	version=dmedia.__version__,
