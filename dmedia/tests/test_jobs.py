@@ -211,6 +211,47 @@ class TestTaskMaster(CouchCase):
                 'logfile': logfile,
             }
         )
+        self.assertNotIn('_attachments', doc)
+        
+        # Test that taskmaster saves the logfile when it's not empty
+        # ...and it's all good 
+        job_id = microfiber.random_id()
+        marker = microfiber.random_id()
+        file_id = microfiber.random_id(filestore.DIGEST_BYTES)
+        doc = {
+            '_id': job_id,
+            'worker': 'echo-script',
+            'status': 'waiting',
+            'job': {
+                'delay': 1.25,
+                'marker': marker,
+                'writelog': True,
+            },
+            'files': [file_id],
+        }
+        (filenum, logfile) = tempfile.mkstemp(prefix='dmedia-job.')
+        start = time.time()
+        self.assertTrue(inst.run_job(doc, logfile))
+        doc = inst.db.get(job_id)
+        self.assertEqual(doc['_rev'][:2], '3-')
+        self.assertGreaterEqual(doc['time_start'], start)
+        self.assertGreaterEqual(doc['time_end'], doc['time_start'] + 1)
+        self.assertEqual(doc['status'], 'completed')
+        self.assertEqual(doc['result'],
+            {
+                'job': {
+                    'delay': 1.25,
+                    'marker': marker,
+                    'writelog': True,
+                },
+                'files': [file_id],
+                'logfile': logfile,
+            }
+        )
+        self.assertEquals(
+            inst.db.get_att(job_id, 'logfile'), 
+            ('text/plain', b'stuff')
+        )
 
         # Test when the worker exists with a non-zero status
         job_id = microfiber.random_id()

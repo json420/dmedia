@@ -143,5 +143,8 @@ class TaskMaster:
             doc['status'] = 'failed'
         doc['time_end'] = time.time()
         self.db.save(doc)
+        if path.getsize(logfile) > 0:
+            fp = open(logfile, 'rb')
+            self.db.put_att('text/plain', fp, doc['_id'], 'logfile', rev=doc['_rev'])
         return True
 
