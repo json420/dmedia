@@ -119,6 +119,7 @@ class TaskMaster:
 
     def run_job(self, doc):
         assert doc['status'] == 'waiting'
+        script = self.get_worker_script(doc['worker'])
         doc['time_start'] = time.time()
         doc['status'] = 'executing'
         doc['machine_id'] = self.machine_id
@@ -126,7 +127,6 @@ class TaskMaster:
             self.db.save(doc)
         except Conflict:
             return False
-        script = self.get_worker_script(doc['worker'])
         job = {
             'job': doc['job'],
             'files': doc['files'],

@@ -251,10 +251,3 @@ class TestTaskMaster(CouchCase):
         with self.assertRaises(jobs.PathTraversal) as cm:
             self.assertTrue(inst.run_job(doc))
         self.assertEqual(cm.exception.untrusted, dummy_workers + '/../sneaky')
-        self.assertEqual(cm.exception.untrusted, dummy_workers + '/../sneaky')
-        doc = inst.db.get(job_id)
-        self.assertEqual(doc['_rev'][:2], '1-')
-        self.assertGreaterEqual(doc['time_start'], start)
-        self.assertEqual(doc['status'], 'executing')
-        self.assertNotIn('time_end', doc)
-        self.assertNotIn('result', doc)
