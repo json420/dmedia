@@ -9,6 +9,8 @@ j = job['job']
 
 if j.get('delay'):
     time.sleep(j['delay'])
+if j.get('writelog'):
+    open(job['logfile'], 'w').write('stuff')
 if j.get('fail'):
     sys.exit(1)
 
