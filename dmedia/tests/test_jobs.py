@@ -26,6 +26,7 @@ Unit tests for `dmedia.jobs`.
 from unittest import TestCase
 from os import path
 import time
+import tempfile
 
 import filestore
 import microfiber
@@ -192,8 +193,9 @@ class TestTaskMaster(CouchCase):
             },
             'files': [file_id],
         }
+        (filenum, logfile) = tempfile.mkstemp(prefix='dmedia-job.')
         start = time.time()
-        self.assertTrue(inst.run_job(doc))
+        self.assertTrue(inst.run_job(doc, logfile))
         doc = inst.db.get(job_id)
         self.assertEqual(doc['_rev'][:2], '2-')
         self.assertGreaterEqual(doc['time_start'], start)
@@ -206,6 +208,7 @@ class TestTaskMaster(CouchCase):
                     'marker': marker,
                 },
                 'files': [file_id],
+                'logfile': logfile,
             }
         )
 

@@ -66,6 +66,7 @@ from os import path
 import time
 import json
 import subprocess
+import tempfile
 
 from filestore import check_path
 from microfiber import Conflict
@@ -117,12 +118,14 @@ class TaskMaster:
             doc = self.db.get(rows[0]['id'])
             self.run_job(doc)
 
-    def run_job(self, doc):
+    def run_job(self, doc, logfile=None):
         assert doc['status'] == 'waiting'
         script = self.get_worker_script(doc['worker'])
         doc['time_start'] = time.time()
         doc['status'] = 'executing'
         doc['machine_id'] = self.machine_id
+        if logfile is None:
+            (filenum, logfile) = tempfile.mkstemp(prefix='dmedia-job.')
         try:
             self.db.save(doc)
         except Conflict:
@@ -130,6 +133,7 @@ class TaskMaster:
         job = {
             'job': doc['job'],
             'files': doc['files'],
+            'logfile': logfile,
         }
         try:
             result = subprocess.check_output([script, json.dumps(job)])
