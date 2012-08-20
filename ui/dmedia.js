@@ -8,6 +8,9 @@ var UI = {
             UI.tabinit[id] = true;
             UI['init_' + id]();
         }
+        if (UI.player){
+            UI.player.pause();
+        }
     },
 
     init_import: function() {
@@ -41,6 +44,46 @@ var UI = {
   
 }
 
+function make_tag_li(remove, doc, id) {
+    var id = id || doc._id;
+    var li = $el('li', {textContent: doc.value});
+    var a = $el('a', {textContent: 'x', title: 'Click to remove tag'});
+    li.appendChild(a);
+    a.onclick = function() {
+        remove(id, li);
+    }
+    return li;
+}
+
+
+function wheel_delta(event) {
+    var delta = event.wheelDeltaY;
+    if (delta == 0) {
+        return 0;
+    }
+    var scale = (event.shiftKey) ? -10 : -1;
+    return scale * (delta / Math.abs(delta));
+}
+
+
+function set_flag(div, review) {
+    if (!review) {
+        return;
+    }
+    div.appendChild(
+        $el('img', {'src': review + '.png'})
+    );
+}
+
+
+function reset_flag(id, review) {
+    var div = $(id);
+    if (!div) {
+        return;
+    }
+    div.innerHTML = null;
+    set_flag(div, review);
+}
 
 function Importer() {
     this.create_button = $('create_project');
