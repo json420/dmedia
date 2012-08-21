@@ -254,17 +254,18 @@ Browser.prototype = {
         var self = this;
         var callback = function(row) {
             var id = row.id;
-            var child = $el('div',
+            var child = $el('img',
                 {
                     'class': 'thumbnail',
                     'id': row.id,
+                    'src': self.project.att_url(row.id),
                     //'textContent': row.id,
                 }
             );
             child.onclick = function() {
                 self.items.select(id);
             }
-            child.style.backgroundImage = self.project.att_css_url(row.id);
+            //child.style.backgroundImage = self.project.att_css_url(row.id);
             
             child.draggable = true;
             child.ondragstart = function(e) {

@@ -43,7 +43,12 @@
     z-index: 200;
 }
 
-#right div.thumbnail {
+img.thumbnail{
+    font-size:0px;
+    line-height:0px;
+}
+
+#right .thumbnail {
     width: 192px;
     height: 108px;
     border: 2px solid black;
@@ -53,7 +58,7 @@
     background-size: cover;
 }
 
-#right div.thumbnail.selected {
+#right .thumbnail.selected {
     border-color: #e81f3b;
 }
 
@@ -69,7 +74,7 @@
     width: 260px;
 }
 
-.large div.thumbnail {
+.large .thumbnail {
     width: 240px;
     height: 135px;
 }
