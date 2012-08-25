@@ -290,11 +290,11 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def Snapshot(self, dbname):
-        self.core.snapshot(self.usercouch.paths.bzr, str(dbname))
+        self.core.snapshot(self.usercouch.paths.dump, str(dbname))
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def SnapshotAll(self):
-        self.core.snapshot_all(self.usercouch.paths.bzr)
+        self.core.snapshot_all(self.usercouch.paths.dump)
 
 
 parser = optparse.OptionParser(
