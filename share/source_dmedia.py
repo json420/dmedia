@@ -15,6 +15,7 @@ LOGS = (
 )
 
 def add_info(report):
+    report['CrashDB'] = 'dmedia'
     cache = path.join(os.environ['HOME'], '.cache', 'dmedia')
     for (key, name) in LOGS:
         log = path.join(cache, name)
