@@ -174,10 +174,13 @@ setup(
             ['share/org.freedesktop.Dmedia.service']
         ),
         ('/etc/xdg/autostart/',
-            ['share/dmedia-autostart.desktop'],
+            ['share/dmedia-autostart.desktop']
         ),
         ('/etc/apport/crashdb.conf.d/',
-            ['share/dmedia-crashdb.conf'],
-        )
+            ['share/dmedia-crashdb.conf']
+        ),
+        ('/usr/share/apport/package-hooks/',
+            ['share/source_dmedia.py']
+        ),
     ],
 )
