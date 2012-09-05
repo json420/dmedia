@@ -176,5 +176,8 @@ setup(
         ('/etc/xdg/autostart/',
             ['share/dmedia-autostart.desktop'],
         ),
+        ('/etc/apport/crashdb.conf.d/',
+            ['share/dmedia-crashdb.conf'],
+        )
     ],
 )
