@@ -269,7 +269,7 @@ class Replicator(Avahi):
             db = self.server.database(name)
             util.update_design_doc(db, views.doc_design)
         try:
-            self.server.push(name, env, **kw)
+            self.server.push(name, name, env, **kw)
         except Exception as e:
             if cancel:
                 log.exception('Error canceling push of %s to %s', name, env['url'])
