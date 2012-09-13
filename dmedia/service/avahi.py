@@ -106,7 +106,7 @@ class Avahi:
         # Always Ignore what we publish ourselves:
         if key == self.id:
             return
-        # Subclasses can add finer-graned ignore behaviour:
+        # Subclasses can add finer-grained ignore behavior:
         if self.ignore_peer(interface, protocol, key, _type, domain, flags):
             return
         self.avahi.ResolveService(
