@@ -105,7 +105,7 @@ class Service(dbus.service.Object):
                 env = self.usercouch.bootstrap('basic', None)
             elif self.config.get('tokens'):
                 overrides = {
-                    'address': '0.0.0.0',
+                    'bind_address': '0.0.0.0',
                     'oauth': self.config['tokens'],
                 }
                 env = self.usercouch.bootstrap('oauth', overrides)
@@ -113,7 +113,7 @@ class Service(dbus.service.Object):
                 # FIXME: This is a tempary hack for tjmonsi, it should be
                 # removed after his demo.  Normally, we'd never run an open
                 # CouchDB accepting non-local connections!
-                overrides = {'address': '0.0.0.0'}
+                overrides = {'bind_address': '0.0.0.0'}
                 env = self.usercouch.bootstrap('open', overrides)
             log.info('%r', self.usercouch._welcome)
             log.info('Starting CouchDB took %r', time.time() - start)
