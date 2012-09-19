@@ -53,6 +53,27 @@ correct answer.
 For example, this would not be the case if we used the secret to encrypt a
 message and send it from one to another.  An attacker could run through the
 keyspace till (say) gpg stopped telling them the passphrase is wrong.
+
+
+    * Server starts, advertises on Avahi using ca_hash as the ID
+    * Client does GET /ca_file
+    * Client verifies that CA hash matches Avahi ID
+    * Client configures SSLContext to verify and use ca_file
+
+    * Client does GET /
+    * Server creates challenge and secret, displays secret to user
+    * Server returns JSON with challenge and user_id
+    * User enters secret on client
+    * Client creates CSR and response
+    * Client does POST / to send JSON with CSR, response, and counter-challenge
+
+    * Server verifies response
+    * Server issues cert and creates counter-response
+    * Server returns JSON with cert and counter-response
+
+    * Client verifies counter-response
+    * Client verifies cert
+
 """
 
 from base64 import b32encode, b32decode
@@ -62,7 +83,7 @@ from collections import namedtuple
 
 from skein import skein512
 from microfiber import random_id
-from usercouch.sslhelpers import gen_key, gen_csr, gen_cert
+from usercouch.sslhelpers import PKI
 
 
 # Skein personalization strings
@@ -141,9 +162,8 @@ class WrongResponse(Exception):
 
 
 class Server:
-    def __init__(self, ca):
-        self.ca = ca
-        self.ca_hash = hash_user_ca(ca)
+    def __init__(self, ca_hash):
+        self.ca_hash = ca_hash
 
     def reset(self):
         # 120 bit challenge to the client
@@ -152,8 +172,8 @@ class Server:
         # 40 bit secret
         self.secret = os.random(5)
 
-    def check_client_response(self, response, csr):
-        csr_hash = hash_machine_csr(csr)
+    def check_client_response(self, response, csr_data):
+        csr_hash = hash_machine_csr(csr_data)
         expected = client_response(
             self.nonce, self.secret, csr_hash, self.ca_hash
         )
@@ -171,14 +191,10 @@ class Server:
 class Client:
     def __init__(self):
         self.tmpdir = tempfile.mkdtemp(prefix='peering.')
-        self.machine_key = path.join(self.tmpdir, 'machine.key')
-        self.machine_csr = path.join(self.tmpdir, 'machine.csr')
-        self.machine_cert = path.join(self.tmpdir, 'machine.cert')
-        self.user_ca = path.join(self.tmpdir, 'user.ca')
+        self.pki = PKI(self.tmpdir)
 
-    def set_ca(self, ca):
-        self.ca = ca
-        self.ca_hash = hash_user_ca(ca)
+    def set_ca_hash(self, ca_hash):
+        self.ca_hash = ca_hash
 
     def set_secret(self, secret):
         self.secret = secret

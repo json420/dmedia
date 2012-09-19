@@ -24,6 +24,15 @@ Unit tests for `dmedia.peering`.
 """
 
 from unittest import TestCase
+from os import path
+
+from usercouch import sslhelpers
 
 from dmedia import peering
+
+
+class TestClient(TestCase):
+    def test_init(self):
+        client = peering.Client()
+        self.assertTrue(path.isdir(client.tmpdir))
 
