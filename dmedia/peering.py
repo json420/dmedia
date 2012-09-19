@@ -27,7 +27,7 @@ user CA. This is the local-network "user account" that works without any cloud
 infrastructure, without a Novacut account or any other 3rd-party account.
 
 To do the peering, the user needs both devices side-by-side.  One device is
-already associated with the user, and the other the one to be associated.
+already associated with the user, and the other is the one to be associated.
 
 The existing device generates a random secret and displays it on the screen.
 The user then enter the secret on the second device, and each device does a
@@ -47,7 +47,7 @@ secret.
 
 Limiting the responder to only one attempt lets us to use a fairly low-entropy
 secret, something easy for the user to type.  And importantly, the secret
-susceptible is not to any "offline" attack, because there isn't an intrinsic
+is not susceptible to any "offline" attack, because there isn't an intrinsicly
 correct answer.
 
 For example, this would not be the case if we used the secret to encrypt a
@@ -57,9 +57,12 @@ keyspace till (say) gpg stopped telling them the passphrase is wrong.
 
 from base64 import b32encode, b32decode
 import os
+import tempfile
 from collections import namedtuple
 
 from skein import skein512
+from microfiber import random_id
+from usercouch.sslhelpers import gen_key, gen_csr, gen_cert
 
 
 # Skein personalization strings
@@ -131,4 +134,74 @@ def server_response(challenge, secret, cert_hash, ca_hash):
     )
     skein.update(cert_hash)
     return skein.digest()
+
+
+class WrongResponse(Exception):
+    pass
+
+
+class Server:
+    def __init__(self, ca):
+        self.ca = ca
+        self.ca_hash = hash_user_ca(ca)
+
+    def reset(self):
+        # 120 bit challenge to the client
+        self.nonce = os.urandom(15)
+
+        # 40 bit secret
+        self.secret = os.random(5)
+
+    def check_client_response(self, response, csr):
+        csr_hash = hash_machine_csr(csr)
+        expected = client_response(
+            self.nonce, self.secret, csr_hash, self.ca_hash
+        )
+        if response != expected:
+            self.reset()
+            raise WrongResponse()
+
+    def create_response(self, challange, cert):
+        cert_hash = hash_machine_cert(cert)
+        return server_response(
+            challenge, self.secret, cert_hash, self.ca_hash
+        )
+
+
+class Client:
+    def __init__(self):
+        self.tmpdir = tempfile.mkdtemp(prefix='peering.')
+        self.machine_key = path.join(self.tmpdir, 'machine.key')
+        self.machine_csr = path.join(self.tmpdir, 'machine.csr')
+        self.machine_cert = path.join(self.tmpdir, 'machine.cert')
+        self.user_ca = path.join(self.tmpdir, 'user.ca')
+
+    def set_ca(self, ca):
+        self.ca = ca
+        self.ca_hash = hash_user_ca(ca)
+
+    def set_secret(self, secret):
+        self.secret = secret
+
+    def reset(self):
+        # 120 bit challenge to the server
+        self.nonce = os.urandom(15)
+
+        self.machine_id = random_id()
+
+    def check_server_response(self, response, cert):
+        csr_hash = hash_machine_csr(csr)
+        expected = client_response(
+            self.nonce, self.secret, csr_hash, self.ca_hash
+        )
+        if response != expected:
+            self.reset()
+            raise WrongResponse()
+
+    def create_response(self, challange, cert):
+        cert_hash = hash_machine_cert(cert)
+        return server_response(
+            challenge, self.secret, cert_hash, self.ca_hash
+        )
+
 
