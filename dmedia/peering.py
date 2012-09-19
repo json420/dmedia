@@ -60,12 +60,13 @@ keyspace till (say) gpg stopped telling them the passphrase is wrong.
     * Client verifies that CA hash matches Avahi ID
     * Client configures SSLContext to verify and use ca_file
 
-    * Client does GET /
+    * Client does GET /challenge
     * Server creates challenge and secret, displays secret to user
     * Server returns JSON with challenge and user_id
     * User enters secret on client
     * Client creates CSR and response
-    * Client does POST / to send JSON with CSR, response, and counter-challenge
+    * Client does PUT /response to send JSON with CSR, response, and
+      counter-challenge
 
     * Server verifies response
     * Server issues cert and creates counter-response
