@@ -47,13 +47,20 @@ secret.
 
 Limiting the responder to only one attempt lets us to use a fairly low-entropy
 secret, something easy for the user to type.  And importantly, the secret
-susceptible to any "offline" attack, because there isn't an intrinsic correct
-answer.
+susceptible is not to any "offline" attack, because there isn't an intrinsic
+correct answer.
 
 For example, this would not be the case if we used the secret to encrypt a
 message and send it from one to another.  An attacker could run through the
 keyspace till (say) gpg stopped telling them the passphrase is wrong.
 """
+
+from base64 import b32encode, b32decode
+import os
+from collections import namedtuple
+
+from skein import skein512
+
 
 # Skein personalization strings
 PERS_USER_CA = b'20120918 jderose@novacut.com peering/user-ca'
@@ -63,10 +70,6 @@ PERS_CLIENT = b'20120918 jderose@novacut.com peering/client'
 PERS_SERVER = b'20120918 jderose@novacut.com peering/server'
 
 DIGEST_BITS = 240
-
-from base64 import b32encode, b32decode
-
-from skein import skein512
 
 
 def hash_user_ca(data):
