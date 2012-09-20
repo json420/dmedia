@@ -55,29 +55,9 @@ message and send it from one to another.  An attacker could run through the
 keyspace till (say) gpg stopped telling them the passphrase is wrong.
 
 
-    * Server starts, advertises on Avahi using ca_hash as the ID
-    * Client does GET /ca_file
-    * Client verifies that CA hash matches Avahi ID
-    * Client configures SSLContext to verify and use ca_file
-
-    * Client does GET /challenge
-    * Server creates challenge and secret, displays secret to user
-    * Server returns JSON with challenge and user_id
-    * User enters secret on client
-    * Client creates CSR and response
-    * Client does PUT /response to send JSON with CSR, response, and
-      counter-challenge
-
-    * Server verifies response
-    * Server issues cert and creates counter-response
-    * Server returns JSON with cert and counter-response
-
-    * Client verifies counter-response
-    * Client verifies cert
-
 Request:
 
-    PUT /challenge
+    POST /
 
     {"challenge": ""}
 
@@ -86,6 +66,33 @@ Response:
     {"nonce": "", "response": ""}
 
 
+1. A starts server, publishes _dmedia-offer._tcp under cert_a_id
+
+2. B downloads cert_a from A, if hash doesn't match cert_a_id, ABORT
+
+3. B prompts user about offer, if user declines, ABORT
+
+4. B starts server, publishes _dmedia-accept._tcp under cert_b_id
+
+5. A downloads cert_b from B, if hash doesn't match cert_b_id, ABORT
+
+6. A generates secret, displays to user, waits for request from B
+
+7. User enters secret on B
+
+8. B does GET /challenge to get challenge from A
+
+9. B does POST /response to post response and counter-challenge to A
+
+10. If response is wrong, A assumes user typo, RESTART at (6) with new secret
+
+11. A returns counter-response to B
+
+12. If counter-response is wrong, B ABORTS with scary warning
+
+13. DONE!
+    
+    
 
 """
 
@@ -99,6 +106,8 @@ from collections import namedtuple
 from skein import skein512
 from microfiber import random_id
 from usercouch.sslhelpers import gen_key, gen_ca, gen_csr, gen_cert
+
+from .server import BaseWSGI
 
 
 # Skein personalization strings
@@ -146,6 +155,7 @@ def get_subject(tmp_id):
     return '/CN={}'.format(tmp_id)
 
 
+
 class PKI:
     def __init__(self, ssldir):
         self.ssldir = ssldir
@@ -177,6 +187,11 @@ class PKI:
             self.path(ca_id, 'cert'),
             self.path(ca_id, 'srl'),
         )
+
+    def read(self, cert_id):
+        cert_data = open(self.path(cert_id, 'cert'), 'rb').read()
+        assert hash_cert(cert_data) == cert_id
+        return cert_data
 
     def create(self, tmp_id):
         subject = get_subject(tmp_id)
@@ -221,4 +236,19 @@ class TempPKI(PKI):
     def __del__(self):
         if path.isdir(self.ssldir):
             shutil.rmtree(self.ssldir)
+
+
+class WSGIApp(BaseWSGI):
+    def __init__(self, cert_data):
+        self.cert_data = cert_data
+
+    def GET(self, environ, start_response):
+        if environ['PATH_INFO'] != '/':
+            raise NotFound()
+        headers = [
+            ('Content-Length', str(len(self.cert_data))),
+            ('Content-Type', 'text/plain'),
+        ]
+        start_response('200 OK', headers)
+        return [self.cert_data]
 

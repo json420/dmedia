@@ -19,6 +19,6 @@ pki = TempPKI()
 cert_id = pki.create(random_id())
 
 peer = Peer(cert_id)
-peer.run()
+peer.browse('_dmedia-offer._tcp')
 mainloop = GObject.MainLoop()
 mainloop.run()
