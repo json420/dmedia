@@ -75,150 +75,139 @@ keyspace till (say) gpg stopped telling them the passphrase is wrong.
     * Client verifies counter-response
     * Client verifies cert
 
+Request:
+
+    PUT /challenge
+
+    {"challenge": ""}
+
+Response:
+
+    {"nonce": "", "response": ""}
+
+
+
 """
 
 from base64 import b32encode, b32decode
 import os
+from os import path
 import tempfile
+import shutil
 from collections import namedtuple
 
 from skein import skein512
 from microfiber import random_id
-from usercouch.sslhelpers import PKI
+from usercouch.sslhelpers import gen_key, gen_ca, gen_csr, gen_cert
 
 
 # Skein personalization strings
-PERS_USER_CA = b'20120918 jderose@novacut.com peering/user-ca'
-PERS_MACHINE_CSR = b'20120918 jderose@novacut.com peering/machine-csr'
-PERS_MACHINE_CERT = b'20120918 jderose@novacut.com peering/machine-cert'
-PERS_CLIENT = b'20120918 jderose@novacut.com peering/client'
-PERS_SERVER = b'20120918 jderose@novacut.com peering/server'
+PERS_CERT = b'20120918 jderose@novacut.com dmedia/cert'
+PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 
-DIGEST_BITS = 240
+Files = namedtuple('Files', 'key_file cert_file srl_file')
+TmpFiles = namedtuple('TmpFiles', 'key_file cert_file csr_file')
 
 
-def hash_user_ca(data):
-    return skein512(data,
-        digest_bits=DIGEST_BITS,
-        pers=PERS_USER_CA,
+def _hash_cert(cert_data):
+    return skein512(cert_data,
+        digest_bits=200,
+        pers=PERS_CERT,
     ).digest()
 
 
-def hash_machine_csr(data):
-    return skein512(data,
-        digest_bits=DIGEST_BITS,
-        pers=PERS_MACHINE_CSR,
-    ).digest()
+def hash_cert(cert_data):
+    return b32encode(_hash_cert(cert_data)).decode('utf-8')
 
 
-def hash_machine_cert(data):
-    return skein512(data,
-        digest_bits=DIGEST_BITS,
-        pers=PERS_MACHINE_CERT,
-    ).digest()
-
-
-def client_response(challenge, secret, csr_hash, ca_hash):
-    """
-    This hash proves that the client knows the secret.
-
-    This allows the server to answer the question, "Did the machine that made
-    this certificate signing request have the secret?"
-
-    And we tie this hash to the *ca_hash* so the value is only usable for
-    the user CA in question.
-    """
-    skein = skein512(ca_hash,
-        digest_bits=DIGEST_BITS,
-        pers=PERS_CLIENT,
-        nonce=challenge,
+def compute_response(secret, challenge, nonce, client_hash, server_hash):
+    skein = skein512(
+        digest_bits=280,
+        pers=PERS_RESPONSE,
         key=secret,
+        nonce=(challange + nonce),
     )
-    skein.update(csr_hash)
-    return skein.digest()
+    skein.update(client_hash)
+    skein.update(server_hash)
+    return b32encode(skein.digest()).decode('utf-8')
 
 
-def server_response(challenge, secret, cert_hash, ca_hash):
-    """
-    This hash proves that the server knows the secret.
-
-    This allows the client to answer the question, "Did the machine that issued
-    this certificate have the secret?"
-
-    And we tie this hash to the *ca_hash* so the value is only usable for
-    the user CA in question.
-    """
-    skein = skein512(ca_hash,
-        digest_bits=DIGEST_BITS,
-        pers=PERS_SERVER,
-        nonce=challenge,
-        key=secret,
-    )
-    skein.update(cert_hash)
-    return skein.digest()
+def ensuredir(d):
+    try:
+        os.mkdir(d)
+    except OSError:
+        mode = os.lstat(d).st_mode
+        if not stat.S_ISDIR(mode):
+            raise ValueError('not a directory: {!r}'.format(d))
 
 
-class WrongResponse(Exception):
-    pass
+def get_subject(tmp_id):
+    return '/CN={}'.format(tmp_id)
 
 
-class Server:
-    def __init__(self, ca_hash):
-        self.ca_hash = ca_hash
+class PKI:
+    def __init__(self, ssldir):
+        self.ssldir = ssldir
+        self.tmpdir = path.join(ssldir, 'tmp')
+        ensuredir(self.tmpdir)
 
-    def reset(self):
-        # 120 bit challenge to the client
-        self.nonce = os.urandom(15)
+    def tmp_path(self, tmp_id, ext):
+        return path.join(self.tmpdir, '.'.join([tmp_id, ext]))
 
-        # 40 bit secret
-        self.secret = os.random(5)
-
-    def check_client_response(self, response, csr_data):
-        csr_hash = hash_machine_csr(csr_data)
-        expected = client_response(
-            self.nonce, self.secret, csr_hash, self.ca_hash
-        )
-        if response != expected:
-            self.reset()
-            raise WrongResponse()
-
-    def create_response(self, challange, cert):
-        cert_hash = hash_machine_cert(cert)
-        return server_response(
-            challenge, self.secret, cert_hash, self.ca_hash
+    def tmp_files(self, tmp_id):
+        return TmpFiles(
+            self.tmp_path(tmp_id, 'key'),
+            self.tmp_path(tmp_id, 'cert'),
+            self.tmp_path(tmp_id, 'csr'),
         )
 
+    def path(self, cert_id, ext):
+        return path.join(self.ssldir, '.'.join([cert_id, ext]))
 
-class Client:
+    def files(self, cert_id):
+        return Files(
+            self.path(cert_id, 'key'),
+            self.path(cert_id, 'cert'),
+            self.path(cert_id, 'srl'),
+        ) 
+
+    def create(self, tmp_id):
+        subject = get_subject(tmp_id)
+        key = self.tmp_path(tmp_id, 'key')
+        cert = self.tmp_path(tmp_id, 'cert')
+        gen_key(key)
+        gen_ca(key, subject, cert)
+        cert_data = open(cert, 'rb').read()
+        cert_id = hash_cert(cert_data)
+        os.rename(key, self.path(cert_id, 'key'))
+        os.rename(cert, self.path(cert_id, 'cert'))
+        return cert_id
+
+    def create_csr(self, tmp_id):
+        subject = get_subject(tmp_id)
+        key = self.tmp_path(tmp_id, 'key')
+        csr = self.tmp_path(tmp_id, 'csr')
+        gen_key(key)
+        gen_csr(key, subject, csr)
+
+    def issue(self, tmp_id, ca_id):
+        tmp = self.tmp_files(tmp_id)
+        ca = self.files(ca_id)
+        gen_cert(
+            tmp.csr_file, ca.cert_file, ca.key_file, ca.srl_file, tmp.cert_file
+        )
+        cert_data = open(tmp.cert_file, 'rb').read()
+        cert_id = hash_cert(cert_data)
+        return cert_id
+
+
+class TempPKI(PKI):
     def __init__(self):
-        self.tmpdir = tempfile.mkdtemp(prefix='peering.')
-        self.pki = PKI(self.tmpdir)
+        ssldir = tempfile.mkdtemp(prefix='TempPKI.')
+        super().__init__(ssldir)
+        assert self.ssldir is ssldir
 
-    def set_ca_hash(self, ca_hash):
-        self.ca_hash = ca_hash
-
-    def set_secret(self, secret):
-        self.secret = secret
-
-    def reset(self):
-        # 120 bit challenge to the server
-        self.nonce = os.urandom(15)
-
-        self.machine_id = random_id()
-
-    def check_server_response(self, response, cert):
-        csr_hash = hash_machine_csr(csr)
-        expected = client_response(
-            self.nonce, self.secret, csr_hash, self.ca_hash
-        )
-        if response != expected:
-            self.reset()
-            raise WrongResponse()
-
-    def create_response(self, challange, cert):
-        cert_hash = hash_machine_cert(cert)
-        return server_response(
-            challenge, self.secret, cert_hash, self.ca_hash
-        )
-
+    def __del__(self):
+        if path.isdir(self.ssldir):
+            shutil.rmtree(self.ssldir)
 
