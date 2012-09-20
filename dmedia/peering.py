@@ -105,8 +105,9 @@ from usercouch.sslhelpers import gen_key, gen_ca, gen_csr, gen_cert
 PERS_CERT = b'20120918 jderose@novacut.com dmedia/cert'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 
-Files = namedtuple('Files', 'key_file cert_file srl_file')
-TmpFiles = namedtuple('TmpFiles', 'key_file cert_file csr_file')
+TmpFiles = namedtuple('TmpFiles', 'key cert csr')
+Files = namedtuple('Files', 'key cert')
+CAFiles = namedtuple('CAFiles', 'key cert srl')
 
 
 def _hash_cert(cert_data):
@@ -168,36 +169,46 @@ class PKI:
         return Files(
             self.path(cert_id, 'key'),
             self.path(cert_id, 'cert'),
-            self.path(cert_id, 'srl'),
-        ) 
+        )
+
+    def ca_files(self, ca_id):
+        return CAFiles(
+            self.path(ca_id, 'key'),
+            self.path(ca_id, 'cert'),
+            self.path(ca_id, 'srl'),
+        )
 
     def create(self, tmp_id):
         subject = get_subject(tmp_id)
-        key = self.tmp_path(tmp_id, 'key')
-        cert = self.tmp_path(tmp_id, 'cert')
-        gen_key(key)
-        gen_ca(key, subject, cert)
-        cert_data = open(cert, 'rb').read()
+        tmp = self.tmp_files(tmp_id)
+        gen_key(tmp.key)
+        gen_ca(tmp.key, subject, tmp.cert)
+        cert_data = open(tmp.cert, 'rb').read()
         cert_id = hash_cert(cert_data)
-        os.rename(key, self.path(cert_id, 'key'))
-        os.rename(cert, self.path(cert_id, 'cert'))
+        cert = self.files(cert_id)
+        os.rename(tmp.key, cert.key)
+        os.rename(tmp.cert, cert.cert)
         return cert_id
 
     def create_csr(self, tmp_id):
         subject = get_subject(tmp_id)
-        key = self.tmp_path(tmp_id, 'key')
-        csr = self.tmp_path(tmp_id, 'csr')
-        gen_key(key)
-        gen_csr(key, subject, csr)
+        tmp = self.tmp_files(tmp_id)
+        gen_key(tmp.key)
+        gen_csr(tmp.key, subject, tmp.csr)
 
     def issue(self, tmp_id, ca_id):
         tmp = self.tmp_files(tmp_id)
-        ca = self.files(ca_id)
-        gen_cert(
-            tmp.csr_file, ca.cert_file, ca.key_file, ca.srl_file, tmp.cert_file
-        )
-        cert_data = open(tmp.cert_file, 'rb').read()
+        ca = self.ca_files(ca_id)
+        gen_cert(tmp.csr, ca.cert, ca.key, ca.srl, tmp.cert)
+        cert_data = open(tmp.cert, 'rb').read()
         cert_id = hash_cert(cert_data)
+        cert = self.files(cert_id)
+        os.rename(tmp.cert, cert.cert)
+        os.rename(tmp.csr, self.path(cert_id, 'csr'))
+        try:
+            os.rename(tmp.key, cert.key)
+        except OSError:
+            pass
         return cert_id
 
 

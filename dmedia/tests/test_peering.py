@@ -64,19 +64,19 @@ class TestPKI(TestCase):
         files = pki.tmp_files(tmp_id)
         self.assertIsInstance(files, peering.TmpFiles)
         self.assertEqual(
-            files.key_file,
+            files.key,
             tmp.join('tmp', tmp_id + '.key')
         )
         self.assertEqual(
-            files.cert_file,
+            files.cert,
             tmp.join('tmp', tmp_id + '.cert')
         )
         self.assertEqual(
-            files.csr_file,
+            files.csr,
             tmp.join('tmp', tmp_id + '.csr')
         )
         self.assertEqual(files,
-            (files.key_file, files.cert_file, files.csr_file)
+            (files.key, files.cert, files.csr)
         )
 
     def test_path(self):
@@ -103,19 +103,35 @@ class TestPKI(TestCase):
         files = pki.files(cert_id)
         self.assertIsInstance(files, peering.Files)
         self.assertEqual(
-            files.key_file,
+            files.key,
             tmp.join(cert_id + '.key')
         )
         self.assertEqual(
-            files.cert_file,
+            files.cert,
+            tmp.join(cert_id + '.cert')
+        )
+        self.assertEqual(files, (files.key, files.cert))
+
+    def test_ca_files(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        cert_id = random_id(25)
+        files = pki.ca_files(cert_id)
+        self.assertIsInstance(files, peering.CAFiles)
+        self.assertEqual(
+            files.key,
+            tmp.join(cert_id + '.key')
+        )
+        self.assertEqual(
+            files.cert,
             tmp.join(cert_id + '.cert')
         )
         self.assertEqual(
-            files.srl_file,
+            files.srl,
             tmp.join(cert_id + '.srl')
         )
         self.assertEqual(files,
-            (files.key_file, files.cert_file, files.srl_file)
+            (files.key, files.cert, files.srl)
         )
 
     def test_create(self):
@@ -163,4 +179,46 @@ class TestPKI(TestCase):
 
         # Now test PKI.issue()
         cert_id = pki.issue(tmp_id, ca_id)
-        
+        cert_file = pki.path(cert_id, 'cert')
+        cert_data = open(cert_file, 'rb').read()
+        self.assertEqual(peering.hash_cert(cert_data), cert_id)
+
+        self.assertEqual(os.listdir(pki.tmpdir), [])
+        self.assertEqual(
+            set(os.listdir(pki.ssldir)),
+            set([
+                'tmp',
+                ca_id + '.key',
+                ca_id + '.cert',
+                ca_id + '.srl',
+                cert_id + '.key',
+                cert_id + '.cert',
+                cert_id + '.csr',
+            ])
+        )
+
+        # Now try it all over again, this time when the tmp_key_file doesn't
+        # exist:
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        ca_id = pki.create(random_id())
+        tmp_id = random_id()
+        pki.create_csr(tmp_id)
+        os.remove(pki.tmp_path(tmp_id, 'key'))
+        cert_id = pki.issue(tmp_id, ca_id)
+        cert_file = pki.path(cert_id, 'cert')
+        cert_data = open(cert_file, 'rb').read()
+        self.assertEqual(peering.hash_cert(cert_data), cert_id)
+        self.assertEqual(os.listdir(pki.tmpdir), [])
+        self.assertEqual(
+            set(os.listdir(pki.ssldir)),
+            set([
+                'tmp',
+                ca_id + '.key',
+                ca_id + '.cert',
+                ca_id + '.srl',
+                cert_id + '.cert',
+                cert_id + '.csr',
+            ])
+        )
+
