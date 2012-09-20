@@ -109,3 +109,13 @@ class Peer:
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Avahi(%s): peer removed: %s', self.bservice, key)
 
+
+
+class Browser:
+    def __init__(self, service, add_callback, remove_callback):
+        self.service = service
+        self.add_callback = add_callback
+        self.remove_callback = remove_callback
+    
+    
+
