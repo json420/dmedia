@@ -27,8 +27,9 @@ from unittest import TestCase
 import os
 from os import path
 import json
+from copy import deepcopy
 
-from usercouch import UserCouch
+import usercouch
 from microfiber import random_id
 
 from .base import TempDir
@@ -67,11 +68,16 @@ class TestFunctions(TestCase):
     def test_get_usercouch(self):
         tmp = TempDir()
         couch = startup.get_usercouch(tmp.dir)
-        self.assertIsInstance(couch, UserCouch)
+        self.assertIsInstance(couch, usercouch.UserCouch)
         self.assertEqual(couch.basedir, tmp.dir)
         self.assertIsNone(couch.couchdb)
         self.assertIsInstance(couch.pki, PKI)
         self.assertIs(couch.pki.ssldir, couch.paths.ssl)
+
+        # Test lockfile
+        with self.assertRaises(usercouch.LockError) as cm:
+            couch2 = startup.get_usercouch(tmp.dir)
+        self.assertEqual(cm.exception.lockfile, tmp.join('lockfile'))
 
     def test_machine_filename(self):
         tmp = TempDir()
@@ -89,6 +95,20 @@ class TestFunctions(TestCase):
             path.join(tmp.dir, 'user.json')
         )
 
+    def test_has_machine(self):
+        tmp = TempDir()
+        couch = startup.get_usercouch(tmp.dir)
+        self.assertFalse(startup.has_machine(couch))
+        tmp.touch('machine.json')
+        self.assertTrue(startup.has_machine(couch))
+
+    def test_has_user(self):
+        tmp = TempDir()
+        couch = startup.get_usercouch(tmp.dir)
+        self.assertFalse(startup.has_user(couch))
+        tmp.touch('user.json')
+        self.assertTrue(startup.has_user(couch))
+
     def test_init_machine(self):
         tmp = TempDir()
         couch = startup.get_usercouch(tmp.dir)
@@ -103,3 +123,36 @@ class TestFunctions(TestCase):
         self.assertIsNone(startup.init_user(couch, machine_id))
         doc = json.load(open(tmp.join('user.json'), 'r'))
         self.assertIsInstance(doc, dict)
+
+    def test_bootstrap_args(self):
+        tmp = TempDir()
+        couch = startup.get_usercouch(tmp.dir)
+        machine_id = random_id(25)
+        user_id = random_id(25)
+        cert_id = random_id(25)
+        oauth = usercouch.random_oauth()
+        user = {
+            '_id': user_id,
+            'oauth': deepcopy(oauth),
+            'certs': {machine_id: cert_id},
+        }
+        (auth, config) = startup.bootstrap_args(couch, machine_id, user)
+        self.assertEqual(auth, 'oauth')
+        self.assertEqual(config,
+            {
+                'bind_address': '0.0.0.0',
+                'oauth': oauth,
+                'ssl': {
+                    'key_file': tmp.join('ssl', cert_id + '.key'),
+                    'cert_file': tmp.join('ssl', cert_id + '.cert'),
+                },
+                'replicator': {
+                    'ca_file': tmp.join('ssl', user_id + '.cert'),
+                },
+            }
+        )
+        self.assertEqual(
+            startup.bootstrap_args(couch, machine_id, None),
+            ('basic', None)
+        )
+

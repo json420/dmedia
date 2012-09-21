@@ -29,7 +29,7 @@ import time
 import json
 import socket
 
-from usercouch import UserCouch
+from usercouch import UserCouch, random_oauth
 from microfiber import random_id
 
 from .peering import PKI
@@ -71,12 +71,27 @@ def user_filename(couch):
     return path.join(couch.basedir, 'user.json')
 
 
+def has_machine(couch):
+    assert isinstance(couch, UserCouch)
+    return path.isfile(machine_filename(couch))
+
+
+def has_user(couch):
+    assert isinstance(couch, UserCouch)
+    return path.isfile(user_filename(couch))
+
+
 def init_machine(couch):
     assert isinstance(couch, UserCouch)
     tmp_id = random_id()
     machine_id = couch.pki.create(tmp_id)
     config = create_machine(machine_id, tmp_id)
     save_config(machine_filename(couch), config)
+
+
+def load_machine(couch):
+    config = load_config(machine_filename(couch))
+    return config
 
 
 def init_user(couch, machine_id):
@@ -90,14 +105,27 @@ def init_user(couch, machine_id):
     save_config(user_filename(couch), config)
 
 
-def build_usercouch_config(couch, machine_id, user):
+def load_machine(couch):
+    config = load_config(machine_filename(couch))
+    return config
+
+
+def load_user(couch, machine_id):
+    if not has_user(couch):
+        return None
+    config = load_config(user_filename(couch))
+    return config
+
+
+def bootstrap_args(couch, machine_id, user):
     assert isinstance(couch, UserCouch)
     if user is None:
-        return
+        return ('basic', None)
     ca = couch.pki.files(user['_id'])
     cert = couch.pki.files(user['certs'][machine_id])
-    return {
+    config = {
         'bind_address': '0.0.0.0',
+        'oauth': user['oauth'],
         'ssl': {
             'key_file': cert.key,
             'cert_file': cert.cert,
@@ -106,6 +134,16 @@ def build_usercouch_config(couch, machine_id, user):
             'ca_file': ca.cert,
         },
     }
+    return ('oauth', config)
+
+
+def start_usercouch(couch):
+    machine = load_machine(couch)
+    machine_id = machine['_id']
+    user = load_user(couch, machine_id)
+    (auth, config) = bootstrap_args(couch, machine_id, user)
+    env = couch.bootstrap(auth, config)
+    return (env, machine, user)
 
 
 def create_machine(machine_id, cn):
@@ -130,6 +168,7 @@ def create_user(user_id, cn):
         'type': 'dmedia/user',
         'time': time.time(),
         'cn': cn,
+        'oauth': random_oauth(),
         'certs': {},
     }
 
