@@ -36,11 +36,8 @@ from .peering import PKI
 
 
 def load_config(filename):
-    try:
-        return json.load(open(filename, 'r'))
-    except Exception:
-        pass
-
+    return json.load(open(filename, 'r'))
+    
 
 def save_config(filename, config):
     tmp = filename + '.tmp'
@@ -83,6 +80,7 @@ def has_user(couch):
 
 def init_machine(couch):
     assert isinstance(couch, UserCouch)
+    assert not has_machine(couch)
     tmp_id = random_id()
     machine_id = couch.pki.create(tmp_id)
     config = create_machine(machine_id, tmp_id)
@@ -96,6 +94,7 @@ def load_machine(couch):
 
 def init_user(couch, machine_id):
     assert isinstance(couch, UserCouch)
+    assert not has_user(couch)
     tmp_id = random_id()
     user_id = couch.pki.create(tmp_id)
     couch.pki.create_csr(machine_id)
@@ -103,6 +102,15 @@ def init_user(couch, machine_id):
     config = create_user(user_id, tmp_id)
     config['certs'][machine_id] = cert_id
     save_config(user_filename(couch), config)
+
+
+def add_machine(couch, machine_id, user):
+    assert isinstance(couch, UserCouch)
+    assert machine_id not in user['certs']
+    couch.pki.create_csr(machine_id)
+    cert_id = couch.pki.issue(machine_id, user['_id'])
+    user['certs'][machine_id] = cert_id
+    save_config(user_filename(couch), user)
 
 
 def load_machine(couch):
@@ -138,6 +146,8 @@ def bootstrap_args(couch, machine_id, user):
 
 
 def start_usercouch(couch):
+    if not has_machine(couch):
+        init_machine(couch)
     machine = load_machine(couch)
     machine_id = machine['_id']
     user = load_user(couch, machine_id)

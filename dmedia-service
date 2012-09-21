@@ -37,36 +37,24 @@ import signal
 import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
-from microfiber import Database, NotFound
+from microfiber import Database, NotFound, dumps
 from filestore import _start_thread
-import usercouch
 from gi.repository import GObject
 
 import dmedia
 from dmedia.core import Core, start_file_server
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Replicator, FileServer
+from dmedia.startup import get_usercouch, start_usercouch
 
 
 BUS = dmedia.BUS
 IFACE = BUS
 log = logging.getLogger()
-
 GObject.threads_init()
 DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
 mainloop = GObject.MainLoop()
-
-
-def dumps(obj):
-    return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
-
-
-def get_config(f):
-    try:
-        return json.load(open(f, 'r'))
-    except Exception:
-        pass
 
 
 def on_sighup(signum, frame):
@@ -77,16 +65,14 @@ signal.signal(signal.SIGHUP, on_sighup)
 
 
 class Service(dbus.service.Object):
-    usercouch = None
     httpd = None
     avahi = None
     replicator = None
 
-    def __init__(self, bus, env_s):
-        self.bus = bus
-        self.env_s = env_s
-        log.info('DBus: binding to %r', bus)
+    def __init__(self, usercouch, bus):
         super().__init__(session, object_path='/')
+        self.usercouch = usercouch
+        log.info('DBus: binding to %r', bus)
         self.busname = dbus.service.BusName(bus, session)
         session.call_on_disconnection(self.on_disconnection)
         self.udisks = UDisks()
@@ -96,34 +82,24 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_removed', self.on_card_removed)
 
     def start_core(self):
-        if self.env_s is None:
-            self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
-            f = path.join(self.usercouch.basedir, 'library.json')
-            self.config = get_config(f)
-            start = time.time()
-            if self.config is None:
-                env = self.usercouch.bootstrap('basic', None)
-            elif self.config.get('tokens'):
-                overrides = {
-                    'bind_address': '0.0.0.0',
-                    'oauth': self.config['tokens'],
-                }
-                env = self.usercouch.bootstrap('oauth', overrides)
-            else:
-                # FIXME: This is a tempary hack for tjmonsi, it should be
-                # removed after his demo.  Normally, we'd never run an open
-                # CouchDB accepting non-local connections!
-                overrides = {'bind_address': '0.0.0.0'}
-                env = self.usercouch.bootstrap('open', overrides)
-            log.info('%r', self.usercouch._welcome)
-            log.info('Starting CouchDB took %r', time.time() - start)
+        start = time.time()
+        (env, machine, user) = start_usercouch(self.usercouch)
+        log.info('Starting CouchDB took %r', time.time() - start)
+        env2 = env.pop('x_env_ssl', None)
+        if env2:
+            env.pop('oauth')
+            self.config = {
+                'port': env2['port'],
+                'oauth': env2['oauth'],
+                'user_id': user['cn'],
+                'machine_id': machine['cn'],
+            }
         else:
             self.config = None
-            env = json.loads(self.env_s)
         self.core = Core(env)
         if self.core.local.get('default_store') is None:
             self.core.set_default_store('shared')
-        self.env_s = dumps(self.core.env)
+        self.env_s = dumps(self.core.env, pretty=True)
 
     def start_httpd(self):
         (self.httpd, self.port) = start_file_server(self.core.env)
@@ -132,7 +108,8 @@ class Service(dbus.service.Object):
 
     def start_replicator(self):
         if self.config is not None:
-            self.replicator = Replicator(self.core.env, self.config)
+            server = self.core.db.server()
+            self.replicator = Replicator(server, self.config)
             self.replicator.run()
 
     def run(self):
@@ -197,7 +174,7 @@ class Service(dbus.service.Object):
             log.exception('Could not disconnect FileStore %r', parentdir)
 
     def on_card_added(self, udisks, obj, mount, info):
-        self.CardAdded(obj, mount, dumps(info))
+        self.CardAdded(obj, mount, dumps(info, pretty=True))
 
     def on_card_removed(self, udisks, obj, mount):
         self.CardRemoved(obj, mount)
@@ -239,14 +216,14 @@ class Service(dbus.service.Object):
         """
         Return Dmedia-friendly info on disks from UDisks, as a JSON string.
         """
-        return dumps(self.udisks.info)
+        return dumps(self.udisks.info, pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def LocalDmedia(self):
         """
         Return the _local/dmedia doc.
         """
-        return dumps(self.core.db.get('_local/dmedia'))
+        return dumps(self.core.db.get('_local/dmedia'), pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def LocalPeers(self):
@@ -254,7 +231,7 @@ class Service(dbus.service.Object):
         Return the _local/peers doc.
         """
         try:
-            return dumps(self.core.db.get('_local/peers'))
+            return dumps(self.core.db.get('_local/peers'), pretty=True)
         except NotFound:
             return '{}'
 
@@ -300,9 +277,6 @@ class Service(dbus.service.Object):
 parser = optparse.OptionParser(
 	version=dmedia.__version__,
 )
-parser.add_option('--env',
-    help='JSON-encoded CouchDB environment (for unit testing)',
-)
 parser.add_option('--bus',
     help='DBus bus name; default is {!r}'.format(BUS),
     default=BUS
@@ -310,8 +284,14 @@ parser.add_option('--bus',
 (options, args) = parser.parse_args()
 
 
+# Aquire the UserCouch lock before doing anything else:
+basedir = dmedia.get_dmedia_dir()
+usercouch = get_usercouch(basedir)
+
+
+# Now start the service
 dmedia.configure_logging()
-service = Service(options.bus, options.env)
+service = Service(usercouch, options.bus)
 try:
     service.run()
 finally:

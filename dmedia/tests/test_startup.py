@@ -41,14 +41,17 @@ class TestFunctions(TestCase):
     def test_load_config(self):
         tmp = TempDir()
         filename = tmp.join('foo.json')
-        self.assertIsNone(startup.load_config(filename))
+        
+        with self.assertRaises(IOError) as cm:
+            startup.load_config(filename)
 
         config = {'junk': random_id()}
         json.dump(config, open(filename, 'w'))
         self.assertEqual(startup.load_config(filename), config)
 
         open(filename, 'w').write('bad json, not treat for you')
-        self.assertIsNone(startup.load_config(filename))
+        with self.assertRaises(ValueError) as cm:
+            startup.load_config(filename)
 
     def test_save_config(self):
         tmp = TempDir()
