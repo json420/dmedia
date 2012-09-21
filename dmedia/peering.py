@@ -217,6 +217,13 @@ class PKI:
         assert hash_cert(cert_data) == cert_id
         return cert_data
 
+    def write(self, cert_id, cert_data):
+        assert hash_cert(cert_data) == cert_id
+        tmp_file = self.tmp_path(cert_id, 'cert')
+        cert_file = self.path(cert_id, 'cert')
+        open(tmp_file, 'wb').write(cert_data)
+        os.rename(tmp_file, cert_file)
+
     def create(self, tmp_id):
         subject = get_subject(tmp_id)
         tmp = self.tmp_files(tmp_id)
