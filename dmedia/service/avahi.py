@@ -119,7 +119,7 @@ class Avahi:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        url = 'http://{}:{}/'.format(ip, port)
+        url = 'https://{}:{}/'.format(ip, port)
         log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
         self.add_peer(key, url)
 
