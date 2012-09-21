@@ -1,0 +1,24 @@
+#!/usr/bin/python3
+
+from microfiber import dumps
+
+import dmedia
+from dmedia import startup
+
+
+basedir = dmedia.get_dmedia_dir()
+couch = startup.get_usercouch(basedir)
+if not startup.has_machine(couch):
+    startup.init_machine(couch)
+machine = startup.load_machine(couch)
+machine_id = machine['_id']
+if not startup.has_user(couch):
+    startup.init_user(couch, machine_id)
+user = startup.load_user(couch, machine_id)
+if machine_id not in user['certs']:
+    startup.add_machine(couch, machine_id, user)
+
+print('\n Machine:')
+print(dumps(machine, pretty=True))
+print('\n User:')
+print(dumps(user, pretty=True))
