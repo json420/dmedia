@@ -40,6 +40,9 @@ class TestPKI(TestCase):
         self.assertIs(pki.ssldir, tmp.dir)
         self.assertEqual(pki.tmpdir, tmp.join('tmp'))
 
+        # Test when tmpdir already exists
+        pki = peering.PKI(tmp.dir)
+
     def test_tmp_path(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)

@@ -110,6 +110,7 @@ Response 2:
 from base64 import b32encode, b32decode
 import os
 from os import path
+import stat
 import tempfile
 import shutil
 from collections import namedtuple
