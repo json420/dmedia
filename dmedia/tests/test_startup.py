@@ -143,6 +143,7 @@ class TestFunctions(TestCase):
         self.assertEqual(auth, 'oauth')
         self.assertEqual(config,
             {
+                'username': 'admin',
                 'bind_address': '0.0.0.0',
                 'oauth': oauth,
                 'ssl': {
@@ -156,6 +157,6 @@ class TestFunctions(TestCase):
         )
         self.assertEqual(
             startup.bootstrap_args(couch, machine_id, None),
-            ('basic', None)
+            ('basic', {'username': 'admin'})
         )
 
