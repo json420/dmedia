@@ -6,6 +6,21 @@ import json
 from microfiber import Server, dumps, build_ssl_context
 import ssl
 import select
+import time
+
+
+def build_ssl_server_context(config):
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+    ctx.load_cert_chain(config['cert_file'],
+        keyfile=config.get('key_file')
+    )
+    if 'ca_file' in config or 'ca_path' in config:
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.load_verify_locations(
+            cafile=config.get('ca_file'),
+            capath=config.get('ca_path'),
+        )
+    return ctx
 
 
 def get_value(value):
@@ -75,7 +90,7 @@ def start_process(target, *args, **kwargs):
 
 def server(queue, config):
     httpd = WSGIServer6(('::1', 0), WSGIRequestHandler)
-    ctx = build_ssl_context(config)
+    ctx = build_ssl_server_context(config)
     httpd.ssl_context = ctx
     #httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
     httpd.set_app(application)
@@ -91,7 +106,7 @@ def start_httpd(config):
     return (httpd, port)
 
 
-pki = TempPKI(client_pki=True)
+pki = TempPKI(client_pki=False)
 (httpd, port) = start_httpd(pki.get_server_config())
 env = {
     'url': 'https://[::1]:{}/'.format(port),
@@ -100,5 +115,12 @@ env = {
 
 s = Server(env)
 print(dumps(s.get(), pretty=True))
+
+count = 100
+start = time.time()
+for i in range(count):
+    s.get()
+elapsed = time.time() - start
+print(count / elapsed)
 
 
