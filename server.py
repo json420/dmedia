@@ -106,7 +106,7 @@ def start_httpd(config):
     return (httpd, port)
 
 
-pki = TempPKI(client_pki=False)
+pki = TempPKI(client_pki=True)
 (httpd, port) = start_httpd(pki.get_server_config())
 env = {
     'url': 'https://[::1]:{}/'.format(port),
