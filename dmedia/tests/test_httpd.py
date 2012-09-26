@@ -32,6 +32,7 @@ import socket
 from microfiber import random_id
 
 from dmedia import __version__
+from dmedia.httpd import WSGIError
 from dmedia import httpd
 
 
@@ -48,42 +49,42 @@ class TestFunctions(TestCase):
             httpd.parse_request(b'GET / HTTP/1.1\r\n'),
             ['GET', '/', 'HTTP/1.1']
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET / HTTP/1.1\n')
         self.assertEqual(
-            str(cm.exception),
-            'Does not end with CRLF'
+            cm.exception.status,
+            '400 Does not end with CRLF'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET / HTTP/1.1\r\n\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Line contains other CR'
+            cm.exception.status,
+            '400 Line contains other CR'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET /\r HTTP/1.1\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Line contains other CR'
+            cm.exception.status,
+            '400 Line contains other CR'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET /\n HTTP/1.1\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Line contains other LF'
+            cm.exception.status,
+            '400 Line contains other LF'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET /\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Does not have exactly 3 parts'
+            cm.exception.status,
+            '400 Does not have exactly three parts'
         )
         # For now, very strict on whitespace:
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET /  HTTP/1.1\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Does not have exactly 3 parts'
+            cm.exception.status,
+            '400 Does not have exactly three parts'
         )
 
     def test_parse_header(self):
@@ -111,48 +112,98 @@ class TestFunctions(TestCase):
             httpd.parse_header(b'foo-bar: baz\r\n'),
             ('HTTP_FOO_BAR', 'baz')
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type: application/json\n')
         self.assertEqual(
-            str(cm.exception),
-            'Does not end with CRLF'
+            cm.exception.status,
+            '400 Does not end with CRLF'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type: application/json\r\n\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Line contains other CR'
+            cm.exception.status,
+            '400 Line contains other CR'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type: applicat\rion/json\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Line contains other CR'
+            cm.exception.status,
+            '400 Line contains other CR'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type: applicat\nion/json\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Line contains other LF'
+            cm.exception.status,
+            '400 Line contains other LF'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type application/json\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Does not have exactly 2 parts'
+            cm.exception.status,
+            '400 Does not have exactly two parts'
         )
         # For now, very strict on whitespace:
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type:application/json\r\n')
         self.assertEqual(
-            str(cm.exception),
-            'Does not have exactly 2 parts'
+            cm.exception.status,
+            '400 Does not have exactly two parts'
         )
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content_Type: application/json\r\n')
         self.assertEqual(
-            str(cm.exception),
-            "Unexpected '_' in header name"
+            cm.exception.status,
+            '400 Underscore in header name'
+        )
+
+    def test_request_content_length(self):
+        self.assertIsNone(
+            httpd.request_content_length({})
+        )
+        self.assertIsNone(
+            httpd.request_content_length({'CONTENT_LENGTH': None})
+        )
+        self.assertEqual(
+            httpd.request_content_length({'CONTENT_LENGTH': '0'}), 0
+        )
+        self.assertEqual(
+            httpd.request_content_length({'CONTENT_LENGTH': '23'}), 23
+        )
+        self.assertEqual(
+            httpd.request_content_length({'CONTENT_LENGTH': ' 0 '}), 0
+        )
+        self.assertEqual(
+            httpd.request_content_length({'CONTENT_LENGTH': ' 18 '}), 18
+        )
+        with self.assertRaises(WSGIError) as cm:
+            httpd.request_content_length({'CONTENT_LENGTH': ''})
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Content Length'
+        )
+        with self.assertRaises(WSGIError) as cm:
+            httpd.request_content_length({'CONTENT_LENGTH': 'foo'})
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Content Length'
+        )
+        with self.assertRaises(WSGIError) as cm:
+            httpd.request_content_length({'CONTENT_LENGTH': '18.0'})
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Content Length'
+        )
+        with self.assertRaises(WSGIError) as cm:
+            httpd.request_content_length({'CONTENT_LENGTH': '-1'})
+        self.assertEqual(
+            cm.exception.status,
+            '400 Negative Content Length'
+        )
+        with self.assertRaises(WSGIError) as cm:
+            httpd.request_content_length({'CONTENT_LENGTH': '-18'})
+        self.assertEqual(
+            cm.exception.status,
+            '400 Negative Content Length'
         )
 
     def test_get_content_length(self):

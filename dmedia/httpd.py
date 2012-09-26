@@ -45,6 +45,12 @@ TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
 log = logging.getLogger()
 
 
+class WSGIError(Exception):
+    def __init__(self, status):
+        self.status = status
+        super().__init__(status)
+
+
 def start_thread(target, *args):
     thread = threading.Thread(target=target, args=args)
     thread.daemon = True
@@ -79,36 +85,49 @@ def build_ssl_server_context(config):
 
 def parse_request(line_bytes):
     if not line_bytes.endswith(b'\r\n'):
-        raise ValueError('Does not end with CRLF')
+        raise WSGIError('400 Does not end with CRLF')
     line = line_bytes[:-2].decode('latin_1')
     if '\r' in line:
-        raise ValueError('Line contains other CR')
+        raise WSGIError('400 Line contains other CR')
     if '\n' in line:
-        raise ValueError('Line contains other LF')
+        raise WSGIError('400 Line contains other LF')
     parts = line.split(' ')
     if len(parts) != 3:
-        raise ValueError('Does not have exactly 3 parts')
+        raise WSGIError('400 Does not have exactly three parts')
     return parts
 
 
 def parse_header(line_bytes):
     if not line_bytes.endswith(b'\r\n'):
-        raise ValueError('Does not end with CRLF')
+        raise WSGIError('400 Does not end with CRLF')
     line = line_bytes[:-2].decode('latin_1')
     if '\r' in line:
-        raise ValueError('Line contains other CR')
+        raise WSGIError('400 Line contains other CR')
     if '\n' in line:
-        raise ValueError('Line contains other LF')
+        raise WSGIError('400 Line contains other LF')
     parts = line.split(': ', 1)
     if len(parts) != 2:
-        raise ValueError('Does not have exactly 2 parts')
+        raise WSGIError('400 Does not have exactly two parts')
     (name, value) = parts
     if '_' in name:
-        raise ValueError("Unexpected '_' in header name")
+        raise WSGIError('400 Underscore in header name')
     key = name.replace('-', '_').upper()
     if key in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
         return (key, value)
     return ('HTTP_' + key, value)
+
+
+def request_content_length(environ):
+    content_length = environ.get('CONTENT_LENGTH')
+    if content_length is None:
+        return
+    try:
+        content_length = int(content_length)
+    except ValueError:
+        raise WSGIError('400 Bad Content Length')
+    if content_length < 0:
+        raise WSGIError('400 Negative Content Length')
+    return content_length   
 
 
 def get_content_length(response_headers):
@@ -124,6 +143,26 @@ def iter_response_lines(status, headers):
     yield '\r\n'
 
 
+class wsgi_input:
+    __slots__ = ('_rfile', '_avail')
+
+    def __init__(self, rfile, environ):
+        self._rfile = rfile
+        self._avail = request_content_length(environ)
+
+    def read(self, size=None):
+        if self._avail is None:
+            raise WSGIError('411 Length Required')
+        if self._avail == 0:
+            return b''
+        assert size is None or size > 0
+        size = (self._avail if size is None else min(self._avail, size))
+        self._avail -= size
+        buf = self._rfile.read(size)
+        assert len(buf) == size
+        return buf
+
+
 class Handler:
     def __init__(self, app, environ, conn, address):
         self.app = app
@@ -134,42 +173,36 @@ class Handler:
         self.wfile = conn.makefile('wb')
 
     def handle_many(self):
-        try:
-            count = 0
-            while self.handle_one():
-                count += 1
-                #log.info('Handled request %d from %r', count, self.address[:2])
-        except socket.timeout:
-            log.info('Timeout on %r, closing connection', self.address[:2])
+        while self.handle_one():
+            pass
 
     def handle_one(self):
         self.start = None
         environ = self.environ.copy()
-        error = self.parse_request(environ)
-        if error is None:
+        try:
+            self.parse_request(environ)
             result = self.app(environ, self.start_response)
             self.send_response(environ, result)
-        else:
-            self.start_response(error, [])
-            self.send_response(environ, None)
-        return True
+            return True
+        except socket.error:
+            return False
+        except WSGIError as e:
+            self.start_response(e.status, [])
+            self.send_response(environ, [])
 
     def parse_request(self, environ):
         # Parse the request line
         request_line = self.rfile.readline(MAX_LINE + 1)
         if len(request_line) > MAX_LINE:
-            return '414 Request-URI Too Long'
-        try:
-            (method, uri, protocol) = parse_request(request_line)
-        except Exception:
-            return '400 Bad Request'
+            raise WSGIError('414 Request-URI Too Long')
+        (method, uri, protocol) = parse_request(request_line)
         if protocol != 'HTTP/1.1':
-            return '400 Wrong HTTP Protocol'
+            raise WSGIError('400 Wrong HTTP Protocol')
         if method not in ('GET', 'HEAD', 'POST', 'PUT', 'DELETE'):
-            return '405 Method Not Allowed'
+            raise WSGIError('405 Method Not Allowed')
         parts = uri.split('?')
         if len(parts) > 2:
-            return '400 Bad Request'
+            raise WSGIError('400 Bad Request')
         if len(parts) == 2:
             (path, query) = parts
         else:
@@ -183,17 +216,17 @@ class Handler:
         while True:
             header_line = self.rfile.readline(MAX_LINE + 1)
             if len(header_line) > MAX_LINE:
-                return '431 Request Header Field Too Large'
+                raise WSGIError('431 Request Header Field Too Large')
             if header_line == b'\r\n':
-                return
+                break
             if count > MAX_HEADER_COUNT:
-                return '431 Too Many Request Header Fields'
-            try:
-                (key, value) = parse_header(header_line)
-            except Exception:
-                return '400 Bad Request'
+                raise WSGIError('431 Too Many Request Header Fields')
+            (key, value) = parse_header(header_line)
             environ[key] = value
             count += 1
+
+        # Setup wsgi.input
+        environ['wsgi.input'] = wsgi_input(self.rfile, environ)
 
     def start_response(self, status, response_headers, exc_info=None):
         self.start = (status, response_headers)
@@ -201,6 +234,8 @@ class Handler:
     def send_response(self, environ, result):
         (status, response_headers) = self.start
         content_length = get_content_length(response_headers)
+        if content_length is None:
+            assert result == []
         response_headers.append(
             ('Server', SERVER_SOFTWARE)
         )
@@ -276,7 +311,6 @@ class Server:
                 self.handle_connection(conn, address)
 
     def handle_connection(self, conn, address):
-        #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         try:
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
