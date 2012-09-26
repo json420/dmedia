@@ -182,14 +182,13 @@ class Handler:
         try:
             self.parse_request(environ)
             result = self.app(environ, self.start_response)
-            self.send_response(environ, result)
-            return True
-        except socket.error:
-            return False
         except WSGIError as e:
             self.start_response(e.status, [])
-            self.send_response(environ, [])
-            return True
+            result = []
+        except socket.error:
+            return False
+        self.send_response(environ, result)
+        return True
 
     def parse_request(self, environ):
         # Parse the request line
@@ -311,7 +310,7 @@ class Server:
         self.socket.listen(5)
         while True:
             (conn, address) = self.socket.accept()
-            #log.info('Connection from %r', address[:2])
+            log.info('Connection from %r', address[:2])
             if self.threaded:
                 conn.settimeout(32)
                 start_thread(self.handle_connection, conn, address)
@@ -338,6 +337,7 @@ class Server:
         handler = Handler(self.app, environ, conn, address)
         if self.threaded:
             handler.handle_many()
+            log.info('Closing connection from %r', address[:2])
         else:
             handler.handle_one()
 

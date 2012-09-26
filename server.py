@@ -1,5 +1,3 @@
-from wsgiref.simple_server import WSGIServer, WSGIRequestHandler
-import socket
 from usercouch.misc import TempPKI
 import multiprocessing
 import json
@@ -60,40 +58,6 @@ def application(environ, start_response):
     return [output]
 
 
-class WSGIServer6(WSGIServer):
-    address_family = socket.AF_INET6
-    ssl_context = None
-
-    def get_request(self):
-        (conn, address) = self.socket.accept()
-        if self.ssl_context is not None:
-            conn = self.ssl_context.wrap_socket(conn, server_side=True)
-            while True:
-                try:
-                    conn.do_handshake()
-                    break
-                except ssl.SSLError as err:
-                    if err.args[0] == ssl.SSL_ERROR_WANT_READ:
-                        select.select([conn], [], [])
-                    elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                        select.select([], [conn], [])
-                    else:
-                        raise
-        return (conn, address)
-
-#    def serve_forever(self, poll_interval=0.5):
-#        while True:
-#            try:
-#                (conn, address) = self.get_request()
-#            except socket.error:
-#                continue
-#            if self.verify_request(conn, address):
-#                try:
-#                    self.process_request(conn, address)
-#                except:
-#                    self.handle_error(conn, address)
-#                    self.shutdown_request(conn)
-
 
 def start_process(target, *args, **kwargs):
     process = multiprocessing.Process(target=target, args=args, kwargs=kwargs)
@@ -103,11 +67,6 @@ def start_process(target, *args, **kwargs):
 
 
 def server(queue, config):
-#    httpd = WSGIServer6(('::1', 0), WSGIRequestHandler)
-#    ctx = build_ssl_server_context(config)
-#    httpd.ssl_context = ctx
-#    httpd.set_app(application)
-#    port = httpd.socket.getsockname()[1]
     ctx = build_ssl_server_context(config)
     httpd = HTTPServer(application, '::1', ctx, True)
     env = {'port': httpd.port, 'url': httpd.url}
@@ -127,13 +86,15 @@ def loop(s, count):
         s.get()
 
 
-pki = TempPKI(client_pki=False)
+pki = TempPKI(client_pki=True)
 (httpd, env) = start_httpd(pki.get_server_config())
 env['ssl'] = pki.get_client_config()
 print(env)
 
 s = Server(env)
 print(dumps(s.get(), pretty=True))
+#time.sleep(35)
+#print(dumps(s.get(), pretty=True))
 
 p_count = 10
 count = 100
