@@ -247,6 +247,7 @@ class Handler:
                 total += len(buf)
                 assert total <= content_length
                 self.wfile.write(buf)
+            assert total == content_length
         self.wfile.flush()
 
 
@@ -295,6 +296,13 @@ class Server:
         }
         if hasattr(conn, 'getpeercert'):
             d = conn.getpeercert()
+            if d is not None:
+                subject = dict(d['subject'][0])
+                if 'commonName' in subject:
+                    environ['SSL_CLIENT_S_DN_CN'] = subject['commonName']
+                issuer = dict(d['issuer'][0])
+                if 'commonName' in issuer:
+                    environ['SSL_CLIENT_I_DN_CN'] = issuer['commonName']
             print(dumps(d, pretty=True))
         return environ
 
