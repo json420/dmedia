@@ -85,7 +85,7 @@ class TestFunctions(TestCase):
             str(cm.exception),
             'Does not have exactly 3 parts'
         )
- 
+
     def test_parse_header(self):
         self.assertEqual(
             httpd.parse_header(b'Content-Type: application/json\r\n'),
@@ -248,8 +248,9 @@ class TestServer(TestCase):
             {
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': server.software,
-                'SCRIPT_NAME': server.name,
+                'SERVER_NAME': server.name,
                 'SERVER_PORT': str(server.port),
+                'SCRIPT_NAME': '',
                 'wsgi.version': '(1, 0)',
                 'wsgi.url_scheme': server.scheme,
                 'wsgi.multithread': server.threaded,
@@ -264,8 +265,9 @@ class TestServer(TestCase):
             {
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': ('Dmedia/' + __version__),
+                'SERVER_NAME': socket.getfqdn('::1'),
                 'SERVER_PORT': str(server.port),
-                'SCRIPT_NAME': socket.getfqdn('::1'),
+                'SCRIPT_NAME': '',
                 'wsgi.version': '(1, 0)',
                 'wsgi.url_scheme': 'http',
                 'wsgi.multithread': False,

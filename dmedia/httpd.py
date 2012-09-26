@@ -120,10 +120,20 @@ class Handler:
         self.conn = conn
         self.rfile = conn.makefile('rb', -1)
         self.wfile = conn.makefile('wb', 0)
-        self.start = None
 
     def run(self):
-        error = self.parse_request(self.environ)
+        self.handle_request()
+
+    def handle_request(self):
+        self.start = None
+        environ = self.environ.copy()
+        error = self.parse_request(environ)
+        if error is None:
+            body = self.app(environ, self.start_response)
+            self.send_response(body)
+        else:
+            self.start_response(error, [])
+            self.send_response(None)
 
     def parse_request(self, environ):
         # Parse the request line
@@ -165,18 +175,17 @@ class Handler:
                 return '400 Bad Request'
             environ[key] = value
             count += 1
-            
 
-    def start_response(self, status, response_headers):
+    def start_response(self, status, response_headers, exc_info=None):
         self.start = (status, response_headers)
 
-    def send_preamble(self):
-        pass
-        
-
-        
-        
-        
+    def send_response(self, result):
+        (status, response_headers) = self.start
+        preample = ''.join(iter_response_lines(status, response_headers))
+        if isinstance(result, (list, tuple)) and len(result) == 1:
+            body = result[0]
+        self.wfile.write(preample.encode('latin_1'))
+        self.wfile.write(body)
 
 
 class Server:
@@ -204,8 +213,9 @@ class Server:
         return {
             'SERVER_PROTOCOL': 'HTTP/1.1',
             'SERVER_SOFTWARE': self.software,
-            'SCRIPT_NAME': self.name,
+            'SERVER_NAME': self.name,
             'SERVER_PORT': str(self.port),
+            'SCRIPT_NAME': '',
             'wsgi.version': '(1, 0)',
             'wsgi.url_scheme': self.scheme,
             'wsgi.multithread': self.threaded,
