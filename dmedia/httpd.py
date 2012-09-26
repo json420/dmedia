@@ -189,6 +189,7 @@ class Handler:
         except WSGIError as e:
             self.start_response(e.status, [])
             self.send_response(environ, [])
+            return True
 
     def parse_request(self, environ):
         # Parse the request line
@@ -294,16 +295,16 @@ class Server:
             'REMOTE_ADDR': address[0],
             'REMOTE_PORT': str(address[1]),
         }
-        if hasattr(conn, 'getpeercert'):
-            d = conn.getpeercert()
-            if d is not None:
-                subject = dict(d['subject'][0])
-                if 'commonName' in subject:
-                    environ['SSL_CLIENT_S_DN_CN'] = subject['commonName']
-                issuer = dict(d['issuer'][0])
-                if 'commonName' in issuer:
-                    environ['SSL_CLIENT_I_DN_CN'] = issuer['commonName']
-            print(dumps(d, pretty=True))
+        if not hasattr(conn, 'getpeercert'):
+            return environ
+        d = conn.getpeercert()
+        if d is not None:
+            subject = dict(d['subject'][0])
+            if 'commonName' in subject:
+                environ['SSL_CLIENT_S_DN_CN'] = subject['commonName']
+            issuer = dict(d['issuer'][0])
+            if 'commonName' in issuer:
+                environ['SSL_CLIENT_I_DN_CN'] = issuer['commonName']
         return environ
 
     def serve_forever(self):

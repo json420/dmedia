@@ -127,7 +127,7 @@ def loop(s, count):
         s.get()
 
 
-pki = TempPKI(client_pki=True)
+pki = TempPKI(client_pki=False)
 (httpd, env) = start_httpd(pki.get_server_config())
 env['ssl'] = pki.get_client_config()
 print(env)
@@ -135,19 +135,19 @@ print(env)
 s = Server(env)
 print(dumps(s.get(), pretty=True))
 
-#p_count = 10
-#count = 50
-#for p in range(1, p_count + 1):
-#    threads = []
-#    start = time.time()
-#    for i in range(p):
-#        thread = start_thread(loop, s, count)
-#        threads.append(thread)
-#    for thread in threads:
-#        thread.join()
-#    elapsed = time.time() - start
-#    print(p, ((count * p) / elapsed))
-#    time.sleep(1)
+p_count = 10
+count = 100
+for p in range(1, p_count + 1):
+    threads = []
+    start = time.time()
+    for i in range(p):
+        thread = start_thread(loop, s, count)
+        threads.append(thread)
+    for thread in threads:
+        thread.join()
+    elapsed = time.time() - start
+    print(p, ((count * p) / elapsed))
+    time.sleep(1)
 
 #time.sleep(5)
 
