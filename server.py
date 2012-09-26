@@ -8,6 +8,19 @@ import ssl
 import select
 import time
 from dmedia.httpd import Server as HTTPServer
+import logging
+
+
+format = [
+    '%(levelname)s',
+    '%(processName)s',
+    '%(threadName)s',
+    '%(message)s',
+]
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='\t'.join(format),
+)
 
 
 def build_ssl_server_context(config):
@@ -96,7 +109,7 @@ def server(queue, config):
 #    httpd.set_app(application)
 #    port = httpd.socket.getsockname()[1]
     ctx = build_ssl_server_context(config)
-    httpd = HTTPServer(application, '::1', ctx)
+    httpd = HTTPServer(application, '::1', ctx, False)
     env = {'port': httpd.port, 'url': httpd.url}
     queue.put(env)
     httpd.serve_forever()
@@ -109,7 +122,7 @@ def start_httpd(config):
     return (httpd, env)
 
 
-pki = TempPKI(client_pki=False)
+pki = TempPKI(client_pki=True)
 (httpd, env) = start_httpd(pki.get_server_config())
 env['ssl'] = pki.get_client_config()
 print(env)
@@ -117,9 +130,10 @@ print(env)
 s = Server(env)
 print(dumps(s.get(), pretty=True))
 
-count = 100
+count = 50
 start = time.time()
 for i in range(count):
+    #time.sleep(1)
     s.get()
 elapsed = time.time() - start
 print(count / elapsed)

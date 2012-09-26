@@ -238,7 +238,6 @@ class TestServer(TestCase):
             def __init__(self):
                 self.scheme = random_id()
                 self.threaded = random_id()
-                self.software = random_id()
                 self.name = random_id()
                 self.port = random_port()
 
@@ -247,7 +246,7 @@ class TestServer(TestCase):
             server.build_base_environ(),
             {
                 'SERVER_PROTOCOL': 'HTTP/1.1',
-                'SERVER_SOFTWARE': server.software,
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
                 'SERVER_NAME': server.name,
                 'SERVER_PORT': str(server.port),
                 'SCRIPT_NAME': '',
@@ -264,7 +263,7 @@ class TestServer(TestCase):
             server.build_base_environ(),
             {
                 'SERVER_PROTOCOL': 'HTTP/1.1',
-                'SERVER_SOFTWARE': ('Dmedia/' + __version__),
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
                 'SERVER_NAME': socket.getfqdn('::1'),
                 'SERVER_PORT': str(server.port),
                 'SCRIPT_NAME': '',

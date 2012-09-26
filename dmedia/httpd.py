@@ -27,14 +27,21 @@ import socket
 import ssl
 import select
 import threading
+import platform
+from microfiber import dumps
+import logging
 
 from usercouch import bind_socket, build_url
 from dmedia import __version__
 
 
+SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__, 
+    platform.dist()[0], platform.dist()[1], platform.machine()
+)
 MAX_LINE = 8 * 1024
 MAX_HEADER_COUNT = 10
 TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
+log = logging.getLogger()
 
 
 def start_thread(target, *args):
@@ -42,6 +49,34 @@ def start_thread(target, *args):
     thread.daemon = True
     thread.start()
     return thread
+
+ 
+def bind_socket(bind_address):
+    """
+    Bind a socket to *bind_address* and a random port.
+
+    For IPv4, *bind_address* must be ``'127.0.0.1'`` to listen only internally,
+    or ``'0.0.0.0'`` to accept outside connections.  For example:
+
+    >>> sock = bind_socket('127.0.0.1')
+
+    For IPv6, *bind_address* must be ``'::1'`` to listen only internally, or
+    ``'::'`` to accept outside connections.  For example:
+
+    >>> sock = bind_socket('::1')
+
+    The random port will be chosen by the operating system based on currently
+    available ports.
+    """
+    if bind_address in ('127.0.0.1', '0.0.0.0'):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    elif bind_address in ('::1', '::'):
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    else:
+        raise ValueError('invalid bind_address: {!r}'.format(bind_address))
+    #sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((bind_address, 0))
+    return sock
 
 
 def build_ssl_server_context(config):
@@ -118,11 +153,15 @@ class Handler:
         self.app = app
         self.environ = environ
         self.conn = conn
-        self.rfile = conn.makefile('rb', -1)
-        self.wfile = conn.makefile('wb', 0)
+        self.rfile = conn.makefile('rb')
+        self.wfile = conn.makefile('wb')
 
     def run(self):
-        self.handle_request()
+        count = 1
+        while True:
+            log.info('handling %d', count)
+            self.handle_request()
+            count += 1
 
     def handle_request(self):
         self.start = None
@@ -181,16 +220,19 @@ class Handler:
 
     def send_response(self, result):
         (status, response_headers) = self.start
+        response_headers.append(
+            ('Server', SERVER_SOFTWARE)
+        )
         preample = ''.join(iter_response_lines(status, response_headers))
         if isinstance(result, (list, tuple)) and len(result) == 1:
             body = result[0]
+        #self.wfile.write(preample.encode('latin_1') + body)
         self.wfile.write(preample.encode('latin_1'))
         self.wfile.write(body)
+        self.wfile.flush()
 
 
 class Server:
-    software = 'Dmedia/' + __version__
-
     def __init__(self, app, bind_address='::1', context=None, threaded=False):
         if not callable(app):
             raise TypeError('app not callable: {!r}'.format(app))
@@ -212,7 +254,7 @@ class Server:
     def build_base_environ(self):
         return {
             'SERVER_PROTOCOL': 'HTTP/1.1',
-            'SERVER_SOFTWARE': self.software,
+            'SERVER_SOFTWARE': SERVER_SOFTWARE,
             'SERVER_NAME': self.name,
             'SERVER_PORT': str(self.port),
             'SCRIPT_NAME': '',
@@ -224,16 +266,19 @@ class Server:
         }
 
     def build_connection_environ(self, conn, address):
-        return {
+        environ = {
             'REMOTE_ADDR': address[0],
             'REMOTE_PORT': str(address[1]),
         }
+        if hasattr(conn, 'getpeercert'):
+            d = conn.getpeercert()
+        return environ
 
     def serve_forever(self):
         self.socket.listen(5)
         while True:
             (conn, address) = self.socket.accept()
-            print(address)
+            log.info('connection from %r', address[:2])
             if self.threaded:
                 start_thread(self.handle_connection, conn, address)
             else:
@@ -244,6 +289,8 @@ class Server:
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
             self.handle_requests(conn, address)
+        except Exception:
+            log.exception('Error handling %r', address[:2])
         finally:
             conn.shutdown(socket.SHUT_RDWR)
             conn.close()
