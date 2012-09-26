@@ -7,6 +7,7 @@ from microfiber import Server, dumps, build_ssl_context
 import ssl
 import select
 import time
+from dmedia.httpd import Server as HTTPServer
 
 
 def build_ssl_server_context(config):
@@ -89,29 +90,29 @@ def start_process(target, *args, **kwargs):
 
 
 def server(queue, config):
-    httpd = WSGIServer6(('::1', 0), WSGIRequestHandler)
+#    httpd = WSGIServer6(('::1', 0), WSGIRequestHandler)
+#    ctx = build_ssl_server_context(config)
+#    httpd.ssl_context = ctx
+#    httpd.set_app(application)
+#    port = httpd.socket.getsockname()[1]
     ctx = build_ssl_server_context(config)
-    httpd.ssl_context = ctx
-    #httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
-    httpd.set_app(application)
-    port = httpd.socket.getsockname()[1]
-    queue.put(port)
+    httpd = HTTPServer(application, '::1', ctx)
+    env = {'port': httpd.port, 'url': httpd.url}
+    queue.put(env)
     httpd.serve_forever()
 
 
 def start_httpd(config):
     q = multiprocessing.Queue()
     httpd = start_process(server, q, config)
-    port = q.get()
-    return (httpd, port)
+    env = q.get()
+    return (httpd, env)
 
 
-pki = TempPKI(client_pki=True)
-(httpd, port) = start_httpd(pki.get_server_config())
-env = {
-    'url': 'https://[::1]:{}/'.format(port),
-    'ssl': pki.get_client_config(),
-}
+pki = TempPKI(client_pki=False)
+(httpd, env) = start_httpd(pki.get_server_config())
+env['ssl'] = pki.get_client_config()
+print(env)
 
 s = Server(env)
 print(dumps(s.get(), pretty=True))
