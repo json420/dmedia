@@ -7,7 +7,7 @@ from microfiber import Server, dumps, build_ssl_context
 import ssl
 import select
 import time
-from dmedia.httpd import Server as HTTPServer
+from dmedia.httpd import Server as HTTPServer, start_thread
 import logging
 
 
@@ -109,7 +109,7 @@ def server(queue, config):
 #    httpd.set_app(application)
 #    port = httpd.socket.getsockname()[1]
     ctx = build_ssl_server_context(config)
-    httpd = HTTPServer(application, '::1', ctx, False)
+    httpd = HTTPServer(application, '::1', ctx, True)
     env = {'port': httpd.port, 'url': httpd.url}
     queue.put(env)
     httpd.serve_forever()
@@ -122,6 +122,11 @@ def start_httpd(config):
     return (httpd, env)
 
 
+def loop(s, count):
+    for i in range(count):
+        s.get()
+
+
 pki = TempPKI(client_pki=True)
 (httpd, env) = start_httpd(pki.get_server_config())
 env['ssl'] = pki.get_client_config()
@@ -130,12 +135,20 @@ print(env)
 s = Server(env)
 print(dumps(s.get(), pretty=True))
 
-count = 50
-start = time.time()
-for i in range(count):
-    #time.sleep(1)
-    s.get()
-elapsed = time.time() - start
-print(count / elapsed)
+#p_count = 10
+#count = 50
+#for p in range(1, p_count + 1):
+#    threads = []
+#    start = time.time()
+#    for i in range(p):
+#        thread = start_thread(loop, s, count)
+#        threads.append(thread)
+#    for thread in threads:
+#        thread.join()
+#    elapsed = time.time() - start
+#    print(p, ((count * p) / elapsed))
+#    time.sleep(1)
+
+#time.sleep(5)
 
 

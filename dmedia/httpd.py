@@ -28,9 +28,10 @@ import ssl
 import select
 import threading
 import platform
-from microfiber import dumps
+from urllib.parse import unquote_to_bytes
 import logging
 
+from microfiber import dumps
 from usercouch import bind_socket, build_url
 from dmedia import __version__
 
@@ -50,31 +51,14 @@ def start_thread(target, *args):
     thread.start()
     return thread
 
- 
+
 def bind_socket(bind_address):
-    """
-    Bind a socket to *bind_address* and a random port.
-
-    For IPv4, *bind_address* must be ``'127.0.0.1'`` to listen only internally,
-    or ``'0.0.0.0'`` to accept outside connections.  For example:
-
-    >>> sock = bind_socket('127.0.0.1')
-
-    For IPv6, *bind_address* must be ``'::1'`` to listen only internally, or
-    ``'::'`` to accept outside connections.  For example:
-
-    >>> sock = bind_socket('::1')
-
-    The random port will be chosen by the operating system based on currently
-    available ports.
-    """
     if bind_address in ('127.0.0.1', '0.0.0.0'):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     elif bind_address in ('::1', '::'):
         sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     else:
         raise ValueError('invalid bind_address: {!r}'.format(bind_address))
-    #sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((bind_address, 0))
     return sock
 
@@ -91,20 +75,6 @@ def build_ssl_server_context(config):
             capath=config.get('ca_path'),
         )
     return ctx
-
-
-def do_ssl_handshake(conn):   
-    while True:
-        try:
-            conn.do_handshake()
-            break
-        except ssl.SSLError as err:
-            if err.args[0] == ssl.SSL_ERROR_WANT_READ:
-                select.select([conn], [], [])
-            elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                select.select([], [conn], [])
-            else:
-                raise err
 
 
 def parse_request(line_bytes):
@@ -141,6 +111,12 @@ def parse_header(line_bytes):
     return ('HTTP_' + key, value)
 
 
+def get_content_length(response_headers):
+    for (key, value) in response_headers:
+        if key.lower() == 'content-length':
+            return int(value)
+
+
 def iter_response_lines(status, headers):
     yield 'HTTP/1.1 {}\r\n'.format(status)
     for (key, value) in headers:
@@ -149,30 +125,34 @@ def iter_response_lines(status, headers):
 
 
 class Handler:
-    def __init__(self, app, environ, conn):
+    def __init__(self, app, environ, conn, address):
         self.app = app
         self.environ = environ
         self.conn = conn
+        self.address = address
         self.rfile = conn.makefile('rb')
         self.wfile = conn.makefile('wb')
 
-    def run(self):
-        count = 1
-        while True:
-            log.info('handling %d', count)
-            self.handle_request()
-            count += 1
+    def handle_many(self):
+        try:
+            count = 0
+            while self.handle_one():
+                count += 1
+                #log.info('Handled request %d from %r', count, self.address[:2])
+        except socket.timeout:
+            log.info('Timeout on %r, closing connection', self.address[:2])
 
-    def handle_request(self):
+    def handle_one(self):
         self.start = None
         environ = self.environ.copy()
         error = self.parse_request(environ)
         if error is None:
-            body = self.app(environ, self.start_response)
-            self.send_response(body)
+            result = self.app(environ, self.start_response)
+            self.send_response(environ, result)
         else:
             self.start_response(error, [])
-            self.send_response(None)
+            self.send_response(environ, None)
+        return True
 
     def parse_request(self, environ):
         # Parse the request line
@@ -195,7 +175,7 @@ class Handler:
         else:
             (path, query) = (parts[0], '')
         environ['REQUEST_METHOD'] = method
-        environ['PATH_INFO'] = path
+        environ['PATH_INFO'] = unquote_to_bytes(path).decode('latin_1')
         environ['QUERY_STRING'] = query
 
         # Parse the headers
@@ -218,17 +198,20 @@ class Handler:
     def start_response(self, status, response_headers, exc_info=None):
         self.start = (status, response_headers)
 
-    def send_response(self, result):
+    def send_response(self, environ, result):
         (status, response_headers) = self.start
+        content_length = get_content_length(response_headers)
         response_headers.append(
             ('Server', SERVER_SOFTWARE)
         )
         preample = ''.join(iter_response_lines(status, response_headers))
-        if isinstance(result, (list, tuple)) and len(result) == 1:
-            body = result[0]
-        #self.wfile.write(preample.encode('latin_1') + body)
         self.wfile.write(preample.encode('latin_1'))
-        self.wfile.write(body)
+        if content_length is not None:
+            total = 0
+            for buf in result:
+                total += len(buf)
+                assert total <= content_length
+                self.wfile.write(buf)
         self.wfile.flush()
 
 
@@ -240,6 +223,8 @@ class Server:
             raise TypeError(TYPE_ERROR.format(
                 'context', ssl.SSLContext, type(context), context)
             )
+        if context is not None:
+            assert context.protocol is ssl.PROTOCOL_TLSv1
         self.app = app
         self.socket = bind_socket(bind_address)
         (host, port) = self.socket.getsockname()[:2]
@@ -252,7 +237,7 @@ class Server:
         self.environ = self.build_base_environ()
 
     def build_base_environ(self):
-        return {
+        environ = {
             'SERVER_PROTOCOL': 'HTTP/1.1',
             'SERVER_SOFTWARE': SERVER_SOFTWARE,
             'SERVER_NAME': self.name,
@@ -264,6 +249,9 @@ class Server:
             'wsgi.multiprocess': False,
             'wsgi.run_once': False,
         }
+        if self.context is not None:
+            environ['SSL_PROTOCOL'] = 'TLSv1'
+        return environ
 
     def build_connection_environ(self, conn, address):
         environ = {
@@ -272,27 +260,31 @@ class Server:
         }
         if hasattr(conn, 'getpeercert'):
             d = conn.getpeercert()
+            print(dumps(d, pretty=True))
         return environ
 
     def serve_forever(self):
         self.socket.listen(5)
         while True:
             (conn, address) = self.socket.accept()
-            log.info('connection from %r', address[:2])
+            #log.info('Connection from %r', address[:2])
             if self.threaded:
+                conn.settimeout(32)
                 start_thread(self.handle_connection, conn, address)
             else:
+                conn.settimeout(1)
                 self.handle_connection(conn, address)
 
     def handle_connection(self, conn, address):
+        #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         try:
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
             self.handle_requests(conn, address)
-        except Exception:
-            log.exception('Error handling %r', address[:2])
-        finally:
             conn.shutdown(socket.SHUT_RDWR)
+        except socket.error:
+            pass       
+        finally:
             conn.close()
 
     def handle_requests(self, conn, address):
@@ -300,6 +292,9 @@ class Server:
         environ.update(
             self.build_connection_environ(conn, address)
         )
-        handler = Handler(self.app, environ, conn)
-        handler.run()
+        handler = Handler(self.app, environ, conn, address)
+        if self.threaded:
+            handler.handle_many()
+        else:
+            handler.handle_one()
 

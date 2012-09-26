@@ -155,6 +155,30 @@ class TestFunctions(TestCase):
             "Unexpected '_' in header name"
         )
 
+    def test_get_content_length(self):
+        self.assertIsNone(httpd.get_content_length([]))
+        headers = [
+            ('Server', 'Dmedia/12.09.0 (Ubuntu 12.10; x86_64)'),
+            ('Content-Type', 'application/json'),
+        ]
+        self.assertIsNone(httpd.get_content_length(headers))
+        headers = [
+            ('Server', 'Dmedia/12.09.0 (Ubuntu 12.10; x86_64)'),
+            ('Content-Type', 'application/json'),
+            ('Content-Length', '1819'),
+        ]
+        self.assertEqual(httpd.get_content_length(headers), 1819)
+        headers = [
+            ('Server', 'Dmedia/12.09.0 (Ubuntu 12.10; x86_64)'),
+            ('contenT-lengtH', '1725'),
+            ('Content-Type', 'application/json'),
+        ]
+        self.assertEqual(httpd.get_content_length(headers), 1725)
+        headers = [
+            ('content-length', '2136'),
+        ]
+        self.assertEqual(httpd.get_content_length(headers), 2136)
+
     def test_iter_response_lines(self):
         self.assertEqual(
             list(httpd.iter_response_lines('414 Request-URI Too Long', [])),
@@ -240,6 +264,7 @@ class TestServer(TestCase):
                 self.threaded = random_id()
                 self.name = random_id()
                 self.port = random_port()
+                self.context = 'foo'
 
         server = Subclass()
         self.assertEqual(
@@ -255,6 +280,7 @@ class TestServer(TestCase):
                 'wsgi.multithread': server.threaded,
                 'wsgi.multiprocess': False,
                 'wsgi.run_once': False,
+                'SSL_PROTOCOL': 'TLSv1',
             }
         )
 
