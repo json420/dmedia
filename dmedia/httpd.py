@@ -60,13 +60,14 @@ And some general security restrictions:
       containing ".." as a substring.
 
     * For similar reasons, it rejects any requests for URI not starting with "/"
+
+    * Errors never return any error text in the response body (no traces, etc)
 """
 
 import socket
 import ssl
 import threading
 import platform
-import logging
 
 from dmedia import __version__
 
@@ -77,7 +78,6 @@ SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__,
 MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
 TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
-log = logging.getLogger()
 
 
 class WSGIError(Exception):
@@ -220,11 +220,12 @@ class FileWrapper:
 
 
 class Handler:
-    def __init__(self, app, environ, conn, address):
+    __slots__ = ('app', 'environ', 'conn', 'rfile', 'wfile', 'start')
+
+    def __init__(self, app, environ, conn):
         self.app = app
         self.environ = environ
         self.conn = conn
-        self.address = address
         self.rfile = conn.makefile('rb')
         self.wfile = conn.makefile('wb')
 
@@ -377,7 +378,6 @@ class HTTPServer:
         self.socket.listen(5)
         while True:
             (conn, address) = self.socket.accept()
-            log.info('Connection from %r', address[:2])
             if self.threaded:
                 conn.settimeout(32)
                 start_thread(self.handle_connection, conn, address)
@@ -401,10 +401,9 @@ class HTTPServer:
         environ.update(
             self.build_connection_environ(conn, address)
         )
-        handler = Handler(self.app, environ, conn, address)
+        handler = Handler(self.app, environ, conn)
         if self.threaded:
             handler.handle_many()
-            log.info('Closing connection from %r', address[:2])
         else:
             handler.handle_one()
 
