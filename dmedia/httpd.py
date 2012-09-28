@@ -49,7 +49,7 @@ Some notable HTTP 1.1 features not supported:
 
 Some notable missing WSGI features:
 
-    * start_response() does not return a write() method
+    * start_response() does not return a write() callable
 
     * Does not try to guess the response Content-Length, requires app always to
       explicitly provide the Content-Length when it provides a response body
@@ -233,21 +233,13 @@ class Handler:
             pass
 
     def handle_one(self):
-        # FIXME: we should close the connection when a WSGIError is
-        # raised because otherwise the contents of rfile will be in a bad
-        # state on the next request
         self.start = None
         environ = self.environ.copy()
         try:
             environ.update(self.parse_request())
             result = self.app(environ, self.start_response)
         except WSGIError as e:
-            self.start_response(e.status, [])
-            result = []
-        except socket.error:
-            return False
-        except Exception:
-            log.exception('Server error')
+            self.send_status_only(e.status)
             return False
         self.send_response(environ, result)
         return True
@@ -318,6 +310,11 @@ class Handler:
                 assert total <= content_length
                 self.wfile.write(buf)
             assert total == content_length
+        self.wfile.flush()
+
+    def send_status_only(self, status):
+        preample = ''.join(iter_response_lines(status, []))
+        self.wfile.write(preample.encode('latin_1'))
         self.wfile.flush()
 
 
