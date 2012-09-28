@@ -458,6 +458,48 @@ class TestHandler(TestCase):
         )
         self.assertEqual(fp.tell(), len(requestline))
 
+        requestline = b'GET stuff/junk HTTP/1.1\r\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Foo\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request Path'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
+        requestline = b'GET /stuff/../private HTTP/1.1\r\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Foo\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request Path Naughty'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
+        requestline = b'GET /stuff?sneaky=.. HTTP/1.1\r\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Foo\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request Path Naughty'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
         # Test will all allowed methods
         rest =  ' /stuff?junk=true HTTP/1.1\r\nUser-Agent: Foo\r\n\r\n'
         for method in ('POST', 'PUT', 'GET', 'HEAD', 'DELETE'):
@@ -491,6 +533,117 @@ class TestHandler(TestCase):
                 cm.exception.status,
                 '405 Method Not Allowed'
             )
+
+        # Now test header parsing
+        requestline = b'GET /foo?bar=baz HTTP/1.1\r\n'
+        fp = open(filename, 'wb')
+        fp.write(requestline)
+        fp.write(b'H' * 5000)
+        fp.close()
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '431 Request Header Line Too Long'
+        )
+        self.assertEqual(fp.tell(), len(requestline) + 4097)
+
+        letters = 'abcdefghijk'
+        assert len(set(letters)) == 11
+        headers = ''.join(
+            '{}: {}\r\n'.format(l, l) for l in letters
+        )
+        preamble = requestline + headers.encode('latin_1') + b'\r\n'
+        open(filename, 'wb').write(preamble)
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '431 Too Many Request Headers'
+        )
+        self.assertEqual(fp.tell(), len(preamble) - 2)
+
+        letters = 'abcdefghij'
+        assert len(set(letters)) == 10
+        headers = ''.join(
+            '{}: {}\r\n'.format(l, l) for l in letters
+        )
+        preamble = requestline + headers.encode('latin_1') + b'\r\n'
+        open(filename, 'wb').write(preamble + os.urandom(100))
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        environ = inst.parse_request()
+        wsgi_input = environ['wsgi.input']
+        self.assertIsInstance(wsgi_input, httpd.Input)
+        self.assertIs(wsgi_input._rfile, fp)
+        self.assertEqual(environ,
+            {
+                'REQUEST_METHOD': 'GET',
+                'PATH_INFO': '/foo',
+                'QUERY_STRING': 'bar=baz',
+                'wsgi.input': wsgi_input,
+                'HTTP_A': 'a',
+                'HTTP_B': 'b',
+                'HTTP_C': 'c',
+                'HTTP_D': 'd',
+                'HTTP_E': 'e',
+                'HTTP_F': 'f',
+                'HTTP_G': 'g',
+                'HTTP_H': 'h',
+                'HTTP_I': 'i',
+                'HTTP_J': 'j',
+            }
+        )
+        self.assertEqual(fp.tell(), len(preamble))
+
+        # Test a good request and its environ['wsgi.input']
+        lines = [
+            b'PUT /some/thing HTTP/1.1\r\n', 
+            b'User-Agent: FooBar/18\r\n',
+            b'Content-Length: 120\r\n',
+            b'Content-Type: application/json\r\n',
+            b'\r\n',
+        ]
+        preamble = b''.join(lines)
+        chunk1 = os.urandom(69)
+        chunk2 = os.urandom(51)
+        extra = os.urandom(21)
+
+        fp = open(filename, 'wb')
+        fp.write(preamble)
+        fp.write(chunk1)
+        fp.write(chunk2)
+        fp.write(extra)
+        fp.close()
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        environ = inst.parse_request()
+        wsgi_input = environ['wsgi.input']
+        self.assertIsInstance(wsgi_input, httpd.Input)
+        self.assertIs(wsgi_input._rfile, fp)
+        self.assertEqual(wsgi_input._avail, 120)
+        self.assertEqual(wsgi_input._method, 'PUT')
+        self.assertEqual(environ,
+            {
+                'REQUEST_METHOD': 'PUT',
+                'PATH_INFO': '/some/thing',
+                'QUERY_STRING': '',
+                'wsgi.input': wsgi_input,
+                'CONTENT_TYPE': 'application/json',
+                'CONTENT_LENGTH': '120',
+                'HTTP_USER_AGENT': 'FooBar/18',
+            }
+        )
+        self.assertEqual(wsgi_input.read(69), chunk1)
+        self.assertEqual(wsgi_input._avail, 51)
+        self.assertEqual(wsgi_input.read(51), chunk2)
+        self.assertEqual(wsgi_input._avail, 0)
+        self.assertEqual(wsgi_input.read(21), b'')
+        self.assertEqual(wsgi_input.read(), b'')
 
 
 class TestHTTPServer(TestCase):

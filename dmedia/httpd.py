@@ -38,6 +38,9 @@ Some notable HTTP 1.1 features not supported:
 
     * Does not support multi-line headers
 
+    * Dose not support multiple occurrences of the same header (in parsing,
+      the last occurrence replaces the previous)
+
     * Parses the request-line and header-lines more strictly than required by
       RFC 2616
 
@@ -50,6 +53,13 @@ Some notable missing WSGI features:
 
     * Does not try to guess the response Content-Length, requires app always to
       explicitly provide the Content-Length when it provides a response body
+
+And some general security restrictions:
+
+    * To prevent directory traversal attacks, it rejects any requests for URI
+      containing ".." as a substring.
+
+    * For similar reasons, it rejects any requests for URI not starting with "/"
 """
 
 import socket
@@ -254,6 +264,10 @@ class Handler:
             raise WSGIError('505 HTTP Version Not Supported')
         if method not in ('GET', 'HEAD', 'POST', 'PUT', 'DELETE'):
             raise WSGIError('405 Method Not Allowed')
+        if not uri.startswith('/'):
+            raise WSGIError('400 Bad Request Path')
+        if '..' in uri:  # Prevent path-traversal attacks
+            raise WSGIError('400 Bad Request Path Naughty')
         parts = uri.split('?')
         if len(parts) > 2:
             raise WSGIError('400 Bad Request URI')
@@ -270,14 +284,14 @@ class Handler:
         while True:
             header_line = self.rfile.readline(MAX_LINE + 1)
             if len(header_line) > MAX_LINE:
-                raise WSGIError('431 Request Header Field Too Large')
+                raise WSGIError('431 Request Header Line Too Long')
             if header_line == b'\r\n':
                 break
+            count +=1
             if count > MAX_HEADER_COUNT:
-                raise WSGIError('431 Too Many Request Header Fields')
+                raise WSGIError('431 Too Many Request Headers')
             (name, value) = parse_header(header_line)
             environ[name] = value
-            count += 1
 
         # Setup wsgi.input
         environ['wsgi.input'] = Input(self.rfile, environ)
