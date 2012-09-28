@@ -53,38 +53,20 @@ class TestFunctions(TestCase):
             httpd.parse_request(b'GET / HTTP/1.1\n')
         self.assertEqual(
             cm.exception.status,
-            '400 Does not end with CRLF'
-        )
-        with self.assertRaises(WSGIError) as cm:
-            httpd.parse_request(b'GET / HTTP/1.1\r\n\r\n')
-        self.assertEqual(
-            cm.exception.status,
-            '400 Line contains other CR'
-        )
-        with self.assertRaises(WSGIError) as cm:
-            httpd.parse_request(b'GET /\r HTTP/1.1\r\n')
-        self.assertEqual(
-            cm.exception.status,
-            '400 Line contains other CR'
-        )
-        with self.assertRaises(WSGIError) as cm:
-            httpd.parse_request(b'GET /\n HTTP/1.1\r\n')
-        self.assertEqual(
-            cm.exception.status,
-            '400 Line contains other LF'
+            '400 Bad Request Line Missing CRLF'
         )
         with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET /\r\n')
         self.assertEqual(
             cm.exception.status,
-            '400 Does not have exactly three parts'
+            '400 Bad Request Line'
         )
         # For now, very strict on whitespace:
         with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET /  HTTP/1.1\r\n')
         self.assertEqual(
             cm.exception.status,
-            '400 Does not have exactly three parts'
+            '400 Bad Request Line'
         )
 
     def test_parse_header(self):
@@ -116,44 +98,26 @@ class TestFunctions(TestCase):
             httpd.parse_header(b'Content-Type: application/json\n')
         self.assertEqual(
             cm.exception.status,
-            '400 Does not end with CRLF'
-        )
-        with self.assertRaises(WSGIError) as cm:
-            httpd.parse_header(b'Content-Type: application/json\r\n\r\n')
-        self.assertEqual(
-            cm.exception.status,
-            '400 Line contains other CR'
-        )
-        with self.assertRaises(WSGIError) as cm:
-            httpd.parse_header(b'Content-Type: applicat\rion/json\r\n')
-        self.assertEqual(
-            cm.exception.status,
-            '400 Line contains other CR'
-        )
-        with self.assertRaises(WSGIError) as cm:
-            httpd.parse_header(b'Content-Type: applicat\nion/json\r\n')
-        self.assertEqual(
-            cm.exception.status,
-            '400 Line contains other LF'
+            '400 Bad Header Line Missing CRLF'
         )
         with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type application/json\r\n')
         self.assertEqual(
             cm.exception.status,
-            '400 Does not have exactly two parts'
+            '400 Bad Header Line'
         )
         # For now, very strict on whitespace:
         with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type:application/json\r\n')
         self.assertEqual(
             cm.exception.status,
-            '400 Does not have exactly two parts'
+            '400 Bad Header Line'
         )
         with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content_Type: application/json\r\n')
         self.assertEqual(
             cm.exception.status,
-            '400 Underscore in header name'
+            '400 Bad Header Name'
         )
 
     def test_request_content_length(self):

@@ -25,7 +25,6 @@ A tiny WSGI HTTP 1.1 server with IPv6 and SSL support.
 
 import socket
 import ssl
-import select
 import threading
 import platform
 from urllib.parse import unquote_to_bytes
@@ -85,32 +84,24 @@ def build_ssl_server_context(config):
 
 def parse_request(line_bytes):
     if not line_bytes.endswith(b'\r\n'):
-        raise WSGIError('400 Does not end with CRLF')
+        raise WSGIError('400 Bad Request Line Missing CRLF')
     line = line_bytes[:-2].decode('latin_1')
-    if '\r' in line:
-        raise WSGIError('400 Line contains other CR')
-    if '\n' in line:
-        raise WSGIError('400 Line contains other LF')
     parts = line.split(' ')
     if len(parts) != 3:
-        raise WSGIError('400 Does not have exactly three parts')
+        raise WSGIError('400 Bad Request Line')
     return parts
 
 
 def parse_header(line_bytes):
     if not line_bytes.endswith(b'\r\n'):
-        raise WSGIError('400 Does not end with CRLF')
+        raise WSGIError('400 Bad Header Line Missing CRLF')
     line = line_bytes[:-2].decode('latin_1')
-    if '\r' in line:
-        raise WSGIError('400 Line contains other CR')
-    if '\n' in line:
-        raise WSGIError('400 Line contains other LF')
     parts = line.split(': ', 1)
     if len(parts) != 2:
-        raise WSGIError('400 Does not have exactly two parts')
+        raise WSGIError('400 Bad Header Line')
     (name, value) = parts
     if '_' in name:
-        raise WSGIError('400 Underscore in header name')
+        raise WSGIError('400 Bad Header Name')
     key = name.replace('-', '_').upper()
     if key in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
         return (key, value)
@@ -171,6 +162,7 @@ class Handler:
         self.address = address
         self.rfile = conn.makefile('rb')
         self.wfile = conn.makefile('wb')
+        log.info('Handling %r', address[:2])
 
     def handle_many(self):
         while self.handle_one():
@@ -182,11 +174,13 @@ class Handler:
         try:
             self.parse_request(environ)
             result = self.app(environ, self.start_response)
+        except socket.error:
+            return False
         except WSGIError as e:
             self.start_response(e.status, [])
             result = []
-        except socket.error:
-            return False
+        except Exception:
+            
         self.send_response(environ, result)
         return True
 

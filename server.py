@@ -108,7 +108,7 @@ for p in range(1, p_count + 1):
         thread.join()
     elapsed = time.time() - start
     print(p, ((count * p) / elapsed))
-    time.sleep(1)
+    #time.sleep(1)
 
 #time.sleep(5)
 
