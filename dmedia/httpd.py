@@ -98,34 +98,6 @@ def build_ssl_server_context(config):
     return ctx
 
 
-def bind_socket(bind_address):
-    if bind_address in ('127.0.0.1', '0.0.0.0'):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    elif bind_address in ('::1', '::'):
-        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    else:
-        raise ValueError('invalid bind_address: {!r}'.format(bind_address))
-    sock.bind((bind_address, 0))
-    return sock
-
-
-def netloc_template(bind_address):
-    if bind_address in ('127.0.0.1', '0.0.0.0'):
-        return '127.0.0.1:{}'
-    if bind_address in ('::1', '::'):
-        return '[::1]:{}'
-    raise ValueError('invalid bind_address: {!r}'.format(bind_address))
-
-
-def build_url(scheme, bind_address, port):
-    if scheme not in ('http', 'https'):
-        raise ValueError(
-            "scheme must be 'http' or 'https'; got {!r}".format(scheme)
-        )
-    netloc = netloc_template(bind_address).format(port)
-    return ''.join([scheme, '://', netloc, '/'])
-
-
 def start_thread(target, *args):
     thread = threading.Thread(target=target, args=args)
     thread.daemon = True
@@ -323,6 +295,8 @@ class HTTPServer:
     def __init__(self, app, bind_address='::1', context=None, threaded=False):
         if not callable(app):
             raise TypeError('app not callable: {!r}'.format(app))
+        if bind_address not in ('::1', '::'):
+            raise ValueError('invalid bind_address: {!r}'.format(bind_address))
         if not (context is None or isinstance(context, ssl.SSLContext)):
             raise TypeError(TYPE_ERROR.format(
                 'context', ssl.SSLContext, type(context), context)
@@ -330,14 +304,15 @@ class HTTPServer:
         if context is not None:
             assert context.protocol is ssl.PROTOCOL_TLSv1
         self.app = app
-        self.socket = bind_socket(bind_address)
+        self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        self.socket.bind((bind_address, 0))
         (host, port) = self.socket.getsockname()[:2]
         self.name = socket.getfqdn(host)
         self.port = port
         self.context = context
         self.threaded = threaded
         self.scheme = ('http' if context is None else 'https')
-        self.url = build_url(self.scheme, bind_address, port)
+        self.url = '{}://[::1]:{}/'.format(self.scheme, self.port)
         self.environ = self.build_base_environ()
 
     def build_base_environ(self):

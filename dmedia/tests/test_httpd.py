@@ -660,6 +660,14 @@ class TestHTTPServer(TestCase):
             'app not callable: {!r}'.format(app)
         )
 
+        # Bad bind_address
+        with self.assertRaises(ValueError) as cm:
+            httpd.HTTPServer(demo_app, '127.0.0.1')
+        self.assertEqual(
+            str(cm.exception),
+            "invalid bind_address: '127.0.0.1'"
+        )
+
         # context not a ssl.SSLContext
         with self.assertRaises(TypeError) as cm:
             httpd.HTTPServer(demo_app, '::1', 17)
@@ -683,19 +691,19 @@ class TestHTTPServer(TestCase):
         self.assertEqual(server.environ, server.build_base_environ())
 
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        server = httpd.HTTPServer(demo_app, '127.0.0.1', ctx, True)
+        server = httpd.HTTPServer(demo_app, '::', ctx, True)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
-        self.assertEqual(server.name, socket.getfqdn('127.0.0.1'))
+        self.assertEqual(server.name, socket.getfqdn('::'))
         self.assertIsInstance(server.port, int)
         self.assertEqual(server.socket.getsockname(),
-            ('127.0.0.1', server.port)
+            ('::', server.port, 0, 0)
         )
         self.assertIs(server.context, ctx)
         self.assertIs(server.threaded, True)
         self.assertEqual(server.scheme, 'https')
         self.assertEqual(server.url, 
-            'https://127.0.0.1:{}/'.format(server.port)
+            'https://[::1]:{}/'.format(server.port)
         )
         self.assertEqual(server.environ, server.build_base_environ())
 
