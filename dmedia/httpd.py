@@ -21,6 +21,35 @@
 
 """
 A tiny WSGI HTTP 1.1 server with IPv6 and SSL support.
+
+This server is focused on two goals:
+
+    1. High throughput and low latency for the moderate concurrency needed by a
+       desktop HTTP server
+
+    2. Security, even at the expense of being a fully complaint HTTP 1.1 server,
+       or a fully compliant WSGI 1.0 server
+
+As such, this is a strict HTTP 1.1 server that only supports HTTP 1.1 clients.
+The server is only concerned with two HTTP clients: Microfiber, and the CouchDB
+replicator.
+
+Some notable HTTP 1.1 features not supported:
+
+    * Does not support multi-line headers
+
+    * Parses the request-line and header-lines more strictly than required by
+      RFC 2616
+
+    * Only supports the GET, HEAD, DELETE, PUT, and POST methods, while blocking
+      everything else
+
+Some notable missing WSGI features:
+
+    * start_response() does not return a write() method
+
+    * Does not try to guess the response Content-Length, requires app always to
+      explicitly provide the Content-Length when it provides a response body
 """
 
 import socket
@@ -30,8 +59,6 @@ import platform
 from urllib.parse import unquote_to_bytes
 import logging
 
-from microfiber import dumps
-from usercouch import bind_socket, build_url
 from dmedia import __version__
 
 
@@ -50,11 +77,18 @@ class WSGIError(Exception):
         super().__init__(status)
 
 
-def start_thread(target, *args):
-    thread = threading.Thread(target=target, args=args)
-    thread.daemon = True
-    thread.start()
-    return thread
+def build_ssl_server_context(config):
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+    ctx.load_cert_chain(config['cert_file'],
+        keyfile=config.get('key_file')
+    )
+    if 'ca_file' in config or 'ca_path' in config:
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.load_verify_locations(
+            cafile=config.get('ca_file'),
+            capath=config.get('ca_path'),
+        )
+    return ctx
 
 
 def bind_socket(bind_address):
@@ -68,18 +102,28 @@ def bind_socket(bind_address):
     return sock
 
 
-def build_ssl_server_context(config):
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-    ctx.load_cert_chain(config['cert_file'],
-        keyfile=config.get('key_file')
-    )
-    if 'ca_file' in config or 'ca_path' in config:
-        ctx.verify_mode = ssl.CERT_REQUIRED
-        ctx.load_verify_locations(
-            cafile=config.get('ca_file'),
-            capath=config.get('ca_path'),
+def netloc_template(bind_address):
+    if bind_address in ('127.0.0.1', '0.0.0.0'):
+        return '127.0.0.1:{}'
+    if bind_address in ('::1', '::'):
+        return '[::1]:{}'
+    raise ValueError('invalid bind_address: {!r}'.format(bind_address))
+
+
+def build_url(scheme, bind_address, port):
+    if scheme not in ('http', 'https'):
+        raise ValueError(
+            "scheme must be 'http' or 'https'; got {!r}".format(scheme)
         )
-    return ctx
+    netloc = netloc_template(bind_address).format(port)
+    return ''.join([scheme, '://', netloc, '/'])
+
+
+def start_thread(target, *args):
+    thread = threading.Thread(target=target, args=args)
+    thread.daemon = True
+    thread.start()
+    return thread
 
 
 def parse_request(line_bytes):

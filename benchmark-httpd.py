@@ -4,23 +4,8 @@ from usercouch.misc import TempPKI
 import multiprocessing
 import json
 from microfiber import Server, dumps, build_ssl_context, _start_thread
-import ssl
-import select
 import time
 from dmedia.httpd import HTTPServer, build_ssl_server_context
-import logging
-
-
-format = [
-    '%(levelname)s',
-    '%(processName)s',
-    '%(threadName)s',
-    '%(message)s',
-]
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='\t'.join(format),
-)
 
 
 def get_value(value):
@@ -76,14 +61,14 @@ def loop(s, count):
 pki = TempPKI(client_pki=True)
 (httpd, env) = start_httpd(pki.get_server_config())
 env['ssl'] = pki.get_client_config()
-print(dumps(env))
+#print(dumps(env))
 
 s = Server(env)
-print(dumps(s.get(), pretty=True))
+#print(dumps(s.get(), pretty=True))
 
-
-p_count = 10
-count = 100
+print('\nBenchmarking...')
+p_count = 15
+count = 200
 for p in range(1, p_count + 1):
     threads = []
     start = time.time()
@@ -93,5 +78,8 @@ for p in range(1, p_count + 1):
     for thread in threads:
         thread.join()
     elapsed = time.time() - start
-    print(p, ((count * p) / elapsed))
+    print('    Concurrency: {}; Requests Per Second: {:d}'.format(
+            p, int((count * p) / elapsed)
+        )
+    )
     time.sleep(1)
