@@ -165,7 +165,7 @@ def request_content_length(environ):
     return content_length   
 
 
-def get_content_length(response_headers):
+def response_content_length(response_headers):
     for (key, value) in response_headers:
         if key.lower() == 'content-length':
             return int(value)
@@ -285,7 +285,7 @@ class Handler:
 
     def send_response(self, environ, result):
         (status, response_headers) = self.start
-        content_length = get_content_length(response_headers)
+        content_length = response_content_length(response_headers)
         if content_length is None:
             assert result == []
         response_headers.append(

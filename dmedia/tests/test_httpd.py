@@ -44,6 +44,14 @@ def random_port():
     return random.randint(1001, 50000)
 
 
+class TestWSGIError(TestCase):
+    def test_init(self):
+        msg = '701 Foo Bar'
+        e = httpd.WSGIError(msg)
+        self.assertIs(e.status, msg)
+        self.assertEqual(str(e), '701 Foo Bar')
+
+
 class TestFunctions(TestCase):
     def test_parse_request(self):
         self.assertEqual(
@@ -171,29 +179,29 @@ class TestFunctions(TestCase):
             '400 Negative Content Length'
         )
 
-    def test_get_content_length(self):
-        self.assertIsNone(httpd.get_content_length([]))
+    def test_response_content_length(self):
+        self.assertIsNone(httpd.response_content_length([]))
         headers = [
             ('Server', 'Dmedia/12.09.0 (Ubuntu 12.10; x86_64)'),
             ('Content-Type', 'application/json'),
         ]
-        self.assertIsNone(httpd.get_content_length(headers))
+        self.assertIsNone(httpd.response_content_length(headers))
         headers = [
             ('Server', 'Dmedia/12.09.0 (Ubuntu 12.10; x86_64)'),
             ('Content-Type', 'application/json'),
             ('Content-Length', '1819'),
         ]
-        self.assertEqual(httpd.get_content_length(headers), 1819)
+        self.assertEqual(httpd.response_content_length(headers), 1819)
         headers = [
             ('Server', 'Dmedia/12.09.0 (Ubuntu 12.10; x86_64)'),
             ('contenT-lengtH', '1725'),
             ('Content-Type', 'application/json'),
         ]
-        self.assertEqual(httpd.get_content_length(headers), 1725)
+        self.assertEqual(httpd.response_content_length(headers), 1725)
         headers = [
             ('content-length', '2136'),
         ]
-        self.assertEqual(httpd.get_content_length(headers), 2136)
+        self.assertEqual(httpd.response_content_length(headers), 2136)
 
     def test_iter_response_lines(self):
         self.assertEqual(
