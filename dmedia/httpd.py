@@ -56,7 +56,6 @@ import socket
 import ssl
 import threading
 import platform
-from urllib.parse import unquote_to_bytes
 import logging
 
 from dmedia import __version__
@@ -65,7 +64,7 @@ from dmedia import __version__
 SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__, 
     platform.dist()[0], platform.dist()[1], platform.machine()
 )
-MAX_LINE = 8 * 1024
+MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
 TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
 log = logging.getLogger()
@@ -79,9 +78,7 @@ class WSGIError(Exception):
 
 def build_ssl_server_context(config):
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-    ctx.load_cert_chain(config['cert_file'],
-        keyfile=config.get('key_file')
-    )
+    ctx.load_cert_chain(config['cert_file'], config['key_file'])
     if 'ca_file' in config or 'ca_path' in config:
         ctx.verify_mode = ssl.CERT_REQUIRED
         ctx.load_verify_locations(
@@ -166,8 +163,8 @@ def request_content_length(environ):
 
 
 def response_content_length(response_headers):
-    for (key, value) in response_headers:
-        if key.lower() == 'content-length':
+    for (name, value) in response_headers:
+        if name.lower() == 'content-length':
             return int(value)
 
 
@@ -226,10 +223,13 @@ class Handler:
             pass
 
     def handle_one(self):
+        # FIXME: we should close the connection when a WSGIError is
+        # raised because otherwise the contents of rfile will be in a bad
+        # state on the next request
         self.start = None
         environ = self.environ.copy()
         try:
-            self.parse_request(environ)
+            environ.update(self.parse_request())
             result = self.app(environ, self.start_response)
         except WSGIError as e:
             self.start_response(e.status, [])
@@ -242,7 +242,9 @@ class Handler:
         self.send_response(environ, result)
         return True
 
-    def parse_request(self, environ):
+    def parse_request(self):
+        environ = {}
+
         # Parse the request line
         request_line = self.rfile.readline(MAX_LINE + 1)
         if len(request_line) > MAX_LINE:
@@ -254,13 +256,13 @@ class Handler:
             raise WSGIError('405 Method Not Allowed')
         parts = uri.split('?')
         if len(parts) > 2:
-            raise WSGIError('400 Bad Request')
+            raise WSGIError('400 Bad Request URI')
         if len(parts) == 2:
             (path, query) = parts
         else:
             (path, query) = (parts[0], '')
         environ['REQUEST_METHOD'] = method
-        environ['PATH_INFO'] = unquote_to_bytes(path).decode('latin_1')
+        environ['PATH_INFO'] = path
         environ['QUERY_STRING'] = query
 
         # Parse the headers
@@ -273,12 +275,14 @@ class Handler:
                 break
             if count > MAX_HEADER_COUNT:
                 raise WSGIError('431 Too Many Request Header Fields')
-            (key, value) = parse_header(header_line)
-            environ[key] = value
+            (name, value) = parse_header(header_line)
+            environ[name] = value
             count += 1
 
         # Setup wsgi.input
         environ['wsgi.input'] = Input(self.rfile, environ)
+
+        return environ
 
     def start_response(self, status, response_headers, exc_info=None):
         self.start = (status, response_headers)

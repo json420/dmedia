@@ -28,6 +28,7 @@ from random import SystemRandom
 from wsgiref.simple_server import demo_app
 import ssl
 import socket
+import os
 
 from microfiber import random_id
 
@@ -361,6 +362,135 @@ class TestInput(TestCase):
         inst = httpd.Input(fp, environ)
         with self.assertRaises(AssertionError) as cm:
             inst.read()
+
+
+class TestHandler(TestCase):
+    def test_parse_request(self):
+        class Subclass(httpd.Handler):
+            def __init__(self):
+                pass
+
+        tmp = TempDir()
+        filename = tmp.join('rfile')
+        inst = Subclass()
+
+        fp = open(filename, 'wb')
+        fp.write(b'A' * 5000)
+        fp.write(b'\r\n') 
+        fp.close()
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '414 Request-URI Too Long'
+        )
+        self.assertEqual(fp.tell(), 4097)
+
+        requestline = b'GET /some/stuff HTTP/1.1\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Junk\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request Line Missing CRLF'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
+        requestline = b'GET /some /things HTTP/1.1\r\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Junk\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request Line'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
+        requestline = b'GET /stuff HTTP/1.0\r\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Junk\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '505 HTTP Version Not Supported'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
+        requestline = b'COPY /stuff HTTP/1.1\r\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Junk\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '405 Method Not Allowed'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
+        requestline = b'GET /stuff?junk=true?more=true HTTP/1.1\r\n'
+        open(filename, 'wb').write(
+            requestline + b'User-Agent: Foo\r\n\r\n'
+        )
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.parse_request()
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request URI'
+        )
+        self.assertEqual(fp.tell(), len(requestline))
+
+        # Test will all allowed methods
+        rest =  ' /stuff?junk=true HTTP/1.1\r\nUser-Agent: Foo\r\n\r\n'
+        for method in ('POST', 'PUT', 'GET', 'HEAD', 'DELETE'):
+            preamble = (method + rest).encode('latin_1')
+            open(filename, 'wb').write(preamble + os.urandom(50))
+            fp = open(filename, 'rb')
+            inst.rfile = fp
+            environ = inst.parse_request()
+            wsgi_input = environ['wsgi.input']
+            self.assertIsInstance(wsgi_input, httpd.Input)
+            self.assertIs(wsgi_input._rfile, fp)
+            self.assertEqual(environ,
+                {
+                    'REQUEST_METHOD': method,
+                    'PATH_INFO': '/stuff',
+                    'QUERY_STRING': 'junk=true',
+                    'HTTP_USER_AGENT': 'Foo',
+                    'wsgi.input': wsgi_input,
+                }
+            )
+            self.assertEqual(fp.tell(), len(preamble))
+
+            # Make sure it's case-sensitive
+            preamble = (method.lower() + rest).encode('latin_1')
+            open(filename, 'wb').write(preamble + os.urandom(50))
+            fp = open(filename, 'rb')
+            inst.rfile = fp
+            with self.assertRaises(WSGIError) as cm:
+                inst.parse_request()
+            self.assertEqual(
+                cm.exception.status,
+                '405 Method Not Allowed'
+            )
 
 
 class TestHTTPServer(TestCase):
