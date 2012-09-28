@@ -3,7 +3,7 @@
 from usercouch.misc import TempPKI
 import multiprocessing
 import json
-from microfiber import Server, dumps, build_ssl_context, _start_thread
+from microfiber import Server, dumps, build_ssl_context
 import time
 from dmedia.httpd import HTTPServer, build_ssl_server_context
 
@@ -53,7 +53,8 @@ def start_httpd(config):
     return (httpd, env)
 
 
-def loop(s, count):
+def loop(env, count):
+    s = Server(env)
     for i in range(count):
         s.get()
 
@@ -64,23 +65,23 @@ env['ssl'] = pki.get_client_config()
 #print(dumps(env))
 
 s = Server(env)
+s.get()
 #print(dumps(s.get(), pretty=True))
 
-time.sleep(1)
 print('\nBenchmarking...')
-p_count = 15
+p_count = 20
 count = 200
 for p in range(1, p_count + 1):
-    threads = []
+    time.sleep(1)
+    workers = []
     start = time.time()
     for i in range(p):
-        thread = _start_thread(loop, s, count)
-        threads.append(thread)
-    for thread in threads:
-        thread.join()
+        w = start_process(loop, env, count)
+        workers.append(w)
+    for w in workers:
+        w.join()
     elapsed = time.time() - start
     print('    Concurrency: {}; Requests Per Second: {:d}'.format(
             p, int((count * p) / elapsed)
         )
     )
-    time.sleep(1)
