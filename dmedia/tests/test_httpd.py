@@ -214,12 +214,10 @@ class TestFunctions(TestCase):
                 'Content-Length: 784\r\n',
                 '\r\n',   
             ]
-        )
-        
-        
+        )   
 
 
-class TestServer(TestCase):
+class TestHTTPServer(TestCase):
     def test_init(self):
         class App:
             pass
@@ -227,7 +225,7 @@ class TestServer(TestCase):
         # App not callable
         app = App()
         with self.assertRaises(TypeError) as cm:
-            httpd.Server(app, '::1')
+            httpd.HTTPServer(app, '::1')
         self.assertEqual(
             str(cm.exception),
             'app not callable: {!r}'.format(app)
@@ -235,13 +233,13 @@ class TestServer(TestCase):
 
         # context not a ssl.SSLContext
         with self.assertRaises(TypeError) as cm:
-            httpd.Server(demo_app, '::1', 17)
+            httpd.HTTPServer(demo_app, '::1', 17)
         self.assertEqual(
             str(cm.exception),
             httpd.TYPE_ERROR.format('context', ssl.SSLContext, int, 17)
         )
 
-        server = httpd.Server(demo_app)
+        server = httpd.HTTPServer(demo_app)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
         self.assertEqual(server.name, socket.getfqdn('::1'))
@@ -256,7 +254,7 @@ class TestServer(TestCase):
         self.assertEqual(server.environ, server.build_base_environ())
 
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        server = httpd.Server(demo_app, '127.0.0.1', ctx, True)
+        server = httpd.HTTPServer(demo_app, '127.0.0.1', ctx, True)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
         self.assertEqual(server.name, socket.getfqdn('127.0.0.1'))
@@ -273,7 +271,7 @@ class TestServer(TestCase):
         self.assertEqual(server.environ, server.build_base_environ())
 
     def test_build_base_environ(self):
-        class Subclass(httpd.Server):
+        class Subclass(httpd.HTTPServer):
             def __init__(self):
                 self.scheme = random_id()
                 self.threaded = random_id()
@@ -299,7 +297,7 @@ class TestServer(TestCase):
             }
         )
 
-        server = httpd.Server(demo_app, '::1')
+        server = httpd.HTTPServer(demo_app, '::1')
         self.assertEqual(
             server.build_base_environ(),
             {

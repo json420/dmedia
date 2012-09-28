@@ -102,10 +102,10 @@ def parse_header(line_bytes):
     (name, value) = parts
     if '_' in name:
         raise WSGIError('400 Bad Header Name')
-    key = name.replace('-', '_').upper()
-    if key in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
-        return (key, value)
-    return ('HTTP_' + key, value)
+    name = name.replace('-', '_').upper()
+    if name in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
+        return (name, value)
+    return ('HTTP_' + name, value)
 
 
 def request_content_length(environ):
@@ -162,7 +162,6 @@ class Handler:
         self.address = address
         self.rfile = conn.makefile('rb')
         self.wfile = conn.makefile('wb')
-        log.info('Handling %r', address[:2])
 
     def handle_many(self):
         while self.handle_one():
@@ -174,13 +173,14 @@ class Handler:
         try:
             self.parse_request(environ)
             result = self.app(environ, self.start_response)
-        except socket.error:
-            return False
         except WSGIError as e:
             self.start_response(e.status, [])
             result = []
+        except socket.error:
+            return False
         except Exception:
-            
+            log.exception('Server error')
+            return False
         self.send_response(environ, result)
         return True
 
@@ -191,7 +191,7 @@ class Handler:
             raise WSGIError('414 Request-URI Too Long')
         (method, uri, protocol) = parse_request(request_line)
         if protocol != 'HTTP/1.1':
-            raise WSGIError('400 Wrong HTTP Protocol')
+            raise WSGIError('505 HTTP Version Not Supported')
         if method not in ('GET', 'HEAD', 'POST', 'PUT', 'DELETE'):
             raise WSGIError('405 Method Not Allowed')
         parts = uri.split('?')
@@ -245,7 +245,7 @@ class Handler:
         self.wfile.flush()
 
 
-class Server:
+class HTTPServer:
     def __init__(self, app, bind_address='::1', context=None, threaded=False):
         if not callable(app):
             raise TypeError('app not callable: {!r}'.format(app))
