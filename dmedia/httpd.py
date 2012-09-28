@@ -178,24 +178,38 @@ def iter_response_lines(status, headers):
     yield '\r\n'
 
 
-class wsgi_input:
-    __slots__ = ('_rfile', '_avail')
+class Input:
+    """
+    Used for environ['wsgi.input'].
+    """
+
+    __slots__ = ('_rfile', '_avail', '_method')
 
     def __init__(self, rfile, environ):
         self._rfile = rfile
         self._avail = request_content_length(environ)
+        self._method = environ['REQUEST_METHOD']
 
     def read(self, size=None):
+        if self._method not in ('PUT', 'POST'):
+            raise WSGIError('500 Internal Server Error')
         if self._avail is None:
             raise WSGIError('411 Length Required')
         if self._avail == 0:
             return b''
-        assert size is None or size > 0
+        if not (size is None or size > 0):
+            raise WSGIError('500 Internal Server Error')
         size = (self._avail if size is None else min(self._avail, size))
         self._avail -= size
         buf = self._rfile.read(size)
         assert len(buf) == size
         return buf
+
+
+class FileWrapper:
+    """
+    Used for environ['wsgi.file_wrapper'].
+    """
 
 
 class Handler:
@@ -264,7 +278,7 @@ class Handler:
             count += 1
 
         # Setup wsgi.input
-        environ['wsgi.input'] = wsgi_input(self.rfile, environ)
+        environ['wsgi.input'] = Input(self.rfile, environ)
 
     def start_response(self, status, response_headers, exc_info=None):
         self.start = (status, response_headers)

@@ -31,6 +31,7 @@ import socket
 
 from microfiber import random_id
 
+from .base import TempDir
 from dmedia import __version__
 from dmedia.httpd import WSGIError
 from dmedia import httpd
@@ -214,7 +215,144 @@ class TestFunctions(TestCase):
                 'Content-Length: 784\r\n',
                 '\r\n',   
             ]
-        )   
+        )
+
+
+class TestInput(TestCase):
+    def test_init(self):
+        tmp = TempDir()
+        filename = tmp.write(b'hello', 'rfile.1')
+        fp = open(filename, 'rb')
+
+        environ = {'CONTENT_LENGTH': '5', 'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        self.assertIs(inst._rfile, fp)
+        self.assertEqual(fp.tell(), 0)
+        self.assertEqual(inst._avail, 5)
+        self.assertEqual(inst._method, 'PUT')
+
+        environ = {'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        self.assertIs(inst._rfile, fp)
+        self.assertEqual(fp.tell(), 0)
+        self.assertIsNone(inst._avail)
+        self.assertEqual(inst._method, 'PUT')
+
+        environ = {'CONTENT_LENGTH': None, 'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        self.assertIs(inst._rfile, fp)
+        self.assertEqual(fp.tell(), 0)
+        self.assertIsNone(inst._avail)
+        self.assertEqual(inst._method, 'PUT')
+
+        # Test with bad CONTENT_LENGTH
+        environ = {'CONTENT_LENGTH': '5.0', 'REQUEST_METHOD': 'PUT'}
+        with self.assertRaises(WSGIError) as cm:
+            httpd.Input(fp, environ)
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Content Length'
+        )
+        self.assertEqual(fp.tell(), 0)
+
+        environ = {'CONTENT_LENGTH': '-5', 'REQUEST_METHOD': 'PUT'}
+        with self.assertRaises(WSGIError) as cm:
+            httpd.Input(fp, environ)
+        self.assertEqual(
+            cm.exception.status,
+            '400 Negative Content Length'
+        )
+        self.assertEqual(fp.tell(), 0)
+
+        # Test with missing REQUEST_METHOD
+        environ = {'CONTENT_LENGTH': '5'}
+        with self.assertRaises(KeyError) as cm:
+            httpd.Input(fp, environ)
+        self.assertEqual(
+            str(cm.exception),
+            "'REQUEST_METHOD'"
+        )
+        self.assertEqual(fp.tell(), 0)
+
+    def test_read(self):
+        tmp = TempDir()
+        filename = tmp.write(b'hello', 'rfile.1')
+        fp = open(filename, 'rb')
+
+        # Test when method isn't PUT or POST
+        for method in ('GET', 'HEAD', 'DELETE', 'put', 'post'):
+            environ = {'CONTENT_LENGTH': '5', 'REQUEST_METHOD': method}
+            inst = httpd.Input(fp, environ)
+            with self.assertRaises(WSGIError) as cm:
+                inst.read()
+            self.assertEqual(
+                cm.exception.status,
+                '500 Internal Server Error'
+            )
+            self.assertEqual(fp.tell(), 0)
+
+        # Test when there is no CONTENT_LENGTH:
+        for method in ('PUT', 'POST'):
+            environ = {'REQUEST_METHOD': method}
+            inst = httpd.Input(fp, environ)
+            with self.assertRaises(WSGIError) as cm:
+                inst.read()
+            self.assertEqual(
+                cm.exception.status,
+                '411 Length Required'
+            )
+            self.assertEqual(fp.tell(), 0)
+
+        # Test when it's all good
+        fp = open(filename, 'rb')
+        environ = {'CONTENT_LENGTH': '5', 'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        self.assertEqual(inst.read(), b'hello')
+        self.assertEqual(fp.tell(), 5)
+        self.assertEqual(inst.read(), b'')
+        self.assertEqual(fp.tell(), 5)
+
+        fp = open(filename, 'rb')
+        environ = {'CONTENT_LENGTH': '5', 'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        self.assertEqual(inst.read(5), b'hello')
+        self.assertEqual(fp.tell(), 5)
+        self.assertEqual(inst.read(5), b'')
+        self.assertEqual(fp.tell(), 5)
+
+        # Test that it wont read past the CONTENT_LENGTH:
+        fp = open(filename, 'rb')
+        environ = {'CONTENT_LENGTH': '4', 'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        self.assertEqual(inst.read(), b'hell')
+        self.assertEqual(fp.tell(), 4)
+        self.assertEqual(inst.read(500), b'')
+        self.assertEqual(fp.tell(), 4)
+
+        fp = open(filename, 'rb')
+        environ = {'CONTENT_LENGTH': '4', 'REQUEST_METHOD': 'POST'}
+        inst = httpd.Input(fp, environ)
+        self.assertEqual(inst.read(3), b'hel')
+        self.assertEqual(fp.tell(), 3)
+        self.assertEqual(inst.read(500), b'l')
+        self.assertEqual(fp.tell(), 4)
+        self.assertEqual(inst.read(), b'')
+        self.assertEqual(fp.tell(), 4)
+
+        fp = open(filename, 'rb')
+        environ = {'CONTENT_LENGTH': '0', 'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        self.assertEqual(inst.read(500), b'')
+        self.assertEqual(fp.tell(), 0)
+        self.assertEqual(inst.read(), b'')
+        self.assertEqual(fp.tell(), 0)
+
+        # Test when CONTENT_LENGTH is longer than content
+        fp = open(filename, 'rb')
+        environ = {'CONTENT_LENGTH': '6', 'REQUEST_METHOD': 'PUT'}
+        inst = httpd.Input(fp, environ)
+        with self.assertRaises(AssertionError) as cm:
+            inst.read()
 
 
 class TestHTTPServer(TestCase):

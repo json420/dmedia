@@ -66,6 +66,7 @@ env['ssl'] = pki.get_client_config()
 s = Server(env)
 #print(dumps(s.get(), pretty=True))
 
+time.sleep(1)
 print('\nBenchmarking...')
 p_count = 15
 count = 200
