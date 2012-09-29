@@ -330,7 +330,7 @@ class Handler:
         self.wfile.flush()
 
 
-class HTTPServer:
+class HTTPD:
     def __init__(self, app, bind_address='::1', context=None, threaded=False):
         if not callable(app):
             raise TypeError('app not callable: {!r}'.format(app))

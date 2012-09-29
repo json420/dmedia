@@ -801,7 +801,7 @@ class DummySSLSocket:
         return self.__peercert
 
 
-class TestHTTPServer(TestCase):
+class TestHTTPD(TestCase):
     def test_init(self):
         class App:
             pass
@@ -809,7 +809,7 @@ class TestHTTPServer(TestCase):
         # App not callable
         app = App()
         with self.assertRaises(TypeError) as cm:
-            httpd.HTTPServer(app, '::1')
+            httpd.HTTPD(app, '::1')
         self.assertEqual(
             str(cm.exception),
             'app not callable: {!r}'.format(app)
@@ -817,7 +817,7 @@ class TestHTTPServer(TestCase):
 
         # Bad bind_address
         with self.assertRaises(ValueError) as cm:
-            httpd.HTTPServer(demo_app, '127.0.0.1')
+            httpd.HTTPD(demo_app, '127.0.0.1')
         self.assertEqual(
             str(cm.exception),
             "invalid bind_address: '127.0.0.1'"
@@ -825,7 +825,7 @@ class TestHTTPServer(TestCase):
 
         # context not a ssl.SSLContext
         with self.assertRaises(TypeError) as cm:
-            httpd.HTTPServer(demo_app, '::1', 17)
+            httpd.HTTPD(demo_app, '::1', 17)
         self.assertEqual(
             str(cm.exception),
             httpd.TYPE_ERROR.format('context', ssl.SSLContext, int, 17)
@@ -834,13 +834,13 @@ class TestHTTPServer(TestCase):
         # protocol != ssl.PROTOCOL_TLSv1
         ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
         with self.assertRaises(Exception) as cm:
-            httpd.HTTPServer(demo_app, '::1', ctx)
+            httpd.HTTPD(demo_app, '::1', ctx)
         self.assertEqual(
             str(cm.exception),
             'context.protocol must be ssl.PROTOCOL_TLSv1'
         )
 
-        server = httpd.HTTPServer(demo_app)
+        server = httpd.HTTPD(demo_app)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
         self.assertEqual(server.name, socket.getfqdn('::1'))
@@ -855,7 +855,7 @@ class TestHTTPServer(TestCase):
         self.assertEqual(server.environ, server.build_base_environ())
 
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        server = httpd.HTTPServer(demo_app, '::', ctx, True)
+        server = httpd.HTTPD(demo_app, '::', ctx, True)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
         self.assertEqual(server.name, socket.getfqdn('::'))
@@ -872,7 +872,7 @@ class TestHTTPServer(TestCase):
         self.assertEqual(server.environ, server.build_base_environ())
 
     def test_build_base_environ(self):
-        class Subclass(httpd.HTTPServer):
+        class Subclass(httpd.HTTPD):
             def __init__(self):
                 self.scheme = random_id()
                 self.threaded = random_id()
@@ -899,7 +899,7 @@ class TestHTTPServer(TestCase):
             }
         )
 
-        server = httpd.HTTPServer(demo_app, '::1')
+        server = httpd.HTTPD(demo_app, '::1')
         self.assertEqual(
             server.build_base_environ(),
             {
@@ -918,7 +918,7 @@ class TestHTTPServer(TestCase):
         )
 
     def test_build_connection_environ(self):
-        class Subclass(httpd.HTTPServer):
+        class Subclass(httpd.HTTPD):
             def __init__(self):
                 self.context = None
 
