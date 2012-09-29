@@ -760,6 +760,20 @@ class TestHandler(TestCase):
         self.assertEqual(wsgi_input.read(21), b'')
         self.assertEqual(wsgi_input.read(), b'')
 
+    def test_start_response(self):
+        class Subclass(httpd.Handler):
+            def __init__(self):
+                pass
+                
+        inst = Subclass()
+        status = random_id()
+        response_headers = random_id()
+        inst.start_response(status, response_headers)
+        self.assertEqual(
+            inst.start,
+            (status, response_headers)
+        )
+
 
 PEER_CERT = """
 {

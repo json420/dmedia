@@ -229,6 +229,11 @@ class FileWrapper:
 
 
 class Handler:
+    """
+    Handles one or more HTTP requests.
+
+    A `Handler` instance is created per TCP connection.
+    """
     __slots__ = ('app', 'environ', 'conn', 'rfile', 'wfile', 'start')
 
     def __init__(self, app, environ, conn):
