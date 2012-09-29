@@ -48,7 +48,7 @@ print('Benchmarking with {} requests per connection, client_pki={!r}'.format(
 )
 for p in range(1, p_count + 1):
     workers = []
-    time.sleep(1)  # Let things "settle" a moment
+    time.sleep(0.5)  # Let things "settle" a moment
     start = time.time()
     for i in range(p):
         w = start_process(client_process, env, count)
