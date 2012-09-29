@@ -797,6 +797,7 @@ class TestHTTPServer(TestCase):
                 'wsgi.multithread': server.threaded,
                 'wsgi.multiprocess': False,
                 'wsgi.run_once': False,
+                'wsgi.file_wrapper': httpd.FileWrapper,
                 'SSL_PROTOCOL': 'TLSv1',
             }
         )
@@ -815,6 +816,7 @@ class TestHTTPServer(TestCase):
                 'wsgi.multithread': False,
                 'wsgi.multiprocess': False,
                 'wsgi.run_once': False,
+                'wsgi.file_wrapper': httpd.FileWrapper,
             }
         )
         

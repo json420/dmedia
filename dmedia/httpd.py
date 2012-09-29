@@ -360,6 +360,7 @@ class HTTPServer:
             'wsgi.multithread': self.threaded,
             'wsgi.multiprocess': False,
             'wsgi.run_once': False,
+            'wsgi.file_wrapper': FileWrapper
         }
         if self.context is not None:
             environ['SSL_PROTOCOL'] = 'TLSv1'
