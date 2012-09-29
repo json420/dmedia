@@ -5,7 +5,7 @@ import multiprocessing
 import json
 from microfiber import Server, dumps, build_ssl_context
 import time
-from dmedia.httpd import HTTPServer, build_ssl_server_context
+from dmedia.httpd import HTTPServer, build_server_ssl_context
 
 
 def get_value(value):
@@ -39,7 +39,7 @@ def start_process(target, *args, **kwargs):
 
 
 def server(queue, config):
-    ctx = build_ssl_server_context(config)
+    ctx = build_server_ssl_context(config)
     httpd = HTTPServer(application, '::1', ctx, True)
     env = {'port': httpd.port, 'url': httpd.url}
     queue.put(env)

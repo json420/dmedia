@@ -32,6 +32,7 @@ import os
 import json
 
 from microfiber import random_id
+from usercouch.misc import TempPKI
 
 from .base import TempDir
 from dmedia import __version__
@@ -55,6 +56,49 @@ class TestWSGIError(TestCase):
 
 
 class TestFunctions(TestCase):
+    def test_build_server_ssl_context(self):
+        # FIXME: We need to add tests for config['ca_path'], but
+        # `usercouch.sslhelpers` doesn't have the needed helpers yet.
+        pki = TempPKI(client_pki=True)
+
+        config = {
+            'cert_file': pki.server_cert.cert_file,
+            'key_file': pki.server_cert.key_file,
+        }
+        ctx = httpd.build_server_ssl_context(config)
+        self.assertIsInstance(ctx, ssl.SSLContext)
+        self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
+        self.assertEqual(ctx.verify_mode, ssl.CERT_NONE)
+
+        config = {
+            'cert_file': pki.server_cert.cert_file,
+            'key_file': pki.server_cert.key_file,
+            'ca_file': pki.client_ca.ca_file,
+        }
+        ctx = httpd.build_server_ssl_context(config)
+        self.assertIsInstance(ctx, ssl.SSLContext)
+        self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+
+        # Provide wrong key_file, make sure cert_file, key_file actually used
+        config = {
+            'cert_file': pki.server_cert.cert_file,
+            'key_file': pki.client_cert.key_file,
+        }
+        with self.assertRaises(ssl.SSLError) as cm:
+            httpd.build_server_ssl_context(config)
+        self.assertEqual(cm.exception.errno, 185073780)
+
+        # Provide bad ca_file, make sure it's actually used    
+        config = {
+            'cert_file': pki.server_cert.cert_file,
+            'key_file': pki.server_cert.key_file,
+            'ca_file': pki.client_ca.key_file,
+        }
+        with self.assertRaises(ssl.SSLError) as cm:
+            httpd.build_server_ssl_context(config)
+        self.assertEqual(cm.exception.errno, 0)
+
     def test_parse_request(self):
         self.assertEqual(
             httpd.parse_request(b'GET / HTTP/1.1\r\n'),
@@ -785,6 +829,15 @@ class TestHTTPServer(TestCase):
         self.assertEqual(
             str(cm.exception),
             httpd.TYPE_ERROR.format('context', ssl.SSLContext, int, 17)
+        )
+
+        # protocol != ssl.PROTOCOL_TLSv1
+        ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
+        with self.assertRaises(Exception) as cm:
+            httpd.HTTPServer(demo_app, '::1', ctx)
+        self.assertEqual(
+            str(cm.exception),
+            'context.protocol must be ssl.PROTOCOL_TLSv1'
         )
 
         server = httpd.HTTPServer(demo_app)

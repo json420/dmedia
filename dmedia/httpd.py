@@ -95,7 +95,7 @@ class WSGIError(Exception):
         super().__init__(status)
 
 
-def build_ssl_server_context(config):
+def build_server_ssl_context(config):
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
     ctx.load_cert_chain(config['cert_file'], config['key_file'])
     if 'ca_file' in config or 'ca_path' in config:
@@ -340,8 +340,8 @@ class HTTPServer:
             raise TypeError(TYPE_ERROR.format(
                 'context', ssl.SSLContext, type(context), context)
             )
-        if context is not None:
-            assert context.protocol is ssl.PROTOCOL_TLSv1
+        if context is not None and context.protocol != ssl.PROTOCOL_TLSv1:
+            raise Exception('context.protocol must be ssl.PROTOCOL_TLSv1')
         self.app = app
         self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.socket.bind((bind_address, 0))
