@@ -38,7 +38,7 @@ Some notable HTTP 1.1 features not supported:
 
     * Does not support multi-line headers
 
-    * Dose not support multiple occurrences of the same header (in parsing,
+    * Does not support multiple occurrences of the same header (in parsing,
       the last occurrence replaces the previous)
 
     * Parses the request-line and header-lines more strictly than required by
