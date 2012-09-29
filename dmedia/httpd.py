@@ -77,6 +77,7 @@ import socket
 import ssl
 import threading
 import platform
+import json
 
 from dmedia import __version__
 
@@ -87,6 +88,29 @@ SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__,
 MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
 TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
+
+
+def echo_app(environ, start_response):
+    def get_value(value):
+        if value is FileWrapper:
+            return 'httpd.FileWrapper'
+        if isinstance(value, (str, int, float, bool)):
+            return value
+        return repr(value)
+
+    obj = dict(
+        (key, get_value(value))
+        for (key, value) in environ.items()
+    )
+    output = json.dumps(obj).encode('utf-8')
+
+    status = '200 OK'
+    response_headers = [
+        ('Content-Type', 'application/json'),
+        ('Content-Length', str(len(output))),
+    ]
+    start_response(status, response_headers)
+    return [output]
 
 
 class WSGIError(Exception):

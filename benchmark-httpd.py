@@ -5,30 +5,7 @@ import multiprocessing
 import json
 from microfiber import Server, dumps, build_ssl_context
 import time
-from dmedia.httpd import HTTPD, build_server_ssl_context
-
-
-def get_value(value):
-    if isinstance(value, (str, int, float, bool)):
-        return value
-    return repr(value)
-
-
-def application(environ, start_response):
-    status = '200 OK'
-    obj = dict(
-        (key, get_value(value))
-        for (key, value) in environ.items()
-    )
-    output = json.dumps(obj).encode('utf-8')
-
-    response_headers = [
-        ('Content-type', 'application/json'),
-        ('Content-Length', str(len(output))),
-    ]
-    start_response(status, response_headers)
-
-    return [output]
+from dmedia.httpd import HTTPD, build_server_ssl_context, echo_app
 
 
 def start_process(target, *args, **kwargs):
@@ -40,7 +17,7 @@ def start_process(target, *args, **kwargs):
 
 def server(queue, config):
     ctx = build_server_ssl_context(config)
-    httpd = HTTPD(application, '::1', ctx, True)
+    httpd = HTTPD(echo_app, '::1', ctx, True)
     env = {'port': httpd.port, 'url': httpd.url}
     queue.put(env)
     httpd.serve_forever()
