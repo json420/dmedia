@@ -47,7 +47,7 @@ Some notable HTTP 1.1 features not supported:
     * Only supports the GET, HEAD, DELETE, PUT, and POST methods, while blocking
       everything else
 
-Some notable missing WSGI features:
+Some missing WSGI features, and deviations from PEP 3333:
 
     * start_response() does not return a write() callable
 
@@ -62,6 +62,15 @@ And some general security restrictions:
     * For similar reasons, it rejects any requests for URI not starting with "/"
 
     * Errors never return any error text in the response body (no traces, etc)
+
+
+For additional info, see RFC 2616:
+
+    http://www.w3.org/Protocols/rfc2616/rfc2616.html
+
+And PEP-3333:
+
+    http://www.python.org/dev/peps/pep-3333/
 """
 
 import socket
@@ -159,7 +168,7 @@ def iter_response_lines(status, headers):
 
 class Input:
     """
-    Used for environ['wsgi.input'].
+    Used for environ['wsgi.input']
     """
 
     __slots__ = ('_rfile', '_avail', '_method')
@@ -185,10 +194,34 @@ class Input:
         return buf
 
 
+MiB = 1024 * 1024
+
 class FileWrapper:
     """
-    Used for environ['wsgi.file_wrapper'].
+    Used for environ['wsgi.file_wrapper']
     """
+
+    __slots__ = ('fp', 'content_length', '_closed')
+
+    def __init__(self, fp, content_length):
+        assert callable(fp.read)
+        assert isinstance(content_length, int)
+        assert content_length > 0
+        self.fp = fp
+        self.content_length = content_length
+        self._closed = False
+
+    def __iter__(self):
+        assert not self._closed
+        remaining = self.content_length
+        while remaining:
+            read = min(remaining, MiB)
+            remaining -= read
+            data = self.fp.read(read)
+            assert len(data) == read
+            yield data
+        assert remaining == 0
+        self._closed = True
 
 
 class Handler:

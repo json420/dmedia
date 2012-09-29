@@ -364,6 +364,73 @@ class TestInput(TestCase):
             inst.read()
 
 
+class TestFileWrapper(TestCase):
+    def test_init(self):
+        tmp = TempDir()
+        filename = tmp.write(b'hello', 'rfile.1')
+        open(filename, 'wb').write(
+            os.urandom(100)
+        )
+
+        fp = open(filename, 'rb')
+        inst = httpd.FileWrapper(fp, 33)
+        self.assertIs(inst.fp, fp)
+        self.assertEqual(inst.content_length, 33)
+        self.assertEqual(fp.tell(), 0)
+        self.assertIs(inst._closed, False)
+
+        fp = open(filename, 'rb')
+        fp.seek(20)
+        inst = httpd.FileWrapper(fp, 33)
+        self.assertIs(inst.fp, fp)
+        self.assertEqual(inst.content_length, 33)
+        self.assertEqual(fp.tell(), 20)
+        self.assertIs(inst._closed, False)
+
+    def test_iter(self):
+        MiB = 1024 * 1024
+        tmp = TempDir()
+        filename = tmp.join('output')
+
+        chunk1 = b'A' * MiB
+        chunk2 = b'B' * MiB
+        chunk3 = b'C' * 3333
+        chunks = [chunk1, chunk2, chunk3]
+        fp = open(filename, 'wb')
+        for chunk in chunks:
+            fp.write(chunk)
+        fp.flush()
+        fp.close()
+        fp = open(filename, 'rb')
+        content_length = sum(len(chunk) for chunk in chunks)
+        inst = httpd.FileWrapper(fp, content_length)
+        self.assertEqual(list(inst), chunks)
+        self.assertEqual(inst.fp.tell(), content_length)
+        self.assertIs(inst._closed, True)
+        with self.assertRaises(AssertionError):
+            list(inst)
+
+        chunk1 = b'A' * 4444
+        chunk2 = b'B' * MiB
+        chunk3 = b'C' * 3333
+        chunk4 = b'D' * MiB
+        fp = open(filename, 'wb')
+        for chunk in [chunk1, chunk2, chunk3, chunk4]:
+            fp.write(chunk)
+        fp.flush()
+        fp.close()
+        fp = open(filename, 'rb')
+        fp.seek(4444)
+        content_length  = MiB + 3333
+        inst = httpd.FileWrapper(fp, content_length)
+        self.assertEqual(list(inst), [chunk2, chunk3])
+        self.assertEqual(inst.fp.tell(), 4444 + MiB + 3333)
+        self.assertIs(inst._closed, True)
+        with self.assertRaises(AssertionError):
+            list(inst)
+        self.assertEqual(fp.read(), chunk4)
+
+
 class TestHandler(TestCase):
     def test_parse_request(self):
         class Subclass(httpd.Handler):
