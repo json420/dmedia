@@ -20,7 +20,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-A tiny WSGI HTTP 1.1 server with IPv6 and SSL support.
+A tiny IPv6 WSGI HTTP 1.1 server with SSL support.
 
 This server is focused on two goals:
 
@@ -88,29 +88,6 @@ SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__,
 MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
 TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
-
-
-def echo_app(environ, start_response):
-    def get_value(value):
-        if value is FileWrapper:
-            return 'httpd.FileWrapper'
-        if isinstance(value, (str, int, float, bool)):
-            return value
-        return repr(value)
-
-    obj = dict(
-        (key, get_value(value))
-        for (key, value) in environ.items()
-    )
-    output = json.dumps(obj).encode('utf-8')
-
-    status = '200 OK'
-    response_headers = [
-        ('Content-Type', 'application/json'),
-        ('Content-Length', str(len(output))),
-    ]
-    start_response(status, response_headers)
-    return [output]
 
 
 class WSGIError(Exception):
@@ -460,4 +437,46 @@ class HTTPD:
             handler.handle_many()
         else:
             handler.handle_one()
+
+
+
+############################
+# Some misc helper functions
+
+def echo_app(environ, start_response):
+    def get_value(value):
+        if value is FileWrapper:
+            return 'httpd.FileWrapper'
+        if isinstance(value, (str, int, float, bool)):
+            return value
+        return repr(value)
+
+    obj = dict(
+        (key, get_value(value))
+        for (key, value) in environ.items()
+    )
+    output = json.dumps(obj).encode('utf-8')
+
+    status = '200 OK'
+    response_headers = [
+        ('Content-Type', 'application/json'),
+        ('Content-Length', str(len(output))),
+    ]
+    start_response(status, response_headers)
+    return [output]
+
+
+def make_server(app, bind_address='::1', ssl_config=None, threaded=False):
+    if ssl_config is None:
+        context = None
+    else:
+        context = build_server_ssl_context(ssl_config)
+    return HTTPD(app, bind_address, context, threaded)
+
+
+def run_server(queue, app, bind_address='::1', ssl_config=None, threaded=False):
+    server = make_server(app, bind_address, ssl_config, threaded)
+    env = {'port': server.port, 'url': server.url}
+    queue.put(env)
+    server.serve_forever()
 
