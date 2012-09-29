@@ -29,6 +29,7 @@ from wsgiref.simple_server import demo_app
 import ssl
 import socket
 import os
+import json
 
 from microfiber import random_id
 
@@ -239,6 +240,7 @@ class TestInput(TestCase):
         self.assertEqual(fp.tell(), 0)
         self.assertEqual(inst._avail, 5)
         self.assertEqual(inst._method, 'PUT')
+        self.assertEqual(repr(inst), 'httpd.Input(5)')
 
         environ = {'REQUEST_METHOD': 'PUT'}
         inst = httpd.Input(fp, environ)
@@ -246,6 +248,7 @@ class TestInput(TestCase):
         self.assertEqual(fp.tell(), 0)
         self.assertIsNone(inst._avail)
         self.assertEqual(inst._method, 'PUT')
+        self.assertEqual(repr(inst), 'httpd.Input(None)')
 
         environ = {'CONTENT_LENGTH': None, 'REQUEST_METHOD': 'PUT'}
         inst = httpd.Input(fp, environ)
@@ -253,6 +256,7 @@ class TestInput(TestCase):
         self.assertEqual(fp.tell(), 0)
         self.assertIsNone(inst._avail)
         self.assertEqual(inst._method, 'PUT')
+        self.assertEqual(repr(inst), 'httpd.Input(None)')
 
         # Test with bad CONTENT_LENGTH
         environ = {'CONTENT_LENGTH': '5.0', 'REQUEST_METHOD': 'PUT'}
@@ -713,6 +717,46 @@ class TestHandler(TestCase):
         self.assertEqual(wsgi_input.read(), b'')
 
 
+PEER_CERT = """
+{
+    "issuer": [
+        [
+            [
+                "commonName",
+                "YSFT7VO2DJ5JPKG5P3N43V45"
+            ]
+        ]
+    ],
+    "notAfter": "Sep 27 02:01:51 2022 GMT",
+    "notBefore": "Sep 29 02:01:51 2012 GMT",
+    "serialNumber": "91D6B5D05573980B",
+    "subject": [
+        [
+            [
+                "commonName",
+                "VTCFTK5VBEUZNHV2KO462CSB"
+            ]
+        ]
+    ],
+    "version": 1
+}
+"""
+
+
+class DummySSLContext:
+    def __init__(self, verify=False):
+        self.protocol = ssl.PROTOCOL_TLSv1
+        self.verify_mode = (ssl.CERT_REQUIRED if verify else ssl.CERT_NONE)
+
+
+class DummySSLSocket:
+    def __init__(self, peercert=None):
+        self.__peercert = peercert
+
+    def getpeercert(self):
+        return self.__peercert
+
+
 class TestHTTPServer(TestCase):
     def test_init(self):
         class App:
@@ -819,5 +863,59 @@ class TestHTTPServer(TestCase):
                 'wsgi.file_wrapper': httpd.FileWrapper,
             }
         )
-        
+
+    def test_build_connection_environ(self):
+        class Subclass(httpd.HTTPServer):
+            def __init__(self):
+                self.context = None
+
+        server = Subclass()
+        address = ('fe80::beae:c5ff:fe4c:ed12/64', 5123, 0, 0)
+        self.assertEqual(
+            server.build_connection_environ(None, address),
+            {
+                'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
+                'REMOTE_PORT': '5123',
+            }
+        )
+
+        server.context = DummySSLContext(verify=False)
+        conn = DummySSLSocket(peercert=None)
+        self.assertEqual(
+            server.build_connection_environ(conn, address),
+            {
+                'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
+                'REMOTE_PORT': '5123',
+            }
+        )
+        conn = DummySSLSocket(peercert=json.loads(PEER_CERT))
+        self.assertEqual(
+            server.build_connection_environ(conn, address),
+            {
+                'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
+                'REMOTE_PORT': '5123',
+                'SSL_CLIENT_I_DN_CN': 'YSFT7VO2DJ5JPKG5P3N43V45',
+                'SSL_CLIENT_S_DN_CN': 'VTCFTK5VBEUZNHV2KO462CSB',
+            }
+        )
+
+        server.context = DummySSLContext(verify=True)
+        conn = DummySSLSocket(peercert=None)
+        with self.assertRaises(Exception) as cm:
+            server.build_connection_environ(conn, address)
+        self.assertEqual(
+            str(cm.exception),
+            'peercert is None but verify_mode == CERT_REQUIRED'
+        )   
+        conn = DummySSLSocket(peercert=json.loads(PEER_CERT))
+        self.assertEqual(
+            server.build_connection_environ(conn, address),
+            {
+                'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
+                'REMOTE_PORT': '5123',
+                'SSL_CLIENT_I_DN_CN': 'YSFT7VO2DJ5JPKG5P3N43V45',
+                'SSL_CLIENT_S_DN_CN': 'VTCFTK5VBEUZNHV2KO462CSB',
+                'SSL_CLIENT_VERIFY': 'SUCCESS',
+            }
+        )
 

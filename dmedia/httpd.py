@@ -178,6 +178,9 @@ class Input:
         self._avail = request_content_length(environ)
         self._method = environ['REQUEST_METHOD']
 
+    def __repr__(self):
+        return 'httpd.Input({})'.format(self._avail)
+
     def read(self, size=None):
         if self._method not in ('PUT', 'POST'):
             raise WSGIError('500 Internal Server Error')
@@ -371,16 +374,25 @@ class HTTPServer:
             'REMOTE_ADDR': address[0],
             'REMOTE_PORT': str(address[1]),
         }
-        if not hasattr(conn, 'getpeercert'):
+        if self.context is None:
             return environ
-        d = conn.getpeercert()
-        if d is not None:
-            subject = dict(d['subject'][0])
-            if 'commonName' in subject:
-                environ['SSL_CLIENT_S_DN_CN'] = subject['commonName']
-            issuer = dict(d['issuer'][0])
-            if 'commonName' in issuer:
-                environ['SSL_CLIENT_I_DN_CN'] = issuer['commonName']
+
+        peercert = conn.getpeercert()
+        if peercert is None:
+            if self.context.verify_mode == ssl.CERT_REQUIRED:
+                raise Exception(
+                    'peercert is None but verify_mode == CERT_REQUIRED'
+                )
+            return environ
+
+        if self.context.verify_mode == ssl.CERT_REQUIRED:
+            environ['SSL_CLIENT_VERIFY'] = 'SUCCESS'
+        subject = dict(peercert['subject'][0])
+        if 'commonName' in subject:
+            environ['SSL_CLIENT_S_DN_CN'] = subject['commonName']
+        issuer = dict(peercert['issuer'][0])
+        if 'commonName' in issuer:
+            environ['SSL_CLIENT_I_DN_CN'] = issuer['commonName']
         return environ
 
     def serve_forever(self):
