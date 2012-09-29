@@ -245,7 +245,7 @@ class Handler:
         self.start = None
         environ = self.environ.copy()
         try:
-            environ.update(self.parse_request())
+            environ.update(self.build_request_environ())
             result = self.app(environ, self.start_response)
         except WSGIError as e:
             self.send_status_only(e.status)
@@ -253,7 +253,10 @@ class Handler:
         self.send_response(environ, result)
         return True
 
-    def parse_request(self):
+    def build_request_environ(self):
+        """
+        Builds the *environ* fragment unique to a single HTTP request.
+        """
         environ = {}
 
         # Parse the request line
@@ -352,6 +355,9 @@ class HTTPServer:
         self.environ = self.build_base_environ()
 
     def build_base_environ(self):
+        """
+        Builds the base *environ* used throughout instance lifetime.
+        """
         environ = {
             'SERVER_PROTOCOL': 'HTTP/1.1',
             'SERVER_SOFTWARE': SERVER_SOFTWARE,
@@ -370,6 +376,9 @@ class HTTPServer:
         return environ
 
     def build_connection_environ(self, conn, address):
+        """
+        Builds the *environ* fragment unique to a TCP (and SSL) connection.
+        """
         environ = {
             'REMOTE_ADDR': address[0],
             'REMOTE_PORT': str(address[1]),

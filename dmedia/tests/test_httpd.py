@@ -436,7 +436,7 @@ class TestFileWrapper(TestCase):
 
 
 class TestHandler(TestCase):
-    def test_parse_request(self):
+    def test_build_request_environ(self):
         class Subclass(httpd.Handler):
             def __init__(self):
                 pass
@@ -452,7 +452,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '414 Request-URI Too Long'
@@ -466,7 +466,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '400 Bad Request Line Missing CRLF'
@@ -480,7 +480,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '400 Bad Request Line'
@@ -494,7 +494,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '505 HTTP Version Not Supported'
@@ -508,7 +508,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '405 Method Not Allowed'
@@ -522,7 +522,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '400 Bad Request URI'
@@ -536,7 +536,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '400 Bad Request Path'
@@ -550,7 +550,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '400 Bad Request Path Naughty'
@@ -564,7 +564,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '400 Bad Request Path Naughty'
@@ -578,7 +578,7 @@ class TestHandler(TestCase):
             open(filename, 'wb').write(preamble + os.urandom(50))
             fp = open(filename, 'rb')
             inst.rfile = fp
-            environ = inst.parse_request()
+            environ = inst.build_request_environ()
             wsgi_input = environ['wsgi.input']
             self.assertIsInstance(wsgi_input, httpd.Input)
             self.assertIs(wsgi_input._rfile, fp)
@@ -599,7 +599,7 @@ class TestHandler(TestCase):
             fp = open(filename, 'rb')
             inst.rfile = fp
             with self.assertRaises(WSGIError) as cm:
-                inst.parse_request()
+                inst.build_request_environ()
             self.assertEqual(
                 cm.exception.status,
                 '405 Method Not Allowed'
@@ -614,7 +614,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '431 Request Header Line Too Long'
@@ -631,7 +631,7 @@ class TestHandler(TestCase):
         fp = open(filename, 'rb')
         inst.rfile = fp
         with self.assertRaises(WSGIError) as cm:
-            inst.parse_request()
+            inst.build_request_environ()
         self.assertEqual(
             cm.exception.status,
             '431 Too Many Request Headers'
@@ -647,7 +647,7 @@ class TestHandler(TestCase):
         open(filename, 'wb').write(preamble + os.urandom(100))
         fp = open(filename, 'rb')
         inst.rfile = fp
-        environ = inst.parse_request()
+        environ = inst.build_request_environ()
         wsgi_input = environ['wsgi.input']
         self.assertIsInstance(wsgi_input, httpd.Input)
         self.assertIs(wsgi_input._rfile, fp)
@@ -692,7 +692,7 @@ class TestHandler(TestCase):
         fp.close()
         fp = open(filename, 'rb')
         inst.rfile = fp
-        environ = inst.parse_request()
+        environ = inst.build_request_environ()
         wsgi_input = environ['wsgi.input']
         self.assertIsInstance(wsgi_input, httpd.Input)
         self.assertIs(wsgi_input._rfile, fp)
