@@ -81,6 +81,11 @@ import json
 from dmedia import __version__
 
 
+# Monkey patch python3.2 to add ssl.OP_NO_COMPRESSION available in python3.3:
+if not hasattr(ssl, 'OP_NO_COMPRESSION'):
+    ssl.OP_NO_COMPRESSION = 131072    
+
+
 SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__, 
     platform.dist()[0], platform.dist()[1], platform.machine()
 )
@@ -117,6 +122,7 @@ class WSGIError(Exception):
 
 def build_server_ssl_context(config):
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+    ctx.options |= ssl.OP_NO_COMPRESSION
     ctx.load_cert_chain(config['cert_file'], config['key_file'])
     if 'ca_file' in config or 'ca_path' in config:
         ctx.verify_mode = ssl.CERT_REQUIRED
