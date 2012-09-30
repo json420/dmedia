@@ -77,6 +77,7 @@ import ssl
 import threading
 import platform
 import json
+from hashlib import md5
 
 from dmedia import __version__
 
@@ -187,8 +188,8 @@ def response_content_length(response_headers):
 
 def iter_response_lines(status, headers):
     yield 'HTTP/1.1 {}\r\n'.format(status)
-    for (key, value) in headers:
-        yield '{}: {}\r\n'.format(key, value)
+    for (name, value) in headers:
+        yield '{}: {}\r\n'.format(name, value)
     yield '\r\n'
 
 
@@ -487,6 +488,8 @@ def echo_app(environ, start_response):
         (key, get_value(value))
         for (key, value) in environ.items()
     )
+    if environ['wsgi.input']._avail:
+        obj['echo.content_md5'] = md5(environ['wsgi.input'].read()).hexdigest()
     output = json.dumps(obj).encode('utf-8')
 
     status = '200 OK'

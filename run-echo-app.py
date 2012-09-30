@@ -2,6 +2,8 @@
 
 import multiprocessing
 import optparse
+import os
+from hashlib import md5
 
 from usercouch.misc import TempPKI
 from microfiber import CouchBase, dumps
@@ -39,5 +41,10 @@ start_process(run_server, q, echo_app,
 env = q.get()
 env['ssl'] = pki.get_client_config()
 client = CouchBase(env)
-print(dumps(client.get(), pretty=True))
+body = os.urandom(1776)
+digest = md5(body).hexdigest()
+result = client.post(body)
+assert result['echo.content_md5'] == digest
+assert result['CONTENT_LENGTH'] == '1776'
+print(dumps(result, pretty=True))
 
