@@ -340,8 +340,8 @@ class Handler:
         response_headers.append(
             ('Server', SERVER_SOFTWARE)
         )
-        preample = ''.join(iter_response_lines(status, response_headers))
-        self.wfile.write(preample.encode('latin_1'))
+        preamble = ''.join(iter_response_lines(status, response_headers))
+        self.wfile.write(preamble.encode('latin_1'))
         if content_length is not None:
             total = 0
             for buf in result:
@@ -352,8 +352,8 @@ class Handler:
         self.wfile.flush()
 
     def send_status_only(self, status):
-        preample = ''.join(iter_response_lines(status, []))
-        self.wfile.write(preample.encode('latin_1'))
+        preamble = ''.join(iter_response_lines(status, []))
+        self.wfile.write(preamble.encode('latin_1'))
         self.wfile.flush()
 
 
