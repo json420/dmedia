@@ -38,8 +38,7 @@ Some notable HTTP 1.1 features not supported:
 
     * Does not support multi-line headers
 
-    * Does not support multiple occurrences of the same header (in parsing,
-      the last occurrence replaces the previous)
+    * Does not support multiple occurrences of the same header
 
     * Parses the request-line and header-lines more strictly than required by
       RFC 2616
@@ -91,6 +90,26 @@ TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
 
 
 class WSGIError(Exception):
+    """
+    Raised to shortcut the request handling when a request is "suspicious".
+
+    The `Handler` class is only designed to support extremely well-behaved
+    requests.  If at any point in the request handling a `WSGIError` is raised,
+    the request handling is immediately aborted.  The response will contain only
+    the status line, and no headers, no response body.
+
+    Importantly, the TCP connection is closed after a `WSGIError` is raised.
+    Otherwise the `Handler.rfile` and `Handler.wfile` could be in a badly
+    defined state that would possibly allow the attack to be escalated on
+    subsequent requests.
+
+    So when a `WSGIError` is raised, we always make an attacker start over from
+    ground zero, including having to go through the SSL handshake again.
+
+    This should not be raised for expected HTTP error conditions like a
+    "404 Not Found" returned from CouchDB.  Is this case, we don't want the
+    connection closed (for performance reasons).
+    """
     def __init__(self, status):
         self.status = status
         super().__init__(status)
@@ -301,6 +320,8 @@ class Handler:
             if count > MAX_HEADER_COUNT:
                 raise WSGIError('431 Too Many Request Headers')
             (name, value) = parse_header(header_line)
+            if name in environ:
+                raise WSGIError('400 Bad Request Duplicate Header')
             environ[name] = value
 
         # Setup wsgi.input

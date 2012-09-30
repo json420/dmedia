@@ -649,7 +649,7 @@ class TestHandler(TestCase):
                 '405 Method Not Allowed'
             )
 
-        # Now test header parsing
+        # Header line too long
         requestline = b'GET /foo?bar=baz HTTP/1.1\r\n'
         fp = open(filename, 'wb')
         fp.write(requestline)
@@ -665,6 +665,7 @@ class TestHandler(TestCase):
         )
         self.assertEqual(fp.tell(), len(requestline) + 4097)
 
+        # To many headers
         letters = 'abcdefghijk'
         assert len(set(letters)) == 11
         headers = ''.join(
@@ -681,6 +682,28 @@ class TestHandler(TestCase):
             '431 Too Many Request Headers'
         )
         self.assertEqual(fp.tell(), len(preamble) - 2)
+
+        # Duplicate header
+        lines = [
+            b'PUT /some/thing HTTP/1.1\r\n', 
+            b'Content-Length: 120\r\n',
+            b'Content-Type: application/json\r\n',
+            b'User-Agent: FooBar/18\r\n',
+            b'content-length: 60\r\n',
+            b'\r\n',
+        ]
+        preamble = b''.join(lines)
+        open(filename, 'wb').write(preamble)
+        fp = open(filename, 'rb')
+        inst.rfile = fp
+        with self.assertRaises(WSGIError) as cm:
+            inst.build_request_environ()
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request Duplicate Header'
+        )
+        self.assertEqual(fp.tell(), len(preamble) - 2)
+        
 
         letters = 'abcdefghij'
         assert len(set(letters)) == 10
