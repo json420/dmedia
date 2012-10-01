@@ -120,11 +120,13 @@ from skein import skein512
 from microfiber import random_id
 
 
+DAYS = 365 * 10
+CA = namedtuple('CA', 'id ca_file')
+Cert = namedtuple('Cert', 'id cert_file key_file')
+
 # Skein personalization strings
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
-
-DAYS = 365 * 10
 
 
 class IdentityError(Exception):
@@ -415,15 +417,59 @@ class PKI:
         cert_file = self.path(_id, 'cert')
         return verify(cert_file, _id)
 
+    def get_ca(self, _id):
+        return CA(_id, self.verify_ca(_id))
+
+    def get_cert(self, _id):
+        return Cert(_id, self.verify_cert(_id), self.verify_key(_id))
+
 
 class TempPKI(PKI):
-    def __init__(self):
+    def __init__(self, client_pki=False):
         ssldir = tempfile.mkdtemp(prefix='TempPKI.')
         super().__init__(ssldir)
         assert self.ssldir is ssldir
+        (self.server_ca, self.server) = self.create_pki()
+        if client_pki:
+            (self.client_ca, self.client) = self.create_pki()
+        else:
+            self.client_ca = None
+            self.client = None
 
     def __del__(self):
         if path.isdir(self.ssldir):
             shutil.rmtree(self.ssldir)
 
+    def create_pki(self):
+        ca_id = self.create_key()
+        self.create_ca(ca_id)
+
+        cert_id = self.create_key()
+        self.create_csr(cert_id)
+        self.issue_cert(cert_id, ca_id)
+
+        return (self.get_ca(ca_id), self.get_cert(cert_id))
+
+    def get_server_config(self):
+        config = {
+            'cert_file': self.server.cert_file,
+            'key_file': self.server.key_file,
+        }
+        if self.client_ca is not None:
+            config.update({
+                'ca_file': self.client_ca.ca_file,
+            })
+        return config
+
+    def get_client_config(self):
+        config = {
+            'ca_file': self.server_ca.ca_file,
+            'check_hostname': False,
+        }
+        if self.client is not None:
+            config.update({
+                'cert_file': self.client.cert_file,
+                'key_file': self.client.key_file,   
+            })
+        return config
 

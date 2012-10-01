@@ -397,3 +397,77 @@ class TestPKI(TestCase):
         self.assertEqual(cm.exception.filename, cert_file)
         self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
         self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
+
+    def test_get_ca(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        ca_id = pki.create_key()
+        pki.create_ca(ca_id)
+
+        ca = pki.get_ca(ca_id)
+        self.assertIsInstance(ca, peering.CA)
+        self.assertEqual(ca.id, ca_id)
+        self.assertEqual(ca.ca_file, pki.path(ca_id, 'ca'))
+        self.assertEqual(ca, (ca.id, ca.ca_file))
+
+    def test_get_cert(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        ca_id = pki.create_key()
+        pki.create_ca(ca_id)
+        cert_id = pki.create_key()
+        pki.create_csr(cert_id)
+        pki.issue_cert(cert_id, ca_id)
+
+        cert = pki.get_cert(cert_id)
+        self.assertIsInstance(cert, peering.Cert)
+        self.assertEqual(cert.id, cert_id)
+        self.assertEqual(cert.cert_file, pki.path(cert_id, 'cert'))
+        self.assertEqual(cert.key_file, pki.path(cert_id, 'key'))
+        self.assertEqual(cert, (cert.id, cert.cert_file, cert.key_file))
+
+
+class TestTempPKI(TestCase):
+    def test_init(self):
+        pki = peering.TempPKI()
+        self.assertIsInstance(pki.server_ca, peering.CA)
+        self.assertIsInstance(pki.server, peering.Cert)
+        self.assertIsNone(pki.client_ca)
+        self.assertIsNone(pki.client)
+        self.assertEqual(
+            pki.get_server_config(),
+            {
+                'cert_file': pki.server.cert_file,
+                'key_file': pki.server.key_file,
+            }
+        )
+        self.assertEqual(
+            pki.get_client_config(),
+            {
+                'ca_file': pki.server_ca.ca_file,
+                'check_hostname': False,
+            }
+        )
+
+        pki = peering.TempPKI(client_pki=True)
+        self.assertIsInstance(pki.server_ca, peering.CA)
+        self.assertIsInstance(pki.server, peering.Cert)
+        self.assertIsInstance(pki.client_ca, peering.CA)
+        self.assertIsInstance(pki.client, peering.Cert)
+        self.assertEqual(
+            pki.get_server_config(),
+            {
+                'cert_file': pki.server.cert_file,
+                'key_file': pki.server.key_file,
+                'ca_file': pki.client_ca.ca_file,
+            }
+        )
+        self.assertEqual(
+            pki.get_client_config(),
+            {
+                'ca_file': pki.server_ca.ca_file,
+                'check_hostname': False,
+                'cert_file': pki.client.cert_file,
+                'key_file': pki.client.key_file,
+            }
+        )
