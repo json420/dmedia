@@ -122,41 +122,39 @@ class TestFunctions(TestCase):
     def test_init_user(self):
         tmp = TempDir()
         couch = startup.get_usercouch(tmp.dir)
-        machine_id = random_id(25)
+        machine_id = couch.pki.create_key()
         self.assertIsNone(startup.init_user(couch, machine_id))
         doc = json.load(open(tmp.join('user.json'), 'r'))
         self.assertIsInstance(doc, dict)
 
-    def test_bootstrap_args(self):
+    def test_bootstrap_config(self):
         tmp = TempDir()
         couch = startup.get_usercouch(tmp.dir)
-        machine_id = random_id(25)
-        user_id = random_id(25)
-        cert_id = random_id(25)
-        oauth = usercouch.random_oauth()
-        user = {
-            '_id': user_id,
-            'oauth': deepcopy(oauth),
-            'certs': {machine_id: cert_id},
-        }
-        (auth, config) = startup.bootstrap_args(couch, machine_id, user)
-        self.assertEqual(auth, 'oauth')
-        self.assertEqual(config,
+        self.assertEqual(
+            startup.bootstrap_config(couch, None, None),
+            {'username': 'admin'},
+        )
+        machine_id = couch.pki.create_key()
+        couch.pki.create_ca(machine_id)
+        couch.pki.create_csr(machine_id)
+        self.assertEqual(
+            startup.bootstrap_config(couch, machine_id, None),
+            {'username': 'admin'},
+        )
+        user_id = couch.pki.create_key()
+        couch.pki.create_ca(user_id)
+        couch.pki.issue_cert(machine_id, user_id)
+        self.assertEqual(
+            startup.bootstrap_config(couch, machine_id, user_id),
             {
                 'username': 'admin',
-                'bind_address': '0.0.0.0',
-                'oauth': oauth,
-                'ssl': {
-                    'key_file': tmp.join('ssl', cert_id + '.key'),
-                    'cert_file': tmp.join('ssl', cert_id + '.cert'),
-                },
                 'replicator': {
-                    'ca_file': tmp.join('ssl', user_id + '.cert'),
+                    'ca_file': couch.pki.path(user_id, 'ca'),
+                    'cert_file': couch.pki.path(machine_id, 'cert'),
+                    'key_file': couch.pki.path(machine_id, 'key'),
                 },
             }
         )
-        self.assertEqual(
-            startup.bootstrap_args(couch, machine_id, None),
-            ('basic', {'username': 'admin'})
-        )
+        
+        
 

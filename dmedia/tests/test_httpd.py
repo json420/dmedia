@@ -32,13 +32,14 @@ import os
 import json
 import multiprocessing
 from hashlib import md5
+from copy import deepcopy
 
 import microfiber
 from microfiber import random_id, CouchBase
-from usercouch.misc import TempPKI
 
 from .base import TempDir
 from dmedia import __version__
+from dmedia.peering import TempPKI
 from dmedia.httpd import WSGIError
 from dmedia import httpd
 
@@ -65,8 +66,8 @@ class TestFunctions(TestCase):
         pki = TempPKI(client_pki=True)
 
         config = {
-            'cert_file': pki.server_cert.cert_file,
-            'key_file': pki.server_cert.key_file,
+            'cert_file': pki.server.cert_file,
+            'key_file': pki.server.key_file,
         }
         ctx = httpd.build_server_ssl_context(config)
         self.assertIsInstance(ctx, ssl.SSLContext)
@@ -75,8 +76,8 @@ class TestFunctions(TestCase):
         self.assertEqual(ctx.verify_mode, ssl.CERT_NONE)
 
         config = {
-            'cert_file': pki.server_cert.cert_file,
-            'key_file': pki.server_cert.key_file,
+            'cert_file': pki.server.cert_file,
+            'key_file': pki.server.key_file,
             'ca_file': pki.client_ca.ca_file,
         }
         ctx = httpd.build_server_ssl_context(config)
@@ -86,8 +87,8 @@ class TestFunctions(TestCase):
 
         # Provide wrong key_file, make sure cert_file, key_file actually used
         config = {
-            'cert_file': pki.server_cert.cert_file,
-            'key_file': pki.client_cert.key_file,
+            'cert_file': pki.server.cert_file,
+            'key_file': pki.client.key_file,
         }
         with self.assertRaises(ssl.SSLError) as cm:
             httpd.build_server_ssl_context(config)
@@ -95,9 +96,9 @@ class TestFunctions(TestCase):
 
         # Provide bad ca_file, make sure it's actually used    
         config = {
-            'cert_file': pki.server_cert.cert_file,
-            'key_file': pki.server_cert.key_file,
-            'ca_file': pki.client_ca.key_file,
+            'cert_file': pki.server.cert_file,
+            'key_file': pki.server.key_file,
+            'ca_file': pki.client.key_file,
         }
         with self.assertRaises(ssl.SSLError) as cm:
             httpd.build_server_ssl_context(config)
@@ -1210,6 +1211,17 @@ class TestLive(TestCase):
         # Should be same if connection is being reused:
         self.assertEqual(client.post(body), result)
 
+        # Test with wrong server CA
+        (ca, cert) = pki.create_pki()
+        env = deepcopy(server.env)
+        env['ssl'].update({
+            'ca_file': ca.ca_file,
+        })
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
+
     def test_https_with_client_pki(self):
         pki = TempPKI(client_pki=True)
         server = TempHTTPD(pki)
@@ -1236,7 +1248,7 @@ class TestLive(TestCase):
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
                 'SSL_CLIENT_I_DN_CN': pki.client_ca.id,
-                'SSL_CLIENT_S_DN_CN': pki.client_cert.id,
+                'SSL_CLIENT_S_DN_CN': pki.client.id,
                 'SSL_CLIENT_VERIFY': 'SUCCESS',
                 'SSL_PROTOCOL': 'TLSv1',
                 'SSL_COMPRESS_METHOD': 'NULL',
@@ -1276,7 +1288,7 @@ class TestLive(TestCase):
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
                 'SSL_CLIENT_I_DN_CN': pki.client_ca.id,
-                'SSL_CLIENT_S_DN_CN': pki.client_cert.id,
+                'SSL_CLIENT_S_DN_CN': pki.client.id,
                 'SSL_CLIENT_VERIFY': 'SUCCESS',
                 'SSL_PROTOCOL': 'TLSv1',
                 'SSL_COMPRESS_METHOD': 'NULL',
@@ -1293,4 +1305,35 @@ class TestLive(TestCase):
 
         # Should be same if connection is being reused:
         self.assertEqual(client.post(body), result)
+
+        # Test with wrong server CA
+        (ca, cert) = pki.create_pki()
+        env = deepcopy(server.env)
+        env['ssl'].update({
+            'ca_file': ca.ca_file,
+        })
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
+
+        # Test with wrong client cert
+        env = deepcopy(server.env)
+        env['ssl'].update({
+            'cert_file': cert.cert_file,
+            'key_file': cert.key_file,
+        })
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
+
+        # Test with no client cert
+        env = deepcopy(server.env)
+        del env['ssl']['cert_file']
+        del env['ssl']['key_file']
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
 
