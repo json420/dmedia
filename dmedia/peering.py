@@ -190,9 +190,15 @@ def ensuredir(d):
             raise ValueError('not a directory: {!r}'.format(d))
 
 
-def get_subject(tmp_id):
-    return '/CN={}'.format(tmp_id)
+def get_subject(cn):
+    return '/CN={}'.format(cn)
 
+
+class PublicKeyError(Exception):
+    def __init__(self, _id, filename):
+        self.id = _id
+        self.filename = filename
+        super().__init__(_id)
 
 
 class PKI:
@@ -200,6 +206,9 @@ class PKI:
         self.ssldir = ssldir
         self.tmpdir = path.join(ssldir, 'tmp')
         ensuredir(self.tmpdir)
+
+    def random_tmp(self):
+        return path.join(self.tmpdir, random_id())
 
     def tmp_path(self, tmp_id, ext):
         return path.join(self.tmpdir, '.'.join([tmp_id, ext]))
@@ -211,8 +220,8 @@ class PKI:
             self.tmp_path(tmp_id, 'csr'),
         )
 
-    def path(self, cert_id, ext):
-        return path.join(self.ssldir, '.'.join([cert_id, ext]))
+    def path(self, _id, ext):
+        return path.join(self.ssldir, '.'.join([_id, ext]))
 
     def files(self, cert_id):
         return Files(
@@ -239,15 +248,27 @@ class PKI:
         open(tmp_file, 'wb').write(cert_data)
         os.rename(tmp_file, cert_file)
 
+    def verify_key(self, _id):
+        key_file = self.path(_id, 'key')
+        if hash_pubkey(get_pubkey(key_file)) != _id:
+            raise PublicKeyError(_id, key_file)
+        return key_file
+
     def create_key(self):
-        (fileno, tmp) = tempfile.mkstemp(dir=self.tmpdir)
-        gen_key(tmp)
-        data = get_pubkey(tmp)
-        cn = hash_pubkey(data)
-        dst = self.path(cn, 'key')
-        os.rename(tmp, dst)
-        os.close(fileno)
-        return cn
+        tmp_file = self.random_tmp()
+        gen_key(tmp_file)
+        _id = hash_pubkey(get_pubkey(tmp_file))
+        key_file = self.path(_id, 'key')
+        os.rename(tmp_file, key_file)
+        return _id
+
+    def create_ca(self, _id):
+        key_file = self.verify_key(_id)
+        subject = get_subject(_id)
+        tmp_file = self.random_tmp()
+        ca_file = self.path(_id, 'ca')
+        gen_ca(key_file, subject, tmp_file)
+        os.rename(tmp_file, ca_file)
 
     def create(self, tmp_id):
         subject = get_subject(tmp_id)

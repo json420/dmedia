@@ -26,6 +26,7 @@ Unit tests for `dmedia.peering`.
 from unittest import TestCase
 import os
 from os import path
+import subprocess
 
 from usercouch import sslhelpers
 from microfiber import random_id
@@ -138,18 +139,47 @@ class TestPKI(TestCase):
             (files.key, files.cert, files.srl)
         )
 
+    def test_verify_key(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        id1 = pki.create_key()
+        key1_file = tmp.join(id1 + '.key')
+        id2 = pki.create_key()
+        key2_file = tmp.join(id2 + '.key')
+        self.assertEqual(pki.verify_key(id1), key1_file)
+        self.assertEqual(pki.verify_key(id2), key2_file)
+        os.remove(key1_file)
+        os.rename(key2_file, key1_file)
+        with self.assertRaises(peering.PublicKeyError) as cm:
+            pki.verify_key(id1)
+        self.assertEqual(cm.exception.id, id1)
+        self.assertEqual(cm.exception.filename, key1_file)
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            pki.verify_key(id2)
+
     def test_create_key(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
-        cn = pki.create_key()
+        _id = pki.create_key()
         self.assertEqual(os.listdir(pki.tmpdir), [])
         self.assertEqual(
             set(os.listdir(pki.ssldir)),
-            set(['tmp', cn + '.key'])
+            set(['tmp', _id + '.key'])
         )
-        key_file = path.join(pki.ssldir, cn + '.key')
+        key_file = path.join(pki.ssldir, _id + '.key')
         data = sslhelpers.get_pubkey(key_file)
-        self.assertEqual(cn, peering.hash_pubkey(data))
+        self.assertEqual(_id, peering.hash_pubkey(data))
+
+    def test_create_ca(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        _id = pki.create_key()
+        pki.create_ca(_id)
+        self.assertEqual(os.listdir(pki.tmpdir), [])
+        self.assertEqual(
+            set(os.listdir(pki.ssldir)),
+            set(['tmp', _id + '.key', _id + '.ca'])
+        )
 
     def test_create(self):
         tmp = TempDir()
