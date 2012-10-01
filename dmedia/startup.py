@@ -126,25 +126,20 @@ def load_user(couch, machine_id):
     return config
 
 
-def bootstrap_args(couch, machine_id, user):
+def bootstrap_config(couch, machine_id, user_id):
     assert isinstance(couch, UserCouch)
-    if user is None:
-        return ('basic', {'username': 'admin'})
-    ca = couch.pki.get_ca(user['_id'])
-    cert = couch.pki.get_cert(user['certs'][machine_id])
-    config = {
+    if user_id is None:
+        return {'username': 'admin'}
+    ca = couch.pki.get_ca(user_id)
+    cert = couch.pki.get_cert(machine_id)
+    return {
         'username': 'admin',
-        'bind_address': '0.0.0.0',
-        'oauth': user['oauth'],
-        'ssl': {
-            'key_file': cert.key_file,
-            'cert_file': cert.cert_file,
-        },
         'replicator': {
             'ca_file': ca.ca_file,
+            'cert_file': cert.cert_file,
+            'key_file': cert.key_file,
         },
     }
-    return ('oauth', config)
 
 
 def start_usercouch(couch):
