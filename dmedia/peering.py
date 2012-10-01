@@ -277,23 +277,20 @@ class PKI:
             raise PublicKeyError(_id, ca_file)
         return ca_file
 
-    def create(self, tmp_id):
-        subject = get_subject(tmp_id)
-        tmp = self.tmp_files(tmp_id)
-        gen_key(tmp.key)
-        gen_ca(tmp.key, subject, tmp.cert)
-        cert_data = open(tmp.cert, 'rb').read()
-        cert_id = hash_cert(cert_data)
-        cert = self.files(cert_id)
-        os.rename(tmp.key, cert.key)
-        os.rename(tmp.cert, cert.cert)
-        return cert_id
+    def create_csr(self, _id):
+        key_file = self.verify_key(_id)
+        subject = get_subject(_id)
+        tmp_file = self.random_tmp()
+        csr_file = self.path(_id, 'csr')
+        gen_csr(key_file, subject, tmp_file)
+        os.rename(tmp_file, csr_file)
+        return csr_file
 
-    def create_csr(self, tmp_id):
-        subject = get_subject(tmp_id)
-        tmp = self.tmp_files(tmp_id)
-        gen_key(tmp.key)
-        gen_csr(tmp.key, subject, tmp.csr)
+    def verify_csr(self, _id):
+        csr_file = self.path(_id, 'csr')
+        if hash_pubkey(get_csr_pubkey(csr_file)) != _id:
+            raise PublicKeyError(_id, csr_file)
+        return csr_file
 
     def issue(self, tmp_id, ca_id):
         tmp = self.tmp_files(tmp_id)

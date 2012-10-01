@@ -204,39 +204,42 @@ class TestPKI(TestCase):
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             pki.verify_ca(id2)
 
-    def test_create(self):
-        tmp = TempDir()
-        pki = peering.PKI(tmp.dir)
-        tmp_id = random_id()
-        cert_id = pki.create(tmp_id)
-        key_file = pki.path(cert_id, 'key')
-        cert_file = pki.path(cert_id, 'cert')
-        self.assertGreater(path.getsize(key_file), 0)
-        self.assertGreater(path.getsize(cert_file), 0)
-        cert_data = open(cert_file, 'rb').read()
-        self.assertEqual(peering.hash_cert(cert_data), cert_id)
-        self.assertEqual(os.listdir(pki.tmpdir), [])
-        self.assertEqual(
-            set(os.listdir(pki.ssldir)),
-            set(['tmp', cert_id + '.cert', cert_id + '.key'])
-        )
-
     def test_create_csr(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
-        tmp_id = random_id()
-        pki.create_csr(tmp_id)
-        key_file = pki.tmp_path(tmp_id, 'key')
-        csr_file = pki.tmp_path(tmp_id, 'csr')
-        self.assertGreater(path.getsize(key_file), 0)
-        self.assertGreater(path.getsize(csr_file), 0)
-        self.assertEqual(os.listdir(pki.ssldir), ['tmp'])
+        _id = pki.create_key()
+        csr_file = tmp.join(_id + '.csr')
+        self.assertFalse(path.exists(csr_file))
+        self.assertEqual(pki.create_csr(_id), csr_file)
+        self.assertTrue(path.isfile(csr_file))
+        self.assertEqual(os.listdir(pki.tmpdir), [])
         self.assertEqual(
-            set(os.listdir(pki.tmpdir)),
-            set([tmp_id + '.csr', tmp_id + '.key'])
+            set(os.listdir(pki.ssldir)),
+            set(['tmp', _id + '.key', _id + '.csr'])
         )
 
+    def test_verify_csr(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        id1 = pki.create_key()
+        id2 = pki.create_key()
+        csr1_file = pki.create_csr(id1)
+        csr2_file = pki.create_csr(id2)
+        os.remove(tmp.join(id1 + '.key'))
+        os.remove(tmp.join(id2 + '.key'))
+        self.assertEqual(pki.verify_csr(id1), csr1_file)
+        self.assertEqual(pki.verify_csr(id2), csr2_file)
+        os.remove(csr1_file)
+        os.rename(csr2_file, csr1_file)
+        with self.assertRaises(peering.PublicKeyError) as cm:
+            pki.verify_csr(id1)
+        self.assertEqual(cm.exception.id, id1)
+        self.assertEqual(cm.exception.filename, csr1_file)
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            pki.verify_csr(id2)
+
     def test_issue(self):
+        return
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
 
