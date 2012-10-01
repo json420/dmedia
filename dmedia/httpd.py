@@ -123,6 +123,7 @@ class WSGIError(Exception):
 def build_server_ssl_context(config):
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
     ctx.options |= ssl.OP_NO_COMPRESSION  # Protect against CRIME-like attacks
+    ctx.set_ciphers('RC4')
     ctx.load_cert_chain(config['cert_file'], config['key_file'])
     if 'ca_file' in config or 'ca_path' in config:
         ctx.verify_mode = ssl.CERT_REQUIRED
@@ -376,6 +377,10 @@ class HTTPD:
                 )
             if context.protocol != ssl.PROTOCOL_TLSv1:
                 raise Exception('context.protocol must be ssl.PROTOCOL_TLSv1')
+            if not (context.options & ssl.OP_NO_COMPRESSION):
+                raise Exception(
+                    'context.options must have ssl.OP_NO_COMPRESSION'
+                )
         self.app = app
         self.bind_address = bind_address
         self.context = context
@@ -403,8 +408,12 @@ class HTTPD:
             'wsgi.run_once': False,
             'wsgi.file_wrapper': FileWrapper
         }
-        if self.context is not None:
-            environ['SSL_PROTOCOL'] = 'TLSv1'
+        if self.context is None:
+            return environ
+        environ.update({
+            'SSL_PROTOCOL': 'TLSv1',
+            'SSL_COMPRESS_METHOD': 'NULL',
+        })
         return environ
 
     def build_connection_environ(self, conn, address):
@@ -418,6 +427,7 @@ class HTTPD:
         if self.context is None:
             return environ
 
+        #print(conn.cipher())
         peercert = conn.getpeercert()
         if peercert is None:
             if self.context.verify_mode == ssl.CERT_REQUIRED:

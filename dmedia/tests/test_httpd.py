@@ -894,6 +894,15 @@ class TestHTTPD(TestCase):
             'context.protocol must be ssl.PROTOCOL_TLSv1'
         )
 
+        # not (options & ssl.OP_NO_COMPRESSION)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        with self.assertRaises(Exception) as cm:
+            httpd.HTTPD(demo_app, '::1', ctx)
+        self.assertEqual(
+            str(cm.exception),
+            'context.options must have ssl.OP_NO_COMPRESSION'
+        )
+
         server = httpd.HTTPD(demo_app)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
@@ -908,6 +917,7 @@ class TestHTTPD(TestCase):
         self.assertEqual(server.environ, server.build_base_environ())
 
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        ctx.options |= ssl.OP_NO_COMPRESSION
         server = httpd.HTTPD(demo_app, '::', ctx)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
@@ -947,6 +957,7 @@ class TestHTTPD(TestCase):
                 'wsgi.run_once': False,
                 'wsgi.file_wrapper': httpd.FileWrapper,
                 'SSL_PROTOCOL': 'TLSv1',
+                'SSL_COMPRESS_METHOD': 'NULL',
             }
         )
 
@@ -1148,6 +1159,7 @@ class TestLive(TestCase):
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
                 'SSL_PROTOCOL': 'TLSv1',
+                'SSL_COMPRESS_METHOD': 'NULL',
                 'wsgi.file_wrapper': 'httpd.FileWrapper',
                 'wsgi.input': 'httpd.Input(None)',
                 'wsgi.multiprocess': False,
@@ -1184,6 +1196,7 @@ class TestLive(TestCase):
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
                 'SSL_PROTOCOL': 'TLSv1',
+                'SSL_COMPRESS_METHOD': 'NULL',
                 'wsgi.file_wrapper': 'httpd.FileWrapper',
                 'wsgi.input': 'httpd.Input(1776)',
                 'wsgi.multiprocess': False,
@@ -1227,6 +1240,7 @@ class TestLive(TestCase):
                 'SSL_CLIENT_S_DN_CN': pki.client_cert.id,
                 'SSL_CLIENT_VERIFY': 'SUCCESS',
                 'SSL_PROTOCOL': 'TLSv1',
+                'SSL_COMPRESS_METHOD': 'NULL',
                 'wsgi.file_wrapper': 'httpd.FileWrapper',
                 'wsgi.input': 'httpd.Input(None)',
                 'wsgi.multiprocess': False,
@@ -1266,6 +1280,7 @@ class TestLive(TestCase):
                 'SSL_CLIENT_S_DN_CN': pki.client_cert.id,
                 'SSL_CLIENT_VERIFY': 'SUCCESS',
                 'SSL_PROTOCOL': 'TLSv1',
+                'SSL_COMPRESS_METHOD': 'NULL',
                 'wsgi.file_wrapper': 'httpd.FileWrapper',
                 'wsgi.input': 'httpd.Input(1776)',
                 'wsgi.multiprocess': False,
