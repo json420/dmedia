@@ -138,6 +138,7 @@ def create_key(dst_file, bits=2048):
     """
     Create an RSA keypair and save it to *dst_file*.
     """
+    assert bits % 1024 == 0
     check_call(['openssl', 'genrsa',
         '-out', dst_file,
         str(bits)
@@ -193,18 +194,10 @@ def issue_cert(csr_file, ca_file, key_file, srl_file, dst_file):
     ])
 
 
-def get_pubkey(key_file):
+def get_rsa_pubkey(key_file):
     return check_output(['openssl', 'rsa',
         '-pubout',
         '-in', key_file,
-    ])  
-
-
-def get_cert_pubkey(cert_file):
-    return check_output(['openssl', 'x509',
-        '-pubkey',
-        '-noout',
-        '-in', cert_file,
     ])
 
 
@@ -213,15 +206,26 @@ def get_csr_pubkey(csr_file):
         '-pubkey',
         '-noout',
         '-in', csr_file,
-    ])
+    ])  
 
 
-def get_cert_pubkey(cert_file):
+def get_pubkey(cert_file):
     return check_output(['openssl', 'x509',
         '-pubkey',
         '-noout',
         '-in', cert_file,
     ])
+
+
+def get_csr_subject(csr_file):
+    """
+    Get subject from certificate signing request in *csr_file*.
+    """
+    return check_output(['openssl', 'req',
+        '-subject',
+        '-noout',
+        '-in', csr_file,
+    ]).decode('utf-8').rstrip('\n')
 
 
 def get_subject(cert_file):
@@ -232,14 +236,6 @@ def get_subject(cert_file):
         '-subject',
         '-noout',
         '-in', cert_file,
-    ]).decode('utf-8').rstrip('\n')
-
-
-def get_csr_subject(csr_file):
-    return check_output(['openssl', 'req',
-        '-subject',
-        '-noout',
-        '-in', csr_file,
     ]).decode('utf-8').rstrip('\n')
 
 
@@ -359,14 +355,14 @@ class PKI:
     def create_key(self):
         tmp_file = self.random_tmp()
         create_key(tmp_file)
-        _id = hash_pubkey(get_pubkey(tmp_file))
+        _id = hash_pubkey(get_rsa_pubkey(tmp_file))
         key_file = self.path(_id, 'key')
         os.rename(tmp_file, key_file)
         return _id
 
     def verify_key(self, _id):
         key_file = self.path(_id, 'key')
-        if hash_pubkey(get_pubkey(key_file)) != _id:
+        if hash_pubkey(get_rsa_pubkey(key_file)) != _id:
             raise PublicKeyError(_id, key_file)
         return key_file
 
@@ -381,7 +377,7 @@ class PKI:
 
     def verify_ca(self, _id):
         ca_file = self.path(_id, 'ca')
-        if hash_pubkey(get_cert_pubkey(ca_file)) != _id:
+        if hash_pubkey(get_pubkey(ca_file)) != _id:
             raise PublicKeyError(_id, ca_file)
         return ca_file
 

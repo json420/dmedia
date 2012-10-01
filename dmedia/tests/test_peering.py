@@ -28,7 +28,6 @@ import os
 from os import path
 import subprocess
 
-from usercouch import sslhelpers
 from microfiber import random_id
 
 from .base import TempDir
@@ -36,6 +35,62 @@ from dmedia import peering
 
 
 class TestSSLFunctions(TestCase):
+    def test_create_key(self):
+        tmp = TempDir()
+        key = tmp.join('key.pem')
+
+        # bits=1024
+        sizes = [883, 887, 891]
+        peering.create_key(key, bits=1024)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        # bits=2048 (default)
+        sizes = [1671, 1675, 1679]
+        peering.create_key(key)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        peering.create_key(key, bits=2048)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        # bits=3072
+        sizes = [2455, 2459]
+        peering.create_key(key, bits=3072)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+
+    def test_get_pubkey(self):
+        tmp = TempDir()
+
+        # Create CA
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        foo_pubkey = peering.get_rsa_pubkey(foo_key)
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+
+        # Create CSR and issue cert
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        bar_pubkey = peering.get_rsa_pubkey(bar_key)
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+
+        # Now compare
+        os.remove(foo_key)
+        os.remove(bar_key)
+        self.assertEqual(peering.get_pubkey(foo_ca), foo_pubkey)
+        self.assertEqual(peering.get_csr_pubkey(bar_csr), bar_pubkey)
+        self.assertEqual(peering.get_pubkey(bar_cert), bar_pubkey)
+
     def test_get_subject(self):
         tmp = TempDir()
 
@@ -190,7 +245,7 @@ class TestPKI(TestCase):
             set(['tmp', _id + '.key'])
         )
         key_file = path.join(pki.ssldir, _id + '.key')
-        data = sslhelpers.get_pubkey(key_file)
+        data = peering.get_rsa_pubkey(key_file)
         self.assertEqual(_id, peering.hash_pubkey(data))
     
     def test_verify_key(self):
