@@ -29,8 +29,7 @@ import time
 import json
 import socket
 
-from usercouch import UserCouch, random_oauth
-from microfiber import random_id
+from usercouch import UserCouch
 
 from .peering import PKI
 
@@ -97,21 +96,16 @@ def init_user(couch, machine_id):
     assert not has_user(couch)
     user_id = couch.pki.create_key()
     couch.pki.create_ca(user_id)
-    cert_id = couch.pki.create_key()
-    couch.pki.create_csr(cert_id)
-    couch.pki.issue_cert(cert_id, user_id)
+    couch.pki.create_csr(machine_id)
+    couch.pki.issue_cert(machine_id, user_id)
     config = create_user(user_id)
-    config['certs'][machine_id] = cert_id
     save_config(user_filename(couch), config)
 
 
-def add_machine(couch, machine_id, user):
+def add_machine(couch, machine_id, user_id):
     assert isinstance(couch, UserCouch)
-    assert machine_id not in user['certs']
     couch.pki.create_csr(machine_id)
-    cert_id = couch.pki.issue(machine_id, user['_id'])
-    user['certs'][machine_id] = cert_id
-    save_config(user_filename(couch), user)
+    couch.pki.issue_cert(machine_id, user_id)
 
 
 def load_machine(couch):
@@ -173,7 +167,5 @@ def create_user(_id):
         '_id': _id,
         'type': 'dmedia/user',
         'time': time.time(),
-        'oauth': random_oauth(),
-        'certs': {},
     }
 

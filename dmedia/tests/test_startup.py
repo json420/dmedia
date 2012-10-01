@@ -122,7 +122,7 @@ class TestFunctions(TestCase):
     def test_init_user(self):
         tmp = TempDir()
         couch = startup.get_usercouch(tmp.dir)
-        machine_id = random_id(25)
+        machine_id = couch.pki.create_key()
         self.assertIsNone(startup.init_user(couch, machine_id))
         doc = json.load(open(tmp.join('user.json'), 'r'))
         self.assertIsInstance(doc, dict)

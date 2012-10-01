@@ -362,9 +362,9 @@ class PKI:
     def path(self, _id, ext):
         return path.join(self.ssldir, '.'.join([_id, ext]))
 
-    def create_key(self):
+    def create_key(self, bits=2048):
         tmp_file = self.random_tmp()
-        create_key(tmp_file)
+        create_key(tmp_file, bits)
         _id = hash_pubkey(get_rsa_pubkey(tmp_file))
         key_file = self.path(_id, 'key')
         os.rename(tmp_file, key_file)
