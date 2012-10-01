@@ -81,9 +81,9 @@ def has_user(couch):
 def init_machine(couch):
     assert isinstance(couch, UserCouch)
     assert not has_machine(couch)
-    tmp_id = random_id()
-    machine_id = couch.pki.create(tmp_id)
-    config = create_machine(machine_id, tmp_id)
+    machine_id = couch.pki.create_key()
+    couch.pki.create_ca(machine_id)
+    config = create_machine(machine_id)
     save_config(machine_filename(couch), config)
 
 
@@ -95,11 +95,12 @@ def load_machine(couch):
 def init_user(couch, machine_id):
     assert isinstance(couch, UserCouch)
     assert not has_user(couch)
-    tmp_id = random_id()
-    user_id = couch.pki.create(tmp_id)
-    couch.pki.create_csr(machine_id)
-    cert_id = couch.pki.issue(machine_id, user_id)
-    config = create_user(user_id, tmp_id)
+    user_id = couch.pki.create_key()
+    couch.pki.create_ca(user_id)
+    cert_id = couch.pki.create_key()
+    couch.pki.create_csr(cert_id)
+    couch.pki.issue_cert(cert_id, user_id)
+    config = create_user(user_id)
     config['certs'][machine_id] = cert_id
     save_config(user_filename(couch), config)
 
@@ -129,18 +130,18 @@ def bootstrap_args(couch, machine_id, user):
     assert isinstance(couch, UserCouch)
     if user is None:
         return ('basic', {'username': 'admin'})
-    ca = couch.pki.files(user['_id'])
-    cert = couch.pki.files(user['certs'][machine_id])
+    ca = couch.pki.get_ca(user['_id'])
+    cert = couch.pki.get_cert(user['certs'][machine_id])
     config = {
         'username': 'admin',
         'bind_address': '0.0.0.0',
         'oauth': user['oauth'],
         'ssl': {
-            'key_file': cert.key,
-            'cert_file': cert.cert,
+            'key_file': cert.key_file,
+            'cert_file': cert.cert_file,
         },
         'replicator': {
-            'ca_file': ca.cert,
+            'ca_file': ca.ca_file,
         },
     }
     return ('oauth', config)
@@ -157,28 +158,26 @@ def start_usercouch(couch):
     return (env, machine, user)
 
 
-def create_machine(machine_id, cn):
+def create_machine(_id):
     """
     Create a 'dmedia/machine' document.
     """
     return {
-        '_id': machine_id,
+        '_id': _id,
         'type': 'dmedia/machine',
         'time': time.time(),
-        'cn': cn,
         'hostname': socket.gethostname(),
     }
 
 
-def create_user(user_id, cn):
+def create_user(_id):
     """
     Create a 'dmedia/user' document.
     """
     return {
-        '_id': user_id,
+        '_id': _id,
         'type': 'dmedia/user',
         'time': time.time(),
-        'cn': cn,
         'oauth': random_oauth(),
         'certs': {},
     }
