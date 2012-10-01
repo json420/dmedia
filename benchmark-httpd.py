@@ -3,10 +3,14 @@
 import multiprocessing
 import optparse
 import time
+import os
 
 from usercouch.misc import TempPKI
 from microfiber import CouchBase, dumps
 from dmedia.httpd import run_server, echo_app
+
+
+request_body = os.urandom(1776)
 
 
 def start_process(target, *args, **kwargs):
@@ -19,7 +23,7 @@ def start_process(target, *args, **kwargs):
 def client_process(env, count):
     client = CouchBase(env)
     for i in range(count):
-        client.get()
+        client.put(request_body)
 
 
 parser = optparse.OptionParser()
