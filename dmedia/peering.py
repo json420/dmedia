@@ -399,12 +399,10 @@ class PKI:
         ca_file = self.path(_id, 'ca')
         if hash_pubkey(get_pubkey(ca_file)) != _id:
             raise PublicKeyError(_id, ca_file)
-
         subject = make_subject(_id)
         subject_actual = get_subject(ca_file)
         if subject != subject_actual:
             raise SubjectError(ca_file, subject, subject_actual)
-
         return ca_file
 
     def create_csr(self, _id):
@@ -420,6 +418,10 @@ class PKI:
         csr_file = self.path(_id, 'csr')
         if hash_pubkey(get_csr_pubkey(csr_file)) != _id:
             raise PublicKeyError(_id, csr_file)
+        subject = make_subject(_id)
+        subject_actual = get_csr_subject(csr_file)
+        if subject != subject_actual:
+            raise SubjectError(csr_file, subject, subject_actual)
         return csr_file
 
     def issue_cert(self, _id, ca_id):

@@ -377,6 +377,17 @@ class TestPKI(TestCase):
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             pki.verify_csr(id2)
 
+        # Test with bad subject
+        id3 = pki.create_key()
+        key_file = pki.path(id3, 'key')
+        csr_file = pki.path(id3, 'csr')
+        peering.create_csr(key_file, '/CN={}'.format(id1), csr_file)
+        with self.assertRaises(peering.SubjectError) as cm:
+            pki.verify_csr(id3)
+        self.assertEqual(cm.exception.filename, csr_file)
+        self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
+        self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
+
     def test_issue_cert(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
