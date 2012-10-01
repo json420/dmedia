@@ -190,7 +190,7 @@ def ensuredir(d):
             raise ValueError('not a directory: {!r}'.format(d))
 
 
-def get_subject(cn):
+def make_subject(cn):
     return '/CN={}'.format(cn)
 
 
@@ -264,7 +264,7 @@ class PKI:
 
     def create_ca(self, _id):
         key_file = self.verify_key(_id)
-        subject = get_subject(_id)
+        subject = make_subject(_id)
         tmp_file = self.random_tmp()
         ca_file = self.path(_id, 'ca')
         gen_ca(key_file, subject, tmp_file)
@@ -279,7 +279,7 @@ class PKI:
 
     def create_csr(self, _id):
         key_file = self.verify_key(_id)
-        subject = get_subject(_id)
+        subject = make_subject(_id)
         tmp_file = self.random_tmp()
         csr_file = self.path(_id, 'csr')
         gen_csr(key_file, subject, tmp_file)
@@ -292,20 +292,18 @@ class PKI:
             raise PublicKeyError(_id, csr_file)
         return csr_file
 
-    def issue(self, tmp_id, ca_id):
-        tmp = self.tmp_files(tmp_id)
-        ca = self.ca_files(ca_id)
-        gen_cert(tmp.csr, ca.cert, ca.key, ca.srl, tmp.cert)
-        cert_data = open(tmp.cert, 'rb').read()
-        cert_id = hash_cert(cert_data)
-        cert = self.files(cert_id)
-        os.rename(tmp.cert, cert.cert)
-        os.rename(tmp.csr, self.path(cert_id, 'csr'))
-        try:
-            os.rename(tmp.key, cert.key)
-        except OSError:
-            pass
-        return cert_id
+    def issue_cert(self, _id, ca_id):
+        csr_file = self.verify_csr(_id)
+        tmp_file = self.random_tmp()
+        cert_file = self.path(_id, 'cert')
+        
+        ca_file = self.verify_ca(ca_id)
+        key_file = self.verify_key(ca_id)
+        srl_file = self.path(ca_id, 'srl')
+
+        gen_cert(csr_file, ca_file, key_file, srl_file, tmp_file)
+        os.rename(tmp_file, cert_file)
+        return cert_file
 
 
 class TempPKI(PKI):

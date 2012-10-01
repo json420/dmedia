@@ -238,60 +238,34 @@ class TestPKI(TestCase):
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             pki.verify_csr(id2)
 
-    def test_issue(self):
-        return
+    def test_issue_cert(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
 
-        # Create CA
-        ca_id = pki.create(random_id())
+        # Create the CA
+        ca_id = pki.create_key()
+        pki.create_ca(ca_id)
 
-        # Create CSR
-        tmp_id = random_id()
-        pki.create_csr(tmp_id)
+        # Create the CSR
+        cert_id = pki.create_key()
+        pki.create_csr(cert_id)
+        os.remove(tmp.join(cert_id + '.key'))
 
-        # Now test PKI.issue()
-        cert_id = pki.issue(tmp_id, ca_id)
-        cert_file = pki.path(cert_id, 'cert')
-        cert_data = open(cert_file, 'rb').read()
-        self.assertEqual(peering.hash_cert(cert_data), cert_id)
-
+        # Now test
+        cert_file = tmp.join(cert_id + '.cert')
+        self.assertFalse(path.exists(cert_file))
+        self.assertEqual(pki.issue_cert(cert_id, ca_id), cert_file)
+        self.assertGreater(path.getsize(cert_file), 0)
         self.assertEqual(os.listdir(pki.tmpdir), [])
         self.assertEqual(
             set(os.listdir(pki.ssldir)),
             set([
                 'tmp',
                 ca_id + '.key',
-                ca_id + '.cert',
+                ca_id + '.ca',
                 ca_id + '.srl',
-                cert_id + '.key',
-                cert_id + '.cert',
                 cert_id + '.csr',
-            ])
-        )
-
-        # Now try it all over again, this time when the tmp_key_file doesn't
-        # exist:
-        tmp = TempDir()
-        pki = peering.PKI(tmp.dir)
-        ca_id = pki.create(random_id())
-        tmp_id = random_id()
-        pki.create_csr(tmp_id)
-        os.remove(pki.tmp_path(tmp_id, 'key'))
-        cert_id = pki.issue(tmp_id, ca_id)
-        cert_file = pki.path(cert_id, 'cert')
-        cert_data = open(cert_file, 'rb').read()
-        self.assertEqual(peering.hash_cert(cert_data), cert_id)
-        self.assertEqual(os.listdir(pki.tmpdir), [])
-        self.assertEqual(
-            set(os.listdir(pki.ssldir)),
-            set([
-                'tmp',
-                ca_id + '.key',
-                ca_id + '.cert',
-                ca_id + '.srl',
                 cert_id + '.cert',
-                cert_id + '.csr',
             ])
         )
 
