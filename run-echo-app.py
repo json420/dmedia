@@ -5,9 +5,9 @@ import optparse
 import os
 from hashlib import md5
 
-from usercouch.misc import TempPKI
 from microfiber import CouchBase, dumps
 
+from dmedia.peering import TempPKI
 from dmedia.httpd import run_server, echo_app
 
 

@@ -5,8 +5,9 @@ import optparse
 import time
 import os
 
-from usercouch.misc import TempPKI
 from microfiber import CouchBase, dumps
+
+from dmedia.peering import TempPKI
 from dmedia.httpd import run_server, echo_app
 
 
