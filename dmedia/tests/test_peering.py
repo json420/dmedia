@@ -64,6 +64,46 @@ class TestSSLFunctions(TestCase):
         self.assertLess(min(sizes) - 25, path.getsize(key))
         self.assertLess(path.getsize(key), max(sizes) + 25)
 
+    def test_create_ca(self):
+        tmp = TempDir()
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        peering.create_key(foo_key)
+        self.assertFalse(path.exists(foo_ca))
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+        self.assertGreater(path.getsize(foo_ca), 0)
+
+    def test_create_csr(self):
+        tmp = TempDir()
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        peering.create_key(bar_key)
+        self.assertFalse(path.exists(bar_csr))
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+        self.assertGreater(path.getsize(bar_csr), 0)
+
+    def test_issue_cert(self):
+        tmp = TempDir()
+
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+
+        files = (foo_srl, bar_cert)
+        for f in files:
+            self.assertFalse(path.exists(f))
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        for f in files:
+            self.assertGreater(path.getsize(f), 0)
+
     def test_get_pubkey(self):
         tmp = TempDir()
 
