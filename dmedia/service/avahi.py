@@ -119,7 +119,7 @@ class Avahi:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        url = 'https://{}:{}/'.format(ip, port)
+        url = 'http://{}:{}/'.format(ip, port)
         log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
         self.add_peer(key, url)
 
@@ -185,13 +185,15 @@ class Replicator(Avahi):
 
     service = '_usercouch._tcp'
 
-    def __init__(self, server, config):
-        self.server = server
+    def __init__(self, env, config):
+        self.env = env
+        self.server = Server(env)
         self.peers = {}
-        self.base_id = config['user_id'] + '-'
-        self.oauth = config['oauth']
-        _id = self.base_id + config['machine_id']
-        super().__init__(_id, config['port'])
+        self.base_id = config['library_id'] + '-'
+        self.tokens = config.get('tokens')
+        _id = self.base_id + env['machine_id']
+        port = env['port']
+        super().__init__(_id, port)
 
     def run(self):
         super().run()
@@ -217,7 +219,7 @@ class Replicator(Avahi):
         return not key.startswith(self.base_id)
 
     def add_peer(self, key, url):
-        env = {'url': url, 'oauth': self.oauth}
+        env = {'url': url, 'oauth': self.tokens}
         cancel = self.peers.pop(key, None)
         start = Peer(env, list(self.get_names()))
         self.peers[key] = start
