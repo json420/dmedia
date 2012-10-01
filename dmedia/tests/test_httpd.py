@@ -113,6 +113,12 @@ class TestFunctions(TestCase):
             '400 Bad Request Line Missing CRLF'
         )
         with self.assertRaises(WSGIError) as cm:
+            httpd.parse_request(b'GET /foo\rbar HTTP/1.1\r\n')
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Request Line Internal CR'
+        )
+        with self.assertRaises(WSGIError) as cm:
             httpd.parse_request(b'GET /\r\n')
         self.assertEqual(
             cm.exception.status,
@@ -156,6 +162,12 @@ class TestFunctions(TestCase):
         self.assertEqual(
             cm.exception.status,
             '400 Bad Header Line Missing CRLF'
+        )
+        with self.assertRaises(WSGIError) as cm:
+            httpd.parse_header(b'Content-Type: application\rjson\r\n')
+        self.assertEqual(
+            cm.exception.status,
+            '400 Bad Header Line Internal CR'
         )
         with self.assertRaises(WSGIError) as cm:
             httpd.parse_header(b'Content-Type application/json\r\n')

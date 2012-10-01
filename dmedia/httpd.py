@@ -145,6 +145,9 @@ def parse_request(line_bytes):
     if not line_bytes.endswith(b'\r\n'):
         raise WSGIError('400 Bad Request Line Missing CRLF')
     line = line_bytes[:-2].decode('latin_1')
+    # io.BufferedReader.readline() only matches b'\n':
+    if '\r' in line:
+        raise WSGIError('400 Bad Request Line Internal CR')
     parts = line.split(' ')
     if len(parts) != 3:
         raise WSGIError('400 Bad Request Line')
@@ -155,6 +158,9 @@ def parse_header(line_bytes):
     if not line_bytes.endswith(b'\r\n'):
         raise WSGIError('400 Bad Header Line Missing CRLF')
     line = line_bytes[:-2].decode('latin_1')
+    # io.BufferedReader.readline() only matches b'\n':
+    if '\r' in line:
+        raise WSGIError('400 Bad Header Line Internal CR')
     parts = line.split(': ', 1)
     if len(parts) != 2:
         raise WSGIError('400 Bad Header Line')
