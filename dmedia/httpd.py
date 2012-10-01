@@ -408,12 +408,11 @@ class HTTPD:
             'wsgi.run_once': False,
             'wsgi.file_wrapper': FileWrapper
         }
-        if self.context is None:
-            return environ
-        environ.update({
-            'SSL_PROTOCOL': 'TLSv1',
-            'SSL_COMPRESS_METHOD': 'NULL',
-        })
+        if self.context is not None:
+            environ.update({
+                'SSL_PROTOCOL': 'TLSv1',
+                'SSL_COMPRESS_METHOD': 'NULL',
+            })
         return environ
 
     def build_connection_environ(self, conn, address):
@@ -427,7 +426,6 @@ class HTTPD:
         if self.context is None:
             return environ
 
-        #print(conn.cipher())
         peercert = conn.getpeercert()
         if peercert is None:
             if self.context.verify_mode == ssl.CERT_REQUIRED:
