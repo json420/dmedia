@@ -119,17 +119,10 @@ from subprocess import check_call, check_output
 from skein import skein512
 from microfiber import random_id
 
-from .server import BaseWSGI
-
 
 # Skein personalization strings
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
-PERS_CERT = b'20120918 jderose@novacut.com dmedia/cert'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
-
-TmpFiles = namedtuple('TmpFiles', 'key cert csr')
-Files = namedtuple('Files', 'key cert')
-CAFiles = namedtuple('CAFiles', 'key cert srl')
 
 DAYS = 365 * 10
 
@@ -364,43 +357,8 @@ class PKI:
     def random_tmp(self):
         return path.join(self.tmpdir, random_id())
 
-    def tmp_path(self, tmp_id, ext):
-        return path.join(self.tmpdir, '.'.join([tmp_id, ext]))
-
-    def tmp_files(self, tmp_id):
-        return TmpFiles(
-            self.tmp_path(tmp_id, 'key'),
-            self.tmp_path(tmp_id, 'cert'),
-            self.tmp_path(tmp_id, 'csr'),
-        )
-
     def path(self, _id, ext):
         return path.join(self.ssldir, '.'.join([_id, ext]))
-
-    def files(self, cert_id):
-        return Files(
-            self.path(cert_id, 'key'),
-            self.path(cert_id, 'cert'),
-        )
-
-    def ca_files(self, ca_id):
-        return CAFiles(
-            self.path(ca_id, 'key'),
-            self.path(ca_id, 'cert'),
-            self.path(ca_id, 'srl'),
-        )
-
-    def read(self, cert_id):
-        cert_data = open(self.path(cert_id, 'cert'), 'rb').read()
-        assert hash_cert(cert_data) == cert_id
-        return cert_data
-
-    def write(self, cert_id, cert_data):
-        assert hash_cert(cert_data) == cert_id
-        tmp_file = self.tmp_path(cert_id, 'cert')
-        cert_file = self.path(cert_id, 'cert')
-        open(tmp_file, 'wb').write(cert_data)
-        os.rename(tmp_file, cert_file)
 
     def create_key(self):
         tmp_file = self.random_tmp()
@@ -453,6 +411,10 @@ class PKI:
         os.rename(tmp_file, cert_file)
         return cert_file
 
+    def verify_cert(self, _id):
+        cert_file = self.path(_id, 'cert')
+        return verify(cert_file, _id)
+
 
 class TempPKI(PKI):
     def __init__(self):
@@ -464,18 +426,4 @@ class TempPKI(PKI):
         if path.isdir(self.ssldir):
             shutil.rmtree(self.ssldir)
 
-
-class WSGIApp(BaseWSGI):
-    def __init__(self, cert_data):
-        self.cert_data = cert_data
-
-    def GET(self, environ, start_response):
-        if environ['PATH_INFO'] != '/':
-            raise NotFound()
-        headers = [
-            ('Content-Length', str(len(self.cert_data))),
-            ('Content-Type', 'text/plain'),
-        ]
-        start_response('200 OK', headers)
-        return [self.cert_data]
 
