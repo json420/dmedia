@@ -30,8 +30,11 @@ import ssl
 import socket
 import os
 import json
+import multiprocessing
+from hashlib import md5
 
-from microfiber import random_id
+import microfiber
+from microfiber import random_id, CouchBase
 from usercouch.misc import TempPKI
 
 from .base import TempDir
@@ -1019,4 +1022,261 @@ class TestHTTPD(TestCase):
                 'SSL_CLIENT_VERIFY': 'SUCCESS',
             }
         )
+
+
+class TempHTTPD:
+    def __init__(self, pki=None):
+        ssl_config = (None if pki is None else pki.get_server_config())
+        queue = multiprocessing.Queue()
+        self.process = multiprocessing.Process(
+            target=httpd.run_server,
+            args=(queue, httpd.echo_app, '::1', ssl_config),
+        )
+        self.process.daemon = True
+        self.process.start()
+        self.env = queue.get()
+        self.port = self.env['port']
+        if pki is not None:
+            self.env['ssl'] = pki.get_client_config()
+
+    def __del__(self):
+        self.process.terminate()
+        self.process.join()
+
+
+class TestLive(TestCase):
+    """
+    Test with live requests using the echo_app.
+    """
+
+    def test_http(self):
+        server = TempHTTPD()
+        client = CouchBase(server.env)
+
+        # Make a simple GET request
+        result = client.get()
+        conn = client.ctx.get_threadlocal_connection()
+        port = conn.sock.getsockname()[1]
+        self.assertEqual(result,
+            {
+                'HTTP_ACCEPT': 'application/json',
+                'HTTP_ACCEPT_ENCODING': 'identity',
+                'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_USER_AGENT': microfiber.USER_AGENT,
+                'PATH_INFO': '/',
+                'QUERY_STRING': '',
+                'REMOTE_ADDR': '::1',
+                'REMOTE_PORT': str(port),
+                'REQUEST_METHOD': 'GET',
+                'SCRIPT_NAME': '',
+                'SERVER_NAME': '::1',
+                'SERVER_PORT': str(server.port),
+                'SERVER_PROTOCOL': 'HTTP/1.1',
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
+                'wsgi.file_wrapper': 'httpd.FileWrapper',
+                'wsgi.input': 'httpd.Input(None)',
+                'wsgi.multiprocess': False,
+                'wsgi.multithread': True,
+                'wsgi.run_once': False,
+                'wsgi.url_scheme': 'http',
+                'wsgi.version': '(1, 0)',
+            }
+        )
+
+        # Should be same if connection is being reused:
+        self.assertEqual(client.get(), result)
+
+        # Now POST with a request body
+        body = os.urandom(1776)
+        digest = md5(body).hexdigest()
+        result = client.post(body)
+        self.assertEqual(result,
+            {
+                'CONTENT_LENGTH': '1776',
+                'CONTENT_TYPE': 'application/json',
+                'HTTP_ACCEPT': 'application/json',
+                'HTTP_ACCEPT_ENCODING': 'identity',
+                'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_USER_AGENT': microfiber.USER_AGENT,
+                'PATH_INFO': '/',
+                'QUERY_STRING': '',
+                'REMOTE_ADDR': '::1',
+                'REMOTE_PORT': str(port),
+                'REQUEST_METHOD': 'POST',
+                'SCRIPT_NAME': '',
+                'SERVER_NAME': '::1',
+                'SERVER_PORT': str(server.port),
+                'SERVER_PROTOCOL': 'HTTP/1.1',
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
+                'wsgi.file_wrapper': 'httpd.FileWrapper',
+                'wsgi.input': 'httpd.Input(1776)',
+                'wsgi.multiprocess': False,
+                'wsgi.multithread': True,
+                'wsgi.run_once': False,
+                'wsgi.url_scheme': 'http',
+                'wsgi.version': '(1, 0)',
+                'echo.content_md5': digest,
+            }
+        )
+
+        # Should be same if connection is being reused:
+        self.assertEqual(client.post(body), result)
+
+    def test_https(self):
+        pki = TempPKI()
+        server = TempHTTPD(pki)
+        client = CouchBase(server.env)
+
+        # Make a simple GET request
+        result = client.get()
+        conn = client.ctx.get_threadlocal_connection()
+        port = conn.sock.getsockname()[1]
+        self.assertEqual(result,
+            {
+                'HTTP_ACCEPT': 'application/json',
+                'HTTP_ACCEPT_ENCODING': 'identity',
+                'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_USER_AGENT': microfiber.USER_AGENT,
+                'PATH_INFO': '/',
+                'QUERY_STRING': '',
+                'REMOTE_ADDR': '::1',
+                'REMOTE_PORT': str(port),
+                'REQUEST_METHOD': 'GET',
+                'SCRIPT_NAME': '',
+                'SERVER_NAME': '::1',
+                'SERVER_PORT': str(server.port),
+                'SERVER_PROTOCOL': 'HTTP/1.1',
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
+                'SSL_PROTOCOL': 'TLSv1',
+                'wsgi.file_wrapper': 'httpd.FileWrapper',
+                'wsgi.input': 'httpd.Input(None)',
+                'wsgi.multiprocess': False,
+                'wsgi.multithread': True,
+                'wsgi.run_once': False,
+                'wsgi.url_scheme': 'https',
+                'wsgi.version': '(1, 0)',
+            }
+        )
+
+        # Should be same if connection is being reused:
+        self.assertEqual(client.get(), result)
+
+        # Now POST with a request body
+        body = os.urandom(1776)
+        digest = md5(body).hexdigest()
+        result = client.post(body)
+        self.assertEqual(result,
+            {
+                'CONTENT_LENGTH': '1776',
+                'CONTENT_TYPE': 'application/json',
+                'HTTP_ACCEPT': 'application/json',
+                'HTTP_ACCEPT_ENCODING': 'identity',
+                'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_USER_AGENT': microfiber.USER_AGENT,
+                'PATH_INFO': '/',
+                'QUERY_STRING': '',
+                'REMOTE_ADDR': '::1',
+                'REMOTE_PORT': str(port),
+                'REQUEST_METHOD': 'POST',
+                'SCRIPT_NAME': '',
+                'SERVER_NAME': '::1',
+                'SERVER_PORT': str(server.port),
+                'SERVER_PROTOCOL': 'HTTP/1.1',
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
+                'SSL_PROTOCOL': 'TLSv1',
+                'wsgi.file_wrapper': 'httpd.FileWrapper',
+                'wsgi.input': 'httpd.Input(1776)',
+                'wsgi.multiprocess': False,
+                'wsgi.multithread': True,
+                'wsgi.run_once': False,
+                'wsgi.url_scheme': 'https',
+                'wsgi.version': '(1, 0)',
+                'echo.content_md5': digest,
+            }
+        )
+
+        # Should be same if connection is being reused:
+        self.assertEqual(client.post(body), result)
+
+    def test_https_with_client_pki(self):
+        pki = TempPKI(client_pki=True)
+        server = TempHTTPD(pki)
+        client = CouchBase(server.env)
+
+        # Make a simple GET request
+        result = client.get()
+        conn = client.ctx.get_threadlocal_connection()
+        port = conn.sock.getsockname()[1]
+        self.assertEqual(result,
+            {
+                'HTTP_ACCEPT': 'application/json',
+                'HTTP_ACCEPT_ENCODING': 'identity',
+                'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_USER_AGENT': microfiber.USER_AGENT,
+                'PATH_INFO': '/',
+                'QUERY_STRING': '',
+                'REMOTE_ADDR': '::1',
+                'REMOTE_PORT': str(port),
+                'REQUEST_METHOD': 'GET',
+                'SCRIPT_NAME': '',
+                'SERVER_NAME': '::1',
+                'SERVER_PORT': str(server.port),
+                'SERVER_PROTOCOL': 'HTTP/1.1',
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
+                'SSL_CLIENT_I_DN_CN': pki.client_ca.id,
+                'SSL_CLIENT_S_DN_CN': pki.client_cert.id,
+                'SSL_CLIENT_VERIFY': 'SUCCESS',
+                'SSL_PROTOCOL': 'TLSv1',
+                'wsgi.file_wrapper': 'httpd.FileWrapper',
+                'wsgi.input': 'httpd.Input(None)',
+                'wsgi.multiprocess': False,
+                'wsgi.multithread': True,
+                'wsgi.run_once': False,
+                'wsgi.url_scheme': 'https',
+                'wsgi.version': '(1, 0)',
+            }
+        )
+
+        # Should be same if connection is being reused:
+        self.assertEqual(client.get(), result)
+
+        # Now POST with a request body
+        body = os.urandom(1776)
+        digest = md5(body).hexdigest()
+        result = client.post(body)
+        self.assertEqual(result,
+            {
+                'CONTENT_LENGTH': '1776',
+                'CONTENT_TYPE': 'application/json',
+                'HTTP_ACCEPT': 'application/json',
+                'HTTP_ACCEPT_ENCODING': 'identity',
+                'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_USER_AGENT': microfiber.USER_AGENT,
+                'PATH_INFO': '/',
+                'QUERY_STRING': '',
+                'REMOTE_ADDR': '::1',
+                'REMOTE_PORT': str(port),
+                'REQUEST_METHOD': 'POST',
+                'SCRIPT_NAME': '',
+                'SERVER_NAME': '::1',
+                'SERVER_PORT': str(server.port),
+                'SERVER_PROTOCOL': 'HTTP/1.1',
+                'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
+                'SSL_CLIENT_I_DN_CN': pki.client_ca.id,
+                'SSL_CLIENT_S_DN_CN': pki.client_cert.id,
+                'SSL_CLIENT_VERIFY': 'SUCCESS',
+                'SSL_PROTOCOL': 'TLSv1',
+                'wsgi.file_wrapper': 'httpd.FileWrapper',
+                'wsgi.input': 'httpd.Input(1776)',
+                'wsgi.multiprocess': False,
+                'wsgi.multithread': True,
+                'wsgi.run_once': False,
+                'wsgi.url_scheme': 'https',
+                'wsgi.version': '(1, 0)',
+                'echo.content_md5': digest,
+            }
+        )
+
+        # Should be same if connection is being reused:
+        self.assertEqual(client.post(body), result)
 
