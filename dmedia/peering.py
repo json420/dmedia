@@ -167,7 +167,7 @@ def create_ca(key_file, subject, dst_file):
     check_call(['openssl', 'req',
         '-new',
         '-x509',
-        '-sha384',
+        #'-sha384',
         '-days', str(DAYS),
         '-key', key_file,
         '-subj', subject,
@@ -183,7 +183,7 @@ def create_csr(key_file, subject, dst_file):
     """
     check_call(['openssl', 'req',
         '-new',
-        '-sha384',
+        #'-sha384',
         '-key', key_file,
         '-subj', subject,
         '-out', dst_file,
@@ -196,7 +196,7 @@ def issue_cert(csr_file, ca_file, key_file, srl_file, dst_file):
     """
     check_call(['openssl', 'x509',
         '-req',
-        '-sha384',
+        #'-sha384',
         '-days', str(DAYS),
         '-CAcreateserial',
         '-in', csr_file,

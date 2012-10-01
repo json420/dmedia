@@ -45,9 +45,11 @@ import json
 import socket
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
+import microfiber
 
 from dmedia import __version__
 from dmedia import local
+
 
 
 HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
@@ -299,4 +301,59 @@ class ReadWriteApp(ReadOnlyApp):
 
     def POST(self, environ, start_response):
         pass
+
+
+def iter_headers(environ):
+    for (key, value) in environ.items():
+        if key in ('CONTENT_LENGHT', 'CONTENT_TYPE'):
+            yield (key.replace('_', '-').lower(), value)
+        elif key.startswith('HTTP_'):
+            yield (key[5:].replace('_', '-').lower(), value)
+
+
+def request_args(environ):
+    headers = dict(iter_headers(environ))
+    if environ['wsgi.input']._avail:
+        body = environ['wsgi.input'].read()
+    else:
+        body = None
+    return (environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
+    
+
+
+class ProxyApp:
+    def __init__(self, env):
+        self.client = microfiber.CouchBase(env)
+        self.target_host = self.client.ctx.t.netloc
+        if 'basic' in env:
+            self.basic_auth = microfiber.basic_auth_header(env['basic'])
+        else:
+            self.basic_auth = None
+
+    def __call__(self, environ, start_response):
+        (method, path, body, headers) = request_args(environ)
+
+        print('\nREQUEST:')
+        print('  {} {}'.format(method, path))
+
+        headers['host'] = self.target_host
+        if self.basic_auth is not None:
+            headers['authorization'] = self.basic_auth
+        for name in sorted(headers):
+            print('  {}: {}'.format(name, headers[name]))
+        response = self.client.raw_request(method, path, body, headers)
+
+        print('RESPONSE:')
+        status = '{} {}'.format(response.status, response.reason)
+        headers = response.getheaders()
+        print('  {}'.format(status))
+        for (name, value) in headers:
+            print('  {}: {}'.format(name, value))
+        start_response(status, headers)
+        body = response.read()
+        if body:
+            return [body]
+        return []
+    
+    
 

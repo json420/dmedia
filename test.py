@@ -1,15 +1,24 @@
 from usercouch.misc import TempCouch
 from microfiber import Server, dumps, _start_thread, random_id
-from dmedia.httpd import HTTPD, echo_app
+from dmedia.peering import TempPKI
+from dmedia.server import ProxyApp
+from dmedia.httpd import make_server
 import time
+from copy import deepcopy
+
+pki = TempPKI(True)
+config = {
+    'username': 'admin',
+    'replicator': pki.get_client_config(),
+}
 
 couch1 = TempCouch()
-env1 = couch1.bootstrap('open')
+env1 = couch1.bootstrap('basic', deepcopy(config))
 s1 = Server(env1)
 s1.put(None, 'one')
 
 couch2 = TempCouch()
-env2 = couch2.bootstrap('open')
+env2 = couch2.bootstrap('basic', deepcopy(config))
 s2 = Server(env2)
 s2.put(None, 'two')
 
@@ -27,44 +36,10 @@ def pusher(env):
             assert s2.get('two', doc['_id']) == doc
 
 
-def get_headers(environ):
-    for (key, value) in environ.items():
-        if key in ('CONTENT_LENGHT', 'CONTENT_TYPE'):
-            yield (key.replace('_', '-').lower(), value)
-        elif key.startswith('HTTP_'):
-            yield (key[5:].replace('_', '-').lower(), value)
 
+app = ProxyApp(env2)
 
-def app(environ, start_response):
-    print('\nREQUEST:')
-    print('  {REQUEST_METHOD} {PATH_INFO}'.format(**environ))
-    headers = tuple(get_headers(environ))
-    for (name, value) in headers:
-        print('  {}: {}'.format(name, value))
-    headers = dict(headers)
-    headers['host'] = s2.ctx.t.netloc
-
-    if environ['wsgi.input']._avail:
-        body = environ['wsgi.input'].read()
-    else:
-        body = None
-
-    response = s2.raw_request(environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
-
-    print('RESPONSE:')
-    status = '{} {}'.format(response.status, response.reason)
-    headers = response.getheaders()
-    print('  {}'.format(status))
-    for (name, value) in headers:
-        print('  {}: {}'.format(name, value))
-    start_response(status, headers)
-    body = response.read()
-    if body:
-        return [body]
-    return []
-
-
-httpd = HTTPD(app)
+httpd = make_server(app, ssl_config=pki.get_server_config())
 env = {'url': httpd.url}
 _start_thread(pusher, env)
 httpd.serve_forever()

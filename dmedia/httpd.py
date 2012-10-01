@@ -341,8 +341,12 @@ class Handler:
 
     def send_response(self, environ, result):
         (status, response_headers) = self.start
-        response_headers.append(
-            ('Server', SERVER_SOFTWARE)
+        headers = dict(
+            (name.lower(), value) for (name, value) in response_headers
+        )
+        headers.setdefault('server', SERVER_SOFTWARE)
+        response_headers = list(
+            (name, headers[name]) for name in sorted(headers)
         )
         preamble = ''.join(iter_response_lines(status, response_headers))
         self.wfile.write(preamble.encode('latin_1'))
