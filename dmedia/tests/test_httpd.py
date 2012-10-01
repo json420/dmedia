@@ -72,7 +72,6 @@ class TestFunctions(TestCase):
         self.assertIsInstance(ctx, ssl.SSLContext)
         self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
         self.assertEqual(ctx.options, ssl.OP_ALL | ssl.OP_NO_COMPRESSION)
-        self.assertEqual(ctx.options, 2147615743)
         self.assertEqual(ctx.verify_mode, ssl.CERT_NONE)
 
         config = {
