@@ -293,8 +293,9 @@ class TestPKI(TestCase):
         os.rename(key2_file, key1_file)
         with self.assertRaises(peering.PublicKeyError) as cm:
             pki.verify_key(id1)
-        self.assertEqual(cm.exception.id, id1)
         self.assertEqual(cm.exception.filename, key1_file)
+        self.assertEqual(cm.exception.expected, id1)
+        self.assertEqual(cm.exception.got, id2)
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             pki.verify_key(id2)
 
@@ -327,8 +328,9 @@ class TestPKI(TestCase):
         os.rename(ca2_file, ca1_file)
         with self.assertRaises(peering.PublicKeyError) as cm:
             pki.verify_ca(id1)
-        self.assertEqual(cm.exception.id, id1)
         self.assertEqual(cm.exception.filename, ca1_file)
+        self.assertEqual(cm.exception.expected, id1)
+        self.assertEqual(cm.exception.got, id2)
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             pki.verify_ca(id2)
 
@@ -372,8 +374,9 @@ class TestPKI(TestCase):
         os.rename(csr2_file, csr1_file)
         with self.assertRaises(peering.PublicKeyError) as cm:
             pki.verify_csr(id1)
-        self.assertEqual(cm.exception.id, id1)
         self.assertEqual(cm.exception.filename, csr1_file)
+        self.assertEqual(cm.exception.expected, id1)
+        self.assertEqual(cm.exception.got, id2)
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             pki.verify_csr(id2)
 

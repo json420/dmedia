@@ -134,6 +134,24 @@ CAFiles = namedtuple('CAFiles', 'key cert srl')
 DAYS = 365 * 10
 
 
+class IdentityError(Exception):
+    def __init__(self, filename, expected, got):
+        self.filename = filename
+        self.expected = expected
+        self.got = got
+        super().__init__(
+            'expected {!r}; got {!r}'.format(expected, got)
+        )
+
+
+class PublicKeyError(IdentityError):
+    pass
+
+
+class SubjectError(IdentityError):
+    pass
+
+
 def create_key(dst_file, bits=2048):
     """
     Create an RSA keypair and save it to *dst_file*.
@@ -249,6 +267,35 @@ def get_subject(cert_file):
     return line[len(prefix):]
 
 
+def verify_key(filename, _id):
+    actual_id = hash_pubkey(get_rsa_pubkey(filename))
+    if _id != actual_id:
+        raise PublicKeyError(filename, _id, actual_id)
+    return filename
+
+
+def verify_csr(filename, _id):
+    actual_id = hash_pubkey(get_csr_pubkey(filename))
+    if _id != actual_id:
+        raise PublicKeyError(filename, _id, actual_id)
+    subject = make_subject(_id)
+    actual_subject = get_csr_subject(filename)
+    if subject != actual_subject:
+        raise SubjectError(filename, subject, actual_subject)
+    return filename
+
+
+def verify(filename, _id):
+    actual_id = hash_pubkey(get_pubkey(filename))
+    if _id != actual_id:
+        raise PublicKeyError(filename, _id, actual_id)
+    subject = make_subject(_id)
+    actual_subject = get_subject(filename)
+    if subject != actual_subject:
+        raise SubjectError(filename, subject, actual_subject)
+    return filename
+
+
 def _hash_pubkey(data):
     return skein512(data,
         digest_bits=200,
@@ -308,23 +355,6 @@ def make_subject(cn):
     return '/CN={}'.format(cn)
 
 
-class PublicKeyError(Exception):
-    def __init__(self, _id, filename):
-        self.id = _id
-        self.filename = filename
-        super().__init__(_id)
-
-
-class SubjectError(Exception):
-    def __init__(self, filename, expected, got):
-        self.filename = filename
-        self.expected = expected
-        self.got = got
-        super().__init__(
-            'expected {!r}; got {!r}'.format(expected, got)
-        )
-
-
 class PKI:
     def __init__(self, ssldir):
         self.ssldir = ssldir
@@ -382,9 +412,7 @@ class PKI:
 
     def verify_key(self, _id):
         key_file = self.path(_id, 'key')
-        if hash_pubkey(get_rsa_pubkey(key_file)) != _id:
-            raise PublicKeyError(_id, key_file)
-        return key_file
+        return verify_key(key_file, _id)
 
     def create_ca(self, _id):
         key_file = self.verify_key(_id)
@@ -397,13 +425,7 @@ class PKI:
 
     def verify_ca(self, _id):
         ca_file = self.path(_id, 'ca')
-        if hash_pubkey(get_pubkey(ca_file)) != _id:
-            raise PublicKeyError(_id, ca_file)
-        subject = make_subject(_id)
-        subject_actual = get_subject(ca_file)
-        if subject != subject_actual:
-            raise SubjectError(ca_file, subject, subject_actual)
-        return ca_file
+        return verify(ca_file, _id)
 
     def create_csr(self, _id):
         key_file = self.verify_key(_id)
@@ -416,13 +438,7 @@ class PKI:
 
     def verify_csr(self, _id):
         csr_file = self.path(_id, 'csr')
-        if hash_pubkey(get_csr_pubkey(csr_file)) != _id:
-            raise PublicKeyError(_id, csr_file)
-        subject = make_subject(_id)
-        subject_actual = get_csr_subject(csr_file)
-        if subject != subject_actual:
-            raise SubjectError(csr_file, subject, subject_actual)
-        return csr_file
+        return verify_csr(csr_file, _id)
 
     def issue_cert(self, _id, ca_id):
         csr_file = self.verify_csr(_id)
