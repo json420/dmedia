@@ -390,6 +390,7 @@ class HTTPD:
         self.scheme = ('http' if context is None else 'https')
         self.url = '{}://[::1]:{}/'.format(self.scheme, self.port)
         self.environ = self.build_base_environ()
+        self.socket.listen(5)
 
     def build_base_environ(self):
         """
@@ -445,7 +446,6 @@ class HTTPD:
         return environ
 
     def serve_forever(self):
-        self.socket.listen(5)
         while True:
             (conn, address) = self.socket.accept()
             thread = threading.Thread(
