@@ -248,12 +248,6 @@ class PKI:
         open(tmp_file, 'wb').write(cert_data)
         os.rename(tmp_file, cert_file)
 
-    def verify_key(self, _id):
-        key_file = self.path(_id, 'key')
-        if hash_pubkey(get_pubkey(key_file)) != _id:
-            raise PublicKeyError(_id, key_file)
-        return key_file
-
     def create_key(self):
         tmp_file = self.random_tmp()
         gen_key(tmp_file)
@@ -262,6 +256,12 @@ class PKI:
         os.rename(tmp_file, key_file)
         return _id
 
+    def verify_key(self, _id):
+        key_file = self.path(_id, 'key')
+        if hash_pubkey(get_pubkey(key_file)) != _id:
+            raise PublicKeyError(_id, key_file)
+        return key_file
+
     def create_ca(self, _id):
         key_file = self.verify_key(_id)
         subject = get_subject(_id)
@@ -269,6 +269,13 @@ class PKI:
         ca_file = self.path(_id, 'ca')
         gen_ca(key_file, subject, tmp_file)
         os.rename(tmp_file, ca_file)
+        return ca_file
+
+    def verify_ca(self, _id):
+        ca_file = self.path(_id, 'ca')
+        if hash_pubkey(get_cert_pubkey(ca_file)) != _id:
+            raise PublicKeyError(_id, ca_file)
+        return ca_file
 
     def create(self, tmp_id):
         subject = get_subject(tmp_id)
