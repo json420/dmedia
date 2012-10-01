@@ -114,13 +114,10 @@ import stat
 import tempfile
 import shutil
 from collections import namedtuple
+from subprocess import check_call, check_output
 
 from skein import skein512
 from microfiber import random_id
-from usercouch.sslhelpers import (
-    gen_key, gen_ca, gen_csr, gen_cert,
-    get_pubkey, get_cert_pubkey, get_csr_pubkey,
-)
 
 from .server import BaseWSGI
 
@@ -133,6 +130,117 @@ PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 TmpFiles = namedtuple('TmpFiles', 'key cert csr')
 Files = namedtuple('Files', 'key cert')
 CAFiles = namedtuple('CAFiles', 'key cert srl')
+
+DAYS = 365 * 10
+
+
+def create_key(dst_file, bits=2048):
+    """
+    Create an RSA keypair and save it to *dst_file*.
+    """
+    check_call(['openssl', 'genrsa',
+        '-out', dst_file,
+        str(bits)
+    ])
+
+
+def create_ca(key_file, subject, dst_file):
+    """
+    Create a self-signed X509 certificate authority.
+
+    *subject* should be an str in the form ``'/CN=foo'``.
+    """
+    check_call(['openssl', 'req',
+        '-new',
+        '-x509',
+        '-sha384',
+        '-days', str(DAYS),
+        '-key', key_file,
+        '-subj', subject,
+        '-out', dst_file,
+    ])
+
+
+def create_csr(key_file, subject, dst_file):
+    """
+    Create a certificate signing request.
+
+    *subject* should be an str in the form ``'/CN=foo'``.
+    """
+    check_call(['openssl', 'req',
+        '-new',
+        '-sha384',
+        '-key', key_file,
+        '-subj', subject,
+        '-out', dst_file,
+    ])
+
+
+def issue_cert(csr_file, ca_file, key_file, srl_file, dst_file):
+    """
+    Create a signed certificate from a certificate signing request.
+    """
+    check_call(['openssl', 'x509',
+        '-req',
+        '-sha384',
+        '-days', str(DAYS),
+        '-CAcreateserial',
+        '-in', csr_file,
+        '-CA', ca_file,
+        '-CAkey', key_file,
+        '-CAserial', srl_file,
+        '-out', dst_file
+    ])
+
+
+def get_pubkey(key_file):
+    return check_output(['openssl', 'rsa',
+        '-pubout',
+        '-in', key_file,
+    ])  
+
+
+def get_cert_pubkey(cert_file):
+    return check_output(['openssl', 'x509',
+        '-pubkey',
+        '-noout',
+        '-in', cert_file,
+    ])
+
+
+def get_csr_pubkey(csr_file):
+    return check_output(['openssl', 'req',
+        '-pubkey',
+        '-noout',
+        '-in', csr_file,
+    ])
+
+
+def get_cert_pubkey(cert_file):
+    return check_output(['openssl', 'x509',
+        '-pubkey',
+        '-noout',
+        '-in', cert_file,
+    ])
+
+
+def get_subject(cert_file):
+    """
+    Get the subject from an X509 certificate (CA or issued certificate).
+    """
+    return check_output(['openssl', 'x509',
+        '-subject',
+        '-noout',
+        '-in', cert_file,
+    ]).decode('utf-8').rstrip('\n')
+
+
+def get_csr_subject(csr_file):
+    return check_output(['openssl', 'req',
+        '-subject',
+        '-noout',
+        '-in', csr_file,
+    ]).decode('utf-8').rstrip('\n')
 
 
 def _hash_pubkey(data):
@@ -250,7 +358,7 @@ class PKI:
 
     def create_key(self):
         tmp_file = self.random_tmp()
-        gen_key(tmp_file)
+        create_key(tmp_file)
         _id = hash_pubkey(get_pubkey(tmp_file))
         key_file = self.path(_id, 'key')
         os.rename(tmp_file, key_file)
@@ -267,7 +375,7 @@ class PKI:
         subject = make_subject(_id)
         tmp_file = self.random_tmp()
         ca_file = self.path(_id, 'ca')
-        gen_ca(key_file, subject, tmp_file)
+        create_ca(key_file, subject, tmp_file)
         os.rename(tmp_file, ca_file)
         return ca_file
 
@@ -282,7 +390,7 @@ class PKI:
         subject = make_subject(_id)
         tmp_file = self.random_tmp()
         csr_file = self.path(_id, 'csr')
-        gen_csr(key_file, subject, tmp_file)
+        create_csr(key_file, subject, tmp_file)
         os.rename(tmp_file, csr_file)
         return csr_file
 
@@ -296,12 +404,12 @@ class PKI:
         csr_file = self.verify_csr(_id)
         tmp_file = self.random_tmp()
         cert_file = self.path(_id, 'cert')
-        
+
         ca_file = self.verify_ca(ca_id)
         key_file = self.verify_key(ca_id)
         srl_file = self.path(ca_id, 'srl')
 
-        gen_cert(csr_file, ca_file, key_file, srl_file, tmp_file)
+        issue_cert(csr_file, ca_file, key_file, srl_file, tmp_file)
         os.rename(tmp_file, cert_file)
         return cert_file
 
