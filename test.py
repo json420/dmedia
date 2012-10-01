@@ -19,9 +19,12 @@ def pusher(env):
     time.sleep(1)
     s1.push('one', 'two', env, continuous=True)
     while True:
-        doc = {'_id': random_id()}
-        s1.post(doc, 'one')
-        time.sleep(3)
+        docs = [{'_id': random_id(), 'i': i} for i in range(10)]
+        for doc in docs:
+            doc['_rev'] = s1.post(doc, 'one')['rev']
+        time.sleep(4)
+        for doc in docs:
+            assert s2.get('two', doc['_id']) == doc
 
 
 def get_headers(environ):
