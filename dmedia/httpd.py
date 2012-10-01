@@ -341,15 +341,13 @@ class Handler:
 
     def send_response(self, environ, result):
         (status, response_headers) = self.start
-        content_length = response_content_length(response_headers)
-        if content_length is None:
-            assert result == []
         response_headers.append(
             ('Server', SERVER_SOFTWARE)
         )
         preamble = ''.join(iter_response_lines(status, response_headers))
         self.wfile.write(preamble.encode('latin_1'))
-        if content_length is not None:
+        if result != []:
+            content_length = response_content_length(response_headers)
             total = 0
             for buf in result:
                 total += len(buf)
