@@ -316,10 +316,13 @@ class PublicKeyError(Exception):
 
 
 class SubjectError(Exception):
-    def __init__(self, filename, subject, bad_subject):
+    def __init__(self, filename, expected, got):
         self.filename = filename
-        self.subject = subject
-        self.bad_subject = bad_subject
+        self.expected = expected
+        self.got = got
+        super().__init__(
+            'expected {!r}; got {!r}'.format(expected, got)
+        )
 
 
 class PKI:
@@ -396,6 +399,12 @@ class PKI:
         ca_file = self.path(_id, 'ca')
         if hash_pubkey(get_pubkey(ca_file)) != _id:
             raise PublicKeyError(_id, ca_file)
+
+        subject = make_subject(_id)
+        subject_actual = get_subject(ca_file)
+        if subject != subject_actual:
+            raise SubjectError(ca_file, subject, subject_actual)
+
         return ca_file
 
     def create_csr(self, _id):
