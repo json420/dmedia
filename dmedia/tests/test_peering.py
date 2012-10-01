@@ -352,3 +352,48 @@ class TestPKI(TestCase):
             ])
         )
 
+    def test_verify_cert(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        ca_id = pki.create_key()
+        pki.create_ca(ca_id)
+
+        id1 = pki.create_key()
+        pki.create_csr(id1)
+        pki.issue_cert(id1, ca_id)
+
+        id2 = pki.create_key()
+        pki.create_csr(id2)
+        pki.issue_cert(id2, ca_id)
+
+        cert1_file = pki.path(id1, 'cert')
+        cert2_file = pki.path(id2, 'cert')
+        self.assertEqual(pki.verify_cert(id1), cert1_file)
+        self.assertEqual(pki.verify_cert(id2), cert2_file)
+        os.remove(cert1_file)
+        os.rename(cert2_file, cert1_file)
+        with self.assertRaises(peering.PublicKeyError) as cm:
+            pki.verify_cert(id1)
+        self.assertEqual(cm.exception.filename, cert1_file)
+        self.assertEqual(cm.exception.expected, id1)
+        self.assertEqual(cm.exception.got, id2)
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            pki.verify_cert(id2)
+
+        # Test with bad subject
+        id3 = pki.create_key()
+        csr_file = pki.path(id3, 'csr')
+        cert_file = pki.path(id3, 'cert')
+        peering.create_csr(pki.path(id3, 'key'), '/CN={}'.format(id1), csr_file)
+        peering.issue_cert(
+            csr_file,
+            pki.path(ca_id, 'ca'),
+            pki.path(ca_id, 'key'),
+            pki.path(ca_id, 'srl'),
+            cert_file
+        )
+        with self.assertRaises(peering.SubjectError) as cm:
+            pki.verify_cert(id3)
+        self.assertEqual(cm.exception.filename, cert_file)
+        self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
+        self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
