@@ -28,6 +28,7 @@ from os import path
 import time
 import json
 import socket
+from base64 import b64encode
 
 from usercouch import UserCouch
 
@@ -36,7 +37,7 @@ from .peering import PKI
 
 def load_config(filename):
     return json.load(open(filename, 'r'))
-    
+
 
 def save_config(filename, config):
     tmp = filename + '.tmp'
@@ -49,6 +50,29 @@ def save_config(filename, config):
     )
     fp.close()
     os.rename(tmp, filename)
+
+
+def pem_attachment(filename):
+    data = open(filename, 'rb').read()
+    return {
+        'data': b64encode(data).decode('utf-8'),
+        'content_type': 'text/plain',
+    }
+
+
+def create_doc(couch, _id, doc_type):
+    assert isinstance(couch, UserCouch)
+    key_file = couch.pki.verify_key(_id)
+    ca_file = couch.pki.verify_ca(_id)
+    return {
+        '_id': _id,
+        '_attachments': {
+            'key': pem_attachment(key_file),
+            'ca': pem_attachment(ca_file),
+        },
+        'type': doc_type,
+        'time': time.time(),
+    }
 
 
 def get_usercouch(basedir):
@@ -82,8 +106,8 @@ def init_machine(couch):
     assert not has_machine(couch)
     machine_id = couch.pki.create_key()
     couch.pki.create_ca(machine_id)
-    config = create_machine(machine_id)
-    save_config(machine_filename(couch), config)
+    doc = create_doc(couch, machine_id, 'dmedia/machine')
+    save_config(machine_filename(couch), doc)
 
 
 def load_machine(couch):
@@ -96,28 +120,28 @@ def init_user(couch, machine_id):
     assert not has_user(couch)
     user_id = couch.pki.create_key()
     couch.pki.create_ca(user_id)
-    couch.pki.create_csr(machine_id)
-    couch.pki.issue_cert(machine_id, user_id)
-    config = create_user(user_id)
-    save_config(user_filename(couch), config)
+    doc = create_doc(couch, user_id, 'dmedia/user')
+    add_machine(couch, doc, machine_id)
 
 
-def add_machine(couch, machine_id, user_id):
+def add_machine(couch, user, machine_id):
     assert isinstance(couch, UserCouch)
+    assert machine_id not in user['_attachments']
     couch.pki.create_csr(machine_id)
-    couch.pki.issue_cert(machine_id, user_id)
+    couch.pki.issue_cert(machine_id, user['_id'])
+    cert_file = couch.pki.verify_cert(machine_id)
+    user['_attachments'][machine_id] = pem_attachment(cert_file)
+    save_config(user_filename(couch), user)
 
 
 def load_machine(couch):
-    config = load_config(machine_filename(couch))
-    return config
+    return load_config(machine_filename(couch))
 
 
-def load_user(couch, machine_id):
+def load_user(couch):
     if not has_user(couch):
         return None
-    config = load_config(user_filename(couch))
-    return config
+    return load_config(user_filename(couch))
 
 
 def bootstrap_config(couch, machine_id, user_id):
@@ -145,27 +169,3 @@ def start_usercouch(couch):
     (auth, config) = bootstrap_args(couch, machine_id, user)
     env = couch.bootstrap(auth, config)
     return (env, machine, user)
-
-
-def create_machine(_id):
-    """
-    Create a 'dmedia/machine' document.
-    """
-    return {
-        '_id': _id,
-        'type': 'dmedia/machine',
-        'time': time.time(),
-        'hostname': socket.gethostname(),
-    }
-
-
-def create_user(_id):
-    """
-    Create a 'dmedia/user' document.
-    """
-    return {
-        '_id': _id,
-        'type': 'dmedia/user',
-        'time': time.time(),
-    }
-
