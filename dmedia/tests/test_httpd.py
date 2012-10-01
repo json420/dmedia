@@ -879,7 +879,7 @@ class TestHTTPD(TestCase):
             httpd.HTTPD(demo_app, '::1', 17)
         self.assertEqual(
             str(cm.exception),
-            httpd.TYPE_ERROR.format('context', ssl.SSLContext, int, 17)
+            'context must be a ssl.SSLContext; got 17'
         )
 
         # protocol != ssl.PROTOCOL_TLSv1

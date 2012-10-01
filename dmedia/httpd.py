@@ -81,7 +81,6 @@ from hashlib import md5
 
 from dmedia import __version__
 
-
 # Monkey patch python3.2 to add ssl.OP_NO_COMPRESSION available in python3.3:
 if not hasattr(ssl, 'OP_NO_COMPRESSION'):
     ssl.OP_NO_COMPRESSION = 131072    
@@ -92,7 +91,6 @@ SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__,
 )
 MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
-TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
 
 
 class WSGIError(Exception):
@@ -266,6 +264,7 @@ class Handler:
 
     A `Handler` instance is created per TCP connection.
     """
+
     __slots__ = ('app', 'environ', 'conn', 'rfile', 'wfile', 'start')
 
     def __init__(self, app, environ, conn):
@@ -377,8 +376,8 @@ class HTTPD:
         if bind_address not in ('::1', '::'):
             raise ValueError('invalid bind_address: {!r}'.format(bind_address))
         if not (context is None or isinstance(context, ssl.SSLContext)):
-            raise TypeError(TYPE_ERROR.format(
-                'context', ssl.SSLContext, type(context), context)
+            raise TypeError(
+                'context must be a ssl.SSLContext; got {!r}'.format(context)
             )
         if context is not None and context.protocol != ssl.PROTOCOL_TLSv1:
             raise Exception('context.protocol must be ssl.PROTOCOL_TLSv1')
@@ -468,9 +467,7 @@ class HTTPD:
 
     def handle_requests(self, conn, address):
         environ = self.environ.copy()
-        environ.update(
-            self.build_connection_environ(conn, address)
-        )
+        environ.update(self.build_connection_environ(conn, address))
         handler = Handler(self.app, environ, conn)
         if self.threaded:
             handler.handle_many()
