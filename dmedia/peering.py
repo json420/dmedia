@@ -117,18 +117,33 @@ from collections import namedtuple
 
 from skein import skein512
 from microfiber import random_id
-from usercouch.sslhelpers import gen_key, gen_ca, gen_csr, gen_cert
+from usercouch.sslhelpers import (
+    gen_key, gen_ca, gen_csr, gen_cert,
+    get_pubkey, get_cert_pubkey, get_csr_pubkey,
+)
 
 from .server import BaseWSGI
 
 
 # Skein personalization strings
+PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
 PERS_CERT = b'20120918 jderose@novacut.com dmedia/cert'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 
 TmpFiles = namedtuple('TmpFiles', 'key cert csr')
 Files = namedtuple('Files', 'key cert')
 CAFiles = namedtuple('CAFiles', 'key cert srl')
+
+
+def _hash_pubkey(data):
+    return skein512(data,
+        digest_bits=200,
+        pers=PERS_PUBKEY,
+    ).digest()
+
+
+def hash_pubkey(data):
+    return b32encode(_hash_pubkey(data)).decode('utf-8')
 
 
 def _hash_cert(cert_data):
@@ -223,6 +238,16 @@ class PKI:
         cert_file = self.path(cert_id, 'cert')
         open(tmp_file, 'wb').write(cert_data)
         os.rename(tmp_file, cert_file)
+
+    def create_key(self):
+        (fileno, tmp) = tempfile.mkstemp(dir=self.tmpdir)
+        gen_key(tmp)
+        data = get_pubkey(tmp)
+        cn = hash_pubkey(data)
+        dst = self.path(cn, 'key')
+        os.rename(tmp, dst)
+        os.close(fileno)
+        return cn
 
     def create(self, tmp_id):
         subject = get_subject(tmp_id)

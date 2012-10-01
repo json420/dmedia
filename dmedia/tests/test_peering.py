@@ -27,6 +27,7 @@ from unittest import TestCase
 import os
 from os import path
 
+from usercouch import sslhelpers
 from microfiber import random_id
 
 from .base import TempDir
@@ -136,6 +137,19 @@ class TestPKI(TestCase):
         self.assertEqual(files,
             (files.key, files.cert, files.srl)
         )
+
+    def test_create_key(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        cn = pki.create_key()
+        self.assertEqual(os.listdir(pki.tmpdir), [])
+        self.assertEqual(
+            set(os.listdir(pki.ssldir)),
+            set(['tmp', cn + '.key'])
+        )
+        key_file = path.join(pki.ssldir, cn + '.key')
+        data = sslhelpers.get_pubkey(key_file)
+        self.assertEqual(cn, peering.hash_pubkey(data))
 
     def test_create(self):
         tmp = TempDir()
