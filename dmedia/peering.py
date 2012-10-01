@@ -413,6 +413,19 @@ class PKI:
         os.rename(tmp_file, cert_file)
         return cert_file
 
+    def issue_subcert(self, _id, subca_id):
+        csr_file = self.verify_csr(_id)
+        tmp_file = self.random_tmp()
+        cert_file = self.path(_id, 'cert')
+
+        ca_file = self.verify_cert(subca_id)
+        key_file = self.verify_key(subca_id)
+        srl_file = self.path(subca_id, 'srl')
+
+        issue_cert(csr_file, ca_file, key_file, srl_file, tmp_file)
+        os.rename(tmp_file, cert_file)
+        return cert_file
+
     def verify_cert(self, _id):
         cert_file = self.path(_id, 'cert')
         return verify(cert_file, _id)

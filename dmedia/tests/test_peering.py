@@ -352,6 +352,24 @@ class TestPKI(TestCase):
             ])
         )
 
+    def test_issue_subcert(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+
+        # Level 0
+        id0 = pki.create_key()
+        pki.create_ca(id0)
+
+        # Level 1
+        id1 = pki.create_key()
+        pki.create_csr(id1)
+        pki.issue_cert(id1, id0)
+
+        # Level 2
+        id2 = pki.create_key()
+        pki.create_csr(id2)
+        pki.issue_subcert(id2, id1)
+
     def test_verify_cert(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
