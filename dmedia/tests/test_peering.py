@@ -134,41 +134,33 @@ class TestSSLFunctions(TestCase):
     def test_get_subject(self):
         tmp = TempDir()
 
-        foo_id = random_id(30)
+        foo_subject = '/CN={}'.format(random_id(30))
         foo_key = tmp.join('foo.key')
         foo_ca = tmp.join('foo.ca')
         foo_srl = tmp.join('foo.srl')
         peering.create_key(foo_key)
-        peering.create_ca(foo_key, '/CN={}'.format(foo_id), foo_ca)
-        self.assertEqual(
-            peering.get_subject(foo_ca),
-            'subject= /CN={}'.format(foo_id)
-        )
+        peering.create_ca(foo_key, foo_subject, foo_ca)
+        self.assertEqual(peering.get_subject(foo_ca), foo_subject)
 
-        bar_id = random_id(30)
+        bar_subject = '/CN={}'.format(random_id(30))
         bar_key = tmp.join('bar.key')
         bar_csr = tmp.join('bar.csr')
         bar_cert = tmp.join('bar.cert')
         peering.create_key(bar_key)
-        peering.create_csr(bar_key, '/CN={}'.format(bar_id), bar_csr)
+        peering.create_csr(bar_key, bar_subject, bar_csr)
         peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-        self.assertEqual(
-            peering.get_subject(bar_cert),
-            'subject= /CN={}'.format(bar_id)
-        )
+        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
+        self.assertEqual(peering.get_subject(bar_cert), bar_subject)
 
     def test_get_csr_subject(self):
         tmp = TempDir()
-        _id = random_id(30)
+        subject = '/CN={}'.format(random_id(30))
         key_file = tmp.join('foo.key')
         csr_file = tmp.join('foo.csr')
         peering.create_key(key_file)
-        peering.create_csr(key_file, '/CN={}'.format(_id), csr_file)
+        peering.create_csr(key_file, subject, csr_file)
         os.remove(key_file)
-        self.assertEqual(
-            peering.get_csr_subject(csr_file),
-            'subject=/CN={}'.format(_id)
-        )
+        self.assertEqual(peering.get_csr_subject(csr_file), subject)
 
 
 class TestPKI(TestCase):

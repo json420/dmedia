@@ -221,22 +221,32 @@ def get_csr_subject(csr_file):
     """
     Get subject from certificate signing request in *csr_file*.
     """
-    return check_output(['openssl', 'req',
+    line = check_output(['openssl', 'req',
         '-subject',
         '-noout',
         '-in', csr_file,
     ]).decode('utf-8').rstrip('\n')
+
+    prefix = 'subject='
+    if not line.startswith(prefix):
+        raise Exception(line)
+    return line[len(prefix):]
 
 
 def get_subject(cert_file):
     """
     Get the subject from an X509 certificate (CA or issued certificate).
     """
-    return check_output(['openssl', 'x509',
+    line = check_output(['openssl', 'x509',
         '-subject',
         '-noout',
         '-in', cert_file,
     ]).decode('utf-8').rstrip('\n')
+
+    prefix = 'subject= '  # Different than get_csr_subject()
+    if not line.startswith(prefix):
+        raise Exception(line)
+    return line[len(prefix):]
 
 
 def _hash_pubkey(data):
@@ -303,6 +313,13 @@ class PublicKeyError(Exception):
         self.id = _id
         self.filename = filename
         super().__init__(_id)
+
+
+class SubjectError(Exception):
+    def __init__(self, filename, subject, bad_subject):
+        self.filename = filename
+        self.subject = subject
+        self.bad_subject = bad_subject
 
 
 class PKI:
