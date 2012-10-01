@@ -32,6 +32,7 @@ import os
 import json
 import multiprocessing
 from hashlib import md5
+from copy import deepcopy
 
 import microfiber
 from microfiber import random_id, CouchBase
@@ -1210,6 +1211,17 @@ class TestLive(TestCase):
         # Should be same if connection is being reused:
         self.assertEqual(client.post(body), result)
 
+        # Test with wrong server CA
+        (ca, cert) = pki.create_pki()
+        env = deepcopy(server.env)
+        env['ssl'].update({
+            'ca_file': ca.ca_file,
+        })
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
+
     def test_https_with_client_pki(self):
         pki = TempPKI(client_pki=True)
         server = TempHTTPD(pki)
@@ -1293,4 +1305,35 @@ class TestLive(TestCase):
 
         # Should be same if connection is being reused:
         self.assertEqual(client.post(body), result)
+
+        # Test with wrong server CA
+        (ca, cert) = pki.create_pki()
+        env = deepcopy(server.env)
+        env['ssl'].update({
+            'ca_file': ca.ca_file,
+        })
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
+
+        # Test with wrong client cert
+        env = deepcopy(server.env)
+        env['ssl'].update({
+            'cert_file': cert.cert_file,
+            'key_file': cert.key_file,
+        })
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
+
+        # Test with no client cert
+        env = deepcopy(server.env)
+        del env['ssl']['cert_file']
+        del env['ssl']['key_file']
+        client = CouchBase(env)
+        with self.assertRaises(ssl.SSLError) as cm:
+            client.get()
+        self.assertEqual(cm.exception.errno, 1)
 
