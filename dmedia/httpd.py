@@ -369,19 +369,19 @@ class HTTPD:
             raise TypeError('app not callable: {!r}'.format(app))
         if bind_address not in ('::1', '::'):
             raise ValueError('invalid bind_address: {!r}'.format(bind_address))
-        if not (context is None or isinstance(context, ssl.SSLContext)):
-            raise TypeError(
-                'context must be a ssl.SSLContext; got {!r}'.format(context)
-            )
-        if context is not None and context.protocol != ssl.PROTOCOL_TLSv1:
-            raise Exception('context.protocol must be ssl.PROTOCOL_TLSv1')
+        if context is not None:
+            if not isinstance(context, ssl.SSLContext):
+                raise TypeError(
+                    'context must be a ssl.SSLContext; got {!r}'.format(context)
+                )
+            if context.protocol != ssl.PROTOCOL_TLSv1:
+                raise Exception('context.protocol must be ssl.PROTOCOL_TLSv1')
         self.app = app
+        self.bind_address = bind_address
+        self.context = context
         self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.socket.bind((bind_address, 0))
-        (host, port) = self.socket.getsockname()[:2]
-        self.name = socket.getfqdn(host)
-        self.port = port
-        self.context = context
+        self.port = self.socket.getsockname()[1]
         self.scheme = ('http' if context is None else 'https')
         self.url = '{}://[::1]:{}/'.format(self.scheme, self.port)
         self.environ = self.build_base_environ()
@@ -393,7 +393,7 @@ class HTTPD:
         environ = {
             'SERVER_PROTOCOL': 'HTTP/1.1',
             'SERVER_SOFTWARE': SERVER_SOFTWARE,
-            'SERVER_NAME': self.name,
+            'SERVER_NAME': self.bind_address,
             'SERVER_PORT': str(self.port),
             'SCRIPT_NAME': '',
             'wsgi.version': '(1, 0)',

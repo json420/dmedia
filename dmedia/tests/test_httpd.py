@@ -894,7 +894,7 @@ class TestHTTPD(TestCase):
         server = httpd.HTTPD(demo_app)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
-        self.assertEqual(server.name, socket.getfqdn('::1'))
+        self.assertEqual(server.bind_address, '::1')
         self.assertIsInstance(server.port, int)
         self.assertEqual(server.socket.getsockname(),
             ('::1', server.port, 0, 0)
@@ -908,7 +908,7 @@ class TestHTTPD(TestCase):
         server = httpd.HTTPD(demo_app, '::', ctx)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
-        self.assertEqual(server.name, socket.getfqdn('::'))
+        self.assertEqual(server.bind_address, '::')
         self.assertIsInstance(server.port, int)
         self.assertEqual(server.socket.getsockname(),
             ('::', server.port, 0, 0)
@@ -924,7 +924,7 @@ class TestHTTPD(TestCase):
         class Subclass(httpd.HTTPD):
             def __init__(self):
                 self.scheme = random_id()
-                self.name = random_id()
+                self.bind_address = random_id()
                 self.port = random_port()
                 self.context = 'foo'
 
@@ -934,7 +934,7 @@ class TestHTTPD(TestCase):
             {
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
-                'SERVER_NAME': server.name,
+                'SERVER_NAME': server.bind_address,
                 'SERVER_PORT': str(server.port),
                 'SCRIPT_NAME': '',
                 'wsgi.version': '(1, 0)',
@@ -953,7 +953,7 @@ class TestHTTPD(TestCase):
             {
                 'SERVER_PROTOCOL': 'HTTP/1.1',
                 'SERVER_SOFTWARE': httpd.SERVER_SOFTWARE,
-                'SERVER_NAME': socket.getfqdn('::1'),
+                'SERVER_NAME': '::1',
                 'SERVER_PORT': str(server.port),
                 'SCRIPT_NAME': '',
                 'wsgi.version': '(1, 0)',
