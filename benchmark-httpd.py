@@ -35,7 +35,6 @@ pki = TempPKI(options.client_pki)
 q = multiprocessing.Queue()
 start_process(run_server, q, echo_app,
     ssl_config=pki.get_server_config(),
-    threaded=True,
 )
 env = q.get()
 env['ssl'] = pki.get_client_config()

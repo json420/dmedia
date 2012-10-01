@@ -900,13 +900,12 @@ class TestHTTPD(TestCase):
             ('::1', server.port, 0, 0)
         )
         self.assertIsNone(server.context)
-        self.assertIs(server.threaded, False)
         self.assertEqual(server.scheme, 'http')
         self.assertEqual(server.url, 'http://[::1]:{}/'.format(server.port))
         self.assertEqual(server.environ, server.build_base_environ())
 
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        server = httpd.HTTPD(demo_app, '::', ctx, True)
+        server = httpd.HTTPD(demo_app, '::', ctx)
         self.assertIs(server.app, demo_app)
         self.assertIsInstance(server.socket, socket.socket)
         self.assertEqual(server.name, socket.getfqdn('::'))
@@ -915,7 +914,6 @@ class TestHTTPD(TestCase):
             ('::', server.port, 0, 0)
         )
         self.assertIs(server.context, ctx)
-        self.assertIs(server.threaded, True)
         self.assertEqual(server.scheme, 'https')
         self.assertEqual(server.url, 
             'https://[::1]:{}/'.format(server.port)
@@ -926,7 +924,6 @@ class TestHTTPD(TestCase):
         class Subclass(httpd.HTTPD):
             def __init__(self):
                 self.scheme = random_id()
-                self.threaded = random_id()
                 self.name = random_id()
                 self.port = random_port()
                 self.context = 'foo'
@@ -942,7 +939,7 @@ class TestHTTPD(TestCase):
                 'SCRIPT_NAME': '',
                 'wsgi.version': '(1, 0)',
                 'wsgi.url_scheme': server.scheme,
-                'wsgi.multithread': server.threaded,
+                'wsgi.multithread': True,
                 'wsgi.multiprocess': False,
                 'wsgi.run_once': False,
                 'wsgi.file_wrapper': httpd.FileWrapper,
@@ -961,7 +958,7 @@ class TestHTTPD(TestCase):
                 'SCRIPT_NAME': '',
                 'wsgi.version': '(1, 0)',
                 'wsgi.url_scheme': 'http',
-                'wsgi.multithread': False,
+                'wsgi.multithread': True,
                 'wsgi.multiprocess': False,
                 'wsgi.run_once': False,
                 'wsgi.file_wrapper': httpd.FileWrapper,

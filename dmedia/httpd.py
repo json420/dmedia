@@ -91,6 +91,7 @@ SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__,
 )
 MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
+SOCKET_TIMEOUT = 10
 
 
 class WSGIError(Exception):
@@ -130,13 +131,6 @@ def build_server_ssl_context(config):
             capath=config.get('ca_path'),
         )
     return ctx
-
-
-def start_thread(target, *args):
-    thread = threading.Thread(target=target, args=args)
-    thread.daemon = True
-    thread.start()
-    return thread
 
 
 def parse_request(line_bytes):
@@ -370,7 +364,7 @@ class Handler:
 
 
 class HTTPD:
-    def __init__(self, app, bind_address='::1', context=None, threaded=False):
+    def __init__(self, app, bind_address='::1', context=None):
         if not callable(app):
             raise TypeError('app not callable: {!r}'.format(app))
         if bind_address not in ('::1', '::'):
@@ -388,7 +382,6 @@ class HTTPD:
         self.name = socket.getfqdn(host)
         self.port = port
         self.context = context
-        self.threaded = threaded
         self.scheme = ('http' if context is None else 'https')
         self.url = '{}://[::1]:{}/'.format(self.scheme, self.port)
         self.environ = self.build_base_environ()
@@ -405,7 +398,7 @@ class HTTPD:
             'SCRIPT_NAME': '',
             'wsgi.version': '(1, 0)',
             'wsgi.url_scheme': self.scheme,
-            'wsgi.multithread': self.threaded,
+            'wsgi.multithread': True,
             'wsgi.multiprocess': False,
             'wsgi.run_once': False,
             'wsgi.file_wrapper': FileWrapper
@@ -447,14 +440,16 @@ class HTTPD:
         self.socket.listen(5)
         while True:
             (conn, address) = self.socket.accept()
-            if self.threaded:
-                conn.settimeout(32)
-                start_thread(self.handle_connection, conn, address)
-            else:
-                conn.settimeout(1)
-                self.handle_connection(conn, address)
+            thread = threading.Thread(
+                target=self.handle_connection,
+                args=(conn, address),
+            )
+            thread.daemon = True
+            thread.start()
 
     def handle_connection(self, conn, address):
+        #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+        conn.settimeout(SOCKET_TIMEOUT)
         try:
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
@@ -469,10 +464,7 @@ class HTTPD:
         environ = self.environ.copy()
         environ.update(self.build_connection_environ(conn, address))
         handler = Handler(self.app, environ, conn)
-        if self.threaded:
-            handler.handle_many()
-        else:
-            handler.handle_one()
+        handler.handle_many()
 
 
 
@@ -504,16 +496,16 @@ def echo_app(environ, start_response):
     return [output]
 
 
-def make_server(app, bind_address='::1', ssl_config=None, threaded=False):
+def make_server(app, bind_address='::1', ssl_config=None):
     if ssl_config is None:
         context = None
     else:
         context = build_server_ssl_context(ssl_config)
-    return HTTPD(app, bind_address, context, threaded)
+    return HTTPD(app, bind_address, context)
 
 
-def run_server(queue, app, bind_address='::1', ssl_config=None, threaded=False):
-    server = make_server(app, bind_address, ssl_config, threaded)
+def run_server(queue, app, bind_address='::1', ssl_config=None):
+    server = make_server(app, bind_address, ssl_config)
     env = {'port': server.port, 'url': server.url}
     queue.put(env)
     server.serve_forever()
