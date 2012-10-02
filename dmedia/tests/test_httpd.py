@@ -991,6 +991,7 @@ class TestHTTPD(TestCase):
             {
                 'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
                 'REMOTE_PORT': '5123',
+                'REMOTE': '[fe80::beae:c5ff:fe4c:ed12/64]:5123',
             }
         )
 
@@ -1001,6 +1002,7 @@ class TestHTTPD(TestCase):
             {
                 'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
                 'REMOTE_PORT': '5123',
+                'REMOTE': '[fe80::beae:c5ff:fe4c:ed12/64]:5123',
             }
         )
         conn = DummySSLSocket(peercert=json.loads(PEER_CERT))
@@ -1009,6 +1011,7 @@ class TestHTTPD(TestCase):
             {
                 'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
                 'REMOTE_PORT': '5123',
+                'REMOTE': '[fe80::beae:c5ff:fe4c:ed12/64]:5123',
                 'SSL_CLIENT_I_DN_CN': 'YSFT7VO2DJ5JPKG5P3N43V45',
                 'SSL_CLIENT_S_DN_CN': 'VTCFTK5VBEUZNHV2KO462CSB',
             }
@@ -1028,6 +1031,7 @@ class TestHTTPD(TestCase):
             {
                 'REMOTE_ADDR': 'fe80::beae:c5ff:fe4c:ed12/64',
                 'REMOTE_PORT': '5123',
+                'REMOTE': '[fe80::beae:c5ff:fe4c:ed12/64]:5123',
                 'SSL_CLIENT_I_DN_CN': 'YSFT7VO2DJ5JPKG5P3N43V45',
                 'SSL_CLIENT_S_DN_CN': 'VTCFTK5VBEUZNHV2KO462CSB',
                 'SSL_CLIENT_VERIFY': 'SUCCESS',
@@ -1079,6 +1083,7 @@ class TestLive(TestCase):
                 'REMOTE_ADDR': '::1',
                 'REMOTE_PORT': str(port),
                 'REQUEST_METHOD': 'GET',
+                'REMOTE': '[::1]:{}'.format(port),
                 'SCRIPT_NAME': '',
                 'SERVER_NAME': '::1',
                 'SERVER_PORT': str(server.port),
@@ -1113,6 +1118,7 @@ class TestLive(TestCase):
                 'QUERY_STRING': '',
                 'REMOTE_ADDR': '::1',
                 'REMOTE_PORT': str(port),
+                'REMOTE': '[::1]:{}'.format(port),
                 'REQUEST_METHOD': 'POST',
                 'SCRIPT_NAME': '',
                 'SERVER_NAME': '::1',
@@ -1152,6 +1158,7 @@ class TestLive(TestCase):
                 'QUERY_STRING': '',
                 'REMOTE_ADDR': '::1',
                 'REMOTE_PORT': str(port),
+                'REMOTE': '[::1]:{}'.format(port),
                 'REQUEST_METHOD': 'GET',
                 'SCRIPT_NAME': '',
                 'SERVER_NAME': '::1',
@@ -1189,6 +1196,7 @@ class TestLive(TestCase):
                 'QUERY_STRING': '',
                 'REMOTE_ADDR': '::1',
                 'REMOTE_PORT': str(port),
+                'REMOTE': '[::1]:{}'.format(port),
                 'REQUEST_METHOD': 'POST',
                 'SCRIPT_NAME': '',
                 'SERVER_NAME': '::1',
@@ -1241,6 +1249,7 @@ class TestLive(TestCase):
                 'QUERY_STRING': '',
                 'REMOTE_ADDR': '::1',
                 'REMOTE_PORT': str(port),
+                'REMOTE': '[::1]:{}'.format(port),
                 'REQUEST_METHOD': 'GET',
                 'SCRIPT_NAME': '',
                 'SERVER_NAME': '::1',
@@ -1281,6 +1290,7 @@ class TestLive(TestCase):
                 'QUERY_STRING': '',
                 'REMOTE_ADDR': '::1',
                 'REMOTE_PORT': str(port),
+                'REMOTE': '[::1]:{}'.format(port),
                 'REQUEST_METHOD': 'POST',
                 'SCRIPT_NAME': '',
                 'SERVER_NAME': '::1',

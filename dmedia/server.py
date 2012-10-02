@@ -49,6 +49,7 @@ from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 import microfiber
 
 from dmedia import __version__
+from dmedia.httpd import WSGIError
 from dmedia import local
 
 
@@ -346,7 +347,6 @@ class Router:
         if key in self.map:
             return self.map[key](environ, start_response)
         raise WSGIError('410 Gone')
-    
 
 
 class ProxyApp:
@@ -357,27 +357,14 @@ class ProxyApp:
 
     def __call__(self, environ, start_response):
         (method, path, body, headers) = request_args(environ)
-
-        print('\nREQUEST:')
-        print('  {} {}'.format(method, path))
-
         headers['host'] = self.target_host
         headers['authorization'] = self.basic_auth
-        for name in sorted(headers):
-            print('  {}: {}'.format(name, headers[name]))
-        response = self.client.raw_request(method, path, body, headers)
 
-        print('RESPONSE:')
+        response = self.client.raw_request(method, path, body, headers)
         status = '{} {}'.format(response.status, response.reason)
         headers = response.getheaders()
-        print('  {}'.format(status))
-        for (name, value) in headers:
-            print('  {}: {}'.format(name, value))
         start_response(status, headers)
         body = response.read()
         if body:
             return [body]
         return []
-    
-    
-

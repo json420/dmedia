@@ -78,6 +78,7 @@ import threading
 import platform
 import json
 from hashlib import md5
+import logging
 
 from dmedia import __version__
 
@@ -91,7 +92,8 @@ SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__,
 )
 MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
-SOCKET_TIMEOUT = 10
+SOCKET_TIMEOUT = 30
+log = logging.getLogger()
 
 
 class WSGIError(Exception):
@@ -270,19 +272,25 @@ class Handler:
         self.wfile = conn.makefile('wb')
 
     def handle_many(self):
-        while self.handle_one():
-            pass
+        remote = self.environ['REMOTE']
+        count = 0
+        try:
+            while self.handle_one():
+                count += 1
+        finally:
+            log.info('%s\tHandled %r Requests', remote, count)
 
     def handle_one(self):
         self.start = None
+        remote = self.environ['REMOTE']
         environ = self.environ.copy()
         try:
             environ.update(self.build_request_environ())
             result = self.app(environ, self.start_response)
-            if self.start is None:
-                raise WSGIError('500 Internal Server Error')
         except WSGIError as e:
-            self.send_status_only(e.status)
+            if e.status:
+                log.warning('%s\t%s', remote, e.status)
+                self.send_status_only(e.status)
             return False
         self.send_response(environ, result)
         return True
@@ -295,6 +303,8 @@ class Handler:
 
         # Parse the request line
         request_line = self.rfile.readline(MAX_LINE + 1)
+        if request_line == b'':
+            raise WSGIError('')
         if len(request_line) > MAX_LINE:
             raise WSGIError('414 Request-URI Too Long')
         (method, uri, protocol) = parse_request(request_line)
@@ -427,6 +437,7 @@ class HTTPD:
         environ = {
             'REMOTE_ADDR': address[0],
             'REMOTE_PORT': str(address[1]),
+            'REMOTE': '[{}]:{}'.format(address[0], address[1]),
         }
         if self.context is None:
             return environ
@@ -461,14 +472,18 @@ class HTTPD:
 
     def handle_connection(self, conn, address):
         #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        conn.settimeout(SOCKET_TIMEOUT)
+        remote = '[{}]:{}'.format(address[0], address[1])
         try:
+            log.info('%s\tNew Connection', remote)
+            conn.settimeout(SOCKET_TIMEOUT)
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
             self.handle_requests(conn, address)
             conn.shutdown(socket.SHUT_RDWR)
         except socket.error:
-            pass       
+            log.info('%s\tSocket Timeout/Error', remote)
+        except Exception:
+            log.exception('%s\tUnhandled Exception', remote)
         finally:
             conn.close()
 
