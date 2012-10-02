@@ -43,6 +43,7 @@ But this is not okay:
 
 import json
 import socket
+from wsgiref.util import shift_path_info
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 import microfiber
@@ -318,6 +319,33 @@ def request_args(environ):
     else:
         body = None
     return (environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
+
+
+class RootApp:
+    def __init__(self, env):
+        self.map = {}
+        self.map['couch'] = ProxyApp(env)
+        info = {
+            'Dmedia': 'welcome',
+            'version': __version__,
+        }
+        self._info = json.dumps(info, sort_keys=True).encode('utf-8')
+
+    def __call__(self, environ, start_response):
+        key = shift_path_info(environ)
+        if key in self.map:
+            return self.map[key](environ, start_response)
+
+
+class Router:
+    def __init__(self, _map):
+        self.map = _map
+
+    def __call__(self, environ, start_response):
+        key = shift_path_info(environ)
+        if key in self.map:
+            return self.map[key](environ, start_response)
+        raise WSGIError('410 Gone')
     
 
 
@@ -325,10 +353,7 @@ class ProxyApp:
     def __init__(self, env):
         self.client = microfiber.CouchBase(env)
         self.target_host = self.client.ctx.t.netloc
-        if 'basic' in env:
-            self.basic_auth = microfiber.basic_auth_header(env['basic'])
-        else:
-            self.basic_auth = None
+        self.basic_auth = microfiber.basic_auth_header(env['basic'])
 
     def __call__(self, environ, start_response):
         (method, path, body, headers) = request_args(environ)
@@ -337,8 +362,7 @@ class ProxyApp:
         print('  {} {}'.format(method, path))
 
         headers['host'] = self.target_host
-        if self.basic_auth is not None:
-            headers['authorization'] = self.basic_auth
+        headers['authorization'] = self.basic_auth
         for name in sorted(headers):
             print('  {}: {}'.format(name, headers[name]))
         response = self.client.raw_request(method, path, body, headers)

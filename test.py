@@ -1,7 +1,7 @@
 from usercouch.misc import TempCouch
 from microfiber import Server, dumps, _start_thread, random_id
 from dmedia.peering import TempPKI
-from dmedia.server import ProxyApp
+from dmedia.server import RootApp
 from dmedia.httpd import make_server
 import time
 from copy import deepcopy
@@ -25,7 +25,7 @@ s2.put(None, 'two')
 
 
 def pusher(env):
-    time.sleep(1)
+    time.sleep(2)
     s1.push('one', 'two', env, continuous=True)
     while True:
         docs = [{'_id': random_id(), 'i': i} for i in range(10)]
@@ -37,10 +37,10 @@ def pusher(env):
 
 
 
-app = ProxyApp(env2)
+app = RootApp(env2)
 
 httpd = make_server(app, ssl_config=pki.get_server_config())
-env = {'url': httpd.url}
+env = {'url': httpd.url + 'couch/'}
 _start_thread(pusher, env)
 httpd.serve_forever()
 

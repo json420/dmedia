@@ -279,6 +279,8 @@ class Handler:
         try:
             environ.update(self.build_request_environ())
             result = self.app(environ, self.start_response)
+            if self.start is None:
+                raise WSGIError('500 Internal Server Error')
         except WSGIError as e:
             self.send_status_only(e.status)
             return False
