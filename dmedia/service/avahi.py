@@ -174,9 +174,9 @@ class FileServer(Avahi):
         except KeyError:
             pass
         self.remove_replication_peer(key)
-        
+
     def add_replication_peer(self, key, url):
-        env = {'url': url}
+        env = {'url': url + 'couch/'}
         cancel = self.replications.pop(key, None)
         start = Peer(env, list(self.get_names()))
         self.replications[key] = start
