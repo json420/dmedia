@@ -398,7 +398,7 @@ class HTTPD:
         self.bind_address = bind_address
         self.context = context
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind(('127.0.0.1', 0))
+        self.socket.bind(('0.0.0.0', 0))
         self.port = self.socket.getsockname()[1]
         self.scheme = ('http' if context is None else 'https')
         #self.url = '{}://[::1]:{}/'.format(self.scheme, self.port)
