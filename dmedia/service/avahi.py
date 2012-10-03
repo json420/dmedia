@@ -69,7 +69,7 @@ class Avahi:
         )
         self.group.AddService(
             -1,  # Interface
-            1,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
             self.id,
             self.service,
@@ -82,7 +82,7 @@ class Avahi:
         self.group.Commit(dbus_interface='org.freedesktop.Avahi.EntryGroup')
         browser_path = self.avahi.ServiceBrowserNew(
             -1,  # Interface
-            1,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             self.service,
             'local',
             0,  # Flags
@@ -116,7 +116,7 @@ class Avahi:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        url = 'https://[{}]:{}/'.format(ip, port)
+        url = 'https://{}:{}/'.format(ip, port)
         log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
         self.add_peer(key, url)
 
