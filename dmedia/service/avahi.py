@@ -69,7 +69,7 @@ class Avahi:
         )
         self.group.AddService(
             -1,  # Interface
-            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            1,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
             self.id,
             self.service,
@@ -82,7 +82,7 @@ class Avahi:
         self.group.Commit(dbus_interface='org.freedesktop.Avahi.EntryGroup')
         browser_path = self.avahi.ServiceBrowserNew(
             -1,  # Interface
-            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            1,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             self.service,
             'local',
             0,  # Flags
@@ -103,11 +103,8 @@ class Avahi:
             del self.avahi
 
     def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
-        # Always Ignore what we publish ourselves:
+        # Ignore what we publish ourselves:
         if key == self.id:
-            return
-        # Subclasses can add finer-grained ignore behavior:
-        if self.ignore_peer(interface, protocol, key, _type, domain, flags):
             return
         self.avahi.ResolveService(
             interface, protocol, key, _type, domain, -1, 0,
@@ -119,7 +116,7 @@ class Avahi:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        url = 'http://{}:{}/'.format(ip, port)
+        url = 'https://[{}]:{}/'.format(ip, port)
         log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
         self.add_peer(key, url)
 
@@ -129,9 +126,6 @@ class Avahi:
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Avahi(%s): peer removed: %s', self.service, key)
         self.remove_peer(key)
-
-    def ignore_peer(self, interface, protocol, key, _type, domain, flags):
-        return False
 
     def add_peer(self, key, url):
         raise NotImplementedError(
