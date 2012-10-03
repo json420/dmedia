@@ -29,7 +29,7 @@ import time
 from collections import namedtuple
 
 from filestore import _start_thread
-from microfiber import Server, Database, NotFound
+from microfiber import Context, Server, Database, NotFound
 import dbus
 from gi.repository import GObject
 
@@ -145,9 +145,11 @@ class FileServer(Avahi):
     service = '_dmedia._tcp'
 
     def __init__(self, env, port):
-        self.db = Database('dmedia-0', env)
-        _id = env['machine_id']
-        super().__init__(_id, port)
+        super().__init__(env['machine_id'], port)
+        ctx = Context(env)
+        self.db = Database('dmedia-0', ctx=ctx)
+        self.server = Server(ctx=ctx)
+        self.replications = {}
 
     def run(self):
         try:
@@ -163,6 +165,7 @@ class FileServer(Avahi):
     def add_peer(self, key, url):
         self.peers['peers'][key] = url
         self.db.save(self.peers)
+        self.add_replication_peer(key, url)
 
     def remove_peer(self, key):
         try:
@@ -170,57 +173,17 @@ class FileServer(Avahi):
             self.db.save(self.peers)
         except KeyError:
             pass
-
-
-class Replicator(Avahi):
-    """
-    Advertise CouchDB over Avahi, discover other peers in same library.
-    """
-
-    service = '_usercouch._tcp'
-
-    def __init__(self, env, config):
-        self.env = env
-        self.server = Server(env)
-        self.peers = {}
-        self.base_id = config['library_id'] + '-'
-        self.tokens = config.get('tokens')
-        _id = self.base_id + env['machine_id']
-        port = env['port']
-        super().__init__(_id, port)
-
-    def run(self):
-        super().run()
-        # Every 15 seconds we check for database created since the replicator
-        # started
-        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
-
-    def on_timeout(self):
-        if not self.peers:
-            return True  # Repeat timeout call
-        current = set(self.get_names())
-        for (key, peer) in self.peers.items():
-            new = current - set(peer.names)
-            if new:
-                log.info('New databases: %r', sorted(new))
-                tmp = Peer(peer.env, tuple(new))
-                peer.names.extend(new)
-                _start_thread(self.replication_worker, None, tmp)
-        return True  # Repeat timeout call
-
-    def ignore_peer(self, interface, protocol, key, _type, domain, flags):
-        # Ignore peers in other libraries:
-        return not key.startswith(self.base_id)
-
-    def add_peer(self, key, url):
-        env = {'url': url, 'oauth': self.tokens}
-        cancel = self.peers.pop(key, None)
+        self.remove_replication_peer(key)
+        
+    def add_replication_peer(self, key, url):
+        env = {'url': url}
+        cancel = self.replications.pop(key, None)
         start = Peer(env, list(self.get_names()))
-        self.peers[key] = start
+        self.replications[key] = start
         _start_thread(self.replication_worker, cancel, start)
 
-    def remove_peer(self, key):
-        cancel = self.peers.pop(key, None)
+    def remove_replication_peer(self, key):
+        cancel = self.replications.pop(key, None)
         if cancel:
             _start_thread(self.replication_worker, cancel, None)
 
@@ -269,3 +232,42 @@ class Replicator(Avahi):
                 log.exception('Error canceling push of %s to %s', name, env['url'])
             else:
                 log.exception('Error starting push of %s to %s', name, env['url'])
+
+
+class Replicator(Avahi):
+    """
+    Advertise CouchDB over Avahi, discover other peers in same library.
+    """
+
+    service = '_usercouch._tcp'
+
+    def __init__(self, env, config):
+        self.env = env
+        self.server = Server(env)
+        
+        self.base_id = config['library_id'] + '-'
+        self.tokens = config.get('tokens')
+        _id = self.base_id + env['machine_id']
+        port = env['port']
+        super().__init__(_id, port)
+
+    def run(self):
+        super().run()
+        # Every 15 seconds we check for database created since the replicator
+        # started
+        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
+
+    def on_timeout(self):
+        if not self.replications:
+            return True  # Repeat timeout call
+        current = set(self.get_names())
+        for (key, peer) in self.replications.items():
+            new = current - set(peer.names)
+            if new:
+                log.info('New databases: %r', sorted(new))
+                tmp = Peer(peer.env, tuple(new))
+                peer.names.extend(new)
+                _start_thread(self.replication_worker, None, tmp)
+        return True  # Repeat timeout call
+
+    

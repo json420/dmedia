@@ -122,19 +122,22 @@ class DmediaCouch(UserCouch):
         if not self.isfirstrun():
             raise Exception('not first run, cannot call firstrun_init()')
         log.info('Creating RSA machine identity...')
-        machine_id = self.pki.create_key(3072)
+        machine_id = self.pki.create_key()
         log.info('... machine_id: %s', machine_id)
         self.pki.create_ca(machine_id)
         if create_user:
-            log.info('Creating RSA user identity...')
-            user_id = self.pki.create_key(3072)
-            log.info('... user_id: %s', user_id)
-            self.pki.create_ca(user_id)
+            if self.user is None:
+                log.info('Creating RSA user identity...')
+                user_id = self.pki.create_key()
+                log.info('... user_id: %s', user_id)
+                self.pki.create_ca(user_id)
+                doc = create_doc(user_id, 'dmedia/user')
+                self.save_config('user', doc)
+                self.user = self.load_config('user')
+            else:
+                user_id = self.user['_id']
             self.pki.create_csr(machine_id)
             self.pki.issue_cert(machine_id, user_id)
-            doc = create_doc(user_id, 'dmedia/user')
-            self.save_config('user', doc)
-            self.user = self.load_config('user')
         doc = create_doc(machine_id, 'dmedia/machine')
         self.save_config('machine', doc)
         self.machine = self.load_config('machine')
