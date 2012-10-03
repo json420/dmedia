@@ -125,18 +125,26 @@ def projects_iter(env):
 
 
 class Core:
-    def __init__(self, env, private=None, shared=None, full_init=True):
+    def __init__(self, env, private=None, shared=None):
         self.env = env
+        self._private = (PRIVATE if private is None else private)
+        self._shared = (SHARED if shared is None else shared)
         self.db = util.get_db(env, init=True)
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
-        self._private = (PRIVATE if private is None else private)
-        self._shared = (SHARED if shared is None else shared)
         self.queue = Queue()
         self.thread = None
-        if full_init:
-            self._init_local()
-            self._init_default_store()
+        self.default = None
+        try:
+            self.local = self.db.get(LOCAL_ID)
+        except NotFound:
+            self.local = {
+                '_id': LOCAL_ID,
+                'stores': {},
+            }
+
+    def load_identity(self, machine):
+        pass
 
     def _init_local(self):
         try:
@@ -152,10 +160,9 @@ class Core:
             self.db.save(machine)
         self.machine_id = self.local['machine_id']
         self.env['machine_id'] = self.machine_id
-        self.env['version'] = dmedia.__version__
         log.info('machine_id = %r', self.machine_id)
 
-    def _init_default_store(self):
+    def init_default_store(self):
         value = self.local.get('default_store')
         if value not in ('private', 'shared'):
             log.info('no default FileStore')
@@ -246,7 +253,7 @@ class Core:
         if self.default is not None:
             self.disconnect_filestore(self.default.parentdir, self.default.id)
             self.default = None
-        self._init_default_store()
+        self.init_default_store()
 
     def create_filestore(self, parentdir):
         """

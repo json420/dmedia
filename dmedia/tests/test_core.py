@@ -59,7 +59,7 @@ class TestCore(CouchCase):
         self.assertIsInstance(inst.db, microfiber.Database)
         self.assertEqual(inst.db.name, DB_NAME)
         self.assertIsInstance(inst.stores, LocalStores)
-        self.assertEqual(inst.local['stores'], {})
+        self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
 
     def test_init_default_store(self):
         private = TempDir()
@@ -67,44 +67,25 @@ class TestCore(CouchCase):
         machine_id = random_id()
 
         # Test when default_store is missing
-        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        inst = core.Core(self.env, private.dir, shared.dir)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
-        self.assertFalse(hasattr(inst, 'local'))
-        inst.local = {
-            '_id': '_local/dmedia',
-            'machine_id': machine_id,
-        }
-
-        inst._init_default_store()
+        inst.init_default_store()
         self.assertIsNone(inst.default)
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'machine_id': machine_id,
                 'stores': {},
             }
         )
 
         # Test when default_store is 'private'
-        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        inst = core.Core(self.env, private.dir, shared.dir)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
-        self.assertFalse(hasattr(inst, 'local'))
-        inst._init_local()
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'machine_id': machine_id,
-                'stores': {},
-            }
-        )
         inst.local['default_store'] = 'private'
-
         self.assertFalse(util.isfilestore(private.dir))
-        inst._init_default_store()
+        inst.init_default_store()
         self.assertEqual(
             set(inst.local['stores']),
             set([private.dir])
@@ -114,8 +95,7 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'machine_id': machine_id,
+                '_rev': '0-1',
                 'default_store': 'private',
                 'stores': {
                     fs1.parentdir: {
@@ -128,17 +108,14 @@ class TestCore(CouchCase):
 
         # Again test when default_store is 'private' to make sure local isn't
         # updated needlessly
-        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        inst = core.Core(self.env, private.dir, shared.dir)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
-        self.assertFalse(hasattr(inst, 'local'))
-        inst._init_local()
-        inst._init_default_store()
+        inst.init_default_store()
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'machine_id': machine_id,
+                '_rev': '0-1',
                 'default_store': 'private',
                 'stores': {
                     fs1.parentdir: {
@@ -152,18 +129,15 @@ class TestCore(CouchCase):
         # Test when default_store is 'shared' (which we're assuming exists)
         self.assertFalse(util.isfilestore(shared.dir))
         (fs2, doc) = util.init_filestore(shared.dir)
-        inst = core.Core(self.env, private.dir, shared.dir, full_init=False)
+        inst = core.Core(self.env, private.dir, shared.dir)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, shared.dir)
-        self.assertFalse(hasattr(inst, 'local'))
-        inst._init_local()
         inst.local['default_store'] = 'shared'
-        inst._init_default_store()
+        inst.init_default_store()
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'machine_id': machine_id,
+                '_rev': '0-2',
                 'default_store': 'shared',
                 'stores': {
                     fs2.parentdir: {
@@ -177,18 +151,15 @@ class TestCore(CouchCase):
         # Test when default_store is 'shared' and it doesn't exist, in which
         # case it should automatically switch to 'private' instead
         nope = TempDir()
-        inst = core.Core(self.env, private.dir, nope.dir, full_init=False)
+        inst = core.Core(self.env, private.dir, nope.dir)
         self.assertEqual(inst._private, private.dir)
         self.assertEqual(inst._shared, nope.dir)
-        self.assertFalse(hasattr(inst, 'local'))
-        inst._init_local()
         inst.local['default_store'] = 'shared'
-        inst._init_default_store()
+        inst.init_default_store()
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-5',
-                'machine_id': machine_id,
+                '_rev': '0-4',
                 'default_store': 'private',
                 'stores': {
                     fs1.parentdir: {
@@ -217,8 +188,6 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'machine_id': inst.machine_id,
                 'stores': {},
             }
         )
@@ -228,8 +197,7 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'machine_id': inst.machine_id,
+                '_rev': '0-2',
                 'default_store': 'private',
                 'stores': {
                     fs1.parentdir: {'id': fs1.id, 'copies': 1},
@@ -242,8 +210,7 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-6',
-                'machine_id': inst.machine_id,
+                '_rev': '0-5',
                 'default_store': 'shared',
                 'stores': {
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
@@ -256,8 +223,7 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-8',
-                'machine_id': inst.machine_id,
+                '_rev': '0-7',
                 'default_store': 'none',
                 'stores': {},
             }
@@ -272,8 +238,7 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local,
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-11',
-                'machine_id': inst.machine_id,
+                '_rev': '0-10',
                 'default_store': 'private',
                 'stores': {
                     fs1.parentdir: {'id': fs1.id, 'copies': 1},
@@ -306,8 +271,7 @@ class TestCore(CouchCase):
             inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'machine_id': inst.machine_id,
+                '_rev': '0-1',
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': fs.copies},
                 }
@@ -320,8 +284,7 @@ class TestCore(CouchCase):
             inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'machine_id': inst.machine_id,
+                '_rev': '0-2',
                 'stores': {},
             }
         )
@@ -355,8 +318,7 @@ class TestCore(CouchCase):
             inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'machine_id': inst.machine_id,
+                '_rev': '0-1',
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': fs.copies},
                 }
@@ -398,8 +360,7 @@ class TestCore(CouchCase):
             inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'machine_id': inst.machine_id,
+                '_rev': '0-2',
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': 1},
                     fs2.parentdir: {'id': fs2.id, 'copies': 0},
@@ -427,8 +388,7 @@ class TestCore(CouchCase):
             inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'machine_id': inst.machine_id,
+                '_rev': '0-2',
                 'stores': {
                     fs1.parentdir: {'id': fs1.id, 'copies': 1},
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
@@ -442,8 +402,7 @@ class TestCore(CouchCase):
             inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-4',
-                'machine_id': inst.machine_id,
+                '_rev': '0-3',
                 'stores': {
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
                 }
@@ -456,8 +415,7 @@ class TestCore(CouchCase):
             inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-5',
-                'machine_id': inst.machine_id,
+                '_rev': '0-4',
                 'stores': {},
             }
         )
@@ -469,8 +427,4 @@ class TestCore(CouchCase):
         with self.assertRaises(KeyError) as cm:
             inst.disconnect_filestore(fs1.parentdir, fs1.id)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
-        
-        
-        
-        
-        
+
