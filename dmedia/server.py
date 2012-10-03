@@ -49,12 +49,17 @@ from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 import microfiber
 
 from dmedia import __version__
-from dmedia.httpd import WSGIError
+from dmedia.httpd import WSGIError, make_server
 from dmedia import local
 
 
 
 HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
+WELCOME = json.dumps(
+    {'Dmedia': 'welcome', 'version': __version__},
+    sort_keys=True,
+).encode('utf-8')
+
 
 
 class HTTPError(Exception):
@@ -324,23 +329,9 @@ def request_args(environ):
 
 class RootApp:
     def __init__(self, env):
-        self.map = {}
-        self.map['couch'] = ProxyApp(env)
-        info = {
-            'Dmedia': 'welcome',
-            'version': __version__,
+        self.map = {
+            'couch': ProxyApp(env),
         }
-        self._info = json.dumps(info, sort_keys=True).encode('utf-8')
-
-    def __call__(self, environ, start_response):
-        key = shift_path_info(environ)
-        if key in self.map:
-            return self.map[key](environ, start_response)
-
-
-class Router:
-    def __init__(self, _map):
-        self.map = _map
 
     def __call__(self, environ, start_response):
         key = shift_path_info(environ)
@@ -350,7 +341,7 @@ class Router:
 
 
 class ProxyApp:
-    def __init__(self, env, debug=True):
+    def __init__(self, env, debug=False):
         self.debug = debug
         self.client = microfiber.CouchBase(env)
         self.target_host = self.client.ctx.t.netloc
@@ -379,3 +370,11 @@ class ProxyApp:
         if body:
             return [body]
         return []
+
+
+def run_server(queue, couch_env, ssl_config):
+    app = RootApp(couch_env)
+    server = make_server(app, '::1', ssl_config)
+    env = {'port': server.port, 'url': server.url}
+    queue.put(env)
+    server.serve_forever()

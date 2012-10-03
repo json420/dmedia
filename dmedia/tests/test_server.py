@@ -24,11 +24,20 @@ Unit tests for `dmedia.server`.
 """
 
 from unittest import TestCase
+import multiprocessing
+import time
 
+from usercouch.misc import TempCouch
 from filestore import DIGEST_B32LEN, DIGEST_BYTES
+import microfiber
 from microfiber import random_id
 
+from dmedia.peering import TempPKI
 from dmedia import server, client
+
+
+def random_dbname():
+    return 'db-' + microfiber.random_id().lower()
 
 
 class StartResponse:
@@ -270,4 +279,63 @@ class TestBaseWSGI(TestCase):
             Example.http_methods,
             frozenset(['PUT', 'POST', 'GET', 'DELETE', 'HEAD'])
         )
+
+
+class TempHTTPD:
+    def __init__(self, couch_env, ssl_config):
+        """
+        :param couch_env: env of the UserCouch we are the SSL frontend for.
+        :param ssl_config: dict containing server SSL config.
+        """
+        queue = multiprocessing.Queue()
+        self.process = multiprocessing.Process(
+            target=server.run_server,
+            args=(queue, couch_env, ssl_config),
+        )
+        self.process.daemon = True
+        self.process.start()
+        self.env = queue.get()
+        self.port = self.env['port']
+
+    def __del__(self):
+        self.process.terminate()
+        self.process.join()
+
+
+class TestRootApp(TestCase):
+    def test_replication(self):
+        """
+        Test push replication Couch1 => HTTPD => Couch2.
+        """
+        pki = TempPKI(True)
+        config = {'replicator': pki.get_client_config()}
+        couch1 = TempCouch()
+        couch2 = TempCouch()
+
+        # couch1 needs the replication SSL config
+        env1 = couch1.bootstrap('basic', config)
+        env2 = couch2.bootstrap('basic', None)
+        s1 = microfiber.Server(env1)
+        s2 = microfiber.Server(env2)
+
+        # httpd is the SSL frontend for couch2
+        httpd = TempHTTPD(env2, pki.get_server_config())
+
+        # Create just the source DB, rely on create_target=True for remote
+        name1 = random_dbname()
+        name2 = random_dbname()
+        self.assertEqual(s1.put(None, name1), {'ok': True})
+
+        env = {'url': 'https://[::1]:{}/couch/'.format(httpd.port)}
+        result = s1.push(name1, name2, env, continuous=True, create_target=True)
+        self.assertEqual(set(result), set(['_local_id', 'ok']))
+        self.assertIs(result['ok'], True)
+
+        # Save docs in s1.name1, make sure they show up in s2.name2
+        docs = [{'_id': random_id()} for i in range(100)]
+        for doc in docs:
+            doc['_rev'] = s1.post(doc, name1)['rev']
+        time.sleep(0.5)
+        for doc in docs:
+            self.assertEqual(s2.get(name2, doc['_id']), doc)
 
