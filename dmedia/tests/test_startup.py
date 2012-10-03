@@ -28,6 +28,7 @@ import os
 from os import path
 import json
 from copy import deepcopy
+import time
 
 import usercouch
 from microfiber import random_id
@@ -41,9 +42,8 @@ class TestFunctions(TestCase):
     def test_load_config(self):
         tmp = TempDir()
         filename = tmp.join('foo.json')
-        
-        with self.assertRaises(IOError) as cm:
-            startup.load_config(filename)
+
+        self.assertIsNone(startup.load_config(filename))
 
         config = {'junk': random_id()}
         json.dump(config, open(filename, 'w'))
@@ -68,93 +68,111 @@ class TestFunctions(TestCase):
         self.assertFalse(path.exists(filename + '.tmp'))
         self.assertEqual(json.load(open(filename, 'r')), config)
 
-    def test_get_usercouch(self):
-        tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
-        self.assertIsInstance(couch, usercouch.UserCouch)
-        self.assertEqual(couch.basedir, tmp.dir)
-        self.assertIsNone(couch.couchdb)
-        self.assertIsInstance(couch.pki, PKI)
-        self.assertIs(couch.pki.ssldir, couch.paths.ssl)
-
-        # Test lockfile
-        with self.assertRaises(usercouch.LockError) as cm:
-            couch2 = startup.get_usercouch(tmp.dir)
-        self.assertEqual(cm.exception.lockfile, tmp.join('lockfile'))
-
-    def test_machine_filename(self):
-        tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
-        self.assertEqual(
-            startup.machine_filename(couch),
-            path.join(tmp.dir, 'machine.json')
-        )
-
-    def test_user_filename(self):
-        tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
-        self.assertEqual(
-            startup.user_filename(couch),
-            path.join(tmp.dir, 'user.json')
-        )
-
-    def test_has_machine(self):
-        tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
-        self.assertFalse(startup.has_machine(couch))
-        tmp.touch('machine.json')
-        self.assertTrue(startup.has_machine(couch))
-
-    def test_has_user(self):
-        tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
-        self.assertFalse(startup.has_user(couch))
-        tmp.touch('user.json')
-        self.assertTrue(startup.has_user(couch))
-
-    def test_init_machine(self):
-        tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
-        self.assertIsNone(startup.init_machine(couch))
-        doc = json.load(open(tmp.join('machine.json'), 'r'))
-        self.assertIsInstance(doc, dict)
-
-    def test_init_user(self):
-        tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
-        machine_id = couch.pki.create_key()
-        self.assertIsNone(startup.init_user(couch, machine_id))
-        doc = json.load(open(tmp.join('user.json'), 'r'))
-        self.assertIsInstance(doc, dict)
-
     def test_bootstrap_config(self):
         tmp = TempDir()
-        couch = startup.get_usercouch(tmp.dir)
+        pki = PKI(tmp.dir)
+        machine_id = pki.create_key()
+        pki.create_ca(machine_id)
+        pki.create_csr(machine_id)
+        user_id = pki.create_key()
+        pki.create_ca(user_id)
+        pki.issue_cert(machine_id, user_id)
+
         self.assertEqual(
-            startup.bootstrap_config(couch, None, None),
+            startup.bootstrap_config(pki),
             {'username': 'admin'},
         )
-        machine_id = couch.pki.create_key()
-        couch.pki.create_ca(machine_id)
-        couch.pki.create_csr(machine_id)
+
+        pki.machine = pki.get_cert(machine_id)
         self.assertEqual(
-            startup.bootstrap_config(couch, machine_id, None),
+            startup.bootstrap_config(pki),
             {'username': 'admin'},
         )
-        user_id = couch.pki.create_key()
-        couch.pki.create_ca(user_id)
-        couch.pki.issue_cert(machine_id, user_id)
+
+        pki.user = pki.get_ca(user_id)
         self.assertEqual(
-            startup.bootstrap_config(couch, machine_id, user_id),
+            startup.bootstrap_config(pki),
             {
                 'username': 'admin',
                 'replicator': {
-                    'ca_file': couch.pki.path(user_id, 'ca'),
-                    'cert_file': couch.pki.path(machine_id, 'cert'),
-                    'key_file': couch.pki.path(machine_id, 'key'),
+                    'ca_file': pki.path(user_id, 'ca'),
+                    'max_depth': 1,
+                    'cert_file': pki.path(machine_id, 'cert'),
+                    'key_file': pki.path(machine_id, 'key'),
                 },
             }
         )
-        
-        
 
+
+class TestDmediaCouch(TestCase):
+    def test_init(self):
+        tmp = TempDir()
+
+        inst = startup.DmediaCouch(tmp.dir)
+        self.assertEqual(inst.basedir, tmp.dir)
+        self.assertIsInstance(inst.pki, PKI)
+        self.assertEqual(inst.pki.ssldir, inst.paths.ssl)
+        self.assertIsNone(inst.machine)
+        self.assertIsNone(inst.user)
+
+        # Test lockfile
+        with self.assertRaises(usercouch.LockError) as cm:
+            inst2 = startup.DmediaCouch(tmp.dir)
+        self.assertEqual(cm.exception.lockfile, tmp.join('lockfile'))
+        del inst
+
+        machine_id = random_id()
+        user_id = random_id()
+        json.dump({'_id': machine_id}, open(tmp.join('machine.json'), 'w'))
+        json.dump({'_id': user_id}, open(tmp.join('user.json'), 'w'))
+        inst = startup.DmediaCouch(tmp.dir)
+        self.assertEqual(inst.basedir, tmp.dir)
+        self.assertIsInstance(inst.pki, PKI)
+        self.assertEqual(inst.pki.ssldir, inst.paths.ssl)
+        self.assertEqual(inst.machine, {'_id': machine_id})
+        self.assertEqual(inst.user, {'_id': user_id})
+
+    def test_load_config(self):
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        self.assertIsNone(inst.load_config('foo'))
+
+        doc = {'_id': random_id(), 'type': 'stuff/junk', 'time': time.time()}
+        json.dump(doc, open(tmp.join('foo.json'), 'w'))
+        self.assertEqual(inst.load_config('foo'), doc)
+
+    def test_save_config(self):
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        doc = {'_id': random_id(), 'type': 'stuff/junk', 'time': time.time()}
+        self.assertIsNone(inst.save_config('foo', doc))
+        self.assertEqual(json.load(open(tmp.join('foo.json'), 'r')), doc)
+
+    def test_isfirstrun(self):
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        self.assertTrue(inst.isfirstrun())
+        inst.machine = 'foo'
+        self.assertFalse(inst.isfirstrun())
+        inst.user = 'bar'
+        self.assertFalse(inst.isfirstrun())
+        inst.machine = None
+        self.assertFalse(inst.isfirstrun())
+        inst.user = None
+        self.assertTrue(inst.isfirstrun())
+
+    def test_firstrun_init(self):
+        class Subclass(startup.DmediaCouch):
+            def __init__(self):
+                pass
+                
+            def isfirstrun(self):
+                return False
+                
+        inst = Subclass()
+        with self.assertRaises(Exception) as cm:
+            inst.firstrun_init()
+        self.assertEqual(
+            str(cm.exception),
+            'not first run, cannot call firstrun_init()'
+        )

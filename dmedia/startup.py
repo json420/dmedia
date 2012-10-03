@@ -36,7 +36,10 @@ from .peering import PKI
 
 
 def load_config(filename):
-    return json.load(open(filename, 'r'))
+    try:
+        return json.load(open(filename, 'r'))
+    except IOError:
+        return None
 
 
 def save_config(filename, config):
@@ -75,97 +78,39 @@ def create_doc(couch, _id, doc_type):
     }
 
 
-def get_usercouch(basedir):
-    couch = UserCouch(basedir)
-    couch.pki = PKI(couch.paths.ssl)
-    return couch
-
-
-def machine_filename(couch):
-    assert isinstance(couch, UserCouch)
-    return path.join(couch.basedir, 'machine.json')
-
-
-def user_filename(couch):
-    assert isinstance(couch, UserCouch)
-    return path.join(couch.basedir, 'user.json')
-
-
-def has_machine(couch):
-    assert isinstance(couch, UserCouch)
-    return path.isfile(machine_filename(couch))
-
-
-def has_user(couch):
-    assert isinstance(couch, UserCouch)
-    return path.isfile(user_filename(couch))
-
-
-def init_machine(couch):
-    assert isinstance(couch, UserCouch)
-    assert not has_machine(couch)
-    machine_id = couch.pki.create_key()
-    couch.pki.create_ca(machine_id)
-    doc = create_doc(couch, machine_id, 'dmedia/machine')
-    save_config(machine_filename(couch), doc)
-
-
-def load_machine(couch):
-    config = load_config(machine_filename(couch))
-    return config
-
-
-def init_user(couch, machine_id):
-    assert isinstance(couch, UserCouch)
-    assert not has_user(couch)
-    user_id = couch.pki.create_key()
-    couch.pki.create_ca(user_id)
-    doc = create_doc(couch, user_id, 'dmedia/user')
-    add_machine(couch, doc, machine_id)
-
-
-def add_machine(couch, user, machine_id):
-    assert isinstance(couch, UserCouch)
-    assert machine_id not in user['_attachments']
-    couch.pki.create_csr(machine_id)
-    couch.pki.issue_cert(machine_id, user['_id'])
-    cert_file = couch.pki.verify_cert(machine_id)
-    user['_attachments'][machine_id] = pem_attachment(cert_file)
-    save_config(user_filename(couch), user)
-
-
-def load_machine(couch):
-    return load_config(machine_filename(couch))
-
-
-def load_user(couch):
-    if not has_user(couch):
-        return None
-    return load_config(user_filename(couch))
-
-
-def bootstrap_config(couch, machine_id, user_id):
-    assert isinstance(couch, UserCouch)
-    if user_id is None:
+def bootstrap_config(pki):
+    assert isinstance(pki, PKI)
+    if pki.user is None:
         return {'username': 'admin'}
-    ca = couch.pki.get_ca(user_id)
-    cert = couch.pki.get_cert(machine_id)
     return {
         'username': 'admin',
         'replicator': {
-            'ca_file': ca.ca_file,
-            'cert_file': cert.cert_file,
-            'key_file': cert.key_file,
+            'ca_file': pki.user.ca_file,
+            'max_depth': 1,
+            'cert_file': pki.machine.cert_file,
+            'key_file': pki.machine.key_file,
         },
     }
 
 
-def start_usercouch(couch):
-    if not has_machine(couch):
-        init_machine(couch)
-    machine = load_machine(couch)
-    machine_id = machine['_id']
-    user = load_user(couch, machine_id)
-    (auth, config) = bootstrap_args(couch, machine_id, user)
-    env = couch.bootstrap(auth, config)
-    return (env, machine, user)
+class DmediaCouch(UserCouch):
+    def __init__(self, basedir):
+        super().__init__(basedir)
+        self.pki = PKI(self.paths.ssl)
+        self.machine = self.load_config('machine')
+        self.user = self.load_config('user')
+
+    def load_config(self, name):
+        return load_config(path.join(self.basedir, name + '.json'))
+
+    def save_config(self, name, config):
+        save_config(path.join(self.basedir, name + '.json'), config)
+
+    def isfirstrun(self):
+        return self.machine is None and self.user is None
+
+    def firstrun_init(self, create_user=False):
+        if not self.isfirstrun():
+            raise Exception('not first run, cannot call firstrun_init()')
+        
+        

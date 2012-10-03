@@ -355,6 +355,8 @@ class PKI:
         self.ssldir = ssldir
         self.tmpdir = path.join(ssldir, 'tmp')
         ensuredir(self.tmpdir)
+        self.user = None
+        self.machine = None
 
     def random_tmp(self):
         return path.join(self.tmpdir, random_id())
@@ -435,6 +437,16 @@ class PKI:
 
     def get_cert(self, _id):
         return Cert(_id, self.verify_cert(_id), self.verify_key(_id))
+
+    def load_machine(self, machine_id):
+        self.machine = self.get_cert(machine_id)
+
+    def load_user(self, machine_id):
+        self.machine = self.get_cert(machine_id)
+
+    def load_pki(self, user_id, machine_id):
+        self.user = self.get_ca(user_id)
+        self.machine = self.get_cert(machine_id)
 
 
 class TempPKI(PKI):
