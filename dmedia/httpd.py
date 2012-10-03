@@ -251,7 +251,6 @@ class FileWrapper:
             data = self.fp.read(read)
             assert len(data) == read
             yield data
-        assert remaining == 0
         self._closed = True
 
 
