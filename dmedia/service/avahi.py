@@ -161,6 +161,7 @@ class FileServer(Avahi):
             self.peers = {'_id': PEERS, 'peers': {}}
             self.db.save(self.peers)
         super().run()
+        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
 
     def add_peer(self, key, url):
         self.peers['peers'][key] = url
@@ -174,6 +175,19 @@ class FileServer(Avahi):
         except KeyError:
             pass
         self.remove_replication_peer(key)
+        
+    def on_timeout(self):
+        if not self.replications:
+            return True  # Repeat timeout call
+        current = set(self.get_names())
+        for (key, peer) in self.replications.items():
+            new = current - set(peer.names)
+            if new:
+                log.info('New databases: %r', sorted(new))
+                tmp = Peer(peer.env, tuple(new))
+                peer.names.extend(new)
+                _start_thread(self.replication_worker, None, tmp)
+        return True  # Repeat timeout call
 
     def add_replication_peer(self, key, url):
         env = {'url': url + 'couch/'}
@@ -256,18 +270,4 @@ class Replicator(Avahi):
         # Every 15 seconds we check for database created since the replicator
         # started
         self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
-
-    def on_timeout(self):
-        if not self.replications:
-            return True  # Repeat timeout call
-        current = set(self.get_names())
-        for (key, peer) in self.replications.items():
-            new = current - set(peer.names)
-            if new:
-                log.info('New databases: %r', sorted(new))
-                tmp = Peer(peer.env, tuple(new))
-                peer.names.extend(new)
-                _start_thread(self.replication_worker, None, tmp)
-        return True  # Repeat timeout call
-
     
