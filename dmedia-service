@@ -41,7 +41,7 @@ from filestore import _start_thread
 
 import dmedia
 from dmedia.startup import DmediaCouch
-from dmedia.core import Core, start_file_server
+from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Replicator, FileServer
 
@@ -66,7 +66,6 @@ class Service(dbus.service.Object):
     couch = None
     httpd = None
     avahi = None
-    replicator = None
 
     def __init__(self, bus, couch):
         self.bus = bus
@@ -92,17 +91,17 @@ class Service(dbus.service.Object):
         if self.core.local.get('default_store') is None:
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env)
-        self.config = None
+        self.ssl_config = self.couch.get_ssl_config()
 
     def start_httpd(self):
-        (self.httpd, self.port) = start_file_server(self.core.env)
-        self.avahi = FileServer(self.core.env, self.port)
+        if self.ssl_config is None:
+            return
+        (self.httpd, env) = start_httpd(self.core.env, self.ssl_config)
+        self.avahi = FileServer(self.core.env, env['port'])
         self.avahi.run()
 
-    def start_replicator(self):
-        if self.config is not None:
-            self.replicator = Replicator(self.core.env, self.config)
-            self.replicator.run()
+        #self.replicator = Replicator(self.core.env, self.config)
+        #self.replicator.run()
 
     def run(self):
         self.start_core()
@@ -119,7 +118,6 @@ class Service(dbus.service.Object):
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
-        self.start_replicator()
         GObject.timeout_add(6000, self.on_idle3)
         return False  # Don't repeat idle call
 
@@ -135,10 +133,6 @@ class Service(dbus.service.Object):
 
     def shutdown(self):
         log.info('Service.shutdown()')
-        if self.replicator is not None:
-            log.info('* freeing replicator')
-            self.replicator.free()
-            self.replicator = None
         if self.avahi is not None:
             log.info('* freeing avahi')
             self.avahi.free()

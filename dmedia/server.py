@@ -44,6 +44,7 @@ But this is not okay:
 import json
 import socket
 from wsgiref.util import shift_path_info
+import logging
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 import microfiber
@@ -59,6 +60,7 @@ WELCOME = json.dumps(
     {'Dmedia': 'welcome', 'version': __version__},
     sort_keys=True,
 ).encode('utf-8')
+log = logging.getLogger()
 
 
 
@@ -373,8 +375,13 @@ class ProxyApp:
 
 
 def run_server(queue, couch_env, ssl_config):
-    app = RootApp(couch_env)
-    server = make_server(app, '::1', ssl_config)
-    env = {'port': server.port, 'url': server.url}
-    queue.put(env)
-    server.serve_forever()
+    try:
+        app = RootApp(couch_env)
+        server = make_server(app, '::1', ssl_config)
+        env = {'port': server.port, 'url': server.url}
+        log.info('Starting Dmedia HTTPD on port %d', server.port)
+        queue.put(env)
+        server.serve_forever()
+    except Exception as e:
+        log.exception('Could not start Dmedia HTTPD!')
+        queue.put(e)

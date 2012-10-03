@@ -43,6 +43,7 @@ from microfiber import Server, Database, NotFound, Conflict, BulkConflict
 from filestore import FileStore, check_root_hash, check_id, _start_thread
 
 import dmedia
+from dmedia.server import run_server
 from dmedia import util, schema
 from dmedia.metastore import MetaStore
 from dmedia.local import LocalStores, FileNotLocal
@@ -54,34 +55,19 @@ SHARED = '/home'
 PRIVATE = path.abspath(os.environ['HOME'])
 
 
-def file_server(env, queue):
-    try:
-        from wsgiref.simple_server import make_server
-        from dmedia.server import ReadOnlyApp
-        app = ReadOnlyApp(env)
-        httpd = make_server('', 0, app)
-        port = httpd.socket.getsockname()[1]
-        log.info('Starting HTTP file transfer server on port %d', port)
-        queue.put(port)
-        httpd.serve_forever()
-    except Exception as e:
-        queue.put(e)
-
-
-def start_process(target, *args, **kwargs):
-    process = multiprocessing.Process(target=target, args=args, kwargs=kwargs)
+def start_httpd(couch_env, ssl_config):
+    queue = multiprocessing.Queue()
+    process = multiprocessing.Process(
+        target=run_server,
+        args=(queue, couch_env, ssl_config),
+    )
     process.daemon = True
     process.start()
-    return process
-
-
-def start_file_server(env):
-    q = multiprocessing.Queue()
-    httpd = start_process(file_server, env, q)
-    port = q.get()
-    if isinstance(port, Exception):
-        raise port
-    return (httpd, port)
+    env = queue.get()
+    if isinstance(env, Exception):
+        raise env
+    log.info('Dmedia HTTPD: %s', env['url'])
+    return (process, env)
 
 
 def snapshot_db(env, dumpdir, dbname):
