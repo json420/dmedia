@@ -31,7 +31,7 @@ from copy import deepcopy
 import time
 
 import usercouch
-from microfiber import random_id
+from microfiber import random_id, Server
 
 from .base import TempDir
 from dmedia.peering import PKI
@@ -68,7 +68,34 @@ class TestFunctions(TestCase):
         self.assertFalse(path.exists(filename + '.tmp'))
         self.assertEqual(json.load(open(filename, 'r')), config)
 
-    def test_bootstrap_config(self):
+    def test_get_ssl_config(self):
+        tmp = TempDir()
+        pki = PKI(tmp.dir)
+        machine_id = pki.create_key()
+        pki.create_ca(machine_id)
+        pki.create_csr(machine_id)
+        user_id = pki.create_key()
+        pki.create_ca(user_id)
+        pki.issue_cert(machine_id, user_id)
+
+        self.assertIsNone(startup.get_ssl_config(pki))
+
+        pki.machine = pki.get_cert(machine_id)
+        self.assertIsNone(startup.get_ssl_config(pki))
+
+        pki.user = pki.get_ca(user_id)
+        self.assertEqual(
+            startup.get_ssl_config(pki),
+            {
+                'check_hostname': False,
+                'max_depth': 1,
+                'ca_file': pki.path(user_id, 'ca'),
+                'cert_file': pki.path(machine_id, 'cert'),
+                'key_file': pki.path(machine_id, 'key'),
+            }
+        )
+
+    def test_get_bootstrap_config(self):
         tmp = TempDir()
         pki = PKI(tmp.dir)
         machine_id = pki.create_key()
@@ -79,24 +106,25 @@ class TestFunctions(TestCase):
         pki.issue_cert(machine_id, user_id)
 
         self.assertEqual(
-            startup.bootstrap_config(pki),
+            startup.get_bootstrap_config(pki),
             {'username': 'admin'},
         )
 
         pki.machine = pki.get_cert(machine_id)
         self.assertEqual(
-            startup.bootstrap_config(pki),
+            startup.get_bootstrap_config(pki),
             {'username': 'admin'},
         )
 
         pki.user = pki.get_ca(user_id)
         self.assertEqual(
-            startup.bootstrap_config(pki),
+            startup.get_bootstrap_config(pki),
             {
                 'username': 'admin',
                 'replicator': {
-                    'ca_file': pki.path(user_id, 'ca'),
+                    'check_hostname': False,
                     'max_depth': 1,
+                    'ca_file': pki.path(user_id, 'ca'),
                     'cert_file': pki.path(machine_id, 'cert'),
                     'key_file': pki.path(machine_id, 'key'),
                 },
@@ -154,25 +182,70 @@ class TestDmediaCouch(TestCase):
         self.assertTrue(inst.isfirstrun())
         inst.machine = 'foo'
         self.assertFalse(inst.isfirstrun())
-        inst.user = 'bar'
-        self.assertFalse(inst.isfirstrun())
         inst.machine = None
-        self.assertFalse(inst.isfirstrun())
-        inst.user = None
         self.assertTrue(inst.isfirstrun())
 
     def test_firstrun_init(self):
         class Subclass(startup.DmediaCouch):
             def __init__(self):
                 pass
-                
+
             def isfirstrun(self):
                 return False
-                
+
         inst = Subclass()
         with self.assertRaises(Exception) as cm:
             inst.firstrun_init()
         self.assertEqual(
             str(cm.exception),
             'not first run, cannot call firstrun_init()'
+        )
+
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        self.assertIsNone(inst.firstrun_init())
+        self.assertIsInstance(inst.machine, dict)
+        self.assertEqual(inst.machine, inst.load_config('machine'))
+        self.assertIsNone(inst.user)
+        self.assertIsNone(inst.load_config('user'))
+
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        self.assertIsNone(inst.firstrun_init(create_user=True))
+        self.assertIsInstance(inst.machine, dict)
+        self.assertEqual(inst.machine, inst.load_config('machine'))
+        self.assertIsInstance(inst.user, dict)
+        self.assertEqual(inst.user, inst.load_config('user'))
+
+    def test_auto_bootstrap(self):
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        env = inst.auto_bootstrap()
+        s = Server(env)
+        self.assertEqual(s.get()['couchdb'], 'Welcome')
+        self.assertIsNone(inst.get_ssl_config())
+
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        inst.firstrun_init(create_user=False)
+        env = inst.auto_bootstrap()
+        s = Server(env)
+        self.assertEqual(s.get()['couchdb'], 'Welcome')
+        self.assertIsNone(inst.get_ssl_config())
+
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        inst.firstrun_init(create_user=True)
+        env = inst.auto_bootstrap()
+        s = Server(env)
+        self.assertEqual(s.get()['couchdb'], 'Welcome')
+        self.assertEqual(
+            inst.get_ssl_config(),
+            {
+                'check_hostname': False,
+                'max_depth': 1,
+                'ca_file': inst.pki.user.ca_file,
+                'cert_file': inst.pki.machine.cert_file,
+                'key_file': inst.pki.machine.key_file,
+            }
         )

@@ -438,15 +438,17 @@ class PKI:
     def get_cert(self, _id):
         return Cert(_id, self.verify_cert(_id), self.verify_key(_id))
 
-    def load_machine(self, machine_id):
-        self.machine = self.get_cert(machine_id)
-
-    def load_user(self, machine_id):
-        self.machine = self.get_cert(machine_id)
-
-    def load_pki(self, user_id, machine_id):
-        self.user = self.get_ca(user_id)
-        self.machine = self.get_cert(machine_id)
+    def load_pki(self, machine_id, user_id=None):
+        if user_id is None:
+            self.machine = Cert(
+                machine_id,
+                self.verify_ca(machine_id),
+                self.verify_key(machine_id)
+            )
+            self.user = None
+        else:
+            self.machine = self.get_cert(machine_id)
+            self.user = self.get_ca(user_id)
 
 
 class TempPKI(PKI):

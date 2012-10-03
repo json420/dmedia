@@ -63,33 +63,38 @@ def pem_attachment(filename):
     }
 
 
-def create_doc(couch, _id, doc_type):
-    assert isinstance(couch, UserCouch)
-    key_file = couch.pki.verify_key(_id)
-    ca_file = couch.pki.verify_ca(_id)
+def create_doc(_id, doc_type):
     return {
         '_id': _id,
-        '_attachments': {
-            'key': pem_attachment(key_file),
-            'ca': pem_attachment(ca_file),
-        },
+#        '_attachments': {
+#            'key': pem_attachment(key_file),
+#            'ca': pem_attachment(ca_file),
+#        },
         'type': doc_type,
         'time': time.time(),
     }
 
 
-def bootstrap_config(pki):
+def get_ssl_config(pki):
+    assert isinstance(pki, PKI)
+    if pki.user is None:
+        return None
+    return {
+        'check_hostname': False,
+        'max_depth': 1,
+        'ca_file': pki.user.ca_file,
+        'cert_file': pki.machine.cert_file,
+        'key_file': pki.machine.key_file,
+    }
+
+
+def get_bootstrap_config(pki):
     assert isinstance(pki, PKI)
     if pki.user is None:
         return {'username': 'admin'}
     return {
         'username': 'admin',
-        'replicator': {
-            'ca_file': pki.user.ca_file,
-            'max_depth': 1,
-            'cert_file': pki.machine.cert_file,
-            'key_file': pki.machine.key_file,
-        },
+        'replicator': get_ssl_config(pki),
     }
 
 
@@ -107,10 +112,37 @@ class DmediaCouch(UserCouch):
         save_config(path.join(self.basedir, name + '.json'), config)
 
     def isfirstrun(self):
-        return self.machine is None and self.user is None
+        return self.machine is None
 
     def firstrun_init(self, create_user=False):
         if not self.isfirstrun():
             raise Exception('not first run, cannot call firstrun_init()')
-        
-        
+        machine_id = self.pki.create_key()
+        self.pki.create_ca(machine_id)
+        if create_user:
+            user_id = self.pki.create_key()
+            self.pki.create_ca(user_id)
+            self.pki.create_csr(machine_id)
+            self.pki.issue_cert(machine_id, user_id)
+            doc = create_doc(user_id, 'dmedia/user')
+            self.save_config('user', doc)
+            self.user = self.load_config('user')
+        doc = create_doc(machine_id, 'dmedia/machine')
+        self.save_config('machine', doc)
+        self.machine = self.load_config('machine')
+
+    def load_pki(self):
+        if self.machine is None:
+            return
+        if self.user is None:
+            self.pki.load_pki(self.machine['_id'])
+        else:
+            self.pki.load_pki(self.machine['_id'], self.user['_id'])
+
+    def auto_bootstrap(self):
+        self.load_pki()
+        config = get_bootstrap_config(self.pki)
+        return self.bootstrap('basic', config)
+
+    def get_ssl_config(self):
+        return get_ssl_config(self.pki)
