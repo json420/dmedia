@@ -81,7 +81,7 @@ def create_doc(_id, doc_type):
 
 def get_ssl_config(pki):
     assert isinstance(pki, PKI)
-    if True or pki.user is None:
+    if pki.user is None:
         return None
     return {
         'check_hostname': False,
@@ -94,7 +94,7 @@ def get_ssl_config(pki):
 
 def get_bootstrap_config(pki):
     assert isinstance(pki, PKI)
-    if True or pki.user is None:
+    if pki.user is None:
         return {'username': 'admin'}
     return {
         'username': 'admin',

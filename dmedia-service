@@ -94,8 +94,8 @@ class Service(dbus.service.Object):
         self.ssl_config = self.couch.get_ssl_config()
 
     def start_httpd(self):
-#        if self.ssl_config is None:
-#            return
+        if self.ssl_config is None:
+            return
         (self.httpd, env) = start_httpd(self.core.env, self.ssl_config)
         self.avahi = FileServer(self.core.env, env['port'])
         self.avahi.run()
