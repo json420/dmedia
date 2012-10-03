@@ -32,6 +32,7 @@ from microfiber import random_id
 import filestore
 
 from dmedia.local import LocalStores
+from dmedia.metastore import MetaStore
 from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia import util, core
 
@@ -60,6 +61,59 @@ class TestCore(CouchCase):
         self.assertEqual(inst.db.name, DB_NAME)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
+
+    def test_load_identity(self):
+        id1 = random_id()
+        inst = core.Core(self.env)
+        inst.load_identity({'_id': id1})
+        doc = inst.db.get(id1)
+        self.assertEqual(set(doc), set(['_id', '_rev']))
+        self.assertTrue(doc['_rev'].startswith('1-'))
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'stores': {},
+                'machine_id': id1,
+            }
+        )
+        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
+        self.assertEqual(self.env['machine_id'], id1)
+
+        inst.load_identity({'_id': id1})
+        doc = inst.db.get(id1)
+        self.assertEqual(set(doc), set(['_id', '_rev']))
+        self.assertTrue(doc['_rev'].startswith('1-'))
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'stores': {},
+                'machine_id': id1,
+            }
+        )
+        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
+        self.assertEqual(self.env['machine_id'], id1)
+
+        id2 = random_id()
+        inst = core.Core(self.env)
+        inst.load_identity({'_id': id2})
+        doc = inst.db.get(id2)
+        self.assertEqual(set(doc), set(['_id', '_rev']))
+        self.assertTrue(doc['_rev'].startswith('1-'))
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'stores': {},
+                'machine_id': id2,
+            }
+        )
+        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
+        self.assertEqual(self.env['machine_id'], id2)
 
     def test_init_default_store(self):
         private = TempDir()

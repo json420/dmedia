@@ -144,23 +144,16 @@ class Core:
             }
 
     def load_identity(self, machine):
-        pass
-
-    def _init_local(self):
         try:
-            self.local = self.db.get(LOCAL_ID)
-        except NotFound:
-            machine = schema.create_machine()
-            self.local = {
-                '_id': LOCAL_ID,
-                'machine_id': machine['_id'],
-                'stores': {},
-            }
-            self.db.save(self.local)
             self.db.save(machine)
-        self.machine_id = self.local['machine_id']
-        self.env['machine_id'] = self.machine_id
-        log.info('machine_id = %r', self.machine_id)
+        except Conflict:
+            pass
+        machine_id = machine['_id']
+        if self.local.get('machine_id') != machine_id:
+            self.local['machine_id'] = machine_id
+            self.db.save(self.local)
+        self.env['machine_id'] = machine_id
+        log.info('machine_id = %r', machine_id)
 
     def init_default_store(self):
         value = self.local.get('default_store')
