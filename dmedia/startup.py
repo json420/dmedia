@@ -29,10 +29,14 @@ import time
 import json
 import socket
 from base64 import b64encode
+import logging
 
 from usercouch import UserCouch
 
 from .peering import PKI
+
+
+log = logging.getLogger()
 
 
 def load_config(filename):
@@ -117,10 +121,14 @@ class DmediaCouch(UserCouch):
     def firstrun_init(self, create_user=False):
         if not self.isfirstrun():
             raise Exception('not first run, cannot call firstrun_init()')
-        machine_id = self.pki.create_key()
+        log.info('Creating RSA machine identity...')
+        machine_id = self.pki.create_key(3072)
+        log.info('... machine_id: %s', machine_id)
         self.pki.create_ca(machine_id)
         if create_user:
-            user_id = self.pki.create_key()
+            log.info('Creating RSA user identity...')
+            user_id = self.pki.create_key(3072)
+            log.info('... user_id: %s', user_id)
             self.pki.create_ca(user_id)
             self.pki.create_csr(machine_id)
             self.pki.issue_cert(machine_id, user_id)

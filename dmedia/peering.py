@@ -293,7 +293,7 @@ def verify(filename, _id):
 
 def _hash_pubkey(data):
     return skein512(data,
-        digest_bits=200,
+        digest_bits=240,
         pers=PERS_PUBKEY,
     ).digest()
 

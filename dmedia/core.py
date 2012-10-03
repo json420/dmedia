@@ -39,7 +39,7 @@ from urllib.parse import urlparse
 from queue import Queue
 from subprocess import check_call, CalledProcessError
 
-from microfiber import Server, Database, NotFound, Conflict
+from microfiber import Server, Database, NotFound, Conflict, BulkConflict
 from filestore import FileStore, check_root_hash, check_id, _start_thread
 
 import dmedia
@@ -153,7 +153,7 @@ class Core:
             self.local['machine_id'] = machine_id
             self.db.save(self.local)
         self.env['machine_id'] = machine_id
-        log.info('machine_id = %r', machine_id)
+        log.info('machine_id = %s', machine_id)
 
     def init_default_store(self):
         value = self.local.get('default_store')
