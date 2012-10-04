@@ -960,6 +960,20 @@ class TestHTTPD(TestCase):
         self.assertEqual(server.url, 'https://127.0.0.1:{}/'.format(server.port))
         self.assertEqual(server.environ, server.build_base_environ())
 
+        # Test that HTTPD wont accept outside connections without SSL
+        with self.assertRaises(Exception) as cm:
+            httpd.HTTPD(demo_app, '::')
+        self.assertEqual(
+            str(cm.exception),
+            'wont accept outside connections without SSL'
+        )
+        with self.assertRaises(Exception) as cm:
+            httpd.HTTPD(demo_app, '0.0.0.0')
+        self.assertEqual(
+            str(cm.exception),
+            'wont accept outside connections without SSL'
+        )
+
     def test_build_base_environ(self):
         class Subclass(httpd.HTTPD):
             def __init__(self):

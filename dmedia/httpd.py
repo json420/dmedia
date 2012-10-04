@@ -394,6 +394,9 @@ class HTTPD:
                 raise Exception(
                     'context.options must have ssl.OP_NO_COMPRESSION'
                 )
+        # Safety against accidental misconfiguration:
+        if bind_address in ('::', '0.0.0.0') and context is None:
+            raise Exception('wont accept outside connections without SSL')
         self.app = app
         self.bind_address = bind_address
         self.context = context
