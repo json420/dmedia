@@ -374,10 +374,10 @@ class ProxyApp:
         return []
 
 
-def run_server(queue, couch_env, ssl_config):
+def run_server(queue, couch_env, bind_address, ssl_config):
     try:
         app = RootApp(couch_env)
-        server = make_server(app, '::', ssl_config)
+        server = make_server(app, bind_address, ssl_config)
         env = {'port': server.port, 'url': server.url}
         log.info('Starting Dmedia HTTPD on port %d', server.port)
         queue.put(env)

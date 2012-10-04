@@ -60,7 +60,7 @@ def start_httpd(couch_env, ssl_config):
     queue = multiprocessing.Queue()
     process = multiprocessing.Process(
         target=run_server,
-        args=(queue, couch_env, ssl_config),
+        args=(queue, couch_env, '0.0.0.0', ssl_config),
     )
     process.daemon = True
     process.start()

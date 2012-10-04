@@ -290,7 +290,7 @@ class TempHTTPD:
         queue = multiprocessing.Queue()
         self.process = multiprocessing.Process(
             target=server.run_server,
-            args=(queue, couch_env, ssl_config),
+            args=(queue, couch_env, '::1', ssl_config),
         )
         self.process.daemon = True
         self.process.start()
