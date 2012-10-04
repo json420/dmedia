@@ -261,7 +261,7 @@ class Handler:
     A `Handler` instance is created per TCP connection.
     """
 
-    __slots__ = ('app', 'environ', 'conn', 'rfile', 'wfile', 'start')
+    __slots__ = ('app', 'environ', 'conn', 'rfile', 'wfile', 'remote', 'start')
 
     def __init__(self, app, environ, conn):
         self.app = app
@@ -269,26 +269,26 @@ class Handler:
         self.conn = conn
         self.rfile = conn.makefile('rb')
         self.wfile = conn.makefile('wb')
+        self.remote = '{REMOTE_ADDR} {REMOTE_PORT}'.format(**environ)
+        self.start = None
 
     def handle_many(self):
-        remote = self.environ['REMOTE']
         count = 0
         try:
             while self.handle_one():
                 count += 1
         finally:
-            log.info('%s\tHandled %r Requests', remote, count)
+            log.info('%s\tHandled %r Requests', self.remote, count)
 
     def handle_one(self):
         self.start = None
-        remote = self.environ['REMOTE']
         environ = self.environ.copy()
         try:
             environ.update(self.build_request_environ())
             result = self.app(environ, self.start_response)
         except WSGIError as e:
             if e.status:
-                log.warning('%s\t%s', remote, e.status)
+                log.warning('%s\t%s', self.remote, e.status)
                 self.send_status_only(e.status)
             return False
         self.send_response(environ, result)
@@ -444,7 +444,6 @@ class HTTPD:
         environ = {
             'REMOTE_ADDR': address[0],
             'REMOTE_PORT': str(address[1]),
-            'REMOTE': '[{}]:{}'.format(address[0], address[1]),
         }
         if self.context is None:
             return environ
@@ -479,7 +478,7 @@ class HTTPD:
 
     def handle_connection(self, conn, address):
         #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        remote = '[{}]:{}'.format(address[0], address[1])
+        remote = '{} {}'.format(address[0], address[1])
         try:
             log.info('%s\tNew Connection', remote)
             conn.settimeout(SOCKET_TIMEOUT)
@@ -499,7 +498,6 @@ class HTTPD:
         environ.update(self.build_connection_environ(conn, address))
         handler = Handler(self.app, environ, conn)
         handler.handle_many()
-
 
 
 ############################
