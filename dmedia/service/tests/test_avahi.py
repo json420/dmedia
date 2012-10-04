@@ -40,12 +40,6 @@ class TestAvahi(TestCase):
         self.assertEqual(inst.port, 42)
         self.assertIsNone(inst.group)
 
-    def test_ignore_peer(self):
-        inst = avahi.Avahi('the id', 42)
-        self.assertFalse(
-            inst.ignore_peer('interface', 'protocol', 'key', '_type', 'domain', 'flags')
-        )
-
     def test_add_peer(self):
         inst = avahi.Avahi('the id', 42)
         with self.assertRaises(NotImplementedError) as cm:
@@ -56,4 +50,5 @@ class TestAvahi(TestCase):
         inst = avahi.Avahi('the id', 42)
         with self.assertRaises(NotImplementedError) as cm:
             inst.remove_peer('key')
-        self.assertEqual(str(cm.exception), 'Avahi.remove_peer()')  
+        self.assertEqual(str(cm.exception), 'Avahi.remove_peer()')
+

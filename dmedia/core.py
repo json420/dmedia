@@ -38,11 +38,13 @@ import multiprocessing
 from urllib.parse import urlparse
 from queue import Queue
 from subprocess import check_call, CalledProcessError
+from copy import deepcopy
 
-from microfiber import Server, Database, NotFound, Conflict
+from microfiber import Server, Database, NotFound, Conflict, BulkConflict
 from filestore import FileStore, check_root_hash, check_id, _start_thread
 
 import dmedia
+from dmedia.server import run_server
 from dmedia import util, schema
 from dmedia.metastore import MetaStore
 from dmedia.local import LocalStores, FileNotLocal
@@ -54,34 +56,19 @@ SHARED = '/home'
 PRIVATE = path.abspath(os.environ['HOME'])
 
 
-def file_server(env, queue):
-    try:
-        from wsgiref.simple_server import make_server
-        from dmedia.server import ReadOnlyApp
-        app = ReadOnlyApp(env)
-        httpd = make_server('', 0, app)
-        port = httpd.socket.getsockname()[1]
-        log.info('Starting HTTP file transfer server on port %d', port)
-        queue.put(port)
-        httpd.serve_forever()
-    except Exception as e:
-        queue.put(e)
-
-
-def start_process(target, *args, **kwargs):
-    process = multiprocessing.Process(target=target, args=args, kwargs=kwargs)
+def start_httpd(couch_env, ssl_config):
+    queue = multiprocessing.Queue()
+    process = multiprocessing.Process(
+        target=run_server,
+        args=(queue, couch_env, '0.0.0.0', ssl_config),
+    )
     process.daemon = True
     process.start()
-    return process
-
-
-def start_file_server(env):
-    q = multiprocessing.Queue()
-    httpd = start_process(file_server, env, q)
-    port = q.get()
-    if isinstance(port, Exception):
-        raise port
-    return (httpd, port)
+    env = queue.get()
+    if isinstance(env, Exception):
+        raise env
+    log.info('Dmedia HTTPD: %s', env['url'])
+    return (process, env)
 
 
 def snapshot_db(env, dumpdir, dbname):
@@ -125,37 +112,49 @@ def projects_iter(env):
 
 
 class Core:
-    def __init__(self, env, private=None, shared=None, full_init=True):
+    def __init__(self, env, private=None, shared=None):
         self.env = env
+        self._private = (PRIVATE if private is None else private)
+        self._shared = (SHARED if shared is None else shared)
         self.db = util.get_db(env, init=True)
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
-        self._private = (PRIVATE if private is None else private)
-        self._shared = (SHARED if shared is None else shared)
         self.queue = Queue()
         self.thread = None
-        if full_init:
-            self._init_local()
-            self._init_default_store()
-
-    def _init_local(self):
+        self.default = None
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
-            machine = schema.create_machine()
             self.local = {
                 '_id': LOCAL_ID,
-                'machine_id': machine['_id'],
                 'stores': {},
             }
-            self.db.save(self.local)
-            self.db.save(machine)
-        self.machine_id = self.local['machine_id']
-        self.env['machine_id'] = self.machine_id
-        self.env['version'] = dmedia.__version__
-        log.info('machine_id = %r', self.machine_id)
+        self.__local = deepcopy(self.local)
 
-    def _init_default_store(self):
+    def save_local(self):
+        if self.local != self.__local:
+            self.db.save(self.local)
+            self.__local = deepcopy(self.local)
+
+    def load_identity(self, machine, user=None):
+        try:
+            self.db.save(machine)
+        except Conflict:
+            pass
+        self.local['machine_id'] = machine['_id']
+        self.env['machine_id'] = machine['_id']
+        log.info('machine_id = %s', machine['_id'])
+        if user is not None:
+            try:
+                self.db.save(user)
+            except Conflict:
+                pass
+            self.local['user_id'] = user['_id']
+            self.env['user_id'] = user['_id']
+            log.info('user_id = %s', user['_id'])
+        self.save_local()
+
+    def init_default_store(self):
         value = self.local.get('default_store')
         if value not in ('private', 'shared'):
             log.info('no default FileStore')
@@ -246,7 +245,7 @@ class Core:
         if self.default is not None:
             self.disconnect_filestore(self.default.parentdir, self.default.id)
             self.default = None
-        self._init_default_store()
+        self.init_default_store()
 
     def create_filestore(self, parentdir):
         """

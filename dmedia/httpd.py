@@ -20,7 +20,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-A tiny IPv6 WSGI HTTP 1.1 server with SSL support.
+A tiny WSGI HTTP 1.1 server with SSL support.
 
 This server is focused on two goals:
 
@@ -78,6 +78,7 @@ import threading
 import platform
 import json
 from hashlib import md5
+import logging
 
 from dmedia import __version__
 
@@ -91,7 +92,8 @@ SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__,
 )
 MAX_LINE = 4 * 1024
 MAX_HEADER_COUNT = 10
-SOCKET_TIMEOUT = 10
+SOCKET_TIMEOUT = 30
+log = logging.getLogger()
 
 
 class WSGIError(Exception):
@@ -249,7 +251,6 @@ class FileWrapper:
             data = self.fp.read(read)
             assert len(data) == read
             yield data
-        assert remaining == 0
         self._closed = True
 
 
@@ -260,7 +261,7 @@ class Handler:
     A `Handler` instance is created per TCP connection.
     """
 
-    __slots__ = ('app', 'environ', 'conn', 'rfile', 'wfile', 'start')
+    __slots__ = ('app', 'environ', 'conn', 'rfile', 'wfile', 'remote', 'start')
 
     def __init__(self, app, environ, conn):
         self.app = app
@@ -268,10 +269,16 @@ class Handler:
         self.conn = conn
         self.rfile = conn.makefile('rb')
         self.wfile = conn.makefile('wb')
+        self.remote = '{REMOTE_ADDR} {REMOTE_PORT}'.format(**environ)
+        self.start = None
 
     def handle_many(self):
-        while self.handle_one():
-            pass
+        count = 0
+        try:
+            while self.handle_one():
+                count += 1
+        finally:
+            log.info('%s\tHandled %r Requests', self.remote, count)
 
     def handle_one(self):
         self.start = None
@@ -280,7 +287,9 @@ class Handler:
             environ.update(self.build_request_environ())
             result = self.app(environ, self.start_response)
         except WSGIError as e:
-            self.send_status_only(e.status)
+            if e.status:
+                log.warning('%s\t%s', self.remote, e.status)
+                self.send_status_only(e.status)
             return False
         self.send_response(environ, result)
         return True
@@ -293,6 +302,8 @@ class Handler:
 
         # Parse the request line
         request_line = self.rfile.readline(MAX_LINE + 1)
+        if request_line == b'':
+            raise WSGIError('')
         if len(request_line) > MAX_LINE:
             raise WSGIError('414 Request-URI Too Long')
         (method, uri, protocol) = parse_request(request_line)
@@ -341,15 +352,17 @@ class Handler:
 
     def send_response(self, environ, result):
         (status, response_headers) = self.start
-        content_length = response_content_length(response_headers)
-        if content_length is None:
-            assert result == []
-        response_headers.append(
-            ('Server', SERVER_SOFTWARE)
+        headers = dict(
+            (name.lower(), value) for (name, value) in response_headers
+        )
+        headers.setdefault('server', SERVER_SOFTWARE)
+        response_headers = list(
+            (name, headers[name]) for name in sorted(headers)
         )
         preamble = ''.join(iter_response_lines(status, response_headers))
         self.wfile.write(preamble.encode('latin_1'))
-        if content_length is not None:
+        if result != []:
+            content_length = response_content_length(response_headers)
             total = 0
             for buf in result:
                 total += len(buf)
@@ -368,7 +381,7 @@ class HTTPD:
     def __init__(self, app, bind_address='::1', context=None):
         if not callable(app):
             raise TypeError('app not callable: {!r}'.format(app))
-        if bind_address not in ('::1', '::'):
+        if bind_address not in ('::1', '::', '127.0.0.1', '0.0.0.0'):
             raise ValueError('invalid bind_address: {!r}'.format(bind_address))
         if context is not None:
             if not isinstance(context, ssl.SSLContext):
@@ -381,14 +394,22 @@ class HTTPD:
                 raise Exception(
                     'context.options must have ssl.OP_NO_COMPRESSION'
                 )
+        # Safety against accidental misconfiguration:
+        if bind_address in ('::', '0.0.0.0') and context is None:
+            raise Exception('wont accept outside connections without SSL')
         self.app = app
         self.bind_address = bind_address
         self.context = context
-        self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        if bind_address in ('::1', '::'):
+            template = '{}://[::1]:{}/'
+            self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        else:
+            template = '{}://127.0.0.1:{}/'
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((bind_address, 0))
         self.port = self.socket.getsockname()[1]
         self.scheme = ('http' if context is None else 'https')
-        self.url = '{}://[::1]:{}/'.format(self.scheme, self.port)
+        self.url = template.format(self.scheme, self.port)
         self.environ = self.build_base_environ()
         self.socket.listen(5)
 
@@ -457,14 +478,18 @@ class HTTPD:
 
     def handle_connection(self, conn, address):
         #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        conn.settimeout(SOCKET_TIMEOUT)
+        remote = '{} {}'.format(address[0], address[1])
         try:
+            log.info('%s\tNew Connection', remote)
+            conn.settimeout(SOCKET_TIMEOUT)
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
             self.handle_requests(conn, address)
             conn.shutdown(socket.SHUT_RDWR)
         except socket.error:
-            pass       
+            log.info('%s\tSocket Timeout/Error', remote)
+        except Exception:
+            log.exception('%s\tUnhandled Exception', remote)
         finally:
             conn.close()
 
@@ -473,7 +498,6 @@ class HTTPD:
         environ.update(self.build_connection_environ(conn, address))
         handler = Handler(self.app, environ, conn)
         handler.handle_many()
-
 
 
 ############################

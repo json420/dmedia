@@ -167,7 +167,7 @@ def create_ca(key_file, subject, dst_file):
     check_call(['openssl', 'req',
         '-new',
         '-x509',
-        '-sha384',
+        #'-sha384',
         '-days', str(DAYS),
         '-key', key_file,
         '-subj', subject,
@@ -183,7 +183,7 @@ def create_csr(key_file, subject, dst_file):
     """
     check_call(['openssl', 'req',
         '-new',
-        '-sha384',
+        #'-sha384',
         '-key', key_file,
         '-subj', subject,
         '-out', dst_file,
@@ -196,7 +196,7 @@ def issue_cert(csr_file, ca_file, key_file, srl_file, dst_file):
     """
     check_call(['openssl', 'x509',
         '-req',
-        '-sha384',
+        #'-sha384',
         '-days', str(DAYS),
         '-CAcreateserial',
         '-in', csr_file,
@@ -293,7 +293,7 @@ def verify(filename, _id):
 
 def _hash_pubkey(data):
     return skein512(data,
-        digest_bits=200,
+        digest_bits=240,
         pers=PERS_PUBKEY,
     ).digest()
 
@@ -355,6 +355,8 @@ class PKI:
         self.ssldir = ssldir
         self.tmpdir = path.join(ssldir, 'tmp')
         ensuredir(self.tmpdir)
+        self.user = None
+        self.machine = None
 
     def random_tmp(self):
         return path.join(self.tmpdir, random_id())
@@ -435,6 +437,18 @@ class PKI:
 
     def get_cert(self, _id):
         return Cert(_id, self.verify_cert(_id), self.verify_key(_id))
+
+    def load_pki(self, machine_id, user_id=None):
+        if user_id is None:
+            self.machine = Cert(
+                machine_id,
+                self.verify_ca(machine_id),
+                self.verify_key(machine_id)
+            )
+            self.user = None
+        else:
+            self.machine = self.get_cert(machine_id)
+            self.user = self.get_ca(user_id)
 
 
 class TempPKI(PKI):

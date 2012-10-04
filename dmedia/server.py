@@ -43,14 +43,35 @@ But this is not okay:
 
 import json
 import socket
+from wsgiref.util import shift_path_info
+import logging
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
+import microfiber
 
 from dmedia import __version__
+from dmedia.httpd import WSGIError, make_server
 from dmedia import local
 
 
 HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
+WELCOME = json.dumps(
+    {'Dmedia': 'welcome', 'version': __version__},
+    sort_keys=True,
+).encode('utf-8')
+log = logging.getLogger()
+
+
+def server_welcome(environ, start_response):
+    if environ['REQUEST_METHOD'] != 'GET':
+        raise WSGIError('405 Method Not Allowed')
+    start_response('200 OK',
+        [
+            ('Content-Length', str(len(WELCOME))),
+            ('Content-Type', 'application/json'),
+        ]
+    )
+    return [WELCOME]
 
 
 class HTTPError(Exception):
@@ -300,3 +321,86 @@ class ReadWriteApp(ReadOnlyApp):
     def POST(self, environ, start_response):
         pass
 
+
+def iter_headers(environ):
+    for (key, value) in environ.items():
+        if key in ('CONTENT_LENGHT', 'CONTENT_TYPE'):
+            yield (key.replace('_', '-').lower(), value)
+        elif key.startswith('HTTP_'):
+            yield (key[5:].replace('_', '-').lower(), value)
+
+
+def request_args(environ):
+    headers = dict(iter_headers(environ))
+    if environ['wsgi.input']._avail:
+        body = environ['wsgi.input'].read()
+    else:
+        body = None
+    return (environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
+
+
+class RootApp:
+    def __init__(self, env):
+        self.user_id = env['user_id']
+        self.map = {
+            '': server_welcome,
+            'couch': ProxyApp(env),
+        }
+
+    def __call__(self, environ, start_response):
+        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+            raise WSGIError('403 Forbidden SSL')
+        if environ.get('SSL_CLIENT_I_DN_CN') != self.user_id:
+            raise WSGIError('403 Forbidden Issuer')
+        key = shift_path_info(environ)
+        if key in self.map:
+            return self.map[key](environ, start_response)
+        raise WSGIError('410 Gone')
+
+
+class ProxyApp:
+    def __init__(self, env, debug=False):
+        self.debug = debug
+        self.client = microfiber.CouchBase(env)
+        self.target_host = self.client.ctx.t.netloc
+        self.basic_auth = microfiber.basic_auth_header(env['basic'])
+
+    def __call__(self, environ, start_response):
+        (method, path, body, headers) = request_args(environ)
+        db = shift_path_info(environ)
+        if db and db.startswith('_'):
+            raise WSGIError('403 Forbidden')
+        if self.debug:
+            print('')
+            print('{REQUEST_METHOD} {PATH_INFO}'.format(**environ))
+            for key in sorted(headers):
+                print('{}: {}'.format(key, headers[key]))
+        headers['host'] = self.target_host
+        headers['authorization'] = self.basic_auth
+
+        response = self.client.raw_request(method, path, body, headers)
+        status = '{} {}'.format(response.status, response.reason)
+        headers = response.getheaders()
+        if self.debug:
+            print('-' * 80)
+            print(status)
+            for (key, value) in headers:
+                print('{}: {}'.format(key, value))
+        start_response(status, headers)
+        body = response.read()
+        if body:
+            return [body]
+        return []
+
+
+def run_server(queue, couch_env, bind_address, ssl_config):
+    try:
+        app = RootApp(couch_env)
+        server = make_server(app, bind_address, ssl_config)
+        env = {'port': server.port, 'url': server.url}
+        log.info('Starting Dmedia HTTPD on port %d', server.port)
+        queue.put(env)
+        server.serve_forever()
+    except Exception as e:
+        log.exception('Could not start Dmedia HTTPD!')
+        queue.put(e)

@@ -30,43 +30,29 @@ start_time = time.time()
 
 import optparse
 import logging
-import json
-from os import path
 import signal
 
 import dbus
 import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
-from microfiber import Database, NotFound
-from filestore import _start_thread
-import usercouch
 from gi.repository import GObject
+from microfiber import NotFound, dumps
+from filestore import _start_thread
 
 import dmedia
-from dmedia.core import Core, start_file_server
+from dmedia.startup import DmediaCouch
+from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
-from dmedia.service.avahi import Replicator, FileServer
+from dmedia.service.avahi import FileServer
 
 
 BUS = dmedia.BUS
 IFACE = BUS
 log = logging.getLogger()
-
 GObject.threads_init()
 DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
 mainloop = GObject.MainLoop()
-
-
-def dumps(obj):
-    return json.dumps(obj, sort_keys=True, separators=(',', ': '), indent=4)
-
-
-def get_config(f):
-    try:
-        return json.load(open(f, 'r'))
-    except Exception:
-        pass
 
 
 def on_sighup(signum, frame):
@@ -77,16 +63,15 @@ signal.signal(signal.SIGHUP, on_sighup)
 
 
 class Service(dbus.service.Object):
-    usercouch = None
+    couch = None
     httpd = None
     avahi = None
-    replicator = None
 
-    def __init__(self, bus, env_s):
+    def __init__(self, bus, couch):
         self.bus = bus
-        self.env_s = env_s
-        log.info('DBus: binding to %r', bus)
+        self.couch = couch
         super().__init__(session, object_path='/')
+        log.info('DBus: binding to %r', bus)
         self.busname = dbus.service.BusName(bus, session)
         session.call_on_disconnection(self.on_disconnection)
         self.udisks = UDisks()
@@ -96,48 +81,28 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_removed', self.on_card_removed)
 
     def start_core(self):
-        if self.env_s is None:
-            self.usercouch = usercouch.UserCouch(dmedia.get_dmedia_dir())
-            f = path.join(self.usercouch.basedir, 'library.json')
-            self.config = get_config(f)
-            start = time.time()
-            if self.config is None:
-                env = self.usercouch.bootstrap('basic', None)
-            elif self.config.get('tokens'):
-                overrides = {
-                    'bind_address': '0.0.0.0',
-                    'oauth': self.config['tokens'],
-                }
-                env = self.usercouch.bootstrap('oauth', overrides)
-            else:
-                # FIXME: This is a tempary hack for tjmonsi, it should be
-                # removed after his demo.  Normally, we'd never run an open
-                # CouchDB accepting non-local connections!
-                overrides = {'bind_address': '0.0.0.0'}
-                env = self.usercouch.bootstrap('open', overrides)
-            log.info('%r', self.usercouch._welcome)
-            log.info('Starting CouchDB took %r', time.time() - start)
-        else:
-            self.config = None
-            env = json.loads(self.env_s)
+        start = time.time()
+        env = self.couch.auto_bootstrap()
+        log.info('%r', self.couch._welcome)
+        log.info('Starting CouchDB took %.3f', time.time() - start)
         self.core = Core(env)
+        self.core.load_identity(self.couch.machine, self.couch.user)
+        self.core.init_default_store()
         if self.core.local.get('default_store') is None:
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env)
+        self.ssl_config = self.couch.get_ssl_config()
 
     def start_httpd(self):
-        (self.httpd, self.port) = start_file_server(self.core.env)
-        self.avahi = FileServer(self.core.env, self.port)
+        if self.ssl_config is None:
+            return
+        (self.httpd, env) = start_httpd(self.core.env, self.ssl_config)
+        self.avahi = FileServer(self.core.env, env['port'])
         self.avahi.run()
-
-    def start_replicator(self):
-        if self.config is not None:
-            self.replicator = Replicator(self.core.env, self.config)
-            self.replicator.run()
 
     def run(self):
         self.start_core()
-        log.info('Finished core startup in %r', time.time() - start_time)
+        log.info('Finished core startup in %.3f', time.time() - start_time)
         GObject.timeout_add(2000, self.on_idle1)
         mainloop.run()
 
@@ -150,7 +115,6 @@ class Service(dbus.service.Object):
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
-        self.start_replicator()
         GObject.timeout_add(6000, self.on_idle3)
         return False  # Don't repeat idle call
 
@@ -166,10 +130,6 @@ class Service(dbus.service.Object):
 
     def shutdown(self):
         log.info('Service.shutdown()')
-        if self.replicator is not None:
-            log.info('* freeing replicator')
-            self.replicator.free()
-            self.replicator = None
         if self.avahi is not None:
             log.info('* freeing avahi')
             self.avahi.free()
@@ -179,10 +139,10 @@ class Service(dbus.service.Object):
             self.httpd.terminate()
             self.httpd.join()
             self.httpd = None
-        if self.usercouch is not None:
+        if self.couch is not None:
             log.info('* killing usercouch')
-            self.usercouch.kill()
-            self.usercouch = None
+            self.couch.kill()
+            self.couch = None
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
@@ -290,18 +250,15 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def Snapshot(self, dbname):
-        self.core.snapshot(self.usercouch.paths.dump, str(dbname))
+        self.core.snapshot(self.couch.paths.dump, str(dbname))
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def SnapshotAll(self):
-        self.core.snapshot_all(self.usercouch.paths.dump)
+        self.core.snapshot_all(self.couch.paths.dump)
 
 
 parser = optparse.OptionParser(
 	version=dmedia.__version__,
-)
-parser.add_option('--env',
-    help='JSON-encoded CouchDB environment (for unit testing)',
 )
 parser.add_option('--bus',
     help='DBus bus name; default is {!r}'.format(BUS),
@@ -310,9 +267,19 @@ parser.add_option('--bus',
 (options, args) = parser.parse_args()
 
 
+# Before we do anything else, aquire the UserCouch lock:
+couch = DmediaCouch(dmedia.get_dmedia_dir())
+
+# Now go for it:
 dmedia.configure_logging()
-service = Service(options.bus, options.env)
 try:
-    service.run()
-finally:
-    service.shutdown()
+    if couch.isfirstrun():
+        couch.firstrun_init(create_user=True)
+    service = Service(options.bus, couch)
+    try:
+        service.run()
+    finally:
+        service.shutdown()
+except Exception as e:
+    log.exception('Could not start dmedia-service!')
+    raise e
