@@ -54,7 +54,6 @@ from dmedia.httpd import WSGIError, make_server
 from dmedia import local
 
 
-
 HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
 WELCOME = json.dumps(
     {'Dmedia': 'welcome', 'version': __version__},
@@ -62,6 +61,17 @@ WELCOME = json.dumps(
 ).encode('utf-8')
 log = logging.getLogger()
 
+
+def server_welcome(environ, start_response):
+    if environ['REQUEST_METHOD'] != 'GET':
+        raise WSGIError('405 Method Not Allowed')
+    start_response('200 OK',
+        [
+            ('Content-Length', str(len(WELCOME))),
+            ('Content-Type', 'application/json'),
+        ]
+    )
+    return [WELCOME]
 
 
 class HTTPError(Exception):
@@ -331,11 +341,17 @@ def request_args(environ):
 
 class RootApp:
     def __init__(self, env):
+        self.user_id = env['user_id']
         self.map = {
+            '': server_welcome,
             'couch': ProxyApp(env),
         }
 
     def __call__(self, environ, start_response):
+        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+            raise WSGIError('403 Forbidden SSL')
+        if environ.get('SSL_CLIENT_I_DN_CN') != self.user_id:
+            raise WSGIError('403 Forbidden Issuer')
         key = shift_path_info(environ)
         if key in self.map:
             return self.map[key](environ, start_response)

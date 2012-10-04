@@ -26,12 +26,14 @@ Unit tests for `dmedia.server`.
 from unittest import TestCase
 import multiprocessing
 import time
+from copy import deepcopy
 
 from usercouch.misc import TempCouch
 from filestore import DIGEST_B32LEN, DIGEST_BYTES
 import microfiber
 from microfiber import random_id
 
+import dmedia
 from dmedia.peering import TempPKI
 from dmedia import server, client
 
@@ -295,6 +297,8 @@ class TempHTTPD:
         self.process.daemon = True
         self.process.start()
         self.env = queue.get()
+        if isinstance(self.env, Exception):
+            raise self.env
         self.port = self.env['port']
 
     def __del__(self):
@@ -303,6 +307,49 @@ class TempHTTPD:
 
 
 class TestRootApp(TestCase):
+    def test_call(self):
+        couch = TempCouch()
+        couch_env = couch.bootstrap()
+        couch_env['user_id'] = random_id()
+
+        # Test when client PKI isn't configured
+        pki = TempPKI()
+        httpd = TempHTTPD(couch_env, pki.get_server_config())
+        env = deepcopy(httpd.env)
+        env['ssl'] = pki.get_client_config()
+        client = microfiber.CouchBase(env)
+        with self.assertRaises(microfiber.Forbidden) as cm:
+            client.get()
+        self.assertEqual(cm.exception.response.reason, 'Forbidden SSL')
+
+        # Test when cert issuer is wrong
+        pki = TempPKI(True)
+        httpd = TempHTTPD(couch_env, pki.get_server_config())
+        env = deepcopy(httpd.env)
+        env['ssl'] = pki.get_client_config()
+        client = microfiber.CouchBase(env)
+        with self.assertRaises(microfiber.Forbidden) as cm:
+            client.get()
+        self.assertEqual(cm.exception.response.reason, 'Forbidden Issuer')
+
+        # Test when SSL config is correct, then test other aspects
+        pki = TempPKI(True)
+        couch_env['user_id'] = pki.client_ca.id
+        httpd = TempHTTPD(couch_env, pki.get_server_config())
+        env = deepcopy(httpd.env)
+        env['ssl'] = pki.get_client_config()
+        client = microfiber.CouchBase(env)
+        self.assertEqual(client.get(),
+            {'Dmedia': 'welcome', 'version': dmedia.__version__}
+        )
+        self.assertEqual(client.get('couch')['couchdb'], 'Welcome')
+
+        with self.assertRaises(microfiber.MethodNotAllowed) as cm:
+            client.put(None)
+
+        with self.assertRaises(microfiber.Gone) as cm:
+            client.get('foo')
+
     def test_replication(self):
         """
         Test push replication Couch1 => HTTPD => Couch2.
@@ -314,8 +361,11 @@ class TestRootApp(TestCase):
 
         # couch1 needs the replication SSL config
         env1 = couch1.bootstrap('basic', config)
-        env2 = couch2.bootstrap('basic', None)
         s1 = microfiber.Server(env1)
+
+        # couch2 needs env['user_id']
+        env2 = couch2.bootstrap('basic', None)
+        env2['user_id'] = pki.client_ca.id
         s2 = microfiber.Server(env2)
 
         # httpd is the SSL frontend for couch2
