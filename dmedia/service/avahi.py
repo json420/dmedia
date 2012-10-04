@@ -246,28 +246,4 @@ class FileServer(Avahi):
                 log.exception('Error canceling push of %s to %s', name, env['url'])
             else:
                 log.exception('Error starting push of %s to %s', name, env['url'])
-
-
-class Replicator(Avahi):
-    """
-    Advertise CouchDB over Avahi, discover other peers in same library.
-    """
-
-    service = '_usercouch._tcp'
-
-    def __init__(self, env, config):
-        self.env = env
-        self.server = Server(env)
-        
-        self.base_id = config['library_id'] + '-'
-        self.tokens = config.get('tokens')
-        _id = self.base_id + env['machine_id']
-        port = env['port']
-        super().__init__(_id, port)
-
-    def run(self):
-        super().run()
-        # Every 15 seconds we check for database created since the replicator
-        # started
-        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
     
