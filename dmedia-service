@@ -86,7 +86,7 @@ class Service(dbus.service.Object):
         log.info('%r', self.couch._welcome)
         log.info('Starting CouchDB took %.3f', time.time() - start)
         self.core = Core(env)
-        self.core.load_identity(self.couch.machine)
+        self.core.load_identity(self.couch.machine, self.couch.user)
         self.core.init_default_store()
         if self.core.local.get('default_store') is None:
             self.core.set_default_store('shared')
@@ -99,9 +99,6 @@ class Service(dbus.service.Object):
         (self.httpd, env) = start_httpd(self.core.env, self.ssl_config)
         self.avahi = FileServer(self.core.env, env['port'])
         self.avahi.run()
-
-        #self.replicator = Replicator(self.core.env, self.config)
-        #self.replicator.run()
 
     def run(self):
         self.start_core()
