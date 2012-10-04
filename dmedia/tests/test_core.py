@@ -115,6 +115,38 @@ class TestCore(CouchCase):
         self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
         self.assertEqual(self.env['machine_id'], id2)
 
+    def test_load_identity2(self):
+        """
+        Test load_identity() with a user.
+        """
+        machine_id = random_id()
+        user_id = random_id()
+        inst = core.Core(self.env)
+        inst.load_identity({'_id': machine_id}, {'_id': user_id})
+
+        machine = inst.db.get(machine_id)
+        self.assertEqual(set(machine), set(['_id', '_rev']))
+        self.assertTrue(machine['_rev'].startswith('1-'))
+
+        user = inst.db.get(user_id)
+        self.assertEqual(set(user), set(['_id', '_rev']))
+        self.assertTrue(user['_rev'].startswith('1-'))
+
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'stores': {},
+                'machine_id': machine_id,
+                'user_id': user_id,
+            }
+        )
+        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
+
+        self.assertEqual(self.env['machine_id'], machine_id)
+        self.assertEqual(self.env['user_id'], user_id)
+
     def test_init_default_store(self):
         private = TempDir()
         shared = TempDir()

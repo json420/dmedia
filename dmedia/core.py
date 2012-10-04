@@ -38,6 +38,7 @@ import multiprocessing
 from urllib.parse import urlparse
 from queue import Queue
 from subprocess import check_call, CalledProcessError
+from copy import deepcopy
 
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict
 from filestore import FileStore, check_root_hash, check_id, _start_thread
@@ -128,18 +129,30 @@ class Core:
                 '_id': LOCAL_ID,
                 'stores': {},
             }
+        self.__local = deepcopy(self.local)
 
-    def load_identity(self, machine):
+    def save_local(self):
+        if self.local != self.__local:
+            self.db.save(self.local)
+            self.__local = deepcopy(self.local)
+
+    def load_identity(self, machine, user=None):
         try:
             self.db.save(machine)
         except Conflict:
             pass
-        machine_id = machine['_id']
-        if self.local.get('machine_id') != machine_id:
-            self.local['machine_id'] = machine_id
-            self.db.save(self.local)
-        self.env['machine_id'] = machine_id
-        log.info('machine_id = %s', machine_id)
+        self.local['machine_id'] = machine['_id']
+        self.env['machine_id'] = machine['_id']
+        log.info('machine_id = %s', machine['_id'])
+        if user is not None:
+            try:
+                self.db.save(user)
+            except Conflict:
+                pass
+            self.local['user_id'] = user['_id']
+            self.env['user_id'] = user['_id']
+            log.info('user_id = %s', user['_id'])
+        self.save_local()
 
     def init_default_store(self):
         value = self.local.get('default_store')
