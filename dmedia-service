@@ -43,7 +43,7 @@ import dmedia
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
-from dmedia.service.avahi import Replicator, FileServer
+from dmedia.service.avahi import FileServer
 
 
 BUS = dmedia.BUS
