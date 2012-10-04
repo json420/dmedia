@@ -871,10 +871,10 @@ class TestHTTPD(TestCase):
 
         # Bad bind_address
         with self.assertRaises(ValueError) as cm:
-            httpd.HTTPD(demo_app, '127.0.0.1')
+            httpd.HTTPD(demo_app, '192.168.0.2')
         self.assertEqual(
             str(cm.exception),
-            "invalid bind_address: '127.0.0.1'"
+            "invalid bind_address: '192.168.0.2'"
         )
 
         # context not a ssl.SSLContext
@@ -931,6 +931,33 @@ class TestHTTPD(TestCase):
         self.assertEqual(server.url, 
             'https://[::1]:{}/'.format(server.port)
         )
+        self.assertEqual(server.environ, server.build_base_environ())
+
+        # IPv4 tests
+        server = httpd.HTTPD(demo_app, '127.0.0.1')
+        self.assertIs(server.app, demo_app)
+        self.assertIsInstance(server.socket, socket.socket)
+        self.assertEqual(server.bind_address, '127.0.0.1')
+        self.assertIsInstance(server.port, int)
+        self.assertEqual(server.socket.getsockname(),
+            ('127.0.0.1', server.port)
+        )
+        self.assertIsNone(server.context)
+        self.assertEqual(server.scheme, 'http')
+        self.assertEqual(server.url, 'http://127.0.0.1:{}/'.format(server.port))
+        self.assertEqual(server.environ, server.build_base_environ())
+
+        server = httpd.HTTPD(demo_app, '0.0.0.0', ctx)
+        self.assertIs(server.app, demo_app)
+        self.assertIsInstance(server.socket, socket.socket)
+        self.assertEqual(server.bind_address, '0.0.0.0')
+        self.assertIsInstance(server.port, int)
+        self.assertEqual(server.socket.getsockname(),
+            ('0.0.0.0', server.port)
+        )
+        self.assertIs(server.context, ctx)
+        self.assertEqual(server.scheme, 'https')
+        self.assertEqual(server.url, 'https://127.0.0.1:{}/'.format(server.port))
         self.assertEqual(server.environ, server.build_base_environ())
 
     def test_build_base_environ(self):

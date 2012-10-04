@@ -20,7 +20,7 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-A tiny IPv6 WSGI HTTP 1.1 server with SSL support.
+A tiny WSGI HTTP 1.1 server with SSL support.
 
 This server is focused on two goals:
 
@@ -381,7 +381,7 @@ class HTTPD:
     def __init__(self, app, bind_address='::1', context=None):
         if not callable(app):
             raise TypeError('app not callable: {!r}'.format(app))
-        if bind_address not in ('::1', '::'):
+        if bind_address not in ('::1', '::', '127.0.0.1', '0.0.0.0'):
             raise ValueError('invalid bind_address: {!r}'.format(bind_address))
         if context is not None:
             if not isinstance(context, ssl.SSLContext):
@@ -397,12 +397,16 @@ class HTTPD:
         self.app = app
         self.bind_address = bind_address
         self.context = context
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind(('0.0.0.0', 0))
+        if bind_address in ('::1', '::'):
+            template = '{}://[::1]:{}/'
+            self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        else:
+            template = '{}://127.0.0.1:{}/'
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.bind((bind_address, 0))
         self.port = self.socket.getsockname()[1]
         self.scheme = ('http' if context is None else 'https')
-        #self.url = '{}://[::1]:{}/'.format(self.scheme, self.port)
-        self.url = '{}://127.0.0.1:{}/'.format(self.scheme, self.port)
+        self.url = template.format(self.scheme, self.port)
         self.environ = self.build_base_environ()
         self.socket.listen(5)
 
