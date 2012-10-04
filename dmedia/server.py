@@ -367,6 +367,9 @@ class ProxyApp:
 
     def __call__(self, environ, start_response):
         (method, path, body, headers) = request_args(environ)
+        db = shift_path_info(environ)
+        if db and db.startswith('_'):
+            raise WSGIError('403 Forbidden')
         if self.debug:
             print('')
             print('{REQUEST_METHOD} {PATH_INFO}'.format(**environ))

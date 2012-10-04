@@ -350,6 +350,9 @@ class TestRootApp(TestCase):
         with self.assertRaises(microfiber.Gone) as cm:
             client.get('foo')
 
+        with self.assertRaises(microfiber.Forbidden) as cm:
+            client.get('couch', '_config')
+
     def test_replication(self):
         """
         Test push replication Couch1 => HTTPD => Couch2.
