@@ -4,9 +4,9 @@ Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
 Build-Depends: debhelper (>= 9),
     python3-all (>= 3.2.3),
-    python3-filestore (>= 12.09),
-    python3-microfiber (>= 12.09),
-    python3-usercouch (>= 12.09),
+    python3-filestore (>= 12.10),
+    python3-microfiber (>= 12.10),
+    python3-usercouch (>= 12.10),
 Standards-Version: 3.9.3
 X-Python3-Version: >= 3.2
 Homepage: https://launchpad.net/dmedia
@@ -14,10 +14,10 @@ Homepage: https://launchpad.net/dmedia
 Package: dmedia
 Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends},
-    python3-filestore (>= 12.09),
-    python3-microfiber (>= 12.09),
-    python3-userwebkit (>= 12.09),
-    python3-usercouch (>= 12.09),
+    python3-filestore (>= 12.10),
+    python3-microfiber (>= 12.10),
+    python3-userwebkit (>= 12.10),
+    python3-usercouch (>= 12.10),
     bzr,
     python3-dbus,
     python3-gi,
