@@ -46,7 +46,7 @@ class UI(BaseUI):
     def on_add_peer(self, key, url):
         self.indicator = AppIndicator3.Indicator.new(
             'dmedia-peer',
-            'indicator-novacut',
+            'indicator-novacut2',
             AppIndicator3.IndicatorCategory.APPLICATION_STATUS
         )
         menu = Gtk.Menu()
