@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="peering.css" />
+<script src="peering.js"></script>
+<script>
+
+"use strict";
+
+
+var UI = {
+    on_load: function() {
+        console.log('onload');
+    },
+
+}
+
+window.onload = UI.on_load;
+
+</script>
+</head>
+<body>
+<div id="first" onclick="Hub.send('first')">
+<p class="top">
+This is my first time using Novacut
+</p>
+<p>
+(You can add more devices later)
+</p>
+</div>
+
+<div id="sync" onclick="Hub.send('sync')">
+<p class="top">
+I'm already using Novacut
+</p>
+<p>
+Sync with my other devices!
+</p>
+</div>
+</body>
+</html>

@@ -36,7 +36,7 @@ class UI(BaseUI):
 
     def on_add(self, key, url):
         print('on_add')
-        
+
     def on_remove(self, key):
         print('on_remove')
 

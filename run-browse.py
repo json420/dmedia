@@ -2,10 +2,12 @@
 
 import logging
 from gettext import gettext as _
+import tempfile
 
 from gi.repository import GObject, Gtk, AppIndicator3, Notify
 from microfiber import random_id
 
+from dmedia.startup import DmediaCouch
 from dmedia.service.peers import Peer
 from dmedia.gtk.peering import BaseUI
 
@@ -14,8 +16,34 @@ Notify.init('dmedia-peer')
 logging.basicConfig(level=logging.DEBUG)
 
 
-class Browser(Peer):
-    def add_peer(self, key, ip, port):
+class UI(BaseUI):
+    page = 'server.html'
+
+    signals = {
+        'create_secret': [],
+        'new_secret': ['group1', 'group2'],
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.couch = DmediaCouch(tempfile.mkdtemp())
+        self.couch.firstrun_init(create_user=True)
+        self.couch.load_pki()
+        self.avahi = Peer(
+            self.couch.pki.user.id,
+            self.on_add_peer,
+            self.on_remove_peer
+        )
+        self.avahi.browse('_dmedia-offer._tcp')
+
+    def connect_hub_signals(self, hub):
+        hub.connect('create_secret', self.on_create_secret)
+
+    def on_create_secret(self, hub):
+        self.secret = random_id(5)
+        self.hub.send('new_secret', self.secret[:4], self.secret[4:])
+
+    def on_add_peer(self, key, url):
         self.indicator = AppIndicator3.Indicator.new(
             'dmedia-peer',
             'indicator-novacut',
@@ -32,31 +60,13 @@ class Browser(Peer):
         note = Notify.Notification.new('Novacut Peering Offer', key, None)
         note.show()
 
-    def remove_peer(self, key):
+    def on_remove_peer(self, key):
         del self.indicator
 
     def on_accept(self, button):
-        self.publish('_dmedia-accept._tcp', 9000)
-
-
-peer = Browser(random_id())
-peer.browse('_dmedia-offer._tcp')
-
-
-class UI(BaseUI):
-    page = 'server.html'
-
-    signals = {
-        'create_secret': [],
-        'new_secret': ['group1', 'group2'],
-    }
-
-    def connect_hub_signals(self, hub):
-        hub.connect('create_secret', self.on_create_secret)
-
-    def on_create_secret(self, hub):
-        self.secret = random_id(5)
-        self.hub.send('new_secret', self.secret[:4], self.secret[4:])
+        self.avahi.publish('_dmedia-accept._tcp', 9000)
+        self.window.show_all()
 
 
 ui = UI()
+Gtk.main()
