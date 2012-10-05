@@ -21,6 +21,7 @@ class UI(BaseUI):
     signals = {
         'first': [],
         'sync': [],
+        'enter_secret': [],
     }
 
     def __init__(self):
@@ -39,7 +40,7 @@ class UI(BaseUI):
         hub.connect('sync', self.on_sync)
 
     def on_peer_added(self, key, url):
-        print('on_add')
+        self.hub.send('enter_secret')
 
     def on_peer_removed(self, key):
         print('on_remove')

@@ -15,13 +15,26 @@ Hub.connect('sync',
     }
 );
 
+Hub.connect('enter_secret',
+    function() {
+        $hide('waiting');
+        $show('enter_secret');
+    }
+);
+
 
 var UI = {
     on_load: function() {
-        console.log('onload');
+        UI.input = $('input');
+        UI.input.oninput = UI.on_input;
+        $show('welcome');
     },
 
+    on_input: function(event) {
+        UI.input.value = UI.input.value.toUpperCase();
+    },
 }
+
 
 window.onload = UI.on_load;
 
@@ -30,7 +43,7 @@ window.onload = UI.on_load;
 <body>
 
 
-<div id="welcome">
+<div id="welcome" class="hide">
     <div id="first" onclick="Hub.send('first')">
     <p class="top">
     This is my first time using Novacut
@@ -53,10 +66,16 @@ window.onload = UI.on_load;
 </div>
 
 <div id="waiting" class="hide">
-Please accept the peering offer from one of your existing devices.
+    <p class="gen">
+    Accept the peering offer from your other device.
+    </p>
+    <img src="novacut.svg" id="logo">
 </div>
 
-<div id="enter" class="hide">
+<div id="enter_secret" class="hide">
+    <p class="gen">
+    Enter your secret code:
+    </p>
     <div class="secret">
     <input id="input" type="text" maxlength="8" size="8"></input>
     </div>

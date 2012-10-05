@@ -72,3 +72,8 @@ p.top {
     
 }
 
+p.gen {
+    margin: 2em;
+    font-size: 30px;
+}
+

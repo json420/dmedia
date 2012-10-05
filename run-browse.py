@@ -69,5 +69,5 @@ class UI(BaseUI):
 
 
 ui = UI()
-ui.run()
-#Gtk.main()
+#ui.run()
+Gtk.main()
