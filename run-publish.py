@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class UI(BaseUI):
-    page = 'welcome.html'
+    page = 'client.html'
 
     signals = {
         'first': [],
