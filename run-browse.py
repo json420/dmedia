@@ -64,6 +64,7 @@ class UI(BaseUI):
         del self.indicator
 
     def on_accept(self, button):
+        del self.indicator
         self.avahi.publish('_dmedia-accept._tcp', 9000)
         self.window.show_all()
 

@@ -34,6 +34,12 @@ var UI = {
 
     on_input: function(event) {
         UI.input.value = UI.input.value.toUpperCase();
+        if (UI.input.value.length == 8) {
+            $('finish').classList.remove('hidden');
+        }
+        else {
+            $('finish').classList.add('hidden');
+        }
     },
 }
 
@@ -77,8 +83,9 @@ window.onload = UI.on_load;
     Enter your secret code:
     </p>
     <div class="secret">
-    <input id="input" type="text" maxlength="8" size="8"></input>
+    <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
     </div>
+    <img src="sync.svg" id="finish" class="hidden">
 </div>
 
 </body>

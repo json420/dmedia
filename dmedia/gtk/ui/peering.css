@@ -81,3 +81,21 @@ p.gen {
     font-size: 30px;
 }
 
+
+#finish {
+    position: fixed;
+    width: 160px;
+    height: 160px;
+    bottom: 45px;
+    right: 45px;
+    cursor: pointer;
+    -webkit-transition-timing-function: ease;
+    -webkit-transition-duration: 300ms;
+    -webkit-transition-property: right, bottom;
+}
+
+#finish.hidden {
+    bottom: -200px;
+    right: -200px;
+}
+
