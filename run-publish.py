@@ -2,25 +2,26 @@
 
 import logging
 
-import dbus
-from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
 from microfiber import random_id
 
 from dmedia.service.peers import Peer
-from dmedia.peering import TempPKI
 
 
-log = logging.getLogger()
-GObject.threads_init()
-DBusGMainLoop(set_as_default=True)
 logging.basicConfig(level=logging.DEBUG)
+machine_id = random_id()
 
-pki = TempPKI()
-cert_id = pki.create(random_id())
 
-peer = Peer(cert_id)
+class Publish(Peer):
+    def add_peer(self, key, ip, port):
+        print('add_peer({!r}, {!r}, {!r})'.format(key, ip, port))
+
+    def remove_peer(self, key):
+        print('remove_peer({!r})'.format(key))
+
+
+peer = Publish()
 peer.browse('_dmedia-accept._tcp')
-peer.publish('_dmedia-offer._tcp', 5000)
+peer.publish('_dmedia-offer._tcp', machine_id, 8000)
 mainloop = GObject.MainLoop()
 mainloop.run()

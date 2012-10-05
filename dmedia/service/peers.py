@@ -21,45 +21,37 @@
 
 """
 Browse for Dmedia peer offerings, publish the same.
+
+Existing machines constantly listen for _dmedia-offer._tcp.
+
+New machine publishes _dmedia-offer._tcp, and listens for _dmedia-accept._tcp.
+
+Existing machine prompts user, and if they accept, machine publishes
+_dmedia-accept._tcp, which initiates peering process.
 """
 
 import logging
 
 import dbus
+from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
 
 
+GObject.threads_init()
+DBusGMainLoop(set_as_default=True)
 log = logging.getLogger()
 
 
 class Peer:
-    def __init__(self, _id):
+    def __init__(self):
         self.group = None
-        self.id = _id
-        log.info('This cert_id = %s', _id)
         self.bus = dbus.SystemBus()
         self.avahi = self.bus.get_object('org.freedesktop.Avahi', '/')
 
     def __del__(self):
         self.unpublish()
 
-    def browse(self, service):
-        self.bservice = service
-        log.info('Avahi(%s): browsing...', service)
-        browser_path = self.avahi.ServiceBrowserNew(
-            -1,  # Interface
-            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
-            service,
-            'local',
-            0,  # Flags
-            dbus_interface='org.freedesktop.Avahi.Server'
-        )
-        self.browser = self.bus.get_object('org.freedesktop.Avahi', browser_path)
-        self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
-        self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
-
-    def publish(self, service, port):
-        self.pservice = service
+    def publish(self, service, _id, port):
         self.group = self.bus.get_object(
             'org.freedesktop.Avahi',
             self.avahi.EntryGroupNew(
@@ -67,13 +59,13 @@ class Peer:
             )
         )
         log.info(
-            'Avahi(%s): publishing %s on port %s', service, self.id, port
+            'Avahi(%s): publishing %s on port %s', service, _id, port
         )
         self.group.AddService(
             -1,  # Interface
             0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
-            self.id,
+            _id,
             service,
             '',  # Domain, default to .local
             '',  # Host, default to localhost
@@ -89,6 +81,21 @@ class Peer:
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
             self.group = None
 
+    def browse(self, service):
+        log.info('Avahi(%s): browsing...', service)
+        self.service = service
+        path = self.avahi.ServiceBrowserNew(
+            -1,  # Interface
+            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            service,
+            'local',
+            0,  # Flags
+            dbus_interface='org.freedesktop.Avahi.Server'
+        )
+        self.browser = self.bus.get_object('org.freedesktop.Avahi', path)
+        self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
+        self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
+
     def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
         self.avahi.ResolveService(
             interface, protocol, key, _type, domain, -1, 0,
@@ -100,22 +107,23 @@ class Peer:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        url = 'http://{}:{}/'.format(ip, port)
-        log.info('Avahi(%s): new peer %s at %s', self.bservice, key, url)
+        log.info('Avahi(%s): new peer %s at %s, port %s',
+            self.service, key, ip, port
+        )
+        self.add_peer(key, ip, port)
 
     def on_error(self, exception):
-        log.error('%s: error calling ResolveService(): %r', self.bservice, exception)
+        log.error('%s: error calling ResolveService(): %r',
+            self.service, exception
+        )
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
-        log.info('Avahi(%s): peer removed: %s', self.bservice, key)
-
-
-
-class Browser:
-    def __init__(self, service, add_callback, remove_callback):
-        self.service = service
-        self.add_callback = add_callback
-        self.remove_callback = remove_callback
-    
-    
+        log.info('Avahi(%s): peer removed: %s', self.service, key)
+        self.remove_peer(key)
+        
+    def add_peer(self, key, ip, port):
+        pass
+        
+    def remove(self, key):
+        pass
 
