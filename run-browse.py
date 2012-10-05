@@ -7,6 +7,7 @@ from gi.repository import GObject, Gtk, AppIndicator3, Notify
 from microfiber import random_id
 
 from dmedia.service.peers import Peer
+from dmedia.gtk.peering import BaseUI
 
 
 Notify.init('dmedia-peer')
@@ -40,5 +41,22 @@ class Browser(Peer):
 
 peer = Browser(random_id())
 peer.browse('_dmedia-offer._tcp')
-mainloop = GObject.MainLoop()
-mainloop.run()
+
+
+class UI(BaseUI):
+    page = 'server.html'
+
+    signals = {
+        'create_secret': [],
+        'new_secret': ['group1', 'group2'],
+    }
+
+    def connect_hub_signals(self, hub):
+        hub.connect('create_secret', self.on_create_secret)
+
+    def on_create_secret(self, hub):
+        self.secret = random_id(5)
+        self.hub.send('new_secret', self.secret[:4], self.secret[4:])
+
+
+ui = UI()

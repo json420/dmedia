@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="peering.css" />
+<script src="peering.js"></script>
+<script>
+
+"use strict";
+
+Hub.connect('new_secret',
+    function(group1, group2) {
+        $('group1').textContent = group1;
+        $('group2').textContent = group2;
+    }
+);
+
+window.onload = function() {
+    Hub.send('create_secret');  
+}
+
+</script>
+</head>
+<div id="secret">
+<code id="group1"></code><code id="group2"></code>
+</div>
+</body>
+</html>
