@@ -57,7 +57,7 @@ class UI(BaseUI):
         menu.show_all()
         self.indicator.set_menu(menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
-        note = Notify.Notification.new('Novacut Peering Offer', key, None)
+        note = Notify.Notification.new('Novacut Peering Offer', None, None)
         note.show()
 
     def on_remove_peer(self, key):

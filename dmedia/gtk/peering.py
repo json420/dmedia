@@ -51,7 +51,7 @@ def hub_factory(signals):
 class BaseUI:
     inspector = None
     signals = None
-    title = 'App Window Title'  # Default Gtk.Window title
+    title = 'Novacut'  # Default Gtk.Window title
     page = 'peering.html'  # Default page to load once CouchDB is available
     width = 960  # Default Gtk.Window width
     height = 540  # Default Gtk.Window height
