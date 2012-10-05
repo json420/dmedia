@@ -11,13 +11,15 @@
 Hub.connect('sync',
     function() {
         $hide('welcome');
-        $show('waiting');  
+        $show('waiting');
+        $('logo').classList.add('spun');
     }
 );
 
 Hub.connect('enter_secret',
     function() {
         $hide('waiting');
+        $hide('logo');
         $show('enter_secret');
     }
 );
@@ -42,6 +44,7 @@ window.onload = UI.on_load;
 </head>
 <body>
 
+<img src="novacut.svg" id="logo">
 
 <div id="welcome" class="hide">
     <div id="first" onclick="Hub.send('first')">
@@ -52,8 +55,6 @@ window.onload = UI.on_load;
     (You can add more devices later)
     </p>
     </div>
-
-    <img src="novacut.svg" id="logo">
 
     <div id="sync" onclick="Hub.send('sync')">
     <p class="top">
@@ -67,9 +68,8 @@ window.onload = UI.on_load;
 
 <div id="waiting" class="hide">
     <p class="gen">
-    Accept the peering offer from your other device.
+    Accept the peering offer on your other device
     </p>
-    <img src="novacut.svg" id="logo">
 </div>
 
 <div id="enter_secret" class="hide">

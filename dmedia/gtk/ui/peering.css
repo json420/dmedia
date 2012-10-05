@@ -49,13 +49,13 @@ input {
 }
 
 #first {
-    top: 20px;
-    left: 20px;
+    top: 45px;
+    left: 45px;
 }
 
 #sync {
-    bottom: 20px;
-    right: 20px;
+    bottom: 45px;
+    right: 45px;
 }
 
 p.top {
@@ -69,7 +69,11 @@ p.top {
     left: 400px;
     width: 160px;
     height: 160px;
-    
+    -webkit-transition: -webkit-transform 500ms linear;
+}
+
+#logo.spun {
+    -webkit-transform: rotate(180deg);   
 }
 
 p.gen {
