@@ -60,6 +60,8 @@ class BaseUI:
         self.build_window()
         self.hub = hub_factory(self.signals)(self.view)
         self.connect_hub_signals(self.hub)
+
+    def run(self):
         self.window.show_all()
         Gtk.main()
 

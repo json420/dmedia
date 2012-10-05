@@ -1,6 +1,7 @@
 body {
-    font-family: Ubuntu, sans-sarif;
-    font-size: 16px;
+    font-family: Ubuntu;
+    font-size: 20px;
+    background-color: #301438;
 }
 
 code, input {
@@ -20,3 +21,30 @@ input {
 #secret {
     text-align: center;
 }
+
+#first, #sync {
+    position: fixed;
+    width: 460px;
+    background-color: #fff;
+    text-align: center;
+    box-shadow: 2px 2px 6px #000;
+    border-radius: 10px;
+    cursor: pointer;
+    -webkit-user-select: none;
+}
+
+#first {
+    top: 20px;
+    left: 20px;
+}
+
+#sync {
+    bottom: 20px;
+    right: 20px;
+}
+
+p.top {
+    font-weight: bold;
+    font-size: 22px;
+}
+

@@ -43,8 +43,10 @@ log = logging.getLogger()
 
 
 class Peer:
-    def __init__(self, _id):
+    def __init__(self, _id, add_callback, remove_callback):
         self.id = _id
+        self.add_callback = add_callback
+        self.remove_callback = remove_callback
         self.group = None
         self.bus = dbus.SystemBus()
         self.avahi = self.bus.get_object('org.freedesktop.Avahi', '/')
@@ -108,10 +110,9 @@ class Peer:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        log.info('Avahi(%s): new peer %s at %s, port %s',
-            self.service, key, ip, port
-        )
-        self.add_peer(key, ip, port)
+        url = 'https://{}:{}/'.format(ip, port)
+        log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
+        self.on_add(key, url)
 
     def on_error(self, exception):
         log.error('%s: error calling ResolveService(): %r',
@@ -120,11 +121,5 @@ class Peer:
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Avahi(%s): peer removed: %s', self.service, key)
-        self.remove_peer(key)
-        
-    def add_peer(self, key, ip, port):
-        pass
-        
-    def remove(self, key):
-        pass
+        self.on_remove(key)
 
