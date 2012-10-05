@@ -3,21 +3,21 @@
 import logging
 from gettext import gettext as _
 
-from gi.repository import GObject, Gtk, AppIndicator3
+from gi.repository import GObject, Gtk, AppIndicator3, Notify
 from microfiber import random_id
 
 from dmedia.service.peers import Peer
 
 
+Notify.init('dmedia-peer')
 logging.basicConfig(level=logging.DEBUG)
-machine_id = random_id()
 
 
 class Browser(Peer):
     def add_peer(self, key, ip, port):
         self.indicator = AppIndicator3.Indicator.new(
             'dmedia-peer',
-            'indicator-dmedia-att',
+            'indicator-novacut',
             AppIndicator3.IndicatorCategory.APPLICATION_STATUS
         )
         menu = Gtk.Menu()
@@ -28,15 +28,17 @@ class Browser(Peer):
         menu.show_all()
         self.indicator.set_menu(menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
+        note = Notify.Notification.new('Novacut Peering Offer', key, None)
+        note.show()
 
     def remove_peer(self, key):
         del self.indicator
 
     def on_accept(self, button):
-        self.publish('_dmedia-accept._tcp', machine_id, 9000)
+        self.publish('_dmedia-accept._tcp', 9000)
 
 
-peer = Browser()
+peer = Browser(random_id())
 peer.browse('_dmedia-offer._tcp')
 mainloop = GObject.MainLoop()
 mainloop.run()

@@ -43,7 +43,8 @@ log = logging.getLogger()
 
 
 class Peer:
-    def __init__(self):
+    def __init__(self, _id):
+        self.id = _id
         self.group = None
         self.bus = dbus.SystemBus()
         self.avahi = self.bus.get_object('org.freedesktop.Avahi', '/')
@@ -51,7 +52,7 @@ class Peer:
     def __del__(self):
         self.unpublish()
 
-    def publish(self, service, _id, port):
+    def publish(self, service, port):
         self.group = self.bus.get_object(
             'org.freedesktop.Avahi',
             self.avahi.EntryGroupNew(
@@ -59,13 +60,13 @@ class Peer:
             )
         )
         log.info(
-            'Avahi(%s): publishing %s on port %s', service, _id, port
+            'Avahi(%s): publishing %s on port %s', service, self.id, port
         )
         self.group.AddService(
             -1,  # Interface
             0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
-            _id,
+            self.id,
             service,
             '',  # Domain, default to .local
             '',  # Host, default to localhost

@@ -6,10 +6,10 @@ from gi.repository import GObject
 from microfiber import random_id
 
 from dmedia.service.peers import Peer
+from dmedia.gtk.peering import BaseUI
 
 
 logging.basicConfig(level=logging.DEBUG)
-machine_id = random_id()
 
 
 class Publish(Peer):
@@ -20,8 +20,9 @@ class Publish(Peer):
         print('remove_peer({!r})'.format(key))
 
 
-peer = Publish()
+peer = Publish(random_id())
 peer.browse('_dmedia-accept._tcp')
-peer.publish('_dmedia-offer._tcp', machine_id, 8000)
-mainloop = GObject.MainLoop()
-mainloop.run()
+peer.publish('_dmedia-offer._tcp', 8000)
+
+ui = BaseUI()
+
