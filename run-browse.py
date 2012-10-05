@@ -21,7 +21,7 @@ class UI(BaseUI):
 
     signals = {
         'create_secret': [],
-        'new_secret': ['group1', 'group2'],
+        'new_secret': ['secret'],
     }
 
     def __init__(self):
@@ -41,7 +41,7 @@ class UI(BaseUI):
 
     def on_create_secret(self, hub):
         self.secret = random_id(5)
-        self.hub.send('new_secret', self.secret[:4], self.secret[4:])
+        self.hub.send('new_secret', self.secret)
 
     def on_add_peer(self, key, url):
         self.indicator = AppIndicator3.Indicator.new(
@@ -69,4 +69,5 @@ class UI(BaseUI):
 
 
 ui = UI()
-Gtk.main()
+ui.run()
+#Gtk.main()

@@ -28,16 +28,20 @@ class UI(BaseUI):
         self.couch = DmediaCouch(tempfile.mkdtemp())
         self.couch.firstrun_init(create_user=False)
         self.couch.load_pki()
-        self.avahi = Peer(self.couch.pki.machine.id, self.on_add, self.on_remove)
+        self.avahi = Peer(
+            self.couch.pki.machine.id,
+            self.on_peer_added,
+            self.on_peer_removed,
+        )
 
     def connect_hub_signals(self, hub):
         hub.connect('first', self.on_first)
         hub.connect('sync', self.on_sync)
 
-    def on_add(self, key, url):
+    def on_peer_added(self, key, url):
         print('on_add')
 
-    def on_remove(self, key):
+    def on_peer_removed(self, key):
         print('on_remove')
 
     def on_first(self, hub):

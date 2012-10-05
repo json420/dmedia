@@ -1,7 +1,13 @@
+.hide {
+    display: none !important;
+}
+
 body {
     font-family: Ubuntu;
     font-size: 20px;
     background-color: #301438;
+    color: #fff;
+    text-align: center;
 }
 
 code, input {
@@ -11,15 +17,23 @@ code, input {
     color: #333;
     text-shadow: 0px 0px 3px #e81f3b;
     letter-spacing: 0.15em;
-    margin: 0.35em;
+    line-height: 1.4em;
+    margin: 0.4em;
 }
 
 input {
     width: 5.4em;
 }
 
-#secret {
+.secret {
     text-align: center;
+    background-color: #fff;
+    text-align: center;
+    box-shadow: 2px 2px 6px #000;
+    border-radius: 10px;
+    cursor: pointer;
+    -webkit-user-select: none;
+    display: inline-block;
 }
 
 #first, #sync {
@@ -31,6 +45,7 @@ input {
     border-radius: 10px;
     cursor: pointer;
     -webkit-user-select: none;
+    color: #000;
 }
 
 #first {
@@ -46,5 +61,14 @@ input {
 p.top {
     font-weight: bold;
     font-size: 22px;
+}
+
+#logo {
+    position: fixed;
+    top: 190px;
+    left: 400px;
+    width: 160px;
+    height: 160px;
+    
 }
 

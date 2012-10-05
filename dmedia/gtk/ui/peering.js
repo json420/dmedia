@@ -163,3 +163,21 @@ function $el(tag, attributes) {
     return el;
 }
 
+
+function $hide(id) {
+    var element = $(id);
+    if (element) {
+        element.classList.add('hide');
+        return element;
+    }
+}
+
+
+function $show(id) {
+    var element = $(id);
+    if (element) {
+        element.classList.remove('hide');
+        return element;
+    }
+}
+

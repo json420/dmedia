@@ -9,9 +9,8 @@
 "use strict";
 
 Hub.connect('new_secret',
-    function(group1, group2) {
-        $('group1').textContent = group1;
-        $('group2').textContent = group2;
+    function(secret) {
+        $('secret').textContent = secret;
     }
 );
 
@@ -21,8 +20,8 @@ window.onload = function() {
 
 </script>
 </head>
-<div id="secret">
-<code id="group1"></code><code id="group2"></code>
+<div class="secret">
+<code id="secret"></code>
 </div>
 </body>
 </html>

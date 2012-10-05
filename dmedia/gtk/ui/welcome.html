@@ -8,6 +8,13 @@
 
 "use strict";
 
+Hub.connect('sync',
+    function() {
+        $hide('welcome');
+        $show('waiting');  
+    }
+);
+
 
 var UI = {
     on_load: function() {
@@ -21,22 +28,39 @@ window.onload = UI.on_load;
 </script>
 </head>
 <body>
-<div id="first" onclick="Hub.send('first')">
-<p class="top">
-This is my first time using Novacut
-</p>
-<p>
-(You can add more devices later)
-</p>
+
+
+<div id="welcome">
+    <div id="first" onclick="Hub.send('first')">
+    <p class="top">
+    This is my first time using Novacut
+    </p>
+    <p>
+    (You can add more devices later)
+    </p>
+    </div>
+
+    <img src="novacut.svg" id="logo">
+
+    <div id="sync" onclick="Hub.send('sync')">
+    <p class="top">
+    I'm already using Novacut
+    </p>
+    <p>
+    Sync with my other devices!
+    </p>
+    </div>
 </div>
 
-<div id="sync" onclick="Hub.send('sync')">
-<p class="top">
-I'm already using Novacut
-</p>
-<p>
-Sync with my other devices!
-</p>
+<div id="waiting" class="hide">
+Please accept the peering offer from one of your existing devices.
 </div>
+
+<div id="enter" class="hide">
+    <div class="secret">
+    <input id="input" type="text" maxlength="8" size="8"></input>
+    </div>
+</div>
+
 </body>
 </html>
