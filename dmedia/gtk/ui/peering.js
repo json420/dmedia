@@ -105,6 +105,14 @@ var Hub = {
 }
 
 
+function $bind(func, self) {
+    return function() {
+        var args = Array.prototype.slice.call(arguments);
+        return func.apply(self, args);
+    }
+}
+
+
 function $(id) {
     /*
     Return the element with id="id".
@@ -125,3 +133,33 @@ function $(id) {
     }
     return document.getElementById(id);
 }
+
+
+function $el(tag, attributes) {
+    /*
+    Convenience function to create a new DOM element and set its attributes.
+
+    Examples:
+
+    >>> $el('img');
+    <img>
+    >>> $el('img', {'class': 'thumbnail', 'src': 'foo.png'});
+    <img class="thumbnail" src="foo.png">
+
+    */
+    var el = document.createElement(tag);
+    if (attributes) {
+        var key;
+        for (key in attributes) {
+            var value = attributes[key];
+            if (key == 'textContent') {
+                el.textContent = value;
+            }
+            else {
+                el.setAttribute(key, value);
+            }
+        }
+    }
+    return el;
+}
+

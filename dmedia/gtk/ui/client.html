@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="peering.css" />
+<script src="peering.js"></script>
+<script>
+
+"use strict";
+
+var Group = function(id) {
+    this.input = $(id);
+    this.input.oninput = $bind(this.on_input, this);
+}
+Group.prototype = {
+    on_input: function(event) {
+        this.input.value = this.input.value.toUpperCase();
+    },
+}
+
+
+var UI = {
+    on_load: function() {
+        UI.group1 = new Group('group1');
+        UI.group2 = new Group('group2');
+    },
+}
+
+window.onload = UI.on_load;
+
+</script>
+</head>
+<body>
+<div id="secret">
+<input id="group1" type="text" maxlength="4"></input><input id="group1" type="text" maxlength="4"></input>
+</div>
+</body>
+</html>

@@ -24,5 +24,11 @@ peer = Publish(random_id())
 peer.browse('_dmedia-accept._tcp')
 peer.publish('_dmedia-offer._tcp', 8000)
 
-ui = BaseUI()
+
+class UI(BaseUI):
+    page = 'client.html'
+    
+
+ui = UI()
+
 
