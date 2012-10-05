@@ -160,6 +160,7 @@ setup(
         ('share/icons/hicolor/scalable/status',
             [
                 'share/indicator-novacut.svg',
+                'share/indicator-novacut2.svg',
                 'share/indicator-dmedia.svg',
                 'share/indicator-dmedia-att.svg',
             ]
