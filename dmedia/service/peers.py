@@ -34,6 +34,7 @@ import logging
 from collections import namedtuple
 import ssl
 import socket
+import threading
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
@@ -66,6 +67,78 @@ def get_service(verb):
     """
     assert verb in ('offer', 'accept')
     return '_dmedia-{}._tcp'.format(verb)
+
+
+class StateMachine:
+    """
+    A state machine to help prevent silly mistakes.
+
+    So that threading issues don't make the code difficult to reason about,
+    a thread-lock is acquired when making a state change.  To be on the safe
+    side, you should only make state changes from the main thread.  But the
+    thread-lock is there as a safety in case an attacker could change the
+    execution such that something isn't called from the main thread.
+    """
+    def __init__(self):
+        self.__state = 'free'
+        self.__peer_id = None
+        self.__lock = threading.Lock()
+
+    @property
+    def state(self):
+        return self.__state
+
+    @property
+    def peer_id(self):
+        return self.__peer_id
+
+    def bind(self, peer_id):
+        with self.__lock:
+            if self.__state != 'free':
+                return False
+            if self.__peer_id is not None:
+                return False
+            self.__state = 'bound'
+            self.__peer_id = peer_id
+            return True
+
+    def unbind(self, peer_id):
+        with self.__lock:
+            if self.__state != 'bound':
+                return False
+            if peer_id is None or peer_id != self.__peer_id:
+                return False
+            self.__state = 'unbound'
+            return True
+
+    def activate(self, peer_id):
+        with self.__lock:
+            if self.__state != 'bound':
+                return False
+            if peer_id is None or peer_id != self.__peer_id:
+                return False
+            self.__state = 'activated'
+            self.__peer_id = peer_id
+            return True
+
+    def deactivate(self, peer_id):
+        with self.__lock:
+            if self.__state != 'activated':
+                return False
+            if peer_id is None or peer_id != self.__peer_id:
+                return False
+            self.__state = 'deactivated'
+            return True
+
+    def free(self, peer_id):
+        with self.__lock:
+            if self.__state not in ('unbound', 'deactivated'):
+                return False
+            if peer_id is None or peer_id != self.__peer_id:
+                return False
+            self.__state = 'free'
+            self.__peer_id = None
+            return True
 
 
 class AvahiPeer(GObject.GObject):
@@ -120,7 +193,7 @@ class AvahiPeer(GObject.GObject):
             'key_file': self.key_file,
             'cert_file': self.cert_file,
         }
-        if not self.client_mode:
+        if self.__active or not self.client_mode:
             config['ca_file'] = self.pki.verify_ca(self.peer_id)
         return config
 
