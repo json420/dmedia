@@ -33,11 +33,12 @@ _dmedia-accept._tcp, which initiates peering process.
 import logging
 from collections import namedtuple
 import ssl
+import socket
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
-from microfiber import _start_thread, random_id, CouchBase, dumps
+from microfiber import _start_thread, random_id, CouchBase, dumps, build_ssl_context
 
 
 GObject.threads_init()
@@ -69,10 +70,10 @@ def get_service(verb):
 
 class Peer(GObject.GObject):
     __gsignals__ = {
-        'peer_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+        'offer': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [GObject.TYPE_PYOBJECT]
         ),
-        'peer_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+        'accept': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [GObject.TYPE_PYOBJECT]
         ),
     }
@@ -93,23 +94,32 @@ class Peer(GObject.GObject):
     def __del__(self):
         self.unpublish()
 
-    def get_server_ssl_config(self):
+    def get_server_config(self):
+        """
+        Get the initial server SSL config.
+        """
         config = {
             'key_file': self.key_file,
             'cert_file': self.cert_file,
         }
+        return config
         if not self.client_mode:
             config['ca_file'] = self.pki.verify_ca(self.remote_id)
+        print(dumps(config, pretty=True))
         return config
 
     def abort(self, remote_id):
-        GObject.timeout_add(10 * 1000, self.on_abort_timeout, remote_id)
-
-    def on_abort_timeout(self, remote_id):
         if remote_id is None or remote_id != self.remote_id:
             log.error('abort for wrong remote_id, not aborting')
             return
         log.info('aborting session for %s', remote_id)
+        GObject.timeout_add(10 * 1000, self.on_timeout, remote_id)
+
+    def on_timeout(self, remote_id):
+        if remote_id is None or remote_id != self.remote_id:
+            log.error('timeout for wrong remote_id, not resetting')
+            return
+        log.info('rate-limiting timeout reached, reseting from %s', remote_id)
         self.remote_id = None
         self.remote = None
 
@@ -222,6 +232,7 @@ class Peer(GObject.GObject):
                 'url': url,
                 'ssl': ssl_config,
             }
+            print(dumps(env, pretty=True))
             client = CouchBase(env)
             d = client.get()
             info = Info(d['user'], d['host'], url, remote.id)
@@ -235,6 +246,8 @@ class Peer(GObject.GObject):
     def on_check_complete(self, remote, info):
         assert remote.id == self.remote_id
         assert remote is self.remote
-        log.info('Cert check complete for %r', remote)
+        log.info('Cert checked-out for %r', remote)
         log.info('%r', info)
-        self.emit('peer_added', info)
+        signal = ('accept' if self.client_mode else 'offer')
+        log.info('Firing %r signal', signal)
+        self.emit(signal, info)

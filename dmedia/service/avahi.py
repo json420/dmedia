@@ -175,7 +175,7 @@ class FileServer(Avahi):
         except KeyError:
             pass
         self.remove_replication_peer(key)
-        
+
     def on_timeout(self):
         if not self.replications:
             return True  # Repeat timeout call
