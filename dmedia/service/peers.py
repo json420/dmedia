@@ -88,11 +88,29 @@ class AvahiPeer(GObject.GObject):
         self.key_file = pki.verify_key(self.id)
         self.peer_id = None
         self.peer = None
+        self.info = None
+        self.__active = False
         self.bus = dbus.SystemBus()
         self.avahi = self.bus.get_object('org.freedesktop.Avahi', '/')
 
     def __del__(self):
         self.unpublish()
+
+    def activate(self):
+        assert self.__active is False
+        assert self.peer_id is not None
+        assert self.peer.id == self.peer_id
+        assert self.info.id == self.peer_id
+        assert self.info.url == 'https://{}:{}/'.format(
+            self.peer.ip, self.peer.port
+        )
+        log.info('Activating session with %r', self.peer)
+        self.__active = True
+
+    def accept(self, port):
+        assert self.client_mode is False
+        self.activate()
+        self.publish(port)
 
     def get_server_config(self):
         """
@@ -107,6 +125,9 @@ class AvahiPeer(GObject.GObject):
         return config
 
     def abort(self, peer_id):
+        if self.__active:
+            log.error('Session has been activated, cannot abort')
+            return
         if peer_id is None or peer_id != self.peer_id:
             log.error('Abort for wrong peer_id, not aborting')
             return
@@ -118,8 +139,9 @@ class AvahiPeer(GObject.GObject):
             log.error('Timeout for wrong peer_id, not resetting')
             return
         log.info('Rate-limiting timeout reached, reseting from %s', peer_id)
-        self.peer_id = None
+        self.info = None
         self.peer = None
+        self.peer_id = None
 
     def publish(self, port):
         verb = ('offer' if self.client_mode else 'accept')
@@ -174,7 +196,7 @@ class AvahiPeer(GObject.GObject):
             log.warning('Possible attack from %s', peer_id)
             return
         assert self.peer_id is None
-        log.info('Binding session to %s', peer_id)
+        log.info('Peer added: %s', peer_id)
         self.peer_id = peer_id
         self.avahi.ResolveService(
             interface, protocol, peer_id, _type, domain, -1, 0,
@@ -246,13 +268,14 @@ class AvahiPeer(GObject.GObject):
         except Exception as e:
             log.exception('GET / failed for %r', peer)
             return self.abort(peer.id)
-        log.info('GET / succeeded for %r', peer)
-        log.info('%r', info)
+        log.info('GET / succeeded with %r', info)
         GObject.idle_add(self.on_cert_complete, peer, info)
 
     def on_cert_complete(self, peer, info):
         assert peer.id == self.peer_id
         assert peer is self.peer
+        assert self.info is None
+        self.info = info
         log.info('Cert checked-out for %r', peer)
         signal = ('accept' if self.client_mode else 'offer')
         log.info('Firing %r signal for %r', signal, info)
