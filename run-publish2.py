@@ -10,7 +10,7 @@ from gi.repository import GObject
 from microfiber import dumps
 
 from dmedia.startup import DmediaCouch
-from dmedia.service.peers import Peer
+from dmedia.service.peers import AvahiPeer
 from dmedia.httpd import run_server, WSGIError
 
 
@@ -59,7 +59,7 @@ mainloop = GObject.MainLoop()
 couch = DmediaCouch(tempfile.mkdtemp())
 couch.firstrun_init(create_user=False)
 couch.load_pki()
-avahi = Peer(couch.pki, client_mode=True)
+avahi = AvahiPeer(couch.pki, client_mode=True)
 (httpd, port) = start_server_process(avahi.get_server_config())
 avahi.browse()
 avahi.publish(port)

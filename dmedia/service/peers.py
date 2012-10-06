@@ -45,7 +45,7 @@ GObject.threads_init()
 DBusGMainLoop(set_as_default=True)
 log = logging.getLogger()
 
-Remote = namedtuple('Remote', 'id ip port')
+Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
 
 
@@ -68,7 +68,7 @@ def get_service(verb):
     return '_dmedia-{}._tcp'.format(verb)
 
 
-class Peer(GObject.GObject):
+class AvahiPeer(GObject.GObject):
     __gsignals__ = {
         'offer': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [GObject.TYPE_PYOBJECT]
@@ -79,15 +79,15 @@ class Peer(GObject.GObject):
     }
 
     def __init__(self, pki, client_mode=False):
-        self.group = None
         super().__init__()
+        self.group = None
         self.pki = pki
         self.client_mode = client_mode
         self.id = (pki.machine.id if client_mode else pki.user.id)
         self.cert_file = pki.verify_ca(self.id)
         self.key_file = pki.verify_key(self.id)
-        self.remote_id = None
-        self.remote = None
+        self.peer_id = None
+        self.peer = None
         self.bus = dbus.SystemBus()
         self.avahi = self.bus.get_object('org.freedesktop.Avahi', '/')
 
@@ -103,23 +103,23 @@ class Peer(GObject.GObject):
             'cert_file': self.cert_file,
         }
         if not self.client_mode:
-            config['ca_file'] = self.pki.verify_ca(self.remote_id)
+            config['ca_file'] = self.pki.verify_ca(self.peer_id)
         return config
 
-    def abort(self, remote_id):
-        if remote_id is None or remote_id != self.remote_id:
-            log.error('abort for wrong remote_id, not aborting')
+    def abort(self, peer_id):
+        if peer_id is None or peer_id != self.peer_id:
+            log.error('Abort for wrong peer_id, not aborting')
             return
-        log.info('aborting session for %s', remote_id)
-        GObject.timeout_add(10 * 1000, self.on_timeout, remote_id)
+        log.info('Aborting session for %s', peer_id)
+        GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
 
-    def on_timeout(self, remote_id):
-        if remote_id is None or remote_id != self.remote_id:
-            log.error('timeout for wrong remote_id, not resetting')
+    def on_timeout(self, peer_id):
+        if peer_id is None or peer_id != self.peer_id:
+            log.error('Timeout for wrong peer_id, not resetting')
             return
-        log.info('rate-limiting timeout reached, reseting from %s', remote_id)
-        self.remote_id = None
-        self.remote = None
+        log.info('Rate-limiting timeout reached, reseting from %s', peer_id)
+        self.peer_id = None
+        self.peer = None
 
     def publish(self, port):
         verb = ('offer' if self.client_mode else 'accept')
@@ -169,39 +169,39 @@ class Peer(GObject.GObject):
         self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
 
-    def on_ItemNew(self, interface, protocol, remote_id, _type, domain, flags):
-        if self.remote_id is not None:
-            log.warning('possible attack from %s', remote_id)
+    def on_ItemNew(self, interface, protocol, peer_id, _type, domain, flags):
+        if self.peer_id is not None:
+            log.warning('Possible attack from %s', peer_id)
             return
-        assert self.remote_id is None
-        log.info('starting peering session with %s', remote_id)
-        self.remote_id = remote_id
+        assert self.peer_id is None
+        log.info('Binding session to %s', peer_id)
+        self.peer_id = peer_id
         self.avahi.ResolveService(
-            interface, protocol, remote_id, _type, domain, -1, 0,
+            interface, protocol, peer_id, _type, domain, -1, 0,
             dbus_interface='org.freedesktop.Avahi.Server',
             reply_handler=self.on_reply,
             error_handler=self.on_error,
         )
 
     def on_reply(self, *args):
-        remote_id = args[2]
-        assert remote_id == self.remote_id
-        assert self.remote is None
+        peer_id = args[2]
+        assert peer_id == self.peer_id
+        assert self.peer is None
         (ip, port) = args[7:9]
-        log.info('%s is at %s, port %s', remote_id, ip, port)
-        self.remote = Remote(str(remote_id), str(ip), int(port))
-        _start_thread(self.cert_thread, self.remote)
+        log.info('%s is at %s, port %s', peer_id, ip, port)
+        self.peer = Peer(str(peer_id), str(ip), int(port))
+        _start_thread(self.cert_thread, self.peer)
 
     def on_error(self, error):
-        log.error('%s: error calling ResolveService(): %r', self.remote_id, error)
-        self.abort(self.remote_id)
+        log.error('%s: error calling ResolveService(): %r', self.peer_id, error)
+        self.abort(self.peer_id)
 
-    def on_ItemRemove(self, interface, protocol, remote_id, _type, domain, flags):
-        log.info('Peer removed: %s', remote_id)
-        if remote_id == self.remote_id:
-            self.abort(self.remote_id)
+    def on_ItemRemove(self, interface, protocol, peer_id, _type, domain, flags):
+        log.info('Peer removed: %s', peer_id)
+        if peer_id == self.peer_id:
+            self.abort(self.peer_id)
 
-    def cert_thread(self, remote):
+    def cert_thread(self, peer):
         # 1 Retrieve the peer certificate:
         try:
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -213,24 +213,24 @@ class Peer(GObject.GObject):
             sock = ctx.wrap_socket(
                 socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             )
-            sock.connect((remote.ip, remote.port))
+            sock.connect((peer.ip, peer.port))
             pem = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
         except Exception as e:
-            log.exception('Could not retrieve cert for %r', remote)
-            return self.abort(remote.id)
-        log.info('Retrieved cert for %r', remote)
+            log.exception('Could not retrieve cert for %r', peer)
+            return self.abort(peer.id)
+        log.info('Retrieved cert for %r', peer)
 
         # 2 Make sure peer cert has correct intrinsic CN, etc:
         try:
-            ca_file = self.pki.write_ca(remote.id, pem.encode('ascii'))
+            ca_file = self.pki.write_ca(peer.id, pem.encode('ascii'))
         except Exception as e:
-            log.exception('Could not verify cert for %r', remote)
-            return self.abort(remote.id)
-        log.info('Verified cert for %r', remote)
+            log.exception('Could not verify cert for %r', peer)
+            return self.abort(peer.id)
+        log.info('Verified cert for %r', peer)
 
-        # 3 Make get request to verify peer server, get info:
+        # 3 Make get request to verify peer has private key:
         try:
-            url = 'https://{}:{}/'.format(remote.ip, remote.port)
+            url = 'https://{}:{}/'.format(peer.ip, peer.port)
             ssl_config = {
                 'ca_file': ca_file,
                 'check_hostname': False,
@@ -242,18 +242,18 @@ class Peer(GObject.GObject):
                 })
             client = CouchBase({'url': url, 'ssl': ssl_config})
             d = client.get()
-            info = Info(d['user'], d['host'], url, remote.id)
+            info = Info(d['user'], d['host'], url, peer.id)
         except Exception as e:
-            log.exception('GET / failed for %r', remote)
-            return self.abort(remote.id)
-        log.info('GET / succeeded for %r', remote)
+            log.exception('GET / failed for %r', peer)
+            return self.abort(peer.id)
+        log.info('GET / succeeded for %r', peer)
         log.info('%r', info)
-        GObject.idle_add(self.on_cert_complete, remote, info)
+        GObject.idle_add(self.on_cert_complete, peer, info)
 
-    def on_cert_complete(self, remote, info):
-        assert remote.id == self.remote_id
-        assert remote is self.remote
-        log.info('Cert checked-out for %r', remote)
+    def on_cert_complete(self, peer, info):
+        assert peer.id == self.peer_id
+        assert peer is self.peer
+        log.info('Cert checked-out for %r', peer)
         signal = ('accept' if self.client_mode else 'offer')
         log.info('Firing %r signal for %r', signal, info)
         self.emit(signal, info)
