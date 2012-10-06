@@ -358,6 +358,12 @@ class TestPKI(TestCase):
         self.assertEqual(cm.exception.expected, '/CN={}'.format(id4))
         self.assertEqual(cm.exception.got, '/CN={}'.format(id3))
 
+    def test_read_ca(self):
+        self.skipTest('FIXME')
+
+    def test_write_ca(self):
+        self.skipTest('FIXME')
+
     def test_create_csr(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
@@ -403,6 +409,43 @@ class TestPKI(TestCase):
         self.assertEqual(cm.exception.filename, csr_file)
         self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
         self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
+
+    def test_read_csr(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        id1 = pki.create_key()
+        id2 = pki.create_key()
+        csr1_file = pki.create_csr(id1)
+        csr2_file = pki.create_csr(id2)
+        data1 = open(csr1_file, 'rb').read()
+        data2 = open(csr2_file, 'rb').read()
+        os.remove(tmp.join(id1 + '.key'))
+        os.remove(tmp.join(id2 + '.key'))
+        self.assertEqual(pki.read_csr(id1), data1)
+        self.assertEqual(pki.read_csr(id2), data2)
+        os.remove(csr1_file)
+        os.rename(csr2_file, csr1_file)
+        with self.assertRaises(peering.PublicKeyError) as cm:
+            pki.read_csr(id1)
+        self.assertEqual(cm.exception.filename, csr1_file)
+        self.assertEqual(cm.exception.expected, id1)
+        self.assertEqual(cm.exception.got, id2)
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            pki.read_csr(id2)
+
+        # Test with bad subject
+        id3 = pki.create_key()
+        key_file = pki.path(id3, 'key')
+        csr_file = pki.path(id3, 'csr')
+        peering.create_csr(key_file, '/CN={}'.format(id1), csr_file)
+        with self.assertRaises(peering.SubjectError) as cm:
+            pki.read_csr(id3)
+        self.assertEqual(cm.exception.filename, csr_file)
+        self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
+        self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
+
+    def test_write_csr(self):
+        self.skipTest('FIXME')
 
     def test_issue_cert(self):
         tmp = TempDir()

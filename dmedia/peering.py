@@ -430,6 +430,18 @@ class PKI:
         ca_file = self.path(_id, 'ca')
         return verify_ca(ca_file, _id)
 
+    def read_ca(self, _id):
+        ca_file = self.verify_ca(_id)
+        return open(ca_file, 'rb').read()
+
+    def write_ca(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify_ca(tmp_file, _id)
+        ca_file = self.path(_id, 'ca')
+        os.rename(tmp_file, ca_file)
+        return ca_file
+
     def create_csr(self, _id):
         key_file = self.verify_key(_id)
         subject = make_subject(_id)
@@ -442,6 +454,18 @@ class PKI:
     def verify_csr(self, _id):
         csr_file = self.path(_id, 'csr')
         return verify_csr(csr_file, _id)
+
+    def read_csr(self, _id):
+        csr_file = self.verify_csr(_id)
+        return open(csr_file, 'rb').read()
+
+    def write_csr(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify_csr(tmp_file, _id)
+        csr_file = self.path(_id, 'csr')
+        os.rename(tmp_file, csr_file)
+        return csr_file
 
     def issue_cert(self, _id, ca_id):
         csr_file = self.verify_csr(_id)
