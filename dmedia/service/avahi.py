@@ -36,6 +36,7 @@ from gi.repository import GObject
 from dmedia import util, views
 
 log = logging.getLogger()
+PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
 Peer = namedtuple('Peer', 'env names')
 PEERS = '_local/peers'
 
@@ -69,7 +70,7 @@ class Avahi:
         )
         self.group.AddService(
             -1,  # Interface
-            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            PROTO,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
             self.id,
             self.service,
@@ -82,7 +83,7 @@ class Avahi:
         self.group.Commit(dbus_interface='org.freedesktop.Avahi.EntryGroup')
         browser_path = self.avahi.ServiceBrowserNew(
             -1,  # Interface
-            0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
+            PROTO,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             self.service,
             '', # Domain, default to .local
             0,  # Flags
@@ -107,7 +108,8 @@ class Avahi:
         if key == self.id:
             return
         self.avahi.ResolveService(
-            interface, protocol, key, _type, domain, -1, 0,
+            # 2nd to last arg is Protocol, again for some reason
+            interface, protocol, key, _type, domain, PROTO, 0,
             dbus_interface='org.freedesktop.Avahi.Server',
             reply_handler=self.on_reply,
             error_handler=self.on_error,
