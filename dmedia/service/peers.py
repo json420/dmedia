@@ -202,6 +202,7 @@ class Peer(GObject.GObject):
             self.abort(self.remote_id)
 
     def check_thread(self, remote):
+        # 1 Retrieve the peer certificate:
         try:
             address = (remote.ip, remote.port)
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -219,12 +220,16 @@ class Peer(GObject.GObject):
             log.exception('Could not retrieve cert for %r', remote)
             return self.abort(remote.id)
         log.info('Retrieved cert for %r', remote)
+
+        # 2 Make sure peer cert has correct intrinsic CN, etc:
         try:
             ca_file = self.pki.write_ca(remote.id, pem.encode('ascii'))
         except Exception as e:
             log.exception('Could not verify cert for %r', remote)
             return self.abort(remote.id)
         log.info('Verified cert for %r', remote)
+
+        # 3 Make get request to verify peer server, get info:
         try:
             url = 'https://{}:{}/'.format(remote.ip, remote.port)
             ssl_config = {
@@ -236,11 +241,7 @@ class Peer(GObject.GObject):
                     'key_file': self.key_file,
                     'cert_file': self.cert_file,
                 })
-            env = {
-                'url': url,
-                'ssl': ssl_config,
-            }
-            client = CouchBase(env)
+            client = CouchBase({'url': url, 'ssl': ssl_config})
             d = client.get()
             info = Info(d['user'], d['host'], url, remote.id)
         except Exception as e:
