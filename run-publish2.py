@@ -59,7 +59,7 @@ mainloop = GObject.MainLoop()
 couch = DmediaCouch(tempfile.mkdtemp())
 couch.firstrun_init(create_user=False)
 couch.load_pki()
-avahi = Peer(couch.pki, server=False)
+avahi = Peer(couch.pki, client_mode=True)
 ssl_config = {
     'key_file': couch.pki.machine.key_file,
     'cert_file': couch.pki.machine.cert_file,

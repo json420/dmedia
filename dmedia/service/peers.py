@@ -64,11 +64,11 @@ class Peer(GObject.GObject):
         ),
     }
 
-    def __init__(self, pki, server=True):
+    def __init__(self, pki, client_mode=False):
         super().__init__()
         self.pki = pki
-        self.server = server
-        self.id = (pki.user.id if server else pki.machine.id)
+        self.client_mode = client_mode
+        self.id = (pki.machine.id if client_mode else pki.user.id)
         self.remote_id = None
         self.remote = None
         self.group = None
@@ -90,7 +90,7 @@ class Peer(GObject.GObject):
         self.remote = None
 
     def publish(self, port):
-        verb = ('accept' if self.server else 'offer')
+        verb = ('offer' if self.client_mode else 'accept')
         service = get_service(verb)
         self.group = self.bus.get_object(
             'org.freedesktop.Avahi',
@@ -122,7 +122,7 @@ class Peer(GObject.GObject):
             self.group = None
 
     def browse(self):
-        verb = ('offer' if self.server else 'accept')
+        verb = ('accept' if self.client_mode else 'offer')
         service = get_service(verb)
         log.info('Browsing for %r', service)
         path = self.avahi.ServiceBrowserNew(
@@ -185,12 +185,13 @@ class Peer(GObject.GObject):
         log.info('Verified cert for %r', remote)
         try:
             url = 'https://{}:{}/'.format(remote.ip, remote.port)
+            ssl_config = {
+                'ca_file': ca_file,
+                'check_hostname': False,
+            }  
             env = {
                 'url': url,
-                'ssl': {
-                    'ca_file': ca_file,
-                    'check_hostname': False,
-                }
+                'ssl': ssl_config,
             }
             client = CouchBase(env)
             d = client.get()
