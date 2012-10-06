@@ -2,6 +2,7 @@
 
 import logging
 import tempfile
+import multiprocessing
 
 from gi.repository import GObject
 from microfiber import random_id
@@ -9,9 +10,24 @@ from microfiber import random_id
 from dmedia.startup import DmediaCouch
 from dmedia.service.peers import Peer
 from dmedia.gtk.peering import BaseUI
+from dmedia.httpd import run_server, echo_app
 
 
 logging.basicConfig(level=logging.DEBUG)
+
+
+def start_server_process(ssl_config):
+    queue = multiprocessing.Queue()
+    process = multiprocessing.Process(
+        target=run_server,
+        args=(queue, echo_app, '0.0.0.0', ssl_config),
+    )
+    process.daemon = True
+    process.start()
+    env = queue.get()
+    if isinstance(env, Exception):
+        raise env
+    return (process, env['port'])
 
 
 
@@ -49,8 +65,14 @@ class UI(BaseUI):
         print('first')
 
     def on_sync(self, hub):
+        ssl_config = {
+            'key_file': self.couch.pki.machine.key_file,
+            'cert_file': self.couch.pki.machine.cert_file,
+        }
+        print(ssl_config)
+        (self.httpd, self.port) = start_server_process(ssl_config)
         self.avahi.browse('_dmedia-accept._tcp')
-        self.avahi.publish('_dmedia-offer._tcp', 8000)
+        self.avahi.publish('_dmedia-offer._tcp', self.port)
  
 
 ui = UI()

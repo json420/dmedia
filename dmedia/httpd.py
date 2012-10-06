@@ -537,8 +537,11 @@ def make_server(app, bind_address='::1', ssl_config=None):
 
 
 def run_server(queue, app, bind_address='::1', ssl_config=None):
-    server = make_server(app, bind_address, ssl_config)
-    env = {'port': server.port, 'url': server.url}
-    queue.put(env)
-    server.serve_forever()
+    try:
+        server = make_server(app, bind_address, ssl_config)
+        env = {'port': server.port, 'url': server.url}
+        queue.put(env)
+        server.serve_forever()
+    except Exception as e:
+        queue.put(e)
 
