@@ -112,7 +112,7 @@ class Peer:
         (ip, port) = args[7:9]
         url = 'https://{}:{}/'.format(ip, port)
         log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
-        self.add_callback(key, url)
+        self.add_callback(key, ip, port, url)
 
     def on_error(self, exception):
         log.error('%s: error calling ResolveService(): %r',

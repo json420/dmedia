@@ -3,6 +3,7 @@
 import logging
 from gettext import gettext as _
 import tempfile
+import ssl
 
 from gi.repository import GObject, Gtk, AppIndicator3, Notify
 from microfiber import random_id
@@ -31,8 +32,8 @@ class UI(BaseUI):
         self.couch.load_pki()
         self.avahi = Peer(
             self.couch.pki.user.id,
-            self.on_add_peer,
-            self.on_remove_peer
+            self.on_peer_added,
+            self.on_peer_removed,
         )
         self.avahi.browse('_dmedia-offer._tcp')
 
@@ -43,7 +44,13 @@ class UI(BaseUI):
         self.secret = random_id(5)
         self.hub.send('new_secret', self.secret)
 
-    def on_add_peer(self, key, url):
+    def on_peer_added(self, key, ip, port, url):
+        cert = ssl.get_server_certificate((ip, port), ssl.PROTOCOL_TLSv1)
+        print(cert)
+        print(type(cert))
+        print(len(cert))
+        print(self.couch.pki.write_ca(key, cert.encode('utf-8')))
+        return
         self.indicator = AppIndicator3.Indicator.new(
             'dmedia-peer',
             'indicator-novacut',
@@ -60,7 +67,7 @@ class UI(BaseUI):
         note = Notify.Notification.new('Novacut Peering Offer', None, None)
         note.show()
 
-    def on_remove_peer(self, key):
+    def on_peer_removed(self, key):
         del self.indicator
 
     def on_accept(self, button):
@@ -71,4 +78,5 @@ class UI(BaseUI):
 
 ui = UI()
 #ui.run()
-Gtk.main()
+#Gtk.main()
+GObject.MainLoop().run()

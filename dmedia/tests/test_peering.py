@@ -183,6 +183,44 @@ class TestSSLFunctions(TestCase):
         self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
         self.assertEqual(peering.get_issuer(bar_cert), foo_subject)
 
+    def test_ssl_verify(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+
+        ca1 = pki.create_key()
+        pki.create_ca(ca1)
+        cert1 = pki.create_key()
+        pki.create_csr(cert1)
+        pki.issue_cert(cert1, ca1)
+        ca1_file = pki.path(ca1, 'ca')
+        cert1_file = pki.path(cert1, 'cert')
+        self.assertEqual(peering.ssl_verify(ca1_file, ca1_file), ca1_file)
+        self.assertEqual(peering.ssl_verify(cert1_file, ca1_file), cert1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca1_file, cert1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert1_file, cert1_file)
+
+        ca2 = pki.create_key()
+        pki.create_ca(ca2)
+        cert2 = pki.create_key()
+        pki.create_csr(cert2)
+        pki.issue_cert(cert2, ca2)
+        ca2_file = pki.path(ca2, 'ca')
+        cert2_file = pki.path(cert2, 'cert')
+        self.assertEqual(peering.ssl_verify(ca2_file, ca2_file), ca2_file)
+        self.assertEqual(peering.ssl_verify(cert2_file, ca2_file), cert2_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca2_file, cert2_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, cert2_file)
+
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca2_file, ca1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, ca1_file)    
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, cert1_file)
 
 class TestPKI(TestCase):
     def test_init(self):

@@ -151,6 +151,11 @@ class IssuerError(IdentityError):
     pass
 
 
+class VerificationError(IdentityError):
+    pass
+    
+
+
 def create_key(dst_file, bits=2048):
     """
     Create an RSA keypair and save it to *dst_file*.
@@ -318,6 +323,17 @@ def verify_ca(filename, _id):
     if issuer != actual_issuer:
         raise IssuerError(filename, issuer, actual_issuer)
     return filename
+
+
+def ssl_verify(cert_file, ca_file):
+    line = check_output(['openssl', 'verify',
+        '-CAfile', ca_file,
+        cert_file
+    ]).decode('utf-8')
+    expected = '{}: OK\n'.format(cert_file)
+    if line != expected:
+        raise VerificationError(cert_file, expected, line)
+    return cert_file
 
 
 def _hash_pubkey(data):
