@@ -287,6 +287,17 @@ def get_issuer(cert_file):
     return line[len(prefix):]
 
 
+def ssl_verify(cert_file, ca_file):
+    line = check_output(['openssl', 'verify',
+        '-CAfile', ca_file,
+        cert_file
+    ]).decode('utf-8')
+    expected = '{}: OK\n'.format(cert_file)
+    if line != expected:
+        raise VerificationError(cert_file, expected, line)
+    return cert_file
+
+
 def verify_key(filename, _id):
     actual_id = hash_pubkey(get_rsa_pubkey(filename))
     if _id != actual_id:
@@ -322,18 +333,7 @@ def verify_ca(filename, _id):
     actual_issuer = get_issuer(filename)
     if issuer != actual_issuer:
         raise IssuerError(filename, issuer, actual_issuer)
-    return filename
-
-
-def ssl_verify(cert_file, ca_file):
-    line = check_output(['openssl', 'verify',
-        '-CAfile', ca_file,
-        cert_file
-    ]).decode('utf-8')
-    expected = '{}: OK\n'.format(cert_file)
-    if line != expected:
-        raise VerificationError(cert_file, expected, line)
-    return cert_file
+    return ssl_verify(filename, filename)
 
 
 def _hash_pubkey(data):
