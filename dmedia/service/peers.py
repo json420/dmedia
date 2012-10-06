@@ -48,6 +48,12 @@ Remote = namedtuple('Remote', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
 
 
+def get_service(verb):
+    assert verb in ('offer', 'accept')
+    return '_dmedia-{}._tcp'.format(verb)
+
+
+
 class Peer(GObject.GObject):
     __gsignals__ = {
         'peer_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
@@ -58,10 +64,11 @@ class Peer(GObject.GObject):
         ),
     }
 
-    def __init__(self, _id, pki):
+    def __init__(self, pki, server=True):
         super().__init__()
-        self.id = _id
         self.pki = pki
+        self.server = server
+        self.id = (pki.user.id if server else pki.machine.id)
         self.remote_id = None
         self.remote = None
         self.group = None
@@ -82,7 +89,9 @@ class Peer(GObject.GObject):
         self.remote_id = None
         self.remote = None
 
-    def publish(self, service, port):
+    def publish(self, port):
+        verb = ('accept' if self.server else 'offer')
+        service = get_service(verb)
         self.group = self.bus.get_object(
             'org.freedesktop.Avahi',
             self.avahi.EntryGroupNew(
@@ -90,7 +99,7 @@ class Peer(GObject.GObject):
             )
         )
         log.info(
-            'Avahi(%s): publishing %s on port %s', service, self.id, port
+            'Publishing %s for %r on port %s', self.id, service, port
         )
         self.group.AddService(
             -1,  # Interface
@@ -108,12 +117,14 @@ class Peer(GObject.GObject):
 
     def unpublish(self):
         if self.group is not None:
-            log.info('Avahi(%s): unpublishing %s', self.pservice, self.id)
+            log.info('Un-publishing %s', self.id)
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
             self.group = None
 
-    def browse(self, service):
-        log.info('browsing for %r', service)
+    def browse(self):
+        verb = ('offer' if self.server else 'accept')
+        service = get_service(verb)
+        log.info('Browsing for %r', service)
         path = self.avahi.ServiceBrowserNew(
             -1,  # Interface
             0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
@@ -150,12 +161,13 @@ class Peer(GObject.GObject):
         _start_thread(self.check_thread, self.remote)
 
     def on_error(self, error):
-        log.error('%s error calling ResolveService(): %r', self.remote_id, error)
+        log.error('%s: error calling ResolveService(): %r', self.remote_id, error)
         self.abort(self.remote_id)
 
     def on_ItemRemove(self, interface, protocol, remote_id, _type, domain, flags):
         log.info('Peer removed: %s', remote_id)
-        self.abort(self.remote_id)
+        if remote_id == self.remote_id:
+            self.abort(self.remote_id)
 
     def check_thread(self, remote):
         try:

@@ -22,9 +22,8 @@ mainloop = GObject.MainLoop()
 couch = DmediaCouch(tempfile.mkdtemp())
 couch.firstrun_init(create_user=True)
 couch.load_pki()
-user_id = couch.pki.user.id
-avahi = Peer(user_id, couch.pki)
-avahi.browse('_dmedia-offer._tcp')
+avahi = Peer(couch.pki)
+avahi.browse()
 
 mainloop.run()
 

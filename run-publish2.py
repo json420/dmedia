@@ -59,16 +59,15 @@ mainloop = GObject.MainLoop()
 couch = DmediaCouch(tempfile.mkdtemp())
 couch.firstrun_init(create_user=False)
 couch.load_pki()
-machine_id = couch.pki.machine.id
-avahi = Peer(machine_id, couch.pki)
+avahi = Peer(couch.pki, server=False)
 ssl_config = {
     'key_file': couch.pki.machine.key_file,
     'cert_file': couch.pki.machine.cert_file,
 }
 
 (httpd, port) = start_server_process(ssl_config)
-avahi.browse('_dmedia-accept._tcp')
-avahi.publish('_dmedia-offer._tcp', port)
+avahi.browse()
+avahi.publish(port)
 mainloop.run()
 
 
