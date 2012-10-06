@@ -65,7 +65,7 @@ def on_offer(avahi, info):
     print('offer:', info)
     (httpd, port) = start_server_process(avahi.get_server_config())
     avahi.httpd = httpd
-    avahi.accept(port)
+    avahi.accept(info.id, port)
 
 avahi = AvahiPeer(couch.pki)
 avahi.connect('offer', on_offer)
