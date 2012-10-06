@@ -190,7 +190,7 @@ class Peer(GObject.GObject):
         (ip, port) = args[7:9]
         log.info('%s is at %s, port %s', remote_id, ip, port)
         self.remote = Remote(str(remote_id), str(ip), int(port))
-        _start_thread(self.check_thread, self.remote)
+        _start_thread(self.cert_thread, self.remote)
 
     def on_error(self, error):
         log.error('%s: error calling ResolveService(): %r', self.remote_id, error)
@@ -201,7 +201,7 @@ class Peer(GObject.GObject):
         if remote_id == self.remote_id:
             self.abort(self.remote_id)
 
-    def check_thread(self, remote):
+    def cert_thread(self, remote):
         # 1 Retrieve the peer certificate:
         try:
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -248,9 +248,9 @@ class Peer(GObject.GObject):
             return self.abort(remote.id)
         log.info('GET / succeeded for %r', remote)
         log.info('%r', info)
-        GObject.idle_add(self.on_check_complete, remote, info)
+        GObject.idle_add(self.on_cert_complete, remote, info)
 
-    def on_check_complete(self, remote, info):
+    def on_cert_complete(self, remote, info):
         assert remote.id == self.remote_id
         assert remote is self.remote
         log.info('Cert checked-out for %r', remote)
