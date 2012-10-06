@@ -392,6 +392,18 @@ class PKI:
         key_file = self.path(_id, 'key')
         return verify_key(key_file, _id)
 
+    def read_key(self, _id):
+        key_file = self.verify_key(_id)
+        return open(key_file, 'rb').read()
+
+    def write_key(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify_key(tmp_file, _id)
+        key_file = self.path(_id, 'key')
+        os.rename(tmp_file, key_file)
+        return key_file
+
     def create_ca(self, _id):
         key_file = self.verify_key(_id)
         subject = make_subject(_id)

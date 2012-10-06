@@ -250,6 +250,56 @@ class TestPKI(TestCase):
         with self.assertRaises(subprocess.CalledProcessError) as cm:
             pki.verify_key(id2)
 
+    def test_read_key(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        id1 = pki.create_key()
+        key1_file = tmp.join(id1 + '.key')
+        data1 = open(key1_file, 'rb').read()
+        id2 = pki.create_key()
+        key2_file = tmp.join(id2 + '.key')
+        data2 = open(key2_file, 'rb').read()
+        self.assertEqual(pki.read_key(id1), data1)
+        self.assertEqual(pki.read_key(id2), data2)
+        os.remove(key1_file)
+        os.rename(key2_file, key1_file)
+        with self.assertRaises(peering.PublicKeyError) as cm:
+            pki.read_key(id1)
+        self.assertEqual(cm.exception.filename, key1_file)
+        self.assertEqual(cm.exception.expected, id1)
+        self.assertEqual(cm.exception.got, id2)
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            pki.read_key(id2)
+
+    def test_write_key(self):
+        tmp1 = TempDir()
+        src = peering.PKI(tmp1.dir)
+        tmp2 = TempDir()
+        dst = peering.PKI(tmp2.dir)
+
+        id1 = src.create_key()
+        data1 = open(src.verify_key(id1), 'rb').read()
+        id2 = src.create_key()
+        data2 = open(src.verify_key(id2), 'rb').read()
+
+        with self.assertRaises(peering.PublicKeyError) as cm:
+            dst.write_key(id1, data2)
+        self.assertEqual(path.dirname(cm.exception.filename), dst.tmpdir)
+        self.assertEqual(cm.exception.expected, id1)
+        self.assertEqual(cm.exception.got, id2)
+
+        with self.assertRaises(peering.PublicKeyError) as cm:
+            dst.write_key(id2, data1)
+        self.assertEqual(path.dirname(cm.exception.filename), dst.tmpdir)
+        self.assertEqual(cm.exception.expected, id2)
+        self.assertEqual(cm.exception.got, id1)
+
+        self.assertEqual(dst.write_key(id1, data1), dst.path(id1, 'key'))
+        self.assertEqual(open(dst.path(id1, 'key'), 'rb').read(), data1)
+
+        self.assertEqual(dst.write_key(id2, data2), dst.path(id2, 'key'))
+        self.assertEqual(open(dst.path(id2, 'key'), 'rb').read(), data2)
+
     def test_create_ca(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
