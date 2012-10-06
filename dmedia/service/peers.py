@@ -79,6 +79,7 @@ class Peer(GObject.GObject):
     }
 
     def __init__(self, pki, client_mode=False):
+        self.group = None
         super().__init__()
         self.pki = pki
         self.client_mode = client_mode
@@ -87,7 +88,6 @@ class Peer(GObject.GObject):
         self.key_file = pki.verify_key(self.id)
         self.remote_id = None
         self.remote = None
-        self.group = None
         self.bus = dbus.SystemBus()
         self.avahi = self.bus.get_object('org.freedesktop.Avahi', '/')
 
@@ -204,7 +204,6 @@ class Peer(GObject.GObject):
     def check_thread(self, remote):
         # 1 Retrieve the peer certificate:
         try:
-            address = (remote.ip, remote.port)
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
             ctx.options |= ssl.OP_NO_COMPRESSION
             if self.client_mode:
@@ -214,7 +213,7 @@ class Peer(GObject.GObject):
             sock = ctx.wrap_socket(
                 socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             )
-            sock.connect(address)
+            sock.connect((remote.ip, remote.port))
             pem = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
         except Exception as e:
             log.exception('Could not retrieve cert for %r', remote)
