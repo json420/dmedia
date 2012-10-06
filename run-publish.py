@@ -30,7 +30,6 @@ def start_server_process(ssl_config):
     return (process, env['port'])
 
 
-
 class UI(BaseUI):
     page = 'client.html'
 

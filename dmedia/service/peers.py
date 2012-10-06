@@ -45,17 +45,16 @@ DBusGMainLoop(set_as_default=True)
 log = logging.getLogger()
 
 Remote = namedtuple('Remote', 'id ip port')
+Info = namedtuple('Info', 'name host url id')
 
 
 class Peer(GObject.GObject):
     __gsignals__ = {
         'peer_added': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            # remote_id, url
-            [GObject.TYPE_PYOBJECT, GObject.TYPE_PYOBJECT]
+            [GObject.TYPE_PYOBJECT]
         ),
         'peer_removed': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
-            # remote_id, url
-            [GObject.TYPE_PYOBJECT, GObject.TYPE_PYOBJECT]
+            [GObject.TYPE_PYOBJECT]
         ),
     }
 
@@ -173,26 +172,27 @@ class Peer(GObject.GObject):
             return self.abort(remote.id)
         log.info('Verified cert for %r', remote)
         try:
+            url = 'https://{}:{}/'.format(remote.ip, remote.port)
             env = {
-                'url': 'https://{}:{}/'.format(remote.ip, remote.port),
+                'url': url,
                 'ssl': {
                     'ca_file': ca_file,
                     'check_hostname': False,
                 }
             }
             client = CouchBase(env)
-            client.get()
+            d = client.get()
+            info = Info(d['user'], d['host'], url, remote.id)
         except Exception as e:
             log.exception('GET / failed for %r', remote)
+            return self.abort(remote.id)
         log.info('GET / succeeded for %r', remote)
-        GObject.idle_add(self.on_check_complete, remote, env['url'])
+        log.info('%r', info)
+        GObject.idle_add(self.on_check_complete, remote, info)
 
-    def on_check_complete(self, remote, url):
+    def on_check_complete(self, remote, info):
         assert remote.id == self.remote_id
         assert remote is self.remote
         log.info('Cert check complete for %r', remote)
-
-            
-            
-            
-
+        log.info('%r', info)
+        self.emit('peer_added', info)
