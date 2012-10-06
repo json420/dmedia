@@ -69,7 +69,7 @@ def get_service(verb):
     return '_dmedia-{}._tcp'.format(verb)
 
 
-class StateMachine:
+class State:
     """
     A state machine to help prevent silly mistakes.
 
@@ -77,7 +77,8 @@ class StateMachine:
     a thread-lock is acquired when making a state change.  To be on the safe
     side, you should only make state changes from the main thread.  But the
     thread-lock is there as a safety in case an attacker could change the
-    execution such that something isn't called from the main thread.
+    execution such that something isn't called from the main thread, or in case
+    an oversight is made by the programmer.
     """
     def __init__(self):
         self.__state = 'free'
@@ -85,7 +86,7 @@ class StateMachine:
         self.__lock = threading.Lock()
 
     def __repr__(self):
-        return 'StateMachine(state={!r}, peer_id={!r})'.format(
+        return 'State(state={!r}, peer_id={!r})'.format(
             self.__state, self.__peer_id
         )
 
@@ -165,7 +166,7 @@ class AvahiPeer(GObject.GObject):
         self.id = (pki.machine.id if client_mode else pki.user.id)
         self.cert_file = pki.verify_ca(self.id)
         self.key_file = pki.verify_key(self.id)
-        self.sm = StateMachine()
+        self.state = State()
         self.peer = None
         self.info = None
         self.bus = dbus.SystemBus()
@@ -175,19 +176,33 @@ class AvahiPeer(GObject.GObject):
         self.unpublish()
 
     def activate(self, peer_id):
-        if not self.sm.activate(peer_id):
+        if not self.state.activate(peer_id):
             raise Exception(
-                'Cannot activate {!r} from {!r}'.format(peer_id, self.sm)
+                'Cannot activate {!r} from {!r}'.format(peer_id, self.state)
             )
-        assert self.sm.state == 'activated'
-        assert self.sm.peer_id == peer_id
+        log.info('Activated session with %r', self.peer)
+        assert self.state.state == 'activated'
+        assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
         assert self.info.id == peer_id
         assert self.info.url == 'https://{}:{}/'.format(
             self.peer.ip, self.peer.port
         )
-        log.info('Activating session with %r', self.peer)
-        return True
+
+    def deactivate(self, peer_id):
+        if not self.state.deactivate(peer_id):
+            raise Exception(
+                'Cannot deactivate {!r} from {!r}'.format(peer_id, self.state)
+            )
+        log.info('Deactivated session with %r', self.peer)
+        assert self.state.state == 'deactivated'
+        assert self.state.peer_id == peer_id
+        assert self.peer.id == peer_id
+        assert self.info.id == peer_id
+        assert self.info.url == 'https://{}:{}/'.format(
+            self.peer.ip, self.peer.port
+        )
+        GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
 
     def accept(self, peer_id, port):
         assert self.client_mode is False
@@ -198,21 +213,21 @@ class AvahiPeer(GObject.GObject):
         GObject.idle_add(self.unbind, peer_id)
 
     def unbind(self, peer_id):
-        if not self.sm.unbind(peer_id):
-            log.error('Cannot unbind %s from %r', peer_id, self.sm)
+        if not self.state.unbind(peer_id):
+            log.error('Cannot unbind %s from %r', peer_id, self.state)
             return
         log.info('Unbound from %s', peer_id)
-        assert self.sm.peer_id == peer_id
-        assert self.sm.state == 'unbound'
+        assert self.state.peer_id == peer_id
+        assert self.state.state == 'unbound'
         GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
 
     def on_timeout(self, peer_id):
-        if not self.sm.free(peer_id):
-            log.error('Cannot free %s from %r', peer_id, self.sm)
+        if not self.state.free(peer_id):
+            log.error('Cannot free %s from %r', peer_id, self.state)
             return
         log.info('Rate-limiting timeout reached, freeing from %s', peer_id)
-        assert self.sm.peer_id is None
-        assert self.sm.state == 'free'
+        assert self.state.state == 'free'
+        assert self.state.peer_id is None
         self.info = None
         self.peer = None
 
@@ -224,8 +239,8 @@ class AvahiPeer(GObject.GObject):
             'key_file': self.key_file,
             'cert_file': self.cert_file,
         }
-        if self.client_mode is False or self.sm.state == 'activated':
-            config['ca_file'] = self.pki.verify_ca(self.sm.peer_id)
+        if self.client_mode is False or self.state.state == 'activated':
+            config['ca_file'] = self.pki.verify_ca(self.state.peer_id)
         return config
 
     def publish(self, port):
@@ -277,11 +292,13 @@ class AvahiPeer(GObject.GObject):
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
 
     def on_ItemNew(self, interface, protocol, peer_id, _type, domain, flags):
-        if not self.sm.bind(peer_id):
+        log.info('Peer added: %s', peer_id)
+        if not self.state.bind(str(peer_id)):
+            log.error('Cannot bind %s from %r', peer_id, self.state)
             log.warning('Possible attack from %s', peer_id)
             return
-        assert self.sm.peer_id == peer_id
-        assert self.sm.state == 'bound'
+        assert self.state.state == 'bound'
+        assert self.state.peer_id == peer_id
         log.info('Bound to %s', peer_id)
         self.avahi.ResolveService(
             interface, protocol, peer_id, _type, domain, -1, 0,
@@ -292,8 +309,10 @@ class AvahiPeer(GObject.GObject):
 
     def on_reply(self, *args):
         peer_id = args[2]
-        if self.sm.peer_id != peer_id or self.sm.state != 'bound':
-            log.error('State mismatch in on_reply()')
+        if self.state.peer_id != peer_id or self.state.state != 'bound':
+            log.error(
+                '%s: state mismatch in on_reply(): %r', peer_id, self.state
+            )
             return
         (ip, port) = args[7:9]
         log.info('%s is at %s, port %s', peer_id, ip, port)
@@ -301,8 +320,10 @@ class AvahiPeer(GObject.GObject):
         _start_thread(self.cert_thread, self.peer)
 
     def on_error(self, error):
-        log.error('%s: error calling ResolveService(): %r', self.sm.peer_id, error)
-        self.abort(self.sm.peer_id)
+        log.error(
+            '%s: error calling ResolveService(): %r', self.state.peer_id, error
+        )
+        self.abort(self.state.peer_id)
 
     def on_ItemRemove(self, interface, protocol, peer_id, _type, domain, flags):
         log.info('Peer removed: %s', peer_id)
@@ -357,8 +378,10 @@ class AvahiPeer(GObject.GObject):
         GObject.idle_add(self.on_cert_complete, peer, info)
 
     def on_cert_complete(self, peer, info):
-        if self.sm.peer_id != peer.id or self.sm.state != 'bound':
-            log.error('Mismatch in on_cert_complete(): %r, %r', peer.id, self.sm)
+        if self.state.peer_id != peer.id or self.state.state != 'bound':
+            log.error(
+                '%s: mismatch in on_cert_complete(): %r', peer.id, self.state
+            )
             return
         assert peer is self.peer
         assert self.info is None

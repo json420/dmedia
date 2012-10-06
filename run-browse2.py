@@ -62,7 +62,6 @@ couch.firstrun_init(create_user=True)
 couch.load_pki()
 
 def on_offer(avahi, info):
-    print('offer:', info)
     (httpd, port) = start_server_process(avahi.get_server_config())
     avahi.httpd = httpd
     avahi.accept(info.id, port)

@@ -59,7 +59,14 @@ mainloop = GObject.MainLoop()
 couch = DmediaCouch(tempfile.mkdtemp())
 couch.firstrun_init(create_user=False)
 couch.load_pki()
+
+def on_accept(avahi, info):
+    print(info)
+    avahi.activate(info.id)
+    avahi.unpublish()
+
 avahi = AvahiPeer(couch.pki, client_mode=True)
+avahi.connect('accept', on_accept)
 (httpd, port) = start_server_process(avahi.get_server_config())
 avahi.browse()
 avahi.publish(port)
