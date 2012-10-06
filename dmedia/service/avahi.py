@@ -84,7 +84,7 @@ class Avahi:
             -1,  # Interface
             0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             self.service,
-            'local',
+            '', # Domain, default to .local
             0,  # Flags
             dbus_interface='org.freedesktop.Avahi.Server'
         )

@@ -60,12 +60,7 @@ couch = DmediaCouch(tempfile.mkdtemp())
 couch.firstrun_init(create_user=False)
 couch.load_pki()
 avahi = Peer(couch.pki, client_mode=True)
-ssl_config = {
-    'key_file': couch.pki.machine.key_file,
-    'cert_file': couch.pki.machine.cert_file,
-}
-
-(httpd, port) = start_server_process(ssl_config)
+(httpd, port) = start_server_process(avahi.get_server_ssl_config())
 avahi.browse()
 avahi.publish(port)
 mainloop.run()

@@ -49,9 +49,22 @@ Info = namedtuple('Info', 'name host url id')
 
 
 def get_service(verb):
+    """
+    Get Avahi service name for appropriate direction.
+
+    For example, for an offer:
+
+    >>> get_service('offer')
+    '_dmedia-offer._tcp'
+
+    And for an accept:
+
+    >>> get_service('accept')
+    '_dmedia-accept._tcp'
+
+    """
     assert verb in ('offer', 'accept')
     return '_dmedia-{}._tcp'.format(verb)
-
 
 
 class Peer(GObject.GObject):
@@ -69,6 +82,8 @@ class Peer(GObject.GObject):
         self.pki = pki
         self.client_mode = client_mode
         self.id = (pki.machine.id if client_mode else pki.user.id)
+        self.key_file = pki.verify_key(self.id)
+        self.cert_file = pki.verify_ca(self.id)
         self.remote_id = None
         self.remote = None
         self.group = None
@@ -77,6 +92,15 @@ class Peer(GObject.GObject):
 
     def __del__(self):
         self.unpublish()
+
+    def get_server_ssl_config(self):
+        config = {
+            'key_file': self.key_file,
+            'cert_file': self.cert_file,
+        }
+        if not self.client_mode:
+            config['ca_file'] = self.pki.verify_ca(self.remote_id)
+        return config
 
     def abort(self, remote_id):
         GObject.timeout_add(10 * 1000, self.on_abort_timeout, remote_id)
@@ -129,7 +153,7 @@ class Peer(GObject.GObject):
             -1,  # Interface
             0,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             service,
-            'local',
+            '', # Domain, default to .local
             0,  # Flags
             dbus_interface='org.freedesktop.Avahi.Server'
         )
@@ -188,7 +212,12 @@ class Peer(GObject.GObject):
             ssl_config = {
                 'ca_file': ca_file,
                 'check_hostname': False,
-            }  
+            }
+            if self.client_mode:
+                ssl_config.update({
+                    'key_file': self.key_file,
+                    'cert_file': self.cert_file,
+                })
             env = {
                 'url': url,
                 'ssl': ssl_config,
