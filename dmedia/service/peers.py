@@ -83,8 +83,8 @@ class Peer(GObject.GObject):
         self.pki = pki
         self.client_mode = client_mode
         self.id = (pki.machine.id if client_mode else pki.user.id)
-        self.key_file = pki.verify_key(self.id)
         self.cert_file = pki.verify_ca(self.id)
+        self.key_file = pki.verify_key(self.id)
         self.remote_id = None
         self.remote = None
         self.group = None
@@ -102,10 +102,8 @@ class Peer(GObject.GObject):
             'key_file': self.key_file,
             'cert_file': self.cert_file,
         }
-        return config
         if not self.client_mode:
             config['ca_file'] = self.pki.verify_ca(self.remote_id)
-        print(dumps(config, pretty=True))
         return config
 
     def abort(self, remote_id):
@@ -206,7 +204,17 @@ class Peer(GObject.GObject):
     def check_thread(self, remote):
         try:
             address = (remote.ip, remote.port)
-            pem = ssl.get_server_certificate(address, ssl.PROTOCOL_TLSv1)
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            ctx.options |= ssl.OP_NO_COMPRESSION
+            if self.client_mode:
+                # The server will only let its cert be retrieved by the client
+                # bound to the peering session
+                ctx.load_cert_chain(self.cert_file, self.key_file)
+            sock = ctx.wrap_socket(
+                socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            )
+            sock.connect(address)
+            pem = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
         except Exception as e:
             log.exception('Could not retrieve cert for %r', remote)
             return self.abort(remote.id)
@@ -232,7 +240,6 @@ class Peer(GObject.GObject):
                 'url': url,
                 'ssl': ssl_config,
             }
-            print(dumps(env, pretty=True))
             client = CouchBase(env)
             d = client.get()
             info = Info(d['user'], d['host'], url, remote.id)
@@ -247,7 +254,6 @@ class Peer(GObject.GObject):
         assert remote.id == self.remote_id
         assert remote is self.remote
         log.info('Cert checked-out for %r', remote)
-        log.info('%r', info)
         signal = ('accept' if self.client_mode else 'offer')
-        log.info('Firing %r signal', signal)
+        log.info('Firing %r signal for %r', signal, info)
         self.emit(signal, info)
