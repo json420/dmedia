@@ -90,7 +90,7 @@ class Service(dbus.service.Object):
         self.core.init_default_store()
         if self.core.local.get('default_store') is None:
             self.core.set_default_store('shared')
-        self.env_s = dumps(self.core.env)
+        self.env_s = dumps(self.core.env, pretty=True)
         self.ssl_config = self.couch.get_ssl_config()
 
     def start_httpd(self):

@@ -262,6 +262,22 @@ def get_subject(cert_file):
     return line[len(prefix):]
 
 
+def get_issuer(cert_file):
+    """
+    Get the issuer from an X509 certificate (CA or issued certificate).
+    """
+    line = check_output(['openssl', 'x509',
+        '-issuer',
+        '-noout',
+        '-in', cert_file,
+    ]).decode('utf-8').rstrip('\n')
+
+    prefix = 'issuer= '  # Different than get_csr_subject()
+    if not line.startswith(prefix):
+        raise Exception(line)
+    return line[len(prefix):]
+
+
 def verify_key(filename, _id):
     actual_id = hash_pubkey(get_rsa_pubkey(filename))
     if _id != actual_id:

@@ -162,6 +162,27 @@ class TestSSLFunctions(TestCase):
         os.remove(key_file)
         self.assertEqual(peering.get_csr_subject(csr_file), subject)
 
+    def test_get_issuer(self):
+        tmp = TempDir()
+
+        foo_subject = '/CN={}'.format(random_id(30))
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, foo_subject, foo_ca)
+        self.assertEqual(peering.get_issuer(foo_ca), foo_subject)
+
+        bar_subject = '/CN={}'.format(random_id(30))
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, bar_subject, bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
+        self.assertEqual(peering.get_issuer(bar_cert), foo_subject)
+
 
 class TestPKI(TestCase):
     def test_init(self):
