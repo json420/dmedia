@@ -346,6 +346,18 @@ class TestPKI(TestCase):
         self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
         self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
 
+        # Test with bad issuer
+        pki.create_ca(id3)
+        id4 = pki.create_key()
+        pki.create_csr(id4)
+        pki.issue_cert(id4, id3)
+        os.rename(pki.path(id4, 'cert'), pki.path(id4, 'ca'))
+        with self.assertRaises(peering.IssuerError) as cm:
+            pki.verify_ca(id4)
+        self.assertEqual(cm.exception.filename, pki.path(id4, 'ca'))
+        self.assertEqual(cm.exception.expected, '/CN={}'.format(id4))
+        self.assertEqual(cm.exception.got, '/CN={}'.format(id3))
+
     def test_create_csr(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)

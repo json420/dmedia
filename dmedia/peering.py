@@ -147,6 +147,10 @@ class SubjectError(IdentityError):
     pass
 
 
+class IssuerError(IdentityError):
+    pass
+
+
 def create_key(dst_file, bits=2048):
     """
     Create an RSA keypair and save it to *dst_file*.
@@ -307,6 +311,15 @@ def verify(filename, _id):
     return filename
 
 
+def verify_ca(filename, _id):
+    filename = verify(filename, _id)
+    issuer = make_subject(_id)
+    actual_issuer = get_issuer(filename)
+    if issuer != actual_issuer:
+        raise IssuerError(filename, issuer, actual_issuer)
+    return filename
+
+
 def _hash_pubkey(data):
     return skein512(data,
         digest_bits=240,
@@ -415,7 +428,7 @@ class PKI:
 
     def verify_ca(self, _id):
         ca_file = self.path(_id, 'ca')
-        return verify(ca_file, _id)
+        return verify_ca(ca_file, _id)
 
     def create_csr(self, _id):
         key_file = self.verify_key(_id)
