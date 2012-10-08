@@ -61,16 +61,14 @@ class BaseUI:
         self.hub = hub_factory(self.signals)(self.view)
         self.connect_hub_signals(self.hub)
 
-    def run(self):
+    def show(self):
         self.window.show_all()
-        Gtk.main()
 
     def connect_hub_signals(self, hub):
         pass
 
     def build_window(self):
         self.window = Gtk.Window()
-        self.window.connect('destroy', self.quit)
         self.window.set_position(Gtk.WindowPosition.CENTER)
         self.window.set_default_size(self.width, self.height)
         self.window.set_title(self.title)
@@ -82,9 +80,6 @@ class BaseUI:
         inspector.connect('inspect-web-view', self.on_inspect)
         self.view.load_uri('file://' + path.join(ui, self.page))
         self.vpaned.pack1(self.view, True, True)
-
-    def quit(self, *arg):
-        Gtk.main_quit()
 
     def on_inspect(self, *args):
         assert self.inspector is None

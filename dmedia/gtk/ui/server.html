@@ -8,14 +8,14 @@
 
 "use strict";
 
-Hub.connect('new_secret',
+Hub.connect('display_secret',
     function(secret) {
         $('secret').textContent = secret;
     }
 );
 
 window.onload = function() {
-    Hub.send('create_secret');  
+    Hub.send('get_secret');  
 }
 
 </script>
