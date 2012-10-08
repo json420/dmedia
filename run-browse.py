@@ -23,6 +23,7 @@ format = [
     '%(message)s',
 ]
 logging.basicConfig(level=logging.DEBUG, format='\t'.join(format))
+log = logging.getLogger()
 
 
 mainloop = GObject.MainLoop()
@@ -53,6 +54,7 @@ class UI(BaseUI):
 class Session:
     def __init__(self, _id, peer, server_config, client_config):
         self.peer_id = peer.id
+        self.peer = peer
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
         _start_thread(self.monitor_q)
@@ -70,7 +72,7 @@ class Session:
             if signal == 'wrong_response':
                 GObject.idle_add(self.retry)
             elif signal == 'response_ok':
-                GObject.idle_add(self.counter_challenge)
+                GObject.idle_add(self.on_response_ok)
                 break
 
     def retry(self):
@@ -83,8 +85,23 @@ class Session:
         self.app.state = 'ready'
         self.httpd.start()
 
+    def on_response_ok(self):
+        self.ui.hub.send('set_message', _('Counter-Challenge...'))
+        _start_thread(self.counter_challenge)
+
     def counter_challenge(self):
-        print('counter-challenge')
+        log.info('Getting counter-challenge from %r', self.peer)
+        challenge = self.client.get('challenge')['challenge']
+        (nonce, response) = self.cr.create_response(challenge)
+        obj = {'nonce': nonce, 'response': response}
+        log.info('Posting counter-response to %r', self.peer)
+        try:
+            r = self.client.put(obj, 'response')
+            log.info('Counter-response accepted')
+        except Unauthorized:
+            log.error('Counter-response rejected!')
+            log.warning('Possible malicious peer: %r', self.peer)
+        
 
 class Browse:
     def __init__(self):
