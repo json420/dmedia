@@ -138,7 +138,7 @@ class UI(BaseUI):
         if success:
             hub.send('set_message', _('Counter-Challenge...'))
         else:
-            hub.send('set_message', _('Wrong secret! Please try again!'))
+            hub.send('set_message', _('Typo? Please try again with new secret.'))
 
 
 ui = UI()

@@ -35,6 +35,7 @@ class UI(BaseUI):
     signals = {
         'get_secret': [],
         'display_secret': ['secret'],
+        'set_message': ['message'],
     }
 
     def __init__(self, cr):
@@ -66,8 +67,24 @@ class Session:
     def monitor_q(self):
         while True:
             signal = self.q.get()
-            print('!!!!', signal)
+            if signal == 'wrong_response':
+                GObject.idle_add(self.retry)
+            elif signal == 'response_ok':
+                GObject.idle_add(self.counter_challenge)
+                break
 
+    def retry(self):
+        self.httpd.shutdown()
+        secret = self.cr.get_secret()
+        self.ui.hub.send('display_secret', secret)
+        self.ui.hub.send('set_message',
+            _('Typo? Please try again with new secret.')
+        )
+        self.app.state = 'ready'
+        self.httpd.start()
+
+    def counter_challenge(self):
+        print('counter-challenge')
 
 class Browse:
     def __init__(self):

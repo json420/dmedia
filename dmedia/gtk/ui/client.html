@@ -69,6 +69,7 @@ Hub.connect('challenge',
         if (!success) {
             UI.input.value = '';
             UI.input.disabled = false;
+            UI.input.focus();
             $('finish').classList.add('hidden');
         }
     }
