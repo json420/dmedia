@@ -372,14 +372,67 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     :param responder_hash: hash of the responders certificate
     """
     skein = skein512(
-        digest_bits=256,
+        digest_bits=280,
         pers=PERS_RESPONSE,
         key=secret,
-        nonce=(challange + nonce),
+        nonce=(challenge + nonce),
     )
     skein.update(challenger_hash)
     skein.update(responder_hash)
-    return skein.hexdigest()
+    return skein.digest()
+
+
+class ResponseError(Exception):
+    def __init__(self, expected, got):
+        self.expected = expected
+        self.got = got
+        super().__init__('Incorrect response')
+
+
+class ChallengeResponse:
+    def __init__(self, local_hash, remote_hash):
+        assert isinstance(local_hash, bytes) and len(local_hash) == 30
+        assert isinstance(remote_hash, bytes) and len(remote_hash) == 30
+        self.local_hash = local_hash
+        self.remote_hash = remote_hash
+
+    def get_secret(self):
+        # 40-bit secret (8 characters when base32 encoded)
+        self.secret = os.urandom(5)
+        return self.secret
+
+    def set_secret(self, secret):
+        assert isinstance(secret, bytes) and len(secret) == 5
+        self.secret = secret
+
+    def get_challenge(self):
+        self.challenge = os.urandom(20)
+        return self.challenge
+
+    def create_response(self, challenge):
+        assert isinstance(challenge, bytes) and len(challenge) == 20
+        nonce = os.urandom(20)
+        response = compute_response(
+            self.secret,
+            challenge,
+            nonce,
+            self.remote_hash,
+            self.local_hash
+        )
+        return (nonce, response)
+
+    def check_response(self, nonce, response):
+        assert isinstance(nonce, bytes) and len(nonce) == 20
+        assert isinstance(response, bytes) and len(response) == 35
+        expected = compute_response(
+            self.secret,
+            self.challenge,
+            nonce,
+            self.local_hash,
+            self.remote_hash
+        )
+        if response != expected:
+            raise ResponseError(expected, response)
 
 
 def ensuredir(d):
@@ -580,4 +633,3 @@ class TempPKI(PKI):
                 'key_file': self.client.key_file,   
             })
         return config
-
