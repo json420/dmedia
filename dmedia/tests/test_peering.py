@@ -339,7 +339,7 @@ class TestChallengeResponse(TestCase):
             )
         )
 
-    def test_create_response(self):
+    def test_check_response(self):
         local = os.urandom(30)
         remote = os.urandom(30)
         inst = peering.ChallengeResponse(local, remote)
@@ -359,6 +359,10 @@ class TestChallengeResponse(TestCase):
             inst.check_response(nonce, bad)
         self.assertEqual(cm.exception.expected, response)
         self.assertEqual(cm.exception.got, bad)
+        self.assertFalse(hasattr(inst, 'secret'))
+        self.assertFalse(hasattr(inst, 'challenge'))
+        inst.secret = secret
+        inst.challenge = challenge
 
         # Test with wrong secret
         for i in range(100):
@@ -369,6 +373,10 @@ class TestChallengeResponse(TestCase):
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
+            self.assertFalse(hasattr(inst, 'secret'))
+            self.assertFalse(hasattr(inst, 'challenge'))
+            inst.secret = secret
+            inst.challenge = challenge
 
         # Test with wrong challenge
         for i in range(100):
@@ -379,6 +387,10 @@ class TestChallengeResponse(TestCase):
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
+            self.assertFalse(hasattr(inst, 'secret'))
+            self.assertFalse(hasattr(inst, 'challenge'))
+            inst.secret = secret
+            inst.challenge = challenge
 
         # Test with wrong nonce
         for i in range(100):
@@ -389,6 +401,10 @@ class TestChallengeResponse(TestCase):
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
+            self.assertFalse(hasattr(inst, 'secret'))
+            self.assertFalse(hasattr(inst, 'challenge'))
+            inst.secret = secret
+            inst.challenge = challenge
 
         # Test with wrong local_hash
         for i in range(100):
@@ -399,6 +415,10 @@ class TestChallengeResponse(TestCase):
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
+            self.assertFalse(hasattr(inst, 'secret'))
+            self.assertFalse(hasattr(inst, 'challenge'))
+            inst.secret = secret
+            inst.challenge = challenge
 
         # Test with wrong remote_hash
         for i in range(100):
@@ -409,6 +429,10 @@ class TestChallengeResponse(TestCase):
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
+            self.assertFalse(hasattr(inst, 'secret'))
+            self.assertFalse(hasattr(inst, 'challenge'))
+            inst.secret = secret
+            inst.challenge = challenge
 
         # Test with more nonce, used as expected:
         for i in range(100):

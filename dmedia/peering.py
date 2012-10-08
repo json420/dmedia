@@ -432,6 +432,8 @@ class ChallengeResponse:
             self.remote_hash
         )
         if response != expected:
+            del self.secret
+            del self.challenge
             raise ResponseError(expected, response)
 
 
