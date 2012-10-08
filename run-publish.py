@@ -2,8 +2,6 @@
 
 import logging
 import tempfile
-import socket
-import os
 from queue import Queue
 from gettext import gettext as _
 
@@ -14,7 +12,7 @@ from dmedia.startup import DmediaCouch
 from dmedia import peering
 from dmedia.service.peers import AvahiPeer
 from dmedia.gtk.peering import BaseUI
-from dmedia.peering import ChallengeResponse, ChallengeResponseApp
+from dmedia.peering import ChallengeResponse, ChallengeResponseApp, InfoApp
 from dmedia.httpd import WSGIError, make_server, build_server_ssl_context
 
 
@@ -26,24 +24,6 @@ format = [
 ]
 logging.basicConfig(level=logging.DEBUG, format='\t'.join(format))
 log = logging.getLogger()
-
-
-INFO = dumps(
-    {'user': os.environ['USER'], 'host': socket.gethostname()}
-).encode('utf-8')
-INFO_LENGTH = str(len(INFO))
-
-
-def server_info(environ, start_response):
-    if environ['REQUEST_METHOD'] != 'GET':
-        raise WSGIError('405 Method Not Allowed')
-    start_response('200 OK',
-        [
-            ('Content-Length', INFO_LENGTH),
-            ('Content-Type', 'application/json'),
-        ]
-    )
-    return [INFO]
 
 
 class Session:
@@ -122,7 +102,8 @@ class UI(BaseUI):
             return
         self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
         self.avahi.connect('accept', self.on_accept)
-        self.httpd = make_server(server_info, '0.0.0.0',
+        app = InfoApp(self.avahi.id)
+        self.httpd = make_server(app, '0.0.0.0',
             self.avahi.get_server_config()
         )
         self.httpd.start()

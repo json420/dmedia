@@ -464,6 +464,33 @@ class ChallengeResponse:
             raise WrongResponse(expected, response)
 
 
+class InfoApp:
+    def __init__(self, _id):
+        self.id = _id
+        obj = {
+            'id': _id,
+            'user': USER,
+            'host': HOST,
+        }
+        self.info = dumps(obj).encode('utf-8')
+        self.info_length = str(len(self.info))
+
+    def __call__(self, environ, start_response):
+        if environ['wsgi.multithread'] is not False:
+            raise WSGIError('500 Internal Server Error')
+        if environ['PATH_INFO'] != '/':
+            raise WSGIError('410 Gone')
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        start_response('200 OK',
+            [
+                ('Content-Length', self.info_length),
+                ('Content-Type', 'application/json'),
+            ]
+        )
+        return [self.info]
+
+
 STATES = (
     'info',
     'ready',
