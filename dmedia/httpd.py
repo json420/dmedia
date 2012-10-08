@@ -507,7 +507,7 @@ class HTTPD:
         while self.running:
             try:
                 (conn, address) = self.socket.accept()
-                conn.settimeout(0.5)
+                conn.settimeout(0.50)
                 self.handle_connection(conn, address)
             except socket.timeout:
                 pass

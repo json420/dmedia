@@ -109,9 +109,18 @@ class State:
             self.__peer_id = peer_id
             return True
 
-    def unbind(self, peer_id):
+    def verify(self, peer_id):
         with self.__lock:
             if self.__state != 'bound':
+                return False
+            if peer_id is None or peer_id != self.__peer_id:
+                return False
+            self.__state = 'verified'
+            return True
+
+    def unbind(self, peer_id):
+        with self.__lock:
+            if self.__state not in ('bound', 'verified'): 
                 return False
             if peer_id is None or peer_id != self.__peer_id:
                 return False
@@ -120,7 +129,7 @@ class State:
 
     def activate(self, peer_id):
         with self.__lock:
-            if self.__state != 'bound':
+            if self.__state != 'verified':
                 return False
             if peer_id is None or peer_id != self.__peer_id:
                 return False
@@ -379,11 +388,13 @@ class AvahiPeer(GObject.GObject):
         GObject.idle_add(self.on_cert_complete, peer, info)
 
     def on_cert_complete(self, peer, info):
-        if self.state.peer_id != peer.id or self.state.state != 'bound':
+        if not self.state.verify(peer.id):
             log.error(
                 '%s: mismatch in on_cert_complete(): %r', peer.id, self.state
             )
             return
+        assert self.state.state == 'verified'
+        assert self.state.peer_id == peer.id
         assert peer is self.peer
         assert self.info is None
         self.info = info

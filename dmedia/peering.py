@@ -372,14 +372,14 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     :param responder_hash: hash of the responders certificate
     """
     skein = skein512(
-        digest_bits=280,
+        digest_bits=256,
         pers=PERS_RESPONSE,
         key=secret,
         nonce=(challange + nonce),
     )
     skein.update(challenger_hash)
     skein.update(responder_hash)
-    return b32encode(skein.digest()).decode('utf-8')
+    return skein.hexdigest()
 
 
 def ensuredir(d):

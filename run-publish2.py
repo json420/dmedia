@@ -10,7 +10,7 @@ from microfiber import dumps
 
 from dmedia.startup import DmediaCouch
 from dmedia.service.peers import AvahiPeer
-from dmedia.httpd import WSGIError, make_server
+from dmedia.httpd import WSGIError, make_server, build_server_ssl_context
 
 
 format = [
@@ -48,12 +48,18 @@ couch.load_pki()
 def on_accept(avahi, info):
     print(info)
     avahi.activate(info.id)
+    # Reconfigure HTTPD to only accept connections from bound peer
+    httpd = avahi.httpd
+    httpd.shutdown()
+    httpd.context = build_server_ssl_context(avahi.get_server_config())
+    httpd.start()
     avahi.unpublish()
 
 avahi = AvahiPeer(couch.pki, client_mode=True)
 avahi.connect('accept', on_accept)
 httpd = make_server(server_info, '0.0.0.0', avahi.get_server_config())
 httpd.start()
+avahi.httpd = httpd
 avahi.browse()
 avahi.publish(httpd.port)
 mainloop.run()
