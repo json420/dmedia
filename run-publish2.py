@@ -4,14 +4,13 @@ import logging
 import tempfile
 import socket
 import os
-import multiprocessing
 
 from gi.repository import GObject
 from microfiber import dumps
 
 from dmedia.startup import DmediaCouch
 from dmedia.service.peers import AvahiPeer
-from dmedia.httpd import run_server, WSGIError
+from dmedia.httpd import WSGIError, make_server
 
 
 format = [
@@ -41,20 +40,6 @@ def server_info(environ, start_response):
     return [INFO]
 
 
-def start_server_process(ssl_config):
-    queue = multiprocessing.Queue()
-    process = multiprocessing.Process(
-        target=run_server,
-        args=(queue, server_info, '0.0.0.0', ssl_config),
-    )
-    process.daemon = True
-    process.start()
-    env = queue.get()
-    if isinstance(env, Exception):
-        raise env
-    return (process, env['port'])
-
-
 mainloop = GObject.MainLoop()
 couch = DmediaCouch(tempfile.mkdtemp())
 couch.firstrun_init(create_user=False)
@@ -67,9 +52,10 @@ def on_accept(avahi, info):
 
 avahi = AvahiPeer(couch.pki, client_mode=True)
 avahi.connect('accept', on_accept)
-(httpd, port) = start_server_process(avahi.get_server_config())
+httpd = make_server(server_info, '0.0.0.0', avahi.get_server_config())
+httpd.start()
 avahi.browse()
-avahi.publish(port)
+avahi.publish(httpd.port)
 mainloop.run()
 
 

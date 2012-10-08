@@ -272,6 +272,12 @@ class Handler:
         self.remote = '{REMOTE_ADDR} {REMOTE_PORT}'.format(**environ)
         self.start = None
 
+    def handle(self):
+        if self.environ['wsgi.multithread']:
+            self.handle_many()
+        else:
+            self.handle_one()
+
     def handle_many(self):
         count = 0
         try:
@@ -412,6 +418,8 @@ class HTTPD:
         self.url = template.format(self.scheme, self.port)
         self.environ = self.build_base_environ()
         self.socket.listen(5)
+        self.thread = None
+        self.running = False
 
     def build_base_environ(self):
         """
@@ -469,6 +477,7 @@ class HTTPD:
     def serve_forever(self):
         while True:
             (conn, address) = self.socket.accept()
+            conn.settimeout(SOCKET_TIMEOUT)
             thread = threading.Thread(
                 target=self.handle_connection,
                 args=(conn, address),
@@ -476,12 +485,38 @@ class HTTPD:
             thread.daemon = True
             thread.start()
 
+    def start(self):
+        assert self.thread is None
+        assert self.running is False
+        self.running = True
+        self.thread = threading.Thread(
+            target=self.serve_single_threaded,
+        )
+        self.thread.daemon = True
+        self.thread.start()
+
+    def shutdown(self):
+        assert self.running is True
+        self.running = False
+        self.thread.join()
+        self.thread = None
+
+    def serve_single_threaded(self):
+        self.environ['wsgi.multithread'] = False
+        self.socket.settimeout(0.25)
+        while self.running:
+            try:
+                (conn, address) = self.socket.accept()
+                conn.settimeout(0.5)
+                self.handle_connection(conn, address)
+            except socket.timeout:
+                pass
+
     def handle_connection(self, conn, address):
         #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         remote = '{} {}'.format(address[0], address[1])
         try:
             log.info('%s\tNew Connection', remote)
-            conn.settimeout(SOCKET_TIMEOUT)
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
             self.handle_requests(conn, address)
@@ -497,7 +532,7 @@ class HTTPD:
         environ = self.environ.copy()
         environ.update(self.build_connection_environ(conn, address))
         handler = Handler(self.app, environ, conn)
-        handler.handle_many()
+        handler.handle()
 
 
 ############################
