@@ -410,6 +410,15 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
 
+        # Test with more nonce, used as expected:
+        for i in range(100):
+            newnonce = os.urandom(20)
+            good = peering.compute_response(
+                secret, challenge, newnonce, local, remote
+            )
+            self.assertNotEqual(good, response)
+            self.assertIsNone(inst.check_response(newnonce, good))
+
 
 class TestPKI(TestCase):
     def test_init(self):
