@@ -27,6 +27,7 @@ from unittest import TestCase
 import os
 from os import path
 import subprocess
+import socket
 
 import microfiber
 from microfiber import random_id, CouchBase
@@ -501,9 +502,24 @@ class TestChallengeResponseApp(TestCase):
         server = make_server(app, '127.0.0.1', server_config)
         client = CouchBase({'url': server.url, 'ssl': client_config})
         server.start()
-
         secret = local.get_secret()
         remote.set_secret(secret)
+
+        self.assertIsNone(app.state)
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.get('')
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request State: GET /'
+        )
+        app.state = 'info'
+        self.assertEqual(client.get(),
+            {
+                'id': local_id,
+                'user': os.environ.get('USER'),
+                'host': socket.gethostname(),
+            }
+        )
 
         with self.assertRaises(microfiber.BadRequest) as cm:
             client.get('challenge')
@@ -518,7 +534,7 @@ class TestChallengeResponseApp(TestCase):
             '400 Bad Request Order: PUT /response'
         )
 
-        app.make_ready()
+        app.state = 'ready'
         self.assertEqual(app.state, 'ready')
         obj = client.get('challenge')
         self.assertEqual(app.state, 'gave_challenge')
@@ -544,6 +560,36 @@ class TestChallengeResponseApp(TestCase):
             '400 Bad Request Order: PUT /response'
         )
         self.assertEqual(app.state, 'response_ok')
+
+        # Test when an error occurs in put_response()
+        app.state = 'gave_challenge'
+        with self.assertRaises(microfiber.ServerError) as cm:
+            client.put(b'bad json', 'response')
+        self.assertEqual(app.state, 'in_response')
+
+        # Test with wrong secret
+        app.state = 'ready'
+        secret = local.get_secret()
+        remote.get_secret()
+        challenge = client.get('challenge')['challenge']
+        self.assertEqual(app.state, 'gave_challenge')
+        (nonce, response) = remote.create_response(challenge)
+        with self.assertRaises(microfiber.Unauthorized) as cm:
+            client.put({'nonce': nonce, 'response': response}, 'response')
+        self.assertEqual(app.state, 'wrong_response')
+        self.assertFalse(hasattr(local, 'secret'))
+        self.assertFalse(hasattr(local, 'challenge'))
+
+        # Verify that you can't retry
+        remote.set_secret(secret)
+        (nonce, response) = remote.create_response(challenge)
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.put({'nonce': nonce, 'response': response}, 'response')
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request Order: PUT /response'
+        )
+        self.assertEqual(app.state, 'wrong_response')
 
         server.shutdown()
 

@@ -132,7 +132,7 @@ Cert = namedtuple('Cert', 'id cert_file key_file')
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 
-USER = os.environ['USER']
+USER = os.environ.get('USER')
 HOST = socket.gethostname()
 
 
@@ -465,16 +465,21 @@ class ChallengeResponseApp:
     def __init__(self, cr):
         assert isinstance(cr, ChallengeResponse)
         self.cr = cr
-        self.state = None
+        self.__state = None
         self.map = {
             '/': self.get_info,
             '/challenge': self.get_challenge,
             '/response': self.put_response,
         }
 
-    def make_ready(self):
-        assert self.state is None
-        self.state = 'ready'
+    def get_state(self):
+        return self.__state
+
+    def set_state(self, state):
+        assert state in ('info', 'ready', 'gave_challenge', 'in_response', 'wrong_response', 'response_ok')
+        self.__state = state
+
+    state = property(get_state, set_state)
 
     def __call__(self, environ, start_response):
         if environ['wsgi.multithread'] is not False:
@@ -487,20 +492,26 @@ class ChallengeResponseApp:
             raise WSGIError('403 Forbidden')
 
         path_info = environ['PATH_INFO']
-        if path_info in self.map:
-            obj = self.map[path_info](environ)
-        else:
+        if path_info not in self.map:
             raise WSGIError('410 Gone')
-        data = json.dumps(obj).encode('utf-8')
-        start_response('200 OK',
-            [
-                ('Content-Length', str(len(data))),
-                ('Content-Type', 'application/json'),
-            ]
-        )
-        return [data]
+        try:
+            obj = self.map[path_info](environ)            
+            data = json.dumps(obj).encode('utf-8')
+            start_response('200 OK',
+                [
+                    ('Content-Length', str(len(data))),
+                    ('Content-Type', 'application/json'),
+                ]
+            )
+            return [data]
+        except WSGIError as e:
+            raise e
+        except Exception:
+            raise WSGIError('500 Internal Server Error')
 
     def get_info(self, environ):
+        if self.state != 'info':
+            raise WSGIError('400 Bad Request State')
         if environ['REQUEST_METHOD'] != 'GET':
             raise WSGIError('405 Method Not Allowed')
         return {
@@ -522,7 +533,7 @@ class ChallengeResponseApp:
     def put_response(self, environ):
         if self.state != 'gave_challenge':
             raise WSGIError('400 Bad Request Order')
-        self.state = 'wrong_response'
+        self.state = 'in_response'
         if environ['REQUEST_METHOD'] != 'PUT':
             raise WSGIError('405 Method Not Allowed')
         data = environ['wsgi.input'].read()
@@ -532,6 +543,7 @@ class ChallengeResponseApp:
         try:
             self.cr.check_response(nonce, response)
         except WrongResponse:
+            self.state = 'wrong_response'
             raise WSGIError('401 Unauthorized')
         self.state = 'response_ok'
         return {'ok': True}
