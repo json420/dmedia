@@ -132,6 +132,9 @@ Cert = namedtuple('Cert', 'id cert_file key_file')
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 
+USER = os.environ['USER']
+HOST = socket.gethostname()
+
 
 class IdentityError(Exception):
     def __init__(self, filename, expected, got):
@@ -459,39 +462,29 @@ class ChallengeResponse:
 
 
 class ChallengeResponseApp:
-    def __init__(self, _id, peer_id):
-        self.id = _id
-        self.peer_id = peer_id
-        self.cr = ChallengeResponse(decode(_id), decode(peer_id))
-        self.ready = False
+    def __init__(self, cr):
+        assert isinstance(cr, ChallengeResponse)
+        self.cr = cr
+        self.state = None
         self.map = {
             '/': self.get_info,
             '/challenge': self.get_challenge,
             '/response': self.put_response,
         }
 
-    def get_secret(self):
-        assert self.ready is False
-        secret = encode(self.cr.get_secret())
-        self.ready = True
-        return secret
-
-    def set_secret(self, secret):
-        assert self.ready is False
-        self.cr.set_secret(decode(secret))
-        self.ready = True
+    def make_ready(self):
+        assert self.state is None
+        self.state = 'ready'
 
     def __call__(self, environ, start_response):
         if environ['wsgi.multithread'] is not False:
             raise WSGIError('500 Internal Server Error')
         if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
             raise WSGIError('403 Forbidden')
-        if environ.get('SSL_CLIENT_S_DN_CN') != self.peer_id:
+        if environ.get('SSL_CLIENT_S_DN_CN') != self.cr.peer_id:
             raise WSGIError('403 Forbidden')
-        if environ.get('SSL_CLIENT_I_DN_CN') != self.peer_id:
+        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
             raise WSGIError('403 Forbidden')
-        if environ['PATH_INFO'] != '/':
-            raise WSGIError('400 Bad Request')
 
         path_info = environ['PATH_INFO']
         if path_info in self.map:
@@ -511,35 +504,36 @@ class ChallengeResponseApp:
         if environ['REQUEST_METHOD'] != 'GET':
             raise WSGIError('405 Method Not Allowed')
         return {
-            'id': self.id,
-            'user': os.environ['USER'],
-            'host': socket.gethostname(),
+            'id': self.cr.id,
+            'user': USER,
+            'host': HOST,
         }
 
     def get_challenge(self, environ):
-        if not self.ready:
-            raise WSGIError('400 Bad Request')
+        if self.state != 'ready':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'gave_challenge'
         if environ['REQUEST_METHOD'] != 'GET':
             raise WSGIError('405 Method Not Allowed')
-        challenge = self.cr.get_challenge()
         return {
-            'challenge': encode(challenge),
+            'challenge': self.cr.get_challenge(),
         }
 
     def put_response(self, environ):
-        if not self.ready:
-            raise WSGIError('400 Bad Request')
-        self.ready = False
+        if self.state != 'gave_challenge':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'wrong_response'
         if environ['REQUEST_METHOD'] != 'PUT':
             raise WSGIError('405 Method Not Allowed')
         data = environ['wsgi.input'].read()
         obj = json.loads(data.decode('utf-8'))
-        nonce = decode(obj['nonce'])
-        response = decode(obj['response'])
+        nonce = obj['nonce']
+        response = obj['response']
         try:
             self.cr.check_response(nonce, response)
         except WrongResponse:
             raise WSGIError('401 Unauthorized')
+        self.state = 'response_ok'
         return {'ok': True}
 
 

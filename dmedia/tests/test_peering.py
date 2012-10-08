@@ -495,21 +495,55 @@ class TestChallengeResponseApp(TestCase):
             'cert_file': pki.path(remote_id, 'ca'),
             'key_file': pki.path(remote_id, 'key'),
         }
-        return
-        app = peering.ChallengeResponseApp(local_id, remote_id)
+        local = peering.ChallengeResponse(local_id, remote_id)
+        remote = peering.ChallengeResponse(remote_id, local_id)
+        app = peering.ChallengeResponseApp(local)
         server = make_server(app, '127.0.0.1', server_config)
         client = CouchBase({'url': server.url, 'ssl': client_config})
-        cr = peering.ChallengeResponse(
-            peering.decode(remote_id),
-            peering.decode(local_id),
-        )
         server.start()
+
+        secret = local.get_secret()
+        remote.set_secret(secret)
+
         with self.assertRaises(microfiber.BadRequest) as cm:
             client.get('challenge')
-        secret = peering.decode(server.get_secret())
-        cr.set_secret(secret)
-        
-        
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request Order: GET /challenge'
+        )
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.put({'hello': 'world'}, 'response')
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request Order: PUT /response'
+        )
+
+        app.make_ready()
+        self.assertEqual(app.state, 'ready')
+        obj = client.get('challenge')
+        self.assertEqual(app.state, 'gave_challenge')
+        self.assertIsInstance(obj, dict)
+        self.assertEqual(set(obj), set(['challenge']))
+        self.assertEqual(local.challenge, decode(obj['challenge']))
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.get('challenge')
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request Order: GET /challenge'
+        )
+        self.assertEqual(app.state, 'gave_challenge')
+
+        (nonce, response) = remote.create_response(obj['challenge'])
+        obj = {'nonce': nonce, 'response': response}
+        self.assertEqual(client.put(obj, 'response'), {'ok': True})
+        self.assertEqual(app.state, 'response_ok')
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.put(obj, 'response')
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request Order: PUT /response'
+        )
+        self.assertEqual(app.state, 'response_ok')
 
         server.shutdown()
 
