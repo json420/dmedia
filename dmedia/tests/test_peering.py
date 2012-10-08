@@ -355,7 +355,7 @@ class TestChallengeResponse(TestCase):
         bad = peering.compute_response(
             secret, challenge, nonce, remote, local
         )
-        with self.assertRaises(peering.ResponseError) as cm:
+        with self.assertRaises(peering.WrongResponse) as cm:
             inst.check_response(nonce, bad)
         self.assertEqual(cm.exception.expected, response)
         self.assertEqual(cm.exception.got, bad)
@@ -369,7 +369,7 @@ class TestChallengeResponse(TestCase):
             bad = peering.compute_response(
                 os.urandom(5), challenge, nonce, local, remote
             )
-            with self.assertRaises(peering.ResponseError) as cm:
+            with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
@@ -383,7 +383,7 @@ class TestChallengeResponse(TestCase):
             bad = peering.compute_response(
                 secret, os.urandom(20), nonce, local, remote
             )
-            with self.assertRaises(peering.ResponseError) as cm:
+            with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
@@ -397,7 +397,7 @@ class TestChallengeResponse(TestCase):
             bad = peering.compute_response(
                 secret, challenge, os.urandom(20), local, remote
             )
-            with self.assertRaises(peering.ResponseError) as cm:
+            with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
@@ -411,7 +411,7 @@ class TestChallengeResponse(TestCase):
             bad = peering.compute_response(
                 secret, challenge, nonce, os.urandom(30), remote
             )
-            with self.assertRaises(peering.ResponseError) as cm:
+            with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)
@@ -425,7 +425,7 @@ class TestChallengeResponse(TestCase):
             bad = peering.compute_response(
                 secret, challenge, nonce, local, os.urandom(30)
             )
-            with self.assertRaises(peering.ResponseError) as cm:
+            with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
             self.assertEqual(cm.exception.expected, response)
             self.assertEqual(cm.exception.got, bad)

@@ -382,7 +382,7 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     return skein.digest()
 
 
-class ResponseError(Exception):
+class WrongResponse(Exception):
     def __init__(self, expected, got):
         self.expected = expected
         self.got = got
@@ -434,7 +434,7 @@ class ChallengeResponse:
         if response != expected:
             del self.secret
             del self.challenge
-            raise ResponseError(expected, response)
+            raise WrongResponse(expected, response)
 
 
 def ensuredir(d):
