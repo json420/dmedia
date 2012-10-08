@@ -165,6 +165,9 @@ class AvahiPeer(GObject.GObject):
         'accept': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
             [GObject.TYPE_PYOBJECT]
         ),
+        'retract': (GObject.SIGNAL_RUN_LAST, GObject.TYPE_NONE,
+            []
+        ),
     }
 
     def __init__(self, pki, client_mode=False):
@@ -211,23 +214,22 @@ class AvahiPeer(GObject.GObject):
         assert self.info.url == 'https://{}:{}/'.format(
             self.peer.ip, self.peer.port
         )
-        GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
-
-    def accept(self, peer_id, port):
-        assert self.client_mode is False
-        self.activate(peer_id)
-        self.publish(port)
+        GObject.timeout_add(15 * 1000, self.on_timeout, peer_id)
 
     def abort(self, peer_id):
         GObject.idle_add(self.unbind, peer_id)
 
     def unbind(self, peer_id):
+        retract = (self.state.state == 'verified')
         if not self.state.unbind(peer_id):
             log.error('Cannot unbind %s from %r', peer_id, self.state)
             return
         log.info('Unbound from %s', peer_id)
         assert self.state.peer_id == peer_id
         assert self.state.state == 'unbound'
+        if retract:
+            log.info("Firing 'retract' signal")
+            self.emit('retract')
         GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
 
     def on_timeout(self, peer_id):

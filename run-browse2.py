@@ -4,11 +4,12 @@ import logging
 import tempfile
 from gettext import gettext as _
 
-from gi.repository import GObject, Gtk, AppIndicator3, Notify
+from gi.repository import GObject, Gtk, AppIndicator3
 from microfiber import dumps, CouchBase
 from queue import Queue
 
 from dmedia.startup import DmediaCouch
+from dmedia.gtk.ubuntu import NotifyManager
 from dmedia.peering import ChallengeResponse, ChallengeResponseApp
 from dmedia.service.peers import AvahiPeer
 from dmedia.httpd import WSGIError, make_server
@@ -21,8 +22,6 @@ format = [
     '%(message)s',
 ]
 logging.basicConfig(level=logging.DEBUG, format='\t'.join(format))
-Notify.init('dmedia-peer')
-
 
 
 class Session:
@@ -44,7 +43,9 @@ class Browse:
         self.couch.load_pki()
         self.avahi = AvahiPeer(self.couch.pki)
         self.avahi.connect('offer', self.on_offer)
+        self.avahi.connect('retract', self.on_retract)
         self.avahi.browse()
+        self.notifymanager = NotifyManager()
 
     def on_offer(self, avahi, info):
         self.indicator = AppIndicator3.Indicator.new(
@@ -60,12 +61,15 @@ class Browse:
         menu.show_all()
         self.indicator.set_menu(menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
-        self.note = Notify.Notification.new(
+        self.notifymanager.replace(
             _('Novacut Peering Offer'),
             '{}@{}'.format(info.name, info.host),
-            None
         )
-        self.note.show()
+
+    def on_retract(self, avahi):
+        if hasattr(self, 'indicator'):
+            del self.indicator
+            self.notifymanager.replace(_('Peering Offer Removed'))
 
     def on_accept(self, menuitem, info):
         self.avahi.activate(info.id)
