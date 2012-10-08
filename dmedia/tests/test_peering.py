@@ -478,7 +478,7 @@ class TestChallengeResponse(TestCase):
                 inst.check_response(nonce, response)
 
 
-class TestChallengeResponseApp(TestCase):
+class TestServerApp(TestCase):
     def test_live(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
@@ -500,7 +500,7 @@ class TestChallengeResponseApp(TestCase):
         local = peering.ChallengeResponse(local_id, remote_id)
         remote = peering.ChallengeResponse(remote_id, local_id)
         q = Queue()
-        app = peering.ChallengeResponseApp(local, q)
+        app = peering.ServerApp(local, q)
         server = make_server(app, '127.0.0.1', server_config)
         client = CouchBase({'url': server.url, 'ssl': client_config})
         server.start()

@@ -491,23 +491,26 @@ class InfoApp:
         return [self.info]
 
 
-STATES = (
-    'info',
-    'ready',
-    'gave_challenge',
-    'in_response',
-    'wrong_response',
-    'response_ok',
-)
+class ClientApp:
+    allowed_states = (
+        'ready',
+        'gave_challenge',
+        'in_response',
+        'wrong_response',
+        'response_ok',
+    )
 
-class ChallengeResponseApp:
+    forwarded_states = (
+        'wrong_response',
+        'response_ok',
+    )
+
     def __init__(self, cr, queue):
         assert isinstance(cr, ChallengeResponse)
         self.cr = cr
         self.queue = queue
         self.__state = None
         self.map = {
-            '/': self.get_info,
             '/challenge': self.get_challenge,
             '/response': self.put_response,
         }
@@ -516,9 +519,12 @@ class ChallengeResponseApp:
         return self.__state
 
     def set_state(self, state):
-        assert state in STATES
+        if state not in self.__class__.allowed_states:
+            self.__state = None
+            log.error('invalid state: %r', state)
+            raise Exception('invalid state: {!r}'.format(state))
         self.__state = state
-        if state in ('wrong_response', 'response_ok'):
+        if state in self.__class__.forwarded_states:
             self.queue.put(state)
 
     state = property(get_state, set_state)
@@ -550,19 +556,8 @@ class ChallengeResponseApp:
         except WSGIError as e:
             raise e
         except Exception:
+            log.exception('500 Internal Server Error')
             raise WSGIError('500 Internal Server Error')
-
-    def get_info(self, environ):
-        if self.state != 'info':
-            raise WSGIError('400 Bad Request State')
-        self.state = 'ready'
-        if environ['REQUEST_METHOD'] != 'GET':
-            raise WSGIError('405 Method Not Allowed')
-        return {
-            'id': self.cr.id,
-            'user': USER,
-            'host': HOST,
-        }
 
     def get_challenge(self, environ):
         if self.state != 'ready':
@@ -591,6 +586,37 @@ class ChallengeResponseApp:
             raise WSGIError('401 Unauthorized')
         self.state = 'response_ok'
         return {'ok': True}
+
+
+class ServerApp(ClientApp):
+
+    allowed_states = (
+        'info',
+        'in_csr',
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.allowed_states
+
+    forwarded_states = (
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.forwarded_states
+
+    def __init__(self, cr, queue):
+        super().__init__(cr, queue)
+        self.map['/'] = self.get_info
+
+    def get_info(self, environ):
+        if self.state != 'info':
+            raise WSGIError('400 Bad Request State')
+        self.state = 'ready'
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        return {
+            'id': self.cr.id,
+            'user': USER,
+            'host': HOST,
+        }
 
 
 def ensuredir(d):

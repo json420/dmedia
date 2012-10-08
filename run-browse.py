@@ -10,7 +10,7 @@ from queue import Queue
 
 from dmedia.startup import DmediaCouch
 from dmedia.gtk.ubuntu import NotifyManager
-from dmedia.peering import ChallengeResponse, ChallengeResponseApp
+from dmedia.peering import ChallengeResponse, ServerApp
 from dmedia.service.peers import AvahiPeer
 from dmedia.gtk.peering import BaseUI
 from dmedia.httpd import WSGIError, make_server
@@ -58,7 +58,7 @@ class Session:
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
         _start_thread(self.monitor_q)
-        self.app = ChallengeResponseApp(self.cr, self.q)
+        self.app = ServerApp(self.cr, self.q)
         self.app.state = 'info'
         self.httpd = make_server(self.app, '0.0.0.0', server_config)
         env = {'url': peer.url, 'ssl': client_config}

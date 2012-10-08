@@ -12,7 +12,7 @@ from dmedia.startup import DmediaCouch
 from dmedia import peering
 from dmedia.service.peers import AvahiPeer
 from dmedia.gtk.peering import BaseUI
-from dmedia.peering import ChallengeResponse, ChallengeResponseApp, InfoApp
+from dmedia.peering import ChallengeResponse, ClientApp, InfoApp
 from dmedia.httpd import WSGIError, make_server, build_server_ssl_context
 
 
@@ -34,7 +34,7 @@ class Session:
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
         _start_thread(self.monitor_q)
-        self.app = ChallengeResponseApp(self.cr, self.q)
+        self.app = ClientApp(self.cr, self.q)
         self.app.state = 'ready'
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
