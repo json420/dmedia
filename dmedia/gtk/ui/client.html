@@ -9,31 +9,11 @@
 "use strict";
 
 
-Hub.connect('show_screen2b',
-    function() {
-        UI.show('screen2b');
-        $('logo').classList.add('spinright');
-    }
-);
-
-Hub.connect('show_screen3b',
-    function() {
-        $hide('logo');
-        UI.show('screen3b');
-    }
-);
-
-
 var UI = {
     on_load: function() {
         UI.input = $('input');
         UI.input.oninput = UI.on_input;
         UI.show('screen1');
-    },
-
-    show: function(id) {
-        $hide(UI.current);
-        UI.current = $show(id);
     },
 
     on_input: function(event) {
@@ -45,10 +25,39 @@ var UI = {
             $('finish').classList.add('hidden');
         }
     },
+
+    show: function(id) {
+        $hide(UI.current);
+        UI.current = $show(id);
+    },
+
+    have_secret: function() {
+        if (UI.input.value.length == 8) {
+            UI.input.disabled = true;
+            Hub.send('have_secret', UI.input.value); 
+        }
+    }
 }
 
 
 window.onload = UI.on_load;
+
+
+Hub.connect('show_screen2b',
+    function() {
+        UI.show('screen2b');
+        $('logo').classList.add('spinright');
+    }
+);
+
+
+Hub.connect('show_screen3b',
+    function() {
+        $hide('logo');
+        UI.input.value = '';
+        UI.show('screen3b');
+    }
+);
 
 </script>
 </head>
@@ -89,7 +98,7 @@ window.onload = UI.on_load;
     <div class="secret">
     <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
     </div>
-    <img src="sync.svg" id="finish" class="hidden">
+    <img src="sync.svg" id="finish" class="hidden" onclick="UI.have_secret()">
 </div>
 
 </body>

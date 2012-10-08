@@ -5,7 +5,7 @@ import tempfile
 from gettext import gettext as _
 
 from gi.repository import GObject, Gtk, AppIndicator3
-from microfiber import dumps, CouchBase, random_id
+from microfiber import CouchBase, _start_thread
 from queue import Queue
 
 from dmedia.startup import DmediaCouch
@@ -54,6 +54,7 @@ class Session:
         self.peer_id = peer.id
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
+        _start_thread(self.monitor_q)
         self.app = ChallengeResponseApp(self.cr, self.q)
         self.app.state = 'info'
         self.httpd = make_server(self.app, '0.0.0.0', server_config)
@@ -61,6 +62,11 @@ class Session:
         self.client = CouchBase(env)
         self.httpd.start()
         self.ui = UI(self.cr)
+
+    def monitor_q(self):
+        while True:
+            signal = self.q.get()
+            print('!!!!', signal)
 
 
 class Browse:

@@ -7,7 +7,7 @@ import os
 from queue import Queue
 
 from gi.repository import GObject, Gtk
-from microfiber import dumps, CouchBase
+from microfiber import dumps, CouchBase, Unauthorized, _start_thread
 
 from dmedia.startup import DmediaCouch
 from dmedia import peering
@@ -46,7 +46,8 @@ def server_info(environ, start_response):
 
 
 class Session:
-    def __init__(self, _id, peer, client_config):
+    def __init__(self, hub, _id, peer, client_config):
+        self.hub = hub
         self.peer_id = peer.id
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
@@ -55,6 +56,17 @@ class Session:
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
 
+    def challenge(self):
+        challenge = self.client.get('challenge')['challenge']
+        (nonce, response) = self.cr.create_response(challenge)
+        obj = {'nonce': nonce, 'response': response}
+        try:
+            r = self.client.put(obj, 'response')
+            success = True
+        except Unauthorized:
+            success = False
+        GObject.idle_add(self.hub.send, 'challenge', success)
+
 
 class UI(BaseUI):
     page = 'client.html'
@@ -62,6 +74,9 @@ class UI(BaseUI):
     signals = {
         'first_time': [],
         'already_using': [],
+        'have_secret': ['secret'],
+        'challenge': ['success'],
+        'counter_challenge': ['success'],
         'show_screen2b': [],
         'show_screen3b': [],
     }
@@ -77,6 +92,8 @@ class UI(BaseUI):
     def connect_hub_signals(self, hub):
         hub.connect('first_time', self.on_first_time)
         hub.connect('already_using', self.on_already_using)
+        hub.connect('have_secret', self.on_have_secret)
+        hub.connect('challenge', self.on_challenge)
 
     def on_first_time(self, hub):
         print('on_first_time')
@@ -97,11 +114,20 @@ class UI(BaseUI):
 
     def on_accept(self, avahi, peer):
         self.avahi.activate(peer.id)
-        self.session = Session(avahi.id, peer, avahi.get_client_config())
+        self.session = Session(self.hub, avahi.id, peer,
+            avahi.get_client_config()
+        )
         # Reconfigure HTTPD to only accept connections from bound peer
         self.httpd.reconfigure(self.session.app, avahi.get_server_config())
         avahi.unpublish()
         GObject.idle_add(self.hub.send, 'show_screen3b')
+
+    def on_have_secret(self, hub, secret):
+        self.session.cr.set_secret(secret)
+        _start_thread(self.session.challenge)
+
+    def on_challenge(self, hub, success):
+        print('challenge:', success)
 
 
 ui = UI()
