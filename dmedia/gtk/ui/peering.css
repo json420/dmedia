@@ -73,9 +73,14 @@ p.top {
     -webkit-transition: -webkit-transform 500ms linear;
 }
 
-#logo.spun {
+#logo.spinright {
     -webkit-transform: rotate(180deg);   
 }
+
+#logo.spinleft {
+    -webkit-transform: rotate(180deg);   
+}
+
 
 p.gen {
     margin: 2em;

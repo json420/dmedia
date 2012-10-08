@@ -64,6 +64,11 @@ class BaseUI:
     def show(self):
         self.window.show_all()
 
+    def run(self):
+        self.window.connect('destroy', Gtk.main_quit)
+        self.window.show_all()
+        Gtk.main()
+
     def connect_hub_signals(self, hub):
         pass
 

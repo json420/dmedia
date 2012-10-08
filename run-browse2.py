@@ -32,20 +32,19 @@ mainloop = GObject.MainLoop()
 class UI(BaseUI):
     page = 'server.html'
 
-    def __init__(self, cr):
-        super().__init__()
-        self.cr = cr
-
     signals = {
         'get_secret': [],
         'display_secret': ['secret'],
     }
 
+    def __init__(self, cr):
+        super().__init__()
+        self.cr = cr
+
     def connect_hub_signals(self, hub):
         hub.connect('get_secret', self.on_get_secret)
 
     def on_get_secret(self, hub):
-        print('on_get_secret')
         secret = self.cr.get_secret()
         hub.send('display_secret', secret)
 

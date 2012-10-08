@@ -8,19 +8,18 @@
 
 "use strict";
 
-Hub.connect('sync',
+
+Hub.connect('show_screen2b',
     function() {
-        $hide('welcome');
-        $show('waiting');
-        $('logo').classList.add('spun');
+        UI.show('screen2b');
+        $('logo').classList.add('spinright');
     }
 );
 
-Hub.connect('enter_secret',
+Hub.connect('show_screen3b',
     function() {
-        $hide('waiting');
         $hide('logo');
-        $show('enter_secret');
+        UI.show('screen3b');
     }
 );
 
@@ -29,7 +28,12 @@ var UI = {
     on_load: function() {
         UI.input = $('input');
         UI.input.oninput = UI.on_input;
-        $show('welcome');
+        UI.show('screen1');
+    },
+
+    show: function(id) {
+        $hide(UI.current);
+        UI.current = $show(id);
     },
 
     on_input: function(event) {
@@ -52,8 +56,8 @@ window.onload = UI.on_load;
 
 <img src="novacut.svg" id="logo">
 
-<div id="welcome" class="hide">
-    <div id="first" onclick="Hub.send('first')">
+<div id="screen1" class="hide">
+    <div id="first" onclick="Hub.send('first_time')">
     <p class="top">
     This is my first time using Novacut
     </p>
@@ -62,7 +66,7 @@ window.onload = UI.on_load;
     </p>
     </div>
 
-    <div id="sync" onclick="Hub.send('sync')">
+    <div id="sync" onclick="Hub.send('already_using')">
     <p class="top">
     I'm already using Novacut
     </p>
@@ -72,13 +76,13 @@ window.onload = UI.on_load;
     </div>
 </div>
 
-<div id="waiting" class="hide">
+<div id="screen2b" class="hide">
     <p class="gen">
     Accept the peering offer on your other device
     </p>
 </div>
 
-<div id="enter_secret" class="hide">
+<div id="screen3b" class="hide">
     <p class="gen">
     Enter your secret code:
     </p>

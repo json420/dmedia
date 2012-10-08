@@ -6,12 +6,13 @@ import socket
 import os
 from queue import Queue
 
-from gi.repository import GObject
-from microfiber import dumps
+from gi.repository import GObject, Gtk
+from microfiber import dumps, CouchBase
 
 from dmedia.startup import DmediaCouch
 from dmedia import peering
 from dmedia.service.peers import AvahiPeer
+from dmedia.gtk.peering import BaseUI
 from dmedia.peering import ChallengeResponse, ChallengeResponseApp
 from dmedia.httpd import WSGIError, make_server, build_server_ssl_context
 
@@ -43,29 +44,65 @@ def server_info(environ, start_response):
     return [INFO]
 
 
-mainloop = GObject.MainLoop()
-couch = DmediaCouch(tempfile.mkdtemp())
-couch.firstrun_init(create_user=False)
-couch.load_pki()
 
-def on_accept(avahi, info):
-    print(info)
-    avahi.activate(info.id)
-    # Reconfigure HTTPD to only accept connections from bound peer
-    cr = ChallengeResponse(avahi.id, info.id)
-    q = Queue()
-    app = ChallengeResponseApp(cr, q)
-    app.state = 'ready'
-    avahi.httpd.reconfigure(app, avahi.get_server_config())
-    avahi.unpublish()
-
-avahi = AvahiPeer(couch.pki, client_mode=True)
-avahi.connect('accept', on_accept)
-httpd = make_server(server_info, '0.0.0.0', avahi.get_server_config())
-httpd.start()
-avahi.httpd = httpd
-avahi.browse()
-avahi.publish(httpd.port)
-mainloop.run()
+class Session:
+    def __init__(self, _id, peer, client_config):
+        self.peer_id = peer.id
+        self.cr = ChallengeResponse(_id, peer.id)
+        self.q = Queue()
+        self.app = ChallengeResponseApp(self.cr, self.q)
+        self.app.state = 'ready'
+        env = {'url': peer.url, 'ssl': client_config}
+        self.client = CouchBase(env)
 
 
+class UI(BaseUI):
+    page = 'client.html'
+
+    signals = {
+        'first_time': [],
+        'already_using': [],
+        'show_screen2b': [],
+        'show_screen3b': [],
+    }
+
+    def __init__(self):
+        super().__init__()
+        self.window.connect('destroy', Gtk.main_quit)
+        self.couch = DmediaCouch(tempfile.mkdtemp())
+        self.couch.firstrun_init(create_user=False)
+        self.couch.load_pki()
+        self.avahi = None
+
+    def connect_hub_signals(self, hub):
+        hub.connect('first_time', self.on_first_time)
+        hub.connect('already_using', self.on_already_using)
+
+    def on_first_time(self, hub):
+        print('on_first_time')
+
+    def on_already_using(self, hub):
+        if self.avahi is not None:
+            print('oop, duplicate click')
+            return
+        self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
+        self.avahi.connect('accept', self.on_accept)
+        self.httpd = make_server(server_info, '0.0.0.0',
+            self.avahi.get_server_config()
+        )
+        self.httpd.start()
+        self.avahi.browse()
+        self.avahi.publish(self.httpd.port)
+        GObject.idle_add(hub.send, 'show_screen2b')
+
+    def on_accept(self, avahi, peer):
+        self.avahi.activate(peer.id)
+        self.session = Session(avahi.id, peer, avahi.get_client_config())
+        # Reconfigure HTTPD to only accept connections from bound peer
+        self.httpd.reconfigure(self.session.app, avahi.get_server_config())
+        avahi.unpublish()
+        GObject.idle_add(self.hub.send, 'show_screen3b')
+
+
+ui = UI()
+ui.run()
