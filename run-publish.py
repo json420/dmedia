@@ -5,6 +5,7 @@ import tempfile
 import socket
 import os
 from queue import Queue
+from gettext import gettext as _
 
 from gi.repository import GObject, Gtk
 from microfiber import dumps, CouchBase, Unauthorized, _start_thread
@@ -24,6 +25,7 @@ format = [
     '%(message)s',
 ]
 logging.basicConfig(level=logging.DEBUG, format='\t'.join(format))
+log = logging.getLogger()
 
 
 INFO = dumps(
@@ -44,10 +46,10 @@ def server_info(environ, start_response):
     return [INFO]
 
 
-
 class Session:
     def __init__(self, hub, _id, peer, client_config):
         self.hub = hub
+        self.peer = peer
         self.peer_id = peer.id
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
@@ -57,13 +59,17 @@ class Session:
         self.client = CouchBase(env)
 
     def challenge(self):
+        log.info('Getting challenge from %r', self.peer)
         challenge = self.client.get('challenge')['challenge']
         (nonce, response) = self.cr.create_response(challenge)
         obj = {'nonce': nonce, 'response': response}
+        log.info('Putting response to %r', self.peer)
         try:
             r = self.client.put(obj, 'response')
+            log.info('Response accepted')
             success = True
         except Unauthorized:
+            log.info('Response rejected')
             success = False
         GObject.idle_add(self.hub.send, 'challenge', success)
 
@@ -77,6 +83,7 @@ class UI(BaseUI):
         'have_secret': ['secret'],
         'challenge': ['success'],
         'counter_challenge': ['success'],
+        'set_message': ['message'],
         'show_screen2b': [],
         'show_screen3b': [],
     }
@@ -123,11 +130,15 @@ class UI(BaseUI):
         GObject.idle_add(self.hub.send, 'show_screen3b')
 
     def on_have_secret(self, hub, secret):
+        hub.send('set_message', _('Challenge...'))
         self.session.cr.set_secret(secret)
         _start_thread(self.session.challenge)
 
     def on_challenge(self, hub, success):
-        print('challenge:', success)
+        if success:
+            hub.send('set_message', _('Counter-Challenge...'))
+        else:
+            hub.send('set_message', _('Wrong secret! Please try again!'))
 
 
 ui = UI()
