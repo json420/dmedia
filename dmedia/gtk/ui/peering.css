@@ -49,12 +49,12 @@ input {
 }
 
 #first {
-    top: 45px;
+    top: 35px;
     left: 51px;
 }
 
 #sync {
-    bottom: 45px;
+    bottom: 35px;
     /*left: 449px;*/
     right: 51px;
 }
