@@ -53,6 +53,7 @@ class Session:
         self.peer_id = peer.id
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
+        _start_thread(self.monitor_q)
         self.app = ChallengeResponseApp(self.cr, self.q)
         self.app.state = 'ready'
         env = {'url': peer.url, 'ssl': client_config}
@@ -72,6 +73,15 @@ class Session:
             log.info('Response rejected')
             success = False
         GObject.idle_add(self.hub.send, 'challenge', success)
+
+    def monitor_q(self):
+        status = self.q.get()
+        log.info('Counter-response gave %r', status)
+        success = (status == 'response_ok')
+        if not success:
+            log.error('Wrong counter-response!')
+            log.warning('Possible malicious peer: %r', self.peer)
+        GObject.idle_add(self.hub.send, 'counter_challenge', success)
 
 
 class UI(BaseUI):
@@ -101,6 +111,7 @@ class UI(BaseUI):
         hub.connect('already_using', self.on_already_using)
         hub.connect('have_secret', self.on_have_secret)
         hub.connect('challenge', self.on_challenge)
+        hub.connect('counter_challenge', self.on_counter_challenge)
 
     def on_first_time(self, hub):
         print('on_first_time')
@@ -139,6 +150,12 @@ class UI(BaseUI):
             hub.send('set_message', _('Counter-Challenge...'))
         else:
             hub.send('set_message', _('Typo? Please try again with new secret.'))
+
+    def on_counter_challenge(self, hub, success):
+        if success:
+            hub.send('set_message', _('Requesting Certificate...'))
+        else:
+            hub.send('set_message', _('Very Bad Things!'))
 
 
 ui = UI()

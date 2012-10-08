@@ -13,6 +13,8 @@ var UI = {
     on_load: function() {
         UI.input = $('input');
         UI.input.oninput = UI.on_input;
+        UI.form = $('form');
+        UI.form.onsubmit = UI.on_submit;
         UI.show('screen1');
     },
 
@@ -26,17 +28,19 @@ var UI = {
         }
     },
 
-    show: function(id) {
-        $hide(UI.current);
-        UI.current = $show(id);
-    },
-
-    have_secret: function() {
+    on_submit: function(event) {
+        event.preventDefault();
+        event.stopPropagation();
         if (UI.input.value.length == 8) {
             UI.input.disabled = true;
             Hub.send('have_secret', UI.input.value); 
         }
-    }
+    },
+
+    show: function(id) {
+        $hide(UI.current);
+        UI.current = $show(id);
+    },
 }
 
 
@@ -112,10 +116,12 @@ Hub.connect('challenge',
     Enter your secret code:
     </p>
     <div class="secret">
+    <form id="form">
     <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
+    </form>
     </div>
     <p id="message"></p>
-    <img src="sync.svg" id="finish" class="hidden" onclick="UI.have_secret()">
+    <img src="sync.svg" id="finish" class="hidden" onclick="UI.form.submit()">
 </div>
 
 </body>
