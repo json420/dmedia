@@ -421,6 +421,10 @@ class HTTPD:
         self.thread = None
         self.running = False
 
+    def __del__(self):
+        if self.running:
+            self.shutdown()
+
     def build_base_environ(self):
         """
         Builds the base *environ* used throughout instance lifetime.

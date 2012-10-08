@@ -28,9 +28,12 @@ import os
 from os import path
 import subprocess
 
-from microfiber import random_id
+import microfiber
+from microfiber import random_id, CouchBase
 
 from .base import TempDir
+from dmedia.httpd import make_server
+from dmedia.peering import encode, decode
 from dmedia import peering
 
 
@@ -225,66 +228,71 @@ class TestSSLFunctions(TestCase):
 
 class TestChallengeResponse(TestCase):
     def test_init(self):
-        id1 = os.urandom(30)
-        id2 = os.urandom(30)
+        id1 = random_id(30)
+        id2 = random_id(30)
         inst = peering.ChallengeResponse(id1, id2)
-        self.assertIs(inst.local_hash, id1)
-        self.assertIs(inst.remote_hash, id2)
+        self.assertIs(inst.id, id1)
+        self.assertIs(inst.peer_id, id2)
+        self.assertEqual(inst.local_hash, peering.decode(id1))
+        self.assertEqual(inst.remote_hash, peering.decode(id2))
 
     def test_get_secret(self):
-        id1 = os.urandom(30)
-        id2 = os.urandom(30)
+        id1 = random_id(30)
+        id2 = random_id(30)
         inst = peering.ChallengeResponse(id1, id2)
         s1 = inst.get_secret()
-        self.assertIsInstance(s1, bytes)
-        self.assertEqual(len(s1), 5)
-        self.assertIs(inst.secret, s1)
+        self.assertIsInstance(s1, str)
+        self.assertEqual(len(s1), 8)
+        self.assertEqual(peering.decode(s1), inst.secret)
         s2 = inst.get_secret()
         self.assertNotEqual(s1, s2)
-        self.assertIsInstance(s2, bytes)
-        self.assertEqual(len(s2), 5)
-        self.assertIs(inst.secret, s2)
+        self.assertIsInstance(s2, str)
+        self.assertEqual(len(s2), 8)
+        self.assertEqual(peering.decode(s2), inst.secret)
 
     def test_set_secret(self):
-        id1 = os.urandom(30)
-        id2 = os.urandom(30)
+        id1 = random_id(30)
+        id2 = random_id(30)
         inst = peering.ChallengeResponse(id1, id2)
-        s1 = os.urandom(5)
+        s1 = random_id(5)
         self.assertIsNone(inst.set_secret(s1))
-        self.assertIs(inst.secret, s1)
-        s2 = os.urandom(5)
+        self.assertEqual(peering.encode(inst.secret), s1)
+        s2 = random_id(5)
         self.assertIsNone(inst.set_secret(s2))
-        self.assertIs(inst.secret, s2)
+        self.assertEqual(peering.encode(inst.secret), s2)
 
     def test_get_challenge(self):
-        id1 = os.urandom(30)
-        id2 = os.urandom(30)
+        id1 = random_id(30)
+        id2 = random_id(30)
         inst = peering.ChallengeResponse(id1, id2)
         c1 = inst.get_challenge()
-        self.assertIsInstance(c1, bytes)
-        self.assertEqual(len(c1), 20)
-        self.assertIs(inst.challenge, c1)
+        self.assertIsInstance(c1, str)
+        self.assertEqual(len(c1), 32)
+        self.assertEqual(peering.decode(c1), inst.challenge)
         c2 = inst.get_challenge()
         self.assertNotEqual(c1, c2)
-        self.assertIsInstance(c2, bytes)
-        self.assertEqual(len(c2), 20)
-        self.assertIs(inst.challenge, c2)
+        self.assertIsInstance(c2, str)
+        self.assertEqual(len(c2), 32)
+        self.assertEqual(peering.decode(c2), inst.challenge)
 
     def test_create_response(self):
-        local = os.urandom(30)
-        remote = os.urandom(30)
-        inst = peering.ChallengeResponse(local, remote)
-        secret1 = os.urandom(5)
-        challenge1 = os.urandom(20)
+        id1 = random_id(30)
+        id2 = random_id(30)
+        inst = peering.ChallengeResponse(id1, id2)
+        local_hash = decode(id1)
+        remote_hash = decode(id2)
+        secret1 = random_id(5)
+        challenge1 = random_id(20)
         inst.set_secret(secret1)
         (nonce1, response1) = inst.create_response(challenge1)
-        self.assertIsInstance(nonce1, bytes)
-        self.assertEqual(len(nonce1), 20)
-        self.assertIsInstance(response1, bytes)
-        self.assertEqual(len(response1), 35)
+        self.assertIsInstance(nonce1, str)
+        self.assertEqual(len(nonce1), 32)
+        self.assertIsInstance(response1, str)
+        self.assertEqual(len(response1), 56)
         self.assertEqual(response1,
             peering.compute_response(
-                secret1, challenge1, nonce1, remote, local
+                decode(secret1), decode(challenge1), decode(nonce1),
+                remote_hash, local_hash
             )
         )
 
@@ -292,36 +300,38 @@ class TestChallengeResponse(TestCase):
         (nonce2, response2) = inst.create_response(challenge1)
         self.assertNotEqual(nonce2, nonce1)
         self.assertNotEqual(response2, response1)
-        self.assertIsInstance(nonce2, bytes)
-        self.assertEqual(len(nonce2), 20)
-        self.assertIsInstance(response2, bytes)
-        self.assertEqual(len(response2), 35)
+        self.assertIsInstance(nonce2, str)
+        self.assertEqual(len(nonce2), 32)
+        self.assertIsInstance(response2, str)
+        self.assertEqual(len(response2), 56)
         self.assertEqual(response2,
             peering.compute_response(
-                secret1, challenge1, nonce2, remote, local
+                decode(secret1), decode(challenge1), decode(nonce2),
+                remote_hash, local_hash
             )
         )
 
         # Different secret
-        secret2 = os.urandom(5)
+        secret2 = random_id(5)
         inst.set_secret(secret2)
         (nonce3, response3) = inst.create_response(challenge1)
         self.assertNotEqual(nonce3, nonce1)
         self.assertNotEqual(response3, response1)
         self.assertNotEqual(nonce3, nonce2)
         self.assertNotEqual(response3, response2)
-        self.assertIsInstance(nonce3, bytes)
-        self.assertEqual(len(nonce3), 20)
-        self.assertIsInstance(response3, bytes)
-        self.assertEqual(len(response3), 35)
+        self.assertIsInstance(nonce3, str)
+        self.assertEqual(len(nonce3), 32)
+        self.assertIsInstance(response3, str)
+        self.assertEqual(len(response3), 56)
         self.assertEqual(response3,
             peering.compute_response(
-                secret2, challenge1, nonce3, remote, local
+                decode(secret2), decode(challenge1), decode(nonce3),
+                remote_hash, local_hash
             )
         )
 
         # Different challenge
-        challenge2 = os.urandom(20)
+        challenge2 = random_id(20)
         (nonce4, response4) = inst.create_response(challenge2)
         self.assertNotEqual(nonce4, nonce1)
         self.assertNotEqual(response4, response1)
@@ -329,31 +339,36 @@ class TestChallengeResponse(TestCase):
         self.assertNotEqual(response4, response2)
         self.assertNotEqual(nonce4, nonce3)
         self.assertNotEqual(response4, response3)
-        self.assertIsInstance(nonce4, bytes)
-        self.assertEqual(len(nonce4), 20)
-        self.assertIsInstance(response4, bytes)
-        self.assertEqual(len(response4), 35)
+        self.assertIsInstance(nonce4, str)
+        self.assertEqual(len(nonce4), 32)
+        self.assertIsInstance(response4, str)
+        self.assertEqual(len(response4), 56)
         self.assertEqual(response4,
             peering.compute_response(
-                secret2, challenge2, nonce4, remote, local
+                decode(secret2), decode(challenge2), decode(nonce4),
+                remote_hash, local_hash
             )
         )
 
     def test_check_response(self):
-        local = os.urandom(30)
-        remote = os.urandom(30)
-        inst = peering.ChallengeResponse(local, remote)
+        id1 = random_id(30)
+        id2 = random_id(30)
+        inst = peering.ChallengeResponse(id1, id2)
+        local_hash = decode(id1)
+        remote_hash = decode(id2)
         secret = inst.get_secret()
         challenge = inst.get_challenge()
-        nonce = os.urandom(20)
+        nonce = random_id(20)
         response = peering.compute_response(
-            secret, challenge, nonce, local, remote
+            decode(secret), decode(challenge), decode(nonce),
+            local_hash, remote_hash
         )
         self.assertIsNone(inst.check_response(nonce, response))
 
         # Test with (local, remote) order flipped
         bad = peering.compute_response(
-            secret, challenge, nonce, remote, local
+            decode(secret), decode(challenge), decode(nonce),
+            remote_hash, local_hash
         )
         with self.assertRaises(peering.WrongResponse) as cm:
             inst.check_response(nonce, bad)
@@ -361,13 +376,14 @@ class TestChallengeResponse(TestCase):
         self.assertEqual(cm.exception.got, bad)
         self.assertFalse(hasattr(inst, 'secret'))
         self.assertFalse(hasattr(inst, 'challenge'))
-        inst.secret = secret
-        inst.challenge = challenge
+        inst.secret = decode(secret)
+        inst.challenge = decode(challenge)
 
         # Test with wrong secret
         for i in range(100):
             bad = peering.compute_response(
-                os.urandom(5), challenge, nonce, local, remote
+                os.urandom(5), decode(challenge), decode(nonce),
+                local_hash, remote_hash
             )
             with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
@@ -375,13 +391,14 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = secret
-            inst.challenge = challenge
+            inst.secret = decode(secret)
+            inst.challenge = decode(challenge)
 
         # Test with wrong challenge
         for i in range(100):
             bad = peering.compute_response(
-                secret, os.urandom(20), nonce, local, remote
+                decode(secret), os.urandom(20), decode(nonce),
+                local_hash, remote_hash
             )
             with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
@@ -389,13 +406,14 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = secret
-            inst.challenge = challenge
+            inst.secret = decode(secret)
+            inst.challenge = decode(challenge)
 
         # Test with wrong nonce
         for i in range(100):
             bad = peering.compute_response(
-                secret, challenge, os.urandom(20), local, remote
+                decode(secret), decode(challenge), os.urandom(20),
+                local_hash, remote_hash
             )
             with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
@@ -403,13 +421,14 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = secret
-            inst.challenge = challenge
+            inst.secret = decode(secret)
+            inst.challenge = decode(challenge)
 
         # Test with wrong local_hash
         for i in range(100):
             bad = peering.compute_response(
-                secret, challenge, nonce, os.urandom(30), remote
+                decode(secret), decode(challenge), decode(nonce),
+                os.urandom(30), remote_hash
             )
             with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
@@ -417,13 +436,14 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = secret
-            inst.challenge = challenge
+            inst.secret = decode(secret)
+            inst.challenge = decode(challenge)
 
         # Test with wrong remote_hash
         for i in range(100):
             bad = peering.compute_response(
-                secret, challenge, nonce, local, os.urandom(30)
+                decode(secret), decode(challenge), decode(nonce),
+                local_hash, os.urandom(30)
             )
             with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, bad)
@@ -431,17 +451,67 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = secret
-            inst.challenge = challenge
+            inst.secret = decode(secret)
+            inst.challenge = decode(challenge)
 
         # Test with more nonce, used as expected:
         for i in range(100):
-            newnonce = os.urandom(20)
+            newnonce = random_id(20)
             good = peering.compute_response(
-                secret, challenge, newnonce, local, remote
+                decode(secret), decode(challenge), decode(newnonce),
+                local_hash, remote_hash
             )
             self.assertNotEqual(good, response)
             self.assertIsNone(inst.check_response(newnonce, good))
+
+        # Sanity check on directionality, in other words, check that the
+        # response created locally can't accidentally be verified as the
+        # response from the other end
+        secret = random_id(5)
+        for i in range(1000):
+            inst.set_secret(secret)
+            challenge = inst.get_challenge()
+            (nonce, response) = inst.create_response(challenge)
+            with self.assertRaises(peering.WrongResponse) as cm:
+                inst.check_response(nonce, response)
+
+
+class TestChallengeResponseApp(TestCase):
+    def test_live(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        local_id = pki.create_key()
+        pki.create_ca(local_id)
+        remote_id = pki.create_key()
+        pki.create_ca(remote_id)
+        server_config = {
+            'cert_file': pki.path(local_id, 'ca'),
+            'key_file': pki.path(local_id, 'key'),
+            'ca_file': pki.path(remote_id, 'ca'),
+        }
+        client_config = {
+            'check_hostname': False,
+            'ca_file': pki.path(local_id, 'ca'),
+            'cert_file': pki.path(remote_id, 'ca'),
+            'key_file': pki.path(remote_id, 'key'),
+        }
+        return
+        app = peering.ChallengeResponseApp(local_id, remote_id)
+        server = make_server(app, '127.0.0.1', server_config)
+        client = CouchBase({'url': server.url, 'ssl': client_config})
+        cr = peering.ChallengeResponse(
+            peering.decode(remote_id),
+            peering.decode(local_id),
+        )
+        server.start()
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.get('challenge')
+        secret = peering.decode(server.get_secret())
+        cr.set_secret(secret)
+        
+        
+
+        server.shutdown()
 
 
 class TestPKI(TestCase):

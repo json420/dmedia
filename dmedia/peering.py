@@ -115,9 +115,13 @@ import tempfile
 import shutil
 from collections import namedtuple
 from subprocess import check_call, check_output
+import json
+import socket
 
 from skein import skein512
-from microfiber import random_id
+from microfiber import random_id, dumps
+
+from dmedia.httpd import WSGIError
 
 
 DAYS = 365 * 10
@@ -358,6 +362,18 @@ def hash_cert(cert_data):
     return b32encode(_hash_cert(cert_data)).decode('utf-8')
 
 
+def encode(value):
+    assert isinstance(value, bytes)
+    assert len(value) > 0 and len(value) % 5 == 0
+    return b32encode(value).decode('utf-8')
+
+
+def decode(value):
+    assert isinstance(value, str)
+    assert len(value) > 0 and len(value) % 8 == 0
+    return b32decode(value.encode('utf-8'))
+
+
 def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     """
 
@@ -371,6 +387,11 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
 
     :param responder_hash: hash of the responders certificate
     """
+    assert len(secret) == 5
+    assert len(challenge) == 20
+    assert len(nonce) == 20
+    assert len(challenger_hash) == 30
+    assert len(responder_hash) == 30
     skein = skein512(
         digest_bits=280,
         pers=PERS_RESPONSE,
@@ -379,7 +400,7 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     )
     skein.update(challenger_hash)
     skein.update(responder_hash)
-    return skein.digest()
+    return encode(skein.digest())
 
 
 class WrongResponse(Exception):
@@ -390,44 +411,44 @@ class WrongResponse(Exception):
 
 
 class ChallengeResponse:
-    def __init__(self, local_hash, remote_hash):
-        assert isinstance(local_hash, bytes) and len(local_hash) == 30
-        assert isinstance(remote_hash, bytes) and len(remote_hash) == 30
-        self.local_hash = local_hash
-        self.remote_hash = remote_hash
+    def __init__(self, _id, peer_id):
+        self.id = _id
+        self.peer_id = peer_id
+        self.local_hash = decode(_id)
+        self.remote_hash = decode(peer_id)
+        assert len(self.local_hash) == 30
+        assert len(self.remote_hash) == 30
 
     def get_secret(self):
         # 40-bit secret (8 characters when base32 encoded)
         self.secret = os.urandom(5)
-        return self.secret
+        return encode(self.secret)
 
     def set_secret(self, secret):
-        assert isinstance(secret, bytes) and len(secret) == 5
-        self.secret = secret
+        assert len(secret) == 8
+        self.secret = decode(secret)
+        assert len(self.secret) == 5
 
     def get_challenge(self):
         self.challenge = os.urandom(20)
-        return self.challenge
+        return encode(self.challenge)
 
     def create_response(self, challenge):
-        assert isinstance(challenge, bytes) and len(challenge) == 20
         nonce = os.urandom(20)
         response = compute_response(
             self.secret,
-            challenge,
+            decode(challenge),
             nonce,
             self.remote_hash,
             self.local_hash
         )
-        return (nonce, response)
+        return (encode(nonce), response)
 
     def check_response(self, nonce, response):
-        assert isinstance(nonce, bytes) and len(nonce) == 20
-        assert isinstance(response, bytes) and len(response) == 35
         expected = compute_response(
             self.secret,
             self.challenge,
-            nonce,
+            decode(nonce),
             self.local_hash,
             self.remote_hash
         )
@@ -435,6 +456,91 @@ class ChallengeResponse:
             del self.secret
             del self.challenge
             raise WrongResponse(expected, response)
+
+
+class ChallengeResponseApp:
+    def __init__(self, _id, peer_id):
+        self.id = _id
+        self.peer_id = peer_id
+        self.cr = ChallengeResponse(decode(_id), decode(peer_id))
+        self.ready = False
+        self.map = {
+            '/': self.get_info,
+            '/challenge': self.get_challenge,
+            '/response': self.put_response,
+        }
+
+    def get_secret(self):
+        assert self.ready is False
+        secret = encode(self.cr.get_secret())
+        self.ready = True
+        return secret
+
+    def set_secret(self, secret):
+        assert self.ready is False
+        self.cr.set_secret(decode(secret))
+        self.ready = True
+
+    def __call__(self, environ, start_response):
+        if environ['wsgi.multithread'] is not False:
+            raise WSGIError('500 Internal Server Error')
+        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+            raise WSGIError('403 Forbidden')
+        if environ.get('SSL_CLIENT_S_DN_CN') != self.peer_id:
+            raise WSGIError('403 Forbidden')
+        if environ.get('SSL_CLIENT_I_DN_CN') != self.peer_id:
+            raise WSGIError('403 Forbidden')
+        if environ['PATH_INFO'] != '/':
+            raise WSGIError('400 Bad Request')
+
+        path_info = environ['PATH_INFO']
+        if path_info in self.map:
+            obj = self.map[path_info](environ)
+        else:
+            raise WSGIError('410 Gone')
+        data = json.dumps(obj).encode('utf-8')
+        start_response('200 OK',
+            [
+                ('Content-Length', str(len(data))),
+                ('Content-Type', 'application/json'),
+            ]
+        )
+        return [data]
+
+    def get_info(self, environ):
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        return {
+            'id': self.id,
+            'user': os.environ['USER'],
+            'host': socket.gethostname(),
+        }
+
+    def get_challenge(self, environ):
+        if not self.ready:
+            raise WSGIError('400 Bad Request')
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        challenge = self.cr.get_challenge()
+        return {
+            'challenge': encode(challenge),
+        }
+
+    def put_response(self, environ):
+        if not self.ready:
+            raise WSGIError('400 Bad Request')
+        self.ready = False
+        if environ['REQUEST_METHOD'] != 'PUT':
+            raise WSGIError('405 Method Not Allowed')
+        data = environ['wsgi.input'].read()
+        obj = json.loads(data.decode('utf-8'))
+        nonce = decode(obj['nonce'])
+        response = decode(obj['response'])
+        try:
+            self.cr.check_response(nonce, response)
+        except WrongResponse:
+            raise WSGIError('401 Unauthorized')
+        return {'ok': True}
 
 
 def ensuredir(d):

@@ -9,6 +9,7 @@ from gi.repository import GObject
 from microfiber import dumps
 
 from dmedia.startup import DmediaCouch
+from dmedia import peering
 from dmedia.service.peers import AvahiPeer
 from dmedia.httpd import WSGIError, make_server, build_server_ssl_context
 
