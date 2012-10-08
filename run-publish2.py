@@ -4,6 +4,7 @@ import logging
 import tempfile
 import socket
 import os
+from queue import Queue
 
 from gi.repository import GObject
 from microfiber import dumps
@@ -11,6 +12,7 @@ from microfiber import dumps
 from dmedia.startup import DmediaCouch
 from dmedia import peering
 from dmedia.service.peers import AvahiPeer
+from dmedia.peering import ChallengeResponse, ChallengeResponseApp
 from dmedia.httpd import WSGIError, make_server, build_server_ssl_context
 
 
@@ -50,10 +52,11 @@ def on_accept(avahi, info):
     print(info)
     avahi.activate(info.id)
     # Reconfigure HTTPD to only accept connections from bound peer
-    httpd = avahi.httpd
-    httpd.shutdown()
-    httpd.context = build_server_ssl_context(avahi.get_server_config())
-    httpd.start()
+    cr = ChallengeResponse(avahi.id, info.id)
+    q = Queue()
+    app = ChallengeResponseApp(cr, q)
+    app.state = 'ready'
+    avahi.httpd.reconfigure(app, avahi.get_server_config())
     avahi.unpublish()
 
 avahi = AvahiPeer(couch.pki, client_mode=True)

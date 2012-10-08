@@ -28,6 +28,7 @@ import os
 from os import path
 import subprocess
 import socket
+from queue import Queue
 
 import microfiber
 from microfiber import random_id, CouchBase
@@ -498,7 +499,8 @@ class TestChallengeResponseApp(TestCase):
         }
         local = peering.ChallengeResponse(local_id, remote_id)
         remote = peering.ChallengeResponse(remote_id, local_id)
-        app = peering.ChallengeResponseApp(local)
+        q = Queue()
+        app = peering.ChallengeResponseApp(local, q)
         server = make_server(app, '127.0.0.1', server_config)
         client = CouchBase({'url': server.url, 'ssl': client_config})
         server.start()
@@ -520,7 +522,16 @@ class TestChallengeResponseApp(TestCase):
                 'host': socket.gethostname(),
             }
         )
+        self.assertEqual(app.state, 'ready')
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.get('')
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request State: GET /'
+        )
+        self.assertEqual(app.state, 'ready')
 
+        app.state = 'info'
         with self.assertRaises(microfiber.BadRequest) as cm:
             client.get('challenge')
         self.assertEqual(
@@ -560,6 +571,7 @@ class TestChallengeResponseApp(TestCase):
             '400 Bad Request Order: PUT /response'
         )
         self.assertEqual(app.state, 'response_ok')
+        self.assertEqual(q.get(), 'response_ok')
 
         # Test when an error occurs in put_response()
         app.state = 'gave_challenge'
@@ -590,6 +602,7 @@ class TestChallengeResponseApp(TestCase):
             '400 Bad Request Order: PUT /response'
         )
         self.assertEqual(app.state, 'wrong_response')
+        self.assertEqual(q.get(), 'wrong_response')
 
         server.shutdown()
 

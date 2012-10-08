@@ -244,6 +244,7 @@ class AvahiPeer(GObject.GObject):
         """
         Get the initial server SSL config.
         """
+        assert self.state.state in ('free', 'activated')
         config = {
             'key_file': self.key_file,
             'cert_file': self.cert_file,
@@ -251,6 +252,18 @@ class AvahiPeer(GObject.GObject):
         if self.client_mode is False or self.state.state == 'activated':
             config['ca_file'] = self.pki.verify_ca(self.state.peer_id)
         return config
+
+    def get_client_config(self):
+        """
+        Get the client SSL config.
+        """
+        assert self.state.state == 'activated'
+        return {
+            'ca_file': self.pki.verify_ca(self.state.peer_id),
+            'check_hostname': False,
+            'key_file': self.key_file,
+            'cert_file': self.cert_file,
+        }
 
     def publish(self, port):
         verb = ('offer' if self.client_mode else 'accept')

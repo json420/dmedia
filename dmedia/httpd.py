@@ -505,6 +505,13 @@ class HTTPD:
         self.thread.join()
         self.thread = None
 
+    def reconfigure(self, app, ssl_config):
+        assert set(ssl_config) == set(['cert_file', 'key_file', 'ca_file'])
+        self.shutdown()
+        self.app = app
+        self.context = build_server_ssl_context(ssl_config)
+        self.start()
+
     def serve_single_threaded(self):
         self.environ['wsgi.multithread'] = False
         self.socket.settimeout(0.25)

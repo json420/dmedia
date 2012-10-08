@@ -117,6 +117,7 @@ from collections import namedtuple
 from subprocess import check_call, check_output
 import json
 import socket
+import logging
 
 from skein import skein512
 from microfiber import random_id, dumps
@@ -134,6 +135,8 @@ PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 
 USER = os.environ.get('USER')
 HOST = socket.gethostname()
+
+log = logging.getLogger()
 
 
 class IdentityError(Exception):
@@ -461,10 +464,20 @@ class ChallengeResponse:
             raise WrongResponse(expected, response)
 
 
+STATES = (
+    'info',
+    'ready',
+    'gave_challenge',
+    'in_response',
+    'wrong_response',
+    'response_ok',
+)
+
 class ChallengeResponseApp:
-    def __init__(self, cr):
+    def __init__(self, cr, queue):
         assert isinstance(cr, ChallengeResponse)
         self.cr = cr
+        self.queue = queue
         self.__state = None
         self.map = {
             '/': self.get_info,
@@ -476,8 +489,10 @@ class ChallengeResponseApp:
         return self.__state
 
     def set_state(self, state):
-        assert state in ('info', 'ready', 'gave_challenge', 'in_response', 'wrong_response', 'response_ok')
+        assert state in STATES
         self.__state = state
+        if state in ('wrong_response', 'response_ok'):
+            self.queue.put(state)
 
     state = property(get_state, set_state)
 
@@ -494,6 +509,7 @@ class ChallengeResponseApp:
         path_info = environ['PATH_INFO']
         if path_info not in self.map:
             raise WSGIError('410 Gone')
+        log.info('%s %s', environ['REQUEST_METHOD'], environ['PATH_INFO'])
         try:
             obj = self.map[path_info](environ)            
             data = json.dumps(obj).encode('utf-8')
@@ -512,6 +528,7 @@ class ChallengeResponseApp:
     def get_info(self, environ):
         if self.state != 'info':
             raise WSGIError('400 Bad Request State')
+        self.state = 'ready'
         if environ['REQUEST_METHOD'] != 'GET':
             raise WSGIError('405 Method Not Allowed')
         return {
