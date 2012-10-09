@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="512"
+   height="512"
+   id="svg4778"
+   version="1.1"
+   inkscape:version="0.48.3.1 r9886"
+   sodipodi:docname="sync.svg"
+   inkscape:export-filename="/home/izo/Pictures/Client_Work/Novacut/Final-Artwork/web/PNG/novacut-solo-brandmark_PINK_FINAL-PNG-300dpi.png"
+   inkscape:export-xdpi="300.05859"
+   inkscape:export-ydpi="300.05859">
+  <defs
+     id="defs4780">
+    <inkscape:path-effect
+       effect="spiro"
+       id="path-effect5868"
+       is_visible="true" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1"
+     inkscape:cx="233.49618"
+     inkscape:cy="280"
+     inkscape:current-layer="layer1"
+     inkscape:document-units="px"
+     showgrid="false"
+     inkscape:window-width="2495"
+     inkscape:window-height="1576"
+     inkscape:window-x="65"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1"
+     showguides="false"
+     inkscape:guide-bbox="true">
+    <inkscape:grid
+       type="xygrid"
+       id="grid2994"
+       empspacing="4"
+       visible="true"
+       enabled="true"
+       snapvisiblegridlinesonly="true" />
+    <sodipodi:guide
+       orientation="1,0"
+       position="256,88"
+       id="guide3002" />
+    <sodipodi:guide
+       orientation="0,1"
+       position="592,256"
+       id="guide3004" />
+    <sodipodi:guide
+       position="0,0"
+       orientation="0,512"
+       id="guide3006" />
+    <sodipodi:guide
+       position="512,0"
+       orientation="-512,0"
+       id="guide3008" />
+    <sodipodi:guide
+       position="512,512"
+       orientation="0,-512"
+       id="guide3010" />
+    <sodipodi:guide
+       position="0,512"
+       orientation="512,0"
+       id="guide3012" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata4783">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1"
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     transform="translate(0,32)">
+    <path
+       transform="matrix(1.0666667,0,0,1.0666667,-85.333334,-32.000001)"
+       d="M 545,240 C 545,364.26407 444.26407,465 320,465 195.73593,465 95,364.26407 95,240 95,115.73593 195.73593,15 320,15 444.26407,15 545,115.73593 545,240 z"
+       sodipodi:ry="225"
+       sodipodi:rx="225"
+       sodipodi:cy="240"
+       sodipodi:cx="320"
+       id="path5924"
+       style="fill:#e81f3b;fill-opacity:1;stroke:none"
+       sodipodi:type="arc" />
+    <text
+       xml:space="preserve"
+       style="font-size:159.66772461px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
+       x="71.52964"
+       y="277.69928"
+       id="text2994"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan2996"
+         x="71.52964"
+         y="277.69928">Sync!</tspan></text>
+  </g>
+</svg>

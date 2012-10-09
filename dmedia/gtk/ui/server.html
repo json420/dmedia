@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="peering.css" />
+<script src="peering.js"></script>
+<script>
+
+"use strict";
+
+Hub.connect('display_secret',
+    function(secret) {
+        $('secret').textContent = secret;
+    }
+);
+
+Hub.connect('set_message',
+    function(message) {
+        $('message').textContent = message;  
+    }
+);
+
+window.onload = function() {
+    Hub.send('get_secret');  
+}
+
+</script>
+</head>
+<p class="gen">
+This is your secret code:
+</p>
+<div class="secret">
+<code id="secret"></code>
+</div>
+<p id="message"></p>
+</body>
+</html>

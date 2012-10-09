@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="512"
+   height="512"
+   id="svg4778"
+   version="1.1"
+   inkscape:version="0.48.1 r9760"
+   sodipodi:docname="novacut-solo-brandmark_PINK_FINAL-SVG.svg"
+   inkscape:export-filename="/home/izo/Pictures/Client_Work/Novacut/Final-Artwork/web/PNG/novacut-solo-brandmark_PINK_FINAL-PNG-300dpi.png"
+   inkscape:export-xdpi="300.05859"
+   inkscape:export-ydpi="300.05859">
+  <defs
+     id="defs4780">
+    <inkscape:path-effect
+       effect="spiro"
+       id="path-effect5868"
+       is_visible="true" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1"
+     inkscape:cx="233.49618"
+     inkscape:cy="280"
+     inkscape:current-layer="layer1"
+     inkscape:document-units="px"
+     showgrid="false"
+     inkscape:window-width="1614"
+     inkscape:window-height="1026"
+     inkscape:window-x="66"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1"
+     showguides="false"
+     inkscape:guide-bbox="true">
+    <inkscape:grid
+       type="xygrid"
+       id="grid2994"
+       empspacing="4"
+       visible="true"
+       enabled="true"
+       snapvisiblegridlinesonly="true" />
+    <sodipodi:guide
+       orientation="1,0"
+       position="256,88"
+       id="guide3002" />
+    <sodipodi:guide
+       orientation="0,1"
+       position="592,256"
+       id="guide3004" />
+    <sodipodi:guide
+       position="0,0"
+       orientation="0,512"
+       id="guide3006" />
+    <sodipodi:guide
+       position="512,0"
+       orientation="-512,0"
+       id="guide3008" />
+    <sodipodi:guide
+       position="512,512"
+       orientation="0,-512"
+       id="guide3010" />
+    <sodipodi:guide
+       position="0,512"
+       orientation="512,0"
+       id="guide3012" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata4783">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1"
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     transform="translate(0,32)">
+    <path
+       transform="matrix(1.0666667,0,0,1.0666667,-85.333334,-32.000001)"
+       d="m 545,240 a 225,225 0 1 1 -450,0 225,225 0 1 1 450,0 z"
+       sodipodi:ry="225"
+       sodipodi:rx="225"
+       sodipodi:cy="240"
+       sodipodi:cx="320"
+       id="path5924"
+       style="fill:#e81f3b;fill-opacity:1;stroke:none"
+       sodipodi:type="arc" />
+    <path
+       id="path4023"
+       d="m 157.74011,106.26326 0,233.73017 48.11687,0 0,-156.48267 0.68543,0 37.83549,60.93432 0,-81.0173 -35.57359,-57.16452 -51.0642,0 z m 149.28569,0 0,156.82539 -0.68543,0 -37.8355,-60.86578 0,81.0173 35.23088,56.75326 51.40692,0 0,-233.73017 -48.11687,0 z"
+       style="font-size:144px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Helvetica Neue LT Com;-inkscape-font-specification:Helvetica Neue LT Com Bold"
+       inkscape:connector-curvature="0" />
+    <path
+       sodipodi:type="arc"
+       style="fill:#ffffff;fill-opacity:1;stroke:none"
+       id="path4025"
+       sodipodi:cx="836.50732"
+       sodipodi:cy="230.95239"
+       sodipodi:rx="13.435029"
+       sodipodi:ry="13.435029"
+       d="m 849.94235,230.95239 a 13.435029,13.435029 0 1 1 -26.87005,0 13.435029,13.435029 0 1 1 26.87005,0 z"
+       transform="matrix(2.193362,0,0,2.193362,-1651.9421,-440.84345)" />
+    <path
+       transform="matrix(2.193362,0,0,2.193362,-1505.7305,-124.45147)"
+       d="m 849.94235,230.95239 a 13.435029,13.435029 0 1 1 -26.87005,0 13.435029,13.435029 0 1 1 26.87005,0 z"
+       sodipodi:ry="13.435029"
+       sodipodi:rx="13.435029"
+       sodipodi:cy="230.95239"
+       sodipodi:cx="836.50732"
+       id="path4027"
+       style="fill:#ffffff;fill-opacity:1;stroke:none"
+       sodipodi:type="arc" />
+  </g>
+</svg>

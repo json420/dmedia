@@ -107,7 +107,7 @@ Response 2:
 
 """
 
-from base64 import b32encode, b32decode
+import base64
 import os
 from os import path
 import stat
@@ -115,9 +115,14 @@ import tempfile
 import shutil
 from collections import namedtuple
 from subprocess import check_call, check_output
+import json
+import socket
+import logging
 
 from skein import skein512
-from microfiber import random_id
+from microfiber import random_id, dumps
+
+from dmedia.httpd import WSGIError
 
 
 DAYS = 365 * 10
@@ -127,6 +132,11 @@ Cert = namedtuple('Cert', 'id cert_file key_file')
 # Skein personalization strings
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
+
+USER = os.environ.get('USER')
+HOST = socket.gethostname()
+
+log = logging.getLogger()
 
 
 class IdentityError(Exception):
@@ -145,6 +155,15 @@ class PublicKeyError(IdentityError):
 
 class SubjectError(IdentityError):
     pass
+
+
+class IssuerError(IdentityError):
+    pass
+
+
+class VerificationError(IdentityError):
+    pass
+    
 
 
 def create_key(dst_file, bits=2048):
@@ -262,6 +281,33 @@ def get_subject(cert_file):
     return line[len(prefix):]
 
 
+def get_issuer(cert_file):
+    """
+    Get the issuer from an X509 certificate (CA or issued certificate).
+    """
+    line = check_output(['openssl', 'x509',
+        '-issuer',
+        '-noout',
+        '-in', cert_file,
+    ]).decode('utf-8').rstrip('\n')
+
+    prefix = 'issuer= '  # Different than get_csr_subject()
+    if not line.startswith(prefix):
+        raise Exception(line)
+    return line[len(prefix):]
+
+
+def ssl_verify(cert_file, ca_file):
+    line = check_output(['openssl', 'verify',
+        '-CAfile', ca_file,
+        cert_file
+    ]).decode('utf-8')
+    expected = '{}: OK\n'.format(cert_file)
+    if line != expected:
+        raise VerificationError(cert_file, expected, line)
+    return cert_file
+
+
 def verify_key(filename, _id):
     actual_id = hash_pubkey(get_rsa_pubkey(filename))
     if _id != actual_id:
@@ -291,6 +337,38 @@ def verify(filename, _id):
     return filename
 
 
+def verify_ca(filename, _id):
+    filename = verify(filename, _id)
+    issuer = make_subject(_id)
+    actual_issuer = get_issuer(filename)
+    if issuer != actual_issuer:
+        raise IssuerError(filename, issuer, actual_issuer)
+    return ssl_verify(filename, filename)
+    return filename
+
+
+def verify_cert(cert_file, cert_id, ca_file, ca_id):
+    filename = verify(cert_file, cert_id)
+    issuer = make_subject(ca_id)
+    actual_issuer = get_issuer(filename)
+    if issuer != actual_issuer:
+        raise IssuerError(filename, issuer, actual_issuer)
+    return ssl_verify(filename, ca_file)
+    return filename
+
+
+def encode(value):
+    assert isinstance(value, bytes)
+    assert len(value) > 0 and len(value) % 5 == 0
+    return base64.b32encode(value).decode('utf-8')
+
+
+def decode(value):
+    assert isinstance(value, str)
+    assert len(value) > 0 and len(value) % 8 == 0
+    return base64.b32decode(value.encode('utf-8'))
+
+
 def _hash_pubkey(data):
     return skein512(data,
         digest_bits=240,
@@ -299,7 +377,7 @@ def _hash_pubkey(data):
 
 
 def hash_pubkey(data):
-    return b32encode(_hash_pubkey(data)).decode('utf-8')
+    return encode(_hash_pubkey(data))
 
 
 def _hash_cert(cert_data):
@@ -310,7 +388,7 @@ def _hash_cert(cert_data):
 
 
 def hash_cert(cert_data):
-    return b32encode(_hash_cert(cert_data)).decode('utf-8')
+    return encode(_hash_cert(cert_data))
 
 
 def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
@@ -326,15 +404,253 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
 
     :param responder_hash: hash of the responders certificate
     """
+    assert len(secret) == 5
+    assert len(challenge) == 20
+    assert len(nonce) == 20
+    assert len(challenger_hash) == 30
+    assert len(responder_hash) == 30
     skein = skein512(
         digest_bits=280,
         pers=PERS_RESPONSE,
         key=secret,
-        nonce=(challange + nonce),
+        nonce=(challenge + nonce),
     )
     skein.update(challenger_hash)
     skein.update(responder_hash)
-    return b32encode(skein.digest()).decode('utf-8')
+    return encode(skein.digest())
+
+
+class WrongResponse(Exception):
+    def __init__(self, expected, got):
+        self.expected = expected
+        self.got = got
+        super().__init__('Incorrect response')
+
+
+class ChallengeResponse:
+    def __init__(self, _id, peer_id):
+        self.id = _id
+        self.peer_id = peer_id
+        self.local_hash = decode(_id)
+        self.remote_hash = decode(peer_id)
+        assert len(self.local_hash) == 30
+        assert len(self.remote_hash) == 30
+
+    def get_secret(self):
+        # 40-bit secret (8 characters when base32 encoded)
+        self.secret = os.urandom(5)
+        return encode(self.secret)
+
+    def set_secret(self, secret):
+        assert len(secret) == 8
+        self.secret = decode(secret)
+        assert len(self.secret) == 5
+
+    def get_challenge(self):
+        self.challenge = os.urandom(20)
+        return encode(self.challenge)
+
+    def create_response(self, challenge):
+        nonce = os.urandom(20)
+        response = compute_response(
+            self.secret,
+            decode(challenge),
+            nonce,
+            self.remote_hash,
+            self.local_hash
+        )
+        return (encode(nonce), response)
+
+    def check_response(self, nonce, response):
+        expected = compute_response(
+            self.secret,
+            self.challenge,
+            decode(nonce),
+            self.local_hash,
+            self.remote_hash
+        )
+        if response != expected:
+            del self.secret
+            del self.challenge
+            raise WrongResponse(expected, response)
+
+
+class InfoApp:
+    def __init__(self, _id):
+        self.id = _id
+        obj = {
+            'id': _id,
+            'user': USER,
+            'host': HOST,
+        }
+        self.info = dumps(obj).encode('utf-8')
+        self.info_length = str(len(self.info))
+
+    def __call__(self, environ, start_response):
+        if environ['wsgi.multithread'] is not False:
+            raise WSGIError('500 Internal Server Error')
+        if environ['PATH_INFO'] != '/':
+            raise WSGIError('410 Gone')
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        start_response('200 OK',
+            [
+                ('Content-Length', self.info_length),
+                ('Content-Type', 'application/json'),
+            ]
+        )
+        return [self.info]
+
+
+class ClientApp:
+    allowed_states = (
+        'ready',
+        'gave_challenge',
+        'in_response',
+        'wrong_response',
+        'response_ok',
+    )
+
+    forwarded_states = (
+        'wrong_response',
+        'response_ok',
+    )
+
+    def __init__(self, cr, queue):
+        assert isinstance(cr, ChallengeResponse)
+        self.cr = cr
+        self.queue = queue
+        self.__state = None
+        self.map = {
+            '/challenge': self.get_challenge,
+            '/response': self.put_response,
+        }
+
+    def get_state(self):
+        return self.__state
+
+    def set_state(self, state):
+        if state not in self.__class__.allowed_states:
+            self.__state = None
+            log.error('invalid state: %r', state)
+            raise Exception('invalid state: {!r}'.format(state))
+        self.__state = state
+        if state in self.__class__.forwarded_states:
+            self.queue.put(state)
+
+    state = property(get_state, set_state)
+
+    def __call__(self, environ, start_response):
+        if environ['wsgi.multithread'] is not False:
+            raise WSGIError('500 Internal Server Error')
+        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+            raise WSGIError('403 Forbidden')
+        if environ.get('SSL_CLIENT_S_DN_CN') != self.cr.peer_id:
+            raise WSGIError('403 Forbidden')
+        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
+            raise WSGIError('403 Forbidden')
+
+        path_info = environ['PATH_INFO']
+        if path_info not in self.map:
+            raise WSGIError('410 Gone')
+        log.info('%s %s', environ['REQUEST_METHOD'], environ['PATH_INFO'])
+        try:
+            obj = self.map[path_info](environ)            
+            data = json.dumps(obj).encode('utf-8')
+            start_response('200 OK',
+                [
+                    ('Content-Length', str(len(data))),
+                    ('Content-Type', 'application/json'),
+                ]
+            )
+            return [data]
+        except WSGIError as e:
+            raise e
+        except Exception:
+            log.exception('500 Internal Server Error')
+            raise WSGIError('500 Internal Server Error')
+
+    def get_challenge(self, environ):
+        if self.state != 'ready':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'gave_challenge'
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        return {
+            'challenge': self.cr.get_challenge(),
+        }
+
+    def put_response(self, environ):
+        if self.state != 'gave_challenge':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'in_response'
+        if environ['REQUEST_METHOD'] != 'PUT':
+            raise WSGIError('405 Method Not Allowed')
+        data = environ['wsgi.input'].read()
+        obj = json.loads(data.decode('utf-8'))
+        nonce = obj['nonce']
+        response = obj['response']
+        try:
+            self.cr.check_response(nonce, response)
+        except WrongResponse:
+            self.state = 'wrong_response'
+            raise WSGIError('401 Unauthorized')
+        self.state = 'response_ok'
+        return {'ok': True}
+
+
+class ServerApp(ClientApp):
+
+    allowed_states = (
+        'info',
+        'counter_response_ok',
+        'in_csr',
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.allowed_states
+
+    forwarded_states = (
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.forwarded_states
+
+    def __init__(self, cr, queue, pki):
+        super().__init__(cr, queue)
+        self.pki = pki
+        self.map['/'] = self.get_info
+        self.map['/csr'] = self.post_csr
+
+    def get_info(self, environ):
+        if self.state != 'info':
+            raise WSGIError('400 Bad Request State')
+        self.state = 'ready'
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        return {
+            'id': self.cr.id,
+            'user': USER,
+            'host': HOST,
+        }
+
+    def post_csr(self, environ):
+        if self.state != 'counter_response_ok':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'in_csr'
+        if environ['REQUEST_METHOD'] != 'POST':
+            raise WSGIError('405 Method Not Allowed')
+        data = environ['wsgi.input'].read()
+        obj = json.loads(data.decode('utf-8'))
+        csr_data = base64.b64decode(obj['csr'].encode('utf-8'))
+        try:
+            self.pki.write_csr(self.cr.peer_id, csr_data)
+            self.pki.issue_cert(self.cr.peer_id, self.cr.id)
+            cert_data = self.pki.read_cert2(self.cr.peer_id, self.cr.id)
+        except Exception as e:
+            log.exception('could not issue cert')
+            self.state = 'bad_csr'
+            raise WSGIError('401 Unauthorized')       
+        self.state = 'cert_issued'
+        return {'cert': base64.b64encode(cert_data).decode('utf-8')}
 
 
 def ensuredir(d):
@@ -376,6 +692,18 @@ class PKI:
         key_file = self.path(_id, 'key')
         return verify_key(key_file, _id)
 
+    def read_key(self, _id):
+        key_file = self.verify_key(_id)
+        return open(key_file, 'rb').read()
+
+    def write_key(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify_key(tmp_file, _id)
+        key_file = self.path(_id, 'key')
+        os.rename(tmp_file, key_file)
+        return key_file
+
     def create_ca(self, _id):
         key_file = self.verify_key(_id)
         subject = make_subject(_id)
@@ -387,7 +715,19 @@ class PKI:
 
     def verify_ca(self, _id):
         ca_file = self.path(_id, 'ca')
-        return verify(ca_file, _id)
+        return verify_ca(ca_file, _id)
+
+    def read_ca(self, _id):
+        ca_file = self.verify_ca(_id)
+        return open(ca_file, 'rb').read()
+
+    def write_ca(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify_ca(tmp_file, _id)
+        ca_file = self.path(_id, 'ca')
+        os.rename(tmp_file, ca_file)
+        return ca_file
 
     def create_csr(self, _id):
         key_file = self.verify_key(_id)
@@ -401,6 +741,18 @@ class PKI:
     def verify_csr(self, _id):
         csr_file = self.path(_id, 'csr')
         return verify_csr(csr_file, _id)
+
+    def read_csr(self, _id):
+        csr_file = self.verify_csr(_id)
+        return open(csr_file, 'rb').read()
+
+    def write_csr(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify_csr(tmp_file, _id)
+        csr_file = self.path(_id, 'csr')
+        os.rename(tmp_file, csr_file)
+        return csr_file
 
     def issue_cert(self, _id, ca_id):
         csr_file = self.verify_csr(_id)
@@ -431,6 +783,36 @@ class PKI:
     def verify_cert(self, _id):
         cert_file = self.path(_id, 'cert')
         return verify(cert_file, _id)
+
+    def verify_cert2(self, cert_id, ca_id):
+        cert_file = self.path(cert_id, 'cert')
+        ca_file = self.verify_ca(ca_id)
+        return verify_cert(cert_file, cert_id, ca_file, ca_id)
+
+    def read_cert(self, _id):
+        cert_file = self.verify_cert(_id)
+        return open(cert_file, 'rb').read()
+
+    def read_cert2(self, cert_id, ca_id):
+        cert_file = self.verify_cert2(cert_id, ca_id)
+        return open(cert_file, 'rb').read()
+
+    def write_cert(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify(tmp_file, _id)
+        cert_file = self.path(_id, 'cert')
+        os.rename(tmp_file, cert_file)
+        return cert_file
+
+    def write_cert2(self, cert_id, ca_id, cert_data):
+        ca_file = self.verify_ca(ca_id)
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(cert_data)
+        verify_cert(tmp_file, cert_id, ca_file, ca_id)
+        cert_file = self.path(cert_id, 'cert')
+        os.rename(tmp_file, cert_file)
+        return cert_file
 
     def get_ca(self, _id):
         return CA(_id, self.verify_ca(_id))
@@ -499,4 +881,3 @@ class TempPKI(PKI):
                 'key_file': self.client.key_file,   
             })
         return config
-

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link rel="stylesheet" href="peering.css" />
+<script src="peering.js"></script>
+<script>
+
+"use strict";
+
+var B32ALPHABET = '234567ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+var UI = {
+    on_load: function() {
+        UI.input = $('input');
+        UI.input.oninput = UI.on_input;
+        UI.form = $('form');
+        UI.form.onsubmit = UI.on_submit;
+        UI.show('screen1');
+    },
+
+    on_input: function(event) {
+        var orig = UI.input.value.toUpperCase();
+        var value = '';
+        var b32, i;
+        for (i=0; i<orig.length; i++) {
+            b32 = orig[i];
+            if (B32ALPHABET.indexOf(b32) >= 0 ) {
+                value += b32;
+            }
+        }
+        UI.input.value = value;
+        if (UI.input.value.length == 8) {
+            $('finish').classList.remove('hidden');
+        }
+        else {
+            $('finish').classList.add('hidden');
+        }
+    },
+
+    on_submit: function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        UI.have_secret();
+    },
+
+    have_secret: function() {
+        if (UI.input.value.length == 8 && !UI.input.disabled) {
+            UI.input.disabled = true;
+            Hub.send('have_secret', UI.input.value); 
+        }
+    },
+
+    show: function(id) {
+        $hide(UI.current);
+        UI.current = $show(id);
+    },
+}
+
+
+window.onload = UI.on_load;
+
+
+Hub.connect('show_screen2a',
+    function() {
+        UI.show('screen2a');
+        $('logo').classList.add('spinleft');
+    }
+);
+
+Hub.connect('show_screen2b',
+    function() {
+        UI.show('screen2b');
+        $('logo').classList.add('spinright');
+    }
+);
+
+Hub.connect('show_screen3b',
+    function() {
+        $hide('logo');
+        UI.input.value = '';
+        UI.show('screen3b');
+    }
+);
+
+Hub.connect('spin_orb',
+    function() {
+        $('logo2').classList.add('spinright');
+    }
+);
+
+Hub.connect('set_message',
+    function(message) {
+        $('message').textContent = message;  
+    }
+);
+
+Hub.connect('response',
+    function(success) {
+        if (!success) {
+            UI.input.value = '';
+            UI.input.disabled = false;
+            UI.input.focus();
+            $('finish').classList.add('hidden');
+        }
+        else {
+            $hide('finish');
+            $show('logo2');
+        }
+    }
+);
+
+</script>
+</head>
+<body>
+
+<img src="novacut.svg" id="logo">
+
+<div id="screen1" class="hide">
+    <div id="first" onclick="Hub.send('first_time')">
+    <p class="top">
+    This is my first time using Novacut
+    </p>
+    <p>
+    (You can add more devices later)
+    </p>
+    </div>
+
+    <div id="sync" onclick="Hub.send('already_using')">
+    <p class="top">
+    I'm already using Novacut
+    </p>
+    <p>
+    Sync with my other devices!
+    </p>
+    </div>
+</div>
+
+<div id="screen2a" class="hide">
+    <p class="gen">
+    Pretty words here
+    </p>
+</div>
+
+<div id="screen2b" class="hide">
+    <p class="gen">
+    Accept the peering offer on your other device
+    </p>
+</div>
+
+<div id="screen3b" class="hide">
+    <p class="gen">
+    Enter your secret code:
+    </p>
+    <div class="secret">
+    <form id="form">
+    <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
+    </form>
+    </div>
+    <p id="message"></p>
+    <img src="sync.svg" id="finish" class="hidden" onclick="UI.have_secret()">
+    <img src="novacut.svg" id="logo2" class="hide">
+</div>
+
+</body>
+</html>
