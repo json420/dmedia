@@ -107,7 +107,7 @@ Response 2:
 
 """
 
-from base64 import b32encode, b32decode
+import base64
 import os
 from os import path
 import stat
@@ -346,6 +346,18 @@ def verify_ca(filename, _id):
     return ssl_verify(filename, filename)
 
 
+def encode(value):
+    assert isinstance(value, bytes)
+    assert len(value) > 0 and len(value) % 5 == 0
+    return base64.b32encode(value).decode('utf-8')
+
+
+def decode(value):
+    assert isinstance(value, str)
+    assert len(value) > 0 and len(value) % 8 == 0
+    return base64.b32decode(value.encode('utf-8'))
+
+
 def _hash_pubkey(data):
     return skein512(data,
         digest_bits=240,
@@ -354,7 +366,7 @@ def _hash_pubkey(data):
 
 
 def hash_pubkey(data):
-    return b32encode(_hash_pubkey(data)).decode('utf-8')
+    return encode(_hash_pubkey(data))
 
 
 def _hash_cert(cert_data):
@@ -365,19 +377,7 @@ def _hash_cert(cert_data):
 
 
 def hash_cert(cert_data):
-    return b32encode(_hash_cert(cert_data)).decode('utf-8')
-
-
-def encode(value):
-    assert isinstance(value, bytes)
-    assert len(value) > 0 and len(value) % 5 == 0
-    return b32encode(value).decode('utf-8')
-
-
-def decode(value):
-    assert isinstance(value, str)
-    assert len(value) > 0 and len(value) % 8 == 0
-    return b32decode(value.encode('utf-8'))
+    return encode(_hash_cert(cert_data))
 
 
 def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
@@ -628,14 +628,9 @@ class ServerApp(ClientApp):
             raise WSGIError('405 Method Not Allowed')
         data = environ['wsgi.input'].read()
         obj = json.loads(data.decode('utf-8'))
-        nonce = obj['nonce']
-        response = obj['response']
-        try:
-            self.cr.check_response(nonce, response)
-        except WrongResponse:
-            self.state = 'wrong_response'
-            raise WSGIError('401 Unauthorized')
-        self.state = 'response_ok'
+        csr = base64.b64decode(obj['csr'].encode('utf-8'))
+        #self.state = 'bad_csr'        
+        self.state = 'cert_issued'
         return {'ok': True}
 
 

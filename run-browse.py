@@ -81,7 +81,6 @@ class Session:
             GObject.idle_add(self.retry)
         elif signal == 'response_ok':
             GObject.timeout_add(500, self.on_response_ok)
-            break
 
     def retry(self):
         self.httpd.shutdown()
