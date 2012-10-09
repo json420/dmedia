@@ -58,7 +58,7 @@ class Session:
         self.peer = peer
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
-        _start_thread(self.monitor_q)
+        _start_thread(self.monitor_response)
         self.app = ServerApp(self.cr, self.q, pki)
         self.app.state = 'info'
         self.httpd = make_server(self.app, '0.0.0.0', server_config)
@@ -67,7 +67,7 @@ class Session:
         self.httpd.start()
         self.ui = UI(self.cr)
 
-    def monitor_q(self):
+    def monitor_response(self):
         while True:
             signal = self.q.get()
             if signal == 'wrong_response':
@@ -76,12 +76,12 @@ class Session:
                 GObject.timeout_add(500, self.on_response_ok)
                 break
 
-    def monitor2(self):
-        signal = self.q.get()
-        if signal == 'wrong_response':
-            GObject.idle_add(self.retry)
-        elif signal == 'response_ok':
-            GObject.timeout_add(500, self.on_response_ok)
+    def monitor_cert_request(self):
+        status = self.q.get()
+        if status != 'cert_issued':
+            log.error('Bad cert request from %r', self.peer)
+            log.warning('Possible malicious peer: %r', self.peer)
+        GObject.idle_add(self.on_cert_request, status)
 
     def retry(self):
         self.httpd.shutdown()
@@ -116,10 +116,15 @@ class Session:
     def on_counter_response_ok(self):
         assert self.app.state == 'response_ok'
         self.app.state = 'counter_response_ok'
+        _start_thread(self.monitor_cert_request)
         self.ui.hub.send('set_message', _('Issuing Certificate...'))
 
     def on_counter_response_fail(self):
         self.ui.hub.send('set_message', _('Very Bad Things!'))
+
+    def on_cert_request(self, status):
+        print('on_cert_request', status)
+        self.ui.hub.send('set_message', _('Done!'))
 
 
 class Browse:
