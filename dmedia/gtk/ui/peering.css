@@ -53,12 +53,12 @@ input {
 }
 
 #first {
-    top: 35px;
+    top: 30px;
     left: 71px;
 }
 
 #sync {
-    bottom: 35px;
+    bottom: 30px;
     /*left: 449px;*/
     right: 71px;
 }
@@ -95,8 +95,8 @@ p.gen {
     position: fixed;
     width: 160px;
     height: 160px;
-    bottom: 55px;
-    right: 55px;
+    bottom: 60px;
+    right: 60px;
     cursor: pointer;
     -webkit-transition-timing-function: ease;
     -webkit-transition-duration: 300ms;
@@ -113,8 +113,8 @@ p.gen {
     position: fixed;
     width: 160px;
     height: 160px;
-    bottom: 55px;
-    right: 55px;
+    bottom: 60px;
+    right: 60px;
     -webkit-transition: -webkit-transform 2000ms linear;
 }
 
