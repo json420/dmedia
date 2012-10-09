@@ -104,26 +104,6 @@
        id="path5924"
        style="fill:#e81f3b;fill-opacity:1;stroke:none"
        sodipodi:type="arc" />
-    <path
-       sodipodi:type="arc"
-       style="fill:#ffffff;fill-opacity:1;stroke:none"
-       id="path4025"
-       sodipodi:cx="836.50732"
-       sodipodi:cy="230.95239"
-       sodipodi:rx="13.435029"
-       sodipodi:ry="13.435029"
-       d="m 849.94235,230.95239 c 0,7.41996 -6.01506,13.43503 -13.43503,13.43503 -7.41996,0 -13.43502,-6.01507 -13.43502,-13.43503 0,-7.41996 6.01506,-13.43503 13.43502,-13.43503 7.41997,0 13.43503,6.01507 13.43503,13.43503 z"
-       transform="matrix(2.193362,0,0,2.193362,-1651.9421,-440.84345)" />
-    <path
-       transform="matrix(2.193362,0,0,2.193362,-1505.7305,-124.45147)"
-       d="m 849.94235,230.95239 c 0,7.41996 -6.01506,13.43503 -13.43503,13.43503 -7.41996,0 -13.43502,-6.01507 -13.43502,-13.43503 0,-7.41996 6.01506,-13.43503 13.43502,-13.43503 7.41997,0 13.43503,6.01507 13.43503,13.43503 z"
-       sodipodi:ry="13.435029"
-       sodipodi:rx="13.435029"
-       sodipodi:cy="230.95239"
-       sodipodi:cx="836.50732"
-       id="path4027"
-       style="fill:#ffffff;fill-opacity:1;stroke:none"
-       sodipodi:type="arc" />
     <text
        xml:space="preserve"
        style="font-size:159.66772461px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Lato;-inkscape-font-specification:Lato"
