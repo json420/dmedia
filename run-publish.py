@@ -85,11 +85,15 @@ class UI(BaseUI):
 
     def __init__(self):
         super().__init__()
-        self.window.connect('destroy', Gtk.main_quit)
         self.couch = DmediaCouch(tempfile.mkdtemp())
         self.couch.firstrun_init(create_user=False)
         self.couch.load_pki()
         self.avahi = None
+        
+    def quit(self):
+        if self.avahi:
+            self.avahi.unpublish()
+        Gtk.main_quit()
 
     def connect_hub_signals(self, hub):
         hub.connect('first_time', self.on_first_time)

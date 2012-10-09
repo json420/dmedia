@@ -592,6 +592,7 @@ class ServerApp(ClientApp):
 
     allowed_states = (
         'info',
+        'counter_response_ok',
         'in_csr',
         'bad_csr',
         'cert_issued',
@@ -605,6 +606,7 @@ class ServerApp(ClientApp):
     def __init__(self, cr, queue):
         super().__init__(cr, queue)
         self.map['/'] = self.get_info
+        self.map['/csr'] = self.post_csr
 
     def get_info(self, environ):
         if self.state != 'info':
@@ -617,6 +619,24 @@ class ServerApp(ClientApp):
             'user': USER,
             'host': HOST,
         }
+
+    def post_csr(self, environ):
+        if self.state != 'counter_response_ok':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'in_csr'
+        if environ['REQUEST_METHOD'] != 'POST':
+            raise WSGIError('405 Method Not Allowed')
+        data = environ['wsgi.input'].read()
+        obj = json.loads(data.decode('utf-8'))
+        nonce = obj['nonce']
+        response = obj['response']
+        try:
+            self.cr.check_response(nonce, response)
+        except WrongResponse:
+            self.state = 'wrong_response'
+            raise WSGIError('401 Unauthorized')
+        self.state = 'response_ok'
+        return {'ok': True}
 
 
 def ensuredir(d):
