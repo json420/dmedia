@@ -51,6 +51,13 @@ var UI = {
 window.onload = UI.on_load;
 
 
+Hub.connect('show_screen2a',
+    function() {
+        UI.show('screen2a');
+        $('logo').classList.add('spinleft');
+    }
+);
+
 Hub.connect('show_screen2b',
     function() {
         UI.show('screen2b');
@@ -107,6 +114,12 @@ Hub.connect('challenge',
     Sync with my other devices!
     </p>
     </div>
+</div>
+
+<div id="screen2a" class="hide">
+    <p class="gen">
+    Pretty words here
+    </p>
 </div>
 
 <div id="screen2b" class="hide">

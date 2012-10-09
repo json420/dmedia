@@ -74,6 +74,8 @@ class UI(BaseUI):
         'challenge': ['success'],
         'counter_challenge': ['success'],
         'set_message': ['message'],
+        
+        'show_screen2a': [],
         'show_screen2b': [],
         'show_screen3b': [],
     }
@@ -94,7 +96,7 @@ class UI(BaseUI):
         hub.connect('counter_challenge', self.on_counter_challenge)
 
     def on_first_time(self, hub):
-        print('on_first_time')
+        hub.send('show_screen2a')
 
     def on_already_using(self, hub):
         if self.avahi is not None:

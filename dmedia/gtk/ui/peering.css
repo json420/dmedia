@@ -73,11 +73,11 @@ p.top {
     -webkit-transition: -webkit-transform 500ms linear;
 }
 
-#logo.spinright {
-    -webkit-transform: rotate(180deg);   
+#logo.spinleft {
+    -webkit-transform: rotate(-180deg);   
 }
 
-#logo.spinleft {
+#logo.spinright {
     -webkit-transform: rotate(180deg);   
 }
 
