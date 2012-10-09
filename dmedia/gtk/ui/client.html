@@ -37,7 +37,6 @@ var UI = {
     have_secret: function() {
         if (UI.input.value.length == 8 && !UI.input.disabled) {
             UI.input.disabled = true;
-            $show('logo2');
             Hub.send('have_secret', UI.input.value); 
         }
     },
@@ -74,6 +73,12 @@ Hub.connect('show_screen3b',
     }
 );
 
+Hub.connect('spin_orb',
+    function() {
+        $('logo2').classList.add('spinright');
+    }
+);
+
 Hub.connect('set_message',
     function(message) {
         $('message').textContent = message;  
@@ -86,12 +91,11 @@ Hub.connect('response',
             UI.input.value = '';
             UI.input.disabled = false;
             UI.input.focus();
-            $hide('logo2');
             $('finish').classList.add('hidden');
         }
         else {
             $hide('finish');
-            $('logo2').classList.add('spinright');
+            $show('logo2');
         }
     }
 );

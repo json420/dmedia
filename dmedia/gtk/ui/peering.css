@@ -95,8 +95,8 @@ p.gen {
     position: fixed;
     width: 160px;
     height: 160px;
-    bottom: 45px;
-    right: 45px;
+    bottom: 55px;
+    right: 55px;
     cursor: pointer;
     -webkit-transition-timing-function: ease;
     -webkit-transition-duration: 300ms;
@@ -104,8 +104,8 @@ p.gen {
 }
 
 #finish.hidden {
-    bottom: -135px;
-    right: -135px;
+    bottom: -134px;
+    right: -134px;
 }
 
 #logo2 {
@@ -113,8 +113,8 @@ p.gen {
     position: fixed;
     width: 160px;
     height: 160px;
-    bottom: 45px;
-    right: 45px;
+    bottom: 55px;
+    right: 55px;
     -webkit-transition: -webkit-transform 2000ms linear;
 }
 

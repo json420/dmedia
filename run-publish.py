@@ -175,6 +175,7 @@ class UI(BaseUI):
     def on_response(self, hub, success):
         if success:
             hub.send('set_message', _('Counter-Challenge...'))
+            GObject.timeout_add(250, hub.send, 'spin_orb')
         else:
             hub.send('set_message', _('Typo? Please try again with new secret.'))
 
