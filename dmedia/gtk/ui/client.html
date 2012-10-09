@@ -8,6 +8,7 @@
 
 "use strict";
 
+var B32ALPHABET = '234567ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 var UI = {
     on_load: function() {
@@ -19,7 +20,16 @@ var UI = {
     },
 
     on_input: function(event) {
-        UI.input.value = UI.input.value.toUpperCase();
+        var orig = UI.input.value.toUpperCase();
+        var value = '';
+        var b32, i;
+        for (i=0; i<orig.length; i++) {
+            b32 = orig[i];
+            if (B32ALPHABET.indexOf(b32) >= 0 ) {
+                value += b32;
+            }
+        }
+        UI.input.value = value;
         if (UI.input.value.length == 8) {
             $('finish').classList.remove('hidden');
         }
