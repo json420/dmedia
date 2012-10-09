@@ -603,8 +603,9 @@ class ServerApp(ClientApp):
         'cert_issued',
     ) + ClientApp.forwarded_states
 
-    def __init__(self, cr, queue):
+    def __init__(self, cr, queue, pki):
         super().__init__(cr, queue)
+        self.pki = pki
         self.map['/'] = self.get_info
         self.map['/csr'] = self.post_csr
 
@@ -628,10 +629,17 @@ class ServerApp(ClientApp):
             raise WSGIError('405 Method Not Allowed')
         data = environ['wsgi.input'].read()
         obj = json.loads(data.decode('utf-8'))
-        csr = base64.b64decode(obj['csr'].encode('utf-8'))
-        #self.state = 'bad_csr'        
+        csr_data = base64.b64decode(obj['csr'].encode('utf-8'))
+        try:
+            self.pki.write_csr(self.cr.peer_id, csr_data)
+            self.pki.issue_cert(self.cr.peer_id, self.cr.id)
+            cert_data = self.pki.read_cert(self.cr.peer_id)
+        except Exception as e:
+            log.exception('could not issue cert')
+            self.state = 'bad_csr'
+            raise WSGIError('401 Unauthorized')       
         self.state = 'cert_issued'
-        return {'ok': True}
+        return {'cert': base64.b64encode(cert_data).decode('utf-8')}
 
 
 def ensuredir(d):
@@ -764,6 +772,10 @@ class PKI:
     def verify_cert(self, _id):
         cert_file = self.path(_id, 'cert')
         return verify(cert_file, _id)
+        
+    def read_cert(self, _id):
+        cert_file = self.verify_cert(_id)
+        return open(cert_file, 'rb').read()
 
     def get_ca(self, _id):
         return CA(_id, self.verify_ca(_id))

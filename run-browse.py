@@ -52,13 +52,14 @@ class UI(BaseUI):
 
 
 class Session:
-    def __init__(self, _id, peer, server_config, client_config):
+    def __init__(self, pki, _id, peer, server_config, client_config):
+        self.pki = pki
         self.peer_id = peer.id
         self.peer = peer
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
         _start_thread(self.monitor_q)
-        self.app = ServerApp(self.cr, self.q)
+        self.app = ServerApp(self.cr, self.q, pki)
         self.app.state = 'info'
         self.httpd = make_server(self.app, '0.0.0.0', server_config)
         env = {'url': peer.url, 'ssl': client_config}
@@ -163,7 +164,7 @@ class Browse:
         assert self.session is None
         self.avahi.activate(info.id)
         self.indicator = None
-        self.session = Session(self.avahi.id, info,
+        self.session = Session(self.couch.pki, self.avahi.id, info,
             self.avahi.get_server_config(),
             self.avahi.get_client_config()
         )
