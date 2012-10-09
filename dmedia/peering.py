@@ -344,15 +344,17 @@ def verify_ca(filename, _id):
     if issuer != actual_issuer:
         raise IssuerError(filename, issuer, actual_issuer)
     return ssl_verify(filename, filename)
+    return filename
 
 
-def verify_cert(filename, _id, ca_filename, ca_id):
-    filename = verify(filename, _id)
+def verify_cert(cert_file, cert_id, ca_file, ca_id):
+    filename = verify(cert_file, cert_id)
     issuer = make_subject(ca_id)
     actual_issuer = get_issuer(filename)
     if issuer != actual_issuer:
         raise IssuerError(filename, issuer, actual_issuer)
-    return ssl_verify(filename, ca_filename)
+    return ssl_verify(filename, ca_file)
+    return filename
 
 
 def encode(value):
@@ -642,7 +644,7 @@ class ServerApp(ClientApp):
         try:
             self.pki.write_csr(self.cr.peer_id, csr_data)
             self.pki.issue_cert(self.cr.peer_id, self.cr.id)
-            cert_data = self.pki.read_cert(self.cr.peer_id)
+            cert_data = self.pki.read_cert2(self.cr.peer_id, self.cr.id)
         except Exception as e:
             log.exception('could not issue cert')
             self.state = 'bad_csr'
@@ -782,8 +784,17 @@ class PKI:
         cert_file = self.path(_id, 'cert')
         return verify(cert_file, _id)
 
+    def verify_cert2(self, cert_id, ca_id):
+        cert_file = self.path(cert_id, 'cert')
+        ca_file = self.verify_ca(ca_id)
+        return verify_cert(cert_file, cert_id, ca_file, ca_id)
+
     def read_cert(self, _id):
         cert_file = self.verify_cert(_id)
+        return open(cert_file, 'rb').read()
+
+    def read_cert2(self, cert_id, ca_id):
+        cert_file = self.verify_cert2(cert_id, ca_id)
         return open(cert_file, 'rb').read()
 
     def write_cert(self, _id, data):
@@ -791,6 +802,15 @@ class PKI:
         open(tmp_file, 'wb').write(data)
         verify(tmp_file, _id)
         cert_file = self.path(_id, 'cert')
+        os.rename(tmp_file, cert_file)
+        return cert_file
+
+    def write_cert2(self, cert_id, ca_id, cert_data):
+        ca_file = self.verify_ca(ca_id)
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(cert_data)
+        verify_cert(tmp_file, cert_id, ca_file, ca_id)
+        cert_file = self.path(cert_id, 'cert')
         os.rename(tmp_file, cert_file)
         return cert_file
 
