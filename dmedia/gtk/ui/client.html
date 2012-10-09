@@ -35,7 +35,7 @@ var UI = {
     },
 
     have_secret: function() {
-        if (UI.input.value.length == 8) {
+        if (UI.input.value.length == 8 && !UI.input.disabled) {
             UI.input.disabled = true;
             Hub.send('have_secret', UI.input.value); 
         }

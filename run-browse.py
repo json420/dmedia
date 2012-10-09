@@ -98,10 +98,19 @@ class Session:
         try:
             r = self.client.put(obj, 'response')
             log.info('Counter-response accepted')
+            GObject.idle_add(self.on_counter_response_ok)
         except Unauthorized:
             log.error('Counter-response rejected!')
             log.warning('Possible malicious peer: %r', self.peer)
-        
+            GObject.idle_add(self.on_counter_response_fail)
+
+    def on_counter_response_ok(self):
+        self.ui.hub.send('set_message', _('Issuing Certificate...'))
+        _start_thread(self.counter_challenge)
+
+    def on_counter_response_fail(self):
+        self.ui.hub.send('set_message', _('Very Bad Things!'))
+
 
 class Browse:
     def __init__(self):

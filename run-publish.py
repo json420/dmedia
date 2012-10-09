@@ -33,9 +33,7 @@ class Session:
         self.peer_id = peer.id
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
-        _start_thread(self.monitor_q)
         self.app = ClientApp(self.cr, self.q)
-        self.app.state = 'ready'
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
 
@@ -52,7 +50,12 @@ class Session:
         except Unauthorized:
             log.info('Response rejected')
             success = False
-        GObject.idle_add(self.hub.send, 'challenge', success)
+        GObject.idle_add(self.on_response, success)
+
+    def on_response(self, success):
+        self.app.state = 'ready'
+        _start_thread(self.monitor_q)
+        self.hub.send('challenge', success)
 
     def monitor_q(self):
         status = self.q.get()
@@ -124,14 +127,18 @@ class UI(BaseUI):
         GObject.idle_add(self.hub.send, 'show_screen3b')
 
     def on_have_secret(self, hub, secret):
-        hub.send('set_message', _('Challenge...'))
+        if hasattr(self.session.cr, 'secret'):
+            log.warning("duplicate 'have_secret' signal received")
+            return
         self.session.cr.set_secret(secret)
+        hub.send('set_message', _('Challenge...'))
         _start_thread(self.session.challenge)
 
     def on_challenge(self, hub, success):
         if success:
             hub.send('set_message', _('Counter-Challenge...'))
         else:
+            del self.session.cr.secret
             hub.send('set_message', _('Typo? Please try again with new secret.'))
 
     def on_counter_challenge(self, hub, success):
