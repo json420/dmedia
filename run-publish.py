@@ -89,8 +89,8 @@ class UI(BaseUI):
         self.couch.firstrun_init(create_user=False)
         self.couch.load_pki()
         self.avahi = None
-        
-    def quit(self):
+
+    def quit(self, *args):
         if self.avahi:
             self.avahi.unpublish()
         Gtk.main_quit()

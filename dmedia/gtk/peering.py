@@ -69,7 +69,7 @@ class BaseUI:
         self.window.show_all()
         Gtk.main()
 
-    def quit(self):
+    def quit(self, *args):
         Gtk.main_quit()
 
     def connect_hub_signals(self, hub):

@@ -106,7 +106,6 @@ class Session:
 
     def on_counter_response_ok(self):
         self.ui.hub.send('set_message', _('Issuing Certificate...'))
-        _start_thread(self.counter_challenge)
 
     def on_counter_response_fail(self):
         self.ui.hub.send('set_message', _('Very Bad Things!'))
