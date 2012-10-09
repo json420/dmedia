@@ -53,8 +53,9 @@ class Session:
         GObject.idle_add(self.on_response, success)
 
     def on_response(self, success):
-        self.app.state = 'ready'
-        _start_thread(self.monitor_q)
+        if success:
+            self.app.state = 'ready'
+            _start_thread(self.monitor_q)
         self.hub.send('challenge', success)
 
     def monitor_q(self):
