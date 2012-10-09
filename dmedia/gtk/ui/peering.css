@@ -4,7 +4,7 @@
 
 body {
     font-family: Lato;
-    font-size: 20px;
+    font-size: 21px;
     background-color: #301438;
     color: #fff;
     text-align: center;
@@ -38,7 +38,7 @@ input {
 
 #first, #sync {
     position: fixed;
-    width: 460px;
+    width: 440px;
     background-color: #fff;
     text-align: center;
     box-shadow: 2px 2px 5px #000;
@@ -48,20 +48,23 @@ input {
     color: #000;
 }
 
+#first p, #sync p {
+    margin: 16px;
+}
+
 #first {
     top: 35px;
-    left: 51px;
+    left: 71px;
 }
 
 #sync {
     bottom: 35px;
     /*left: 449px;*/
-    right: 51px;
+    right: 71px;
 }
 
 p.top {
     font-weight: bold;
-    font-size: 22px;
 }
 
 #logo {
@@ -84,7 +87,7 @@ p.top {
 
 p.gen {
     margin: 2em;
-    font-size: 30px;
+    font-size: 28px;
 }
 
 
