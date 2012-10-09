@@ -105,3 +105,17 @@ p.gen {
     right: -135px;
 }
 
+#logo2 {
+    z-index: 10;
+    position: fixed;
+    width: 160px;
+    height: 160px;
+    bottom: 45px;
+    right: 45px;
+    -webkit-transition: -webkit-transform 2000ms linear;
+}
+
+#logo2.spinright {
+    -webkit-transform: rotate(360deg);   
+}
+
