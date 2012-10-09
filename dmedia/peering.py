@@ -346,6 +346,15 @@ def verify_ca(filename, _id):
     return ssl_verify(filename, filename)
 
 
+def verify_cert(filename, _id, ca_filename, ca_id):
+    filename = verify(filename, _id)
+    issuer = make_subject(ca_id)
+    actual_issuer = get_issuer(filename)
+    if issuer != actual_issuer:
+        raise IssuerError(filename, issuer, actual_issuer)
+    return ssl_verify(filename, ca_filename)
+
+
 def encode(value):
     assert isinstance(value, bytes)
     assert len(value) > 0 and len(value) % 5 == 0

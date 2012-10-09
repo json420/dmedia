@@ -500,7 +500,7 @@ class TestServerApp(TestCase):
         local = peering.ChallengeResponse(local_id, remote_id)
         remote = peering.ChallengeResponse(remote_id, local_id)
         q = Queue()
-        app = peering.ServerApp(local, q)
+        app = peering.ServerApp(local, q, None)
         server = make_server(app, '127.0.0.1', server_config)
         client = CouchBase({'url': server.url, 'ssl': client_config})
         server.start()
