@@ -80,11 +80,23 @@ class Session:
 
     def request_cert(self):
         log.info('Creating CSR')
-        self.pki.create_csr(self.id)
-        csr = self.pki.read_csr(self.id)
-        obj = {'csr': b64encode(csr).decode('utf-8')}
-        r = self.client.post(obj, 'csr')
-        
+        try:
+            self.pki.create_csr(self.id)
+            csr_data = self.pki.read_csr(self.id)
+            obj = {'csr': b64encode(csr_data).decode('utf-8')}
+            r = self.client.post(obj, 'csr')
+            cert_data = b64decode(r['cert'].encode('utf-8'))
+            self.pki.write_cert(self.id, cert_data)
+            self.pki.verify_cert(self.id)
+            status = 'cert_issued'
+        except Exception as e:
+            status = 'error'
+            log.exception('Could not request cert')
+        GObject.idle_add(self.on_csr_response, status)
+
+    def on_csr_response(self, status):
+        log.info('on_csr_response %r', status)
+        self.hub.send('csr_response', status)
 
 
 class UI(BaseUI):
@@ -96,8 +108,9 @@ class UI(BaseUI):
         'have_secret': ['secret'],
         'response': ['success'],
         'counter_response': ['status'],
+        'csr_response': ['status'],
         'set_message': ['message'],
-        
+
         'show_screen2a': [],
         'show_screen2b': [],
         'show_screen3b': [],
@@ -121,6 +134,7 @@ class UI(BaseUI):
         hub.connect('have_secret', self.on_have_secret)
         hub.connect('response', self.on_response)
         hub.connect('counter_response', self.on_counter_response)
+        hub.connect('csr_response', self.on_csr_response)
 
     def on_first_time(self, hub):
         hub.send('show_screen2a')
@@ -169,6 +183,12 @@ class UI(BaseUI):
             hub.send('set_message', _('Requesting Certificate...'))
         else:
             hub.send('set_message', _('Very Bad Things!'))
+
+    def on_csr_response(self, hub, status):
+        if status == 'cert_issued':
+            hub.send('set_message', _('Done!'))
+        else:
+            hub.send('set_message', _('Very Bad Things with Certificate!'))
 
 
 ui = UI()

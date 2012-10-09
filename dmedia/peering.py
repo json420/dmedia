@@ -781,10 +781,18 @@ class PKI:
     def verify_cert(self, _id):
         cert_file = self.path(_id, 'cert')
         return verify(cert_file, _id)
-        
+
     def read_cert(self, _id):
         cert_file = self.verify_cert(_id)
         return open(cert_file, 'rb').read()
+
+    def write_cert(self, _id, data):
+        tmp_file = self.random_tmp()
+        open(tmp_file, 'wb').write(data)
+        verify(tmp_file, _id)
+        cert_file = self.path(_id, 'cert')
+        os.rename(tmp_file, cert_file)
+        return cert_file
 
     def get_ca(self, _id):
         return CA(_id, self.verify_ca(_id))
