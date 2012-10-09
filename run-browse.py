@@ -75,6 +75,14 @@ class Session:
                 GObject.timeout_add(500, self.on_response_ok)
                 break
 
+    def monitor2(self):
+        signal = self.q.get()
+        if signal == 'wrong_response':
+            GObject.idle_add(self.retry)
+        elif signal == 'response_ok':
+            GObject.timeout_add(500, self.on_response_ok)
+            break
+
     def retry(self):
         self.httpd.shutdown()
         secret = self.cr.get_secret()
@@ -86,6 +94,7 @@ class Session:
         self.httpd.start()
 
     def on_response_ok(self):
+        assert self.app.state == 'response_ok'
         self.ui.hub.send('set_message', _('Counter-Challenge...'))
         _start_thread(self.counter_challenge)
 
@@ -105,6 +114,8 @@ class Session:
             GObject.idle_add(self.on_counter_response_fail)
 
     def on_counter_response_ok(self):
+        assert self.app.state == 'response_ok'
+        self.app.state = 'counter_response_ok'
         self.ui.hub.send('set_message', _('Issuing Certificate...'))
 
     def on_counter_response_fail(self):

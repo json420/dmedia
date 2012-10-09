@@ -4,6 +4,7 @@ import logging
 import tempfile
 from queue import Queue
 from gettext import gettext as _
+from base64 import b64encode, b64decode
 
 from gi.repository import GObject, Gtk
 from microfiber import dumps, CouchBase, Unauthorized, _start_thread
@@ -12,7 +13,7 @@ from dmedia.startup import DmediaCouch
 from dmedia import peering
 from dmedia.service.peers import AvahiPeer
 from dmedia.gtk.peering import BaseUI
-from dmedia.peering import ChallengeResponse, ClientApp, InfoApp
+from dmedia.peering import ChallengeResponse, ClientApp, InfoApp, encode, decode
 from dmedia.httpd import WSGIError, make_server, build_server_ssl_context
 
 
@@ -27,9 +28,11 @@ log = logging.getLogger()
 
 
 class Session:
-    def __init__(self, hub, _id, peer, client_config):
+    def __init__(self, hub, pki, _id, peer, client_config):
         self.hub = hub
+        self.pki = pki
         self.peer = peer
+        self.id = _id
         self.peer_id = peer.id
         self.cr = ChallengeResponse(_id, peer.id)
         self.q = Queue()
@@ -55,17 +58,33 @@ class Session:
     def on_response(self, success):
         if success:
             self.app.state = 'ready'
-            _start_thread(self.monitor_q)
-        self.hub.send('challenge', success)
+            _start_thread(self.monitor_counter_response)
+        else:
+            del self.cr.secret
+        self.hub.send('response', success)
 
-    def monitor_q(self):
+    def monitor_counter_response(self):
+        # FIXME: Should use a timeout with queue.get()
         status = self.q.get()
         log.info('Counter-response gave %r', status)
-        success = (status == 'response_ok')
-        if not success:
+        if status != 'response_ok':
             log.error('Wrong counter-response!')
             log.warning('Possible malicious peer: %r', self.peer)
-        GObject.idle_add(self.hub.send, 'counter_challenge', success)
+        GObject.timeout_add(500, self.on_counter_response, status)
+
+    def on_counter_response(self, status):
+        assert self.app.state == status
+        if status == 'response_ok':
+            _start_thread(self.request_cert)
+        self.hub.send('counter_response', status)
+
+    def request_cert(self):
+        log.info('Creating CSR')
+        self.pki.create_csr(self.id)
+        csr = self.pki.read_csr(self.id)
+        obj = {'csr': b64encode(csr).decode('utf-8')}
+        r = self.client.post(obj, 'csr')
+        
 
 
 class UI(BaseUI):
@@ -75,8 +94,8 @@ class UI(BaseUI):
         'first_time': [],
         'already_using': [],
         'have_secret': ['secret'],
-        'challenge': ['success'],
-        'counter_challenge': ['success'],
+        'response': ['success'],
+        'counter_response': ['status'],
         'set_message': ['message'],
         
         'show_screen2a': [],
@@ -100,8 +119,8 @@ class UI(BaseUI):
         hub.connect('first_time', self.on_first_time)
         hub.connect('already_using', self.on_already_using)
         hub.connect('have_secret', self.on_have_secret)
-        hub.connect('challenge', self.on_challenge)
-        hub.connect('counter_challenge', self.on_counter_challenge)
+        hub.connect('response', self.on_response)
+        hub.connect('counter_response', self.on_counter_response)
 
     def on_first_time(self, hub):
         hub.send('show_screen2a')
@@ -123,7 +142,7 @@ class UI(BaseUI):
 
     def on_accept(self, avahi, peer):
         self.avahi.activate(peer.id)
-        self.session = Session(self.hub, avahi.id, peer,
+        self.session = Session(self.hub, self.couch.pki, avahi.id, peer,
             avahi.get_client_config()
         )
         # Reconfigure HTTPD to only accept connections from bound peer
@@ -139,15 +158,14 @@ class UI(BaseUI):
         hub.send('set_message', _('Challenge...'))
         _start_thread(self.session.challenge)
 
-    def on_challenge(self, hub, success):
+    def on_response(self, hub, success):
         if success:
             hub.send('set_message', _('Counter-Challenge...'))
         else:
-            del self.session.cr.secret
             hub.send('set_message', _('Typo? Please try again with new secret.'))
 
-    def on_counter_challenge(self, hub, success):
-        if success:
+    def on_counter_response(self, hub, status):
+        if status == 'response_ok':
             hub.send('set_message', _('Requesting Certificate...'))
         else:
             hub.send('set_message', _('Very Bad Things!'))

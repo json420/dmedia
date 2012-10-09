@@ -79,7 +79,7 @@ Hub.connect('set_message',
     }
 );
 
-Hub.connect('challenge',
+Hub.connect('response',
     function(success) {
         if (!success) {
             UI.input.value = '';
