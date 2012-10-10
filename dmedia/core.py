@@ -136,22 +136,17 @@ class Core:
             self.db.save(self.local)
             self.__local = deepcopy(self.local)
 
-    def load_identity(self, machine, user=None):
+    def load_identity(self, machine, user):
         try:
-            self.db.save(machine)
-        except Conflict:
+            self.db.save_many([machine, user])
+        except BulkConflict:
             pass
-        self.local['machine_id'] = machine['_id']
-        self.env['machine_id'] = machine['_id']
         log.info('machine_id = %s', machine['_id'])
-        if user is not None:
-            try:
-                self.db.save(user)
-            except Conflict:
-                pass
-            self.local['user_id'] = user['_id']
-            self.env['user_id'] = user['_id']
-            log.info('user_id = %s', user['_id'])
+        log.info('user_id = %s', user['_id'])
+        self.env['machine_id'] = machine['_id']
+        self.env['user_id'] = user['_id']
+        self.local['machine_id'] = machine['_id']
+        self.local['user_id'] = user['_id']
         self.save_local()
 
     def init_default_store(self):
