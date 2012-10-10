@@ -142,6 +142,34 @@ class DmediaCouch(UserCouch):
         self.save_config('machine', doc)
         self.machine = self.load_config('machine')
 
+    def create_machine(self):
+        if self.machine is not None:
+            raise Exception('machine already exists')
+        log.info('Creating RSA machine identity...')
+        machine_id = self.pki.create_key()
+        log.info('... machine_id: %s', machine_id)
+        self.pki.create_ca(machine_id)
+        doc = create_doc(machine_id, 'dmedia/machine')
+        self.save_config('machine', doc)
+        self.machine = self.load_config('machine')
+        return machine_id
+
+    def create_user(self):
+        if self.machine is None:
+            raise Exception('must create machine first')
+        if self.user is not None:
+            raise Exception('user already exists')
+        log.info('Creating RSA user identity...')
+        user_id = self.pki.create_key()
+        log.info('... user_id: %s', user_id)
+        self.pki.create_ca(user_id)
+        self.pki.create_csr(self.machine['_id'])
+        self.pki.issue_cert(self.machine['_id'], user_id)
+        doc = create_doc(user_id, 'dmedia/user')
+        self.save_config('user', doc)
+        self.user = self.load_config('user')
+        return user_id
+
     def load_pki(self):
         if self.machine is None:
             return

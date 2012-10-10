@@ -217,6 +217,87 @@ class TestDmediaCouch(TestCase):
         self.assertIsInstance(inst.user, dict)
         self.assertEqual(inst.user, inst.load_config('user'))
 
+    def test_create_machine(self):
+        class Subclass(startup.DmediaCouch):
+            def __init__(self):
+                self.machine = 'foo'
+
+        inst = Subclass()
+        with self.assertRaises(Exception) as cm:
+            inst.create_machine()
+        self.assertEqual(
+            str(cm.exception),
+            'machine already exists'
+        )
+
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        machine_id = inst.create_machine()
+        self.assertIsInstance(machine_id, str)
+        self.assertEqual(len(machine_id), 48)
+        self.assertIsInstance(inst.machine, dict)
+        self.assertEqual(inst.machine['_id'], machine_id)
+        self.assertEqual(inst.load_config('machine'), inst.machine)
+
+        with self.assertRaises(Exception) as cm:
+            inst.create_machine()
+        self.assertEqual(
+            str(cm.exception),
+            'machine already exists'
+        )
+        
+    def test_create_machine(self):
+        class Subclass(startup.DmediaCouch):
+            def __init__(self):
+                self.machine = 'foo'
+
+        inst = Subclass()
+        with self.assertRaises(Exception) as cm:
+            inst.create_machine()
+        self.assertEqual(str(cm.exception), 'machine already exists')
+
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        machine_id = inst.create_machine()
+        self.assertIsInstance(machine_id, str)
+        self.assertEqual(len(machine_id), 48)
+        self.assertIsInstance(inst.machine, dict)
+        self.assertEqual(inst.machine['_id'], machine_id)
+        self.assertEqual(inst.load_config('machine'), inst.machine)
+
+        with self.assertRaises(Exception) as cm:
+            inst.create_machine()
+        self.assertEqual(str(cm.exception), 'machine already exists')
+
+    def test_create_user(self):
+        class Subclass(startup.DmediaCouch):
+            def __init__(self):
+                self.machine = 'foo'
+                self.user = 'bar'
+
+        inst = Subclass()
+        with self.assertRaises(Exception) as cm:
+            inst.create_user()
+        self.assertEqual(str(cm.exception), 'user already exists')
+
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        with self.assertRaises(Exception) as cm:
+            inst.create_user()
+        self.assertEqual(str(cm.exception), 'must create machine first')
+        machine_id = inst.create_machine()
+        user_id = inst.create_user()
+        self.assertNotEqual(machine_id, user_id)
+        self.assertIsInstance(user_id, str)
+        self.assertEqual(len(user_id), 48)
+        self.assertIsInstance(inst.user, dict)
+        self.assertEqual(inst.user['_id'], user_id)
+        self.assertEqual(inst.load_config('user'), inst.user)
+
+        with self.assertRaises(Exception) as cm:
+            inst.create_user()
+        self.assertEqual(str(cm.exception), 'user already exists')
+
     def test_auto_bootstrap(self):
         tmp = TempDir()
         inst = startup.DmediaCouch(tmp.dir)
