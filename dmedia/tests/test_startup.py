@@ -180,42 +180,10 @@ class TestDmediaCouch(TestCase):
         tmp = TempDir()
         inst = startup.DmediaCouch(tmp.dir)
         self.assertTrue(inst.isfirstrun())
-        inst.machine = 'foo'
+        inst.user = 'foo'
         self.assertFalse(inst.isfirstrun())
-        inst.machine = None
+        inst.user = None
         self.assertTrue(inst.isfirstrun())
-
-    def test_firstrun_init(self):
-        class Subclass(startup.DmediaCouch):
-            def __init__(self):
-                pass
-
-            def isfirstrun(self):
-                return False
-
-        inst = Subclass()
-        with self.assertRaises(Exception) as cm:
-            inst.firstrun_init()
-        self.assertEqual(
-            str(cm.exception),
-            'not first run, cannot call firstrun_init()'
-        )
-
-        tmp = TempDir()
-        inst = startup.DmediaCouch(tmp.dir)
-        self.assertIsNone(inst.firstrun_init())
-        self.assertIsInstance(inst.machine, dict)
-        self.assertEqual(inst.machine, inst.load_config('machine'))
-        self.assertIsNone(inst.user)
-        self.assertIsNone(inst.load_config('user'))
-
-        tmp = TempDir()
-        inst = startup.DmediaCouch(tmp.dir)
-        self.assertIsNone(inst.firstrun_init(create_user=True))
-        self.assertIsInstance(inst.machine, dict)
-        self.assertEqual(inst.machine, inst.load_config('machine'))
-        self.assertIsInstance(inst.user, dict)
-        self.assertEqual(inst.user, inst.load_config('user'))
 
     def test_create_machine(self):
         class Subclass(startup.DmediaCouch):

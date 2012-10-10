@@ -168,10 +168,8 @@ class Core:
         self._add_filestore(fs, doc)
 
     def _sync_stores(self):
-        stores = self.stores.local_stores()
-        if self.local.get('stores') != stores:
-            self.local['stores'] = stores
-            self.db.save(self.local)
+        self.local['stores'] = self.stores.local_stores()
+        self.save_local()
 
     def _add_filestore(self, fs, doc):
         self.stores.add(fs)

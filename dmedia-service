@@ -80,6 +80,11 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_added', self.on_card_added)
         self.udisks.connect('card_removed', self.on_card_removed)
 
+    def run(self):
+        if not self.couch.isfirstrun():
+            self.start_core()
+        mainloop.run()
+
     def start_core(self):
         start = time.time()
         env = self.couch.auto_bootstrap()
@@ -92,6 +97,8 @@ class Service(dbus.service.Object):
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
         self.ssl_config = self.couch.get_ssl_config()
+        log.info('Finished core startup in %.3f', time.time() - start_time)
+        GObject.timeout_add(2000, self.on_idle1)
 
     def start_httpd(self):
         if self.ssl_config is None:
@@ -99,12 +106,6 @@ class Service(dbus.service.Object):
         (self.httpd, env) = start_httpd(self.core.env, self.ssl_config)
         self.avahi = FileServer(self.core.env, env['port'])
         self.avahi.run()
-
-    def run(self):
-        self.start_core()
-        log.info('Finished core startup in %.3f', time.time() - start_time)
-        GObject.timeout_add(2000, self.on_idle1)
-        mainloop.run()
 
     def on_idle1(self):
         log.info('[idle1]')
@@ -176,6 +177,13 @@ class Service(dbus.service.Object):
         Return dmedia version.
         """
         return dmedia.__version__
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def IsFirstRun(self):
+        """
+        Return dmedia version.
+        """
+        return self.couch.isfirstrun()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
@@ -273,8 +281,8 @@ couch = DmediaCouch(dmedia.get_dmedia_dir())
 # Now go for it:
 dmedia.configure_logging()
 try:
-    if couch.isfirstrun():
-        couch.firstrun_init(create_user=True)
+    if couch.machine is None:
+        couch.create_machine()
     service = Service(options.bus, couch)
     try:
         service.run()
