@@ -102,6 +102,10 @@ class Version(_Method):
     'Show version of running `dmedia-service`'
 
 
+class CreateUser(_Method):
+    'Create the user SSL certificate'
+
+
 class Kill(_Method):
     'Shutdown `dmedia-service`'
     

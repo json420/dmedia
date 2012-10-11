@@ -81,7 +81,9 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_removed', self.on_card_removed)
 
     def run(self):
-        if not self.couch.isfirstrun():
+        if self.couch.isfirstrun():
+            log.info('First run, not starting CouchDB.')
+        else:
             self.start_core()
         mainloop.run()
 
@@ -97,7 +99,7 @@ class Service(dbus.service.Object):
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
         self.ssl_config = self.couch.get_ssl_config()
-        log.info('Finished core startup in %.3f', time.time() - start_time)
+        log.info('Finished core startup in %.3f', time.time() - start)
         GObject.timeout_add(2000, self.on_idle1)
 
     def start_httpd(self):
@@ -184,6 +186,17 @@ class Service(dbus.service.Object):
         Return dmedia version.
         """
         return self.couch.isfirstrun()
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def CreateUser(self):
+        """
+        Return dmedia version.
+        """
+        if self.couch.user is None:
+            self.couch.create_user()
+            GObject.idle_add(self.start_core)
+            return True
+        return False
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
