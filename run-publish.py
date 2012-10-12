@@ -119,7 +119,7 @@ class UI(BaseUI):
     def __init__(self):
         super().__init__()
         self.couch = DmediaCouch(tempfile.mkdtemp())
-        self.couch.firstrun_init(create_user=False)
+        self.couch.create_machine()
         self.couch.load_pki()
         self.avahi = None
 
