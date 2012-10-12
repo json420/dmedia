@@ -79,29 +79,6 @@ def create_doc(_id, doc_type):
     }
 
 
-def get_ssl_config(pki):
-    assert isinstance(pki, PKI)
-    if pki.user is None:
-        return None
-    return {
-        'check_hostname': False,
-        'max_depth': 1,
-        'ca_file': pki.user.ca_file,
-        'cert_file': pki.machine.cert_file,
-        'key_file': pki.machine.key_file,
-    }
-
-
-def get_bootstrap_config(pki):
-    assert isinstance(pki, PKI)
-    if pki.user is None:
-        return {'username': 'admin'}
-    return {
-        'username': 'admin',
-        'replicator': get_ssl_config(pki),
-    }
-
-
 class DmediaCouch(UserCouch):
     def __init__(self, basedir):
         super().__init__(basedir)
@@ -147,17 +124,30 @@ class DmediaCouch(UserCouch):
         return user_id
 
     def load_pki(self):
-        if self.machine is None:
-            return
         if self.user is None:
             self.pki.load_pki(self.machine['_id'])
         else:
             self.pki.load_pki(self.machine['_id'], self.user['_id'])
 
+    def get_ssl_config(self):
+        return {
+            'check_hostname': False,
+            'max_depth': 1,
+            'ca_file': self.pki.user.ca_file,
+            'cert_file': self.pki.machine.cert_file,
+            'key_file': self.pki.machine.key_file,
+        }
+
+    def get_bootstrap_config(self):
+        return {
+            'username': 'admin',
+            'replicator': self.get_ssl_config(),
+        }
+
     def auto_bootstrap(self):
+        assert self.user is not None
+        assert self.machine is not None
         self.load_pki()
-        config = get_bootstrap_config(self.pki)
+        config = self.get_bootstrap_config()
         return self.bootstrap('basic', config)
 
-    def get_ssl_config(self):
-        return get_ssl_config(self.pki)
