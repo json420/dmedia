@@ -80,7 +80,7 @@ class TestFunctions(TestCase):
 
         self.assertIsNone(startup.get_ssl_config(pki))
 
-        pki.machine = pki.get_cert(machine_id)
+        pki.machine = pki.get_machine(machine_id)
         self.assertIsNone(startup.get_ssl_config(pki))
 
         pki.user = pki.get_ca(user_id)

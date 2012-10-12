@@ -774,7 +774,7 @@ class PKI:
         tmp_file = self.random_tmp()
         cert_file = self.path(_id, 'cert')
 
-        ca_file = self.verify_cert(subca_id)
+        ca_file = self.path(subca_id, 'cert')
         key_file = self.verify_key(subca_id)
         srl_file = self.path(subca_id, 'srl')
 
@@ -782,32 +782,16 @@ class PKI:
         os.rename(tmp_file, cert_file)
         return cert_file
 
-    def verify_cert(self, _id):
-        cert_file = self.path(_id, 'cert')
-        return verify(cert_file, _id)
-
-    def verify_cert2(self, cert_id, ca_id):
+    def verify_cert(self, cert_id, ca_id):
         cert_file = self.path(cert_id, 'cert')
         ca_file = self.verify_ca(ca_id)
         return verify_cert(cert_file, cert_id, ca_file, ca_id)
 
-    def read_cert(self, _id):
-        cert_file = self.verify_cert(_id)
-        return open(cert_file, 'rb').read()
+    def read_cert(self, cert_id, ca_id):
+        cert_file = self.verify_cert(cert_id, ca_id)
+        return open(cert_file, 'rb').read(cert_file)
 
-    def read_cert2(self, cert_id, ca_id):
-        cert_file = self.verify_cert2(cert_id, ca_id)
-        return open(cert_file, 'rb').read()
-
-    def write_cert(self, _id, data):
-        tmp_file = self.random_tmp()
-        open(tmp_file, 'wb').write(data)
-        verify(tmp_file, _id)
-        cert_file = self.path(_id, 'cert')
-        os.rename(tmp_file, cert_file)
-        return cert_file
-
-    def write_cert2(self, cert_id, ca_id, cert_data):
+    def write_cert(self, cert_id, ca_id, cert_data):
         ca_file = self.verify_ca(ca_id)
         tmp_file = self.random_tmp()
         open(tmp_file, 'wb').write(cert_data)
@@ -822,7 +806,7 @@ class PKI:
     def get_cert(self, cert_id, ca_id):
         return Cert(
             cert_id,
-            self.verify_cert2(cert_id, ca_id),
+            self.verify_cert(cert_id, ca_id),
             self.verify_key(cert_id)
         )
 
@@ -832,7 +816,7 @@ class PKI:
         if user_id is None:
             cert_file = None
         else:
-            cert_file = self.verify_cert2(machine_id, user_id)
+            cert_file = self.verify_cert(machine_id, user_id)
         return Machine(machine_id, ca_file, key_file, cert_file)
 
     def load_user(self, user_id):

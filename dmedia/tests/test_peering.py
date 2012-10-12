@@ -935,17 +935,17 @@ class TestPKI(TestCase):
 
         cert1_file = pki.path(id1, 'cert')
         cert2_file = pki.path(id2, 'cert')
-        self.assertEqual(pki.verify_cert(id1), cert1_file)
-        self.assertEqual(pki.verify_cert(id2), cert2_file)
+        self.assertEqual(pki.verify_cert(id1, ca_id), cert1_file)
+        self.assertEqual(pki.verify_cert(id2, ca_id), cert2_file)
         os.remove(cert1_file)
         os.rename(cert2_file, cert1_file)
         with self.assertRaises(peering.PublicKeyError) as cm:
-            pki.verify_cert(id1)
+            pki.verify_cert(id1, ca_id)
         self.assertEqual(cm.exception.filename, cert1_file)
         self.assertEqual(cm.exception.expected, id1)
         self.assertEqual(cm.exception.got, id2)
         with self.assertRaises(subprocess.CalledProcessError) as cm:
-            pki.verify_cert(id2)
+            pki.verify_cert(id2, ca_id)
 
         # Test with bad subject
         id3 = pki.create_key()
@@ -960,7 +960,7 @@ class TestPKI(TestCase):
             cert_file
         )
         with self.assertRaises(peering.SubjectError) as cm:
-            pki.verify_cert(id3)
+            pki.verify_cert(id3, ca_id)
         self.assertEqual(cm.exception.filename, cert_file)
         self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
         self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
