@@ -128,6 +128,8 @@ from dmedia.httpd import WSGIError
 DAYS = 365 * 10
 CA = namedtuple('CA', 'id ca_file')
 Cert = namedtuple('Cert', 'id cert_file key_file')
+Machine = namedtuple('Machine', 'id ca_file key_file cert_file')
+User = namedtuple('User', 'id ca_file key_file')
 
 # Skein personalization strings
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
@@ -831,6 +833,23 @@ class PKI:
         else:
             self.machine = self.get_cert(machine_id)
             self.user = self.get_ca(user_id)
+
+    def load_machine(self, machine_id, user_id=None):
+        ca_file = self.verify_ca(machine_id)
+        key_file = self.verify_key(machine_id)
+        if user_id is None:
+            cert_file = None
+        else:
+            cert_file = self.verify_cert2(machine_id, user_id)
+        return Machine(machine_id, ca_file, key_file, cert_file)
+
+    def load_user(self, user_id):
+        ca_file = self.verify_ca(user_id)
+        if path.exists(self.path(user_id, 'key')):
+            key_file = self.verify_key(user_id)
+        else:
+            key_file = None
+        return User(user_id, ca_file, key_file)
 
 
 class TempPKI(PKI):

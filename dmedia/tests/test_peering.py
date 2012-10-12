@@ -968,7 +968,7 @@ class TestPKI(TestCase):
     def test_get_ca(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
-        ca_id = pki.create_key()
+        ca_id = pki.create_key(1024)
         pki.create_ca(ca_id)
 
         ca = pki.get_ca(ca_id)
@@ -992,6 +992,57 @@ class TestPKI(TestCase):
         self.assertEqual(cert.cert_file, pki.path(cert_id, 'cert'))
         self.assertEqual(cert.key_file, pki.path(cert_id, 'key'))
         self.assertEqual(cert, (cert.id, cert.cert_file, cert.key_file))
+
+    def test_load_machine(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        machine_id = pki.create_key()
+        pki.create_ca(machine_id)
+
+        machine = pki.load_machine(machine_id)
+        self.assertIsInstance(machine, peering.Machine)
+        self.assertEqual(machine.id, machine_id)
+        self.assertEqual(machine.ca_file, pki.path(machine_id, 'ca'))
+        self.assertEqual(machine.key_file, pki.path(machine_id, 'key'))
+        self.assertIsNone(machine.cert_file)
+        self.assertEqual(machine,
+            (machine.id, machine.ca_file, machine.key_file, None)
+        )
+
+        user_id = pki.create_key()
+        pki.create_ca(user_id)
+        pki.create_csr(machine_id)
+        pki.issue_cert(machine_id, user_id)
+        machine = pki.load_machine(machine_id, user_id)
+        self.assertIsInstance(machine, peering.Machine)
+        self.assertEqual(machine.id, machine_id)
+        self.assertEqual(machine.ca_file, pki.path(machine_id, 'ca'))
+        self.assertEqual(machine.key_file, pki.path(machine_id, 'key'))
+        self.assertEqual(machine.cert_file, pki.path(machine_id, 'cert'))
+        self.assertEqual(machine,
+            (machine.id, machine.ca_file, machine.key_file, machine.cert_file)
+        )
+
+    def test_load_user(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        user_id = pki.create_key()
+        pki.create_ca(user_id)
+
+        user = pki.load_user(user_id)
+        self.assertIsInstance(user, peering.User)
+        self.assertEqual(user.id, user_id)
+        self.assertEqual(user.ca_file, pki.path(user_id, 'ca'))
+        self.assertEqual(user.key_file, pki.path(user_id, 'key'))
+        self.assertEqual(user, (user.id, user.ca_file, user.key_file))
+
+        os.remove(pki.path(user_id, 'key'))
+        user = pki.load_user(user_id)
+        self.assertIsInstance(user, peering.User)
+        self.assertEqual(user.id, user_id)
+        self.assertEqual(user.ca_file, pki.path(user_id, 'ca'))
+        self.assertIsNone(user.key_file)
+        self.assertEqual(user, (user.id, user.ca_file, None))
 
 
 class TestTempPKI(TestCase):
