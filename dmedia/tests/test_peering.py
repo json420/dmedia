@@ -986,7 +986,7 @@ class TestPKI(TestCase):
         pki.create_csr(cert_id)
         pki.issue_cert(cert_id, ca_id)
 
-        cert = pki.get_cert(cert_id)
+        cert = pki.get_cert(cert_id, ca_id)
         self.assertIsInstance(cert, peering.Cert)
         self.assertEqual(cert.id, cert_id)
         self.assertEqual(cert.cert_file, pki.path(cert_id, 'cert'))

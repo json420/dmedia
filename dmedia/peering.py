@@ -819,20 +819,12 @@ class PKI:
     def get_ca(self, _id):
         return CA(_id, self.verify_ca(_id))
 
-    def get_cert(self, _id):
-        return Cert(_id, self.verify_cert(_id), self.verify_key(_id))
-
-    def load_pki(self, machine_id, user_id=None):
-        if user_id is None:
-            self.machine = Cert(
-                machine_id,
-                self.verify_ca(machine_id),
-                self.verify_key(machine_id)
-            )
-            self.user = None
-        else:
-            self.machine = self.get_cert(machine_id)
-            self.user = self.get_ca(user_id)
+    def get_cert(self, cert_id, ca_id):
+        return Cert(
+            cert_id,
+            self.verify_cert2(cert_id, ca_id),
+            self.verify_key(cert_id)
+        )
 
     def load_machine(self, machine_id, user_id=None):
         ca_file = self.verify_ca(machine_id)
@@ -850,6 +842,11 @@ class PKI:
         else:
             key_file = None
         return User(user_id, ca_file, key_file)
+ 
+    def load_pki(self, machine_id, user_id=None):
+        self.machine = self.load_machine(machine_id, user_id)
+        self.user = (None if user_id is None else self.load_user(user_id))
+        
 
 
 class TempPKI(PKI):
@@ -876,7 +873,7 @@ class TempPKI(PKI):
         self.create_csr(cert_id)
         self.issue_cert(cert_id, ca_id)
 
-        return (self.get_ca(ca_id), self.get_cert(cert_id))
+        return (self.get_ca(ca_id), self.get_cert(cert_id, ca_id))
 
     def get_server_config(self):
         config = {
