@@ -826,11 +826,10 @@ class PKI:
         else:
             key_file = None
         return User(user_id, ca_file, key_file)
- 
+
     def load_pki(self, machine_id, user_id=None):
         self.machine = self.load_machine(machine_id, user_id)
-        self.user = (None if user_id is None else self.load_user(user_id))
-        
+        self.user = (None if user_id is None else self.load_user(user_id))  
 
 
 class TempPKI(PKI):
