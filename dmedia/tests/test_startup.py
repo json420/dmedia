@@ -276,7 +276,7 @@ class TestDmediaCouch(TestCase):
 
         tmp = TempDir()
         inst = startup.DmediaCouch(tmp.dir)
-        inst.firstrun_init(create_user=False)
+        inst.create_machine()
         env = inst.auto_bootstrap()
         s = Server(env)
         self.assertEqual(s.get()['couchdb'], 'Welcome')
@@ -284,7 +284,8 @@ class TestDmediaCouch(TestCase):
 
         tmp = TempDir()
         inst = startup.DmediaCouch(tmp.dir)
-        inst.firstrun_init(create_user=True)
+        inst.create_machine()
+        inst.create_user()
         env = inst.auto_bootstrap()
         s = Server(env)
         self.assertEqual(s.get()['couchdb'], 'Welcome')
