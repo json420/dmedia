@@ -44,6 +44,7 @@ from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import FileServer
+from dmedia.service.peers import AvahiPeer
 
 
 BUS = dmedia.BUS
@@ -66,6 +67,7 @@ class Service(dbus.service.Object):
     couch = None
     httpd = None
     avahi = None
+    peer = None
 
     def __init__(self, bus, couch):
         self.bus = bus
@@ -98,27 +100,36 @@ class Service(dbus.service.Object):
         if self.core.local.get('default_store') is None:
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
-        self.ssl_config = self.couch.get_ssl_config()
         log.info('Finished core startup in %.3f', time.time() - start)
-        GObject.timeout_add(2000, self.on_idle1)
+        GObject.timeout_add(1000, self.on_idle1)
 
     def start_httpd(self):
-        if self.ssl_config is None:
-            return
-        (self.httpd, env) = start_httpd(self.core.env, self.ssl_config)
+        ssl_config = self.couch.get_ssl_config()
+        (self.httpd, env) = start_httpd(self.core.env, ssl_config)
         self.avahi = FileServer(self.core.env, env['port'])
         self.avahi.run()
+        if self.couch.pki.user.key_file is not None:
+            self.peer = AvahiPeer(self.couch.pki)
+            self.peer.connect('offer', self.on_offer)
+            self.peer.connect('retract', self.on_retract)
+            self.peer.browse()
+
+    def on_offer(self, peer, info):
+        print('on_offer', info)
+
+    def on_retract(self, peer):
+        print('on_retract')
 
     def on_idle1(self):
         log.info('[idle1]')
         self.udisks.monitor()
-        GObject.timeout_add(4000, self.on_idle2)
+        GObject.timeout_add(1000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
-        GObject.timeout_add(6000, self.on_idle3)
+        GObject.timeout_add(2000, self.on_idle3)
         return False  # Don't repeat idle call
 
     def on_idle3(self):
@@ -133,6 +144,10 @@ class Service(dbus.service.Object):
 
     def shutdown(self):
         log.info('Service.shutdown()')
+        if self.peer is not None:
+            log.info('* freeing peer')
+            self.peer.unpublish()
+            self.peer = None
         if self.avahi is not None:
             log.info('* freeing avahi')
             self.avahi.free()
