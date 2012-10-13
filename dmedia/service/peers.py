@@ -35,19 +35,24 @@ from collections import namedtuple
 import ssl
 import socket
 import threading
+from queue import Queue
+from gettext import gettext as _
 
 import dbus
-from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GObject
-from microfiber import _start_thread, random_id, CouchBase, dumps, build_ssl_context
+from gi.repository import GObject, Gtk, AppIndicator3
+from microfiber import random_id, CouchBase, dumps, build_ssl_context
+
+from dmedia.parallel import start_thread
+from dmedia.gtk.peering import BaseUI
+from dmedia.gtk.ubuntu import NotifyManager
+from dmedia.peering import ChallengeResponse, ServerApp
+from dmedia.httpd import WSGIError, make_server
+
 
 PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
-GObject.threads_init()
-DBusGMainLoop(set_as_default=True)
-log = logging.getLogger()
-
 Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
+log = logging.getLogger()
 
 
 def get_service(verb):
@@ -342,7 +347,7 @@ class AvahiPeer(GObject.GObject):
         (ip, port) = args[7:9]
         log.info('%s is at %s, port %s', peer_id, ip, port)
         self.peer = Peer(str(peer_id), str(ip), int(port))
-        _start_thread(self.cert_thread, self.peer)
+        start_thread(self.cert_thread, self.peer)
 
     def on_error(self, error):
         log.error(
@@ -417,3 +422,160 @@ class AvahiPeer(GObject.GObject):
         signal = ('accept' if self.client_mode else 'offer')
         log.info('Firing %r signal for %r', signal, info)
         self.emit(signal, info)
+
+
+class ServerUI(BaseUI):
+    page = 'server.html'
+
+    signals = {
+        'get_secret': [],
+        'display_secret': ['secret'],
+        'set_message': ['message'],
+    }
+
+    def __init__(self, cr):
+        super().__init__()
+        self.cr = cr
+
+    def connect_hub_signals(self, hub):
+        hub.connect('get_secret', self.on_get_secret)
+
+    def on_get_secret(self, hub):
+        secret = self.cr.get_secret()
+        hub.send('display_secret', secret)
+
+
+class ServerSession:
+    def __init__(self, pki, _id, peer, server_config, client_config):
+        self.pki = pki
+        self.peer_id = peer.id
+        self.peer = peer
+        self.cr = ChallengeResponse(_id, peer.id)
+        self.q = Queue()
+        start_thread(self.monitor_response)
+        self.app = ServerApp(self.cr, self.q, pki)
+        self.app.state = 'info'
+        self.httpd = make_server(self.app, '0.0.0.0', server_config)
+        env = {'url': peer.url, 'ssl': client_config}
+        self.client = CouchBase(env)
+        self.httpd.start()
+        self.ui = ServerUI(self.cr)
+
+    def monitor_response(self):
+        while True:
+            signal = self.q.get()
+            if signal == 'wrong_response':
+                GObject.idle_add(self.retry)
+            elif signal == 'response_ok':
+                GObject.timeout_add(500, self.on_response_ok)
+                break
+
+    def monitor_cert_request(self):
+        status = self.q.get()
+        if status != 'cert_issued':
+            log.error('Bad cert request from %r', self.peer)
+            log.warning('Possible malicious peer: %r', self.peer)
+        GObject.idle_add(self.on_cert_request, status)
+
+    def retry(self):
+        self.httpd.shutdown()
+        secret = self.cr.get_secret()
+        self.ui.hub.send('display_secret', secret)
+        self.ui.hub.send('set_message',
+            _('Typo? Please try again with new secret.')
+        )
+        self.app.state = 'ready'
+        self.httpd.start()
+
+    def on_response_ok(self):
+        assert self.app.state == 'response_ok'
+        self.ui.hub.send('set_message', _('Counter-Challenge...'))
+        start_thread(self.counter_challenge)
+
+    def counter_challenge(self):
+        log.info('Getting counter-challenge from %r', self.peer)
+        challenge = self.client.get('challenge')['challenge']
+        (nonce, response) = self.cr.create_response(challenge)
+        obj = {'nonce': nonce, 'response': response}
+        log.info('Posting counter-response to %r', self.peer)
+        try:
+            r = self.client.put(obj, 'response')
+            log.info('Counter-response accepted')
+            GObject.idle_add(self.on_counter_response_ok)
+        except Unauthorized:
+            log.error('Counter-response rejected!')
+            log.warning('Possible malicious peer: %r', self.peer)
+            GObject.idle_add(self.on_counter_response_fail)
+
+    def on_counter_response_ok(self):
+        assert self.app.state == 'response_ok'
+        self.app.state = 'counter_response_ok'
+        start_thread(self.monitor_cert_request)
+        self.ui.hub.send('set_message', _('Issuing Certificate...'))
+
+    def on_counter_response_fail(self):
+        self.ui.hub.send('set_message', _('Very Bad Things!'))
+
+    def on_cert_request(self, status):
+        print('on_cert_request', status)
+        self.ui.hub.send('set_message', _('Done!'))
+
+
+class Browser:
+    def __init__(self, couch):
+        self.couch = couch
+        self.avahi = AvahiPeer(couch.pki)
+        self.avahi.connect('offer', self.on_offer)
+        self.avahi.connect('retract', self.on_retract)
+        self.avahi.browse()
+        self.notifymanager = NotifyManager()
+        self.indicator = None
+        self.session = None
+
+    def free(self):
+        self.avahi.unpublish()
+
+    def on_offer(self, avahi, info):
+        assert self.indicator is None
+        self.indicator = AppIndicator3.Indicator.new(
+            'dmedia-peer',
+            'indicator-novacut',
+            AppIndicator3.IndicatorCategory.APPLICATION_STATUS
+        )
+        menu = Gtk.Menu()
+        accept = Gtk.MenuItem()
+        accept.set_label(_('Accept {}@{}').format(info.name, info.host))
+        accept.connect('activate', self.on_accept, info)
+        menu.append(accept)
+        menu.show_all()
+        self.indicator.set_menu(menu)
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
+        self.notifymanager.replace(
+            _('Novacut Peering Offer'),
+            '{}@{}'.format(info.name, info.host),
+        )
+
+    def on_retract(self, avahi):
+        if hasattr(self, 'indicator'):
+            del self.indicator
+            self.notifymanager.replace(_('Peering Offer Removed'))
+
+    def on_accept(self, menuitem, info):
+        assert self.session is None
+        self.avahi.activate(info.id)
+        self.indicator = None
+        self.session = ServerSession(self.couch.pki, self.avahi.id, info,
+            self.avahi.get_server_config(),
+            self.avahi.get_client_config()
+        )
+        self.session.ui.window.connect('destroy', self.on_destroy)
+        self.session.ui.show()
+        self.avahi.publish(self.session.httpd.port)
+
+    def on_destroy(self, *args):
+        self.session.httpd.shutdown()
+        self.session.ui.window.destroy()
+        self.avahi.deactivate(self.session.peer_id)
+        self.session = None
+
+

@@ -44,7 +44,7 @@ from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import FileServer
-from dmedia.service.peers import AvahiPeer
+from dmedia.service.peers import Browser
 
 
 BUS = dmedia.BUS
@@ -101,7 +101,7 @@ class Service(dbus.service.Object):
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
         log.info('Finished core startup in %.3f', time.time() - start)
-        GObject.timeout_add(1000, self.on_idle1)
+        GObject.timeout_add(500, self.on_idle1)
 
     def start_httpd(self):
         ssl_config = self.couch.get_ssl_config()
@@ -109,27 +109,18 @@ class Service(dbus.service.Object):
         self.avahi = FileServer(self.core.env, env['port'])
         self.avahi.run()
         if self.couch.pki.user.key_file is not None:
-            self.peer = AvahiPeer(self.couch.pki)
-            self.peer.connect('offer', self.on_offer)
-            self.peer.connect('retract', self.on_retract)
-            self.peer.browse()
-
-    def on_offer(self, peer, info):
-        print('on_offer', info)
-
-    def on_retract(self, peer):
-        print('on_retract')
+            self.peer = Browser(self.couch)
 
     def on_idle1(self):
         log.info('[idle1]')
         self.udisks.monitor()
-        GObject.timeout_add(1000, self.on_idle2)
+        GObject.timeout_add(500, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
-        GObject.timeout_add(2000, self.on_idle3)
+        GObject.timeout_add(1000, self.on_idle3)
         return False  # Don't repeat idle call
 
     def on_idle3(self):
@@ -146,7 +137,7 @@ class Service(dbus.service.Object):
         log.info('Service.shutdown()')
         if self.peer is not None:
             log.info('* freeing peer')
-            self.peer.unpublish()
+            self.peer.free()
             self.peer = None
         if self.avahi is not None:
             log.info('* freeing avahi')
