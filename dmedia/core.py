@@ -41,9 +41,10 @@ from subprocess import check_call, CalledProcessError
 from copy import deepcopy
 
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict
-from filestore import FileStore, check_root_hash, check_id, _start_thread
+from filestore import FileStore, check_root_hash, check_id
 
 import dmedia
+from dmedia.parallel import start_thread, start_process
 from dmedia.server import run_server
 from dmedia import util, schema
 from dmedia.metastore import MetaStore
@@ -54,13 +55,6 @@ log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
 SHARED = '/home'
 PRIVATE = path.abspath(os.environ['HOME'])
-
-
-def start_process(target, *args):
-    process = multiprocessing.Process(target=target, args=args)
-    process.daemon = True
-    process.start()
-    return process
 
 
 def start_httpd(couch_env, ssl_config):
@@ -204,7 +198,7 @@ class Core:
 
     def start_background_tasks(self):
         assert self.thread is None
-        self.thread = _start_thread(self._background_worker)
+        self.thread = start_thread(self._background_worker)
 
     def init_project_views(self):
         try:
