@@ -86,8 +86,8 @@ class Session:
             obj = {'csr': b64encode(csr_data).decode('utf-8')}
             r = self.client.post(obj, 'csr')
             cert_data = b64decode(r['cert'].encode('utf-8'))
-            self.pki.write_cert2(self.id, self.peer_id, cert_data)
-            self.pki.verify_cert2(self.id, self.peer_id)
+            self.pki.write_cert(self.id, self.peer_id, cert_data)
+            self.pki.verify_cert(self.id, self.peer_id)
             status = 'cert_issued'
         except Exception as e:
             status = 'error'

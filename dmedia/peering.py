@@ -646,7 +646,7 @@ class ServerApp(ClientApp):
         try:
             self.pki.write_csr(self.cr.peer_id, csr_data)
             self.pki.issue_cert(self.cr.peer_id, self.cr.id)
-            cert_data = self.pki.read_cert2(self.cr.peer_id, self.cr.id)
+            cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
         except Exception as e:
             log.exception('could not issue cert')
             self.state = 'bad_csr'
@@ -789,7 +789,7 @@ class PKI:
 
     def read_cert(self, cert_id, ca_id):
         cert_file = self.verify_cert(cert_id, ca_id)
-        return open(cert_file, 'rb').read(cert_file)
+        return open(cert_file, 'rb').read()
 
     def write_cert(self, cert_id, ca_id, cert_data):
         ca_file = self.verify_ca(ca_id)
