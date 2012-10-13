@@ -125,7 +125,7 @@ class WSGIError(Exception):
 def build_server_ssl_context(config):
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
     ctx.options |= ssl.OP_NO_COMPRESSION  # Protect against CRIME-like attacks
-    ctx.set_ciphers('RC4')
+    # ctx.set_ciphers('RC4')  # Example of how to change ciphers
     ctx.load_cert_chain(config['cert_file'], config['key_file'])
     if 'ca_file' in config or 'ca_path' in config:
         ctx.verify_mode = ssl.CERT_REQUIRED
