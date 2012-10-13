@@ -56,14 +56,16 @@ SHARED = '/home'
 PRIVATE = path.abspath(os.environ['HOME'])
 
 
-def start_httpd(couch_env, ssl_config):
-    queue = multiprocessing.Queue()
-    process = multiprocessing.Process(
-        target=run_server,
-        args=(queue, couch_env, '0.0.0.0', ssl_config),
-    )
+def start_process(target, *args):
+    process = multiprocessing.Process(target=target, args=args)
     process.daemon = True
     process.start()
+    return process
+
+
+def start_httpd(couch_env, ssl_config):
+    queue = multiprocessing.Queue()
+    process = start_process(run_server, queue, couch_env, '0.0.0.0', ssl_config)
     env = queue.get()
     if isinstance(env, Exception):
         raise env
