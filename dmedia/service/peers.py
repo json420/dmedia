@@ -742,7 +742,7 @@ class ClientUI(BaseUI):
     def on_csr_response(self, hub, status):
         if status == 'cert_issued':
             hub.send('set_message', _('Done!'))
-            GObject.timeout_add(100, hub.send, 'done', self.session.peer_id)
+            GObject.timeout_add(500, hub.send, 'done', self.session.peer_id)
         else:
             hub.send('set_message', _('Very Bad Things with Certificate!'))
 
