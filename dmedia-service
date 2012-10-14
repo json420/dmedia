@@ -69,6 +69,7 @@ class Service(dbus.service.Object):
     avahi = None
     peer = None
     ui = None
+    env_s = '{}'
 
     def __init__(self, bus, couch):
         self.bus = bus
@@ -209,6 +210,7 @@ class Service(dbus.service.Object):
             self.ui = ClientUI(self.couch)
             self.ui.window.connect('delete-event', self.on_delete_event)
             self.ui.hub.connect('first_time', self.on_first_time)
+            self.ui.hub.connect('done', self.on_done)
             self.ui.window.show_all()
             return True
         else:
@@ -222,13 +224,21 @@ class Service(dbus.service.Object):
         print('on_delete_event()')
         GObject.idle_add(self.do_init)
 
+    def on_done(self, hub, user_id):
+        self.couch.set_user(user_id)
+        self.do_destroy()
+
     def do_init(self):
         print('do_init()')
         self.couch.create_user()
+        self.do_destroy()
+
+    def do_destroy(self):
+        print('do_destroy()')
         self.start_core()
-        self.InitDone(self.env_s)
         self.ui.window.destroy()
         self.ui = None
+        self.InitDone(self.env_s)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):

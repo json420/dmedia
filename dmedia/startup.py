@@ -123,6 +123,12 @@ class DmediaCouch(UserCouch):
         self.user = self.load_config('user')
         return user_id
 
+    def set_user(self, user_id):
+        log.info('... user_id: %s', user_id)
+        doc = create_doc(user_id, 'dmedia/user')
+        self.save_config('user', doc)
+        self.user = self.load_config('user')
+
     def load_pki(self):
         if self.user is None:
             self.pki.load_pki(self.machine['_id'])

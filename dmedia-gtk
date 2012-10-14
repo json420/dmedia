@@ -35,6 +35,7 @@ from dmedia.misc import WeakMethod
 from dmedia import views
 from dmedia import schema
 from dmedia.gtk.util import Timer
+from dmedia.service import CheckNeedsInit
 from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager, has_magic_lantern
 from gi.repository import GObject, Gtk, Gio
@@ -45,7 +46,8 @@ except ImportError:
     UnityImportUX = None
 
 
-log = logging.getLogger()
+log = dmedia.configure_logging()
+CheckNeedsInit()
 
 
 class Importer:
@@ -261,8 +263,7 @@ class App(BaseApp):
         project.save(doc)
         self.hub.send('project_created', doc['_id'], doc['title'])
 
-
-dmedia.configure_logging()      
+    
 app = App()
 try:
     app.run()

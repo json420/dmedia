@@ -25,6 +25,8 @@ Functionality that requires DBus and is generally Linux-specific.
 Code that is portable should go in dmedia/*.py (the dmedia core). 
 """
 
+import logging
+
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
@@ -38,17 +40,20 @@ def get_proxy():
     session = dbus.SessionBus()
     return session.get_object('org.freedesktop.Dmedia', '/')
 
-    
-class FirstRun:
+ 
+class CheckNeedsInit:
     def __init__(self):
+        logging.info('Getting Dmedia proxy object...')
         Dmedia = get_proxy()
+        logging.info('Checking Dmedia.NeedsInit()...')
         if Dmedia.NeedsInit():
+            logging.info('Needs firstrun init.')
             self.mainloop = GObject.MainLoop()
             Dmedia.connect_to_signal('InitDone', self.on_InitDone)
             Dmedia.DoInit()
             self.mainloop.run()
 
     def on_InitDone(self, env_s):
-        print(env_s)
+        logging.info('@Dmedia.InitDone()')
         self.mainloop.quit() 
 

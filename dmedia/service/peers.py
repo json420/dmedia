@@ -41,7 +41,9 @@ from gettext import gettext as _
 
 import dbus
 from gi.repository import GObject, Gtk, AppIndicator3
-from microfiber import random_id, CouchBase, dumps, build_ssl_context
+from microfiber import Unauthorized, CouchBase
+from microfiber import random_id, dumps, build_ssl_context
+
 
 from dmedia.parallel import start_thread
 from dmedia.gtk.peering import BaseUI
@@ -181,9 +183,10 @@ class AvahiPeer(GObject.GObject):
         self.group = None
         self.pki = pki
         self.client_mode = client_mode
-        self.id = (pki.machine.id if client_mode else pki.user.id)
-        self.cert_file = pki.verify_ca(self.id)
-        self.key_file = pki.verify_key(self.id)
+        ca = (pki.machine if client_mode else pki.user)
+        self.id = ca.id
+        self.cert_file = ca.ca_file
+        self.key_file = ca.key_file
         self.state = State()
         self.peer = None
         self.info = None
@@ -670,6 +673,8 @@ class ClientUI(BaseUI):
         'show_screen2b': [],
         'show_screen3b': [],
         'spin_orb': [],
+
+        'done': ['user_id'],
     }
 
     def __init__(self, couch):
@@ -737,6 +742,7 @@ class ClientUI(BaseUI):
     def on_csr_response(self, hub, status):
         if status == 'cert_issued':
             hub.send('set_message', _('Done!'))
+            GObject.timeout_add(100, hub.send, 'done', self.session.peer_id)
         else:
             hub.send('set_message', _('Very Bad Things with Certificate!'))
 
