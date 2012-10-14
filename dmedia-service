@@ -44,7 +44,7 @@ from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import FileServer
-from dmedia.service.peers import Browser
+from dmedia.service.peers import Browser, ClientUI
 
 
 BUS = dmedia.BUS
@@ -68,6 +68,7 @@ class Service(dbus.service.Object):
     httpd = None
     avahi = None
     peer = None
+    ui = None
 
     def __init__(self, bus, couch):
         self.bus = bus
@@ -179,6 +180,10 @@ class Service(dbus.service.Object):
     def CardRemoved(self, obj, mount):
         pass
 
+    @dbus.service.signal(IFACE, signature='s')
+    def InitDone(self, env_s):
+        pass
+
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
         """
@@ -187,22 +192,42 @@ class Service(dbus.service.Object):
         return dmedia.__version__
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
-    def IsFirstRun(self):
+    def NeedsInit(self):
         """
-        Return dmedia version.
+        Return True if we need to do the firstrun init.
         """
         return self.couch.isfirstrun()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
-    def CreateUser(self):
+    def DoInit(self):
         """
         Return dmedia version.
         """
-        if self.couch.user is None:
-            self.couch.create_user()
-            GObject.idle_add(self.start_core)
+        log.info('Dmedia.DoInit()')
+        if self.ui is None:
+            self.ui = ClientUI(self.couch)
+            self.ui.window.connect('delete-event', self.on_delete_event)
+            self.ui.hub.connect('first_time', self.on_first_time)
+            self.ui.window.show_all()
             return True
-        return False
+        else:
+            return False
+
+    def on_first_time(self, hub):
+        print('on_first_time')
+        GObject.timeout_add(600, self.do_init)
+
+    def on_delete_event(self, *args):
+        print('on_delete_event()')
+        GObject.idle_add(self.do_init)
+
+    def do_init(self):
+        print('do_init()')
+        self.couch.create_user()
+        self.start_core()
+        self.InitDone(self.env_s)
+        self.ui.window.destroy()
+        self.ui = None
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):

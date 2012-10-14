@@ -102,7 +102,11 @@ class Version(_Method):
     'Show version of running `dmedia-service`'
 
 
-class CreateUser(_Method):
+class NeedsInit(_Method):
+    'Create the user SSL certificate'
+
+
+class DoInit(_Method):
     'Create the user SSL certificate'
 
 
