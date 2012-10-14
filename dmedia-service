@@ -205,6 +205,7 @@ class Service(dbus.service.Object):
         """
         log.info('Dmedia.DoInit()')
         if self.ui is None:
+            self.couch.load_pki()
             self.ui = ClientUI(self.couch)
             self.ui.window.connect('delete-event', self.on_delete_event)
             self.ui.hub.connect('first_time', self.on_first_time)

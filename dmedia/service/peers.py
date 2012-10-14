@@ -36,6 +36,7 @@ import ssl
 import socket
 import threading
 from queue import Queue
+from base64 import b64encode, b64decode
 from gettext import gettext as _
 
 import dbus
@@ -45,7 +46,7 @@ from microfiber import random_id, CouchBase, dumps, build_ssl_context
 from dmedia.parallel import start_thread
 from dmedia.gtk.peering import BaseUI
 from dmedia.gtk.ubuntu import NotifyManager
-from dmedia.peering import ChallengeResponse, ServerApp
+from dmedia.peering import ChallengeResponse, ServerApp, InfoApp, ClientApp
 from dmedia.httpd import WSGIError, make_server
 
 
@@ -612,7 +613,7 @@ class ClientSession:
     def on_response(self, success):
         if success:
             self.app.state = 'ready'
-            _start_thread(self.monitor_counter_response)
+            start_thread(self.monitor_counter_response)
         else:
             del self.cr.secret
         self.hub.send('response', success)
@@ -629,7 +630,7 @@ class ClientSession:
     def on_counter_response(self, status):
         assert self.app.state == status
         if status == 'response_ok':
-            _start_thread(self.request_cert)
+            start_thread(self.request_cert)
         self.hub.send('counter_response', status)
 
     def request_cert(self):
@@ -668,6 +669,7 @@ class ClientUI(BaseUI):
         'show_screen2a': [],
         'show_screen2b': [],
         'show_screen3b': [],
+        'spin_orb': [],
     }
 
     def __init__(self, couch):
@@ -717,7 +719,7 @@ class ClientUI(BaseUI):
             return
         self.session.cr.set_secret(secret)
         hub.send('set_message', _('Challenge...'))
-        _start_thread(self.session.challenge)
+        start_thread(self.session.challenge)
 
     def on_response(self, hub, success):
         if success:
