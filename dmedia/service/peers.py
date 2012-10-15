@@ -581,10 +581,8 @@ class Browser:
         self.session.ui.window.destroy()
         self.avahi.deactivate(self.session.peer_id)
         self.session = None
-        
-        
-        
-        
+
+
 class ClientSession:
     def __init__(self, hub, pki, _id, peer, client_config):
         self.hub = hub
@@ -742,7 +740,7 @@ class ClientUI(BaseUI):
     def on_csr_response(self, hub, status):
         if status == 'cert_issued':
             hub.send('set_message', _('Done!'))
-            GObject.timeout_add(500, hub.send, 'done', self.session.peer_id)
+            GObject.timeout_add(200, hub.send, 'done', self.session.peer_id)
         else:
             hub.send('set_message', _('Very Bad Things with Certificate!'))
 

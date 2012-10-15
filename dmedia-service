@@ -37,9 +37,9 @@ import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
 from microfiber import NotFound, dumps
-from filestore import _start_thread
 
 import dmedia
+from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
@@ -69,6 +69,7 @@ class Service(dbus.service.Object):
     avahi = None
     peer = None
     ui = None
+    thread = None
     env_s = '{}'
 
     def __init__(self, bus, couch):
@@ -127,7 +128,7 @@ class Service(dbus.service.Object):
 
     def on_idle3(self):
         log.info('[idle3]')
-        _start_thread(self.core.init_project_views)
+        start_thread(self.core.init_project_views)
         self.core.start_background_tasks()
         return False  # Don't repeat idle call
 
@@ -217,28 +218,39 @@ class Service(dbus.service.Object):
             return False
 
     def on_first_time(self, hub):
-        print('on_first_time')
-        GObject.timeout_add(600, self.do_init)
+        log.info('on_first_time()')
+        if self.thread is None:
+            self.thread = start_thread(self.do_create_user)
 
     def on_delete_event(self, *args):
-        print('on_delete_event()')
-        GObject.idle_add(self.do_init)
+        log.info('on_delete_event()')
+        if self.thread is None:
+            self.thread = start_thread(self.do_create_user)
 
     def on_done(self, hub, user_id):
-        self.couch.set_user(user_id)
-        self.do_destroy()
+        log.info('on_done(%r)', user_id)
+        if self.thread is None:
+            self.thread = start_thread(self.do_set_user, user_id)
 
-    def do_init(self):
-        print('do_init()')
+    def do_create_user(self):
+        log.info('do_create_user()')
         self.couch.create_user()
-        self.do_destroy()
+        self.start_core()
+        GObject.idle_add(self.do_destroy)
+
+    def do_set_user(self, user_id):
+        log.info('do_set_user(%r)', user_id)
+        self.couch.set_user(user_id)
+        self.start_core()
+        GObject.idle_add(self.do_destroy)
 
     def do_destroy(self):
-        print('do_destroy()')
-        self.start_core()
+        log.info('do_destroy()')
+        self.thread.join()
         self.ui.window.destroy()
         self.ui = None
         self.InitDone(self.env_s)
+        self.thread = None
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
