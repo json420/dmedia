@@ -41,6 +41,26 @@ from dmedia import peering
 
 
 class TestSkeinFunctions(TestCase):
+    def test_hash_pubkey(self):
+        data = urandom(500)
+        _id = peering.hash_pubkey(data)
+        self.assertIsInstance(_id, str)
+        self.assertEqual(len(_id), 48)
+        skein = skein512(data,
+            digest_bits=240,
+            pers=b'20120918 jderose@novacut.com dmedia/pubkey',
+        )
+        self.assertEqual(
+            decode(_id),
+            skein.digest()
+        )
+
+        # Sanity check
+        for i in range(1000):
+            self.assertNotEqual(_id,
+                peering.hash_pubkey(urandom(500)),
+            )
+
     def test_compute_response(self):
         secret = urandom(5)
         challenge = urandom(20)
