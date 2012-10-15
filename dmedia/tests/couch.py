@@ -38,6 +38,8 @@ class CouchCase(usercouch.misc.CouchTestCase):
 
     def setUp(self):
         super().setUp()
-        self.machine_id = random_id()
+        self.machine_id = random_id(30)
+        self.user_id = random_id(30)
         self.env['machine_id'] = self.machine_id
+        self.env['user_id'] = self.user_id
 

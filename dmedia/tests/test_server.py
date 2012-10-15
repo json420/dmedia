@@ -59,142 +59,6 @@ class StartResponse:
 
 
 class TestFunctions(TestCase):
-    def test_get_slice(self):
-        # Test all the valid types of requests:
-        _id = random_id(DIGEST_BYTES)
-        self.assertEqual(
-            server.get_slice({'PATH_INFO': '/{}'.format(_id)}),
-            (_id, 0, None)
-        )
-
-        _id = random_id(DIGEST_BYTES)
-        self.assertEqual(
-            server.get_slice({'PATH_INFO': '/{}/0'.format(_id)}),
-            (_id, 0, None)
-        )
-
-        _id = random_id(DIGEST_BYTES)
-        self.assertEqual(
-            server.get_slice({'PATH_INFO': '/{}/17'.format(_id)}),
-            (_id, 17, None)
-        )
-
-        _id = random_id(DIGEST_BYTES)
-        self.assertEqual(
-            server.get_slice({'PATH_INFO': '/{}/17/21'.format(_id)}),
-            (_id, 17, 21)
-        )
-
-        _id = random_id(DIGEST_BYTES)
-        self.assertEqual(
-            server.get_slice({'PATH_INFO': '/{}/0/1'.format(_id)}),
-            (_id, 0, 1)
-        )
-
-        # Too many slashes
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': '/file-id/start/stop/other'})
-        self.assertEqual(cm.exception.body, b'too many slashes in request path')
-
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': 'file-id/start/stop/'})
-        self.assertEqual(cm.exception.body, b'too many slashes in request path')
-
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': '/file-id///'})
-        self.assertEqual(cm.exception.body, b'too many slashes in request path')
-
-        # Bad ID
-        attack = 'CCCCCCCCCCCCCCCCCCCCCCCCCCC\..\..\..\.ssh\id_rsa'
-        self.assertEqual(len(attack), DIGEST_B32LEN)
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': attack})
-        self.assertEqual(cm.exception.body, b'badly formed dmedia ID')
-
-        short = random_id(DIGEST_BYTES - 5)
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': short})
-        self.assertEqual(cm.exception.body, b'badly formed dmedia ID')
-
-        long = random_id(DIGEST_BYTES + 5)
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': long})
-        self.assertEqual(cm.exception.body, b'badly formed dmedia ID')
-
-        lower = random_id(DIGEST_BYTES).lower()
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': lower})
-        self.assertEqual(cm.exception.body, b'badly formed dmedia ID')
-
-        # start not integer
-        bad = '/{}/17.9'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start is not a valid integer')
-
-        bad = '/{}/00ff'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start is not a valid integer')
-
-        bad = '/{}/foo'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start is not a valid integer')
-
-        bad = '/{}/17.9/333'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start is not a valid integer')
-
-        bad = '/{}/00ff/333'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start is not a valid integer')
-
-        bad = '/{}/foo/333'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start is not a valid integer')
-
-        # stop not integer
-        bad = '/{}/18/21.2'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'stop is not a valid integer')
-
-        bad = '/{}/18/00ff'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'stop is not a valid integer')
-
-        bad = '/{}/18/foo'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'stop is not a valid integer')
-
-        # start < 0
-        bad = '/{}/-1'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start cannot be less than zero')
-
-        bad = '/{}/-1/18'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start cannot be less than zero')
-
-        # start >= stop
-        bad = '/{}/18/17'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start must be less than stop')
-
-        bad = '/{}/17/17'.format(random_id(DIGEST_BYTES))
-        with self.assertRaises(server.BadRequest) as cm:
-            server.get_slice({'PATH_INFO': bad})
-        self.assertEqual(cm.exception.body, b'start must be less than stop')
-
     def test_range_to_slice(self):
         with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('goats=0-500')
@@ -259,32 +123,6 @@ class TestFunctions(TestCase):
             )
 
 
-class TestBaseWSGI(TestCase):
-    def test_metaclass(self):
-        self.assertEqual(server.BaseWSGI.http_methods, frozenset())
-
-        class Example(server.BaseWSGI):
-            def PUT(self, environ, start_response):
-                pass
-
-            def POST(self, environ, start_response):
-                pass
-
-            def GET(self, environ, start_response):
-                pass
-
-            def DELETE(self, environ, start_response):
-                pass
-
-            def HEAD(self, environ, start_response):
-                pass
-
-        self.assertEqual(
-            Example.http_methods,
-            frozenset(['PUT', 'POST', 'GET', 'DELETE', 'HEAD'])
-        )
-
-
 class TempHTTPD:
     def __init__(self, couch_env, ssl_config):
         """
@@ -308,11 +146,12 @@ class TempHTTPD:
         self.process.join()
 
 
-class TestRootApp(TestCase):
+class TestRootAppLive(TestCase):
     def test_call(self):
         couch = TempCouch()
         couch_env = couch.bootstrap()
-        couch_env['user_id'] = random_id()
+        couch_env['user_id'] = random_id(30)
+        couch_env['machine_id'] = random_id(30)
 
         # Test when client PKI isn't configured
         pki = peering.TempPKI()
@@ -337,12 +176,19 @@ class TestRootApp(TestCase):
         # Test when SSL config is correct, then test other aspects
         pki = peering.TempPKI(True)
         couch_env['user_id'] = pki.client_ca.id
+        couch_env['machine_id'] = pki.server.id
         httpd = TempHTTPD(couch_env, pki.get_server_config())
         env = deepcopy(httpd.env)
         env['ssl'] = pki.get_client_config()
         client = microfiber.CouchBase(env)
         self.assertEqual(client.get(),
-            {'Dmedia': 'welcome', 'version': dmedia.__version__}
+            {
+                'user_id': pki.client_ca.id,
+                'machine_id': pki.server.id,
+                'version': dmedia.__version__,
+                'user': os.environ.get('USER'),
+                'host': socket.gethostname(),
+            }
         )
         self.assertEqual(client.get('couch')['couchdb'], 'Welcome')
 
@@ -371,6 +217,7 @@ class TestRootApp(TestCase):
         # couch2 needs env['user_id']
         env2 = couch2.bootstrap('basic', None)
         env2['user_id'] = pki.client_ca.id
+        env2['machine_id'] = pki.server.id
         s2 = microfiber.Server(env2)
 
         # httpd is the SSL frontend for couch2

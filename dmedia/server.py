@@ -41,64 +41,24 @@ from dmedia import local, peering
 
 USER = os.environ.get('USER')
 HOST = socket.gethostname()
-
-
-HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
-WELCOME = json.dumps(
-    {'Dmedia': 'welcome', 'version': __version__},
-    sort_keys=True,
-).encode('utf-8')
 log = logging.getLogger()
 
 
-def server_welcome(environ, start_response):
-    if environ['REQUEST_METHOD'] != 'GET':
-        raise WSGIError('405 Method Not Allowed')
-    start_response('200 OK',
-        [
-            ('Content-Length', str(len(WELCOME))),
-            ('Content-Type', 'application/json'),
-        ]
-    )
-    return [WELCOME]
+def iter_headers(environ):
+    for (key, value) in environ.items():
+        if key in ('CONTENT_LENGHT', 'CONTENT_TYPE'):
+            yield (key.replace('_', '-').lower(), value)
+        elif key.startswith('HTTP_'):
+            yield (key[5:].replace('_', '-').lower(), value)
 
 
-class HTTPError(Exception):
-    def __init__(self, body=b'', headers=None):
-        if isinstance(body, str):
-            body = body.encode('utf-8')
-            headers = [('Content-Type', 'text/plain; charset=utf-8')]
-        self.body = body
-        self.headers = ([] if headers is None else headers)
-        super().__init__(self.status)
-
-
-class BadRequest(HTTPError):
-    status = '400 Bad Request'
-
-
-class NotFound(HTTPError):
-    status = '404 Not Found'
-
-
-class MethodNotAllowed(HTTPError):
-    status = '405 Method Not Allowed'
-
-
-class Conflict(HTTPError):
-    status = '409 Conflict'
-
-
-class LengthRequired(HTTPError):
-    status = '411 Length Required'
-
-
-class PreconditionFailed(HTTPError):
-    status = '412 Precondition Failed'
-
-
-class BadRangeRequest(HTTPError):
-    status = '416 Requested Range Not Satisfiable'
+def request_args(environ):
+    headers = dict(iter_headers(environ))
+    if environ['wsgi.input']._avail:
+        body = environ['wsgi.input'].read()
+    else:
+        body = None
+    return (environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
 
 
 def get_slice(environ):
@@ -200,30 +160,6 @@ def slice_to_content_range(start, stop, length):
     return 'bytes {}-{}/{}'.format(start, stop - 1, length)
 
 
-class BaseWSGIMeta(type):
-    def __new__(meta, name, bases, dict):
-        http_methods = []
-        cls = type.__new__(meta, name, bases, dict)
-        for name in filter(lambda n: n in HTTP_METHODS, dir(cls)):
-            method = getattr(cls, name)
-            if callable(method):
-                http_methods.append(name)
-        cls.http_methods = frozenset(http_methods)
-        return cls
-
-
-class BaseWSGI(metaclass=BaseWSGIMeta):
-    def __call__(self, environ, start_response):
-        try:
-            name = environ['REQUEST_METHOD']
-            if name not in self.__class__.http_methods:
-                raise MethodNotAllowed()
-            return getattr(self, name)(environ, start_response)
-        except HTTPError as e:
-            start_response(e.status, e.headers)
-            return [e.body]
-
-
 MiB = 1024 * 1024
 
 
@@ -247,92 +183,22 @@ class FileSlice:
         assert remaining == 0
 
 
-class ReadOnlyApp(BaseWSGI):
-    def __init__(self, env):
-        self.local = local.LocalSlave(env)
-        info = {
-            'Dmedia': 'Welcome',
-            'version': __version__,
-            'machine_id': env.get('machine_id'),
-            'hostname': socket.gethostname(),
-        }
-        self._info = json.dumps(info, sort_keys=True).encode('utf-8')
-
-    def server_info(self, environ, start_response):
-        start_response('200 OK', [('Content-Type', 'application/json')])
-        return [self._info]
-
-    def GET(self, environ, start_response):
-        path_info = environ['PATH_INFO']
-        if path_info == '/':
-            return self.server_info(environ, start_response)
-
-        _id = path_info.lstrip('/')
-        if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
-            raise NotFound()
-        try:
-            doc = self.local.get_doc(_id)
-            st = self.local.stat2(doc)
-            fp = open(st.name, 'rb')
-        except Exception:
-            raise NotFound()
-
-        if doc.get('content_type'):
-            headers = [('Content-Type', doc['content_type'])]
-        else:
-            headers = []
-
-        if 'HTTP_RANGE' in environ:
-            (start, stop) = range_to_slice(environ['HTTP_RANGE'])                
-            status = '206 Partial Content'
-        else:
-            start = 0
-            stop = None
-            status = '200 OK'
-
-        stop = (st.size if stop is None else min(st.size, stop))
-        length = str(stop - start)
-        headers.append(('Content-Length', length))
-        if 'HTTP_RANGE' in environ:
-            headers.append(
-                ('Content-Range', slice_to_content_range(start, stop, st.size))
-            )
-
-        start_response(status, headers)
-        return FileSlice(fp, start, stop)
-
-
-class ReadWriteApp(ReadOnlyApp):
-    def PUT(self, environ, start_response):
-        pass
-
-    def POST(self, environ, start_response):
-        pass
-
-
-def iter_headers(environ):
-    for (key, value) in environ.items():
-        if key in ('CONTENT_LENGHT', 'CONTENT_TYPE'):
-            yield (key.replace('_', '-').lower(), value)
-        elif key.startswith('HTTP_'):
-            yield (key[5:].replace('_', '-').lower(), value)
-
-
-def request_args(environ):
-    headers = dict(iter_headers(environ))
-    if environ['wsgi.input']._avail:
-        body = environ['wsgi.input'].read()
-    else:
-        body = None
-    return (environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
-
-
 class RootApp:
     def __init__(self, env):
         self.user_id = env['user_id']
+        obj = {
+            'user_id': env['user_id'],
+            'machine_id': env['machine_id'],
+            'version': dmedia.__version__,
+            'user': USER,
+            'host': HOST,
+        }
+        self.info = dumps(obj).encode('utf-8')
+        self.info_length = str(len(self.info))
         self.map = {
-            '': server_welcome,
+            '': self.get_info,
             'couch': ProxyApp(env),
+            'files': FilesApp(env),
         }
 
     def __call__(self, environ, start_response):
@@ -344,6 +210,17 @@ class RootApp:
         if key in self.map:
             return self.map[key](environ, start_response)
         raise WSGIError('410 Gone')
+
+    def get_info(self, environ, start_response):
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        start_response('200 OK',
+            [
+                ('Content-Length', self.info_length),
+                ('Content-Type', 'application/json'),
+            ]
+        )
+        return [self.info]
 
 
 class ProxyApp:
@@ -381,7 +258,7 @@ class ProxyApp:
         return []
 
 
-class FilesApp(BaseWSGI):
+class FilesApp:
     def __init__(self, env):
         self.local = local.LocalSlave(env)
 
