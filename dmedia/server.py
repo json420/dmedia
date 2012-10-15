@@ -31,6 +31,7 @@ import logging
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 import microfiber
+from microfiber import dumps
 
 import dmedia
 from dmedia import __version__
@@ -380,7 +381,7 @@ class ProxyApp:
         return []
 
 
-class PeeringClientInfo:
+class InfoApp:
     """
     WSGI app initially used by the client-end of the peering process.
     """
@@ -393,7 +394,7 @@ class PeeringClientInfo:
             'user': USER,
             'host': HOST,
         }
-        self.info = microfiber.dumps(obj).encode('utf-8')
+        self.info = dumps(obj).encode('utf-8')
         self.info_length = str(len(self.info))
 
     def __call__(self, environ, start_response):
@@ -412,7 +413,7 @@ class PeeringClientInfo:
         return [self.info]
 
 
-class PeeringClient:
+class ClientApp:
     """
     WSGI app used by the client-end of the peering process.
     """
@@ -459,17 +460,20 @@ class PeeringClient:
         if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
             raise WSGIError('403 Forbidden')
         if environ.get('SSL_CLIENT_S_DN_CN') != self.cr.peer_id:
-            raise WSGIError('403 Forbidden')
+            raise WSGIError('403 Forbidden Subject')
         if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
-            raise WSGIError('403 Forbidden')
+            raise WSGIError('403 Forbidden Issuer')
 
         path_info = environ['PATH_INFO']
         if path_info not in self.map:
             raise WSGIError('410 Gone')
-        log.info('%s %s', environ['REQUEST_METHOD'], environ['PATH_INFO'])
+        log.info('%s %s',
+            environ.get('REQUEST_METHOD'),
+            environ.get('PATH_INFO')
+        )
         try:
             obj = self.map[path_info](environ)            
-            data = json.dumps(obj).encode('utf-8')
+            data = dumps(obj).encode('utf-8')
             start_response('200 OK',
                 [
                     ('Content-Length', str(len(data))),
@@ -512,7 +516,7 @@ class PeeringClient:
         return {'ok': True}
 
 
-class ServerApp(PeeringClient):
+class ServerApp(ClientApp):
     """
     WSGI app used by the server-end of the peering process.
     """
@@ -523,12 +527,12 @@ class ServerApp(PeeringClient):
         'in_csr',
         'bad_csr',
         'cert_issued',
-    ) + PeeringClient.allowed_states
+    ) + ClientApp.allowed_states
 
     forwarded_states = (
         'bad_csr',
         'cert_issued',
-    ) + PeeringClient.forwarded_states
+    ) + ClientApp.forwarded_states
 
     def __init__(self, cr, queue, pki):
         super().__init__(cr, queue)

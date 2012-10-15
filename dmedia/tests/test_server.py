@@ -34,7 +34,7 @@ from queue import Queue
 from usercouch.misc import TempCouch
 from filestore import DIGEST_B32LEN, DIGEST_BYTES
 import microfiber
-from microfiber import random_id
+from microfiber import random_id, dumps
 
 from .base import TempDir
 import dmedia
@@ -52,7 +52,7 @@ class StartResponse:
         self.__called = False
 
     def __call__(self, status, headers):
-        assert not self.__callled
+        assert self.__called is False
         self.__called = True
         self.status = status
         self.headers = headers
@@ -395,10 +395,10 @@ class TestRootApp(TestCase):
             self.assertEqual(s2.get(name2, doc['_id']), doc)
 
 
-class TestPeeringClientInfo(TestCase):
+class TestInfoApp(TestCase):
     def test_init(self):
         _id = random_id(30)
-        app = server.PeeringClientInfo(_id)
+        app = server.InfoApp(_id)
         self.assertIs(app.id, _id)
         self.assertEqual(
             app.info,
@@ -413,17 +413,192 @@ class TestPeeringClientInfo(TestCase):
         )
         self.assertEqual(app.info_length, str(int(len(app.info))))
 
+    def test_call(self):
+        app = server.InfoApp(random_id(30))
 
-class TestPeeringClient(TestCase):
+        # wsgi.multithread
+        with self.assertRaises(WSGIError) as cm:
+            app({'wsgi.multithread': True}, None)
+        self.assertEqual(cm.exception.status, '500 Internal Server Error')
+        with self.assertRaises(WSGIError) as cm:
+            app({'wsgi.multithread': 0}, None)
+        self.assertEqual(cm.exception.status, '500 Internal Server Error')
+
+        # PATH_INFO
+        environ = {
+            'wsgi.multithread': False,
+            'PATH_INFO': '/foo',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '410 Gone')
+
+        # REQUEST_METHOD
+        environ = {
+            'wsgi.multithread': False,
+            'PATH_INFO': '/',
+            'REQUEST_METHOD': 'HEAD',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '405 Method Not Allowed')
+
+        environ = {
+            'wsgi.multithread': False,
+            'PATH_INFO': '/',
+            'REQUEST_METHOD': 'GET',
+        }
+        sr = StartResponse()
+        ret = app(environ, sr)
+        self.assertEqual(ret, [app.info])
+        self.assertEqual(sr.status, '200 OK')
+        self.assertEqual(sr.headers,
+            [
+                ('Content-Length', app.info_length),
+                ('Content-Type', 'application/json'),   
+            ]
+        )
+
+
+class TestClientApp(TestCase):
     def test_init(self):
         id1 = random_id(30)
         id2 = random_id(30)
         cr = peering.ChallengeResponse(id1, id2)
         q = Queue()
-        app = server.PeeringClient(cr, q)
+        app = server.ClientApp(cr, q)
         self.assertIs(app.cr, cr)
         self.assertIs(app.queue, q)
+        self.assertEqual(app.map,
+            {
+                '/challenge': app.get_challenge,
+                '/response': app.put_response,
+            }
+        )
 
+    def test_call(self):
+        _id = random_id(30)
+        peer_id = random_id(30)
+        cr = peering.ChallengeResponse(_id, peer_id)
+        app = server.ClientApp(cr, Queue())
+
+        # wsgi.multithread
+        with self.assertRaises(WSGIError) as cm:
+            app({'wsgi.multithread': True}, None)
+        self.assertEqual(cm.exception.status, '500 Internal Server Error')
+        with self.assertRaises(WSGIError) as cm:
+            app({'wsgi.multithread': 0}, None)
+        self.assertEqual(cm.exception.status, '500 Internal Server Error')
+
+        # SSL_CLIENT_VERIFY
+        with self.assertRaises(WSGIError) as cm:
+            app({'wsgi.multithread': False}, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden')
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'NOPE',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden')
+
+        # SSL_CLIENT_S_DN_CN
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden Subject')
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_S_DN_CN': random_id(30),
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden Subject')
+
+        # SSL_CLIENT_I_DN_CN
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_S_DN_CN': peer_id,
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden Issuer')
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_S_DN_CN': peer_id,
+            'SSL_CLIENT_I_DN_CN': random_id(30),
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden Issuer')
+
+        # PATH_INFO
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_S_DN_CN': peer_id,
+            'SSL_CLIENT_I_DN_CN': peer_id,
+            'PATH_INFO': '/',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '410 Gone')
+
+        # state
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_S_DN_CN': peer_id,
+            'SSL_CLIENT_I_DN_CN': peer_id,
+            'PATH_INFO': '/challenge',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 Bad Request Order')
+
+        # REQUEST_METHOD
+        app.state = 'ready'
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_S_DN_CN': peer_id,
+            'SSL_CLIENT_I_DN_CN': peer_id,
+            'PATH_INFO': '/challenge',
+            'REQUEST_METHOD': 'POST',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '405 Method Not Allowed')
+        self.assertEqual(app.state, 'gave_challenge')
+
+        # When it's all good
+        app.state = 'ready'
+        environ = {
+            'wsgi.multithread': False,
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_S_DN_CN': peer_id,
+            'SSL_CLIENT_I_DN_CN': peer_id,
+            'PATH_INFO': '/challenge',
+            'REQUEST_METHOD': 'GET',
+        }
+        sr = StartResponse()
+        ret = app(environ, sr)
+        data = dumps({'challenge': encode(cr.challenge)}).encode('utf-8')
+        self.assertEqual(ret, [data])
+        self.assertEqual(sr.status, '200 OK')
+        self.assertEqual(sr.headers,
+            [
+                ('Content-Length', str(len(data))),
+                ('Content-Type', 'application/json'),   
+            ]
+        )
+        self.assertEqual(app.state, 'gave_challenge')
 
 
 class TestServerApp(TestCase):
