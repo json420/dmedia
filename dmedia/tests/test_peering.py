@@ -215,195 +215,6 @@ class TestSkeinFunctions(TestCase):
             )
 
 
-class TestSSLFunctions(TestCase):
-    def test_create_key(self):
-        tmp = TempDir()
-        key = tmp.join('key.pem')
-
-        # bits=1024
-        sizes = [883, 887, 891]
-        peering.create_key(key, bits=1024)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
-        os.remove(key)
-
-        # bits=2048 (default)
-        sizes = [1671, 1675, 1679]
-        peering.create_key(key)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
-        os.remove(key)
-
-        peering.create_key(key, bits=2048)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
-        os.remove(key)
-
-        # bits=3072
-        sizes = [2455, 2459]
-        peering.create_key(key, bits=3072)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
-
-    def test_create_ca(self):
-        tmp = TempDir()
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        peering.create_key(foo_key)
-        self.assertFalse(path.exists(foo_ca))
-        peering.create_ca(foo_key, '/CN=foo', foo_ca)
-        self.assertGreater(path.getsize(foo_ca), 0)
-
-    def test_create_csr(self):
-        tmp = TempDir()
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        peering.create_key(bar_key)
-        self.assertFalse(path.exists(bar_csr))
-        peering.create_csr(bar_key, '/CN=bar', bar_csr)
-        self.assertGreater(path.getsize(bar_csr), 0)
-
-    def test_issue_cert(self):
-        tmp = TempDir()
-
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        peering.create_ca(foo_key, '/CN=foo', foo_ca)
-
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        peering.create_csr(bar_key, '/CN=bar', bar_csr)
-
-        files = (foo_srl, bar_cert)
-        for f in files:
-            self.assertFalse(path.exists(f))
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-        for f in files:
-            self.assertGreater(path.getsize(f), 0)
-
-    def test_get_pubkey(self):
-        tmp = TempDir()
-
-        # Create CA
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        foo_pubkey = peering.get_rsa_pubkey(foo_key)
-        peering.create_ca(foo_key, '/CN=foo', foo_ca)
-
-        # Create CSR and issue cert
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        bar_pubkey = peering.get_rsa_pubkey(bar_key)
-        peering.create_csr(bar_key, '/CN=bar', bar_csr)
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-
-        # Now compare
-        os.remove(foo_key)
-        os.remove(bar_key)
-        self.assertEqual(peering.get_pubkey(foo_ca), foo_pubkey)
-        self.assertEqual(peering.get_csr_pubkey(bar_csr), bar_pubkey)
-        self.assertEqual(peering.get_pubkey(bar_cert), bar_pubkey)
-
-    def test_get_subject(self):
-        tmp = TempDir()
-
-        foo_subject = '/CN={}'.format(random_id(30))
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        peering.create_ca(foo_key, foo_subject, foo_ca)
-        self.assertEqual(peering.get_subject(foo_ca), foo_subject)
-
-        bar_subject = '/CN={}'.format(random_id(30))
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        peering.create_csr(bar_key, bar_subject, bar_csr)
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
-        self.assertEqual(peering.get_subject(bar_cert), bar_subject)
-
-    def test_get_csr_subject(self):
-        tmp = TempDir()
-        subject = '/CN={}'.format(random_id(30))
-        key_file = tmp.join('foo.key')
-        csr_file = tmp.join('foo.csr')
-        peering.create_key(key_file)
-        peering.create_csr(key_file, subject, csr_file)
-        os.remove(key_file)
-        self.assertEqual(peering.get_csr_subject(csr_file), subject)
-
-    def test_get_issuer(self):
-        tmp = TempDir()
-
-        foo_subject = '/CN={}'.format(random_id(30))
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        peering.create_ca(foo_key, foo_subject, foo_ca)
-        self.assertEqual(peering.get_issuer(foo_ca), foo_subject)
-
-        bar_subject = '/CN={}'.format(random_id(30))
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        peering.create_csr(bar_key, bar_subject, bar_csr)
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
-        self.assertEqual(peering.get_issuer(bar_cert), foo_subject)
-
-    def test_ssl_verify(self):
-        tmp = TempDir()
-        pki = peering.PKI(tmp.dir)
-
-        ca1 = pki.create_key()
-        pki.create_ca(ca1)
-        cert1 = pki.create_key()
-        pki.create_csr(cert1)
-        pki.issue_cert(cert1, ca1)
-        ca1_file = pki.path(ca1, 'ca')
-        cert1_file = pki.path(cert1, 'cert')
-        self.assertEqual(peering.ssl_verify(ca1_file, ca1_file), ca1_file)
-        self.assertEqual(peering.ssl_verify(cert1_file, ca1_file), cert1_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(ca1_file, cert1_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert1_file, cert1_file)
-
-        ca2 = pki.create_key()
-        pki.create_ca(ca2)
-        cert2 = pki.create_key()
-        pki.create_csr(cert2)
-        pki.issue_cert(cert2, ca2)
-        ca2_file = pki.path(ca2, 'ca')
-        cert2_file = pki.path(cert2, 'cert')
-        self.assertEqual(peering.ssl_verify(ca2_file, ca2_file), ca2_file)
-        self.assertEqual(peering.ssl_verify(cert2_file, ca2_file), cert2_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(ca2_file, cert2_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert2_file, cert2_file)
-
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(ca2_file, ca1_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert2_file, ca1_file)    
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert2_file, cert1_file)
-
-
 class TestChallengeResponse(TestCase):
     def test_init(self):
         id1 = random_id(30)
@@ -652,6 +463,196 @@ class TestChallengeResponse(TestCase):
             (nonce, response) = inst.create_response(challenge)
             with self.assertRaises(peering.WrongResponse) as cm:
                 inst.check_response(nonce, response)
+
+
+class TestSSLFunctions(TestCase):
+    def test_create_key(self):
+        tmp = TempDir()
+        key = tmp.join('key.pem')
+
+        # bits=1024
+        sizes = [883, 887, 891]
+        peering.create_key(key, bits=1024)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        # bits=2048 (default)
+        sizes = [1671, 1675, 1679]
+        peering.create_key(key)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        peering.create_key(key, bits=2048)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        # bits=3072
+        sizes = [2455, 2459]
+        peering.create_key(key, bits=3072)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+
+    def test_create_ca(self):
+        tmp = TempDir()
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        peering.create_key(foo_key)
+        self.assertFalse(path.exists(foo_ca))
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+        self.assertGreater(path.getsize(foo_ca), 0)
+
+    def test_create_csr(self):
+        tmp = TempDir()
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        peering.create_key(bar_key)
+        self.assertFalse(path.exists(bar_csr))
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+        self.assertGreater(path.getsize(bar_csr), 0)
+
+    def test_issue_cert(self):
+        tmp = TempDir()
+
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+
+        files = (foo_srl, bar_cert)
+        for f in files:
+            self.assertFalse(path.exists(f))
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        for f in files:
+            self.assertGreater(path.getsize(f), 0)
+
+    def test_get_pubkey(self):
+        tmp = TempDir()
+
+        # Create CA
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        foo_pubkey = peering.get_rsa_pubkey(foo_key)
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+
+        # Create CSR and issue cert
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        bar_pubkey = peering.get_rsa_pubkey(bar_key)
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+
+        # Now compare
+        os.remove(foo_key)
+        os.remove(bar_key)
+        self.assertEqual(peering.get_pubkey(foo_ca), foo_pubkey)
+        self.assertEqual(peering.get_csr_pubkey(bar_csr), bar_pubkey)
+        self.assertEqual(peering.get_pubkey(bar_cert), bar_pubkey)
+
+    def test_get_subject(self):
+        tmp = TempDir()
+
+        foo_subject = '/CN={}'.format(random_id(30))
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, foo_subject, foo_ca)
+        self.assertEqual(peering.get_subject(foo_ca), foo_subject)
+
+        bar_subject = '/CN={}'.format(random_id(30))
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, bar_subject, bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
+        self.assertEqual(peering.get_subject(bar_cert), bar_subject)
+
+    def test_get_csr_subject(self):
+        tmp = TempDir()
+        subject = '/CN={}'.format(random_id(30))
+        key_file = tmp.join('foo.key')
+        csr_file = tmp.join('foo.csr')
+        peering.create_key(key_file)
+        peering.create_csr(key_file, subject, csr_file)
+        os.remove(key_file)
+        self.assertEqual(peering.get_csr_subject(csr_file), subject)
+
+    def test_get_issuer(self):
+        tmp = TempDir()
+
+        foo_subject = '/CN={}'.format(random_id(30))
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, foo_subject, foo_ca)
+        self.assertEqual(peering.get_issuer(foo_ca), foo_subject)
+
+        bar_subject = '/CN={}'.format(random_id(30))
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, bar_subject, bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
+        self.assertEqual(peering.get_issuer(bar_cert), foo_subject)
+
+    def test_ssl_verify(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+
+        ca1 = pki.create_key()
+        pki.create_ca(ca1)
+        cert1 = pki.create_key()
+        pki.create_csr(cert1)
+        pki.issue_cert(cert1, ca1)
+        ca1_file = pki.path(ca1, 'ca')
+        cert1_file = pki.path(cert1, 'cert')
+        self.assertEqual(peering.ssl_verify(ca1_file, ca1_file), ca1_file)
+        self.assertEqual(peering.ssl_verify(cert1_file, ca1_file), cert1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca1_file, cert1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert1_file, cert1_file)
+
+        ca2 = pki.create_key()
+        pki.create_ca(ca2)
+        cert2 = pki.create_key()
+        pki.create_csr(cert2)
+        pki.issue_cert(cert2, ca2)
+        ca2_file = pki.path(ca2, 'ca')
+        cert2_file = pki.path(cert2, 'cert')
+        self.assertEqual(peering.ssl_verify(ca2_file, ca2_file), ca2_file)
+        self.assertEqual(peering.ssl_verify(cert2_file, ca2_file), cert2_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca2_file, cert2_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, cert2_file)
+
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca2_file, ca1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, ca1_file)    
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, cert1_file)
+
 
 
 class TestServerApp(TestCase):
