@@ -32,11 +32,110 @@ from queue import Queue
 
 import microfiber
 from microfiber import random_id, CouchBase
+from skein import skein512
 
 from .base import TempDir
 from dmedia.httpd import make_server
 from dmedia.peering import encode, decode
 from dmedia import peering
+
+
+class TestSkeinFunctions(TestCase):
+    def test_compute_csr_mac(self):
+        secret = os.urandom(5)
+        remote_hash = os.urandom(30)
+        local_hash = os.urandom(30)
+        csr_data = os.urandom(500)
+        mac = peering.compute_csr_mac(secret, csr_data, remote_hash, local_hash)
+        self.assertIsInstance(mac, str)
+        self.assertEqual(len(mac), 56)
+        skein = skein512(csr_data,
+            digest_bits=280,
+            pers=b'20120918 jderose@novacut.com dmedia/csr',
+            key=secret,
+            key_id=(remote_hash + local_hash),
+        )
+        self.assertEqual(
+            decode(mac),
+            skein.digest()
+        )
+
+        # Test with direction reversed
+        self.assertNotEqual(mac,
+            peering.compute_csr_mac(secret, csr_data, local_hash, remote_hash)
+        )
+
+        # Test with wrong secret
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(os.urandom(5), csr_data, remote_hash, local_hash)
+            )
+
+        # Test with wrong cert_data
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(secret, os.urandom(500), remote_hash, local_hash)
+            )
+
+        # Test with wrong remote_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(secret, csr_data, os.urandom(30), local_hash)
+            )
+
+        # Test with wrong local_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(secret, csr_data, remote_hash, os.urandom(30))
+            )
+
+    def test_compute_cert_mac(self):
+        secret = os.urandom(5)
+        remote_hash = os.urandom(30)
+        local_hash = os.urandom(30)
+        cert_data = os.urandom(500)
+        mac = peering.compute_cert_mac(secret, cert_data, remote_hash, local_hash)
+        self.assertIsInstance(mac, str)
+        self.assertEqual(len(mac), 56)
+        skein = skein512(cert_data,
+            digest_bits=280,
+            pers=b'20120918 jderose@novacut.com dmedia/cert',
+            key=secret,
+            key_id=(remote_hash + local_hash),
+        )
+        self.assertEqual(
+            decode(mac),
+            skein.digest()
+        )
+
+        # Test with direction reversed
+        self.assertNotEqual(mac,
+            peering.compute_cert_mac(secret, cert_data, local_hash, remote_hash)
+        )
+
+        # Test with wrong secret
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(os.urandom(5), cert_data, remote_hash, local_hash)
+            )
+
+        # Test with wrong cert_data
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(secret, os.urandom(500), remote_hash, local_hash)
+            )
+
+        # Test with wrong remote_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(secret, cert_data, os.urandom(30), local_hash)
+            )
+
+        # Test with wrong local_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(secret, cert_data, remote_hash, os.urandom(30))
+            )
 
 
 class TestSSLFunctions(TestCase):

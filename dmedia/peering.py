@@ -137,6 +137,8 @@ PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
 PERS_CSR = b'20120918 jderose@novacut.com dmedia/csr'
 PERS_CERT = b'20120918 jderose@novacut.com dmedia/cert'
 
+MAC_BITS = 280
+
 USER = os.environ.get('USER')
 HOST = socket.gethostname()
 
@@ -403,7 +405,7 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     assert len(challenger_hash) == 30
     assert len(responder_hash) == 30
     skein = skein512(
-        digest_bits=280,
+        digest_bits=MAC_BITS,
         pers=PERS_RESPONSE,
         key=secret,
         nonce=(challenge + nonce),
@@ -428,7 +430,7 @@ def compute_csr_mac(secret, csr_data, remote_hash, local_hash):
     assert len(remote_hash) == 30
     assert len(local_hash) == 30
     skein = skein512(csr_data,
-        digest_bits=280,
+        digest_bits=MAC_BITS,
         pers=PERS_CSR,
         key=secret,
         key_id=(remote_hash + local_hash),
@@ -451,7 +453,7 @@ def compute_cert_mac(secret, cert_data, remote_hash, local_hash):
     assert len(remote_hash) == 30
     assert len(local_hash) == 30
     skein = skein512(cert_data,
-        digest_bits=280,
+        digest_bits=MAC_BITS,
         pers=PERS_CERT,
         key=secret,
         key_id=(remote_hash + local_hash),
@@ -751,6 +753,15 @@ def ensuredir(d):
 
 
 def make_subject(cn):
+    """
+    Make an openssl certificate subject from the common name *cn*.
+
+    For example:
+
+    >>> make_subject('foo')
+    '/CN=foo'
+
+    """
     return '/CN={}'.format(cn)
 
 
