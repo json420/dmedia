@@ -30,8 +30,7 @@ from wsgiref.util import shift_path_info
 import logging
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
-import microfiber
-from microfiber import dumps
+from microfiber import dumps, basic_auth_header, CouchBase
 
 import dmedia
 from dmedia import __version__
@@ -226,33 +225,22 @@ class RootApp:
 
 
 class ProxyApp:
-    def __init__(self, env, debug=False):
-        self.debug = debug
-        self.client = microfiber.CouchBase(env)
+    def __init__(self, env):
+        self.client = CouchBase(env)
         self.target_host = self.client.ctx.t.netloc
-        self.basic_auth = microfiber.basic_auth_header(env['basic'])
+        self.basic_auth = basic_auth_header(env['basic'])
 
     def __call__(self, environ, start_response):
         (method, path, body, headers) = request_args(environ)
         db = shift_path_info(environ)
         if db and db.startswith('_'):
             raise WSGIError('403 Forbidden')
-        if self.debug:
-            print('')
-            print('{REQUEST_METHOD} {PATH_INFO}'.format(**environ))
-            for key in sorted(headers):
-                print('{}: {}'.format(key, headers[key]))
         headers['host'] = self.target_host
         headers['authorization'] = self.basic_auth
 
         response = self.client.raw_request(method, path, body, headers)
         status = '{} {}'.format(response.status, response.reason)
         headers = response.getheaders()
-        if self.debug:
-            print('-' * 80)
-            print(status)
-            for (key, value) in headers:
-                print('{}: {}'.format(key, value))
         start_response(status, headers)
         body = response.read()
         if body:
@@ -284,7 +272,7 @@ class FilesApp:
             start = 0
             stop = None
             status = '200 OK'
-            
+
         # '416 Requested Range Not Satisfiable'
 
         stop = (st.size if stop is None else min(st.size, stop))

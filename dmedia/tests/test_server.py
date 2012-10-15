@@ -132,6 +132,7 @@ class TestRootApp(TestCase):
             'user_id': user_id,
             'machine_id': machine_id,
             'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
         }
         app = server.RootApp(env)
         self.assertIs(app.user_id, user_id)
@@ -166,6 +167,7 @@ class TestRootApp(TestCase):
             'user_id': user_id,
             'machine_id': machine_id,
             'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
         }
         app = server.RootApp(env)
 
@@ -229,6 +231,22 @@ class TestRootApp(TestCase):
                 ('Content-Length', app.info_length),
                 ('Content-Type', 'application/json'),
             ]
+        )
+
+
+class TestProxyApp(TestCase):
+    def test_init(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = server.ProxyApp(deepcopy(env))
+        self.assertIsInstance(app.client, microfiber.CouchBase)
+        self.assertEqual(app.client.env, env)
+        self.assertEqual(app.target_host, '127.0.0.1:5984')
+        self.assertEqual(app.basic_auth,
+            microfiber.basic_auth_header(env['basic'])
         )
 
 
