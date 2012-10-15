@@ -183,6 +183,10 @@ class FileSlice:
 
 
 class RootApp:
+    """
+    Main Dmedia WSGI app.
+    """
+
     def __init__(self, env):
         self.user_id = env['user_id']
         obj = {

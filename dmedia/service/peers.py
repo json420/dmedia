@@ -48,7 +48,8 @@ from microfiber import random_id, dumps, build_ssl_context
 from dmedia.parallel import start_thread
 from dmedia.gtk.peering import BaseUI
 from dmedia.gtk.ubuntu import NotifyManager
-from dmedia.peering import ChallengeResponse, ServerApp, InfoApp, ClientApp
+from dmedia.peering import ChallengeResponse
+from dmedia.server import ServerApp, InfoApp, ClientApp
 from dmedia.httpd import WSGIError, make_server
 
 
