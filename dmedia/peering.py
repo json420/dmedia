@@ -20,94 +20,10 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Securely peer one device with another device on the same local network.
-
-We want it to be easy for a user to associate multiple devices with the same
-user CA. This is the local-network "user account" that works without any cloud
-infrastructure, without a Novacut account or any other 3rd-party account.
-
-To do the peering, the user needs both devices side-by-side.  One device is
-already associated with the user, and the other is the one to be associated.
-
-The existing device generates a random secret and displays it on the screen.
-The user then enter the secret on the second device, and each device does a
-challenge-response to make the other prove it has the same secret.
-
-In a nutshell:
-
-    1. A generates random ``nonce1`` to challenge B
-    2. B must respond with ``hash(secret + nonce1)``
-    3. B generates random ``nonce2`` to challenge A
-    4. A must respond with ``hash(secret + nonce2)``
-
-We only give the responder one try, and if it's wrong, the process starts over
-with a new secret.  If the user makes a typo, we don't let them try again to
-correctly type the initial secret... they must try and correctly type a new
-secret.
-
-Limiting the responder to only one attempt lets us to use a fairly low-entropy
-secret, something easy for the user to type.  And importantly, the secret
-is not susceptible to any "offline" attack, because there isn't an intrinsicly
-correct answer.
-
-For example, this would not be the case if we used the secret to encrypt a
-message and send it from one to another.  An attacker could run through the
-keyspace till (say) gpg stopped telling them the passphrase is wrong.
-
-
-
-Request 1:
-
-    GET /challenge
-
-Response 1:
-
-    {"challenge": ""}
-
-
-Request 2:
-
-    POST /response
-
-    {"nonce": "", "response": "", "counter_challenge": ""}
-
-Response 2:
-
-    {"nonce": "", "counter_response": ""} 
-
-
-
-1. A starts server, publishes _dmedia-offer._tcp under cert_a_id
-
-2. B downloads cert_a from A, if hash doesn't match cert_a_id, ABORT
-
-3. B prompts user about offer, if user declines, ABORT
-
-4. B starts server, publishes _dmedia-accept._tcp under cert_b_id
-
-5. A downloads cert_b from B, if hash doesn't match cert_b_id, ABORT
-
-6. A generates secret, displays to user, waits for request from B
-
-7. User enters secret on B
-
-8. B does GET /challenge to get challenge from A
-
-9. B does POST /response to post response and counter-challenge to A
-
-10. If response is wrong, A assumes user typo, RESTART at (6) with new secret
-
-11. A returns counter-response to B
-
-12. If counter-response is wrong, B ABORTS with scary warning
-
-13. DONE!
-    
-    
-
+Secure peering protocol, SSL-based machine and user identity.
 """
 
-import base64
+from base64 import b32encode, b32decode
 import os
 from os import path
 import stat
@@ -115,21 +31,11 @@ import tempfile
 import shutil
 from collections import namedtuple
 from subprocess import check_call, check_output
-import json
-import socket
 import logging
 
 from skein import skein512
-from microfiber import random_id, dumps
+from microfiber import random_id
 
-from dmedia.httpd import WSGIError
-
-
-DAYS = 365 * 10
-CA = namedtuple('CA', 'id ca_file')
-Cert = namedtuple('Cert', 'id cert_file key_file')
-Machine = namedtuple('Machine', 'id ca_file key_file cert_file')
-User = namedtuple('User', 'id ca_file key_file')
 
 # Skein personalization strings
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
@@ -138,9 +44,11 @@ PERS_CSR = b'20120918 jderose@novacut.com dmedia/csr'
 PERS_CERT = b'20120918 jderose@novacut.com dmedia/cert'
 
 MAC_BITS = 280
-
-USER = os.environ.get('USER')
-HOST = socket.gethostname()
+DAYS = 365 * 10
+CA = namedtuple('CA', 'id ca_file')
+Cert = namedtuple('Cert', 'id cert_file key_file')
+Machine = namedtuple('Machine', 'id ca_file key_file cert_file')
+User = namedtuple('User', 'id ca_file key_file')
 
 log = logging.getLogger()
 
@@ -201,7 +109,7 @@ def encode(value):
     """
     assert isinstance(value, bytes)
     assert len(value) > 0 and len(value) % 5 == 0
-    return base64.b32encode(value).decode('utf-8')
+    return b32encode(value).decode('utf-8')
 
 
 def decode(value):
@@ -216,7 +124,7 @@ def decode(value):
     """
     assert isinstance(value, str)
     assert len(value) > 0 and len(value) % 8 == 0
-    return base64.b32decode(value.encode('utf-8'))
+    return b32decode(value.encode('utf-8'))
 
 
 
@@ -606,187 +514,9 @@ def verify_cert(cert_file, cert_id, ca_file, ca_id):
     return filename
 
 
-class InfoApp:
-    def __init__(self, _id):
-        self.id = _id
-        obj = {
-            'id': _id,
-            'user': USER,
-            'host': HOST,
-        }
-        self.info = dumps(obj).encode('utf-8')
-        self.info_length = str(len(self.info))
 
-    def __call__(self, environ, start_response):
-        if environ['wsgi.multithread'] is not False:
-            raise WSGIError('500 Internal Server Error')
-        if environ['PATH_INFO'] != '/':
-            raise WSGIError('410 Gone')
-        if environ['REQUEST_METHOD'] != 'GET':
-            raise WSGIError('405 Method Not Allowed')
-        start_response('200 OK',
-            [
-                ('Content-Length', self.info_length),
-                ('Content-Type', 'application/json'),
-            ]
-        )
-        return [self.info]
-
-
-class ClientApp:
-    allowed_states = (
-        'ready',
-        'gave_challenge',
-        'in_response',
-        'wrong_response',
-        'response_ok',
-    )
-
-    forwarded_states = (
-        'wrong_response',
-        'response_ok',
-    )
-
-    def __init__(self, cr, queue):
-        assert isinstance(cr, ChallengeResponse)
-        self.cr = cr
-        self.queue = queue
-        self.__state = None
-        self.map = {
-            '/challenge': self.get_challenge,
-            '/response': self.put_response,
-        }
-
-    def get_state(self):
-        return self.__state
-
-    def set_state(self, state):
-        if state not in self.__class__.allowed_states:
-            self.__state = None
-            log.error('invalid state: %r', state)
-            raise Exception('invalid state: {!r}'.format(state))
-        self.__state = state
-        if state in self.__class__.forwarded_states:
-            self.queue.put(state)
-
-    state = property(get_state, set_state)
-
-    def __call__(self, environ, start_response):
-        if environ['wsgi.multithread'] is not False:
-            raise WSGIError('500 Internal Server Error')
-        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
-            raise WSGIError('403 Forbidden')
-        if environ.get('SSL_CLIENT_S_DN_CN') != self.cr.peer_id:
-            raise WSGIError('403 Forbidden')
-        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
-            raise WSGIError('403 Forbidden')
-
-        path_info = environ['PATH_INFO']
-        if path_info not in self.map:
-            raise WSGIError('410 Gone')
-        log.info('%s %s', environ['REQUEST_METHOD'], environ['PATH_INFO'])
-        try:
-            obj = self.map[path_info](environ)            
-            data = json.dumps(obj).encode('utf-8')
-            start_response('200 OK',
-                [
-                    ('Content-Length', str(len(data))),
-                    ('Content-Type', 'application/json'),
-                ]
-            )
-            return [data]
-        except WSGIError as e:
-            raise e
-        except Exception:
-            log.exception('500 Internal Server Error')
-            raise WSGIError('500 Internal Server Error')
-
-    def get_challenge(self, environ):
-        if self.state != 'ready':
-            raise WSGIError('400 Bad Request Order')
-        self.state = 'gave_challenge'
-        if environ['REQUEST_METHOD'] != 'GET':
-            raise WSGIError('405 Method Not Allowed')
-        return {
-            'challenge': self.cr.get_challenge(),
-        }
-
-    def put_response(self, environ):
-        if self.state != 'gave_challenge':
-            raise WSGIError('400 Bad Request Order')
-        self.state = 'in_response'
-        if environ['REQUEST_METHOD'] != 'PUT':
-            raise WSGIError('405 Method Not Allowed')
-        data = environ['wsgi.input'].read()
-        obj = json.loads(data.decode('utf-8'))
-        nonce = obj['nonce']
-        response = obj['response']
-        try:
-            self.cr.check_response(nonce, response)
-        except WrongResponse:
-            self.state = 'wrong_response'
-            raise WSGIError('401 Unauthorized')
-        self.state = 'response_ok'
-        return {'ok': True}
-
-
-class ServerApp(ClientApp):
-
-    allowed_states = (
-        'info',
-        'counter_response_ok',
-        'in_csr',
-        'bad_csr',
-        'cert_issued',
-    ) + ClientApp.allowed_states
-
-    forwarded_states = (
-        'bad_csr',
-        'cert_issued',
-    ) + ClientApp.forwarded_states
-
-    def __init__(self, cr, queue, pki):
-        super().__init__(cr, queue)
-        self.pki = pki
-        self.map['/'] = self.get_info
-        self.map['/csr'] = self.post_csr
-
-    def get_info(self, environ):
-        if self.state != 'info':
-            raise WSGIError('400 Bad Request State')
-        self.state = 'ready'
-        if environ['REQUEST_METHOD'] != 'GET':
-            raise WSGIError('405 Method Not Allowed')
-        return {
-            'id': self.cr.id,
-            'user': USER,
-            'host': HOST,
-        }
-
-    def post_csr(self, environ):
-        if self.state != 'counter_response_ok':
-            raise WSGIError('400 Bad Request Order')
-        self.state = 'in_csr'
-        if environ['REQUEST_METHOD'] != 'POST':
-            raise WSGIError('405 Method Not Allowed')
-        data = environ['wsgi.input'].read()
-        d = json.loads(data.decode('utf-8'))
-        csr_data = base64.b64decode(d['csr'].encode('utf-8'))
-        try:
-            self.cr.check_csr_mac(csr_data, d['mac'])
-            self.pki.write_csr(self.cr.peer_id, csr_data)
-            self.pki.issue_cert(self.cr.peer_id, self.cr.id)
-            cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
-        except Exception as e:
-            log.exception('could not issue cert')
-            self.state = 'bad_csr'
-            raise WSGIError('401 Unauthorized')       
-        self.state = 'cert_issued'
-        return {
-            'cert': base64.b64encode(cert_data).decode('utf-8'),
-            'mac': self.cr.cert_mac(cert_data),
-        }
-
+###########################
+# The PKI class and related
 
 def ensuredir(d):
     try:

@@ -20,28 +20,11 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-dmedia HTTP server.
-
-== Security Note ==
-
-To help prevent cross-site scripting attacks, the `HTTPError` raised for any
-invalid request should not include any data supplied in the request.
-
-It is helpful to include a meaningful bit a text in the response body, plus it
-allows us to test that an `HTTPError` is being raised because of the condition
-we expected it to be raised for.  But include only static messages.
-
-For example, this is okay:
-
->>> raise BadRequest('too many slashes in request path')  #doctest: +SKIP
-
-But this is not okay:
-
->>> raise BadRequest('bad path: {}'.format(environ['PATH_INFO']))  #doctest: +SKIP
-
+Dmedia WSGI applications.
 """
 
 import json
+import os
 import socket
 from wsgiref.util import shift_path_info
 import logging
@@ -50,8 +33,12 @@ from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 import microfiber
 
 from dmedia import __version__
-from dmedia.httpd import WSGIError, make_server
-from dmedia import local
+from dmedia.httpd import WSGIError, make_server 
+from dmedia import local, peering
+
+
+USER = os.environ.get('USER')
+HOST = socket.gethostname()
 
 
 HTTP_METHODS = ('PUT', 'POST', 'GET', 'DELETE', 'HEAD')
@@ -391,6 +378,198 @@ class ProxyApp:
         if body:
             return [body]
         return []
+
+
+class InfoApp:
+    """
+    WSGI app initially used by the client-end of the peering process.
+    """
+
+    def __init__(self, _id):
+        self.id = _id
+        obj = {
+            'id': _id,
+            'user': USER,
+            'host': HOST,
+        }
+        self.info = dumps(obj).encode('utf-8')
+        self.info_length = str(len(self.info))
+
+    def __call__(self, environ, start_response):
+        if environ['wsgi.multithread'] is not False:
+            raise WSGIError('500 Internal Server Error')
+        if environ['PATH_INFO'] != '/':
+            raise WSGIError('410 Gone')
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        start_response('200 OK',
+            [
+                ('Content-Length', self.info_length),
+                ('Content-Type', 'application/json'),
+            ]
+        )
+        return [self.info]
+
+
+class ClientApp:
+    """
+    WSGI app used by the client-end of the peering process.
+    """
+
+    allowed_states = (
+        'ready',
+        'gave_challenge',
+        'in_response',
+        'wrong_response',
+        'response_ok',
+    )
+
+    forwarded_states = (
+        'wrong_response',
+        'response_ok',
+    )
+
+    def __init__(self, cr, queue):
+        self.cr = cr
+        self.queue = queue
+        self.__state = None
+        self.map = {
+            '/challenge': self.get_challenge,
+            '/response': self.put_response,
+        }
+
+    def get_state(self):
+        return self.__state
+
+    def set_state(self, state):
+        if state not in self.__class__.allowed_states:
+            self.__state = None
+            log.error('invalid state: %r', state)
+            raise Exception('invalid state: {!r}'.format(state))
+        self.__state = state
+        if state in self.__class__.forwarded_states:
+            self.queue.put(state)
+
+    state = property(get_state, set_state)
+
+    def __call__(self, environ, start_response):
+        if environ['wsgi.multithread'] is not False:
+            raise WSGIError('500 Internal Server Error')
+        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+            raise WSGIError('403 Forbidden')
+        if environ.get('SSL_CLIENT_S_DN_CN') != self.cr.peer_id:
+            raise WSGIError('403 Forbidden')
+        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
+            raise WSGIError('403 Forbidden')
+
+        path_info = environ['PATH_INFO']
+        if path_info not in self.map:
+            raise WSGIError('410 Gone')
+        log.info('%s %s', environ['REQUEST_METHOD'], environ['PATH_INFO'])
+        try:
+            obj = self.map[path_info](environ)            
+            data = json.dumps(obj).encode('utf-8')
+            start_response('200 OK',
+                [
+                    ('Content-Length', str(len(data))),
+                    ('Content-Type', 'application/json'),
+                ]
+            )
+            return [data]
+        except WSGIError as e:
+            raise e
+        except Exception:
+            log.exception('500 Internal Server Error')
+            raise WSGIError('500 Internal Server Error')
+
+    def get_challenge(self, environ):
+        if self.state != 'ready':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'gave_challenge'
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        return {
+            'challenge': self.cr.get_challenge(),
+        }
+
+    def put_response(self, environ):
+        if self.state != 'gave_challenge':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'in_response'
+        if environ['REQUEST_METHOD'] != 'PUT':
+            raise WSGIError('405 Method Not Allowed')
+        data = environ['wsgi.input'].read()
+        obj = json.loads(data.decode('utf-8'))
+        nonce = obj['nonce']
+        response = obj['response']
+        try:
+            self.cr.check_response(nonce, response)
+        except peering.WrongResponse:
+            self.state = 'wrong_response'
+            raise WSGIError('401 Unauthorized')
+        self.state = 'response_ok'
+        return {'ok': True}
+
+
+class ServerApp(ClientApp):
+    """
+    WSGI app used by the server-end of the peering process.
+    """
+
+    allowed_states = (
+        'info',
+        'counter_response_ok',
+        'in_csr',
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.allowed_states
+
+    forwarded_states = (
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.forwarded_states
+
+    def __init__(self, cr, queue, pki):
+        super().__init__(cr, queue)
+        self.pki = pki
+        self.map['/'] = self.get_info
+        self.map['/csr'] = self.post_csr
+
+    def get_info(self, environ):
+        if self.state != 'info':
+            raise WSGIError('400 Bad Request State')
+        self.state = 'ready'
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        return {
+            'id': self.cr.id,
+            'user': USER,
+            'host': HOST,
+        }
+
+    def post_csr(self, environ):
+        if self.state != 'counter_response_ok':
+            raise WSGIError('400 Bad Request Order')
+        self.state = 'in_csr'
+        if environ['REQUEST_METHOD'] != 'POST':
+            raise WSGIError('405 Method Not Allowed')
+        data = environ['wsgi.input'].read()
+        d = json.loads(data.decode('utf-8'))
+        csr_data = base64.b64decode(d['csr'].encode('utf-8'))
+        try:
+            self.cr.check_csr_mac(csr_data, d['mac'])
+            self.pki.write_csr(self.cr.peer_id, csr_data)
+            self.pki.issue_cert(self.cr.peer_id, self.cr.id)
+            cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
+        except Exception as e:
+            log.exception('could not issue cert')
+            self.state = 'bad_csr'
+            raise WSGIError('401 Unauthorized')       
+        self.state = 'cert_issued'
+        return {
+            'cert': base64.b64encode(cert_data).decode('utf-8'),
+            'mac': self.cr.cert_mac(cert_data),
+        }
 
 
 def run_server(queue, couch_env, bind_address, ssl_config):

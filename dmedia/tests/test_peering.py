@@ -28,14 +28,11 @@ import os
 from os import path, urandom
 import subprocess
 import socket
-from queue import Queue
 
-import microfiber
-from microfiber import random_id, CouchBase
+from microfiber import random_id
 from skein import skein512
 
 from .base import TempDir
-from dmedia.httpd import make_server
 from dmedia.peering import encode, decode
 from dmedia import peering
 
@@ -652,136 +649,6 @@ class TestSSLFunctions(TestCase):
             peering.ssl_verify(cert2_file, ca1_file)    
         with self.assertRaises(peering.VerificationError) as cm:
             peering.ssl_verify(cert2_file, cert1_file)
-
-
-
-class TestServerApp(TestCase):
-    def test_live(self):
-        tmp = TempDir()
-        pki = peering.PKI(tmp.dir)
-        local_id = pki.create_key()
-        pki.create_ca(local_id)
-        remote_id = pki.create_key()
-        pki.create_ca(remote_id)
-        server_config = {
-            'cert_file': pki.path(local_id, 'ca'),
-            'key_file': pki.path(local_id, 'key'),
-            'ca_file': pki.path(remote_id, 'ca'),
-        }
-        client_config = {
-            'check_hostname': False,
-            'ca_file': pki.path(local_id, 'ca'),
-            'cert_file': pki.path(remote_id, 'ca'),
-            'key_file': pki.path(remote_id, 'key'),
-        }
-        local = peering.ChallengeResponse(local_id, remote_id)
-        remote = peering.ChallengeResponse(remote_id, local_id)
-        q = Queue()
-        app = peering.ServerApp(local, q, None)
-        server = make_server(app, '127.0.0.1', server_config)
-        client = CouchBase({'url': server.url, 'ssl': client_config})
-        server.start()
-        secret = local.get_secret()
-        remote.set_secret(secret)
-
-        self.assertIsNone(app.state)
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request State: GET /'
-        )
-        app.state = 'info'
-        self.assertEqual(client.get(),
-            {
-                'id': local_id,
-                'user': os.environ.get('USER'),
-                'host': socket.gethostname(),
-            }
-        )
-        self.assertEqual(app.state, 'ready')
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request State: GET /'
-        )
-        self.assertEqual(app.state, 'ready')
-
-        app.state = 'info'
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('challenge')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: GET /challenge'
-        )
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put({'hello': 'world'}, 'response')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: PUT /response'
-        )
-
-        app.state = 'ready'
-        self.assertEqual(app.state, 'ready')
-        obj = client.get('challenge')
-        self.assertEqual(app.state, 'gave_challenge')
-        self.assertIsInstance(obj, dict)
-        self.assertEqual(set(obj), set(['challenge']))
-        self.assertEqual(local.challenge, decode(obj['challenge']))
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('challenge')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: GET /challenge'
-        )
-        self.assertEqual(app.state, 'gave_challenge')
-
-        (nonce, response) = remote.create_response(obj['challenge'])
-        obj = {'nonce': nonce, 'response': response}
-        self.assertEqual(client.put(obj, 'response'), {'ok': True})
-        self.assertEqual(app.state, 'response_ok')
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put(obj, 'response')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: PUT /response'
-        )
-        self.assertEqual(app.state, 'response_ok')
-        self.assertEqual(q.get(), 'response_ok')
-
-        # Test when an error occurs in put_response()
-        app.state = 'gave_challenge'
-        with self.assertRaises(microfiber.ServerError) as cm:
-            client.put(b'bad json', 'response')
-        self.assertEqual(app.state, 'in_response')
-
-        # Test with wrong secret
-        app.state = 'ready'
-        secret = local.get_secret()
-        remote.get_secret()
-        challenge = client.get('challenge')['challenge']
-        self.assertEqual(app.state, 'gave_challenge')
-        (nonce, response) = remote.create_response(challenge)
-        with self.assertRaises(microfiber.Unauthorized) as cm:
-            client.put({'nonce': nonce, 'response': response}, 'response')
-        self.assertEqual(app.state, 'wrong_response')
-        self.assertFalse(hasattr(local, 'secret'))
-        self.assertFalse(hasattr(local, 'challenge'))
-
-        # Verify that you can't retry
-        remote.set_secret(secret)
-        (nonce, response) = remote.create_response(challenge)
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put({'nonce': nonce, 'response': response}, 'response')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: PUT /response'
-        )
-        self.assertEqual(app.state, 'wrong_response')
-        self.assertEqual(q.get(), 'wrong_response')
-
-        server.shutdown()
 
 
 class TestPKI(TestCase):
