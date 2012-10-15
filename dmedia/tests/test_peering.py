@@ -25,7 +25,7 @@ Unit tests for `dmedia.peering`.
 
 from unittest import TestCase
 import os
-from os import path
+from os import path, urandom
 import subprocess
 import socket
 from queue import Queue
@@ -41,6 +41,63 @@ from dmedia import peering
 
 
 class TestSkeinFunctions(TestCase):
+    def test_compute_response(self):
+        secret = urandom(5)
+        challenge = urandom(20)
+        nonce = urandom(20)
+        hash1 = urandom(30)
+        hash2 = urandom(30)
+        response = peering.compute_response(
+            secret, challenge, nonce, hash1, hash2
+        )
+        self.assertIsInstance(response, str)
+        self.assertEqual(len(response), 56)
+        skein = skein512(hash1 + hash2,
+            digest_bits=280,
+            pers=b'20120918 jderose@novacut.com dmedia/response',
+            key=secret,
+            nonce=(challenge + nonce),
+        )
+        self.assertEqual(
+            decode(response),
+            skein.digest()
+        )
+
+        # Test with direction reversed
+        self.assertNotEqual(response,
+            peering.compute_response(secret, challenge, nonce, hash2, hash1)
+        )
+
+        # Test with wrong secret
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(urandom(5), challenge, nonce, hash1, hash2)
+            )
+
+        # Test with wrong challange
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, urandom(20), nonce, hash1, hash2)
+            )
+
+        # Test with wrong nonce
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, challenge, urandom(20), hash1, hash2)
+            )
+
+        # Test with wrong challenger_hash
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, challenge, nonce, urandom(30), hash2)
+            )
+
+        # Test with wrong responder_hash
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, challenge, nonce, hash1, urandom(30))
+            )
+
     def test_compute_csr_mac(self):
         secret = os.urandom(5)
         remote_hash = os.urandom(30)
