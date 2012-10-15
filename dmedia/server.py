@@ -155,27 +155,27 @@ def range_to_slice(value):
     """
     unit = 'bytes='
     if not value.startswith(unit):
-        raise BadRangeRequest('bad range units')
+        raise WSGIError('400 Bad Range Units')
     value = value[len(unit):]
     if value.startswith('-'):
         try:
             return (int(value), None)
         except ValueError:
-            raise BadRangeRequest('range -start is not an integer')  
+            raise WSGIError('400 Bad Range Negative Start')  
     parts = value.split('-')
     if not len(parts) == 2:
-        raise BadRangeRequest('not formatted as bytes=start-end')
+        raise WSGIError('400 Bad Range Format')
     try:
         start = int(parts[0])
     except ValueError:
-        raise BadRangeRequest('range start is not an integer')
+        raise WSGIError('400 Bad Range Start')
     try:
         end = parts[1]
         stop = (int(end) + 1 if end else None)
     except ValueError:
-        raise BadRangeRequest('range end is not an integer')
+        raise WSGIError('400 Bad Range End')
     if not (stop is None or start < stop):
-        raise BadRangeRequest('range end must be less than or equal to start')
+        raise WSGIError('400 Bad Range')
     return (start, stop)
 
 
@@ -194,8 +194,7 @@ def slice_to_content_range(start, stop, length):
     'bytes 500-999/1234'
 
     """
-    assert 0 <= start < length
-    assert start < stop <= length
+    assert 0 <= start < stop <= length
     return 'bytes {}-{}/{}'.format(start, stop - 1, length)
 
 

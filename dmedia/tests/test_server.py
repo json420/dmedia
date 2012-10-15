@@ -38,7 +38,7 @@ from microfiber import random_id
 
 from .base import TempDir
 import dmedia
-from dmedia.httpd import make_server
+from dmedia.httpd import make_server, WSGIError
 from dmedia.peering import encode, decode
 from dmedia import server, client, peering
 
@@ -196,36 +196,33 @@ class TestFunctions(TestCase):
         self.assertEqual(cm.exception.body, b'start must be less than stop')
 
     def test_range_to_slice(self):
-        with self.assertRaises(server.BadRangeRequest) as cm:
+        with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('goats=0-500')
-        self.assertEqual(cm.exception.body, b'bad range units')
+        self.assertEqual(cm.exception.status, '400 Bad Range Units')
 
-        with self.assertRaises(server.BadRangeRequest) as cm:
+        with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('bytes=-500-999')
-        self.assertEqual(cm.exception.body, b'range -start is not an integer')
+        self.assertEqual(cm.exception.status, '400 Bad Range Negative Start')
 
-        with self.assertRaises(server.BadRangeRequest) as cm:
+        with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('bytes=-foo')
-        self.assertEqual(cm.exception.body, b'range -start is not an integer')
+        self.assertEqual(cm.exception.status, '400 Bad Range Negative Start')
 
-        with self.assertRaises(server.BadRangeRequest) as cm:
+        with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('bytes=500')
-        self.assertEqual(cm.exception.body, b'not formatted as bytes=start-end')
+        self.assertEqual(cm.exception.status, '400 Bad Range Format')
 
-        with self.assertRaises(server.BadRangeRequest) as cm:
+        with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('bytes=foo-999')
-        self.assertEqual(cm.exception.body, b'range start is not an integer')
+        self.assertEqual(cm.exception.status, '400 Bad Range Start')
 
-        with self.assertRaises(server.BadRangeRequest) as cm:
+        with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('bytes=500-bar')
-        self.assertEqual(cm.exception.body, b'range end is not an integer')
+        self.assertEqual(cm.exception.status, '400 Bad Range End')
 
-        with self.assertRaises(server.BadRangeRequest) as cm:
+        with self.assertRaises(WSGIError) as cm:
             (start, stop) = server.range_to_slice('bytes=500-499')
-        self.assertEqual(
-            cm.exception.body,
-            b'range end must be less than or equal to start'
-        )
+        self.assertEqual(cm.exception.status, '400 Bad Range')
 
         self.assertEqual(
             server.range_to_slice('bytes=0-0'), (0, 1)
