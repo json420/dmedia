@@ -328,6 +328,7 @@ def create_key(dst_file, bits=2048):
     Create an RSA keypair and save it to *dst_file*.
     """
     assert bits % 1024 == 0
+    assert bits >= 1024
     check_call(['openssl', 'genrsa',
         '-out', dst_file,
         str(bits)

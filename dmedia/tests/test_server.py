@@ -395,6 +395,37 @@ class TestRootApp(TestCase):
             self.assertEqual(s2.get(name2, doc['_id']), doc)
 
 
+class TestPeeringClientInfo(TestCase):
+    def test_init(self):
+        _id = random_id(30)
+        app = server.PeeringClientInfo(_id)
+        self.assertIs(app.id, _id)
+        self.assertEqual(
+            app.info,
+            microfiber.dumps(
+                {
+                    'id': _id,
+                    'version': dmedia.__version__,
+                    'user': os.environ.get('USER'),
+                    'host': socket.gethostname(),
+                }   
+            ).encode('utf-8')
+        )
+        self.assertEqual(app.info_length, str(int(len(app.info))))
+
+
+class TestPeeringClient(TestCase):
+    def test_init(self):
+        id1 = random_id(30)
+        id2 = random_id(30)
+        cr = peering.ChallengeResponse(id1, id2)
+        q = Queue()
+        app = server.PeeringClient(cr, q)
+        self.assertIs(app.cr, cr)
+        self.assertIs(app.queue, q)
+
+
+
 class TestServerApp(TestCase):
     def test_live(self):
         tmp = TempDir()

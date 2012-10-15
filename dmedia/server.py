@@ -32,6 +32,7 @@ import logging
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
 import microfiber
 
+import dmedia
 from dmedia import __version__
 from dmedia.httpd import WSGIError, make_server 
 from dmedia import local, peering
@@ -379,7 +380,7 @@ class ProxyApp:
         return []
 
 
-class InfoApp:
+class PeeringClientInfo:
     """
     WSGI app initially used by the client-end of the peering process.
     """
@@ -388,10 +389,11 @@ class InfoApp:
         self.id = _id
         obj = {
             'id': _id,
+            'version': dmedia.__version__,
             'user': USER,
             'host': HOST,
         }
-        self.info = dumps(obj).encode('utf-8')
+        self.info = microfiber.dumps(obj).encode('utf-8')
         self.info_length = str(len(self.info))
 
     def __call__(self, environ, start_response):
@@ -410,7 +412,7 @@ class InfoApp:
         return [self.info]
 
 
-class ClientApp:
+class PeeringClient:
     """
     WSGI app used by the client-end of the peering process.
     """
@@ -510,7 +512,7 @@ class ClientApp:
         return {'ok': True}
 
 
-class ServerApp(ClientApp):
+class ServerApp(PeeringClient):
     """
     WSGI app used by the server-end of the peering process.
     """
@@ -521,12 +523,12 @@ class ServerApp(ClientApp):
         'in_csr',
         'bad_csr',
         'cert_issued',
-    ) + ClientApp.allowed_states
+    ) + PeeringClient.allowed_states
 
     forwarded_states = (
         'bad_csr',
         'cert_issued',
-    ) + ClientApp.forwarded_states
+    ) + PeeringClient.forwarded_states
 
     def __init__(self, cr, queue, pki):
         super().__init__(cr, queue)
