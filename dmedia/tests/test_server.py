@@ -38,7 +38,7 @@ from microfiber import random_id, dumps
 
 from .base import TempDir
 import dmedia
-from dmedia.httpd import make_server, WSGIError
+from dmedia.httpd import make_server, WSGIError, Input
 from dmedia.peering import encode, decode
 from dmedia import server, client, peering
 
@@ -214,6 +214,15 @@ class TestRootApp(TestCase):
         with self.assertRaises(WSGIError) as cm:
             app(environ, None)
         self.assertEqual(cm.exception.status, '405 Method Not Allowed')
+        environ = {
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_I_DN_CN': user_id,
+            'PATH_INFO': '/files/' + random_id(30),
+            'REQUEST_METHOD': 'PUT',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '405 Method Not Allowed')
 
         # Test when it's all good
         environ = {
@@ -248,6 +257,24 @@ class TestProxyApp(TestCase):
         self.assertEqual(app.basic_auth,
             microfiber.basic_auth_header(env['basic'])
         )
+
+    def test_call(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = server.ProxyApp(env)
+
+        # PATH_INFO
+        environ = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/_config/foo',
+            'wsgi.input': Input(None, {'REQUEST_METHOD': 'GET'}),
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden')
 
 
 class TestInfoApp(TestCase):
