@@ -195,10 +195,12 @@ class RootApp:
         }
         self.info = dumps(obj).encode('utf-8')
         self.info_length = str(len(self.info))
+        self.proxy = ProxyApp(env)
+        self.files = FilesApp(env)
         self.map = {
             '': self.get_info,
-            'couch': ProxyApp(env),
-            'files': FilesApp(env),
+            'couch': self.proxy,
+            'files': self.files,
         }
 
     def __call__(self, environ, start_response):

@@ -123,123 +123,113 @@ class TestFunctions(TestCase):
             )
 
 
-class TempHTTPD:
-    def __init__(self, couch_env, ssl_config):
-        """
-        :param couch_env: env of the UserCouch we are the SSL frontend for.
-        :param ssl_config: dict containing server SSL config.
-        """
-        queue = multiprocessing.Queue()
-        self.process = multiprocessing.Process(
-            target=server.run_server,
-            args=(queue, couch_env, '::1', ssl_config),
+class TestRootApp(TestCase):
+    def test_init(self):
+        user_id = random_id(30)
+        machine_id = random_id(30)
+        password = random_id()
+        env = {
+            'user_id': user_id,
+            'machine_id': machine_id,
+            'basic': {'username': 'admin', 'password': password},
+        }
+        app = server.RootApp(env)
+        self.assertIs(app.user_id, user_id)
+        self.assertEqual(
+            app.info,
+            microfiber.dumps(
+                {
+                    'user_id': user_id,
+                    'machine_id': machine_id,
+                    'version': dmedia.__version__,
+                    'user': os.environ.get('USER'),
+                    'host': socket.gethostname(),
+                }   
+            ).encode('utf-8')
         )
-        self.process.daemon = True
-        self.process.start()
-        self.env = queue.get()
-        if isinstance(self.env, Exception):
-            raise self.env
-        self.port = self.env['port']
-
-    def __del__(self):
-        self.process.terminate()
-        self.process.join()
-
-
-class TestRootAppLive(TestCase):
-    def test_call(self):
-        couch = TempCouch()
-        couch_env = couch.bootstrap()
-        couch_env['user_id'] = random_id(30)
-        couch_env['machine_id'] = random_id(30)
-
-        # Test when client PKI isn't configured
-        pki = peering.TempPKI()
-        httpd = TempHTTPD(couch_env, pki.get_server_config())
-        env = deepcopy(httpd.env)
-        env['ssl'] = pki.get_client_config()
-        client = microfiber.CouchBase(env)
-        with self.assertRaises(microfiber.Forbidden) as cm:
-            client.get()
-        self.assertEqual(cm.exception.response.reason, 'Forbidden SSL')
-
-        # Test when cert issuer is wrong
-        pki = peering.TempPKI(True)
-        httpd = TempHTTPD(couch_env, pki.get_server_config())
-        env = deepcopy(httpd.env)
-        env['ssl'] = pki.get_client_config()
-        client = microfiber.CouchBase(env)
-        with self.assertRaises(microfiber.Forbidden) as cm:
-            client.get()
-        self.assertEqual(cm.exception.response.reason, 'Forbidden Issuer')
-
-        # Test when SSL config is correct, then test other aspects
-        pki = peering.TempPKI(True)
-        couch_env['user_id'] = pki.client_ca.id
-        couch_env['machine_id'] = pki.server.id
-        httpd = TempHTTPD(couch_env, pki.get_server_config())
-        env = deepcopy(httpd.env)
-        env['ssl'] = pki.get_client_config()
-        client = microfiber.CouchBase(env)
-        self.assertEqual(client.get(),
+        self.assertEqual(app.info_length, str(int(len(app.info))))
+        self.assertIsInstance(app.proxy, server.ProxyApp)
+        self.assertIsInstance(app.files, server.FilesApp)
+        self.assertEqual(app.map,
             {
-                'user_id': pki.client_ca.id,
-                'machine_id': pki.server.id,
-                'version': dmedia.__version__,
-                'user': os.environ.get('USER'),
-                'host': socket.gethostname(),
+                '': app.get_info,
+                'couch': app.proxy,
+                'files': app.files,
             }
         )
-        self.assertEqual(client.get('couch')['couchdb'], 'Welcome')
 
-        with self.assertRaises(microfiber.MethodNotAllowed) as cm:
-            client.put(None)
+    def test_call(self):
+        user_id = random_id(30)
+        machine_id = random_id(30)
+        password = random_id()
+        env = {
+            'user_id': user_id,
+            'machine_id': machine_id,
+            'basic': {'username': 'admin', 'password': password},
+        }
+        app = server.RootApp(env)
 
-        with self.assertRaises(microfiber.Gone) as cm:
-            client.get('foo')
+        # SSL_CLIENT_VERIFY
+        with self.assertRaises(WSGIError) as cm:
+            app({}, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden SSL')
+        with self.assertRaises(WSGIError) as cm:
+            app({'SSL_CLIENT_VERIFY': 'NOPE'}, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden SSL')
 
-        with self.assertRaises(microfiber.Forbidden) as cm:
-            client.get('couch', '_config')
+        # SSL_CLIENT_I_DN_CN
+        environ = {
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden Issuer')
+        environ = {
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_I_DN_CN': random_id(30),
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '403 Forbidden Issuer')
 
-    def test_replication(self):
-        """
-        Test push replication Couch1 => HTTPD => Couch2.
-        """
-        pki = peering.TempPKI(True)
-        config = {'replicator': pki.get_client_config()}
-        couch1 = TempCouch()
-        couch2 = TempCouch()
+        # PATH_INFO
+        environ = {
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_I_DN_CN': user_id,
+            'PATH_INFO': '/foo',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '410 Gone')
 
-        # couch1 needs the replication SSL config
-        env1 = couch1.bootstrap('basic', config)
-        s1 = microfiber.Server(env1)
+        # REQUEST_METHOD
+        environ = {
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_I_DN_CN': user_id,
+            'PATH_INFO': '/',
+            'REQUEST_METHOD': 'HEAD',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '405 Method Not Allowed')
 
-        # couch2 needs env['user_id']
-        env2 = couch2.bootstrap('basic', None)
-        env2['user_id'] = pki.client_ca.id
-        env2['machine_id'] = pki.server.id
-        s2 = microfiber.Server(env2)
-
-        # httpd is the SSL frontend for couch2
-        httpd = TempHTTPD(env2, pki.get_server_config())
-
-        # Create just the source DB, rely on create_target=True for remote
-        name1 = random_dbname()
-        name2 = random_dbname()
-        self.assertEqual(s1.put(None, name1), {'ok': True})
-
-        env = {'url': 'https://[::1]:{}/couch/'.format(httpd.port)}
-        result = s1.push(name1, name2, env, continuous=True, create_target=True)
-        self.assertEqual(set(result), set(['_local_id', 'ok']))
-        self.assertIs(result['ok'], True)
-
-        # Save docs in s1.name1, make sure they show up in s2.name2
-        docs = [{'_id': random_id()} for i in range(100)]
-        for doc in docs:
-            doc['_rev'] = s1.post(doc, name1)['rev']
-        time.sleep(0.5)
-        for doc in docs:
-            self.assertEqual(s2.get(name2, doc['_id']), doc)
+        # Test when it's all good
+        environ = {
+            'SSL_CLIENT_VERIFY': 'SUCCESS',
+            'SSL_CLIENT_I_DN_CN': user_id,
+            'PATH_INFO': '/',
+            'REQUEST_METHOD': 'GET',
+        }
+        sr = StartResponse()
+        ret = app(environ, sr)
+        self.assertEqual(ret, [app.info])
+        self.assertEqual(sr.status, '200 OK')
+        self.assertEqual(sr.headers,
+            [
+                ('Content-Length', app.info_length),
+                ('Content-Type', 'application/json'),
+            ]
+        )
 
 
 class TestInfoApp(TestCase):
@@ -290,6 +280,7 @@ class TestInfoApp(TestCase):
             app(environ, None)
         self.assertEqual(cm.exception.status, '405 Method Not Allowed')
 
+        # Test when it's all good
         environ = {
             'wsgi.multithread': False,
             'PATH_INFO': '/',
@@ -424,7 +415,7 @@ class TestClientApp(TestCase):
         self.assertEqual(cm.exception.status, '405 Method Not Allowed')
         self.assertEqual(app.state, 'gave_challenge')
 
-        # When it's all good
+        # Test when it's all good
         app.state = 'ready'
         environ = {
             'wsgi.multithread': False,
@@ -448,7 +439,130 @@ class TestClientApp(TestCase):
         self.assertEqual(app.state, 'gave_challenge')
 
 
-class TestServerApp(TestCase):
+
+####################################
+# Live test cases using Dmedia HTTPD
+
+class TempHTTPD:
+    def __init__(self, couch_env, ssl_config):
+        """
+        :param couch_env: env of the UserCouch we are the SSL frontend for.
+        :param ssl_config: dict containing server SSL config.
+        """
+        queue = multiprocessing.Queue()
+        self.process = multiprocessing.Process(
+            target=server.run_server,
+            args=(queue, couch_env, '::1', ssl_config),
+        )
+        self.process.daemon = True
+        self.process.start()
+        self.env = queue.get()
+        if isinstance(self.env, Exception):
+            raise self.env
+        self.port = self.env['port']
+
+    def __del__(self):
+        self.process.terminate()
+        self.process.join()
+
+
+class TestRootAppLive(TestCase):
+    def test_call(self):
+        couch = TempCouch()
+        couch_env = couch.bootstrap()
+        couch_env['user_id'] = random_id(30)
+        couch_env['machine_id'] = random_id(30)
+
+        # Test when client PKI isn't configured
+        pki = peering.TempPKI()
+        httpd = TempHTTPD(couch_env, pki.get_server_config())
+        env = deepcopy(httpd.env)
+        env['ssl'] = pki.get_client_config()
+        client = microfiber.CouchBase(env)
+        with self.assertRaises(microfiber.Forbidden) as cm:
+            client.get()
+        self.assertEqual(cm.exception.response.reason, 'Forbidden SSL')
+
+        # Test when cert issuer is wrong
+        pki = peering.TempPKI(True)
+        httpd = TempHTTPD(couch_env, pki.get_server_config())
+        env = deepcopy(httpd.env)
+        env['ssl'] = pki.get_client_config()
+        client = microfiber.CouchBase(env)
+        with self.assertRaises(microfiber.Forbidden) as cm:
+            client.get()
+        self.assertEqual(cm.exception.response.reason, 'Forbidden Issuer')
+
+        # Test when SSL config is correct, then test other aspects
+        pki = peering.TempPKI(True)
+        couch_env['user_id'] = pki.client_ca.id
+        couch_env['machine_id'] = pki.server.id
+        httpd = TempHTTPD(couch_env, pki.get_server_config())
+        env = deepcopy(httpd.env)
+        env['ssl'] = pki.get_client_config()
+        client = microfiber.CouchBase(env)
+        self.assertEqual(client.get(),
+            {
+                'user_id': pki.client_ca.id,
+                'machine_id': pki.server.id,
+                'version': dmedia.__version__,
+                'user': os.environ.get('USER'),
+                'host': socket.gethostname(),
+            }
+        )
+        self.assertEqual(client.get('couch')['couchdb'], 'Welcome')
+
+        with self.assertRaises(microfiber.MethodNotAllowed) as cm:
+            client.put(None)
+
+        with self.assertRaises(microfiber.Gone) as cm:
+            client.get('foo')
+
+        with self.assertRaises(microfiber.Forbidden) as cm:
+            client.get('couch', '_config')
+
+    def test_replication(self):
+        """
+        Test push replication Couch1 => HTTPD => Couch2.
+        """
+        pki = peering.TempPKI(True)
+        config = {'replicator': pki.get_client_config()}
+        couch1 = TempCouch()
+        couch2 = TempCouch()
+
+        # couch1 needs the replication SSL config
+        env1 = couch1.bootstrap('basic', config)
+        s1 = microfiber.Server(env1)
+
+        # couch2 needs env['user_id']
+        env2 = couch2.bootstrap('basic', None)
+        env2['user_id'] = pki.client_ca.id
+        env2['machine_id'] = pki.server.id
+        s2 = microfiber.Server(env2)
+
+        # httpd is the SSL frontend for couch2
+        httpd = TempHTTPD(env2, pki.get_server_config())
+
+        # Create just the source DB, rely on create_target=True for remote
+        name1 = random_dbname()
+        name2 = random_dbname()
+        self.assertEqual(s1.put(None, name1), {'ok': True})
+
+        env = {'url': 'https://[::1]:{}/couch/'.format(httpd.port)}
+        result = s1.push(name1, name2, env, continuous=True, create_target=True)
+        self.assertEqual(set(result), set(['_local_id', 'ok']))
+        self.assertIs(result['ok'], True)
+
+        # Save docs in s1.name1, make sure they show up in s2.name2
+        docs = [{'_id': random_id()} for i in range(100)]
+        for doc in docs:
+            doc['_rev'] = s1.post(doc, name1)['rev']
+        time.sleep(0.5)
+        for doc in docs:
+            self.assertEqual(s2.get(name2, doc['_id']), doc)
+
+
+class TestServerAppLive(TestCase):
     def test_live(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
