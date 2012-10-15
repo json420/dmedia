@@ -134,6 +134,8 @@ User = namedtuple('User', 'id ca_file key_file')
 # Skein personalization strings
 PERS_PUBKEY = b'20120918 jderose@novacut.com dmedia/pubkey'
 PERS_RESPONSE = b'20120918 jderose@novacut.com dmedia/response'
+PERS_CSR = b'20120918 jderose@novacut.com dmedia/csr'
+PERS_CERT = b'20120918 jderose@novacut.com dmedia/cert'
 
 USER = os.environ.get('USER')
 HOST = socket.gethostname()
@@ -382,17 +384,6 @@ def hash_pubkey(data):
     return encode(_hash_pubkey(data))
 
 
-def _hash_cert(cert_data):
-    return skein512(cert_data,
-        digest_bits=200,
-        pers=PERS_CERT,
-    ).digest()
-
-
-def hash_cert(cert_data):
-    return encode(_hash_cert(cert_data))
-
-
 def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     """
 
@@ -422,11 +413,64 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     return encode(skein.digest())
 
 
+def compute_csr_mac(secret, csr_data, remote_hash, local_hash):
+    """
+
+    :param secret: the shared secret
+
+    :param csr_data: PEM encoded certificate signing request
+
+    :param remote_hash: hash of remote peer's public key
+
+    :param local_hash: hash of local peer's public key
+    """
+    assert len(secret) == 5
+    assert len(remote_hash) == 30
+    assert len(local_hash) == 30
+    skein = skein512(csr_data,
+        digest_bits=280,
+        pers=PERS_CSR,
+        key=secret,
+        key_id=(remote_hash + local_hash),
+    )
+    return encode(skein.digest())
+
+
+def compute_cert_mac(secret, cert_data, remote_hash, local_hash):
+    """
+
+    :param secret: the shared secret
+
+    :param cert_data: PEM encoded certificate
+
+    :param remote_hash: hash of remote peer's public key
+
+    :param local_hash: hash of local peer's public key
+    """
+    assert len(secret) == 5
+    assert len(remote_hash) == 30
+    assert len(local_hash) == 30
+    skein = skein512(cert_data,
+        digest_bits=280,
+        pers=PERS_CERT,
+        key=secret,
+        key_id=(remote_hash + local_hash),
+    )
+    return encode(skein.digest())
+
+
 class WrongResponse(Exception):
     def __init__(self, expected, got):
         self.expected = expected
         self.got = got
         super().__init__('Incorrect response')
+
+
+class WrongMAC(Exception):
+    def __init__(self, expected, got):
+        self.expected = expected
+        self.got = got
+        super().__init__('Incorrect MAC')
 
 
 class ChallengeResponse:
@@ -475,6 +519,44 @@ class ChallengeResponse:
             del self.secret
             del self.challenge
             raise WrongResponse(expected, response)
+
+    def csr_mac(self, csr_data):
+        return compute_csr_mac(
+            self.secret,
+            csr_data,
+            self.remote_hash,
+            self.local_hash,
+        )
+
+    def check_csr_mac(self, csr_data, mac):
+        expected = compute_csr_mac(
+            self.secret,
+            csr_data,
+            self.local_hash,
+            self.remote_hash,
+        )
+        if mac != expected:
+            del self.secret
+            raise WrongMAC(expected, mac)
+
+    def cert_mac(self, cert_data):
+        return compute_cert_mac(
+            self.secret,
+            cert_data,
+            self.remote_hash,
+            self.local_hash,
+        )
+
+    def check_cert_mac(self, cert_data, mac):
+        expected = compute_cert_mac(
+            self.secret,
+            cert_data,
+            self.local_hash,
+            self.remote_hash,
+        )
+        if mac != expected:
+            del self.secret
+            raise WrongMAC(expected, mac)
 
 
 class InfoApp:
@@ -641,9 +723,10 @@ class ServerApp(ClientApp):
         if environ['REQUEST_METHOD'] != 'POST':
             raise WSGIError('405 Method Not Allowed')
         data = environ['wsgi.input'].read()
-        obj = json.loads(data.decode('utf-8'))
-        csr_data = base64.b64decode(obj['csr'].encode('utf-8'))
+        d = json.loads(data.decode('utf-8'))
+        csr_data = base64.b64decode(d['csr'].encode('utf-8'))
         try:
+            self.cr.check_csr_mac(csr_data, d['mac'])
             self.pki.write_csr(self.cr.peer_id, csr_data)
             self.pki.issue_cert(self.cr.peer_id, self.cr.id)
             cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
@@ -652,7 +735,10 @@ class ServerApp(ClientApp):
             self.state = 'bad_csr'
             raise WSGIError('401 Unauthorized')       
         self.state = 'cert_issued'
-        return {'cert': base64.b64encode(cert_data).decode('utf-8')}
+        return {
+            'cert': base64.b64encode(cert_data).decode('utf-8'),
+            'mac': self.cr.cert_mac(cert_data),
+        }
 
 
 def ensuredir(d):

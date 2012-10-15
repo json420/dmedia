@@ -639,9 +639,13 @@ class ClientSession:
         try:
             self.pki.create_csr(self.id)
             csr_data = self.pki.read_csr(self.id)
-            obj = {'csr': b64encode(csr_data).decode('utf-8')}
-            r = self.client.post(obj, 'csr')
-            cert_data = b64decode(r['cert'].encode('utf-8'))
+            obj = {
+                'csr': b64encode(csr_data).decode('utf-8'),
+                'mac': self.cr.csr_mac(csr_data),
+            }
+            d = self.client.post(obj, 'csr')
+            cert_data = b64decode(d['cert'].encode('utf-8'))
+            self.cr.check_cert_mac(cert_data, d['mac'])
             self.pki.write_cert(self.id, self.peer_id, cert_data)
             self.pki.verify_cert(self.id, self.peer_id)
             status = 'cert_issued'
