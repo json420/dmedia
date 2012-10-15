@@ -493,14 +493,14 @@ class TestClientApp(TestCase):
         # SSL_CLIENT_VERIFY
         with self.assertRaises(WSGIError) as cm:
             app({'wsgi.multithread': False}, None)
-        self.assertEqual(cm.exception.status, '403 Forbidden')
+        self.assertEqual(cm.exception.status, '403 Forbidden SSL')
         environ = {
             'wsgi.multithread': False,
             'SSL_CLIENT_VERIFY': 'NOPE',
         }
         with self.assertRaises(WSGIError) as cm:
             app(environ, None)
-        self.assertEqual(cm.exception.status, '403 Forbidden')
+        self.assertEqual(cm.exception.status, '403 Forbidden SSL')
 
         # SSL_CLIENT_S_DN_CN
         environ = {

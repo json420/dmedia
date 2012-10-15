@@ -381,6 +381,44 @@ class ProxyApp:
         return []
 
 
+class FilesApp(BaseWSGI):
+    def __init__(self, env):
+        self.local = local.LocalSlave(env)
+
+    def __call__(self, environ, start_response):
+        if environ['REQUEST_METHOD'] != 'GET':
+            raise WSGIError('405 Method Not Allowed')
+        _id = shift_path_info(environ)
+        if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
+            raise WSGIError('400 Bad Request ID')
+        try:
+            doc = self.local.get_doc(_id)
+            st = self.local.stat2(doc)
+            fp = open(st.name, 'rb')
+        except Exception:
+            raise WSGIError('404 Not Found')
+
+        if 'HTTP_RANGE' in environ:
+            (start, stop) = range_to_slice(environ['HTTP_RANGE'])                
+            status = '206 Partial Content'
+        else:
+            start = 0
+            stop = None
+            status = '200 OK'
+            
+        # '416 Requested Range Not Satisfiable'
+
+        stop = (st.size if stop is None else min(st.size, stop))
+        length = str(stop - start)
+        headers = [('Content-Length', length)]
+        if 'HTTP_RANGE' in environ:
+            headers.append(
+                ('Content-Range', slice_to_content_range(start, stop, st.size))
+            )
+        start_response(status, headers)
+        return FileSlice(fp, start, stop)
+
+
 class InfoApp:
     """
     WSGI app initially used by the client-end of the peering process.
@@ -458,7 +496,7 @@ class ClientApp:
         if environ['wsgi.multithread'] is not False:
             raise WSGIError('500 Internal Server Error')
         if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
-            raise WSGIError('403 Forbidden')
+            raise WSGIError('403 Forbidden SSL')
         if environ.get('SSL_CLIENT_S_DN_CN') != self.cr.peer_id:
             raise WSGIError('403 Forbidden Subject')
         if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
