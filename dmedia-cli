@@ -129,8 +129,8 @@ class LocalDmedia(_Method):
     'Get the _local/dmedia document (shows file-stores)'
 
 
-class LocalPeers(_Method):
-    'Get the _local/peers document'
+class Peers(_Method):
+    'Show local peers'
 
 
 class CreateFileStore(_Method):

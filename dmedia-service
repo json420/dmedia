@@ -110,8 +110,7 @@ class Service(dbus.service.Object):
         ssl_config = self.couch.get_ssl_config()
         (self.httpd, env) = start_httpd(self.core.env, ssl_config)
         port = env['port']
-        machine_id = self.core.env['machine_id']
-        self.avahi = Avahi(machine_id, port, ssl_config)
+        self.avahi = Avahi(self.core.env, port, ssl_config)
         self.avahi.run()
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self.couch)
@@ -286,12 +285,13 @@ class Service(dbus.service.Object):
         return dumps(self.core.db.get('_local/dmedia'))
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def LocalPeers(self):
+    def Peers(self):
         """
         Return the _local/peers doc.
         """
         try:
-            return dumps(self.core.db.get('_local/peers'))
+            doc = self.core.db.get('_local/peers')
+            return dumps(doc['peers'], pretty=True)
         except NotFound:
             return '{}'
 

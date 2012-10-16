@@ -48,26 +48,34 @@ def make_url(ip, port):
     elif PROTO == 1:
         return 'https://[{}]:{}/'.format(ip, port)
     raise Exception('bad PROTO')
-    
 
 
 class Avahi:
-    """
-    Base class to capture the messy Avahi DBus details.
-    """
 
     service = '_dmedia._tcp'
 
-    def __init__(self, _id, port, ssl_config):
+    def __init__(self, env, port, ssl_config):
         self.group = None
-        self.id = _id
+        self.machine_id = env['machine_id']
+        self.user_id = env['user_id']
         self.port = port
         self.ssl_config = ssl_config
+        ctx = Context(env)
+        self.db = Database('dmedia-0', ctx=ctx)
+        self.server = Server(ctx=ctx)
 
     def __del__(self):
         self.free()
 
     def run(self):
+        try:
+            self.peers = self.db.get(PEERS)
+            if self.peers.get('peers') != {}:
+                self.peers['peers'] = {}
+                self.db.save(self.peers)
+        except NotFound:
+            self.peers = {'_id': PEERS, 'peers': {}}
+            self.db.save(self.peers)
         system = dbus.SystemBus()
         self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.group = system.get_object(
@@ -76,12 +84,12 @@ class Avahi:
                 dbus_interface='org.freedesktop.Avahi.Server'
             )
         )
-        log.info('Avahi: advertising %s on port %s', self.id, self.port)
+        log.info('Avahi: advertising %s on port %s', self.machine_id, self.port)
         self.group.AddService(
             -1,  # Interface
             PROTO,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
-            self.id,
+            self.machine_id,
             self.service,
             '',  # Domain, default to .local
             '',  # Host, default to localhost
@@ -104,15 +112,19 @@ class Avahi:
 
     def free(self):
         if self.group is not None:
-            log.info('Avahi: freeing %s on port %s', self.id, self.port)
+            log.info('Avahi: freeing %s on port %s', self.machine_id, self.port)
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
             self.group = None
             del self.browser
             del self.avahi
 
+    def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
+        log.info('Avahi: peer removed: %s', key)
+        GObject.idle_add(self.remove_peer, key)
+
     def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
         # Ignore what we publish ourselves:
-        if key == self.id:
+        if key == self.machine_id:
             return
         self.avahi.ResolveService(
             # 2nd to last arg is Protocol, again for some reason
@@ -127,27 +139,34 @@ class Avahi:
         (ip, port) = args[7:9]
         url = make_url(ip, port)
         log.info('Avahi: new peer %s at %s', key, url)
-        start_thread(self.info_thread, url)
+        start_thread(self.info_thread, key, url)
 
     def on_error(self, exception):
         log.error('Avahi: error calling ResolveService(): %r', exception)
 
-    def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
-        log.info('Avahi: peer removed: %s', key)
-
-    def info_thread(self, url):
+    def info_thread(self, key, url):
         try:
             env = {'url': url, 'ssl': self.ssl_config}
             client = CouchBase(env)
             info = client.get()
+            assert info.pop('user_id') == self.user_id
+            assert info.pop('machine_id') == key
             info['url'] = url
             log.info('Avahi: got peer info: %s', dumps(info, pretty=True))
-            GObject.idle_add(self.on_info, info)
+            GObject.idle_add(self.add_peer, key, info)
         except Exception:
             log.exception('Avahi: could not get info for %s', url)
 
-    def on_info(self, info):
-        log.info('complete')
+    def add_peer(self, key, info):
+        self.peers['peers'][key] = info
+        self.db.save(self.peers)
+
+    def remove_peer(self, key):
+        try:
+            del self.peers['peers'][key]
+            self.db.save(self.peers)
+        except KeyError:
+            pass
         
 
 
