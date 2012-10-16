@@ -202,7 +202,7 @@ class AvahiPeer(GObject.GObject):
             raise Exception(
                 'Cannot activate {!r} from {!r}'.format(peer_id, self.state)
             )
-        log.info('Activated session with %r', self.peer)
+        log.info('Peering: activated session with %r', self.peer)
         assert self.state.state == 'activated'
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
@@ -216,7 +216,7 @@ class AvahiPeer(GObject.GObject):
             raise Exception(
                 'Cannot deactivate {!r} from {!r}'.format(peer_id, self.state)
             )
-        log.info('Deactivated session with %r', self.peer)
+        log.info('Peering: deactivated session with %r', self.peer)
         assert self.state.state == 'deactivated'
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
@@ -232,21 +232,21 @@ class AvahiPeer(GObject.GObject):
     def unbind(self, peer_id):
         retract = (self.state.state == 'verified')
         if not self.state.unbind(peer_id):
-            log.error('Cannot unbind %s from %r', peer_id, self.state)
+            log.error('Peering: cannot unbind %s from %r', peer_id, self.state)
             return
-        log.info('Unbound from %s', peer_id)
+        log.info('Peering: unbound from %s', peer_id)
         assert self.state.peer_id == peer_id
         assert self.state.state == 'unbound'
         if retract:
-            log.info("Firing 'retract' signal")
+            log.info("Peering: firing 'retract' signal")
             self.emit('retract')
         GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
 
     def on_timeout(self, peer_id):
         if not self.state.free(peer_id):
-            log.error('Cannot free %s from %r', peer_id, self.state)
+            log.error('Peering: cannot free %s from %r', peer_id, self.state)
             return
-        log.info('Rate-limiting timeout reached, freeing from %s', peer_id)
+        log.info('Peering: rate-limiting timeout reached, freeing from %s', peer_id)
         assert self.state.state == 'free'
         assert self.state.peer_id is None
         self.info = None
@@ -287,7 +287,7 @@ class AvahiPeer(GObject.GObject):
             )
         )
         log.info(
-            'Publishing %s for %r on port %s', self.id, service, port
+            'Peering: publishing %s for %r on port %s', self.id, service, port
         )
         self.group.AddService(
             -1,  # Interface
@@ -305,14 +305,14 @@ class AvahiPeer(GObject.GObject):
 
     def unpublish(self):
         if self.group is not None:
-            log.info('Un-publishing %s', self.id)
+            log.info('Peering: unpublishing %s', self.id)
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
             self.group = None
 
     def browse(self):
         verb = ('accept' if self.client_mode else 'offer')
         service = get_service(verb)
-        log.info('Browsing for %r', service)
+        log.info('Peering: browsing for %r', service)
         path = self.avahi.ServiceBrowserNew(
             -1,  # Interface
             PROTO,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
@@ -326,10 +326,10 @@ class AvahiPeer(GObject.GObject):
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
 
     def on_ItemNew(self, interface, protocol, peer_id, _type, domain, flags):
-        log.info('Peer added: %s', peer_id)
+        log.info('Peering: peer added: %s', peer_id)
         if not self.state.bind(str(peer_id)):
-            log.error('Cannot bind %s from %r', peer_id, self.state)
-            log.warning('Possible attack from %s', peer_id)
+            log.error('Peering: cannot bind %s from %r', peer_id, self.state)
+            log.warning('Peering: possible attack from %s', peer_id)
             return
         assert self.state.state == 'bound'
         assert self.state.peer_id == peer_id
