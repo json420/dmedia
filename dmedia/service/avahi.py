@@ -28,30 +28,49 @@ import json
 import time
 from collections import namedtuple
 
-from filestore import _start_thread
-from microfiber import Context, Server, Database, NotFound
+from microfiber import dumps, NotFound, Context, Server, Database
 import dbus
 from gi.repository import GObject
 
+from dmedia.parallel import start_thread
 from dmedia import util, views
 
 log = logging.getLogger()
-PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
 Peer = namedtuple('Peer', 'env names')
-PEERS = '_local/peers'
+PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
+PEERS_ID = '_local/peers'
+
+
+def make_url(ip, port):
+    if PROTO == 0:
+        return 'https://{}:{}/'.format(ip, port)
+    elif PROTO == 1:
+        return 'https://[{}]:{}/'.format(ip, port)
+    raise Exception('bad PROTO')
 
 
 class Avahi:
-    """
-    Base class to capture the messy Avahi DBus details.
-    """
 
-    service = '_example._tcp'
+    service = '_dmedia._tcp'
 
-    def __init__(self, _id, port):
+    def __init__(self, env, port, ssl_config):
         self.group = None
-        self.id = _id
+        self.machine_id = env['machine_id']
+        self.user_id = env['user_id']
         self.port = port
+        self.ssl_config = ssl_config
+        ctx = Context(env)
+        self.db = Database('dmedia-0', ctx=ctx)
+        self.server = Server(ctx=ctx)
+        self.replications = {}
+        try:
+            self.peers = self.db.get(PEERS_ID)
+            if self.peers.get('peers') != {}:
+                self.peers['peers'] = {}
+                self.db.save(self.peers)
+        except NotFound:
+            self.peers = {'_id': PEERS_ID, 'peers': {}}
+            self.db.save(self.peers)
 
     def __del__(self):
         self.free()
@@ -65,14 +84,12 @@ class Avahi:
                 dbus_interface='org.freedesktop.Avahi.Server'
             )
         )
-        log.info(
-            'Avahi(%s): advertising %s on port %s', self.service, self.id, self.port
-        )
+        log.info('Avahi: advertising %s on port %s', self.machine_id, self.port)
         self.group.AddService(
             -1,  # Interface
             PROTO,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
             0,  # Flags
-            self.id,
+            self.machine_id,
             self.service,
             '',  # Domain, default to .local
             '',  # Host, default to localhost
@@ -90,22 +107,25 @@ class Avahi:
             dbus_interface='org.freedesktop.Avahi.Server'
         )
         self.browser = system.get_object('org.freedesktop.Avahi', browser_path)
-        self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
+        self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
+        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
 
     def free(self):
         if self.group is not None:
-            log.info(
-                'Avahi(%s): freeing %s on port %s', self.service, self.id, self.port
-            )
+            log.info('Avahi: freeing %s on port %s', self.machine_id, self.port)
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
             self.group = None
             del self.browser
             del self.avahi
 
+    def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
+        log.info('Avahi: peer removed: %s', key)
+        GObject.idle_add(self.remove_peer, key)
+
     def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
         # Ignore what we publish ourselves:
-        if key == self.id:
+        if key == self.machine_id:
             return
         self.avahi.ResolveService(
             # 2nd to last arg is Protocol, again for some reason
@@ -118,57 +138,30 @@ class Avahi:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        url = 'https://{}:{}/'.format(ip, port)
-        log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
-        self.add_peer(key, url)
+        url = make_url(ip, port)
+        log.info('Avahi: new peer %s at %s', key, url)
+        start_thread(self.info_thread, key, url)
 
     def on_error(self, exception):
-        log.error('%s: error calling ResolveService(): %r', self.service, exception)
+        log.error('Avahi: error calling ResolveService(): %r', exception)
 
-    def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
-        log.info('Avahi(%s): peer removed: %s', self.service, key)
-        self.remove_peer(key)
-
-    def add_peer(self, key, url):
-        raise NotImplementedError(
-            '{}.add_peer()'.format(self.__class__.__name__)
-        )
-
-    def remove_peer(self, key):
-        raise NotImplementedError(
-            '{}.remove_peer()'.format(self.__class__.__name__)
-        )
-
-
-class FileServer(Avahi):
-    """
-    Advertise HTTP file server server over Avahi, discover other peers.
-    """
-    service = '_dmedia._tcp'
-
-    def __init__(self, env, port):
-        super().__init__(env['machine_id'], port)
-        ctx = Context(env)
-        self.db = Database('dmedia-0', ctx=ctx)
-        self.server = Server(ctx=ctx)
-        self.replications = {}
-
-    def run(self):
+    def info_thread(self, key, url):
         try:
-            self.peers = self.db.get(PEERS)
-            if self.peers.get('peers') != {}:
-                self.peers['peers'] = {}
-                self.db.save(self.peers)
-        except NotFound:
-            self.peers = {'_id': PEERS, 'peers': {}}
-            self.db.save(self.peers)
-        super().run()
-        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
+            env = {'url': url, 'ssl': self.ssl_config}
+            client = Server(env)
+            info = client.get()
+            assert info.pop('user_id') == self.user_id
+            assert info.pop('machine_id') == key
+            info['url'] = url
+            log.info('Avahi: got peer info: %s', dumps(info, pretty=True))
+            GObject.idle_add(self.add_peer, key, info)
+        except Exception:
+            log.exception('Avahi: could not get info for %s', url)
 
-    def add_peer(self, key, url):
-        self.peers['peers'][key] = url
+    def add_peer(self, key, info):
+        self.peers['peers'][key] = info
         self.db.save(self.peers)
-        self.add_replication_peer(key, url)
+        self.add_replication_peer(key, info['url'])
 
     def remove_peer(self, key):
         try:
@@ -177,6 +170,18 @@ class FileServer(Avahi):
         except KeyError:
             pass
         self.remove_replication_peer(key)
+
+    def add_replication_peer(self, key, url):
+        env = {'url': url + 'couch/'}
+        cancel = self.replications.pop(key, None)
+        start = Peer(env, list(self.get_names()))
+        self.replications[key] = start
+        start_thread(self.replication_worker, cancel, start)
+
+    def remove_replication_peer(self, key):
+        cancel = self.replications.pop(key, None)
+        if cancel:
+            start_thread(self.replication_worker, cancel, None)
 
     def on_timeout(self):
         if not self.replications:
@@ -188,20 +193,8 @@ class FileServer(Avahi):
                 log.info('New databases: %r', sorted(new))
                 tmp = Peer(peer.env, tuple(new))
                 peer.names.extend(new)
-                _start_thread(self.replication_worker, None, tmp)
+                start_thread(self.replication_worker, None, tmp)
         return True  # Repeat timeout call
-
-    def add_replication_peer(self, key, url):
-        env = {'url': url + 'couch/'}
-        cancel = self.replications.pop(key, None)
-        start = Peer(env, list(self.get_names()))
-        self.replications[key] = start
-        _start_thread(self.replication_worker, cancel, start)
-
-    def remove_replication_peer(self, key):
-        cancel = self.replications.pop(key, None)
-        if cancel:
-            _start_thread(self.replication_worker, cancel, None)
 
     def get_names(self):
         for name in self.server.get('_all_dbs'):
@@ -248,4 +241,4 @@ class FileServer(Avahi):
                 log.exception('Error canceling push of %s to %s', name, env['url'])
             else:
                 log.exception('Error starting push of %s to %s', name, env['url'])
-    
+

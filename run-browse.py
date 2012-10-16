@@ -130,7 +130,8 @@ class Session:
 class Browse:
     def __init__(self):
         self.couch = DmediaCouch(tempfile.mkdtemp())
-        self.couch.firstrun_init(create_user=True)
+        self.couch.create_machine()
+        self.couch.create_user()
         self.couch.load_pki()
         self.avahi = AvahiPeer(self.couch.pki)
         self.avahi.connect('offer', self.on_offer)

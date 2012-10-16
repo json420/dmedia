@@ -35,19 +35,28 @@ from collections import namedtuple
 import ssl
 import socket
 import threading
+from queue import Queue
+from base64 import b64encode, b64decode
+from gettext import gettext as _
 
 import dbus
-from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GObject
-from microfiber import _start_thread, random_id, CouchBase, dumps, build_ssl_context
+from gi.repository import GObject, Gtk, AppIndicator3
+from microfiber import Unauthorized, CouchBase
+from microfiber import random_id, dumps, build_ssl_context
+
+
+from dmedia.parallel import start_thread
+from dmedia.gtk.peering import BaseUI
+from dmedia.gtk.ubuntu import NotifyManager
+from dmedia.peering import ChallengeResponse
+from dmedia.server import ServerApp, InfoApp, ClientApp
+from dmedia.httpd import WSGIError, make_server
+
 
 PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
-GObject.threads_init()
-DBusGMainLoop(set_as_default=True)
-log = logging.getLogger()
-
 Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
+log = logging.getLogger()
 
 
 def get_service(verb):
@@ -175,9 +184,10 @@ class AvahiPeer(GObject.GObject):
         self.group = None
         self.pki = pki
         self.client_mode = client_mode
-        self.id = (pki.machine.id if client_mode else pki.user.id)
-        self.cert_file = pki.verify_ca(self.id)
-        self.key_file = pki.verify_key(self.id)
+        ca = (pki.machine if client_mode else pki.user)
+        self.id = ca.id
+        self.cert_file = ca.ca_file
+        self.key_file = ca.key_file
         self.state = State()
         self.peer = None
         self.info = None
@@ -192,7 +202,7 @@ class AvahiPeer(GObject.GObject):
             raise Exception(
                 'Cannot activate {!r} from {!r}'.format(peer_id, self.state)
             )
-        log.info('Activated session with %r', self.peer)
+        log.info('Peering: activated session with %r', self.peer)
         assert self.state.state == 'activated'
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
@@ -206,7 +216,7 @@ class AvahiPeer(GObject.GObject):
             raise Exception(
                 'Cannot deactivate {!r} from {!r}'.format(peer_id, self.state)
             )
-        log.info('Deactivated session with %r', self.peer)
+        log.info('Peering: deactivated session with %r', self.peer)
         assert self.state.state == 'deactivated'
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
@@ -222,21 +232,21 @@ class AvahiPeer(GObject.GObject):
     def unbind(self, peer_id):
         retract = (self.state.state == 'verified')
         if not self.state.unbind(peer_id):
-            log.error('Cannot unbind %s from %r', peer_id, self.state)
+            log.error('Peering: cannot unbind %s from %r', peer_id, self.state)
             return
-        log.info('Unbound from %s', peer_id)
+        log.info('Peering: unbound from %s', peer_id)
         assert self.state.peer_id == peer_id
         assert self.state.state == 'unbound'
         if retract:
-            log.info("Firing 'retract' signal")
+            log.info("Peering: firing 'retract' signal")
             self.emit('retract')
         GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
 
     def on_timeout(self, peer_id):
         if not self.state.free(peer_id):
-            log.error('Cannot free %s from %r', peer_id, self.state)
+            log.error('Peering: cannot free %s from %r', peer_id, self.state)
             return
-        log.info('Rate-limiting timeout reached, freeing from %s', peer_id)
+        log.info('Peering: rate-limiting timeout reached, freeing from %s', peer_id)
         assert self.state.state == 'free'
         assert self.state.peer_id is None
         self.info = None
@@ -277,7 +287,7 @@ class AvahiPeer(GObject.GObject):
             )
         )
         log.info(
-            'Publishing %s for %r on port %s', self.id, service, port
+            'Peering: publishing %s for %r on port %s', self.id, service, port
         )
         self.group.AddService(
             -1,  # Interface
@@ -295,14 +305,14 @@ class AvahiPeer(GObject.GObject):
 
     def unpublish(self):
         if self.group is not None:
-            log.info('Un-publishing %s', self.id)
+            log.info('Peering: unpublishing %s', self.id)
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
             self.group = None
 
     def browse(self):
         verb = ('accept' if self.client_mode else 'offer')
         service = get_service(verb)
-        log.info('Browsing for %r', service)
+        log.info('Peering: browsing for %r', service)
         path = self.avahi.ServiceBrowserNew(
             -1,  # Interface
             PROTO,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
@@ -316,10 +326,10 @@ class AvahiPeer(GObject.GObject):
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
 
     def on_ItemNew(self, interface, protocol, peer_id, _type, domain, flags):
-        log.info('Peer added: %s', peer_id)
+        log.info('Peering: peer added: %s', peer_id)
         if not self.state.bind(str(peer_id)):
-            log.error('Cannot bind %s from %r', peer_id, self.state)
-            log.warning('Possible attack from %s', peer_id)
+            log.error('Peering: cannot bind %s from %r', peer_id, self.state)
+            log.warning('Peering: possible attack from %s', peer_id)
             return
         assert self.state.state == 'bound'
         assert self.state.peer_id == peer_id
@@ -342,7 +352,7 @@ class AvahiPeer(GObject.GObject):
         (ip, port) = args[7:9]
         log.info('%s is at %s, port %s', peer_id, ip, port)
         self.peer = Peer(str(peer_id), str(ip), int(port))
-        _start_thread(self.cert_thread, self.peer)
+        start_thread(self.cert_thread, self.peer)
 
     def on_error(self, error):
         log.error(
@@ -417,3 +427,293 @@ class AvahiPeer(GObject.GObject):
         signal = ('accept' if self.client_mode else 'offer')
         log.info('Firing %r signal for %r', signal, info)
         self.emit(signal, info)
+
+
+class ServerUI(BaseUI):
+    page = 'server.html'
+
+    signals = {
+        'get_secret': [],
+        'display_secret': ['secret'],
+        'set_message': ['message'],
+        'done': [],
+    }
+
+    def __init__(self, cr):
+        super().__init__()
+        self.cr = cr
+
+    def connect_hub_signals(self, hub):
+        hub.connect('get_secret', self.on_get_secret)
+
+    def on_get_secret(self, hub):
+        secret = self.cr.get_secret()
+        hub.send('display_secret', secret)
+
+
+class ServerSession:
+    def __init__(self, pki, _id, peer, server_config, client_config):
+        self.pki = pki
+        self.peer_id = peer.id
+        self.peer = peer
+        self.cr = ChallengeResponse(_id, peer.id)
+        self.q = Queue()
+        start_thread(self.monitor_response)
+        self.app = ServerApp(self.cr, self.q, pki)
+        self.app.state = 'info'
+        self.httpd = make_server(self.app, '0.0.0.0', server_config)
+        env = {'url': peer.url, 'ssl': client_config}
+        self.client = CouchBase(env)
+        self.httpd.start()
+        self.ui = ServerUI(self.cr)
+
+    def monitor_response(self):
+        while True:
+            signal = self.q.get()
+            if signal == 'wrong_response':
+                GObject.idle_add(self.retry)
+            elif signal == 'response_ok':
+                GObject.timeout_add(500, self.on_response_ok)
+                break
+
+    def monitor_cert_request(self):
+        status = self.q.get()
+        if status != 'cert_issued':
+            log.error('Bad cert request from %r', self.peer)
+            log.warning('Possible malicious peer: %r', self.peer)
+        GObject.idle_add(self.on_cert_request, status)
+
+    def retry(self):
+        self.httpd.shutdown()
+        secret = self.cr.get_secret()
+        self.ui.hub.send('display_secret', secret)
+        self.ui.hub.send('set_message',
+            _('Typo? Please try again with new secret.')
+        )
+        self.app.state = 'ready'
+        self.httpd.start()
+
+    def on_response_ok(self):
+        assert self.app.state == 'response_ok'
+        self.ui.hub.send('set_message', _('Counter-Challenge...'))
+        start_thread(self.counter_challenge)
+
+    def counter_challenge(self):
+        log.info('Getting counter-challenge from %r', self.peer)
+        challenge = self.client.get('challenge')['challenge']
+        (nonce, response) = self.cr.create_response(challenge)
+        obj = {'nonce': nonce, 'response': response}
+        log.info('Posting counter-response to %r', self.peer)
+        try:
+            r = self.client.post(obj, 'response')
+            log.info('Counter-response accepted')
+            GObject.idle_add(self.on_counter_response_ok)
+        except Unauthorized:
+            log.error('Counter-response rejected!')
+            log.warning('Possible malicious peer: %r', self.peer)
+            GObject.idle_add(self.on_counter_response_fail)
+
+    def on_counter_response_ok(self):
+        assert self.app.state == 'response_ok'
+        self.app.state = 'counter_response_ok'
+        start_thread(self.monitor_cert_request)
+        self.ui.hub.send('set_message', _('Issuing Certificate...'))
+
+    def on_counter_response_fail(self):
+        self.ui.hub.send('set_message', _('Very Bad Things!'))
+
+    def on_cert_request(self, status):
+        if status == 'cert_issued':
+            self.ui.hub.send('set_message', _('Done!'))
+            GObject.timeout_add(250, self.ui.hub.send, 'done')
+        else:
+            self.ui.hub.send('set_message', _('Security Problems in CSR!'))
+            
+
+
+class Browser:
+    def __init__(self, couch):
+        self.couch = couch
+        self.avahi = AvahiPeer(couch.pki)
+        self.avahi.connect('offer', self.on_offer)
+        self.avahi.connect('retract', self.on_retract)
+        self.avahi.browse()
+        self.notifymanager = NotifyManager()
+        self.indicator = None
+        self.session = None
+
+    def free(self):
+        self.avahi.unpublish()
+
+    def on_offer(self, avahi, info):
+        assert self.indicator is None
+        self.indicator = AppIndicator3.Indicator.new(
+            'dmedia-peer',
+            'indicator-novacut',
+            AppIndicator3.IndicatorCategory.APPLICATION_STATUS
+        )
+        menu = Gtk.Menu()
+        accept = Gtk.MenuItem()
+        accept.set_label(_('Accept {}@{}').format(info.name, info.host))
+        accept.connect('activate', self.on_accept, info)
+        menu.append(accept)
+        menu.show_all()
+        self.indicator.set_menu(menu)
+        self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
+        self.notifymanager.replace(
+            _('Novacut Peering Offer'),
+            '{}@{}'.format(info.name, info.host),
+        )
+
+    def on_retract(self, avahi):
+        if self.indicator is not None:
+            self.indicator = None
+            self.notifymanager.replace(_('Peering Offer Removed'))
+
+    def on_accept(self, menuitem, info):
+        assert self.session is None
+        self.avahi.activate(info.id)
+        self.indicator = None
+        self.session = ServerSession(self.couch.pki, self.avahi.id, info,
+            self.avahi.get_server_config(),
+            self.avahi.get_client_config()
+        )
+        self.session.ui.window.connect('delete-event', self.on_delete_event)
+        self.session.ui.hub.connect('done', self.on_delete_event)
+        self.session.ui.window.show_all()
+        self.avahi.publish(self.session.httpd.port)
+
+    def on_delete_event(self, *args):
+        self.session.httpd.shutdown()
+        self.session.ui.window.destroy()
+        self.avahi.unpublish()
+        self.avahi.deactivate(self.session.peer_id)
+        self.session = None
+
+
+class Publisher:
+    def __init__(self, service, couch):
+        self.service = service
+        self.couch = couch
+        self.thread = None
+        self.avahi = None
+
+    def __del__(self):
+        self.free()
+
+    def free(self):
+        if self.avahi is not None:
+            self.avahi.unpublish()
+            self.avahi = None
+            del self.service
+            del self.couch
+
+    def run(self):
+        self.couch.load_pki()
+        self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
+        self.avahi.connect('accept', self.on_accept)
+        app = InfoApp(self.avahi.id)
+        self.httpd = make_server(app, '0.0.0.0',
+            self.avahi.get_server_config()
+        )
+        self.httpd.start()
+        self.avahi.browse()
+        self.avahi.publish(self.httpd.port)
+
+    def on_accept(self, avahi, peer):
+        log.info('Publisher.on_accept()')
+        self.avahi.activate(peer.id)
+        self.peer = peer
+        self.cr = ChallengeResponse(avahi.id, peer.id)
+        self.q = Queue()
+        self.app = ClientApp(self.cr, self.q)
+        # Reconfigure HTTPD to only accept connections from bound peer
+        self.httpd.reconfigure(self.app, avahi.get_server_config())
+        env = {'url': peer.url, 'ssl': avahi.get_client_config()}
+        self.client = CouchBase(env)
+        avahi.unpublish()
+        self.service.Accept()
+
+    def set_secret(self, secret):
+        if self.thread is not None:
+            return False
+        self.cr.set_secret(secret)
+        self.thread = start_thread(self.challenge)
+        self.service.Message(_('Challenge...'))
+        return True
+
+    def challenge(self):
+        log.info('Getting challenge from %r', self.peer)
+        challenge = self.client.get('challenge')['challenge']
+        (nonce, response) = self.cr.create_response(challenge)
+        obj = {'nonce': nonce, 'response': response}
+        log.info('Posting response to %r', self.peer)
+        try:
+            r = self.client.post(obj, 'response')
+            log.info('Response accepted')
+            success = True
+        except Unauthorized:
+            log.info('Response rejected')
+            success = False
+        GObject.idle_add(self.on_response, success)
+
+    def on_response(self, success):
+        self.thread.join()
+        self.thread = None
+        if success:
+            self.app.state = 'ready'
+            self.thread = start_thread(self.monitor_counter_response)
+            self.service.Message(_('Counter-Challenge...'))
+        else:
+            self.service.Message(_('Typo? Please try again with new secret.'))
+        self.service.Response(success)
+
+    def monitor_counter_response(self):
+        # FIXME: Should use a timeout with queue.get()
+        status = self.q.get()
+        log.info('Counter-response gave %r', status)
+        if status != 'response_ok':
+            log.error('Wrong counter-response!')
+            log.warning('Possible malicious peer: %r', self.peer)
+        GObject.timeout_add(500, self.on_counter_response, status)
+
+    def on_counter_response(self, status):
+        self.thread.join()
+        self.thread = None
+        assert self.app.state == status
+        if status == 'response_ok':
+            self.thread = start_thread(self.request_cert)
+            self.service.Message(_('Requesting Certificate...'))
+        else:
+            self.service.Message(_('Scary! Counter-Challenge Failed!'))
+
+    def request_cert(self):
+        log.info('Creating CSR')
+        success = False
+        try:
+            self.couch.pki.create_csr(self.cr.id)
+            csr_data = self.couch.pki.read_csr(self.cr.id)
+            obj = {
+                'csr': b64encode(csr_data).decode('utf-8'),
+                'mac': self.cr.csr_mac(csr_data),
+            }
+            d = self.client.post(obj, 'csr')
+            cert_data = b64decode(d['cert'].encode('utf-8'))
+            self.cr.check_cert_mac(cert_data, d['mac'])
+            self.couch.pki.write_cert(self.cr.id, self.cr.peer_id, cert_data)
+            self.couch.pki.verify_cert(self.cr.id, self.cr.peer_id)
+            key_data = b64decode(d['key'].encode('utf-8'))
+            self.couch.pki.write_key(self.cr.peer_id, key_data)
+            self.couch.pki.verify_key(self.cr.peer_id)
+            success = True
+        except Exception as e:
+            log.exception('Could not request cert')
+        GObject.idle_add(self.on_csr_response, success)
+
+    def on_csr_response(self, success):
+        self.thread.join()
+        self.thread = None
+        if success:
+            self.service.set_user(self.cr.peer_id)
+        else:
+            self.service.Message(_('Scary! Certificate Request Failed!'))

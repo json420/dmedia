@@ -1,9 +1,11 @@
 from os import path
 import json
+import logging
 
 from gi.repository import GObject, Gtk, WebKit
 
 
+log = logging.getLogger()
 ui = path.join(path.dirname(path.abspath(__file__)), 'ui')
 assert path.isdir(ui)
 
@@ -61,19 +63,12 @@ class BaseUI:
         self.hub = hub_factory(self.signals)(self.view)
         self.connect_hub_signals(self.hub)
 
-    def show(self):
-        self.window.show_all()
-
-    def run(self):
-        self.window.connect('destroy', self.quit)
-        self.window.show_all()
-        Gtk.main()
-
-    def quit(self, *args):
-        Gtk.main_quit()
-
     def connect_hub_signals(self, hub):
         pass
+
+    def run(self):
+        self.window.show_all()
+        Gtk.main()
 
     def build_window(self):
         self.window = Gtk.Window()
@@ -98,3 +93,65 @@ class BaseUI:
         self.inspector.show_all()
         return self.inspector
 
+
+class ClientUI(BaseUI):
+    page = 'client.html'
+    title = 'Welcome to Novacut!'
+
+    signals = {
+        'create_user': [],
+        'peer_with_existing': [],
+        'have_secret': ['secret'],
+
+        'response': ['success'],
+        'message': ['message'],
+
+        'show_screen2a': [],
+        'show_screen2b': [],
+        'show_screen3b': [],
+        'spin_orb': [],
+    }
+
+    def __init__(self, Dmedia):
+        super().__init__()
+        self.Dmedia = Dmedia
+        self.quit = False
+        Dmedia.connect_to_signal('Message', self.on_Message)
+        Dmedia.connect_to_signal('Accept', self.on_Accept)
+        Dmedia.connect_to_signal('Response', self.on_Response)
+        Dmedia.connect_to_signal('InitDone', self.on_InitDone)
+        self.window.connect('destroy', Gtk.main_quit)
+        self.window.connect('delete-event', self.on_delete_event)
+
+    def on_delete_event(self, *args):
+        self.quit = True
+
+    def connect_hub_signals(self, hub):
+        hub.connect('create_user', self.on_create_user)
+        hub.connect('peer_with_existing', self.on_peer_with_existing)
+        hub.connect('have_secret', self.on_have_secret)
+
+    def on_Message(self, message):
+        self.hub.send('message', message)
+
+    def on_Accept(self):
+        self.hub.send('show_screen3b')
+
+    def on_Response(self, success):
+        self.hub.send('response', success)
+        if success:
+            GObject.timeout_add(200, self.hub.send, 'spin_orb')
+
+    def on_InitDone(self):
+        self.window.destroy()
+
+    def on_create_user(self, hub):
+        self.Dmedia.CreateUser()
+        hub.send('show_screen2a')
+
+    def on_peer_with_existing(self, hub):
+        self.Dmedia.PeerWithExisting()
+        hub.send('show_screen2b')
+
+    def on_have_secret(self, hub, secret):
+        self.Dmedia.SetSecret(secret)

@@ -79,29 +79,6 @@ def create_doc(_id, doc_type):
     }
 
 
-def get_ssl_config(pki):
-    assert isinstance(pki, PKI)
-    if pki.user is None:
-        return None
-    return {
-        'check_hostname': False,
-        'max_depth': 1,
-        'ca_file': pki.user.ca_file,
-        'cert_file': pki.machine.cert_file,
-        'key_file': pki.machine.key_file,
-    }
-
-
-def get_bootstrap_config(pki):
-    assert isinstance(pki, PKI)
-    if pki.user is None:
-        return {'username': 'admin'}
-    return {
-        'username': 'admin',
-        'replicator': get_ssl_config(pki),
-    }
-
-
 class DmediaCouch(UserCouch):
     def __init__(self, basedir):
         super().__init__(basedir)
@@ -116,44 +93,67 @@ class DmediaCouch(UserCouch):
         save_config(path.join(self.basedir, name + '.json'), config)
 
     def isfirstrun(self):
-        return self.machine is None
+        return self.user is None
 
-    def firstrun_init(self, create_user=False):
-        if not self.isfirstrun():
-            raise Exception('not first run, cannot call firstrun_init()')
+    def create_machine(self):
+        if self.machine is not None:
+            raise Exception('machine already exists')
         log.info('Creating RSA machine identity...')
         machine_id = self.pki.create_key()
         log.info('... machine_id: %s', machine_id)
         self.pki.create_ca(machine_id)
-        if create_user:
-            if self.user is None:
-                log.info('Creating RSA user identity...')
-                user_id = self.pki.create_key()
-                log.info('... user_id: %s', user_id)
-                self.pki.create_ca(user_id)
-                doc = create_doc(user_id, 'dmedia/user')
-                self.save_config('user', doc)
-                self.user = self.load_config('user')
-            else:
-                user_id = self.user['_id']
-            self.pki.create_csr(machine_id)
-            self.pki.issue_cert(machine_id, user_id)
         doc = create_doc(machine_id, 'dmedia/machine')
         self.save_config('machine', doc)
         self.machine = self.load_config('machine')
+        return machine_id
+
+    def create_user(self):
+        if self.machine is None:
+            raise Exception('must create machine first')
+        if self.user is not None:
+            raise Exception('user already exists')
+        log.info('Creating RSA user identity...')
+        user_id = self.pki.create_key()
+        log.info('... user_id: %s', user_id)
+        self.pki.create_ca(user_id)
+        self.pki.create_csr(self.machine['_id'])
+        self.pki.issue_cert(self.machine['_id'], user_id)
+        doc = create_doc(user_id, 'dmedia/user')
+        self.save_config('user', doc)
+        self.user = self.load_config('user')
+        return user_id
+
+    def set_user(self, user_id):
+        log.info('... user_id: %s', user_id)
+        doc = create_doc(user_id, 'dmedia/user')
+        self.save_config('user', doc)
+        self.user = self.load_config('user')
 
     def load_pki(self):
-        if self.machine is None:
-            return
         if self.user is None:
             self.pki.load_pki(self.machine['_id'])
         else:
             self.pki.load_pki(self.machine['_id'], self.user['_id'])
 
+    def get_ssl_config(self):
+        return {
+            'check_hostname': False,
+            'max_depth': 1,
+            'ca_file': self.pki.user.ca_file,
+            'cert_file': self.pki.machine.cert_file,
+            'key_file': self.pki.machine.key_file,
+        }
+
+    def get_bootstrap_config(self):
+        return {
+            'username': 'admin',
+            'replicator': self.get_ssl_config(),
+        }
+
     def auto_bootstrap(self):
+        assert self.user is not None
+        assert self.machine is not None
         self.load_pki()
-        config = get_bootstrap_config(self.pki)
+        config = self.get_bootstrap_config()
         return self.bootstrap('basic', config)
 
-    def get_ssl_config(self):
-        return get_ssl_config(self.pki)

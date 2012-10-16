@@ -41,9 +41,10 @@ from subprocess import check_call, CalledProcessError
 from copy import deepcopy
 
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict
-from filestore import FileStore, check_root_hash, check_id, _start_thread
+from filestore import FileStore, check_root_hash, check_id
 
 import dmedia
+from dmedia.parallel import start_thread, start_process
 from dmedia.server import run_server
 from dmedia import util, schema
 from dmedia.metastore import MetaStore
@@ -54,13 +55,6 @@ log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
 SHARED = '/home'
 PRIVATE = path.abspath(os.environ['HOME'])
-
-
-def start_process(target, *args):
-    process = multiprocessing.Process(target=target, args=args)
-    process.daemon = True
-    process.start()
-    return process
 
 
 def start_httpd(couch_env, ssl_config):
@@ -138,22 +132,17 @@ class Core:
             self.db.save(self.local)
             self.__local = deepcopy(self.local)
 
-    def load_identity(self, machine, user=None):
+    def load_identity(self, machine, user):
         try:
-            self.db.save(machine)
-        except Conflict:
+            self.db.save_many([machine, user])
+        except BulkConflict:
             pass
-        self.local['machine_id'] = machine['_id']
-        self.env['machine_id'] = machine['_id']
         log.info('machine_id = %s', machine['_id'])
-        if user is not None:
-            try:
-                self.db.save(user)
-            except Conflict:
-                pass
-            self.local['user_id'] = user['_id']
-            self.env['user_id'] = user['_id']
-            log.info('user_id = %s', user['_id'])
+        log.info('user_id = %s', user['_id'])
+        self.env['machine_id'] = machine['_id']
+        self.env['user_id'] = user['_id']
+        self.local['machine_id'] = machine['_id']
+        self.local['user_id'] = user['_id']
         self.save_local()
 
     def init_default_store(self):
@@ -175,10 +164,8 @@ class Core:
         self._add_filestore(fs, doc)
 
     def _sync_stores(self):
-        stores = self.stores.local_stores()
-        if self.local.get('stores') != stores:
-            self.local['stores'] = stores
-            self.db.save(self.local)
+        self.local['stores'] = self.stores.local_stores()
+        self.save_local()
 
     def _add_filestore(self, fs, doc):
         self.stores.add(fs)
@@ -211,7 +198,7 @@ class Core:
 
     def start_background_tasks(self):
         assert self.thread is None
-        self.thread = _start_thread(self._background_worker)
+        self.thread = start_thread(self._background_worker)
 
     def init_project_views(self):
         try:

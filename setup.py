@@ -140,6 +140,7 @@ setup(
     license='AGPLv3+',
     cmdclass={'test': Test},
     packages=['dmedia', 'dmedia.service', 'dmedia.gtk'],
+    package_data={'dmedia.gtk': ['ui/*']},
     scripts=[
         'dmedia-gtk',
         'dmedia-browser',

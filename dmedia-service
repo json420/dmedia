@@ -37,13 +37,14 @@ import dbus.service
 from dbus.mainloop.glib import DBusGMainLoop
 from gi.repository import GObject
 from microfiber import NotFound, dumps
-from filestore import _start_thread
 
 import dmedia
+from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
-from dmedia.service.avahi import FileServer
+from dmedia.service.avahi import Avahi
+from dmedia.service.peers import Browser, Publisher
 
 
 BUS = dmedia.BUS
@@ -66,6 +67,11 @@ class Service(dbus.service.Object):
     couch = None
     httpd = None
     avahi = None
+    peer = None
+    ui = None
+    thread = None
+    publisher = None
+    env_s = '{}'
 
     def __init__(self, bus, couch):
         self.bus = bus
@@ -80,6 +86,13 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_added', self.on_card_added)
         self.udisks.connect('card_removed', self.on_card_removed)
 
+    def run(self):
+        if self.couch.isfirstrun():
+            log.info('First run, not starting CouchDB.')
+        else:
+            self.start_core()
+        mainloop.run()
+
     def start_core(self):
         start = time.time()
         env = self.couch.auto_bootstrap()
@@ -91,36 +104,33 @@ class Service(dbus.service.Object):
         if self.core.local.get('default_store') is None:
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
-        self.ssl_config = self.couch.get_ssl_config()
+        log.info('Finished core startup in %.3f', time.time() - start)
+        GObject.timeout_add(1000, self.on_idle1)
 
     def start_httpd(self):
-        if self.ssl_config is None:
-            return
-        (self.httpd, env) = start_httpd(self.core.env, self.ssl_config)
-        self.avahi = FileServer(self.core.env, env['port'])
+        ssl_config = self.couch.get_ssl_config()
+        (self.httpd, env) = start_httpd(self.core.env, ssl_config)
+        port = env['port']
+        self.avahi = Avahi(self.core.env, port, ssl_config)
         self.avahi.run()
-
-    def run(self):
-        self.start_core()
-        log.info('Finished core startup in %.3f', time.time() - start_time)
-        GObject.timeout_add(2000, self.on_idle1)
-        mainloop.run()
+        if self.couch.pki.user.key_file is not None:
+            self.peer = Browser(self.couch)
 
     def on_idle1(self):
         log.info('[idle1]')
         self.udisks.monitor()
-        GObject.timeout_add(4000, self.on_idle2)
+        GObject.timeout_add(1000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
         log.info('[idle2]')
         self.start_httpd()
-        GObject.timeout_add(6000, self.on_idle3)
+        GObject.timeout_add(1000, self.on_idle3)
         return False  # Don't repeat idle call
 
     def on_idle3(self):
         log.info('[idle3]')
-        _start_thread(self.core.init_project_views)
+        start_thread(self.core.init_project_views)
         self.core.start_background_tasks()
         return False  # Don't repeat idle call
 
@@ -130,6 +140,10 @@ class Service(dbus.service.Object):
 
     def shutdown(self):
         log.info('Service.shutdown()')
+        if self.peer is not None:
+            log.info('* freeing peer')
+            self.peer.free()
+            self.peer = None
         if self.avahi is not None:
             log.info('* freeing avahi')
             self.avahi.free()
@@ -170,12 +184,88 @@ class Service(dbus.service.Object):
     def CardRemoved(self, obj, mount):
         pass
 
+    @dbus.service.signal(IFACE, signature='s')
+    def Message(self, message):
+        log.info('@Dmedia.Message(%r)', message)
+
+    @dbus.service.signal(IFACE, signature='')
+    def Accept(self):
+        log.info('@Dmedia.Accept()')
+
+    @dbus.service.signal(IFACE, signature='b')
+    def Response(self, success):
+        log.info('@Dmedia.Response(%r)', success)
+
+    @dbus.service.signal(IFACE, signature='')
+    def InitDone(self):
+        log.info('@Dmedia.InitDone()')
+
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
         """
         Return dmedia version.
         """
         return dmedia.__version__
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def NeedsInit(self):
+        """
+        Return True if we need to do the firstrun init.
+        """
+        return self.couch.user is None
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def CreateUser(self):
+        log.info('Dmedia.CreateUser()')
+        if self.couch.user is not None:
+            return False
+        if self.thread is not None:
+            return False
+        self.Message('Creating user certificate...')
+        self.thread = start_thread(self.create_user)
+        return True
+
+    def create_user(self):
+        log.info('create_user()')
+        self.couch.create_user()
+        GObject.idle_add(self.Message, 'Starting CouchDB...')
+        self.start_core()
+        GObject.idle_add(self.on_init_done)
+
+    def on_init_done(self):
+        log.info('on_init_done()')
+        self.thread.join()
+        self.thread = None
+        self.Message('Done!')
+        GObject.timeout_add(500, self.InitDone)
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def PeerWithExisting(self):
+        log.info('Dmedia.PeerWithExisting()')
+        if self.couch.user is not None:
+            return False
+        if self.publisher is not None:
+            return False
+        self.publisher = Publisher(self, self.couch)
+        GObject.idle_add(self.publisher.run)
+        return True
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='b')
+    def SetSecret(self, secret):
+        log.info('Dmedia.SetSecret()')
+        return self.publisher.set_secret(secret)
+
+    def set_user(self, user_id):
+        log.info('set_user(%r)', user_id)
+        assert self.couch.user is None
+        assert self.thread is None
+        self.Message('Starting CouchDB...')
+        self.thread = start_thread(self._set_user, user_id)
+
+    def _set_user(self, user_id):
+        self.couch.set_user(user_id)
+        self.start_core()
+        GObject.idle_add(self.on_init_done)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
@@ -209,12 +299,13 @@ class Service(dbus.service.Object):
         return dumps(self.core.db.get('_local/dmedia'))
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def LocalPeers(self):
+    def Peers(self):
         """
         Return the _local/peers doc.
         """
         try:
-            return dumps(self.core.db.get('_local/peers'))
+            doc = self.core.db.get('_local/peers')
+            return dumps(doc['peers'], pretty=True)
         except NotFound:
             return '{}'
 
@@ -273,8 +364,8 @@ couch = DmediaCouch(dmedia.get_dmedia_dir())
 # Now go for it:
 dmedia.configure_logging()
 try:
-    if couch.isfirstrun():
-        couch.firstrun_init(create_user=True)
+    if couch.machine is None:
+        couch.create_machine()
     service = Service(options.bus, couch)
     try:
         service.run()

@@ -25,207 +25,191 @@ Unit tests for `dmedia.peering`.
 
 from unittest import TestCase
 import os
-from os import path
+from os import path, urandom
 import subprocess
 import socket
-from queue import Queue
 
-import microfiber
-from microfiber import random_id, CouchBase
+from microfiber import random_id
+from skein import skein512
 
 from .base import TempDir
-from dmedia.httpd import make_server
 from dmedia.peering import encode, decode
 from dmedia import peering
 
 
-class TestSSLFunctions(TestCase):
-    def test_create_key(self):
-        tmp = TempDir()
-        key = tmp.join('key.pem')
+class TestSkeinFunctions(TestCase):
+    def test_hash_pubkey(self):
+        data = urandom(500)
+        _id = peering.hash_pubkey(data)
+        self.assertIsInstance(_id, str)
+        self.assertEqual(len(_id), 48)
+        skein = skein512(data,
+            digest_bits=240,
+            pers=b'20120918 jderose@novacut.com dmedia/pubkey',
+        )
+        self.assertEqual(
+            decode(_id),
+            skein.digest()
+        )
 
-        # bits=1024
-        sizes = [883, 887, 891]
-        peering.create_key(key, bits=1024)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
-        os.remove(key)
+        # Sanity check
+        for i in range(1000):
+            self.assertNotEqual(_id,
+                peering.hash_pubkey(urandom(500)),
+            )
 
-        # bits=2048 (default)
-        sizes = [1671, 1675, 1679]
-        peering.create_key(key)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
-        os.remove(key)
+    def test_compute_response(self):
+        secret = urandom(5)
+        challenge = urandom(20)
+        nonce = urandom(20)
+        hash1 = urandom(30)
+        hash2 = urandom(30)
+        response = peering.compute_response(
+            secret, challenge, nonce, hash1, hash2
+        )
+        self.assertIsInstance(response, str)
+        self.assertEqual(len(response), 56)
+        skein = skein512(hash1 + hash2,
+            digest_bits=280,
+            pers=b'20120918 jderose@novacut.com dmedia/response',
+            key=secret,
+            nonce=(challenge + nonce),
+        )
+        self.assertEqual(
+            decode(response),
+            skein.digest()
+        )
 
-        peering.create_key(key, bits=2048)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
-        os.remove(key)
+        # Test with direction reversed
+        self.assertNotEqual(response,
+            peering.compute_response(secret, challenge, nonce, hash2, hash1)
+        )
 
-        # bits=3072
-        sizes = [2455, 2459]
-        peering.create_key(key, bits=3072)
-        self.assertLess(min(sizes) - 25, path.getsize(key))
-        self.assertLess(path.getsize(key), max(sizes) + 25)
+        # Test with wrong secret
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(urandom(5), challenge, nonce, hash1, hash2)
+            )
 
-    def test_create_ca(self):
-        tmp = TempDir()
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        peering.create_key(foo_key)
-        self.assertFalse(path.exists(foo_ca))
-        peering.create_ca(foo_key, '/CN=foo', foo_ca)
-        self.assertGreater(path.getsize(foo_ca), 0)
+        # Test with wrong challange
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, urandom(20), nonce, hash1, hash2)
+            )
 
-    def test_create_csr(self):
-        tmp = TempDir()
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        peering.create_key(bar_key)
-        self.assertFalse(path.exists(bar_csr))
-        peering.create_csr(bar_key, '/CN=bar', bar_csr)
-        self.assertGreater(path.getsize(bar_csr), 0)
+        # Test with wrong nonce
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, challenge, urandom(20), hash1, hash2)
+            )
 
-    def test_issue_cert(self):
-        tmp = TempDir()
+        # Test with wrong challenger_hash
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, challenge, nonce, urandom(30), hash2)
+            )
 
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+        # Test with wrong responder_hash
+        for i in range(100):
+            self.assertNotEqual(response,
+                peering.compute_response(secret, challenge, nonce, hash1, urandom(30))
+            )
 
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+    def test_compute_csr_mac(self):
+        secret = os.urandom(5)
+        remote_hash = os.urandom(30)
+        local_hash = os.urandom(30)
+        csr_data = os.urandom(500)
+        mac = peering.compute_csr_mac(secret, csr_data, remote_hash, local_hash)
+        self.assertIsInstance(mac, str)
+        self.assertEqual(len(mac), 56)
+        skein = skein512(csr_data,
+            digest_bits=280,
+            pers=b'20120918 jderose@novacut.com dmedia/csr',
+            key=secret,
+            key_id=(remote_hash + local_hash),
+        )
+        self.assertEqual(
+            decode(mac),
+            skein.digest()
+        )
 
-        files = (foo_srl, bar_cert)
-        for f in files:
-            self.assertFalse(path.exists(f))
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-        for f in files:
-            self.assertGreater(path.getsize(f), 0)
+        # Test with direction reversed
+        self.assertNotEqual(mac,
+            peering.compute_csr_mac(secret, csr_data, local_hash, remote_hash)
+        )
 
-    def test_get_pubkey(self):
-        tmp = TempDir()
+        # Test with wrong secret
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(os.urandom(5), csr_data, remote_hash, local_hash)
+            )
 
-        # Create CA
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        foo_pubkey = peering.get_rsa_pubkey(foo_key)
-        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+        # Test with wrong cert_data
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(secret, os.urandom(500), remote_hash, local_hash)
+            )
 
-        # Create CSR and issue cert
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        bar_pubkey = peering.get_rsa_pubkey(bar_key)
-        peering.create_csr(bar_key, '/CN=bar', bar_csr)
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        # Test with wrong remote_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(secret, csr_data, os.urandom(30), local_hash)
+            )
 
-        # Now compare
-        os.remove(foo_key)
-        os.remove(bar_key)
-        self.assertEqual(peering.get_pubkey(foo_ca), foo_pubkey)
-        self.assertEqual(peering.get_csr_pubkey(bar_csr), bar_pubkey)
-        self.assertEqual(peering.get_pubkey(bar_cert), bar_pubkey)
+        # Test with wrong local_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_csr_mac(secret, csr_data, remote_hash, os.urandom(30))
+            )
 
-    def test_get_subject(self):
-        tmp = TempDir()
+    def test_compute_cert_mac(self):
+        secret = os.urandom(5)
+        remote_hash = os.urandom(30)
+        local_hash = os.urandom(30)
+        cert_data = os.urandom(500)
+        mac = peering.compute_cert_mac(secret, cert_data, remote_hash, local_hash)
+        self.assertIsInstance(mac, str)
+        self.assertEqual(len(mac), 56)
+        skein = skein512(cert_data,
+            digest_bits=280,
+            pers=b'20120918 jderose@novacut.com dmedia/cert',
+            key=secret,
+            key_id=(remote_hash + local_hash),
+        )
+        self.assertEqual(
+            decode(mac),
+            skein.digest()
+        )
 
-        foo_subject = '/CN={}'.format(random_id(30))
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        peering.create_ca(foo_key, foo_subject, foo_ca)
-        self.assertEqual(peering.get_subject(foo_ca), foo_subject)
+        # Test with direction reversed
+        self.assertNotEqual(mac,
+            peering.compute_cert_mac(secret, cert_data, local_hash, remote_hash)
+        )
 
-        bar_subject = '/CN={}'.format(random_id(30))
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        peering.create_csr(bar_key, bar_subject, bar_csr)
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
-        self.assertEqual(peering.get_subject(bar_cert), bar_subject)
+        # Test with wrong secret
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(os.urandom(5), cert_data, remote_hash, local_hash)
+            )
 
-    def test_get_csr_subject(self):
-        tmp = TempDir()
-        subject = '/CN={}'.format(random_id(30))
-        key_file = tmp.join('foo.key')
-        csr_file = tmp.join('foo.csr')
-        peering.create_key(key_file)
-        peering.create_csr(key_file, subject, csr_file)
-        os.remove(key_file)
-        self.assertEqual(peering.get_csr_subject(csr_file), subject)
+        # Test with wrong cert_data
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(secret, os.urandom(500), remote_hash, local_hash)
+            )
 
-    def test_get_issuer(self):
-        tmp = TempDir()
+        # Test with wrong remote_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(secret, cert_data, os.urandom(30), local_hash)
+            )
 
-        foo_subject = '/CN={}'.format(random_id(30))
-        foo_key = tmp.join('foo.key')
-        foo_ca = tmp.join('foo.ca')
-        foo_srl = tmp.join('foo.srl')
-        peering.create_key(foo_key)
-        peering.create_ca(foo_key, foo_subject, foo_ca)
-        self.assertEqual(peering.get_issuer(foo_ca), foo_subject)
-
-        bar_subject = '/CN={}'.format(random_id(30))
-        bar_key = tmp.join('bar.key')
-        bar_csr = tmp.join('bar.csr')
-        bar_cert = tmp.join('bar.cert')
-        peering.create_key(bar_key)
-        peering.create_csr(bar_key, bar_subject, bar_csr)
-        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
-        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
-        self.assertEqual(peering.get_issuer(bar_cert), foo_subject)
-
-    def test_ssl_verify(self):
-        tmp = TempDir()
-        pki = peering.PKI(tmp.dir)
-
-        ca1 = pki.create_key()
-        pki.create_ca(ca1)
-        cert1 = pki.create_key()
-        pki.create_csr(cert1)
-        pki.issue_cert(cert1, ca1)
-        ca1_file = pki.path(ca1, 'ca')
-        cert1_file = pki.path(cert1, 'cert')
-        self.assertEqual(peering.ssl_verify(ca1_file, ca1_file), ca1_file)
-        self.assertEqual(peering.ssl_verify(cert1_file, ca1_file), cert1_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(ca1_file, cert1_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert1_file, cert1_file)
-
-        ca2 = pki.create_key()
-        pki.create_ca(ca2)
-        cert2 = pki.create_key()
-        pki.create_csr(cert2)
-        pki.issue_cert(cert2, ca2)
-        ca2_file = pki.path(ca2, 'ca')
-        cert2_file = pki.path(cert2, 'cert')
-        self.assertEqual(peering.ssl_verify(ca2_file, ca2_file), ca2_file)
-        self.assertEqual(peering.ssl_verify(cert2_file, ca2_file), cert2_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(ca2_file, cert2_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert2_file, cert2_file)
-
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(ca2_file, ca1_file)
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert2_file, ca1_file)    
-        with self.assertRaises(peering.VerificationError) as cm:
-            peering.ssl_verify(cert2_file, cert1_file)
+        # Test with wrong local_hash
+        for i in range(100):
+            self.assertNotEqual(mac,
+                peering.compute_cert_mac(secret, cert_data, remote_hash, os.urandom(30))
+            )
 
 
 class TestChallengeResponse(TestCase):
@@ -478,133 +462,193 @@ class TestChallengeResponse(TestCase):
                 inst.check_response(nonce, response)
 
 
-class TestServerApp(TestCase):
-    def test_live(self):
+class TestSSLFunctions(TestCase):
+    def test_create_key(self):
+        tmp = TempDir()
+        key = tmp.join('key.pem')
+
+        # bits=1024
+        sizes = [883, 887, 891]
+        peering.create_key(key, bits=1024)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        # bits=2048 (default)
+        sizes = [1671, 1675, 1679]
+        peering.create_key(key)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        peering.create_key(key, bits=2048)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+        os.remove(key)
+
+        # bits=3072
+        sizes = [2455, 2459]
+        peering.create_key(key, bits=3072)
+        self.assertLess(min(sizes) - 25, path.getsize(key))
+        self.assertLess(path.getsize(key), max(sizes) + 25)
+
+    def test_create_ca(self):
+        tmp = TempDir()
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        peering.create_key(foo_key)
+        self.assertFalse(path.exists(foo_ca))
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+        self.assertGreater(path.getsize(foo_ca), 0)
+
+    def test_create_csr(self):
+        tmp = TempDir()
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        peering.create_key(bar_key)
+        self.assertFalse(path.exists(bar_csr))
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+        self.assertGreater(path.getsize(bar_csr), 0)
+
+    def test_issue_cert(self):
+        tmp = TempDir()
+
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+
+        files = (foo_srl, bar_cert)
+        for f in files:
+            self.assertFalse(path.exists(f))
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        for f in files:
+            self.assertGreater(path.getsize(f), 0)
+
+    def test_get_pubkey(self):
+        tmp = TempDir()
+
+        # Create CA
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        foo_pubkey = peering.get_rsa_pubkey(foo_key)
+        peering.create_ca(foo_key, '/CN=foo', foo_ca)
+
+        # Create CSR and issue cert
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        bar_pubkey = peering.get_rsa_pubkey(bar_key)
+        peering.create_csr(bar_key, '/CN=bar', bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+
+        # Now compare
+        os.remove(foo_key)
+        os.remove(bar_key)
+        self.assertEqual(peering.get_pubkey(foo_ca), foo_pubkey)
+        self.assertEqual(peering.get_csr_pubkey(bar_csr), bar_pubkey)
+        self.assertEqual(peering.get_pubkey(bar_cert), bar_pubkey)
+
+    def test_get_subject(self):
+        tmp = TempDir()
+
+        foo_subject = '/CN={}'.format(random_id(30))
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, foo_subject, foo_ca)
+        self.assertEqual(peering.get_subject(foo_ca), foo_subject)
+
+        bar_subject = '/CN={}'.format(random_id(30))
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, bar_subject, bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
+        self.assertEqual(peering.get_subject(bar_cert), bar_subject)
+
+    def test_get_csr_subject(self):
+        tmp = TempDir()
+        subject = '/CN={}'.format(random_id(30))
+        key_file = tmp.join('foo.key')
+        csr_file = tmp.join('foo.csr')
+        peering.create_key(key_file)
+        peering.create_csr(key_file, subject, csr_file)
+        os.remove(key_file)
+        self.assertEqual(peering.get_csr_subject(csr_file), subject)
+
+    def test_get_issuer(self):
+        tmp = TempDir()
+
+        foo_subject = '/CN={}'.format(random_id(30))
+        foo_key = tmp.join('foo.key')
+        foo_ca = tmp.join('foo.ca')
+        foo_srl = tmp.join('foo.srl')
+        peering.create_key(foo_key)
+        peering.create_ca(foo_key, foo_subject, foo_ca)
+        self.assertEqual(peering.get_issuer(foo_ca), foo_subject)
+
+        bar_subject = '/CN={}'.format(random_id(30))
+        bar_key = tmp.join('bar.key')
+        bar_csr = tmp.join('bar.csr')
+        bar_cert = tmp.join('bar.cert')
+        peering.create_key(bar_key)
+        peering.create_csr(bar_key, bar_subject, bar_csr)
+        peering.issue_cert(bar_csr, foo_ca, foo_key, foo_srl, bar_cert)
+        self.assertEqual(peering.get_csr_subject(bar_csr), bar_subject)
+        self.assertEqual(peering.get_issuer(bar_cert), foo_subject)
+
+    def test_ssl_verify(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
-        local_id = pki.create_key()
-        pki.create_ca(local_id)
-        remote_id = pki.create_key()
-        pki.create_ca(remote_id)
-        server_config = {
-            'cert_file': pki.path(local_id, 'ca'),
-            'key_file': pki.path(local_id, 'key'),
-            'ca_file': pki.path(remote_id, 'ca'),
-        }
-        client_config = {
-            'check_hostname': False,
-            'ca_file': pki.path(local_id, 'ca'),
-            'cert_file': pki.path(remote_id, 'ca'),
-            'key_file': pki.path(remote_id, 'key'),
-        }
-        local = peering.ChallengeResponse(local_id, remote_id)
-        remote = peering.ChallengeResponse(remote_id, local_id)
-        q = Queue()
-        app = peering.ServerApp(local, q, None)
-        server = make_server(app, '127.0.0.1', server_config)
-        client = CouchBase({'url': server.url, 'ssl': client_config})
-        server.start()
-        secret = local.get_secret()
-        remote.set_secret(secret)
 
-        self.assertIsNone(app.state)
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request State: GET /'
-        )
-        app.state = 'info'
-        self.assertEqual(client.get(),
-            {
-                'id': local_id,
-                'user': os.environ.get('USER'),
-                'host': socket.gethostname(),
-            }
-        )
-        self.assertEqual(app.state, 'ready')
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request State: GET /'
-        )
-        self.assertEqual(app.state, 'ready')
+        ca1 = pki.create_key()
+        pki.create_ca(ca1)
+        cert1 = pki.create_key()
+        pki.create_csr(cert1)
+        pki.issue_cert(cert1, ca1)
+        ca1_file = pki.path(ca1, 'ca')
+        cert1_file = pki.path(cert1, 'cert')
+        self.assertEqual(peering.ssl_verify(ca1_file, ca1_file), ca1_file)
+        self.assertEqual(peering.ssl_verify(cert1_file, ca1_file), cert1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca1_file, cert1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert1_file, cert1_file)
 
-        app.state = 'info'
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('challenge')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: GET /challenge'
-        )
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put({'hello': 'world'}, 'response')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: PUT /response'
-        )
+        ca2 = pki.create_key()
+        pki.create_ca(ca2)
+        cert2 = pki.create_key()
+        pki.create_csr(cert2)
+        pki.issue_cert(cert2, ca2)
+        ca2_file = pki.path(ca2, 'ca')
+        cert2_file = pki.path(cert2, 'cert')
+        self.assertEqual(peering.ssl_verify(ca2_file, ca2_file), ca2_file)
+        self.assertEqual(peering.ssl_verify(cert2_file, ca2_file), cert2_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca2_file, cert2_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, cert2_file)
 
-        app.state = 'ready'
-        self.assertEqual(app.state, 'ready')
-        obj = client.get('challenge')
-        self.assertEqual(app.state, 'gave_challenge')
-        self.assertIsInstance(obj, dict)
-        self.assertEqual(set(obj), set(['challenge']))
-        self.assertEqual(local.challenge, decode(obj['challenge']))
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.get('challenge')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: GET /challenge'
-        )
-        self.assertEqual(app.state, 'gave_challenge')
-
-        (nonce, response) = remote.create_response(obj['challenge'])
-        obj = {'nonce': nonce, 'response': response}
-        self.assertEqual(client.put(obj, 'response'), {'ok': True})
-        self.assertEqual(app.state, 'response_ok')
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put(obj, 'response')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: PUT /response'
-        )
-        self.assertEqual(app.state, 'response_ok')
-        self.assertEqual(q.get(), 'response_ok')
-
-        # Test when an error occurs in put_response()
-        app.state = 'gave_challenge'
-        with self.assertRaises(microfiber.ServerError) as cm:
-            client.put(b'bad json', 'response')
-        self.assertEqual(app.state, 'in_response')
-
-        # Test with wrong secret
-        app.state = 'ready'
-        secret = local.get_secret()
-        remote.get_secret()
-        challenge = client.get('challenge')['challenge']
-        self.assertEqual(app.state, 'gave_challenge')
-        (nonce, response) = remote.create_response(challenge)
-        with self.assertRaises(microfiber.Unauthorized) as cm:
-            client.put({'nonce': nonce, 'response': response}, 'response')
-        self.assertEqual(app.state, 'wrong_response')
-        self.assertFalse(hasattr(local, 'secret'))
-        self.assertFalse(hasattr(local, 'challenge'))
-
-        # Verify that you can't retry
-        remote.set_secret(secret)
-        (nonce, response) = remote.create_response(challenge)
-        with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put({'nonce': nonce, 'response': response}, 'response')
-        self.assertEqual(
-            str(cm.exception),
-            '400 Bad Request Order: PUT /response'
-        )
-        self.assertEqual(app.state, 'wrong_response')
-        self.assertEqual(q.get(), 'wrong_response')
-
-        server.shutdown()
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(ca2_file, ca1_file)
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, ca1_file)    
+        with self.assertRaises(peering.VerificationError) as cm:
+            peering.ssl_verify(cert2_file, cert1_file)
 
 
 class TestPKI(TestCase):
@@ -935,17 +979,17 @@ class TestPKI(TestCase):
 
         cert1_file = pki.path(id1, 'cert')
         cert2_file = pki.path(id2, 'cert')
-        self.assertEqual(pki.verify_cert(id1), cert1_file)
-        self.assertEqual(pki.verify_cert(id2), cert2_file)
+        self.assertEqual(pki.verify_cert(id1, ca_id), cert1_file)
+        self.assertEqual(pki.verify_cert(id2, ca_id), cert2_file)
         os.remove(cert1_file)
         os.rename(cert2_file, cert1_file)
         with self.assertRaises(peering.PublicKeyError) as cm:
-            pki.verify_cert(id1)
+            pki.verify_cert(id1, ca_id)
         self.assertEqual(cm.exception.filename, cert1_file)
         self.assertEqual(cm.exception.expected, id1)
         self.assertEqual(cm.exception.got, id2)
         with self.assertRaises(subprocess.CalledProcessError) as cm:
-            pki.verify_cert(id2)
+            pki.verify_cert(id2, ca_id)
 
         # Test with bad subject
         id3 = pki.create_key()
@@ -960,7 +1004,7 @@ class TestPKI(TestCase):
             cert_file
         )
         with self.assertRaises(peering.SubjectError) as cm:
-            pki.verify_cert(id3)
+            pki.verify_cert(id3, ca_id)
         self.assertEqual(cm.exception.filename, cert_file)
         self.assertEqual(cm.exception.expected, '/CN={}'.format(id3))
         self.assertEqual(cm.exception.got, '/CN={}'.format(id1))
@@ -968,7 +1012,7 @@ class TestPKI(TestCase):
     def test_get_ca(self):
         tmp = TempDir()
         pki = peering.PKI(tmp.dir)
-        ca_id = pki.create_key()
+        ca_id = pki.create_key(1024)
         pki.create_ca(ca_id)
 
         ca = pki.get_ca(ca_id)
@@ -986,12 +1030,63 @@ class TestPKI(TestCase):
         pki.create_csr(cert_id)
         pki.issue_cert(cert_id, ca_id)
 
-        cert = pki.get_cert(cert_id)
+        cert = pki.get_cert(cert_id, ca_id)
         self.assertIsInstance(cert, peering.Cert)
         self.assertEqual(cert.id, cert_id)
         self.assertEqual(cert.cert_file, pki.path(cert_id, 'cert'))
         self.assertEqual(cert.key_file, pki.path(cert_id, 'key'))
         self.assertEqual(cert, (cert.id, cert.cert_file, cert.key_file))
+
+    def test_load_machine(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        machine_id = pki.create_key()
+        pki.create_ca(machine_id)
+
+        machine = pki.load_machine(machine_id)
+        self.assertIsInstance(machine, peering.Machine)
+        self.assertEqual(machine.id, machine_id)
+        self.assertEqual(machine.ca_file, pki.path(machine_id, 'ca'))
+        self.assertEqual(machine.key_file, pki.path(machine_id, 'key'))
+        self.assertIsNone(machine.cert_file)
+        self.assertEqual(machine,
+            (machine.id, machine.ca_file, machine.key_file, None)
+        )
+
+        user_id = pki.create_key()
+        pki.create_ca(user_id)
+        pki.create_csr(machine_id)
+        pki.issue_cert(machine_id, user_id)
+        machine = pki.load_machine(machine_id, user_id)
+        self.assertIsInstance(machine, peering.Machine)
+        self.assertEqual(machine.id, machine_id)
+        self.assertEqual(machine.ca_file, pki.path(machine_id, 'ca'))
+        self.assertEqual(machine.key_file, pki.path(machine_id, 'key'))
+        self.assertEqual(machine.cert_file, pki.path(machine_id, 'cert'))
+        self.assertEqual(machine,
+            (machine.id, machine.ca_file, machine.key_file, machine.cert_file)
+        )
+
+    def test_load_user(self):
+        tmp = TempDir()
+        pki = peering.PKI(tmp.dir)
+        user_id = pki.create_key()
+        pki.create_ca(user_id)
+
+        user = pki.load_user(user_id)
+        self.assertIsInstance(user, peering.User)
+        self.assertEqual(user.id, user_id)
+        self.assertEqual(user.ca_file, pki.path(user_id, 'ca'))
+        self.assertEqual(user.key_file, pki.path(user_id, 'key'))
+        self.assertEqual(user, (user.id, user.ca_file, user.key_file))
+
+        os.remove(pki.path(user_id, 'key'))
+        user = pki.load_user(user_id)
+        self.assertIsInstance(user, peering.User)
+        self.assertEqual(user.id, user_id)
+        self.assertEqual(user.ca_file, pki.path(user_id, 'ca'))
+        self.assertIsNone(user.key_file)
+        self.assertEqual(user, (user.id, user.ca_file, None))
 
 
 class TestTempPKI(TestCase):
