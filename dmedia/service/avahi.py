@@ -28,8 +28,7 @@ import json
 import time
 from collections import namedtuple
 
-from filestore import _start_thread
-from microfiber import Context, Server, Database, NotFound, CouchBase, dumps
+from microfiber import dumps, NotFound, Context, Server, Database
 import dbus
 from gi.repository import GObject
 
@@ -37,9 +36,9 @@ from dmedia.parallel import start_thread
 from dmedia import util, views
 
 log = logging.getLogger()
-PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
 Peer = namedtuple('Peer', 'env names')
-PEERS = '_local/peers'
+PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
+PEERS_ID = '_local/peers'
 
 
 def make_url(ip, port):
@@ -63,19 +62,20 @@ class Avahi:
         ctx = Context(env)
         self.db = Database('dmedia-0', ctx=ctx)
         self.server = Server(ctx=ctx)
+        try:
+            self.peers = self.db.get(PEERS_ID)
+            if self.peers.get('peers') != {}:
+                self.peers['peers'] = {}
+                self.db.save(self.peers)
+        except NotFound:
+            self.peers = {'_id': PEERS_ID, 'peers': {}}
+            self.db.save(self.peers)
+        self.replications = {}
 
     def __del__(self):
         self.free()
 
     def run(self):
-        try:
-            self.peers = self.db.get(PEERS)
-            if self.peers.get('peers') != {}:
-                self.peers['peers'] = {}
-                self.db.save(self.peers)
-        except NotFound:
-            self.peers = {'_id': PEERS, 'peers': {}}
-            self.db.save(self.peers)
         system = dbus.SystemBus()
         self.avahi = system.get_object('org.freedesktop.Avahi', '/')
         self.group = system.get_object(
@@ -107,8 +107,9 @@ class Avahi:
             dbus_interface='org.freedesktop.Avahi.Server'
         )
         self.browser = system.get_object('org.freedesktop.Avahi', browser_path)
-        self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
+        self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
+        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
 
     def free(self):
         if self.group is not None:
@@ -147,7 +148,7 @@ class Avahi:
     def info_thread(self, key, url):
         try:
             env = {'url': url, 'ssl': self.ssl_config}
-            client = CouchBase(env)
+            client = Server(env)
             info = client.get()
             assert info.pop('user_id') == self.user_id
             assert info.pop('machine_id') == key
@@ -160,6 +161,7 @@ class Avahi:
     def add_peer(self, key, info):
         self.peers['peers'][key] = info
         self.db.save(self.peers)
+        self.add_replication_peer(key, info['url'])
 
     def remove_peer(self, key):
         try:
@@ -167,6 +169,78 @@ class Avahi:
             self.db.save(self.peers)
         except KeyError:
             pass
+        self.remove_replication_peer(key)
+
+    def add_replication_peer(self, key, url):
+        env = {'url': url + 'couch/'}
+        cancel = self.replications.pop(key, None)
+        start = Peer(env, list(self.get_names()))
+        self.replications[key] = start
+        start_thread(self.replication_worker, cancel, start)
+
+    def remove_replication_peer(self, key):
+        cancel = self.replications.pop(key, None)
+        if cancel:
+            start_thread(self.replication_worker, cancel, None)
+
+    def on_timeout(self):
+        if not self.replications:
+            return True  # Repeat timeout call
+        current = set(self.get_names())
+        for (key, peer) in self.replications.items():
+            new = current - set(peer.names)
+            if new:
+                log.info('New databases: %r', sorted(new))
+                tmp = Peer(peer.env, tuple(new))
+                peer.names.extend(new)
+                start_thread(self.replication_worker, None, tmp)
+        return True  # Repeat timeout call
+
+    def get_names(self):
+        for name in self.server.get('_all_dbs'):
+            if name.startswith('dmedia-0') or name.startswith('novacut-0'):
+                yield name
+
+    def replication_worker(self, cancel, start):
+        if cancel:
+            for name in cancel.names:
+                self.replicate(name, cancel.env, cancel=True)
+        if start:
+            for name in start.names:
+                #time.sleep(0.25)
+                self.replicate(name, start.env)
+        log.info('replication_worker() done')
+
+    def replicate(self, name, env, cancel=False):
+        """
+        Start or cancel push replication of database *name* to peer at *url*.
+
+        Security note: we only do push replication because pull replication
+        would allow unauthorized peers to write to our databases via their
+        changes feed.  For both push and pull, there is currently no privacy
+        whatsoever... everything is in cleartext and uses oauth 1.0a. But push
+        replication is the only way to at least prevent malicious data
+        corruption.
+        """
+        kw = {
+            'continuous': True,
+            'create_target': True,
+            'filter': 'doc/normal',
+        }
+        if cancel:
+            kw['cancel'] = True
+            log.info('Canceling push of %s to %s', name, env['url'])
+        else:
+            log.info('Starting push of %s to %s', name, env['url'])
+            db = self.server.database(name)
+            util.update_design_doc(db, views.doc_design)
+        try:
+            self.server.push(name, name, env, **kw)
+        except Exception as e:
+            if cancel:
+                log.exception('Error canceling push of %s to %s', name, env['url'])
+            else:
+                log.exception('Error starting push of %s to %s', name, env['url'])
         
 
 
