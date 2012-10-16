@@ -236,6 +236,9 @@ class Service(dbus.service.Object):
         log.info('on_init_done()')
         self.thread.join()
         self.thread = None
+        if self.publisher is not None:
+            self.publisher.free()
+            self.publisher = None
         self.Message('Done!')
         GObject.timeout_add(500, self.InitDone)
 
