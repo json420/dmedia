@@ -140,7 +140,7 @@ class ClientUI(BaseUI):
     def on_Response(self, success):
         self.hub.send('response', success)
         if success:
-            GObject.timeout_add(250, hub.send, 'spin_orb')
+            GObject.timeout_add(200, self.hub.send, 'spin_orb')
 
     def on_InitDone(self):
         self.window.destroy()
