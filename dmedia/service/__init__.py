@@ -35,25 +35,22 @@ from gi.repository import GObject
 DBusGMainLoop(set_as_default=True)
 GObject.threads_init()
 
+BUS = 'org.freedesktop.Dmedia'
 
-def get_proxy():
+
+def get_proxy(bus=BUS):
     session = dbus.SessionBus()
-    return session.get_object('org.freedesktop.Dmedia', '/')
+    return session.get_object(bus, '/')
 
- 
-class CheckNeedsInit:
-    def __init__(self):
-        logging.info('Getting Dmedia proxy object...')
-        Dmedia = get_proxy()
-        logging.info('Checking Dmedia.NeedsInit()...')
-        if Dmedia.NeedsInit():
-            logging.info('Needs firstrun init.')
-            self.mainloop = GObject.MainLoop()
-            Dmedia.connect_to_signal('InitDone', self.on_InitDone)
-            Dmedia.DoInit()
-            self.mainloop.run()
 
-    def on_InitDone(self, env_s):
-        logging.info('@Dmedia.InitDone()')
-        self.mainloop.quit() 
+def init_if_needed():
+    logging.info('Getting Dmedia proxy object...')
+    Dmedia = get_proxy()
+    logging.info('Checking Dmedia.NeedsInit()...')
+    logging.info(Dmedia.NeedsInit())
+    if Dmedia.NeedsInit():
+        logging.info('Needs firstrun init.')
+        from dmedia.gtk.peering import ClientUI
+        ui = ClientUI(Dmedia)
+        ui.run()
 

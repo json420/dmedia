@@ -1,9 +1,11 @@
 from os import path
 import json
+import logging
 
 from gi.repository import GObject, Gtk, WebKit
 
 
+log = logging.getLogger()
 ui = path.join(path.dirname(path.abspath(__file__)), 'ui')
 assert path.isdir(ui)
 
@@ -98,3 +100,59 @@ class BaseUI:
         self.inspector.show_all()
         return self.inspector
 
+
+class ClientUI(BaseUI):
+    page = 'client.html'
+    title = 'Welcome to Novacut!'
+
+    signals = {
+        'create_user': [],
+        'peer_with_existing': [],
+        'have_secret': ['secret'],
+
+        'response': ['success'],
+        'message': ['message'],
+
+        'show_screen2a': [],
+        'show_screen2b': [],
+        'show_screen3b': [],
+        'spin_orb': [],
+    }
+
+    def __init__(self, Dmedia):
+        super().__init__()
+        self.Dmedia = Dmedia
+        Dmedia.connect_to_signal('Message', self.on_Message)
+        Dmedia.connect_to_signal('Accept', self.on_Accept)
+        Dmedia.connect_to_signal('Response', self.on_Response)
+        Dmedia.connect_to_signal('InitDone', self.on_InitDone)
+
+    def connect_hub_signals(self, hub):
+        hub.connect('create_user', self.on_create_user)
+        hub.connect('peer_with_existing', self.on_peer_with_existing)
+        hub.connect('have_secret', self.on_have_secret)
+
+    def on_Message(self, message):
+        self.hub.send('message', message)
+
+    def on_Accept(self):
+        self.hub.send('show_screen3b')
+
+    def on_Response(self, success):
+        self.hub.send('response', success)
+        if success:
+            GObject.timeout_add(250, hub.send, 'spin_orb')
+
+    def on_InitDone(self, env_s):
+        self.window.destroy()
+
+    def on_create_user(self, hub):
+        self.Dmedia.CreateUser()
+        hub.send('show_screen2a')
+
+    def on_peer_with_existing(self, hub):
+        self.Dmedia.PeerWithExisting()
+        hub.send('show_screen2b')
+
+    def on_have_secret(self, hub, secret):
+        self.Dmedia.SetSecret(secret)

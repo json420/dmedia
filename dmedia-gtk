@@ -35,7 +35,7 @@ from dmedia.misc import WeakMethod
 from dmedia import views
 from dmedia import schema
 from dmedia.gtk.util import Timer
-from dmedia.service import CheckNeedsInit
+from dmedia.service import init_if_needed
 from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager, has_magic_lantern
 from gi.repository import GObject, Gtk, Gio
@@ -47,7 +47,7 @@ except ImportError:
 
 
 log = dmedia.configure_logging()
-CheckNeedsInit()
+init_if_needed()
 
 
 class Importer:

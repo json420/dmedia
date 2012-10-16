@@ -104,7 +104,7 @@ class Service(dbus.service.Object):
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
         log.info('Finished core startup in %.3f', time.time() - start)
-        GObject.timeout_add(500, self.on_idle1)
+        GObject.timeout_add(1000, self.on_idle1)
 
     def start_httpd(self):
         ssl_config = self.couch.get_ssl_config()
@@ -118,7 +118,7 @@ class Service(dbus.service.Object):
     def on_idle1(self):
         log.info('[idle1]')
         self.udisks.monitor()
-        GObject.timeout_add(500, self.on_idle2)
+        GObject.timeout_add(1000, self.on_idle2)
         return False  # Don't repeat idle call
 
     def on_idle2(self):
@@ -182,6 +182,18 @@ class Service(dbus.service.Object):
     @dbus.service.signal(IFACE, signature='ss')
     def CardRemoved(self, obj, mount):
         pass
+   
+    @dbus.service.signal(IFACE, signature='s')
+    def Message(self, message):
+        pass
+
+    @dbus.service.signal(IFACE, signature='')
+    def Accept(self):
+        pass
+
+    @dbus.service.signal(IFACE, signature='b')
+    def Response(self, success):
+        pass
 
     @dbus.service.signal(IFACE, signature='s')
     def InitDone(self, env_s):
@@ -199,7 +211,40 @@ class Service(dbus.service.Object):
         """
         Return True if we need to do the firstrun init.
         """
-        return (self.couch.user is None)
+        return self.couch.user is None
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def CreateUser(self):
+        log.info('Dmedia.CreateUser()')
+        if self.couch.user is not None:
+            return False
+        if self.thread is not None:
+            return False
+        self.Message('Creating user certificate...')
+        self.thread = start_thread(self.create_user)
+
+    def create_user(self):
+        log.info('create_user()')
+        self.couch.create_user()
+        GObject.idle_add(self.Message, 'Starting CouchDB...')
+        self.start_core()
+        GObject.idle_add(self.on_init_done)
+
+    def on_init_done(self):
+        log.info('on_init_done()')
+        self.thread.join()
+        self.thread = None
+        self.Message('Done!')
+        GObject.timeout_add(500, self.InitDone, self.env_s)
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
+    def PeerWithExisting(self):
+        if self.couch.user is not None:
+            return False
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='b')
+    def SetSecret(self, secret):
+        return False
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def DoInit(self):
