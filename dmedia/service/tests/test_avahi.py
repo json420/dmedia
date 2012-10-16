@@ -23,32 +23,66 @@
 Unit tests for `dmedia.service.avahi`.
 """
 
-from unittest import TestCase
+from random import SystemRandom
 from copy import deepcopy
 
-from microfiber import random_id
-from usercouch import random_oauth
+import microfiber
 
+from dmedia.tests.couch import CouchCase
 from dmedia.service import avahi
 
 
-class TestAvahi(TestCase):
+random = SystemRandom()
+
+
+def random_port():
+    return random.randint(1001, 50000)
+
+
+class TestAvahi(CouchCase):
     def test_init(self):
-        _id = random_id()
-        inst = avahi.Avahi(_id, 42)
-        self.assertEqual(inst.id, _id)
-        self.assertEqual(inst.port, 42)
+        db = microfiber.Database('dmedia-0', self.env)
+        self.assertTrue(db.ensure())
+        port = random_port()
+        ssl_config = 'the SSL config'
+        inst = avahi.Avahi(self.env, port, ssl_config)
         self.assertIsNone(inst.group)
+        self.assertIs(inst.machine_id, self.machine_id)
+        self.assertIs(inst.user_id, self.user_id)
+        self.assertIs(inst.port, port)
+        self.assertIs(inst.ssl_config, ssl_config)
+        self.assertIsInstance(inst.db, microfiber.Database)
+        self.assertIsInstance(inst.server, microfiber.Server)
+        self.assertIs(inst.db.ctx, inst.server.ctx)
+        self.assertEqual(inst.replications, {})
+        self.assertEqual(inst.peers,
+            {
+                '_id': '_local/peers',
+                '_rev': '0-1',
+                'peers': {},
+            }
+        )
+        self.assertEqual(db.get('_local/peers'), inst.peers)
 
-    def test_add_peer(self):
-        inst = avahi.Avahi('the id', 42)
-        with self.assertRaises(NotImplementedError) as cm:
-            inst.add_peer('key', 'url')
-        self.assertEqual(str(cm.exception), 'Avahi.add_peer()')
+        peers = deepcopy(inst.peers)
+        peers['peers'] = {'foo': 'bar'}
+        db.save(peers)
+        inst = avahi.Avahi(self.env, port, ssl_config)
+        self.assertEqual(inst.peers,
+            {
+                '_id': '_local/peers',
+                '_rev': '0-3',
+                'peers': {},
+            }
+        )
+        inst = avahi.Avahi(self.env, port, ssl_config)
+        self.assertEqual(inst.peers,
+            {
+                '_id': '_local/peers',
+                '_rev': '0-3',
+                'peers': {},
+            }
+        )
 
-    def test_remove_peer(self):
-        inst = avahi.Avahi('the id', 42)
-        with self.assertRaises(NotImplementedError) as cm:
-            inst.remove_peer('key')
-        self.assertEqual(str(cm.exception), 'Avahi.remove_peer()')
+        inst.__del__()
 

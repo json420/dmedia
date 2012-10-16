@@ -62,6 +62,7 @@ class Avahi:
         ctx = Context(env)
         self.db = Database('dmedia-0', ctx=ctx)
         self.server = Server(ctx=ctx)
+        self.replications = {}
         try:
             self.peers = self.db.get(PEERS_ID)
             if self.peers.get('peers') != {}:
@@ -70,7 +71,6 @@ class Avahi:
         except NotFound:
             self.peers = {'_id': PEERS_ID, 'peers': {}}
             self.db.save(self.peers)
-        self.replications = {}
 
     def __del__(self):
         self.free()
