@@ -347,7 +347,7 @@ class ClientApp:
         self.__state = None
         self.map = {
             '/challenge': self.get_challenge,
-            '/response': self.put_response,
+            '/response': self.post_response,
         }
 
     def get_state(self):
@@ -407,11 +407,11 @@ class ClientApp:
             'challenge': self.cr.get_challenge(),
         }
 
-    def put_response(self, environ):
+    def post_response(self, environ):
         if self.state != 'gave_challenge':
             raise WSGIError('400 Bad Request Order')
         self.state = 'in_response'
-        if environ['REQUEST_METHOD'] != 'PUT':
+        if environ['REQUEST_METHOD'] != 'POST':
             raise WSGIError('405 Method Not Allowed')
         data = environ['wsgi.input'].read()
         obj = json.loads(data.decode('utf-8'))
@@ -476,6 +476,7 @@ class ServerApp(ClientApp):
             self.pki.write_csr(self.cr.peer_id, csr_data)
             self.pki.issue_cert(self.cr.peer_id, self.cr.id)
             cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
+            key_data = self.pki.read_key(self.cr.id)
         except Exception as e:
             log.exception('could not issue cert')
             self.state = 'bad_csr'
@@ -484,6 +485,7 @@ class ServerApp(ClientApp):
         return {
             'cert': b64encode(cert_data).decode('utf-8'),
             'mac': self.cr.cert_mac(cert_data),
+            'key': b64encode(key_data).decode('utf-8'),
         }
 
 

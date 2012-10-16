@@ -355,7 +355,7 @@ class TestClientApp(TestCase):
         self.assertEqual(app.map,
             {
                 '/challenge': app.get_challenge,
-                '/response': app.put_response,
+                '/response': app.post_response,
             }
         )
 
@@ -670,10 +670,10 @@ class TestServerAppLive(TestCase):
             '400 Bad Request Order: GET /challenge'
         )
         with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put({'hello': 'world'}, 'response')
+            client.post({'hello': 'world'}, 'response')
         self.assertEqual(
             str(cm.exception),
-            '400 Bad Request Order: PUT /response'
+            '400 Bad Request Order: POST /response'
         )
 
         app.state = 'ready'
@@ -693,13 +693,13 @@ class TestServerAppLive(TestCase):
 
         (nonce, response) = remote.create_response(obj['challenge'])
         obj = {'nonce': nonce, 'response': response}
-        self.assertEqual(client.put(obj, 'response'), {'ok': True})
+        self.assertEqual(client.post(obj, 'response'), {'ok': True})
         self.assertEqual(app.state, 'response_ok')
         with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put(obj, 'response')
+            client.post(obj, 'response')
         self.assertEqual(
             str(cm.exception),
-            '400 Bad Request Order: PUT /response'
+            '400 Bad Request Order: POST /response'
         )
         self.assertEqual(app.state, 'response_ok')
         self.assertEqual(q.get(), 'response_ok')
@@ -707,7 +707,7 @@ class TestServerAppLive(TestCase):
         # Test when an error occurs in put_response()
         app.state = 'gave_challenge'
         with self.assertRaises(microfiber.ServerError) as cm:
-            client.put(b'bad json', 'response')
+            client.post(b'bad json', 'response')
         self.assertEqual(app.state, 'in_response')
 
         # Test with wrong secret
@@ -718,7 +718,7 @@ class TestServerAppLive(TestCase):
         self.assertEqual(app.state, 'gave_challenge')
         (nonce, response) = remote.create_response(challenge)
         with self.assertRaises(microfiber.Unauthorized) as cm:
-            client.put({'nonce': nonce, 'response': response}, 'response')
+            client.post({'nonce': nonce, 'response': response}, 'response')
         self.assertEqual(app.state, 'wrong_response')
         self.assertFalse(hasattr(local, 'secret'))
         self.assertFalse(hasattr(local, 'challenge'))
@@ -727,10 +727,10 @@ class TestServerAppLive(TestCase):
         remote.set_secret(secret)
         (nonce, response) = remote.create_response(challenge)
         with self.assertRaises(microfiber.BadRequest) as cm:
-            client.put({'nonce': nonce, 'response': response}, 'response')
+            client.post({'nonce': nonce, 'response': response}, 'response')
         self.assertEqual(
             str(cm.exception),
-            '400 Bad Request Order: PUT /response'
+            '400 Bad Request Order: POST /response'
         )
         self.assertEqual(app.state, 'wrong_response')
         self.assertEqual(q.get(), 'wrong_response')

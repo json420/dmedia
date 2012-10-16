@@ -505,7 +505,7 @@ class ServerSession:
         obj = {'nonce': nonce, 'response': response}
         log.info('Posting counter-response to %r', self.peer)
         try:
-            r = self.client.put(obj, 'response')
+            r = self.client.post(obj, 'response')
             log.info('Counter-response accepted')
             GObject.idle_add(self.on_counter_response_ok)
         except Unauthorized:
@@ -647,9 +647,9 @@ class Publisher:
         challenge = self.client.get('challenge')['challenge']
         (nonce, response) = self.cr.create_response(challenge)
         obj = {'nonce': nonce, 'response': response}
-        log.info('Putting response to %r', self.peer)
+        log.info('Posting response to %r', self.peer)
         try:
-            r = self.client.put(obj, 'response')
+            r = self.client.post(obj, 'response')
             log.info('Response accepted')
             success = True
         except Unauthorized:
