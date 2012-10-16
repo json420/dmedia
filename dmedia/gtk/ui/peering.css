@@ -36,19 +36,23 @@ input {
     display: inline-block;
 }
 
-#first, #sync {
+.button {
     position: fixed;
     width: 440px;
     background-color: #fff;
     text-align: center;
-    box-shadow: 2px 2px 5px #000;
+    box-shadow: 2px 2px 5px 0 #000;
     border-radius: 8px;
-    cursor: pointer;
     -webkit-user-select: none;
     color: #000;
 }
 
-#first p, #sync p {
+.button:hover {
+    box-shadow: 0 0 6px 2px #e81f3b;
+    cursor: pointer;
+}
+
+.button p {
     margin: 16px;
 }
 

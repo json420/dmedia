@@ -50,6 +50,13 @@ def hub_factory(signals):
     return Hub
 
 
+def wrap_in_scroll(child):
+    scroll = Gtk.ScrolledWindow()
+    scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+    scroll.add(child)
+    return scroll
+
+
 class BaseUI:
     inspector = None
     signals = None
@@ -82,7 +89,8 @@ class BaseUI:
         inspector = self.view.get_inspector()
         inspector.connect('inspect-web-view', self.on_inspect)
         self.view.load_uri('file://' + path.join(ui, self.page))
-        self.vpaned.pack1(self.view, True, True)
+        scroll = wrap_in_scroll(self.view)
+        self.vpaned.pack1(scroll, True, True)
 
     def on_inspect(self, *args):
         assert self.inspector is None

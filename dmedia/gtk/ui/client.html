@@ -117,7 +117,7 @@ Hub.connect('response',
 <img src="novacut.svg" id="logo">
 
 <div id="screen1" class="hide">
-    <div id="first" onclick="Hub.send('create_user')">
+    <div id="first" class="button" onclick="Hub.send('create_user')">
     <p class="top">
     This is my first time using Novacut
     </p>
@@ -126,7 +126,7 @@ Hub.connect('response',
     </p>
     </div>
 
-    <div id="sync" onclick="Hub.send('peer_with_existing')">
+    <div id="sync" class="button" onclick="Hub.send('peer_with_existing')">
     <p class="top">
     I'm already using Novacut
     </p>
