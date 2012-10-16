@@ -53,4 +53,6 @@ def init_if_needed():
         from dmedia.gtk.peering import ClientUI
         ui = ClientUI(Dmedia)
         ui.run()
+        if ui.quit:
+            raise SystemExit(0)
 

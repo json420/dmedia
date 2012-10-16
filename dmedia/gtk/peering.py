@@ -63,19 +63,12 @@ class BaseUI:
         self.hub = hub_factory(self.signals)(self.view)
         self.connect_hub_signals(self.hub)
 
-    def show(self):
-        self.window.show_all()
-
-    def run(self):
-        self.window.connect('destroy', self.quit)
-        self.window.show_all()
-        Gtk.main()
-
-    def quit(self, *args):
-        Gtk.main_quit()
-
     def connect_hub_signals(self, hub):
         pass
+
+    def run(self):
+        self.window.show_all()
+        Gtk.main()
 
     def build_window(self):
         self.window = Gtk.Window()
@@ -122,12 +115,16 @@ class ClientUI(BaseUI):
     def __init__(self, Dmedia):
         super().__init__()
         self.Dmedia = Dmedia
-        self.cancel = False
+        self.quit = False
         Dmedia.connect_to_signal('Message', self.on_Message)
         Dmedia.connect_to_signal('Accept', self.on_Accept)
         Dmedia.connect_to_signal('Response', self.on_Response)
         Dmedia.connect_to_signal('InitDone', self.on_InitDone)
-        #self.window.connect('delete-event', self.on_delete_event)
+        self.window.connect('destroy', Gtk.main_quit)
+        self.window.connect('delete-event', self.on_delete_event)
+
+    def on_delete_event(self, *args):
+        self.quit = True
 
     def connect_hub_signals(self, hub):
         hub.connect('create_user', self.on_create_user)
@@ -145,7 +142,7 @@ class ClientUI(BaseUI):
         if success:
             GObject.timeout_add(250, hub.send, 'spin_orb')
 
-    def on_InitDone(self, env_s):
+    def on_InitDone(self):
         self.window.destroy()
 
     def on_create_user(self, hub):

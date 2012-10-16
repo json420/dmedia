@@ -196,9 +196,9 @@ class Service(dbus.service.Object):
     def Response(self, success):
         log.info('@Dmedia.Response(%r)', success)
 
-    @dbus.service.signal(IFACE, signature='s')
-    def InitDone(self, env_s):
-        pass
+    @dbus.service.signal(IFACE, signature='')
+    def InitDone(self):
+        log.info('@Dmedia.InitDone()')
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -223,6 +223,7 @@ class Service(dbus.service.Object):
             return False
         self.Message('Creating user certificate...')
         self.thread = start_thread(self.create_user)
+        return True
 
     def create_user(self):
         log.info('create_user()')
@@ -236,7 +237,7 @@ class Service(dbus.service.Object):
         self.thread.join()
         self.thread = None
         self.Message('Done!')
-        GObject.timeout_add(500, self.InitDone, self.env_s)
+        GObject.timeout_add(500, self.InitDone)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def PeerWithExisting(self):
