@@ -591,18 +591,56 @@ class Browser:
         self.session = None
 
 
-class ClientSession:
-    def __init__(self, hub, pki, _id, peer, client_config):
-        self.hub = hub
-        self.pki = pki
+class Publisher:
+    def __init__(self, service, couch):
+        self.service = service
+        self.couch = couch
+        self.thread = None
+        self.avahi = None
+
+    def __del__(self):
+        self.free()
+
+    def free(self):
+        if self.avahi is not None:
+            self.avahi.unpublish()
+            self.avahi = None
+            del self.service
+            del self.couch
+
+    def run(self):
+        self.couch.load_pki()
+        self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
+        self.avahi.connect('accept', self.on_accept)
+        app = InfoApp(self.avahi.id)
+        self.httpd = make_server(app, '0.0.0.0',
+            self.avahi.get_server_config()
+        )
+        self.httpd.start()
+        self.avahi.browse()
+        self.avahi.publish(self.httpd.port)
+
+    def on_accept(self, avahi, peer):
+        log.info('Publisher.on_accept()')
+        self.avahi.activate(peer.id)
         self.peer = peer
-        self.id = _id
-        self.peer_id = peer.id
-        self.cr = ChallengeResponse(_id, peer.id)
+        self.cr = ChallengeResponse(avahi.id, peer.id)
         self.q = Queue()
         self.app = ClientApp(self.cr, self.q)
-        env = {'url': peer.url, 'ssl': client_config}
+        # Reconfigure HTTPD to only accept connections from bound peer
+        self.httpd.reconfigure(self.app, avahi.get_server_config())
+        env = {'url': peer.url, 'ssl': avahi.get_client_config()}
         self.client = CouchBase(env)
+        avahi.unpublish()
+        self.service.Accept()
+
+    def set_secret(self, secret):
+        if self.thread is not None:
+            return False
+        self.cr.set_secret(secret)
+        self.thread = start_thread(self.challenge)
+        self.service.Message(_('Challenge...'))
+        return True
 
     def challenge(self):
         log.info('Getting challenge from %r', self.peer)
@@ -620,12 +658,15 @@ class ClientSession:
         GObject.idle_add(self.on_response, success)
 
     def on_response(self, success):
+        self.thread.join()
+        self.thread = None
         if success:
             self.app.state = 'ready'
-            start_thread(self.monitor_counter_response)
+            self.thread = start_thread(self.monitor_counter_response)
+            self.service.Message(_('Counter-Challenge...'))
         else:
-            del self.cr.secret
-        self.hub.send('response', success)
+            self.service.Message(_('Typo? Please try again with new secret.'))
+        self.service.Response(success)
 
     def monitor_counter_response(self):
         # FIXME: Should use a timeout with queue.get()
@@ -637,16 +678,21 @@ class ClientSession:
         GObject.timeout_add(500, self.on_counter_response, status)
 
     def on_counter_response(self, status):
+        self.thread.join()
+        self.thread = None
         assert self.app.state == status
         if status == 'response_ok':
-            start_thread(self.request_cert)
-        self.hub.send('counter_response', status)
+            self.thread = start_thread(self.request_cert)
+            self.service.Message(_('Requesting Certificate...'))
+        else:
+            self.service.Message(_('Scary! Counter-Challenge Failed!'))
 
     def request_cert(self):
         log.info('Creating CSR')
+        success = False
         try:
-            self.pki.create_csr(self.id)
-            csr_data = self.pki.read_csr(self.id)
+            self.couch.pki.create_csr(self.cr.id)
+            csr_data = self.couch.pki.read_csr(self.cr.id)
             obj = {
                 'csr': b64encode(csr_data).decode('utf-8'),
                 'mac': self.cr.csr_mac(csr_data),
@@ -654,105 +700,17 @@ class ClientSession:
             d = self.client.post(obj, 'csr')
             cert_data = b64decode(d['cert'].encode('utf-8'))
             self.cr.check_cert_mac(cert_data, d['mac'])
-            self.pki.write_cert(self.id, self.peer_id, cert_data)
-            self.pki.verify_cert(self.id, self.peer_id)
-            status = 'cert_issued'
+            self.couch.pki.write_cert(self.cr.id, self.cr.peer_id, cert_data)
+            self.couch.pki.verify_cert(self.cr.id, self.cr.peer_id)
+            success = True
         except Exception as e:
-            status = 'error'
             log.exception('Could not request cert')
-        GObject.idle_add(self.on_csr_response, status)
+        GObject.idle_add(self.on_csr_response, success)
 
-    def on_csr_response(self, status):
-        log.info('on_csr_response %r', status)
-        self.hub.send('csr_response', status)
-
-
-class ClientUI(BaseUI):
-    page = 'client.html'
-
-    signals = {
-        'first_time': [],
-        'already_using': [],
-        'have_secret': ['secret'],
-        'response': ['success'],
-        'counter_response': ['status'],
-        'csr_response': ['status'],
-        'set_message': ['message'],
-
-        'show_screen2a': [],
-        'show_screen2b': [],
-        'show_screen3b': [],
-        'spin_orb': [],
-
-        'done': ['user_id'],
-    }
-
-    def __init__(self, couch):
-        super().__init__()
-        self.couch = couch
-        self.avahi = None
-
-    def connect_hub_signals(self, hub):
-        hub.connect('first_time', self.on_first_time)
-        hub.connect('already_using', self.on_already_using)
-        hub.connect('have_secret', self.on_have_secret)
-        hub.connect('response', self.on_response)
-        hub.connect('counter_response', self.on_counter_response)
-        hub.connect('csr_response', self.on_csr_response)
-
-    def on_first_time(self, hub):
-        hub.send('show_screen2a')
-
-    def on_already_using(self, hub):
-        if self.avahi is not None:
-            print('oop, duplicate click')
-            return
-        self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
-        self.avahi.connect('accept', self.on_accept)
-        app = InfoApp(self.avahi.id)
-        self.httpd = make_server(app, '0.0.0.0',
-            self.avahi.get_server_config()
-        )
-        self.httpd.start()
-        self.avahi.browse()
-        self.avahi.publish(self.httpd.port)
-        GObject.idle_add(hub.send, 'show_screen2b')
-
-    def on_accept(self, avahi, peer):
-        self.avahi.activate(peer.id)
-        self.session = ClientSession(self.hub, self.couch.pki, avahi.id, peer,
-            avahi.get_client_config()
-        )
-        # Reconfigure HTTPD to only accept connections from bound peer
-        self.httpd.reconfigure(self.session.app, avahi.get_server_config())
-        avahi.unpublish()
-        GObject.idle_add(self.hub.send, 'show_screen3b')
-
-    def on_have_secret(self, hub, secret):
-        if hasattr(self.session.cr, 'secret'):
-            log.warning("duplicate 'have_secret' signal received")
-            return
-        self.session.cr.set_secret(secret)
-        hub.send('set_message', _('Challenge...'))
-        start_thread(self.session.challenge)
-
-    def on_response(self, hub, success):
+    def on_csr_response(self, success):
+        self.thread.join()
+        self.thread = None
         if success:
-            hub.send('set_message', _('Counter-Challenge...'))
-            GObject.timeout_add(250, hub.send, 'spin_orb')
+            self.service.set_user(self.cr.peer_id)
         else:
-            hub.send('set_message', _('Typo? Please try again with new secret.'))
-
-    def on_counter_response(self, hub, status):
-        if status == 'response_ok':
-            hub.send('set_message', _('Requesting Certificate...'))
-        else:
-            hub.send('set_message', _('Very Bad Things!'))
-
-    def on_csr_response(self, hub, status):
-        if status == 'cert_issued':
-            hub.send('set_message', _('Done!'))
-            GObject.timeout_add(200, hub.send, 'done', self.session.peer_id)
-        else:
-            hub.send('set_message', _('Very Bad Things with Certificate!'))
-
+            self.service.Message(_('Scary! Certificate Request Failed!'))

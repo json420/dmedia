@@ -122,10 +122,12 @@ class ClientUI(BaseUI):
     def __init__(self, Dmedia):
         super().__init__()
         self.Dmedia = Dmedia
+        self.cancel = False
         Dmedia.connect_to_signal('Message', self.on_Message)
         Dmedia.connect_to_signal('Accept', self.on_Accept)
         Dmedia.connect_to_signal('Response', self.on_Response)
         Dmedia.connect_to_signal('InitDone', self.on_InitDone)
+        #self.window.connect('delete-event', self.on_delete_event)
 
     def connect_hub_signals(self, hub):
         hub.connect('create_user', self.on_create_user)

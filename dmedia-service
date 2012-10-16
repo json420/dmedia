@@ -44,7 +44,7 @@ from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Avahi
-from dmedia.service.peers import Browser, ClientUI
+from dmedia.service.peers import Browser, Publisher
 
 
 BUS = dmedia.BUS
@@ -70,6 +70,7 @@ class Service(dbus.service.Object):
     peer = None
     ui = None
     thread = None
+    publisher = None
     env_s = '{}'
 
     def __init__(self, bus, couch):
@@ -182,18 +183,18 @@ class Service(dbus.service.Object):
     @dbus.service.signal(IFACE, signature='ss')
     def CardRemoved(self, obj, mount):
         pass
-   
+
     @dbus.service.signal(IFACE, signature='s')
     def Message(self, message):
-        pass
+        log.info('@Dmedia.Message(%r)', message)
 
     @dbus.service.signal(IFACE, signature='')
     def Accept(self):
-        pass
+        log.info('@Dmedia.Accept()')
 
     @dbus.service.signal(IFACE, signature='b')
     def Response(self, success):
-        pass
+        log.info('@Dmedia.Response(%r)', success)
 
     @dbus.service.signal(IFACE, signature='s')
     def InitDone(self, env_s):
@@ -239,65 +240,31 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def PeerWithExisting(self):
+        log.info('Dmedia.PeerWithExisting()')
         if self.couch.user is not None:
             return False
+        if self.publisher is not None:
+            return False
+        self.publisher = Publisher(self, self.couch)
+        GObject.idle_add(self.publisher.run)
+        return True
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='b')
     def SetSecret(self, secret):
-        return False
+        log.info('Dmedia.SetSecret()')
+        return self.publisher.set_secret(secret)
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='b')
-    def DoInit(self):
-        """
-        Return dmedia version.
-        """
-        log.info('Dmedia.DoInit()')
-        if self.couch.user is not None:
-            return False
-        if self.ui is not None:
-            return False
-        self.couch.load_pki()
-        self.ui = ClientUI(self.couch)
-        self.ui.window.connect('delete-event', self.on_delete_event)
-        self.ui.hub.connect('first_time', self.on_first_time)
-        self.ui.hub.connect('done', self.on_done)
-        self.ui.window.show_all()
-        return True
+    def set_user(self, user_id):
+        log.info('set_user(%r)', user_id)
+        assert self.couch.user is None
+        assert self.thread is None
+        self.Message('Starting CouchDB...')
+        self.thread = start_thread(self._set_user, user_id)
 
-    def on_first_time(self, hub):
-        log.info('on_first_time()')
-        if self.thread is None:
-            self.thread = start_thread(self.do_create_user)
-
-    def on_delete_event(self, *args):
-        log.info('on_delete_event()')
-        if self.thread is None:
-            self.thread = start_thread(self.do_create_user)
-
-    def on_done(self, hub, user_id):
-        log.info('on_done(%r)', user_id)
-        if self.thread is None:
-            self.thread = start_thread(self.do_set_user, user_id)
-
-    def do_create_user(self):
-        log.info('do_create_user()')
-        self.couch.create_user()
-        self.start_core()
-        GObject.idle_add(self.do_destroy)
-
-    def do_set_user(self, user_id):
-        log.info('do_set_user(%r)', user_id)
+    def _set_user(self, user_id):
         self.couch.set_user(user_id)
         self.start_core()
-        GObject.idle_add(self.do_destroy)
-
-    def do_destroy(self):
-        log.info('do_destroy()')
-        self.thread.join()
-        self.ui.window.destroy()
-        self.ui = None
-        self.InitDone(self.env_s)
-        self.thread = None
+        GObject.idle_add(self.on_init_done)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
