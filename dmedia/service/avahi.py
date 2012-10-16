@@ -29,10 +29,11 @@ import time
 from collections import namedtuple
 
 from filestore import _start_thread
-from microfiber import Context, Server, Database, NotFound
+from microfiber import Context, Server, Database, NotFound, CouchBase
 import dbus
 from gi.repository import GObject
 
+from dmedia.parallel import start_thread
 from dmedia import util, views
 
 log = logging.getLogger()
@@ -41,17 +42,27 @@ Peer = namedtuple('Peer', 'env names')
 PEERS = '_local/peers'
 
 
+def make_url(ip, port):
+    if PROTO == 0:
+        return 'https://{}:{}/'.format(ip, port)
+    elif PROTO == 1:
+        return 'https://[{}]:{}/'.format(ip, port)
+    raise Exception('bad PROTO')
+    
+
+
 class Avahi:
     """
     Base class to capture the messy Avahi DBus details.
     """
 
-    service = '_example._tcp'
+    service = '_dmedia._tcp'
 
-    def __init__(self, _id, port):
+    def __init__(self, _id, port, ssl_config):
         self.group = None
         self.id = _id
         self.port = port
+        self.ssl_config = ssl_config
 
     def __del__(self):
         self.free()
@@ -120,24 +131,13 @@ class Avahi:
         (ip, port) = args[7:9]
         url = 'https://{}:{}/'.format(ip, port)
         log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
-        self.add_peer(key, url)
 
     def on_error(self, exception):
         log.error('%s: error calling ResolveService(): %r', self.service, exception)
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Avahi(%s): peer removed: %s', self.service, key)
-        self.remove_peer(key)
 
-    def add_peer(self, key, url):
-        raise NotImplementedError(
-            '{}.add_peer()'.format(self.__class__.__name__)
-        )
-
-    def remove_peer(self, key):
-        raise NotImplementedError(
-            '{}.remove_peer()'.format(self.__class__.__name__)
-        )
 
 
 class FileServer(Avahi):

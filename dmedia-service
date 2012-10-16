@@ -43,7 +43,7 @@ from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.udisks import UDisks
-from dmedia.service.avahi import FileServer
+from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, ClientUI
 
 
@@ -109,7 +109,9 @@ class Service(dbus.service.Object):
     def start_httpd(self):
         ssl_config = self.couch.get_ssl_config()
         (self.httpd, env) = start_httpd(self.core.env, ssl_config)
-        self.avahi = FileServer(self.core.env, env['port'])
+        port = env['port']
+        user_id = self.core.env['user_id']
+        self.avahi = Avahi(user_id, port, ssl_config)
         self.avahi.run()
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self.couch)
