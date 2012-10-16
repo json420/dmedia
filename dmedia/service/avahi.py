@@ -29,7 +29,7 @@ import time
 from collections import namedtuple
 
 from filestore import _start_thread
-from microfiber import Context, Server, Database, NotFound, CouchBase
+from microfiber import Context, Server, Database, NotFound, CouchBase, dumps
 import dbus
 from gi.repository import GObject
 
@@ -76,9 +76,7 @@ class Avahi:
                 dbus_interface='org.freedesktop.Avahi.Server'
             )
         )
-        log.info(
-            'Avahi(%s): advertising %s on port %s', self.service, self.id, self.port
-        )
+        log.info('Avahi: advertising %s on port %s', self.id, self.port)
         self.group.AddService(
             -1,  # Interface
             PROTO,  # Protocol -1 = both, 0 = ipv4, 1 = ipv6
@@ -106,9 +104,7 @@ class Avahi:
 
     def free(self):
         if self.group is not None:
-            log.info(
-                'Avahi(%s): freeing %s on port %s', self.service, self.id, self.port
-            )
+            log.info('Avahi: freeing %s on port %s', self.id, self.port)
             self.group.Reset(dbus_interface='org.freedesktop.Avahi.EntryGroup')
             self.group = None
             del self.browser
@@ -129,14 +125,30 @@ class Avahi:
     def on_reply(self, *args):
         key = args[2]
         (ip, port) = args[7:9]
-        url = 'https://{}:{}/'.format(ip, port)
-        log.info('Avahi(%s): new peer %s at %s', self.service, key, url)
+        url = make_url(ip, port)
+        log.info('Avahi: new peer %s at %s', key, url)
+        start_thread(self.info_thread, url)
 
     def on_error(self, exception):
-        log.error('%s: error calling ResolveService(): %r', self.service, exception)
+        log.error('Avahi: error calling ResolveService(): %r', exception)
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
-        log.info('Avahi(%s): peer removed: %s', self.service, key)
+        log.info('Avahi: peer removed: %s', key)
+
+    def info_thread(self, url):
+        try:
+            env = {'url': url, 'ssl': self.ssl_config}
+            client = CouchBase(env)
+            info = client.get()
+            info['url'] = url
+            log.info('Avahi: got peer info: %s', dumps(info, pretty=True))
+            GObject.idle_add(self.on_info, info)
+        except Exception:
+            log.exception('Avahi: could not get info for %s', url)
+
+    def on_info(self, info):
+        log.info('complete')
+        
 
 
 
