@@ -29,6 +29,7 @@ import time
 from copy import deepcopy
 import os
 import socket
+from base64 import b64encode, b64decode
 from queue import Queue
 
 from usercouch.misc import TempCouch
@@ -734,5 +735,29 @@ class TestServerAppLive(TestCase):
         )
         self.assertEqual(app.state, 'wrong_response')
         self.assertEqual(q.get(), 'wrong_response')
+
+        # Test POST /csr
+        secret = local.get_secret()
+        remote.set_secret(secret)
+        app.state = 'response_ok'
+        with self.assertRaises(microfiber.BadRequest) as cm:
+            client.post({}, 'csr')
+        self.assertEqual(
+            str(cm.exception),
+            '400 Bad Request Order: POST /csr'
+        )
+        self.assertEqual(app.state, 'response_ok')
+
+        app.state = 'counter_response_ok'
+        secret = local.get_secret()
+        remote.set_secret(secret)
+        pki.create_csr(remote_id)
+        csr_data = pki.read_csr(remote_id)
+        obj = {
+            'csr': b64encode(csr_data).decode('utf-8'),
+            'mac': local.csr_mac(csr_data),
+        }
+        # FIXME: Why isn't this working?
+        #r = client.post(obj, 'csr')
 
         httpd.shutdown()
