@@ -436,6 +436,7 @@ class ServerUI(BaseUI):
         'get_secret': [],
         'display_secret': ['secret'],
         'set_message': ['message'],
+        'done': [],
     }
 
     def __init__(self, cr):
@@ -522,8 +523,12 @@ class ServerSession:
         self.ui.hub.send('set_message', _('Very Bad Things!'))
 
     def on_cert_request(self, status):
-        print('on_cert_request', status)
-        self.ui.hub.send('set_message', _('Done!'))
+        if status == 'cert_issued':
+            self.ui.hub.send('set_message', _('Done!'))
+            GObject.timeout_add(250, self.ui.hub.send, 'done')
+        else:
+            self.ui.hub.send('set_message', _('Security Problems in CSR!'))
+            
 
 
 class Browser:
@@ -561,8 +566,8 @@ class Browser:
         )
 
     def on_retract(self, avahi):
-        if hasattr(self, 'indicator'):
-            del self.indicator
+        if self.indicator is not None:
+            self.indicator = None
             self.notifymanager.replace(_('Peering Offer Removed'))
 
     def on_accept(self, menuitem, info):
@@ -573,13 +578,15 @@ class Browser:
             self.avahi.get_server_config(),
             self.avahi.get_client_config()
         )
-        self.session.ui.window.connect('destroy', self.on_destroy)
+        self.session.ui.window.connect('delete-event', self.on_delete_event)
+        self.session.ui.hub.connect('done', self.on_delete_event)
         self.session.ui.show()
         self.avahi.publish(self.session.httpd.port)
 
-    def on_destroy(self, *args):
+    def on_delete_event(self, *args):
         self.session.httpd.shutdown()
         self.session.ui.window.destroy()
+        self.avahi.unpublish()
         self.avahi.deactivate(self.session.peer_id)
         self.session = None
 
