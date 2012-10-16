@@ -703,7 +703,7 @@ class Publisher:
             self.couch.pki.write_cert(self.cr.id, self.cr.peer_id, cert_data)
             self.couch.pki.verify_cert(self.cr.id, self.cr.peer_id)
             key_data = b64decode(d['key'].encode('utf-8'))
-            self.couch.pki.write_key(self.cr.peer_id)
+            self.couch.pki.write_key(self.cr.peer_id, key_data)
             self.couch.pki.verify_key(self.cr.peer_id)
             success = True
         except Exception as e:
