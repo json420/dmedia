@@ -110,8 +110,8 @@ class Service(dbus.service.Object):
         ssl_config = self.couch.get_ssl_config()
         (self.httpd, env) = start_httpd(self.core.env, ssl_config)
         port = env['port']
-        user_id = self.core.env['user_id']
-        self.avahi = Avahi(user_id, port, ssl_config)
+        machine_id = self.core.env['machine_id']
+        self.avahi = Avahi(machine_id, port, ssl_config)
         self.avahi.run()
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self.couch)
