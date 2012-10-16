@@ -63,12 +63,18 @@ def on_sighup(signum, frame):
 signal.signal(signal.SIGHUP, on_sighup)
 
 
+
+def create_machine(couch):
+    couch.create_machine()
+
+
 class Service(dbus.service.Object):
     couch = None
     httpd = None
     avahi = None
     peer = None
     ui = None
+    mthread = None
     thread = None
     env_s = '{}'
 
@@ -88,6 +94,8 @@ class Service(dbus.service.Object):
     def run(self):
         if self.couch.isfirstrun():
             log.info('First run, not starting CouchDB.')
+            if self.couch.machine is None:
+                self.mthread = start_thread(create_machine, self.couch)
         else:
             self.start_core()
         mainloop.run()
@@ -208,6 +216,9 @@ class Service(dbus.service.Object):
         """
         log.info('Dmedia.DoInit()')
         if self.ui is None:
+            if self.mthread is not None:
+                self.mthread.join()
+                self.mthread = None
             self.couch.load_pki()
             self.ui = ClientUI(self.couch)
             self.ui.window.connect('delete-event', self.on_delete_event)
@@ -350,8 +361,6 @@ couch = DmediaCouch(dmedia.get_dmedia_dir())
 # Now go for it:
 dmedia.configure_logging()
 try:
-    if couch.machine is None:
-        couch.create_machine()
     service = Service(options.bus, couch)
     try:
         service.run()
