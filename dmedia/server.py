@@ -26,6 +26,7 @@ Dmedia WSGI applications.
 import json
 import os
 import socket
+from base64 import b64encode, b64decode
 from wsgiref.util import shift_path_info
 import logging
 
@@ -469,7 +470,7 @@ class ServerApp(ClientApp):
             raise WSGIError('405 Method Not Allowed')
         data = environ['wsgi.input'].read()
         d = json.loads(data.decode('utf-8'))
-        csr_data = base64.b64decode(d['csr'].encode('utf-8'))
+        csr_data = b64decode(d['csr'].encode('utf-8'))
         try:
             self.cr.check_csr_mac(csr_data, d['mac'])
             self.pki.write_csr(self.cr.peer_id, csr_data)
@@ -481,7 +482,7 @@ class ServerApp(ClientApp):
             raise WSGIError('401 Unauthorized')       
         self.state = 'cert_issued'
         return {
-            'cert': base64.b64encode(cert_data).decode('utf-8'),
+            'cert': b64encode(cert_data).decode('utf-8'),
             'mac': self.cr.cert_mac(cert_data),
         }
 
