@@ -580,7 +580,7 @@ class Browser:
         )
         self.session.ui.window.connect('delete-event', self.on_delete_event)
         self.session.ui.hub.connect('done', self.on_delete_event)
-        self.session.ui.show()
+        self.session.ui.window.show_all()
         self.avahi.publish(self.session.httpd.port)
 
     def on_delete_event(self, *args):
