@@ -42,14 +42,14 @@ from .base import TempDir
 
 class TestCouchFunctions(CouchCase):
     def test_projects_iter(self):
-        self.assertEqual(list(core.projects_iter(self.env)), [])
-        ids = tuple(random_id() for i in range(20))
         server = microfiber.Server(self.env)
+        self.assertEqual(list(core.projects_iter(server)), [])
+        ids = tuple(random_id() for i in range(20))
         for _id in ids:
             db_name = project_db_name(_id)
             server.put(None, db_name)
         self.assertEqual(
-            list(core.projects_iter(self.env)),
+            list(core.projects_iter(server)),
             [(project_db_name(_id), _id) for _id in sorted(ids)]
         )
 
@@ -59,6 +59,8 @@ class TestCore(CouchCase):
         inst = core.Core(self.env)
         self.assertIsInstance(inst.db, microfiber.Database)
         self.assertEqual(inst.db.name, DB_NAME)
+        self.assertIsInstance(inst.server, microfiber.Server)
+        self.assertIs(inst.db.ctx, inst.server.ctx)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
 

@@ -96,8 +96,8 @@ def snapshot_all_dbs(env, dumpdir):
     log.info('** %.2f to snapshot all database', time.time() - start)
 
 
-def projects_iter(env):
-    server = Server(env)
+def projects_iter(server):
+    assert isinstance(server, Server)
     for name in server.get('_all_dbs'):
         if name.startswith('_'):
             continue
@@ -113,6 +113,7 @@ class Core:
         self._private = (PRIVATE if private is None else private)
         self._shared = (SHARED if shared is None else shared)
         self.db = util.get_db(env, init=True)
+        self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.queue = Queue()
@@ -202,8 +203,8 @@ class Core:
 
     def init_project_views(self):
         try:
-            for (name, _id) in projects_iter(self.env):
-                db = util.get_project_db(_id, self.env, True)
+            for (name, _id) in projects_iter(self.server):
+                pdb = util.get_project_db(_id, self.env, True)
                 try:
                     doc = self.db.get(_id)
                 except NotFound:
