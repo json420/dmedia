@@ -106,20 +106,17 @@ function Importer() {
 Importer.prototype = {
     load_items: function() {
         var callback = $bind(this.on_items, this);
-        db.view(callback, 'project', 'title');
+        db.view(callback, 'project', 'title', {'include_docs': true});
     },
 
     on_items: function(req) {
         this.items.replace(req.read().rows,
             function(row, items) {
-                var pdb = new couch.Database("dmedia-0-" + row.id.toLowerCase());
-                try{
-                    var filecount = pdb.view_sync('doc', 'type', {key: 'dmedia/file'}).rows[0].value;
-                }
-                catch(e){
-                    var filecount = 0;
-                }
-                
+                console.log(JSON.stringify(row));
+                var doc = row.doc;
+                var count = doc.count ? doc.count : 0;
+                var bytes = doc.bytes ? doc.bytes : 0;
+
                 var li = $el('li', {'class': 'project', 'id': row.id});
 
                 var thumb = $el('div', {'class': 'thumbnail'});
@@ -135,7 +132,7 @@ Importer.prototype = {
                 );
 
                 info.appendChild(
-                    $el('p', {'textContent': filecount + ' files'})
+                    $el('p', {'textContent': count_n_size(count, bytes)})
                 );
 
                 li.appendChild(thumb);
