@@ -107,6 +107,14 @@ def projects_iter(server):
         yield (name, _id)
 
 
+def update_count_and_bytes(db, doc):
+    stats = db.view('user', 'bytes', reduce=True)['rows'][0]['value']
+    if doc.get('count') != stats['count'] or doc.get('bytes') != stats['sum']:
+        doc['count'] = stats['count']
+        doc['bytes'] = stats['sum']
+        db.save(doc)
+
+
 class Core:
     def __init__(self, env, private=None, shared=None):
         self.env = env
@@ -202,21 +210,28 @@ class Core:
         self.thread = start_thread(self._background_worker)
 
     def init_project_views(self):
+        start = time.time()
         try:
+            self.db.view('project', 'atime')
+            log.info('%.3f to prep project/atime view', time.time() - start)
             for (name, _id) in projects_iter(self.server):
                 pdb = util.get_project_db(_id, self.env, True)
+                pdoc = pdb.get(_id, attachments=True)
+                update_count_and_bytes(pdb, pdoc)
+                del pdoc['_rev']
                 try:
-                    doc = self.db.get(_id)
+                    doc = self.db.get(_id, attachments=True)
+                    rev = doc.pop('_rev')
+                    if doc != pdoc:
+                        log.info('syncing project metadata for %s', _id)
+                        pdoc['_rev'] = rev
+                        self.db.save(pdoc)
                 except NotFound:
                     log.info('missing project doc for %s', _id)
-                    doc = db.get(_id)
-                    del doc['_rev']
-                    self.db.save(doc)
+                    self.db.save(pdoc)
+            log.info('%.3f for Core.init_project_views() to complete', time.time() - start)
         except Exception:
             log.exception('Error in Core.init_project_views():')
-        log.info('prepping project/atime view...')
-        self.db.view('project', 'atime')
-        log.info('Core.init_project_views() complete')
 
     def snapshot(self, dumpdir, dbname):
         start_process(snapshot_db, self.env, dumpdir, dbname)
