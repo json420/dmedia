@@ -525,17 +525,15 @@ class HTTPD:
 
     def handle_connection(self, conn, address):
         #conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-        remote = '{} {}'.format(address[0], address[1])
         try:
-            log.info('%s\tNew Connection', remote)
             if self.context is not None:
                 conn = self.context.wrap_socket(conn, server_side=True)
             self.handle_requests(conn, address)
             conn.shutdown(socket.SHUT_RDWR)
         except socket.error:
-            log.info('%s\tSocket Timeout/Error', remote)
+            log.info('%s\tSocket Timeout/Error', address)
         except Exception:
-            log.exception('%s\tUnhandled Exception', remote)
+            log.exception('%s\tUnhandled Exception', address)
         finally:
             conn.close()
 
