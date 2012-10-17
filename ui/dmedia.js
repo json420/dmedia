@@ -112,7 +112,6 @@ Importer.prototype = {
     on_items: function(req) {
         this.items.replace(req.read().rows,
             function(row, items) {
-                console.log(JSON.stringify(row));
                 var doc = row.doc;
                 var count = doc.count ? doc.count : 0;
                 var bytes = doc.bytes ? doc.bytes : 0;
