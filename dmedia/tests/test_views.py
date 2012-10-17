@@ -63,7 +63,7 @@ class TestDesignValues(TestCase):
             self.assertIsInstance(value['map'], str)
             if 'reduce' in value:
                 self.assertIsInstance(value['reduce'], str)
-                self.assertIn(value['reduce'], ['_count', '_sum'])
+                self.assertIn(value['reduce'], ['_count', '_sum', '_stats'])
 
         if 'filters' not in doc:
             return

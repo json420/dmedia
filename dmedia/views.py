@@ -28,21 +28,7 @@ Defines the dmedia CouchDB views.
 # High performance Erlang reduce functions that don't require JSON round trip:
 _count = '_count'
 _sum = '_sum'
-
-# Reduce function to both count and sum in a single view (thanks manveru!)
-# However, this is unusably slow in CouchDB 1.1.1.  Revisit in 1.2.0.
-_count_and_sum = """
-function(key, values, rereduce) {
-    var count = 0;
-    var sum = 0;
-    var i;
-    for (i in values) {
-        count += values[i][0];
-        sum += values[i][1];
-    }
-    return [count, sum];
-}
-"""
+_stats = '_stats'
 
 
 # The generic _design/doc design, quite helpful for developers:
@@ -171,6 +157,14 @@ function(doc) {
 }
 """
 
+user_bytes = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        emit(doc.bytes, doc.bytes);
+    }
+}
+"""
+
 user_ctime = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user' && doc.ext != 'thm') {
@@ -233,6 +227,7 @@ user_design = {
     '_id': '_design/user',
     'views': {
         'ctime': {'map': user_ctime},
+        'bytes': {'map': user_bytes, 'reduce': _stats},
         'needsproxy': {'map': user_needsproxy},
         'video': {'map': user_video},
         'audio': {'map': user_audio},
