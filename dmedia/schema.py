@@ -960,6 +960,8 @@ def check_project(doc):
     ...     'time': 1234567890,
     ...     'db_name': 'dmedia-0-hb6ysckay27kiwutwkgkctni',
     ...     'title': 'UDS-P',
+    ...     'count': 42,
+    ...     'bytes': 22020096000,
     ... }
     ...
     >>> check_project(doc)
@@ -976,6 +978,12 @@ def check_project(doc):
         (_equals, project_db_name(doc['_id'])),
     )
     _check(doc, ['title'], str),
+    _check(doc, ['count'], int,
+        (_at_least, 0),
+    )
+    _check(doc, ['count'], int,
+        (_at_least, 0),
+    )
 
 
 def project_db_name(_id):
@@ -1024,6 +1032,8 @@ def create_project(title=''):
         'atime': ts,
         'db_name': project_db_name(_id),
         'title': title,
+        'count': 0,
+        'bytes': 0,
     }
 
 
