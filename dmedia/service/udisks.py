@@ -154,11 +154,12 @@ empty_options = dbus.Array(signature='s')
 
 class Drive(Device):
 
-    def DriveEject(self):
+    def DriveEject(self, on_reply, on_error):
         log.info('Ejecting %r', self)
-        start = time.time()
-        self.proxy.DriveEject(empty_options)
-        log.info('%.3f to eject %r', time.time() - start, self)
+        self.proxy.DriveEject(empty_options,
+            reply_handler=on_reply,
+            error_handler=on_error,
+        )
 
     def DriveDetach(self):
         """
@@ -176,18 +177,12 @@ class Partition(Device):
     def get_drive(self):
         return Drive(self.drive)
 
-    def FilesystemUnmount(self):
+    def FilesystemUnmount(self, on_reply, on_error):
         log.info('Unmounting %r', self)
         self.proxy.FilesystemUnmount(empty_options,
-            reply_handler=self.on_unmount_reply,
-            error_handler=self.on_unmount_error,
+            reply_handler=on_reply,
+            error_handler=on_error,
         )
-
-    def on_unmount_reply(self, *args):
-        log.info('Unmounted %r', self)
-
-    def on_unmount_error(self, *args):
-        log.info('Error unmounting %r', self)
 
     def FilesystemCreate(self, fstype=None, options=None):
         if fstype is None:
@@ -211,16 +206,30 @@ class DeviceWorker:
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.obj)
+        
+    @property
+    def elapsed(self):
+        return time.time() - self.start
 
     def on_JobChanged(self, *args):
         job_in_progress = args[0]
         if not (job_in_progress or self.next is None):
             next = self.next
             self.next = None
+            log.info('%.3f till %s JobChanged for %r',
+                self.elapsed, self.verb, self
+            )
             # FIXME: This wait is to work around UDisks issues: when we get the
             # JobChanged signal, it seems that often UDisks isn't actually ready
             # for the next step
             GObject.timeout_add(500, self.on_timeout, next)
+
+    def on_reply(self, *args):
+        log.info('%.3f to %s %r', self.elapsed, self.verb, self)
+
+    def on_error(self, *args):
+        log.error('[%.3f] Could not %s %r', self.elapsed, self.verb, self)
+        self.finish()
 
     def on_timeout(self, next):
         next()
@@ -232,19 +241,15 @@ class DeviceWorker:
         GObject.idle_add(self.unmount)
 
     def _unmount(self):
-        try:
-            self.partition.FilesystemUnmount()
-        except Exception:
-            log.exception('Error unmounting %r', self)
-            self.finish()
+        self.start = time.time()
+        self.verb = 'unmount'
+        self.partition.FilesystemUnmount(self.on_reply, self.on_error)
 
     def eject(self):
         self.next = self.finish
-        try:
-            self.drive.DriveEject()
-        except Exception:
-            log.exception('Error ejecting %r', self)
-            self.finish()
+        self.start = time.time()
+        self.verb = 'eject'
+        self.drive.DriveEject(self.on_reply, self.on_error)
 
     def finish(self):
         self.next = None
