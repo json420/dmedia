@@ -54,6 +54,7 @@ class Importer:
     def __init__(self, env, proxy, hub):
         super().__init__()
         self.env = env
+        self.project_db_name = schema.project_db_name(env['project_id'])
         self.blocking = False
         self.cards = {}
         self.proxy = proxy
@@ -81,10 +82,10 @@ class Importer:
         GObject.idle_add(self.hub.send, signal, *args)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
-        log.info("batch_finished: %s, calling Dmedia.Snapshot('dmedia-0')",
+        log.info("batch_finished: %s, calling Dmedia.SnapshotMany()",
             batch_id
         )
-        self.proxy.Snapshot('dmedia-0')
+        self.proxy.SnapshotMany([self.project_db_name, 'dmedia-0'])
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies

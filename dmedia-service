@@ -136,6 +136,11 @@ class Service(dbus.service.Object):
         self.snapshot_queue_in.put(dbname)
         return True
 
+    @dbus.service.method(IFACE, in_signature='as', out_signature='')
+    def SnapshotMany(self, names):
+        for dbname in names:
+            self.Snapshot(dbname)
+
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def SnapshotAll(self):
         log.info('Dmedia.SnapshotAll()')
