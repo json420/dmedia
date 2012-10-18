@@ -113,6 +113,27 @@ def update_count_and_bytes(db, doc):
         doc['count'] = stats['count']
         doc['bytes'] = stats['sum']
         db.save(doc)
+        return True
+    return False
+
+
+def update_project_stats(db, project_id):
+    try:
+        pdb_name = schema.project_db_name(project_id)
+        pdb = Database(pdb_name, ctx=db.ctx)
+        pdoc = pdb.get(project_id)
+        if update_count_and_bytes(pdb, pdoc):
+            try:
+                doc = db.get(project_id)
+                pdoc['_rev'] = doc['_rev']
+                db.save(pdoc)
+            except NotFound:
+                del pdoc['_rev']
+                db.save(pdoc)
+            db.view('project', 'atime', limit=1)
+            log.info('Updated project stats for %r', project_id)
+    except Exception:
+        log.exception('Error updating project stats for %r', project_id)
 
 
 class Core:
@@ -212,7 +233,7 @@ class Core:
     def init_project_views(self):
         start = time.time()
         try:
-            self.db.view('project', 'atime')
+            self.db.view('project', 'atime', limit=1)
             log.info('%.3f to prep project/atime view', time.time() - start)
             for (name, _id) in projects_iter(self.server):
                 pdb = util.get_project_db(_id, self.env, True)
@@ -232,6 +253,9 @@ class Core:
             log.info('%.3f for Core.init_project_views() to complete', time.time() - start)
         except Exception:
             log.exception('Error in Core.init_project_views():')
+
+    def update_project_stats(self, project_id):
+        start_thread(update_project_stats, self.db, project_id)     
 
     def set_default_store(self, value):
         if value not in ('private', 'shared', 'none'):

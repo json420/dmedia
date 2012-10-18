@@ -405,6 +405,12 @@ class Service(dbus.service.Object):
     def HashAndMove(self, tmp, origin):
         return self.core.hash_and_move(tmp, origin)
 
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def UpdateProjectStats(self, project_id):
+        project_id = str(project_id)
+        log.info('Dmedia.UpdateProjectStats(%r)', project_id)
+        self.core.update_project_stats(project_id)
+
 
 parser = optparse.OptionParser(
 	version=dmedia.__version__,
