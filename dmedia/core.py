@@ -39,6 +39,7 @@ from urllib.parse import urlparse
 from queue import Queue
 from subprocess import check_call, CalledProcessError
 from copy import deepcopy
+from base64 import b64encode
 
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict
 from filestore import FileStore, check_root_hash, check_id
@@ -107,21 +108,60 @@ def projects_iter(server):
         yield (name, _id)
 
 
+def get_first_thumbnail(db):
+    rows = db.view('user', 'thumbnail', limit=1)['rows']
+    if rows:
+        _id = rows[0]['id']
+        return db.get_att(_id, 'thumbnail')
+
+
+def has_thumbnail(doc):
+    try:
+        doc['_attachments']['thumbnail']
+        return True
+    except KeyError:
+        return False
+
+
+def encode_attachment(content_type, data):
+    return {
+        'content_type': content_type,
+        'data': b64encode(data).decode('utf-8'),        
+    }
+
+
+def update_thumbnail(db, doc):
+    if has_thumbnail(doc):
+        return False
+    att = get_first_thumbnail(db)
+    if att is None:
+        return False
+    (content_type, data) = att
+    if '_attachments' not in doc:
+        doc['_attachments'] = {}
+    doc['_attachments']['thumbnail'] = encode_attachment(content_type, data)
+    return True
+
+
 def update_count_and_bytes(db, doc):
+    updated = False
     stats = db.view('user', 'bytes', reduce=True)['rows'][0]['value']
     if doc.get('count') != stats['count'] or doc.get('bytes') != stats['sum']:
         doc['count'] = stats['count']
         doc['bytes'] = stats['sum']
+        updated = True
+    if update_thumbnail(db, doc):
+        updated = True
+    if updated:
         db.save(doc)
-        return True
-    return False
+    return updated
 
 
 def update_project_stats(db, project_id):
     try:
         pdb_name = schema.project_db_name(project_id)
         pdb = Database(pdb_name, ctx=db.ctx)
-        pdoc = pdb.get(project_id)
+        pdoc = pdb.get(project_id, attachments=True)
         if update_count_and_bytes(pdb, pdoc):
             try:
                 doc = db.get(project_id)

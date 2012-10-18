@@ -26,6 +26,8 @@ Unit tests for `dmedia.core` module.
 
 from unittest import TestCase
 import json
+import os
+from base64 import b64encode
 
 import microfiber
 from microfiber import random_id
@@ -38,6 +40,27 @@ from dmedia import util, core
 
 from .couch import CouchCase
 from .base import TempDir
+
+
+class TestFunctions(TestCase):
+    def test_has_thumbnail(self):
+        self.assertIs(core.has_thumbnail({}), False)
+        doc = {'_attachments': {}}
+        self.assertIs(core.has_thumbnail(doc), False)
+        doc = {'_attachments': {'foo': 'bar'}}
+        self.assertIs(core.has_thumbnail(doc), False)
+        doc = {'_attachments': {'thumbnail': 'yup'}}
+        self.assertIs(core.has_thumbnail(doc), True)
+
+    def test_encode_attachment(self):
+        data = os.urandom(1776)
+        self.assertEqual(
+            core.encode_attachment('image/jpeg', data),
+            {
+                'content_type': 'image/jpeg',
+                'data': b64encode(data).decode('utf-8'),
+            }
+        )
 
 
 class TestCouchFunctions(CouchCase):

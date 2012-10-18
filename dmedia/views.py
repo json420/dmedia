@@ -235,6 +235,16 @@ function(doc) {
 }
 """
 
+user_thumbnail = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (doc._attachments && doc._attachments.thumbnail) {
+            emit(doc.time, null);
+        }
+    }
+}
+"""
+
 user_design = {
     '_id': '_design/user',
     'views': {
@@ -244,6 +254,7 @@ user_design = {
         'video': {'map': user_video},
         'audio': {'map': user_audio},
         'image': {'map': user_image},
+        'thumbnail': {'map': user_thumbnail},
     },
 }
 
