@@ -70,6 +70,13 @@ def start_httpd(couch_env, ssl_config):
 
 def snapshot_worker(env, dumpdir, queue_in, queue_out):
     server = Server(env)
+    try:
+        check_call(['bzr', 'init', dumpdir])
+        whoami = env['machine_id']
+        check_call(['bzr', 'whoami', '--branch', '-d', dumpdir, whoami])
+        log.info('Initialized bzr branch in %r', dumpdir)
+    except CalledProcessError:
+        pass
     while True:
         dbname = queue_in.get()
         if dbname is None:
@@ -82,11 +89,6 @@ def snapshot_worker(env, dumpdir, queue_in, queue_out):
             start = time.time()
             db.dump(filename)
             log.info('** %.2f to dump %r', time.time() - start, dbname)
-            try:
-                check_call(['bzr', 'init', dumpdir])
-                log.info('Initialized bzr branch in %r', dumpdir)
-            except CalledProcessError:
-                pass
             check_call(['bzr', 'add', filename])
             msg = 'Snapshot of {!r}'.format(dbname)
             check_call(['bzr', 'commit', filename, '-m', msg, '--unchanged'])
