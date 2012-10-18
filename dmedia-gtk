@@ -260,7 +260,6 @@ class App(BaseApp):
         self.hub.send('importer_stopped')
 
     def on_create_project(self, hub, title):
-        print(repr(title))
         doc = schema.create_project(title)
         self.db.post(doc)
         project = get_project_db(doc['_id'], self.env, True)

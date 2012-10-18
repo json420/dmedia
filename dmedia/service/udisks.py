@@ -156,7 +156,9 @@ class Drive(Device):
 
     def DriveEject(self):
         log.info('Ejecting %r', self)
-        return self.proxy.DriveEject(empty_options)
+        start = time.time()
+        self.proxy.DriveEject(empty_options)
+        log.info('%.3f to eject %r', time.time() - start, self)
 
     def DriveDetach(self):
         """
@@ -176,7 +178,16 @@ class Partition(Device):
 
     def FilesystemUnmount(self):
         log.info('Unmounting %r', self)
-        return self.proxy.FilesystemUnmount(empty_options)
+        self.proxy.FilesystemUnmount(empty_options,
+            reply_handler=self.on_unmount_reply,
+            error_handler=self.on_unmount_error,
+        )
+
+    def on_unmount_reply(self, *args):
+        log.info('Unmounted %r', self)
+
+    def on_unmount_error(self, *args):
+        log.info('Error unmounting %r', self)
 
     def FilesystemCreate(self, fstype=None, options=None):
         if fstype is None:
