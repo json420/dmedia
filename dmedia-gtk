@@ -98,9 +98,7 @@ class Importer:
             self.workers[obj] = w
         self.cards.clear()
         for worker in self.workers.values():
-            # This should fix LP:1067142 and also prevents the UI from blocking
-            # too long here:
-            GObject.idle_add(worker.run)
+            worker.run()
  
     def on_complete(self, worker, obj):
         log.info('Completed: %r', worker)

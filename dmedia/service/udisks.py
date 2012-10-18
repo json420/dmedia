@@ -216,36 +216,48 @@ class DeviceWorker:
         return False  # Do not repeat timeout call
 
     def run(self):
+        # This should fix LP:1067142 and also prevents the UI from blocking
+        # too long:
+        GObject.idle_add(self.unmount)
+
+    def _unmount(self):
         try:
-            self.unmount()
-        except Exception as e:
+            self.partition.FilesystemUnmount()
+        except Exception:
             log.exception('Error unmounting %r', self)
-            self.next = None
             self.finish()
 
     def eject(self):
         self.next = self.finish
-        self.drive.DriveEject()
+        try:
+            self.drive.DriveEject()
+        except Exception:
+            log.exception('Error ejecting %r', self)
+            self.finish()
 
     def finish(self):
-        self.callback(self, self.obj)
+        self.next = None
+        GObject.idle_add(self.callback, self, self.obj)
 
 
 class Ejector(DeviceWorker):
     def unmount(self):
         self.next = self.eject
-        self.partition.FilesystemUnmount()
+        self._unmount()
 
 
 class Formatter(DeviceWorker):
     def unmount(self):
         self.next = self.format
-        self.partition.FilesystemUnmount()
+        self._unmount()
 
     def format(self):
         self.next = self.eject
-        self.partition.FilesystemCreate()
-
+        try:
+            self.partition.FilesystemCreate()
+        except Exception as e:
+            log.exception('Error formatting %r', self)
+            self.finish()
 
 
 class UDisks(GObject.GObject):
