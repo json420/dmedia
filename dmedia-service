@@ -168,34 +168,44 @@ class Service(dbus.service.Object):
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
         log.info('Finished core startup in %.3f', time.time() - start)
-        GObject.timeout_add(1000, self.on_idle1)
+        GObject.timeout_add(500, self.on_idle1)
 
-    def start_httpd(self):
+    def on_idle1(self):
+        """
+        UDisks and peering browser.
+        """
+        log.info('[idle1 at time %.3f]', time.time() - start_time)
+        if self.couch.pki.user.key_file is not None:
+            self.peer = Browser(self.couch)
+        self.udisks.monitor()
+        GObject.timeout_add(500, self.on_idle2)
+
+    def on_idle2(self):
+        """
+        Init project views, prep project/atime, update project stats.
+        """
+        log.info('[idle2 at time %.3f]', time.time() - start_time)
+        start_thread(self.core.init_project_views)
+        GObject.timeout_add(10*1000, self.on_idle3)
+
+    def on_idle3(self):
+        """
+        HTTPD, Avahi, and replication.
+        """
+        log.info('[idle3 at time %.3f]', time.time() - start_time)
         ssl_config = self.couch.get_ssl_config()
         (self.httpd, env) = start_httpd(self.core.env, ssl_config)
         port = env['port']
         self.avahi = Avahi(self.core.env, port, ssl_config)
         self.avahi.run()
-        if self.couch.pki.user.key_file is not None:
-            self.peer = Browser(self.couch)
+        GObject.timeout_add(30*1000, self.on_idle4)
 
-    def on_idle1(self):
-        log.info('[idle1]')
-        self.udisks.monitor()
-        GObject.timeout_add(1000, self.on_idle2)
-        return False  # Don't repeat idle call
-
-    def on_idle2(self):
-        log.info('[idle2]')
-        self.start_httpd()
-        GObject.timeout_add(1000, self.on_idle3)
-        return False  # Don't repeat idle call
-
-    def on_idle3(self):
-        log.info('[idle3]')
-        start_thread(self.core.init_project_views)
+    def on_idle4(self):
+        """
+        Start the background filestore checking tasks.
+        """
+        log.info('[idle4 at time %.3f]', time.time() - start_time)
         self.core.start_background_tasks()
-        return False  # Don't repeat idle call
 
     def on_disconnection(self, bus):
         log.info('<DBus disconnection>')

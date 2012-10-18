@@ -47,7 +47,7 @@ from filestore import FileStore, check_root_hash, check_id
 import dmedia
 from dmedia.parallel import start_thread, start_process
 from dmedia.server import run_server
-from dmedia import util, schema
+from dmedia import util, schema, views
 from dmedia.metastore import MetaStore
 from dmedia.local import LocalStores, FileNotLocal
 
@@ -272,17 +272,30 @@ class Core:
         assert self.thread is None
         self.thread = start_thread(self._background_worker)
 
+    def _iter_project_dbs(self):
+        for (name, _id) in projects_iter(self.server):
+            pdb = self.server.database(name)
+            util.init_views(pdb, views.project)
+            yield (pdb, _id)
+
+
     def init_project_views(self):
         start = time.time()
         try:
+
+            items = tuple(self._iter_project_dbs())
+            log.info('%.3f to init project views', time.time() - start)
+
+            s = time.time()
             self.db.view('project', 'atime', limit=1)
-            log.info('%.3f to prep project/atime view', time.time() - start)
-            for (name, _id) in projects_iter(self.server):
-                pdb = util.get_project_db(_id, self.env, True)
+            log.info('%.3f to prep project/atime view', time.time() - s)
+
+            s = time.time()
+            for (pdb, _id) in items:
                 try:
                     pdoc = pdb.get(_id, attachments=True)
                 except NotFound:
-                    log.error('Project doc %r not in %r', _id, name)
+                    log.error('Project doc %r not in %r', _id, pdb.name)
                     continue
                 update_count_and_bytes(pdb, pdoc)
                 del pdoc['_rev']
@@ -290,13 +303,16 @@ class Core:
                     doc = self.db.get(_id, attachments=True)
                     rev = doc.pop('_rev')
                     if doc != pdoc:
-                        log.info('syncing project metadata for %s', _id)
+                        log.info('updating project metadata for %s', _id)
                         pdoc['_rev'] = rev
                         self.db.save(pdoc)
                 except NotFound:
                     log.info('missing project doc for %s', _id)
                     self.db.save(pdoc)
-            log.info('%.3f for Core.init_project_views() to complete', time.time() - start)
+            log.info('%.3f to update project stats', time.time() - s)
+                    
+
+            log.info('%.3f total for Core.init_project_views()', time.time() - start)
         except Exception:
             log.exception('Error in Core.init_project_views():')
 
