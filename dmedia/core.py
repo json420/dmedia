@@ -277,7 +277,11 @@ class Core:
             log.info('%.3f to prep project/atime view', time.time() - start)
             for (name, _id) in projects_iter(self.server):
                 pdb = util.get_project_db(_id, self.env, True)
-                pdoc = pdb.get(_id, attachments=True)
+                try:
+                    pdoc = pdb.get(_id, attachments=True)
+                except NotFound:
+                    log.error('Project doc %r not in %r', _id, name)
+                    continue
                 update_count_and_bytes(pdb, pdoc)
                 del pdoc['_rev']
                 try:
