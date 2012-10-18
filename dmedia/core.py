@@ -67,33 +67,33 @@ def start_httpd(couch_env, ssl_config):
     return (process, env)
 
 
-def snapshot_db(env, dumpdir, dbname):
-    db = Database(dbname, env)
-    filename = path.join(dumpdir, dbname + '.json')  
-    log.info('Dumping %r to %r', dbname, filename)
-    start = time.time()
-    db.dump(filename)
-    log.info('** %.2f to dump %r', time.time() - start, dbname)
-    try:
-        check_call(['bzr', 'init', dumpdir])
-        log.info('Initialized bzr branch in %r', dumpdir)
-    except CalledProcessError:
-        pass
-    check_call(['bzr', 'add', filename])
-    msg = 'Snapshot of {!r}'.format(dbname)
-    check_call(['bzr', 'commit', filename, '-m', msg, '--unchanged'])
-    log.info('Committed snapshot of %r', dbname)
-
-
-def snapshot_all_dbs(env, dumpdir):
+def snapshot_worker(env, dumpdir, queue_in, queue_out):
     server = Server(env)
-    log.info('Snapshotting all databases into %r', dumpdir)
-    start = time.time()
-    for dbname in server.get('_all_dbs'):
-        if dbname.startswith('_') or dbname == 'thumbnails':
-            continue
-        snapshot_db(env, dumpdir, dbname)
-    log.info('** %.2f to snapshot all database', time.time() - start)
+    while True:
+        dbname = queue_in.get()
+        if dbname is None:
+            queue_out.put(None)
+            break
+        try:
+            db = server.database(dbname)
+            filename = path.join(dumpdir, dbname + '.json')  
+            log.info('Dumping %r to %r', dbname, filename)
+            start = time.time()
+            db.dump(filename)
+            log.info('** %.2f to dump %r', time.time() - start, dbname)
+            try:
+                check_call(['bzr', 'init', dumpdir])
+                log.info('Initialized bzr branch in %r', dumpdir)
+            except CalledProcessError:
+                pass
+            check_call(['bzr', 'add', filename])
+            msg = 'Snapshot of {!r}'.format(dbname)
+            check_call(['bzr', 'commit', filename, '-m', msg, '--unchanged'])
+            log.info('Committed snapshot of %r', dbname)
+            queue_out.put((dbname, True))
+        except Exception:
+            log.exception('Error snapshotting %r', dbname)
+            queue_out.put((dbname, False))
 
 
 def projects_iter(server):
@@ -232,12 +232,6 @@ class Core:
             log.info('%.3f for Core.init_project_views() to complete', time.time() - start)
         except Exception:
             log.exception('Error in Core.init_project_views():')
-
-    def snapshot(self, dumpdir, dbname):
-        start_process(snapshot_db, self.env, dumpdir, dbname)
-
-    def snapshot_all(self, dumpdir):
-        start_process(snapshot_all_dbs, self.env, dumpdir)
 
     def set_default_store(self, value):
         if value not in ('private', 'shared', 'none'):

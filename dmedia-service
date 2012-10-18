@@ -31,6 +31,7 @@ start_time = time.time()
 import optparse
 import logging
 import signal
+import multiprocessing
 
 import dbus
 import dbus.service
@@ -39,9 +40,9 @@ from gi.repository import GObject
 from microfiber import NotFound, dumps
 
 import dmedia
-from dmedia.parallel import start_thread
+from dmedia.parallel import start_thread, start_process
 from dmedia.startup import DmediaCouch
-from dmedia.core import Core, start_httpd
+from dmedia.core import Core, start_httpd, snapshot_worker
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, Publisher
@@ -85,6 +86,63 @@ class Service(dbus.service.Object):
         self.udisks.connect('store_removed', self.on_store_removed)
         self.udisks.connect('card_added', self.on_card_added)
         self.udisks.connect('card_removed', self.on_card_removed)
+
+        self.snapshot_queue_in = multiprocessing.Queue()
+        self.snapshot_queue_out = multiprocessing.Queue()
+        self.snapshots_in_flight = set()
+        self.snapshot_process = None
+        self.snapshot_thread = None
+
+    def snapshot_listener(self):
+        while True:
+            item = self.snapshot_queue_out.get()
+            if item is None:
+                break
+            GObject.idle_add(self.on_snapshot_complete, item)
+
+    def on_snapshot_complete(self, item):
+        (dbname, success) = item
+        self.snapshots_in_flight.remove(dbname)
+        if not self.snapshots_in_flight:
+            log.info('No in-flight snapshots, shutting down worker...')
+            self.snapshot_queue_in.put(None)
+            self.snapshot_process.join()
+            self.snapshot_process = None
+            self.snapshot_thread.join()
+            self.snapshot_thread = None
+        self.SnapshotComplete(dbname, success)
+
+    @dbus.service.signal(IFACE, signature='sb')
+    def SnapshotComplete(self, dbname, success):
+        log.info('@Dmedia.SnapshotComplete(%r, %r)', dbname, success)
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='b')
+    def Snapshot(self, dbname):
+        dbname = str(dbname)
+        log.info('Dmedia.Snapshot(%r)', dbname)
+        if dbname in self.snapshots_in_flight:
+            log.warning('Snapshot of %r already in-flight', dbname)
+            return False
+        self.snapshots_in_flight.add(dbname)
+        if self.snapshot_process is None:
+            assert self.snapshot_thread is None
+            self.snapshot_process = start_process(snapshot_worker,
+                self.core.env,
+                self.couch.paths.dump,
+                self.snapshot_queue_in,
+                self.snapshot_queue_out
+            )
+            self.snapshot_thread = start_thread(self.snapshot_listener)
+        self.snapshot_queue_in.put(dbname)
+        return True
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def SnapshotAll(self):
+        log.info('Dmedia.SnapshotAll()')
+        for dbname in self.core.server.get('_all_dbs'):
+            if dbname.startswith('_') or dbname == 'thumbnails':
+                continue
+            self.Snapshot(dbname)
 
     def run(self):
         if self.couch.isfirstrun():
@@ -341,14 +399,6 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='ss', out_signature='a{ss}')
     def HashAndMove(self, tmp, origin):
         return self.core.hash_and_move(tmp, origin)
-
-    @dbus.service.method(IFACE, in_signature='s', out_signature='')
-    def Snapshot(self, dbname):
-        self.core.snapshot(self.couch.paths.dump, str(dbname))
-
-    @dbus.service.method(IFACE, in_signature='', out_signature='')
-    def SnapshotAll(self):
-        self.core.snapshot_all(self.couch.paths.dump)
 
 
 parser = optparse.OptionParser(
