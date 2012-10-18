@@ -73,13 +73,14 @@ doc_design = {
 
 
 
-# The _design/file design, for dmedia/file docs:
+# The file design, for dmedia/file docs:
 file_stored = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key;
+        var bytes = (typeof doc.bytes == 'number') ? doc.bytes : 0;
         for (key in doc.stored) {
-            emit(key, null);
+            emit(key, bytes);
         }
     }
 }
@@ -134,15 +135,26 @@ function(doc) {
 }
 """
 
+file_origin = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var bytes = (typeof doc.bytes == 'number') ? doc.bytes : 0;
+        emit(doc.origin, bytes);
+    }
+}
+"""
+
 file_design = {
     '_id': '_design/file',
     'views': {
-        'stored': {'map': file_stored},
+        'stored': {'map': file_stored, 'reduce': _stats},
         'fragile': {'map': file_fragile},
         'reclaimable': {'map': file_reclaimable},
         'verified': {'map': file_verified},
+        'origin': {'map': file_origin, 'reduce': _stats},
     },
 }
+
 
 
 # The _design/user design, for dmedia/file docs where origin == 'user':

@@ -327,6 +327,10 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'stored'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True),
+            {'rows': []}
+        )
 
         (store_id1, store_id2) = sorted(random_id() for i in range(2))
         _id = random_id(DIGEST_BYTES)
@@ -340,25 +344,192 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
 
+        # Test when doc.bytes does not exist:
         self.assertEqual(
             db.view('file', 'stored'),
             {
                 'offset': 0,
                 'total_rows': 2,
                 'rows': [
-                    {'key': store_id1, 'id': _id, 'value': None},
-                    {'key': store_id2, 'id': _id, 'value': None},
+                    {'key': store_id1, 'id': _id, 'value': 0},
+                    {'key': store_id2, 'id': _id, 'value': 0},
                 ]
             },
+        )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True),
+            {
+                'rows': [
+                    {
+                        'key': None,
+                        'value': {
+                            'count': 2,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True, group=True),
+            {
+                'rows': [
+                    {
+                        'key': store_id1,
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                    {
+                        'key': store_id2,
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+
+        # Test when doc.bytes is not a number:
+        doc['bytes'] = 'foo'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'stored'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': store_id1, 'id': _id, 'value': 0},
+                    {'key': store_id2, 'id': _id, 'value': 0},
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True),
+            {
+                'rows': [
+                    {
+                        'key': None,
+                        'value': {
+                            'count': 2,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True, group=True),
+            {
+                'rows': [
+                    {
+                        'key': store_id1,
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                    {
+                        'key': store_id2,
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+
+        # Test when doc.bytes is an integer:
+        doc['bytes'] = 42
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'stored'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': store_id1, 'id': _id, 'value': 42},
+                    {'key': store_id2, 'id': _id, 'value': 42},
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True),
+            {
+                'rows': [
+                    {
+                        'key': None,
+                        'value': {
+                            'count': 2,
+                            'sum': 84,
+                            'sumsqr': 3528,
+                            'min': 42,
+                            'max': 42,
+                        },
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True, group=True),
+            {
+                'rows': [
+                    {
+                        'key': store_id1,
+                        'value': {
+                            'count': 1,
+                            'sum': 42,
+                            'sumsqr': 1764,
+                            'min': 42,
+                            'max': 42,
+                        },
+                    },
+                    {
+                        'key': store_id2,
+                        'value': {
+                            'count': 1,
+                            'sum': 42,
+                            'sumsqr': 1764,
+                            'min': 42,
+                            'max': 42,
+                        },
+                    },
+                ],
+            }
         )
 
         # Make sure view func checks doc.type
         doc['type'] = 'dmedia/file2'
         db.save(doc)
-        
+
         self.assertEqual(
             db.view('file', 'stored'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+        self.assertEqual(
+            db.view('file', 'stored', reduce=True),
+            {'rows': []}
         )
 
     def test_fragile(self):
@@ -731,6 +902,230 @@ class TestFileDesign(DesignTestCase):
                     {'key': [store_id, 1234567890], 'id': id1, 'value': None},
                 ]
             },
+        )
+
+    def test_origin(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('origin')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('file', 'origin'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True),
+            {'rows': []}
+        )
+
+        id1 = random_id(DIGEST_BYTES)
+        id2 = random_id(DIGEST_BYTES)
+        doc1 = {
+            '_id': id1,
+            'type': 'dmedia/file',
+            'origin': 'user',
+        }
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/file',
+            'origin': 'proxy',
+        }
+        db.save(doc1)
+        db.save(doc2)
+
+        # Test when doc.bytes does not exist:
+        self.assertEqual(
+            db.view('file', 'origin'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': 'proxy', 'id': id2, 'value': 0},
+                    {'key': 'user', 'id': id1, 'value': 0},
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True),
+            {
+                'rows': [
+                    {
+                        'key': None,
+                        'value': {
+                            'count': 2,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True, group=True),
+            {
+                'rows': [
+                    {
+                        'key': 'proxy',
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                    {
+                        'key': 'user',
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+
+        # Test when doc.bytes is not a number:
+        doc1['bytes'] = 'foo'
+        doc2['bytes'] = ['bar']
+        db.save(doc1)
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'origin'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': 'proxy', 'id': id2, 'value': 0},
+                    {'key': 'user', 'id': id1, 'value': 0},
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True),
+            {
+                'rows': [
+                    {
+                        'key': None,
+                        'value': {
+                            'count': 2,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True, group=True),
+            {
+                'rows': [
+                    {
+                        'key': 'proxy',
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                    {
+                        'key': 'user',
+                        'value': {
+                            'count': 1,
+                            'sum': 0,
+                            'sumsqr': 0,
+                            'min': 0,
+                            'max': 0,
+                        },
+                    },
+                ],
+            }
+        )
+
+        # Test when doc.bytes is an integer:
+        doc1['bytes'] = 17
+        doc2['bytes'] = 18
+        db.save(doc1)
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'origin'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': 'proxy', 'id': id2, 'value': 18},
+                    {'key': 'user', 'id': id1, 'value': 17},
+                ]
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True),
+            {
+                'rows': [
+                    {
+                        'key': None,
+                        'value': {
+                            'count': 2,
+                            'sum': 35,
+                            'sumsqr': 613,
+                            'min': 17,
+                            'max': 18,
+                        },
+                    },
+                ],
+            }
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True, group=True),
+            {
+                'rows': [
+                    {
+                        'key': 'proxy',
+                        'value': {
+                            'count': 1,
+                            'sum': 18,
+                            'sumsqr': 324,
+                            'min': 18,
+                            'max': 18,
+                        },
+                    },
+                    {
+                        'key': 'user',
+                        'value': {
+                            'count': 1,
+                            'sum': 17,
+                            'sumsqr': 289,
+                            'min': 17,
+                            'max': 17,
+                        },
+                    },
+                ],
+            }
+        )
+
+        # Make sure view func checks doc.type
+        doc1['type'] = 'dmedia/file2'
+        doc2['type'] = 'dmedia/file2'
+        db.save(doc1)
+        db.save(doc2)
+
+        self.assertEqual(
+            db.view('file', 'origin'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+        self.assertEqual(
+            db.view('file', 'origin', reduce=True),
+            {'rows': []}
         )
 
 
