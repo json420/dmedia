@@ -314,31 +314,41 @@ class UDisks(GObject.GObject):
         }
 
     def monitor(self):
-        start = time.time()
-        log.info('Starting UDisks device enumeration...')
+        self.start = time.time()
         self.proxy = system.get_object(
             'org.freedesktop.UDisks',
             '/org/freedesktop/UDisks'
         )
         self.proxy.connect_to_signal('DeviceChanged', self.on_DeviceChanged)
         self.proxy.connect_to_signal('DeviceRemoved', self.on_DeviceRemoved)
-        try:
-            devices = self.proxy.EnumerateDevices()
-        except Exception as e:
-            log.exception('Exception calling UDisks.EnumerateDevices()')
-            devices = []  
+        log.info('Calling UDisks.EnumerateDevices()...')
+        self.proxy.EnumerateDevices(
+            reply_handler=self.on_reply,
+            error_handler=self.on_error,
+        )
+
+    def on_reply(self, devices):
+        log.info('%.3f till EnumerateDevices() reply', time.time() - self.start)
         for obj in devices:
-            try:
-                self.change_device(obj)
-            except Exception as e:
-                log.exception('Exception calling change_device(%r)', obj)
-        log.info('Finished UDisks device enumeration in %r', time.time() - start)
+            self.on_DeviceChanged(obj)
+        log.info('%.3f till change_device() called for each',
+                time.time() - self.start)
+
+    def on_error(self, *args):
+        log.info('[%.3f] error calling EnumerateDevices()',
+                time.time() - self.start)
 
     def on_DeviceChanged(self, obj):
-        self.change_device(obj)
+        try:
+            self.change_device(obj)
+        except Exception:
+            log.exception('Error calling UDisks.change_device(%r)', obj)
 
     def on_DeviceRemoved(self, obj):
-        self.remove_device(obj)
+        try:
+            self.remove_device(obj)
+        except Exception:
+            log.exception('Error calling UDisks.remove_device(%r)', obj)
 
     def find(self, parentdir):
         """
