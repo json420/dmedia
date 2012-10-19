@@ -186,7 +186,7 @@ class Service(dbus.service.Object):
         """
         log.info('[idle2 at time %.3f]', time.time() - start_time)
         start_thread(self.core.init_project_views)
-        GObject.timeout_add(10*1000, self.on_idle3)
+        GObject.timeout_add(12*1000, self.on_idle3)
 
     def on_idle3(self):
         """
@@ -198,7 +198,7 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core.env, port, ssl_config)
         self.avahi.run()
-        GObject.timeout_add(30*1000, self.on_idle4)
+        GObject.timeout_add(60*1000, self.on_idle4)
 
     def on_idle4(self):
         """
