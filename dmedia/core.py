@@ -264,7 +264,7 @@ class Core:
                 start = time.time()
                 self.ms.scan(fs)
                 self.ms.relink(fs)
-                log.info('...checked %r in %r', fs, time.time() - start)
+                log.info('%.3f to check %r', time.time() - start, fs)
             except Exception as e:
                 log.exception('Error in background worker:')
 
@@ -278,11 +278,9 @@ class Core:
             util.init_views(pdb, views.project)
             yield (pdb, _id)
 
-
     def init_project_views(self):
         start = time.time()
         try:
-
             items = tuple(self._iter_project_dbs())
             log.info('%.3f to init project views', time.time() - start)
 
@@ -303,14 +301,13 @@ class Core:
                     doc = self.db.get(_id, attachments=True)
                     rev = doc.pop('_rev')
                     if doc != pdoc:
-                        log.info('updating project metadata for %s', _id)
+                        log.info('updating project stats for %s', _id)
                         pdoc['_rev'] = rev
                         self.db.save(pdoc)
                 except NotFound:
                     log.info('missing project doc for %s', _id)
                     self.db.save(pdoc)
             log.info('%.3f to update project stats', time.time() - s)
-                    
 
             log.info('%.3f total for Core.init_project_views()', time.time() - start)
         except Exception:

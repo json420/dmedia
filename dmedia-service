@@ -168,7 +168,7 @@ class Service(dbus.service.Object):
             self.core.set_default_store('shared')
         self.env_s = dumps(self.core.env, pretty=True)
         log.info('Finished core startup in %.3f', time.time() - start)
-        GObject.timeout_add(500, self.on_idle1)
+        GObject.timeout_add(350, self.on_idle1)
 
     def on_idle1(self):
         """
@@ -178,7 +178,7 @@ class Service(dbus.service.Object):
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self.couch)
         self.udisks.monitor()
-        GObject.timeout_add(500, self.on_idle2)
+        GObject.timeout_add(350, self.on_idle2)
 
     def on_idle2(self):
         """

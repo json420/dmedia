@@ -94,7 +94,7 @@ def update_design_doc(db, doc):
 
 
 def init_views(db, designs):
-    log.info('Initializing views in %r', db)
+    log.info('Initializing views in %s', db.name)
     result = []
     current = set()
     for doc in designs:
