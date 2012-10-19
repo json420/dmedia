@@ -222,7 +222,7 @@ class DeviceWorker:
             # FIXME: This wait is to work around UDisks issues: when we get the
             # JobChanged signal, it seems that often UDisks isn't actually ready
             # for the next step
-            GObject.timeout_add(500, self.on_timeout, next)
+            GObject.timeout_add(250, self.on_timeout, next)
 
     def on_reply(self, *args):
         log.info('%.3f to %s %r', self.elapsed, self.verb, self)
@@ -238,7 +238,7 @@ class DeviceWorker:
     def run(self):
         # This should fix LP:1067142 and also prevents the UI from blocking
         # too long:
-        GObject.idle_add(self.unmount)
+        GObject.timeout_add(250, self.unmount)
 
     def _unmount(self):
         self.start = time.time()
