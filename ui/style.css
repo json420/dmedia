@@ -113,13 +113,6 @@ body {
     color: #ccc;
 }
 
-.card-label {
-    font-weight: bold;
-}
-
-p {
-    padding-left: 5px;
-}
 
 
 ul {
@@ -206,7 +199,7 @@ ul {
     height: 224px;
     width: 224px;
     box-shadow: 1px 2px 6px rgba(0,0,0,0.5);
-    background-color: #999;
+    background-color: #ddd;
     background-size: cover;
     background-position: center center;
     overflow: hidden;
@@ -214,14 +207,14 @@ ul {
 }
 
 #cards .thumbnail div {
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0,0,0,0.35);
     padding: 5px;
     position: absolute;
     bottom: 0;
     width: 100%;
     overflow: hidden;
     color: white;
-    font-size: 14px;
+    font-size: 15px;
     text-shadow: 0 0 1px black;
 }
 
