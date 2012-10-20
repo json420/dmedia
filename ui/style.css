@@ -72,7 +72,7 @@ body {
     content: "";
     position: absolute;
     right: -9px;
-    background: -webkit-linear-gradient(top, rgba(255,255,255,0), rgba(255,255,255,0.25), rgba(255,255,255,0));
+    background: -webkit-linear-gradient(top, rgba(255,255,255,0), rgba(255,255,255,0.3), rgba(255,255,255,0));
 }
 
 #header .tab:last-child:after{
