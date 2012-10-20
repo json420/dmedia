@@ -159,7 +159,7 @@ ProjectButton.prototype = {
     update: function(doc) {
         this.thumbnail.style.backgroundImage = this.session.thumbnail(doc);
         this.title.textContent = doc.title;
-        this.date.textContext = format_date(doc.time);
+        this.date.textContent = format_date(doc.time);
         this.stats.textContent = count_n_size(doc.count, doc.bytes);
     },
 }
