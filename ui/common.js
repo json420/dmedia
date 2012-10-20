@@ -76,6 +76,14 @@ function $scroll_to(id) {
 }
 
 
+function force_int(value) {
+    if (typeof value == 'number' && value >= 0) {
+        return value;
+    }
+    return 0;
+}
+
+
 function files(count) {
     if (count == 1) {
         return '1 file';
@@ -83,9 +91,15 @@ function files(count) {
     return count.toString() + ' files';
 }
 
+
 function count_n_size(count, size) {
+    count = force_int(count);
+    size = force_int(size);
     return [files(count), bytes10(size)].join(', ');
 }
+console.assert(count_n_size() == '0 files, 0 bytes');
+console.assert(count_n_size(null, null) == '0 files, 0 bytes');
+console.assert(count_n_size('foo', 'bar') == '0 files, 0 bytes');
 
 
 function ProgressBar(id) {

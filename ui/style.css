@@ -136,7 +136,7 @@ ul {
 .project {
     margin: 8px;
     display: inline-block;
-    box-shadow: 1px 2px 6px rgba(0,0,0,0.6);
+    box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.6);
     background: -webkit-linear-gradient(top, #555, #444);
 }
 
@@ -198,7 +198,7 @@ ul {
 #cards .thumbnail {
     height: 224px;
     width: 224px;
-    box-shadow: 1px 2px 6px rgba(0,0,0,0.5);
+    box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.6);
     background-color: #ddd;
     background-size: cover;
     background-position: center center;
@@ -207,14 +207,14 @@ ul {
 }
 
 #cards .thumbnail div {
-    background-color: rgba(0,0,0,0.35);
+    background-color: rgba(0, 0, 0, 0.35);
     padding: 5px;
     position: absolute;
     bottom: 0;
     width: 100%;
     overflow: hidden;
+    font-size: 14px;
     color: white;
-    font-size: 15px;
     text-shadow: 0 0 1px black;
 }
 

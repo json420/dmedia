@@ -218,9 +218,12 @@ Projects.prototype = {
         var on_docs = function(req) {
             self.on_docs(req);
         }
-        this.db.view(on_docs, 'project', 'atime',
-            {'include_docs': true, 'update_seq': true, 'descending': true}
-        );
+        var options = {
+            'update_seq': true,
+            'include_docs': true,
+            'descending': true,
+        }
+        this.db.view(on_docs, 'project', 'atime', options);
     },
 
     on_docs: function(req) {
@@ -236,15 +239,15 @@ Projects.prototype = {
     },
 
     monitor: function(since) {
+        var self = this;
+        var callback = function(req) {
+            self.on_changes(req);
+        }
         var options = {
             'since': since,
             'feed': 'longpoll',
             'include_docs': true,
             'filter': 'project/type',
-        };
-        var self = this;
-        var callback = function(req) {
-            self.on_changes(req);
         }
         this.db.get(callback, '_changes', options);
     },
