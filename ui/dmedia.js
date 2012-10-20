@@ -5,6 +5,14 @@ var db = new couch.Database('dmedia-0');
 var UI = {
     tabinit: {},
 
+    reset_added: function() {
+        var projects = $('projects');
+        var i;
+        for (i=0; i<projects.children.length; i++) {
+            projects.children[i].classList.remove('added');
+        }
+    },
+
     on_load: function() {
         UI.progressbar = new ProgressBar('progress');
         UI.total = $('total');
@@ -15,6 +23,10 @@ var UI = {
     },    
 
     on_tab_changed: function(tabs, id) {
+        if (UI.tab == 'import' && id != 'import') {
+            UI.reset_added();
+        }
+        UI.tab = id;
         if (!UI.tabinit[id]) {
             UI.tabinit[id] = true;
             UI['init_' + id]();
@@ -173,6 +185,7 @@ ProjectButton.prototype = {
     },
 
     on_click: function() {
+        UI.reset_added();
         Hub.send('start_importer', this.doc._id);
     },
 }
@@ -290,6 +303,14 @@ function Importer() {
     this.session.start();
 }
 Importer.prototype = {
+    reset_added: function() {
+        var first = this.projects.children[0];
+        if (first) {
+            first.classList.remove('added');
+        }
+        return first;
+    },
+
     on_project_load: function(doc) {
         var widget = new ProjectButton(this.session, doc);
         this.projects.appendChild(widget.element);
@@ -312,6 +333,7 @@ Importer.prototype = {
             return;
         }
         this.create_button.disabled = true;
+        UI.reset_added();
         Hub.send('create_project', this.input.value);
         this.input.value = '';
     },
