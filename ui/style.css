@@ -14,10 +14,10 @@ p {
 }
 
 body {
-    background: #333;
+    background-color: #333;
     color: white;
     font-family: Ubuntu;
-    width: auto%;
+    font-size: 14px;
 }
 
 
@@ -25,20 +25,9 @@ body {
     display: none !important;
 }
 
-.head {
-    height: 39px;
-    background: -webkit-linear-gradient(top, #301438, #200428);
-    border-bottom:1px solid #222;
-}
-
-.content {
-    padding-top: 40px;
-}
-
 .darkbar{
     background: -webkit-linear-gradient(top, #222, #111);
     border-top: 1px solid #333;
-    text-shadow: 0px -1px rgba(0,0,0,0.6);
 }
 
 .bar{
@@ -60,10 +49,10 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 39px;
-    /*background: -webkit-linear-gradient(top, #402448, #301438);*/
-    text-shadow:0px -1px 0px rgba(0,0,0,0.6);
     z-index: 100;
+    height: 38px;
+    background: -webkit-linear-gradient(top, #301438, #200428);
+    box-sizing: border-box !important;
 }
 
 #header .tab {
@@ -71,13 +60,14 @@ body {
     cursor: default;
     text-align: center;
     margin: 0 8px;
-    font-size: 16px;
-    line-height:38px;
-    height:39px;
+    font-family: Lato;
+    font-size: 18px;
+    text-shadow: 0px -1px 1px rgba(0,0,0,0.8);
+    line-height: 38px;
 }
 
 #header .tab:after {
-    height: 40px;
+    height: 38px;
     width: 1px;
     content: "";
     position: absolute;
@@ -91,28 +81,17 @@ body {
 }
 
 #header .tab.active{
-    background:-webkit-radial-gradient(center top, contain, rgba(255,255,255,0.1), rgba(255,255,255,0));
+    background:-webkit-radial-gradient(center top, contain, rgba(255,255,255,0.25), rgba(255,255,255,0));
 }
 
-textarea {
-    padding: 0.5em;
-    width: 430px;
-    box-sizing: content-box;
-    font-family: Ubuntu;
-    color: white;
-    background: -webkit-linear-gradient(top, #444, #666);
-    border: 0px;
-    border-radius: 5px;
-    font-size: 16px;
-    line-height: 1.5em;
-    box-shadow: 0px 2px 10px rgba(0,0,0,0.5);
+.content {
+    padding-top: 38px;
 }
-
 
 .progress {
-    height: 24px;
+    height: 16px;
+    border-radius: 8px;
     background: -webkit-linear-gradient(top, #111, #222);
-    border-radius: 12px;
     border-bottom:1px solid #444;
     border-top:1px solid #333;
     box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7);
@@ -121,13 +100,13 @@ textarea {
 }
 
 .progress div {
+    border-radius: 8px;
     position: absolute;
     z-index: 10;
     top: 0;
     bottom: 0;
     left: 0;
     width: 0%;
-    border-radius: 12px;
     box-shadow:inset 0px -1px rgba(0,0,0,0.4), inset 0px -5px 1px rgba(255,255,255,0.1), inset 0px 0px 15px rgba(255, 255, 255, 0.4), 0px 0px 15px #e81f3b;
     background: -webkit-linear-gradient(top, #ea364f, #bd132b);
 }
@@ -234,8 +213,8 @@ ul {
     bottom: 0;
     width: 100%;
     overflow: hidden;
-    font-size: 16px;
     color: white;
+    font-size: 14px;
     text-shadow: 0 0 1px black;
 }
 
