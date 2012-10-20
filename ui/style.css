@@ -175,19 +175,19 @@ ul {
 #cards .thumbnail {
     height: 224px;
     width: 224px;
-    box-shadow: 1px 2px 8px rgba(0,0,0,0.5);
+    box-shadow: 1px 2px 6px rgba(0,0,0,0.5);
     background-color: #999;
     background-size: cover;
     background-position: center center;
     overflow: hidden;
     position: relative;
-    border-radius: 6px;
 }
 
 #cards .thumbnail div {
     background-color: rgba(0, 0, 0, 0.5);
     padding: 5px;
     position: absolute;
+    bottom: 0;
     width: 100%;
     overflow: hidden;
     font-size: 16px;
