@@ -20,6 +20,19 @@ video{
     border-bottom:1px solid #222;
 }
 
+@-webkit-keyframes added {
+    0% {
+        -webkit-transform: scale(0.5);
+    }
+    100% {
+        -webkit-transform: scale(1.0);
+    }
+}
+
+.added {
+    -webkit-animation: added 250ms ease-in-out 0ms;
+}
+
 .project {
     margin: 8px;
     display: inline-block;
@@ -33,7 +46,6 @@ video{
     -webkit-user-select: none;
     padding:3px;
     padding-top:2px;
-    -webkit-animation:appear 100ms ease-in-out 1;
 }
 
 .project.selected {

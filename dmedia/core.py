@@ -145,26 +145,33 @@ def update_thumbnail(db, doc):
     return True
 
 
-def update_count_and_bytes(db, doc):
-    updated = False
-    stats = db.view('user', 'bytes', reduce=True)['rows'][0]['value']
+def update_stats(db, doc):
+    rows = db.view('user', 'bytes', reduce=True)['rows']
+    if not rows:
+        return False
+    stats = rows[0]['value']
     if doc.get('count') != stats['count'] or doc.get('bytes') != stats['sum']:
         doc['count'] = stats['count']
         doc['bytes'] = stats['sum']
-        updated = True
-    if update_thumbnail(db, doc):
-        updated = True
+        return True
+    return False
+
+
+def update_project_doc(db, doc):
+    one = update_thumbnail(db, doc)
+    two = update_stats(db, doc)
+    updated = (one or two)
     if updated:
         db.save(doc)
     return updated
 
 
-def update_project_stats(db, project_id):
+def update_project(db, project_id):
     try:
         pdb_name = schema.project_db_name(project_id)
         pdb = Database(pdb_name, ctx=db.ctx)
         pdoc = pdb.get(project_id, attachments=True)
-        if update_count_and_bytes(pdb, pdoc):
+        if update_project_doc(pdb, pdoc):
             try:
                 doc = db.get(project_id)
                 pdoc['_rev'] = doc['_rev']
@@ -295,7 +302,7 @@ class Core:
                 except NotFound:
                     log.error('Project doc %r not in %r', _id, pdb.name)
                     continue
-                update_count_and_bytes(pdb, pdoc)
+                update_project_doc(pdb, pdoc)
                 del pdoc['_rev']
                 try:
                     doc = self.db.get(_id, attachments=True)
@@ -313,8 +320,8 @@ class Core:
         except Exception:
             log.exception('Error in Core.init_project_views():')
 
-    def update_project_stats(self, project_id):
-        start_thread(update_project_stats, self.db, project_id)     
+    def update_project(self, project_id):
+        update_project(self.db, project_id)     
 
     def set_default_store(self, value):
         if value not in ('private', 'shared', 'none'):

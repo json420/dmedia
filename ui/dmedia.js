@@ -1,7 +1,18 @@
+"use strict";
+
 var db = new couch.Database('dmedia-0');
 
 var UI = {
-    tabinit: {},    
+    tabinit: {},
+
+    on_load: function() {
+        UI.progressbar = new ProgressBar('progress');
+        UI.total = $('total');
+        UI.completed = $('completed');
+        UI.cards = $('cards');
+        UI.tabs = new Tabs();
+        UI.tabs.show_tab('import');
+    },    
 
     on_tab_changed: function(tabs, id) {
         if (!UI.tabinit[id]) {
@@ -15,6 +26,7 @@ var UI = {
 
     init_import: function() {
         UI.importer = new Importer();
+        UI.projects = UI.importer.session;
     },
 
     init_history: function() {
@@ -32,7 +44,7 @@ var UI = {
     init_storage: function() {
         console.log('init_storage'); 
     },
-    
+
     player_click: function(event){
         if (!UI.player.paused) {
             UI.player.pause();
@@ -43,6 +55,9 @@ var UI = {
     },
   
 }
+
+window.onload = UI.on_load;
+
 
 function make_tag_li(remove, doc, id) {
     var id = id || doc._id;
@@ -85,74 +100,202 @@ function reset_flag(id, review) {
     set_flag(div, review);
 }
 
+
+var Widget = function(session, doc) {
+    this.session = session;
+    this.element = this.build(doc._id);
+    this.on_change(doc);
+    session.subscribe(doc._id, this.on_change, this);
+}
+Widget.prototype = {
+    on_change: function(doc) {
+        if (doc._deleted) {
+            this.destroy();  
+        }
+        else {
+            this.update(doc);
+            this.doc = doc;
+        }
+    },
+
+    build: function(doc_id) {
+        var element = document.createElement('div');
+        element.setAttribute('id', doc_id);
+        return element;
+    },
+
+    destroy: function() {
+        if (this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+        delete this.element;
+        delete this.session;
+        delete this.doc;
+    },
+
+    update: function(doc) {
+
+    },
+}
+
+
+var ProjectButton = function(session, doc) {
+    Widget.call(this, session, doc);
+    this._url = null;
+}
+ProjectButton.prototype = {
+    build: function(doc_id) {
+        var element = $el('li', {'class': 'project', 'id': doc_id});
+        element.onclick = $bind(this.on_click, this);
+        this.thumbnail = element.appendChild(
+            $el('div', {'class': 'thumbnail'})
+        );
+        var info = element.appendChild(
+            $el('div', {'class': 'info'})
+        );
+        this.title = info.appendChild(
+            $el('p', {'class': 'title'})
+        );
+        this.date = info.appendChild($el('p'));
+        this.stats = info.appendChild($el('p'));
+        return element;
+    },
+
+    update: function(doc) {
+        var url = this.session.thumbnail(doc);
+        if (this._url != url) {
+            this._url = url;
+            this.thumbnail.style.backgroundImage = url;
+        }
+        this.title.textContent = doc.title;
+        this.date.textContent = format_date(doc.time);
+        this.stats.textContent = count_n_size(doc.count, doc.bytes);
+    },
+
+    on_click: function() {
+        Hub.send('start_importer', this.doc._id);
+    },
+}
+ProjectButton.prototype.__proto__ = Widget.prototype;
+
+
+var Projects = function(db, onload, onadd) {
+    this.db = db;
+    this.onload = onload;
+    this.onadd = onadd;
+    this.ids = {};
+    this.docs = {};
+}
+Projects.prototype = {
+    get: function(_id) {
+        if (!this.docs[_id]) {
+            this.docs[_id] = this.db.get_sync(_id);
+        }
+        return this.docs[_id];
+    },
+
+    subscribe: function(_id, callback, self) {
+        if (! this.ids[_id]) {
+            this.ids[_id] = [];
+        }
+        this.ids[_id].push({callback: callback, self: self});
+    },
+
+    notify: function(doc) {
+        var handlers = this.ids[doc._id];
+        if (handlers) {
+            handlers.forEach(function(h) {
+                h.callback.call(h.self, doc);
+            });
+            if (doc._deleted) {
+                delete this.ids[doc._id];
+            }
+        }
+    },
+
+    start: function() {
+        var self = this;
+        var on_docs = function(req) {
+            self.on_docs(req);
+        }
+        this.db.view(on_docs, 'project', 'atime',
+            {'include_docs': true, 'update_seq': true, 'descending': true}
+        );
+    },
+
+    on_docs: function(req) {
+        var result = req.read();
+        result.rows.forEach(function(row) {
+            this.docs[row.id] = row.doc;
+        }, this);
+        var _id;
+        for (_id in this.docs) {
+            this.onload(this.docs[_id]);
+        }
+        this.monitor(result.update_seq);
+    },
+
+    monitor: function(since) {
+        var options = {
+            'since': since,
+            'feed': 'longpoll',
+            'include_docs': true,
+            'filter': 'project/type',
+        };
+        var self = this;
+        var callback = function(req) {
+            self.on_changes(req);
+        }
+        this.db.get(callback, '_changes', options);
+    },
+
+    on_changes: function(req) {
+        var result = req.read();
+        result.results.forEach(function(row) {
+            if (!this.docs[row.id]) {
+                this.onadd(row.doc);
+            }
+            else {
+                this.notify(row.doc);
+            }
+            this.docs[row.id] = row.doc;
+        }, this);
+        this.monitor(result.last_seq);
+    },
+
+    thumbnail: function(doc) {
+        if (doc._attachments && doc._attachments.thumbnail) {
+            return this.db.att_css_url(doc._id);
+        }
+        return null;
+    },
+}
+
+
 function Importer() {
     this.create_button = $('create_project');
-
-    this.start_button = $('start_importer');
-    this.start_button.onclick = $bind(this.start_importer, this);
 
     this.input = $('project_title');
     this.input.oninput = $bind(this.on_input, this);
     $('project_form').onsubmit = $bind(this.on_submit, this);
 
-    this.items = new Items('projects');
-    this.items.onchange = $bind(this.on_item_change, this);
-    this.project = new Project(db);
+    this.projects = $('projects');
 
-    Hub.connect('project_created', $bind(this.on_project_created, this));
-
-    this.load_items();
+    var on_load = $bind(this.on_project_load, this);
+    var on_add = $bind(this.on_project_add, this);
+    this.session = new Projects(db, on_load, on_add);
+    this.session.start();
 }
 Importer.prototype = {
-    load_items: function() {
-        var callback = $bind(this.on_items, this);
-        db.view(callback, 'project', 'title', {'include_docs': true});
+    on_project_load: function(doc) {
+        var widget = new ProjectButton(this.session, doc);
+        this.projects.appendChild(widget.element);
     },
 
-    on_items: function(req) {
-        this.items.replace(req.read().rows,
-            function(row, items) {
-                var doc = row.doc;
-                var count = doc.count ? doc.count : 0;
-                var bytes = doc.bytes ? doc.bytes : 0;
-
-                var li = $el('li', {'class': 'project', 'id': row.id});
-
-                var thumb = $el('div', {'class': 'thumbnail'});
-                thumb.style.backgroundImage = db.att_css_url(row.id);
-
-                var info = $el('div', {'class': 'info'});
-                info.appendChild(
-                    $el('p', {'textContent': row.key, 'class': 'title'})
-                );
-
-                info.appendChild(
-                    $el('p', {'textContent': format_date(row.value)})
-                );
-
-                info.appendChild(
-                    $el('p', {'textContent': count_n_size(count, bytes)})
-                );
-
-                li.appendChild(thumb);
-                li.appendChild(info);
-
-                li.onclick = function() {
-                    items.toggle(row.id);
-                }
-
-                return li;
-            }
-        );
-        this.items.select(this.project.id);
-    },
-
-    on_item_change: function(id) {
-        this.project.load(id);
-        this.start_button.disabled = (!this.project.id);
-        if (this.project.doc) {
-            $('target_project').textContent = this.project.doc.title;
-        }
+    on_project_add: function(doc) {
+        var widget = new ProjectButton(this.session, doc);
+        widget.element.classList.add('added');
+        this.projects.insertBefore(widget.element, this.projects.children[0]);
     },
 
     on_input: function() {
@@ -165,24 +308,10 @@ Importer.prototype = {
         if (!this.input.value) {
             return;
         }
-        this.items.select(null);
+        this.create_button.disabled = true;
         Hub.send('create_project', this.input.value);
         this.input.value = '';
-        this.create_button.disabled = true;
     },
-
-    on_project_created: function(id, title) {
-        this.project.load(id);
-        this.load_items();
-    },
-
-    start_importer: function() {
-        if (this.project.id) {
-            this.project.access();
-            Hub.send('start_importer', this.project.id);
-        }
-    },
-
 }
 
 function Browser(project, player, items) {
@@ -373,15 +502,6 @@ Browser.prototype = {
 
 }
 
-window.onload = function() {
-    UI.progressbar = new ProgressBar('progress');
-    UI.total = $('total');
-    UI.completed = $('completed');
-    UI.cards = $('cards');
-    UI.tabs = new Tabs();
-    UI.tabs.show_tab('import');    
-}
-
 
 
 // Lazily init-tabs so startup is faster, more responsive
@@ -390,8 +510,9 @@ Hub.connect('tab_changed', UI.on_tab_changed);
 
 
 Hub.connect('importer_started',
-    function(project_db_name) {
-        UI.pdb = new couch.Database(project_db_name);
+    function(doc) {
+        UI.pdb = new couch.Database(doc.db_name);
+        $('target_project').textContent = doc.title;
         $hide('choose_project');
         $show('importer');
     }
