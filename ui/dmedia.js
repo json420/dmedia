@@ -214,8 +214,8 @@ Projects.prototype = {
         var on_docs = function(req) {
             self.on_docs(req);
         }
-        this.db.view(on_docs, 'project', 'title',
-            {include_docs: true, update_seq: true}
+        this.db.view(on_docs, 'project', 'atime',
+            {'include_docs': true, 'update_seq': true, 'descending': true}
         );
     },
 

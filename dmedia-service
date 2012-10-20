@@ -95,6 +95,7 @@ class Service(dbus.service.Object):
         self.snapshot_thread = None
 
         self.update_thread = None
+        self.pending_update = None
 
     def snapshot_listener(self):
         while True:
@@ -434,13 +435,18 @@ class Service(dbus.service.Object):
 
     def on_update_complete(self):
         self.update_thread.join()
-        self.update_thread = None       
+        self.update_thread = None
+        if self.pending_update is not None:
+            log.info('flushing pending project update')
+            self.UpdateProject(self.pending_update)
+            self.pending_update = None  
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def SnapshotProject(self, project_id):
         project_id = str(project_id)
         log.info('Dmedia.SnapshotProject(%r)', project_id)
-        self.UpdateProject(project_id)
+        if not self.UpdateProject(project_id):
+            self.pending_update = project_id
         self.Snapshot(schema.project_db_name(project_id))
         self.Snapshot('dmedia-0')
 
