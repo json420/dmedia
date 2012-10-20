@@ -1,28 +1,59 @@
 * {
     margin: 0;
     padding: 0;
-    font-family: Ubuntu, sans-serif;
-    font-size: 14px;
-    line-height: 24px;
+    line-height: 1.5;
 }
 
-html{
-    height:100%;
+body, div, p, li, img {
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
 }
 
-body{
+p {
+    cursor: default;
+}
+
+body {
+    background: #333;
     color: white;
-    background: -webkit-radial-gradient(50% 90%, 400% 100%, #51225e, #28102c);
-    background-attachment: fixed;
+    font-family: Ubuntu;
+    width: auto%;
 }
+
 
 .hide {
     display: none !important;
 }
 
+.head {
+    height: 39px;
+    background: -webkit-linear-gradient(top, #301438, #200428);
+    border-bottom:1px solid #222;
+}
+
 .content {
     padding-top: 40px;
 }
+
+.darkbar{
+    background: -webkit-linear-gradient(top, #222, #111);
+    border-top: 1px solid #333;
+    text-shadow: 0px -1px rgba(0,0,0,0.6);
+}
+
+.bar{
+    background: -webkit-linear-gradient(top, #444, #333);
+    border-top: 1px solid #555;
+    text-shadow: 0px -1px rgba(0,0,0,0.5);
+}
+
+
+.lightbar{
+    background: -webkit-linear-gradient(top, #666, #555);
+    border-top: 1px solid #777;
+    text-shadow: 0px -1px rgba(0,0,0,0.4);
+}
+
 
 #header {
     position: fixed;
@@ -114,27 +145,33 @@ ul {
     list-style: none;
 }
 
+@-webkit-keyframes added {
+    0% {
+        -webkit-transform: scale(0.5);
+    }
+    100% {
+        -webkit-transform: scale(1.0);
+    }
+}
+
+.added {
+    -webkit-animation: added 250ms ease-in-out 0ms;
+}
+
 .project {
     margin: 8px;
     display: inline-block;
-    background-color: #333;
-    color: white;
-    font-size: 0;
     box-shadow: 1px 2px 6px rgba(0,0,0,0.5);
-    cursor: default;
-    -webkit-user-select: none;
+    background: -webkit-linear-gradient(top, #555, #444);
 }
 
-.project.selected {
-    box-shadow: 0 0 10px #e81f3b;
-}
 
 .project .thumbnail {
-    width: 80px;
-    height: 80px;
+    width: 84px;
+    height: 84px;
     background-position: center center;
     background-size: cover;
-    background-color: #666;
+    background-color: #222;
 }
 
 .project > div {
@@ -142,14 +179,21 @@ ul {
     vertical-align: top;
 }
 
+.project .info {
+    width: 220px; /* 304 - 86 */
+    height: 84px;
+    overflow: hidden;
+    padding-top: 0.5em;
+    padding-left: 0.75em;
+    box-sizing: border-box !important;
+}
+
 .project p {
     font-size: 14px;
-    padding-left: 5px;
-    overflow: hidden;
     white-space: nowrap;
-    width: 224px;
     color: #ddd;
-    box-sizing: border-box !important;
+    padding: 0;
+    margin: 0;
 }
 
 .project p.title {
@@ -184,7 +228,7 @@ ul {
 }
 
 #cards .thumbnail div {
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0,0,0,0.5);
     padding: 5px;
     position: absolute;
     bottom: 0;
@@ -223,6 +267,72 @@ ul {
 
 #tag_matches li.selected {
     background-color: #555;
+}
+
+
+input, button, textarea, .inset {
+    padding-left: 4px;
+    line-height: 22px;  /* 2px less becaues of 1px border */
+    color: #ddd;
+    border:1px solid transparent;
+    border-top:1px solid #555;
+    border-bottom:1px solid #383838;
+    border-radius: 2px;
+    box-shadow: 0px 1px 1px rgba(0,0,0,0.7);
+    -webkit-transition:background 100ms ease-in-out;
+}
+
+input, textarea, .inset {
+    background: -webkit-linear-gradient(top, #333, #444);
+    box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7), 0px 1px 1px rgba(0,0,0,0.7);
+    border-bottom:1px solid #555;
+    border-top:1px solid #333;
+}
+
+button {
+    text-shadow:0px -1px 0px rgba(0,0,0,0.5);
+    background:-webkit-linear-gradient(top, #444, #333);
+    font-weight: normal;
+}
+
+button:hover{
+    color:#fff;
+    background:-webkit-linear-gradient(top, #555, #444);
+    border-top:1px solid #666;
+    border-bottom:1px solid #484848;
+}
+
+button:disabled:hover{
+    color:rgba(255,255,255,0.4);
+    background:-webkit-linear-gradient(top, #444, #333);
+    border-top:1px solid #555;
+}
+
+button:disabled {
+    font-weight: normal;
+    font-style:normal;
+    color:rgba(255,255,255,0.4);
+    text-shadow:0px -1px rgba(0,0,0,0.4);
+}
+
+button:active{
+    background:-webkit-linear-gradient(top, #333, #222);
+    text-shadow:0px -1px 1px rgba(0,0,0,0.3);
+    color:#ccc;
+}
+
+button:focus {
+    box-shadow: 0px 1px 1px rgba(0,0,0,0.7), 0px 0px 1px #e81f3b;
+    outline:none;
+}
+
+input:focus, textarea:focus, .inset:focus{
+    box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7), 0px 0px 1px #e81f3b;
+    outline:none;
+}
+
+button:focus{
+    background:-webkit-linear-gradient(top, #5d2b32, #333);
 }
 
 

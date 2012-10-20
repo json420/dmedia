@@ -3,7 +3,6 @@
     <head>
         <link rel="stylesheet" href="grid.css"></link>
         <link rel="stylesheet" href="style.css"></link>
-        <link rel="stylesheet" href="common.css"></link>
         <link rel="stylesheet" href="browser2.css"></link>
         <script src="/_apps/userwebkit/couch.js"></script>
         <script src="/_apps/userwebkit/base.js"></script>
@@ -34,7 +33,7 @@
                         <button id="create_project" class="grid_2" disabled  form="project_form">Create Project</button>
                         <button id="start_importer" class="grid_2" disabled>Start Importer</button>
                     </div>
-                    <ul id="projects" class="lower"></ul>
+                    <ul id="projects"></ul>
                 </div>
                 <div id="importer" class="hide">
                     <div class="grid_row darkbar">
@@ -55,7 +54,7 @@
                             <div class="progress" id="progress"><div></div></div>
                         </div>
                     </div>
-                    <div class="grid_row lower" id="cards"></div>
+                    <div id="cards" class="grid_row"></div>
                 </div>    
             </div>
             <div id="history_target" class="hide">
