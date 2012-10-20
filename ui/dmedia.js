@@ -85,6 +85,43 @@ function reset_flag(id, review) {
     set_flag(div, review);
 }
 
+
+var ProjectButton = function(doc) {
+//    session.subscribe(doc._id, this.on_change, this);
+//    this.session = session;
+
+    this.element = $el('li', {'class': 'project'});
+    this.thumbnail = this.element.appendChild(
+        $el('div', {'class': 'thumbnail'})
+    );
+    var info = this.element.appendChild(
+        $el('div', {'class': 'info'})
+    );
+    this.title = info.appendChild(
+        $el('p', {'class': 'title'})
+    );
+    this.date = info.appendChild($el('p'));
+    this.stats = info.appendChild($el('p'));
+
+//    li.onclick = function() {
+//        items.toggle(row.id);
+//    }
+
+    this.on_change(doc);
+
+}
+ProjectButton.prototype = {
+
+    on_change: function(doc) {
+        this.thumbnail.style.backgroundImage = db.att_css_url(doc._id);
+        this.title.textContent = doc.title;
+        this.date.textContext = format_date(doc.time);
+        this.stats.textContent = count_n_size(doc.count, doc.bytes);
+    },
+}
+
+
+
 function Importer() {
     this.create_button = $('create_project');
 
@@ -112,36 +149,8 @@ Importer.prototype = {
     on_items: function(req) {
         this.items.replace(req.read().rows,
             function(row, items) {
-                var doc = row.doc;
-                var count = doc.count ? doc.count : 0;
-                var bytes = doc.bytes ? doc.bytes : 0;
-
-                var li = $el('li', {'class': 'project', 'id': row.id});
-
-                var thumb = $el('div', {'class': 'thumbnail'});
-                thumb.style.backgroundImage = db.att_css_url(row.id);
-
-                var info = $el('div', {'class': 'info'});
-                info.appendChild(
-                    $el('p', {'textContent': row.key, 'class': 'title'})
-                );
-
-                info.appendChild(
-                    $el('p', {'textContent': format_date(row.value)})
-                );
-
-                info.appendChild(
-                    $el('p', {'textContent': count_n_size(count, bytes)})
-                );
-
-                li.appendChild(thumb);
-                li.appendChild(info);
-
-                li.onclick = function() {
-                    items.toggle(row.id);
-                }
-
-                return li;
+                var p = new ProjectButton(row.doc);
+                return p.element;
             }
         );
         this.items.select(this.project.id);
