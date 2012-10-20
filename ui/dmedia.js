@@ -1,7 +1,18 @@
+"use strict";
+
 var db = new couch.Database('dmedia-0');
 
 var UI = {
-    tabinit: {},    
+    tabinit: {},
+
+    on_load: function() {
+        UI.progressbar = new ProgressBar('progress');
+        UI.total = $('total');
+        UI.completed = $('completed');
+        UI.cards = $('cards');
+        UI.tabs = new Tabs();
+        UI.tabs.show_tab('import');
+    },    
 
     on_tab_changed: function(tabs, id) {
         if (!UI.tabinit[id]) {
@@ -32,7 +43,7 @@ var UI = {
     init_storage: function() {
         console.log('init_storage'); 
     },
-    
+
     player_click: function(event){
         if (!UI.player.paused) {
             UI.player.pause();
@@ -43,6 +54,9 @@ var UI = {
     },
   
 }
+
+window.onload = UI.on_load;
+
 
 function make_tag_li(remove, doc, id) {
     var id = id || doc._id;
@@ -86,40 +100,156 @@ function reset_flag(id, review) {
 }
 
 
-var ProjectButton = function(doc) {
-//    session.subscribe(doc._id, this.on_change, this);
-//    this.session = session;
-
-    this.element = $el('li', {'class': 'project'});
-    this.thumbnail = this.element.appendChild(
-        $el('div', {'class': 'thumbnail'})
-    );
-    var info = this.element.appendChild(
-        $el('div', {'class': 'info'})
-    );
-    this.title = info.appendChild(
-        $el('p', {'class': 'title'})
-    );
-    this.date = info.appendChild($el('p'));
-    this.stats = info.appendChild($el('p'));
-
-//    li.onclick = function() {
-//        items.toggle(row.id);
-//    }
-
+var Widget = function(session, doc) {
+    this.session = session;
+    this.element = this.build(doc._id);
     this.on_change(doc);
+    session.subscribe(doc._id, this.on_change, this);
+}
+Widget.prototype = {
+    on_change: function(doc) {
+        if (doc._deleted) {
+            this.destroy();  
+        }
+        else {
+            this.update(doc);
+        }
+    },
 
+    build: function(doc_id) {
+        var element = document.createElement('div');
+        element.setAttribute('id', doc_id);
+        return element;
+    },
+
+    destroy: function() {
+        if (this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+        delete this.element;
+        delete this.session;
+    },
+
+    update: function(doc) {
+
+    },
+}
+
+
+var ProjectButton = function(session, doc) {
+    Widget.call(this, session, doc);
 }
 ProjectButton.prototype = {
+    build: function(doc_id) {
+        var element = $el('li', {'class': 'project', 'id': doc_id});
+        this.thumbnail = element.appendChild(
+            $el('div', {'class': 'thumbnail'})
+        );
+        var info = element.appendChild(
+            $el('div', {'class': 'info'})
+        );
+        this.title = info.appendChild(
+            $el('p', {'class': 'title'})
+        );
+        this.date = info.appendChild($el('p'));
+        this.stats = info.appendChild($el('p'));
+        return element;
+    },
 
-    on_change: function(doc) {
-        this.thumbnail.style.backgroundImage = db.att_css_url(doc._id);
+    update: function(doc) {
+        this.thumbnail.style.backgroundImage = this.session.thumbnail(doc);
         this.title.textContent = doc.title;
         this.date.textContext = format_date(doc.time);
         this.stats.textContent = count_n_size(doc.count, doc.bytes);
     },
 }
+ProjectButton.prototype.__proto__ = Widget.prototype;
 
+
+var Projects = function(db, callback) {
+    this.db = db;
+    this.callback = callback;
+    this.ids = {};
+    this.docs = {};
+}
+Projects.prototype = {
+    subscribe: function(_id, callback, self) {
+        if (! this.ids[_id]) {
+            this.ids[_id] = [];
+        }
+        this.ids[_id].push({callback: callback, self: self});
+    },
+
+    notify: function(doc) {
+        var handlers = this.ids[doc._id];
+        if (handlers) {
+            handlers.forEach(function(h) {
+                h.callback.call(h.self, doc);
+            });
+            if (doc._deleted) {
+                delete this.ids[doc._id];
+            }
+        }
+    },
+
+    start: function() {
+        var self = this;
+        var on_docs = function(req) {
+            self.on_docs(req);
+        }
+        this.db.view(on_docs, 'project', 'title',
+            {include_docs: true, update_seq: true}
+        );
+    },
+
+    on_docs: function(req) {
+        var result = req.read();
+        result.rows.forEach(function(row) {
+            this.docs[row.id] = row.doc;
+        }, this);
+        var _id;
+        for (_id in this.docs) {
+            this.callback(this.docs[_id]);
+        }
+        this.monitor(result.update_seq);
+    },
+
+    monitor: function(since) {
+        var options = {
+            'since': since,
+            'feed': 'longpoll',
+            'include_docs': true,
+            'filter': 'doc/type',
+            'value': 'dmedia/project',
+        };
+        var self = this;
+        var callback = function(req) {
+            self.on_changes(req);
+        }
+        this.db.get(callback, '_changes', options);
+    },
+
+    on_changes: function(req) {
+        var result = req.read();
+        result.results.forEach(function(row) {
+            if (!this.docs[row.id]) {
+                this.callback(row.doc);
+            }
+            else {
+                this.notify(row.doc);
+            }
+            this.docs[row.id] = row.doc;
+        }, this);
+        this.monitor(result.last_seq);
+    },
+
+    thumbnail: function(doc) {
+        if (doc._attachments && doc._attachments.thumbnail) {
+            return this.db.att_css_url(doc._id);
+        }
+        return null;
+    },
+}
 
 
 function Importer() {
@@ -132,15 +262,19 @@ function Importer() {
     this.input.oninput = $bind(this.on_input, this);
     $('project_form').onsubmit = $bind(this.on_submit, this);
 
-    this.items = new Items('projects');
-    this.items.onchange = $bind(this.on_item_change, this);
-    this.project = new Project(db);
+    this.projects = $('projects');
 
-    Hub.connect('project_created', $bind(this.on_project_created, this));
+    //Hub.connect('project_created', $bind(this.on_project_created, this));
 
-    this.load_items();
+    this.session = new Projects(db, $bind(this.on_new_project, this));
+    this.session.start();
 }
 Importer.prototype = {
+    on_new_project: function(doc) {
+        var widget = new ProjectButton(this.session, doc);
+        this.projects.appendChild(widget.element);
+    },
+
     load_items: function() {
         var callback = $bind(this.on_items, this);
         db.view(callback, 'project', 'title', {'include_docs': true});
@@ -149,7 +283,7 @@ Importer.prototype = {
     on_items: function(req) {
         this.items.replace(req.read().rows,
             function(row, items) {
-                var p = new ProjectButton(row.doc);
+                var p = new ProjectButton(null, row.doc);
                 return p.element;
             }
         );
@@ -380,15 +514,6 @@ Browser.prototype = {
         }
     },
 
-}
-
-window.onload = function() {
-    UI.progressbar = new ProgressBar('progress');
-    UI.total = $('total');
-    UI.completed = $('completed');
-    UI.cards = $('cards');
-    UI.tabs = new Tabs();
-    UI.tabs.show_tab('import');    
 }
 
 
