@@ -168,12 +168,11 @@ ProjectButton.prototype = {
             this.thumbnail.style.backgroundImage = url;
         }
         this.title.textContent = doc.title;
-        this.date.textContent = format_date(doc.time);
+        this.date.textContent = format_date(doc.atime);
         this.stats.textContent = count_n_size(doc.count, doc.bytes);
     },
 
     on_click: function() {
-        $('target_project').textContent = this.doc.title;
         Hub.send('start_importer', this.doc._id);
     },
 }
@@ -276,9 +275,6 @@ Projects.prototype = {
 function Importer() {
     this.create_button = $('create_project');
 
-    this.start_button = $('start_importer');
-    this.start_button.onclick = $bind(this.start_importer, this);
-
     this.input = $('project_title');
     this.input.oninput = $bind(this.on_input, this);
     $('project_form').onsubmit = $bind(this.on_submit, this);
@@ -316,14 +312,6 @@ Importer.prototype = {
         Hub.send('create_project', this.input.value);
         this.input.value = '';
     },
-
-    start_importer: function() {
-        if (this.project.id) {
-            this.project.access();
-            Hub.send('start_importer', this.project.id);
-        }
-    },
-
 }
 
 function Browser(project, player, items) {
@@ -522,8 +510,9 @@ Hub.connect('tab_changed', UI.on_tab_changed);
 
 
 Hub.connect('importer_started',
-    function(project_db_name) {
-        UI.pdb = new couch.Database(project_db_name);
+    function(doc) {
+        UI.pdb = new couch.Database(doc.db_name);
+        $('target_project').textContent = doc.title;
         $hide('choose_project');
         $show('importer');
     }

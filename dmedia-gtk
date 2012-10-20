@@ -24,10 +24,11 @@
 import json
 import logging
 import sys
+import time
 from copy import deepcopy
 
 from userwebkit import BaseApp
-from microfiber import NotFound
+from microfiber import NotFound, Database
 
 import dmedia
 from dmedia.util import get_project_db
@@ -172,7 +173,7 @@ class App(BaseApp):
         'create_project': ['title'],
         'project_created': ['project_id', 'title'],
         'start_importer': ['project_id'],
-        'importer_started': ['project_db_name'],
+        'importer_started': ['doc'],
         'stop_importer': [],
         'importer_stopped': [],
 
@@ -252,28 +253,43 @@ class App(BaseApp):
         dialog.run()
         dialog.destroy()
 
-    def on_start_importer(self, hub, project_id):
-        try:
-            env = deepcopy(self.env)
-            env['project_id'] = project_id
-            self.importer = Importer(env, self.proxy, self.hub)
-            assert sys.getrefcount(self.importer) == 2
-            self.create_ux()
-            self.hub.send('importer_started', schema.project_db_name(project_id))
-        except Exception as e:
-            log.exception('exception in on_start_importer()')
-            raise e
-
-    def on_stop_importer(self, hub):
-        self.importer = None
-        self.ux = None
-        self.hub.send('importer_stopped')
-
     def on_create_project(self, hub, title):
         doc = schema.create_project(title)
         project = get_project_db(doc['_id'], self.env, True)
         project.post(doc)
         self.db.save(doc)
+        GObject.idle_add(self.start_importer, doc)
+
+    def on_start_importer(self, hub, project_id):
+        name = schema.project_db_name(project_id)
+        pdb = Database(name, ctx=self.db.ctx)
+        pdoc = pdb.get(project_id, attachments=True)
+        pdoc['atime'] = time.time()
+        pdb.save(pdoc)
+        try:
+            doc = self.db.get(project_id)
+            pdoc['_rev'] = doc['_rev']
+        except NotFound:
+            del pdoc['_rev']
+        self.db.save(pdoc)
+        GObject.idle_add(self.start_importer, pdoc)
+
+    def start_importer(self, doc):    
+        try:
+            env = deepcopy(self.env)
+            env['project_id'] = doc['_id']
+            self.importer = Importer(env, self.proxy, self.hub)
+            assert sys.getrefcount(self.importer) == 2
+            self.create_ux()
+            self.hub.send('importer_started', doc)
+        except Exception as e:
+            log.exception('exception in on_start_importer()')
+            raise e
+        
+    def on_stop_importer(self, hub):
+        self.importer = None
+        self.ux = None
+        self.hub.send('importer_stopped')
 
 
 app = App()
