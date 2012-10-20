@@ -142,6 +142,9 @@ var ProjectButton = function(session, doc) {
 ProjectButton.prototype = {
     build: function(doc_id) {
         var element = $el('li', {'class': 'project', 'id': doc_id});
+        element.onclick = function() {
+            Hub.send('start_importer', doc_id);
+        }
         this.thumbnail = element.appendChild(
             $el('div', {'class': 'thumbnail'})
         );

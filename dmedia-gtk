@@ -55,7 +55,6 @@ class Importer:
         super().__init__()
         self.env = env
         self.project_id = env['project_id']
-        self.project_db_name = schema.project_db_name(self.project_id)
         self.blocking = False
         self.cards = {}
         self.proxy = proxy
@@ -84,11 +83,8 @@ class Importer:
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         log.info('batch_finished: %s', batch_id)
-        log.info('Calling Dmedia.UpdateProjectStats(%r)...', self.project_id)
-        self.proxy.UpdateProjectStats(self.project_id)
-        names = [self.project_db_name, 'dmedia-0']
-        log.info('Calling Dmedia.SnapshotMany(%r)...', names)
-        self.proxy.SnapshotMany(names)
+        log.info('Calling Dmedia.SnapshotProject(%r)...', self.project_id)
+        self.proxy.SnapshotProject(self.project_id)
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
@@ -242,7 +238,7 @@ class App(BaseApp):
         dialog.run()
         dialog.destroy()
 
-    def on_start_importer(self, dub, project_id):
+    def on_start_importer(self, hub, project_id):
         try:
             env = deepcopy(self.env)
             env['project_id'] = project_id

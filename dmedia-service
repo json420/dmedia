@@ -40,6 +40,7 @@ from gi.repository import GObject
 from microfiber import NotFound, dumps
 
 import dmedia
+from dmedia import schema
 from dmedia.parallel import start_thread, start_process
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd, snapshot_worker
@@ -420,6 +421,14 @@ class Service(dbus.service.Object):
         project_id = str(project_id)
         log.info('Dmedia.UpdateProjectStats(%r)', project_id)
         self.core.update_project_stats(project_id)
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def SnapshotProject(self, project_id):
+        project_id = str(project_id)
+        log.info('Dmedia.SnapshotProject(%r)', project_id)
+        self.core.update_project_stats(project_id)
+        self.Snapshot(schema.project_db_name(project_id))
+        self.Snapshot('dmedia-0')
 
 
 parser = optparse.OptionParser(
