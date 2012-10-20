@@ -219,8 +219,7 @@ Projects.prototype = {
             'since': since,
             'feed': 'longpoll',
             'include_docs': true,
-            'filter': 'doc/type',
-            'value': 'dmedia/project',
+            'filter': 'project/type',
         };
         var self = this;
         var callback = function(req) {

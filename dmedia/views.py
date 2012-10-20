@@ -277,11 +277,23 @@ function(doc) {
 }
 """
 
+filter_project_type = """
+function(doc, req) {
+    if (doc.type == 'dmedia/project') {
+        return true;
+    }
+    return false;
+}
+"""
+
 project_design = {
     '_id': '_design/project',
     'views': {
         'atime': {'map': project_atime},
         'title': {'map': project_title},
+    },
+    'filters': {
+        'type': filter_project_type,
     },
 }
 
