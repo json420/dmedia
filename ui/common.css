@@ -33,7 +33,6 @@ video{
     -webkit-user-select: none;
     padding:3px;
     padding-top:2px;
-    -webkit-animation:appear 100ms ease-in-out 1;
 }
 
 .project.selected {

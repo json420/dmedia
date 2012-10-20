@@ -166,9 +166,10 @@ ProjectButton.prototype = {
 ProjectButton.prototype.__proto__ = Widget.prototype;
 
 
-var Projects = function(db, callback) {
+var Projects = function(db, onload, onadd) {
     this.db = db;
-    this.callback = callback;
+    this.onload = onload;
+    this.onadd = onadd;
     this.ids = {};
     this.docs = {};
 }
@@ -209,7 +210,7 @@ Projects.prototype = {
         }, this);
         var _id;
         for (_id in this.docs) {
-            this.callback(this.docs[_id]);
+            this.onload(this.docs[_id]);
         }
         this.monitor(result.update_seq);
     },
@@ -232,7 +233,7 @@ Projects.prototype = {
         var result = req.read();
         result.results.forEach(function(row) {
             if (!this.docs[row.id]) {
-                this.callback(row.doc);
+                this.onadd(row.doc);
             }
             else {
                 this.notify(row.doc);
@@ -265,13 +266,21 @@ function Importer() {
 
     //Hub.connect('project_created', $bind(this.on_project_created, this));
 
-    this.session = new Projects(db, $bind(this.on_new_project, this));
+    var on_load = $bind(this.on_project_load, this);
+    var on_add = $bind(this.on_project_add, this);
+    this.session = new Projects(db, on_load, on_add);
     this.session.start();
 }
 Importer.prototype = {
-    on_new_project: function(doc) {
+    on_project_load: function(doc) {
         var widget = new ProjectButton(this.session, doc);
         this.projects.appendChild(widget.element);
+    },
+
+    on_project_add: function(doc) {
+        var widget = new ProjectButton(this.session, doc);
+        widget.element.classList.add('added');
+        this.projects.insertBefore(widget.element, this.projects.children[0]);
     },
 
     load_items: function() {
