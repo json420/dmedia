@@ -168,7 +168,7 @@ ProjectButton.prototype = {
             this.thumbnail.style.backgroundImage = url;
         }
         this.title.textContent = doc.title;
-        this.date.textContent = format_date(doc.atime);
+        this.date.textContent = format_date(doc.time);
         this.stats.textContent = count_n_size(doc.count, doc.bytes);
     },
 
