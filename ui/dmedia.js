@@ -141,6 +141,7 @@ Widget.prototype = {
 
 var ProjectButton = function(session, doc) {
     Widget.call(this, session, doc);
+    this._url = null;
 }
 ProjectButton.prototype = {
     build: function(doc_id) {
@@ -161,7 +162,11 @@ ProjectButton.prototype = {
     },
 
     update: function(doc) {
-        this.thumbnail.style.backgroundImage = this.session.thumbnail(doc);
+        var url = this.session.thumbnail(doc);
+        if (this._url != url) {
+            this._url = url;
+            this.thumbnail.style.backgroundImage = url;
+        }
         this.title.textContent = doc.title;
         this.date.textContent = format_date(doc.time);
         this.stats.textContent = count_n_size(doc.count, doc.bytes);
