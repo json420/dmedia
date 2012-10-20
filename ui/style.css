@@ -25,22 +25,16 @@ body {
     display: none !important;
 }
 
-.darkbar{
-    background: -webkit-linear-gradient(top, #222, #111);
-    border-top: 1px solid #333;
+.darkbar {
+    background: -webkit-linear-gradient(top, #111, #222);
 }
 
-.bar{
-    background: -webkit-linear-gradient(top, #444, #333);
-    border-top: 1px solid #555;
-    text-shadow: 0px -1px rgba(0,0,0,0.5);
+.bar {
+    background: -webkit-linear-gradient(top, #555, #333);
 }
 
-
-.lightbar{
+.lightbar {
     background: -webkit-linear-gradient(top, #666, #555);
-    border-top: 1px solid #777;
-    text-shadow: 0px -1px rgba(0,0,0,0.4);
 }
 
 
@@ -53,6 +47,7 @@ body {
     height: 38px;
     background: -webkit-linear-gradient(top, #301438, #200428);
     box-sizing: border-box !important;
+    border-bottom: 1px solid #444;
 }
 
 #header .tab {
@@ -63,11 +58,11 @@ body {
     font-family: Lato;
     font-size: 18px;
     text-shadow: 0px -1px 1px rgba(0,0,0,0.8);
-    line-height: 38px;
+    line-height: 37px;
 }
 
 #header .tab:after {
-    height: 38px;
+    height: 37px;
     width: 1px;
     content: "";
     position: absolute;
@@ -92,8 +87,8 @@ body {
     height: 16px;
     border-radius: 8px;
     background: -webkit-linear-gradient(top, #111, #222);
-    border-bottom:1px solid #444;
-    border-top:1px solid #333;
+    border-bottom: 1px solid #444;
+    border-top: 1px solid #333;
     box-shadow: inset 0px 1px 5px rgba(0,0,0,0.7);
     position: relative;
     overflow:hidden;
@@ -140,7 +135,7 @@ ul {
 .project {
     margin: 8px;
     display: inline-block;
-    box-shadow: 1px 2px 6px rgba(0,0,0,0.5);
+    box-shadow: 1px 2px 6px rgba(0,0,0,0.6);
     background: -webkit-linear-gradient(top, #555, #444);
 }
 
@@ -162,8 +157,8 @@ ul {
     width: 220px; /* 304 - 86 */
     height: 84px;
     overflow: hidden;
-    padding-top: 0.5em;
-    padding-left: 0.75em;
+    padding-top: 0.6em;
+    padding-left: 0.8em;
     box-sizing: border-box !important;
 }
 
