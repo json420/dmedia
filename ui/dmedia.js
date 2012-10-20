@@ -26,6 +26,7 @@ var UI = {
 
     init_import: function() {
         UI.importer = new Importer();
+        UI.projects = UI.importer.session;
     },
 
     init_history: function() {
@@ -113,6 +114,7 @@ Widget.prototype = {
         }
         else {
             this.update(doc);
+            this.doc = doc;
         }
     },
 
@@ -128,6 +130,7 @@ Widget.prototype = {
         }
         delete this.element;
         delete this.session;
+        delete this.doc;
     },
 
     update: function(doc) {
@@ -142,9 +145,7 @@ var ProjectButton = function(session, doc) {
 ProjectButton.prototype = {
     build: function(doc_id) {
         var element = $el('li', {'class': 'project', 'id': doc_id});
-        element.onclick = function() {
-            Hub.send('start_importer', doc_id);
-        }
+        element.onclick = $bind(this.on_click, this);
         this.thumbnail = element.appendChild(
             $el('div', {'class': 'thumbnail'})
         );
@@ -165,6 +166,11 @@ ProjectButton.prototype = {
         this.date.textContent = format_date(doc.time);
         this.stats.textContent = count_n_size(doc.count, doc.bytes);
     },
+
+    on_click: function() {
+        $('target_project').textContent = this.doc.title;
+        Hub.send('start_importer', this.doc._id);
+    },
 }
 ProjectButton.prototype.__proto__ = Widget.prototype;
 
@@ -177,6 +183,13 @@ var Projects = function(db, onload, onadd) {
     this.docs = {};
 }
 Projects.prototype = {
+    get: function(_id) {
+        if (!this.docs[_id]) {
+            this.docs[_id] = this.db.get_sync(_id);
+        }
+        return this.docs[_id];
+    },
+
     subscribe: function(_id, callback, self) {
         if (! this.ids[_id]) {
             this.ids[_id] = [];
