@@ -267,8 +267,6 @@ function Importer() {
 
     this.projects = $('projects');
 
-    //Hub.connect('project_created', $bind(this.on_project_created, this));
-
     var on_load = $bind(this.on_project_load, this);
     var on_add = $bind(this.on_project_add, this);
     this.session = new Projects(db, on_load, on_add);
@@ -286,29 +284,6 @@ Importer.prototype = {
         this.projects.insertBefore(widget.element, this.projects.children[0]);
     },
 
-    load_items: function() {
-        var callback = $bind(this.on_items, this);
-        db.view(callback, 'project', 'title', {'include_docs': true});
-    },
-
-    on_items: function(req) {
-        this.items.replace(req.read().rows,
-            function(row, items) {
-                var p = new ProjectButton(null, row.doc);
-                return p.element;
-            }
-        );
-        this.items.select(this.project.id);
-    },
-
-    on_item_change: function(id) {
-        this.project.load(id);
-        this.start_button.disabled = (!this.project.id);
-        if (this.project.doc) {
-            $('target_project').textContent = this.project.doc.title;
-        }
-    },
-
     on_input: function() {
         this.create_button.disabled = (!this.input.value);
     },
@@ -319,15 +294,9 @@ Importer.prototype = {
         if (!this.input.value) {
             return;
         }
-        this.items.select(null);
+        this.create_button.disabled = true;
         Hub.send('create_project', this.input.value);
         this.input.value = '';
-        this.create_button.disabled = true;
-    },
-
-    on_project_created: function(id, title) {
-        this.project.load(id);
-        this.load_items();
     },
 
     start_importer: function() {

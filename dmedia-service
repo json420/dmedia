@@ -94,6 +94,8 @@ class Service(dbus.service.Object):
         self.snapshot_process = None
         self.snapshot_thread = None
 
+        self.update_thread = None
+
     def snapshot_listener(self):
         while True:
             item = self.snapshot_queue_out.get()
@@ -416,17 +418,29 @@ class Service(dbus.service.Object):
     def HashAndMove(self, tmp, origin):
         return self.core.hash_and_move(tmp, origin)
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='')
-    def UpdateProjectStats(self, project_id):
+    @dbus.service.method(IFACE, in_signature='s', out_signature='b')
+    def UpdateProject(self, project_id):
+        if self.update_thread is not None:
+            return False
         project_id = str(project_id)
-        log.info('Dmedia.UpdateProjectStats(%r)', project_id)
-        self.core.update_project_stats(project_id)
+        log.info('Dmedia.UpdateProject(%r)', project_id)
+        assert self.update_thread is None
+        self.update_thread = start_thread(self.do_update, project_id)
+        return True
+
+    def do_update(self, project_id):
+        self.core.update_project(project_id)
+        GObject.timeout_add(5000, self.on_update_complete)
+
+    def on_update_complete(self):
+        self.update_thread.join()
+        self.update_thread = None       
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def SnapshotProject(self, project_id):
         project_id = str(project_id)
         log.info('Dmedia.SnapshotProject(%r)', project_id)
-        self.core.update_project_stats(project_id)
+        self.UpdateProject(project_id)
         self.Snapshot(schema.project_db_name(project_id))
         self.Snapshot('dmedia-0')
 

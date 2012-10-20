@@ -197,9 +197,10 @@ class Avahi:
         return True  # Repeat timeout call
 
     def get_names(self):
-        for name in self.server.get('_all_dbs'):
-            if name.startswith('dmedia-0') or name.startswith('novacut-0'):
-                yield name
+        return ['dmedia-0']
+#        for name in self.server.get('_all_dbs'):
+#            if name.startswith('dmedia-0') or name.startswith('novacut-0'):
+#                yield name
 
     def replication_worker(self, cancel, start):
         if cancel:

@@ -62,6 +62,12 @@ class Importer:
             WeakMethod(self, 'on_CardAdded')
         )
         self.hub = hub
+        self.hub.connect('batch_started',
+            WeakMethod(self, 'on_batch_started')
+        )
+        self.hub.connect('batch_progress',
+            WeakMethod(self, 'on_batch_progress')
+        )
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
         )
@@ -80,6 +86,14 @@ class Importer:
 
     def callback(self, signal, args):
         GObject.idle_add(self.hub.send, signal, *args)
+        
+    def on_batch_started(self, hub, batch_id):
+        self.count = 0
+
+    def on_batch_progress(self, hub, count, total_count, size, total_size):
+        if count > self.count:
+            self.count = count
+            self.proxy.UpdateProject(self.project_id)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         log.info('batch_finished: %s', batch_id)
@@ -257,12 +271,11 @@ class App(BaseApp):
 
     def on_create_project(self, hub, title):
         doc = schema.create_project(title)
-        self.db.post(doc)
         project = get_project_db(doc['_id'], self.env, True)
-        project.save(doc)
-        self.hub.send('project_created', doc['_id'], doc['title'])
+        project.post(doc)
+        self.db.save(doc)
 
-    
+
 app = App()
 try:
     app.run()

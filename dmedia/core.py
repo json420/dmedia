@@ -320,8 +320,8 @@ class Core:
         except Exception:
             log.exception('Error in Core.init_project_views():')
 
-    def update_project_stats(self, project_id):
-        start_thread(update_project, self.db, project_id)     
+    def update_project(self, project_id):
+        update_project(self.db, project_id)     
 
     def set_default_store(self, value):
         if value not in ('private', 'shared', 'none'):
