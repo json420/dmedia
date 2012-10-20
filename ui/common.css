@@ -20,6 +20,22 @@ video{
     border-bottom:1px solid #222;
 }
 
+@-webkit-keyframes added {
+    0% {
+        -webkit-transform: scale(0.6);
+    }
+    80% {
+        -webkit-transform: scale(1.1);
+    }
+    100% {
+        -webkit-transform: scale(1.0);
+    }
+}
+
+.added {
+    -webkit-animation: added 300ms ease-in-out 0ms;
+}
+
 .project {
     margin: 8px;
     display: inline-block;
