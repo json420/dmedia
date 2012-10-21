@@ -38,4 +38,8 @@ class WeakMethod:
         self.method_name = method_name
 
     def __call__(self, *args):
-        return getattr(self.proxy, self.method_name)(*args)
+        try:
+            method = getattr(self.proxy, self.method_name)
+        except ReferenceError:
+            return
+        return method(*args)
