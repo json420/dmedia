@@ -303,7 +303,14 @@ project_design = {
 history_import = """
 function(doc) {
     if (doc.type == 'dmedia/import' && doc.time_end) {
-        emit(doc.time, null);
+        var value = {
+            'label': doc.partition.label,
+            'size': doc.partition.size,
+            'bytes': doc.stats.total.bytes,
+            'count': doc.stats.total.count,
+            'rate': doc.rate,
+        }
+        emit(doc.time, value);
     }
 }
 """

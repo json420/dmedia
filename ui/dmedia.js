@@ -19,7 +19,7 @@ var UI = {
         UI.completed = $('completed');
         UI.cards = $('cards');
         UI.tabs = new Tabs();
-        UI.tabs.show_tab('import');
+        UI.tabs.show_tab('history');
     },    
 
     on_tab_changed: function(tabs, id) {
@@ -42,7 +42,8 @@ var UI = {
     },
 
     init_history: function() {
-        console.log('init_history'); 
+        UI.history = new History(db);
+        UI.history.start();
     },
 
     init_browser: function() {
@@ -338,6 +339,51 @@ Importer.prototype = {
         this.input.value = '';
     },
 }
+
+
+var History = function(db) {
+    this.db = db;
+    this.div = $('imports');
+}
+History.prototype = {
+    start: function() {
+        var self = this;
+        var on_result = function(req) {
+            self.on_result(req);
+        }
+        var options = {
+            'update_seq': true,
+            'descending': true,
+        }
+        this.db.view(on_result, 'history', 'import', options);
+    },
+
+    on_result: function(req) {
+        var result = req.read();
+        result.rows.forEach(function(row) {
+            var element = this.build(row);
+            this.div.appendChild(element);
+        }, this);
+    },
+
+    build: function(row) {
+        var value = row.value;
+        var div = $el('div', {'class': 'thumbnail'});
+        var inner = div.appendChild($el('div'));
+        var label = [value.size, value.label].join(', ');
+        inner.appendChild(
+            $el('p', {'textContent': label})
+        );
+        inner.appendChild(
+            $el('p', {'textContent': count_n_size(value.count, value.bytes)})
+        );
+        inner.appendChild(
+            $el('p', {'textContent': value.rate})
+        );
+        return div;
+    },
+}
+
 
 function Browser(project, player, items) {
     this.player = $(player);
