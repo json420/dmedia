@@ -299,6 +299,36 @@ project_design = {
 
 
 
+# For dmedia/import docs:
+history_import = """
+function(doc) {
+    if (doc.type == 'dmedia/import' && doc.time_end) {
+        emit(doc.time, null);
+    }
+}
+"""
+
+filter_history_import = """
+function(doc, req) {
+    if (doc.type == 'dmedia/import' && doc.time_end) {
+        return true;
+    }
+    return false;
+}
+"""
+
+history_design = {
+    '_id': '_design/history',
+    'views': {
+        'import': {'map': history_import},
+    },
+    'filters': {
+        'import': filter_history_import,
+    },
+}
+
+
+
 # For dmedia/tag docs:
 tag_key = """
 function(doc) {
@@ -475,6 +505,7 @@ core = (
     project_design,
     job_design,
     user_design,
+    history_design,
 )
 
 
