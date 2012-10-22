@@ -143,7 +143,6 @@ setup(
     package_data={'dmedia.gtk': ['ui/*']},
     scripts=[
         'dmedia-gtk',
-        'dmedia-browser',
         'dmedia-cli',
         'dmedia-migrate',
         'dmedia-extract',
@@ -153,10 +152,10 @@ setup(
             [path.join('ui', name) for name in os.listdir('ui')]
         ),
         ('share/applications',
-            ['share/dmedia.desktop', 'share/dmedia-browser.desktop']
+            ['share/dmedia.desktop']
         ),
         ('share/icons/hicolor/scalable/apps',
-            ['share/dmedia.svg', 'share/dmedia-browser.svg']
+            ['share/dmedia.svg']
         ),
         ('share/icons/hicolor/scalable/status',
             [
