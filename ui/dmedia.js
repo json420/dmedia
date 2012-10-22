@@ -354,6 +354,7 @@ History.prototype = {
         var options = {
             'update_seq': true,
             'descending': true,
+            'limit': 16,
         }
         this.db.view(on_result, 'history', 'import', options);
     },
@@ -369,8 +370,12 @@ History.prototype = {
     build: function(row) {
         var value = row.value;
         var div = $el('div', {'class': 'thumbnail'});
+        div.style.backgroundImage = this.db.att_css_url(row.id);
         var inner = div.appendChild($el('div'));
         var label = [value.size, value.label].join(', ');
+        inner.appendChild(
+            $el('p', {'textContent': format_date(row.key)})
+        );
         inner.appendChild(
             $el('p', {'textContent': label})
         );
