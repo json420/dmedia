@@ -79,10 +79,17 @@ class FakeBin(Gst.Bin):
 
     def _query_duration(self, pad):
         q = Gst.Query.new_duration(Gst.Format.TIME)
-        if pad.get_peer().query(q):
-            (format, duration) = q.parse_duration()
-            if format == Gst.Format.TIME:
-                return duration
+        # FIXME: We get an intermittent failures here with this exception:
+        #     TypeError: argument query: Expected Gst.Query, but got gi.repository.Gst.Query
+        # See LP:1069582
+        #     https://bugs.launchpad.net/dmedia/+bug/1069582
+        try:
+            if pad.get_peer().query(q):
+                (format, duration) = q.parse_duration()
+                if format == Gst.Format.TIME:
+                    return duration
+        except Exception:
+            pass
 
     def _on_notify_caps(self, pad, args):
         caps = pad.get_current_caps()
