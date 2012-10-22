@@ -19,7 +19,7 @@ var UI = {
         UI.completed = $('completed');
         UI.cards = $('cards');
         UI.tabs = new Tabs();
-        UI.tabs.show_tab('history');
+        UI.tabs.show_tab('import');
     },    
 
     on_tab_changed: function(tabs, id) {
