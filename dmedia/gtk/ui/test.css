@@ -1,8 +1,97 @@
+.hide {
+    display: none !important;
+}
+
+
+body, div, p, code, img {
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+}
+
 #viewport {
     position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
     right: 0;
-    background-image: url("background.svg")
+    background-image: url("1.svg");
+}
+
+.button {
+    position: fixed;
+    z-index: 10;
+    cursor: pointer;
+    width: 289px;
+    height: 63px;
+    left: 132px;
+    line-height: 63px;
+    border-radius: 5px;
+    font-family: Ubuntu;
+    font-size: 22px;
+    color: white;
+    padding-left: 22px;
+    box-sizing: border-box !important;
+    background: -webkit-linear-gradient(top, #505050, #4b4b4b);
+}
+
+.button:hover {
+    background: -webkit-linear-gradient(top, #555, #505050);
+}
+
+#button1 {
+    top: 192px;
+}
+
+#button2 {
+    top: 288px;
+}
+
+#enter_code {
+    position: fixed;
+    z-index: 10;
+    cursor: default;
+    width: 289px;
+    height: 63px;
+    top: 192px;
+    left: 132px;
+    line-height: 63px;
+    font-family: Ubuntu;
+    font-size: 45px;
+    color: #555;
+    text-align: center;
+}
+
+input {
+    position: fixed;
+    z-index: 10;
+    display: inline-block;
+    font-family: "Ubuntu Mono";
+    color: white;
+    font-size: 50px;
+    letter-spacing: 0.15em;
+    width: 289px;
+    height: 63px;
+    left: 132px;
+    top: 288px;
+    line-height: 63px;
+    background: -webkit-linear-gradient(top, #505050, #4b4b4b);
+    text-align: center;
+    border-radius: 5px;
+    border: none;
+    box-shadow: inset 0px 1px 6px #000;
+}
+
+input:focus {
+    outline: none;
+}
+
+#step {
+    position: fixed;
+    z-index: 10;
+    font-family: "Ubuntu Mono";
+    color: white;
+    font-size: 22px;
+    top: 41px;
+    left: 889px;
+    
 }

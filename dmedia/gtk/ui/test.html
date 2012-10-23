@@ -8,11 +8,74 @@
 
 "use strict";
 
+var B32ALPHABET = '234567ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+var UI = {
+    on_load: function() {
+        UI.viewport = $('viewport');
+        UI.step = $('step');
+        UI.input = $('input');
+        UI.input.oninput = UI.on_input;
+        UI.form = $('form');
+        UI.form.onsubmit = UI.on_submit;
+    },
+
+    on_input: function(event) {
+        var orig = UI.input.value.toUpperCase();
+        var value = '';
+        var b32, i;
+        for (i=0; i<orig.length; i++) {
+            b32 = orig[i];
+            if (B32ALPHABET.indexOf(b32) >= 0 ) {
+                value += b32;
+            }
+        }
+        UI.input.value = value;
+    },
+
+    on_submit: function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        UI.have_secret();
+    },
+
+    have_secret: function() {
+        if (UI.input.value.length == 8 && !UI.input.disabled) {
+            UI.input.disabled = true;
+            Hub.send('have_secret', UI.input.value); 
+        }
+    },
+
+    show_screen2b: function() {
+        $hide('screen1');
+        $show('screen2b');
+        UI.step.textContent = '2/3';
+    },
+}
+
+window.onload = UI.on_load;
+
 </script>
 </head>
 <body>
 
-<div id="viewport"></div>
+<div id="viewport">
+
+<div id="step">1/3</div>
+
+<div id="screen1" class="">
+    <div id="button1" class="button">New Account</div>
+    <div id="button2" class="button" onclick="UI.show_screen2b()">Connect to Devices</div>
+</div>
+
+<div id="screen2b" class="hide">
+    <div id="enter_code">Enter Code</div>
+    <form id="form">
+    <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
+    </form>
+</div>
+
+</div>
 
 
 </body>
