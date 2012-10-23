@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="960"
+   height="540"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.3.1 r9886"
+   sodipodi:docname="background3.svg">
+  <defs
+     id="defs4">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient3803">
+      <stop
+         style="stop-color:#dddddd;stop-opacity:1"
+         offset="0"
+         id="stop3805" />
+      <stop
+         style="stop-color:#cccccc;stop-opacity:1"
+         offset="1"
+         id="stop3807" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient3759">
+      <stop
+         style="stop-color:#505050;stop-opacity:1;"
+         offset="0"
+         id="stop3761" />
+      <stop
+         style="stop-color:#4b4b4b;stop-opacity:1"
+         offset="1"
+         id="stop3763" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient3080">
+      <stop
+         style="stop-color:#505050;stop-opacity:1;"
+         offset="0"
+         id="stop3082" />
+      <stop
+         style="stop-color:#4b4b4b;stop-opacity:1"
+         offset="1"
+         id="stop3084" />
+    </linearGradient>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3759"
+       id="linearGradient3172"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.3866667,0,0,1,-50.098171,278.02548)"
+       x1="233"
+       y1="463.36218"
+       x2="233"
+       y2="508.65015" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3759"
+       id="linearGradient3175"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="matrix(1.3866667,0,0,1,-50.098171,328.02548)"
+       x1="233"
+       y1="463.36218"
+       x2="233"
+       y2="508.65015" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3803"
+       id="linearGradient3178"
+       gradientUnits="userSpaceOnUse"
+       x1="441"
+       y1="198.36218"
+       x2="441"
+       y2="606.36707"
+       gradientTransform="matrix(1.3333333,0,0,1.2529002,-17.333333,280.12186)" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1"
+     inkscape:cx="432"
+     inkscape:cy="270"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="2495"
+     inkscape:window-height="1576"
+     inkscape:window-x="65"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-512.36218)">
+    <rect
+       style="fill:url(#linearGradient3178);fill-opacity:1;stroke:none"
+       id="rect2985"
+       width="960"
+       height="540"
+       x="0"
+       y="512.36218" />
+    <path
+       sodipodi:type="arc"
+       style="fill:none;stroke:#301438;stroke-width:0.75099373;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:9.01192481, 9.01192481;stroke-dashoffset:0"
+       id="path3789"
+       sodipodi:cx="241.5"
+       sodipodi:cy="387.86218"
+       sodipodi:rx="177.5"
+       sodipodi:ry="177.5"
+       d="m 419,387.86218 a 177.5,177.5 0 1 1 -355,0 177.5,177.5 0 1 1 355,0 z"
+       transform="matrix(1.331569,0,0,1.331569,-45.398761,267.42239)" />
+    <path
+       style="fill:none;stroke:#e81f3b;stroke-width:2;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:2, 12;stroke-dashoffset:0"
+       d="m 905.52866,608.00549 0,410.35671"
+       id="path3797"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cc" />
+    <path
+       sodipodi:type="arc"
+       style="fill:#e81f3b;fill-opacity:1;stroke:none"
+       id="path3791"
+       sodipodi:cx="491"
+       sodipodi:cy="426.36218"
+       sodipodi:rx="26"
+       sodipodi:ry="26"
+       d="m 517,426.36218 a 26,26 0 1 1 -52,0 26,26 0 1 1 52,0 z"
+       transform="translate(414.52866,139.64331)" />
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:150%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
+       x="888.84167"
+       y="571.87952"
+       id="text3793"
+       sodipodi:linespacing="150%"><tspan
+         sodipodi:role="line"
+         id="tspan3795"
+         x="888.84167"
+         y="571.87952"
+         style="font-size:22px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:Ubuntu Mono;-inkscape-font-specification:Ubuntu Mono">3/3</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:16px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:150%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#30143f;fill-opacity:0.94117647;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
+       x="677.60785"
+       y="571.87952"
+       id="text3799"
+       sodipodi:linespacing="150%"><tspan
+         sodipodi:role="line"
+         id="tspan3801"
+         x="677.60785"
+         y="571.87952"
+         style="font-size:28px;font-weight:500;fill:#30143f;fill-opacity:0.94117647;-inkscape-font-specification:Ubuntu Medium">Dmedia Setup</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:18.53499031px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:150%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#505050;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
+       x="133.5957"
+       y="677.19531"
+       id="text3924"
+       sodipodi:linespacing="150%"><tspan
+         style="font-size:37.06998062px;font-weight:500;-inkscape-font-specification:Ubuntu Medium"
+         sodipodi:role="line"
+         id="tspan3926"
+         x="133.5957"
+         y="677.19531">DON'T PANIC</tspan></text>
+    <text
+       sodipodi:linespacing="150%"
+       id="text3928"
+       y="728.2558"
+       x="136.33888"
+       style="font-size:18.53499031px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:150%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#505050;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
+       xml:space="preserve"><tspan
+         y="728.2558"
+         x="136.33888"
+         id="tspan3930"
+         sodipodi:role="line">Dmedia will do the right thing</tspan><tspan
+         id="tspan3968"
+         y="756.05829"
+         x="136.33888"
+         sodipodi:role="line">automatically, without babysitting </tspan><tspan
+         id="tspan3954"
+         y="783.86078"
+         x="136.33888"
+         sodipodi:role="line" /><tspan
+         id="tspan3956"
+         y="811.66327"
+         x="136.33888"
+         sodipodi:role="line">Dmedia won't even give me the</tspan><tspan
+         id="tspan3958"
+         y="839.46576"
+         x="136.33888"
+         sodipodi:role="line">opportunity to make silly mistakes</tspan><tspan
+         id="tspan3960"
+         y="867.26825"
+         x="136.33888"
+         sodipodi:role="line" /><tspan
+         id="tspan3962"
+         y="895.07074"
+         x="136.33888"
+         sodipodi:role="line">Dmedia will be honest and tell me</tspan><tspan
+         id="tspan3964"
+         y="922.87317"
+         x="136.33888"
+         sodipodi:role="line">when I <tspan
+   style="font-style:italic;-inkscape-font-specification:Ubuntu Italic"
+   id="tspan3410">should</tspan> panic</tspan></text>
+    <path
+       transform="matrix(1.1962617,0,0,1.1962617,68.471963,-467.90753)"
+       d="m 581,1140.8622 a 53.5,53.5 0 1 1 -107,0 53.5,53.5 0 1 1 107,0 z"
+       sodipodi:ry="53.5"
+       sodipodi:rx="53.5"
+       sodipodi:cy="1140.8622"
+       sodipodi:cx="527.5"
+       id="path3972-9"
+       style="fill:#e81f3b;fill-opacity:1;stroke:none"
+       sodipodi:type="arc" />
+    <text
+       sodipodi:linespacing="150%"
+       id="text3974-2"
+       y="887.93164"
+       x="699.42993"
+       style="font-size:24.23493767px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:150%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#ffffff;fill-opacity:1;stroke:none;font-family:Ubuntu;-inkscape-font-specification:Ubuntu"
+       xml:space="preserve"><tspan
+         y="887.93164"
+         x="699.42993"
+         sodipodi:role="line"
+         id="tspan3431"
+         style="text-align:center;text-anchor:middle">Click</tspan><tspan
+         y="924.28406"
+         x="699.42993"
+         sodipodi:role="line"
+         id="tspan3441"
+         style="text-align:center;text-anchor:middle">for Zen</tspan></text>
+  </g>
+</svg>

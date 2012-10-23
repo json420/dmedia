@@ -67,6 +67,7 @@ class BaseUI:
 
     def __init__(self):
         self.build_window()
+        self.window.connect('destroy', Gtk.main_quit)
         self.hub = hub_factory(self.signals)(self.view)
         self.connect_hub_signals(self.hub)
 
@@ -128,7 +129,6 @@ class ClientUI(BaseUI):
         Dmedia.connect_to_signal('Accept', self.on_Accept)
         Dmedia.connect_to_signal('Response', self.on_Response)
         Dmedia.connect_to_signal('InitDone', self.on_InitDone)
-        self.window.connect('destroy', Gtk.main_quit)
         self.window.connect('delete-event', self.on_delete_event)
 
     def on_delete_event(self, *args):
