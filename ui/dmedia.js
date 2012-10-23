@@ -366,10 +366,11 @@ History.prototype = {
             var element = this.build(row);
             this.div.appendChild(element);
         }, this);
-        this.monitor(result.last_seq);
+        this.monitor(result.update_seq);
     },
 
     monitor: function(since) {
+        this.since = since;
         var self = this;
         var callback = function(req) {
             self.on_changes(req);
@@ -384,8 +385,12 @@ History.prototype = {
 
     on_changes: function(req) {
         var result = req.read();
-        console.log('history changed');
-        this.start();
+        if (result.results.length > 0) {
+            this.start();
+        }
+        else {
+            this.monitor(result.last_seq);
+        }
     },
 
     build: function(row) {
