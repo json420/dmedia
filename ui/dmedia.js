@@ -360,11 +360,32 @@ History.prototype = {
     },
 
     on_result: function(req) {
+        this.div.innerHTML = null;
         var result = req.read();
         result.rows.forEach(function(row) {
             var element = this.build(row);
             this.div.appendChild(element);
         }, this);
+        this.monitor(result.last_seq);
+    },
+
+    monitor: function(since) {
+        var self = this;
+        var callback = function(req) {
+            self.on_changes(req);
+        }
+        var options = {
+            'since': since,
+            'feed': 'longpoll',
+            'filter': 'project/history',
+        }
+        this.db.get(callback, '_changes', options);
+    },
+
+    on_changes: function(req) {
+        var result = req.read();
+        console.log('history changed');
+        this.start();
     },
 
     build: function(row) {
