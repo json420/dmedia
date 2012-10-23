@@ -286,21 +286,7 @@ function(doc, req) {
 }
 """
 
-project_design = {
-    '_id': '_design/project',
-    'views': {
-        'atime': {'map': project_atime},
-        'title': {'map': project_title},
-    },
-    'filters': {
-        'type': filter_project_type,
-    },
-}
-
-
-
-# For dmedia/import docs:
-history_import = """
+project_history = """
 function(doc) {
     if (doc.type == 'dmedia/import' && doc.time_end) {
         var value = {
@@ -315,7 +301,7 @@ function(doc) {
 }
 """
 
-filter_history_import = """
+filter_project_history = """
 function(doc, req) {
     if (doc.type == 'dmedia/import' && doc.time_end) {
         return true;
@@ -324,16 +310,18 @@ function(doc, req) {
 }
 """
 
-history_design = {
-    '_id': '_design/history',
+project_design = {
+    '_id': '_design/project',
     'views': {
-        'import': {'map': history_import},
+        'atime': {'map': project_atime},
+        'title': {'map': project_title},
+        'history': {'map': project_history},
     },
     'filters': {
-        'import': filter_history_import,
+        'type': filter_project_type,
+        'history': filter_project_history,
     },
 }
-
 
 
 # For dmedia/tag docs:
@@ -512,7 +500,6 @@ core = (
     project_design,
     job_design,
     user_design,
-    history_design,
 )
 
 

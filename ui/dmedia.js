@@ -354,9 +354,9 @@ History.prototype = {
         var options = {
             'update_seq': true,
             'descending': true,
-            'limit': 16,
+            'limit': 8,
         }
-        this.db.view(on_result, 'history', 'import', options);
+        this.db.view(on_result, 'project', 'history', options);
     },
 
     on_result: function(req) {
