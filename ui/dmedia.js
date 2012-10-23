@@ -42,7 +42,8 @@ var UI = {
     },
 
     init_history: function() {
-        console.log('init_history'); 
+        UI.history = new History(db);
+        UI.history.start();
     },
 
     init_browser: function() {
@@ -338,6 +339,82 @@ Importer.prototype = {
         this.input.value = '';
     },
 }
+
+
+var History = function(db) {
+    this.db = db;
+    this.div = $('imports');
+}
+History.prototype = {
+    start: function() {
+        var self = this;
+        var on_result = function(req) {
+            self.on_result(req);
+        }
+        var options = {
+            'update_seq': true,
+            'descending': true,
+            'limit': 8,
+        }
+        this.db.view(on_result, 'project', 'history', options);
+    },
+
+    on_result: function(req) {
+        this.div.innerHTML = null;
+        var result = req.read();
+        result.rows.forEach(function(row) {
+            var element = this.build(row);
+            this.div.appendChild(element);
+        }, this);
+        this.monitor(result.update_seq);
+    },
+
+    monitor: function(since) {
+        this.since = since;
+        var self = this;
+        var callback = function(req) {
+            self.on_changes(req);
+        }
+        var options = {
+            'since': since,
+            'feed': 'longpoll',
+            'filter': 'project/history',
+        }
+        this.db.get(callback, '_changes', options);
+    },
+
+    on_changes: function(req) {
+        var result = req.read();
+        if (result.results.length > 0) {
+            this.start();
+        }
+        else {
+            this.monitor(result.last_seq);
+        }
+    },
+
+    build: function(row) {
+        var value = row.value;
+        var div = $el('div', {'class': 'thumbnail'});
+        div.style.backgroundImage = this.db.att_css_url(row.id);
+        var inner = div.appendChild($el('div'));
+        var label = [value.size, value.label].join(', ');
+        inner.appendChild(
+            $el('p', {'textContent': format_date(row.key)})
+        );
+        inner.appendChild(
+            $el('p', {'textContent': label})
+        );
+        inner.appendChild(
+            $el('p', {'textContent': count_n_size(value.count, value.bytes)})
+        );
+        inner.appendChild(
+            $el('p', {'textContent': value.rate})
+        );
+        return div;
+    },
+}
+
 
 function Browser(project, player, items) {
     this.player = $(player);

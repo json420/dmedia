@@ -273,6 +273,9 @@ class ImportWorker(workers.CouchWorker):
                 log.info('adding to %r', self.project)
                 self.project.save(doc)
             if need_thumbnail and 'thumbnail' in doc['_attachments']:
+                self.doc['_attachments'] = {}
+                self.doc['_attachments']['thumbnail'] = doc['_attachments']['thumbnail']
+                self.db.save(self.doc)
                 self.emit('import_thumbnail', self.id, ch.id)
                 need_thumbnail = False
 

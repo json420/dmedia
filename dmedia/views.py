@@ -286,17 +286,42 @@ function(doc, req) {
 }
 """
 
+project_history = """
+function(doc) {
+    if (doc.type == 'dmedia/import' && doc.time_end) {
+        var value = {
+            'label': doc.partition.label,
+            'size': doc.partition.size,
+            'bytes': doc.stats.total.bytes,
+            'count': doc.stats.total.count,
+            'rate': doc.rate,
+        }
+        emit(doc.time, value);
+    }
+}
+"""
+
+filter_project_history = """
+function(doc, req) {
+    if (doc.type == 'dmedia/import' && doc.time_end) {
+        return true;
+    }
+    return false;
+}
+"""
+
 project_design = {
     '_id': '_design/project',
     'views': {
         'atime': {'map': project_atime},
         'title': {'map': project_title},
+        'history': {'map': project_history},
     },
     'filters': {
         'type': filter_project_type,
+        'history': filter_project_history,
     },
 }
-
 
 
 # For dmedia/tag docs:
