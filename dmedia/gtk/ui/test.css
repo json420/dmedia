@@ -67,7 +67,7 @@ input {
     display: inline-block;
     font-family: "Ubuntu Mono";
     color: white;
-    font-size: 50px;
+    font-size: 48px;
     letter-spacing: 0.15em;
     width: 289px;
     height: 63px;
@@ -83,6 +83,7 @@ input {
 
 input:focus {
     outline: none;
+    box-shadow: inset 0px 1px 6px #000, 0px 0px 2px 1px #e81f3b;
 }
 
 #step {
