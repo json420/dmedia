@@ -49,8 +49,14 @@ var UI = {
         if (UI.input.value.length == 8 && !UI.input.disabled) {
             UI.input.disabled = true;
             //Hub.send('have_secret', UI.input.value);
-            this.show_screen3b();
+            this.show_screen3();
         }
+    },
+
+    show_screen2a: function() {
+        $hide('screen1');
+        $show('screen2a');
+        UI.step.textContent = '2/3';
     },
 
     show_screen2b: function() {
@@ -59,7 +65,7 @@ var UI = {
         UI.step.textContent = '2/3';
     },
 
-    show_screen3b: function() {
+    show_screen3: function() {
         $hide('screen2b');
         $hide('message');
         $show('screen3b');
@@ -85,8 +91,12 @@ window.onload = UI.on_load;
 <div id="step">1/3</div>
 
 <div id="screen1" class="">
-    <div id="button1" class="button">New Account</div>
+    <img id="logo" src="novacut.svg" />
+    <div id="button1" class="button" onclick="UI.show_screen2a()">New Account</div>
     <div id="button2" class="button" onclick="UI.show_screen2b()">Connect to Devices</div>
+</div>
+
+<div id="screen2a" class="hide">
 </div>
 
 <div id="screen2b" class="hide">
@@ -94,10 +104,10 @@ window.onload = UI.on_load;
 <form id="form">
 <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
 </form>
-<div id="sync_button" class="offscreen">Sync!</div>
+<div id="sync_button" class="offscreen" onclick="UI.have_secret()">Sync!</div>
 </div>
 
-<div id="screen3b" class="hide">
+<div id="screen3" class="hide">
 <div id="contract">
     <p class="dont_panic">DON'T PANIC</p>
     <p class="point">Dmedia will do the right thing automatically, without babysitting</p>
