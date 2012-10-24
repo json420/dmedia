@@ -104,7 +104,7 @@ class BaseUI:
 
 
 class ClientUI(BaseUI):
-    page = 'test.html'
+    page = 'client.html'
     title = 'Dmedia Setup'
 
     signals = {

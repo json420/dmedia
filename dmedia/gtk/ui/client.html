@@ -12,11 +12,25 @@ var B32ALPHABET = '234567ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 var UI = {
     on_load: function() {
+        UI.show('screen1');
         UI.input = $('input');
         UI.input.oninput = UI.on_input;
         UI.form = $('form');
         UI.form.onsubmit = UI.on_submit;
-        UI.show('screen1');
+    },
+
+    show: function(id) {
+        $hide(UI.current);
+        UI.current = $show(id);
+    },
+
+    show_screen4: function() {
+        UI.show('screen4');
+        setTimeout(UI.show_okay, 1500);
+    },
+
+    show_okay: function() {
+        $('okay_button').classList.remove('offscreen');
     },
 
     on_input: function(event) {
@@ -30,11 +44,12 @@ var UI = {
             }
         }
         UI.input.value = value;
-        if (UI.input.value.length == 8) {
-            $('finish').classList.remove('hidden');
+        if (value.length == 8) {
+            $hide('typo');
+            $('sync_button').classList.remove('offscreen');
         }
         else {
-            $('finish').classList.add('hidden');
+            $('sync_button').classList.add('offscreen');
         }
     },
 
@@ -44,121 +59,85 @@ var UI = {
         UI.have_secret();
     },
 
-    have_secret: function() {
-        if (UI.input.value.length == 8 && !UI.input.disabled) {
-            UI.input.disabled = true;
-            Hub.send('have_secret', UI.input.value); 
-        }
+    on_accept: function() {
+        UI.show('screen3');
     },
 
-    show: function(id) {
-        $hide(UI.current);
-        UI.current = $show(id);
-    },
-}
-
-
-window.onload = UI.on_load;
-
-
-Hub.connect('show_screen2a',
-    function() {
-        UI.show('screen2a');
-        $('logo').classList.add('spinleft');
-    }
-);
-
-Hub.connect('show_screen2b',
-    function() {
-        UI.show('screen2b');
-        $('logo').classList.add('spinright');
-    }
-);
-
-Hub.connect('show_screen3b',
-    function() {
-        $hide('logo');
-        UI.input.value = '';
-        UI.show('screen3b');
-    }
-);
-
-Hub.connect('spin_orb',
-    function() {
-        $('logo2').classList.add('spinright');
-    }
-);
-
-Hub.connect('message',
-    function(message) {
-        $('message').textContent = message;  
-    }
-);
-
-Hub.connect('response',
-    function(success) {
+    on_response: function(success) {
+        console.log('response ' + success);
         if (success) {
-            $hide('finish');
-            $show('logo2');
+            UI.show_screen4();
         }
         else {
+            $('sync_button').classList.add('offscreen');
+            $show('typo');
             UI.input.value = '';
             UI.input.disabled = false;
             UI.input.focus();
-            $('finish').classList.add('hidden');
         }
-    }
-);
+    },
+
+    have_secret: function() {
+        if (UI.input.value.length == 8 && !UI.input.disabled) {
+            UI.input.disabled = true;
+            Hub.send('have_secret', UI.input.value);
+        }
+    },
+
+    button1_click: function() {
+        UI.show_screen4();
+        Hub.send('create_user');
+    },
+
+    button2_click: function() {
+        Hub.send('peer_with_existing');
+        UI.show('screen2');
+    },
+}
+
+window.onload = UI.on_load;
+
+Hub.connect('accept', UI.on_accept);
+Hub.connect('response', UI.on_response);
 
 </script>
 </head>
 <body>
 
-<img src="novacut.svg" id="logo">
+<div id="viewport">
 
 <div id="screen1" class="hide">
-    <div id="first" class="button" onclick="Hub.send('create_user')">
-    <p class="top">
-    This is my first time using Novacut
-    </p>
-    <p>
-    (You can add more devices later)
-    </p>
-    </div>
-
-    <div id="sync" class="button" onclick="Hub.send('peer_with_existing')">
-    <p class="top">
-    I'm already using Novacut
-    </p>
-    <p>
-    Sync with my other devices!
-    </p>
-    </div>
+    <div id="button1" class="button" onclick="UI.button1_click()">New Account</div>
+    <div id="button2" class="button" onclick="UI.button2_click()">Connect to Devices</div>
 </div>
 
-<div id="screen2a" class="hide">
+
+<div id="screen2" class="hide">
+<p id="waiting">Please accept the peering offer on your other device.</p>
 </div>
 
-<div id="screen2b" class="hide">
-    <p class="gen">
-    Accept the peering offer on your other device
-    </p>
+
+<div id="screen3" class="hide">
+<div id="enter_code">Enter Code</div>
+<form id="form">
+<input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
+</form>
+<p id="typo" class="hide">Typo? Please try again with new code</p>
+<div id="sync_button" class="offscreen" onclick="UI.have_secret()">Sync!</div>
 </div>
 
-<div id="screen3b" class="hide">
-    <p class="gen">
-    Enter your secret code:
-    </p>
-    <div class="secret">
-    <form id="form">
-    <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
-    </form>
-    </div>
-    <img src="sync.svg" id="finish" class="hidden" onclick="UI.have_secret()">
-    <img src="novacut.svg" id="logo2" class="hide">
+<div id="screen4" class="hide">
+<div id="contract">
+    <p class="dont_panic">DON'T PANIC</p>
+    <p class="point">Dmedia will do the right thing automatically, without babysitting</p>
+    <p class="point">Dmedia won't even give me the opportunity to make silly mistakes</p>
+    <p class="point">Dmedia will be honest and tell me when I <em>should</em> panic</p>
+</div>
+<div id="okay_button" class="offscreen" onclick="Hub.send('user_ready')">OK, I'm ready!</div>
 </div>
 
-<p id="message"></p>
+</div>
+
 
 </body>
 </html>
