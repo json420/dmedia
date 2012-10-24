@@ -110,29 +110,26 @@ class ClientUI(BaseUI):
     signals = {
         'create_user': [],
         'peer_with_existing': [],
-        'have_secret': ['secret'],
 
+        'accept': [],
+        'have_secret': ['secret'],
         'response': ['success'],
+
+        'user_ready': [],
         'message': ['message'],
 
-        'show_screen2a': [],
-        'show_screen2b': [],
-        'show_screen3b': [],
-        'spin_orb': [],
-
-        'init_done': [],
-        'ready': [],
     }
 
     def __init__(self, Dmedia):
         super().__init__()
         self.Dmedia = Dmedia
         self.quit = False
-        Dmedia.connect_to_signal('Message', self.on_Message)
+        #Dmedia.connect_to_signal('Message', self.on_Message)
         Dmedia.connect_to_signal('Accept', self.on_Accept)
         Dmedia.connect_to_signal('Response', self.on_Response)
         Dmedia.connect_to_signal('InitDone', self.on_InitDone)
         self.window.connect('delete-event', self.on_delete_event)
+        self.done = set()
 
     def on_delete_event(self, *args):
         self.quit = True
@@ -141,24 +138,28 @@ class ClientUI(BaseUI):
         hub.connect('create_user', self.on_create_user)
         hub.connect('peer_with_existing', self.on_peer_with_existing)
         hub.connect('have_secret', self.on_have_secret)
-        hub.connect('ready', self.on_ready)
+        hub.connect('user_ready', self.on_user_ready)
 
     def on_Message(self, message):
         self.hub.send('message', message)
 
     def on_Accept(self):
-        self.hub.send('show_screen3b')
+        self.hub.send('accept')
 
     def on_Response(self, success):
         self.hub.send('response', success)
-        if success:
-            GObject.timeout_add(200, self.hub.send, 'spin_orb')
 
     def on_InitDone(self):
-        self.hub.send('init_done')
+        self.done.add('init_done')
+        self.do_destroy()
 
-    def on_ready(self, hub):
-        self.window.destroy()
+    def on_user_ready(self, hub):
+        self.done.add('user_ready')
+        self.do_destroy()
+
+    def do_destroy(self):
+        if self.done == set(['init_done', 'user_ready']):
+            self.window.destroy()
 
     def on_create_user(self, hub):
         self.Dmedia.CreateUser()
