@@ -187,6 +187,12 @@ class App(BaseApp):
         'error': ['error_dict'],
     }
 
+    def connect_hub_signals(self, hub):
+        hub.connect('create_project', self.on_create_project)
+        hub.connect('start_importer', self.on_start_importer)
+        hub.connect('stop_importer', self.on_stop_importer)
+        hub.connect('error', self.on_error)
+
     def dmedia_resolver(self, uri):
         return self.proxy.ResolveURI(uri)
 
