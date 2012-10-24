@@ -23,7 +23,7 @@ body, div, p, code, img {
     bottom: 0;
     left: 0;
     right: 0;
-    background-image: url("1.svg");
+    background-image: url("background.svg");
 }
 
 #message {
