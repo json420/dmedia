@@ -131,6 +131,10 @@ input:focus {
     -webkit-transition-property: top;
 }
 
+#sync_button:hover {
+    box-shadow: 0 0 3px #301438;
+}
+
 #sync_button.offscreen {
     top: 540px;
 }
@@ -145,7 +149,6 @@ input:focus {
     left: 889px;
     cursor: default;
 }
-
 
 
 #contract {
@@ -172,12 +175,34 @@ input:focus {
     line-height: 1.5em;
 }
 
-#okay {
+
+#okay_button {
     position: fixed;
     z-index: 10;
+    top: 320px;
+    left: 630px;
     width: 130px;
     height: 130px;
-    top: 320px;
-    left: 626px;
+    border-radius: 70px;
+    background-color: #e81f3b;
     cursor: pointer;
+    text-align: center;
+    color: white;
+    line-height: 35px;
+    font-size: 26px;
+    overflow: hidden;
+    padding-top: 30px;
+    box-sizing: border-box !important;
+
+    -webkit-transition-timing-function: ease;
+    -webkit-transition-duration: 750ms;
+    -webkit-transition-property: left;
+}
+
+#okay_button:hover {
+    box-shadow: 0 0 3px #301438;
+}
+
+#okay_button.offscreen {
+    left: 960px;
 }
