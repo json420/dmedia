@@ -2,8 +2,8 @@
 Type=Application
 Name=Dmedia Setup
 GenericName=Dmedia Setup
-Comment=Dmedia Setup
-Exec=/usr/bin/dmedia-setup-gtk
+Comment=Dmedia Setup Utility.
+Exec=/usr/bin/dmedia-setup
 Icon=dmedia-setup
 NoDisplay=true
 Terminal=false

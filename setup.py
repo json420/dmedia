@@ -143,7 +143,7 @@ setup(
     package_data={'dmedia.gtk': ['ui/*']},
     scripts=[
         'dmedia-gtk',
-        'dmedia-setup-gtk',
+        'dmedia-setup',
         'dmedia-cli',
         'dmedia-migrate',
         'dmedia-extract',
@@ -157,21 +157,18 @@ setup(
                 'share/dmedia-setup.desktop'
             ]
         ),
-        ('share/icons/hicolor/scalable/apps',
-            [
+        ('share/icons/hicolor/scalable/apps', [
                 'share/dmedia.svg',
                 'share/dmedia-setup.svg',
             ]
         ),
-        ('share/icons/hicolor/scalable/status',
-            [
+        ('share/icons/hicolor/scalable/status', [
                 'share/indicator-novacut.svg',
                 'share/indicator-dmedia.svg',
                 'share/indicator-dmedia-att.svg',
             ]
         ),
-        ('lib/dmedia',
-            [
+        ('lib/dmedia', [
                 'dmedia-service',
                 'init-filestore',
                 'dmedia-transcoder',
