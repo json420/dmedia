@@ -143,6 +143,7 @@ setup(
     package_data={'dmedia.gtk': ['ui/*']},
     scripts=[
         'dmedia-gtk',
+        'dmedia-setup-gtk',
         'dmedia-cli',
         'dmedia-migrate',
         'dmedia-extract',
@@ -151,11 +152,16 @@ setup(
         ('share/couchdb/apps/dmedia',
             [path.join('ui', name) for name in os.listdir('ui')]
         ),
-        ('share/applications',
-            ['share/dmedia.desktop']
+        ('share/applications', [
+                'share/dmedia.desktop',
+                'share/dmedia-setup.desktop'
+            ]
         ),
         ('share/icons/hicolor/scalable/apps',
-            ['share/dmedia.svg']
+            [
+                'share/dmedia.svg',
+                'share/dmedia-setup.svg',
+            ]
         ),
         ('share/icons/hicolor/scalable/status',
             [
