@@ -119,10 +119,25 @@ input:focus {
     box-shadow: inset 0px 1px 6px #000, 0px 0px 2px 1px #e81f3b;
 }
 
+#typo {
+    top: 358px;
+    left: 64px;
+    width: 428px;
+
+    position: fixed;
+    z-index: 10;
+    cursor: default;
+    line-height: 1.2em;
+    font-family: Ubuntu;
+    font-size: 18px;
+    color: #000;
+    text-align: center;
+}
+
 #sync_button {
     position: fixed;
     z-index: 10;
-    top: 380px;
+    top: 384px;
     left: 226px;
     width: 100px;
     height: 100px;

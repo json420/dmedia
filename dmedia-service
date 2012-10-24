@@ -298,14 +298,12 @@ class Service(dbus.service.Object):
             return False
         if self.thread is not None:
             return False
-        self.Message('Creating user certificate...')
         self.thread = start_thread(self.create_user)
         return True
 
     def create_user(self):
         log.info('create_user()')
         self.couch.create_user()
-        GObject.idle_add(self.Message, 'Starting CouchDB...')
         self.start_core()
         GObject.idle_add(self.on_init_done)
 
@@ -316,8 +314,7 @@ class Service(dbus.service.Object):
         if self.publisher is not None:
             self.publisher.free()
             self.publisher = None
-        self.Message('Done!')
-        GObject.timeout_add(500, self.InitDone)
+        self.InitDone()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def PeerWithExisting(self):
@@ -339,7 +336,6 @@ class Service(dbus.service.Object):
         log.info('set_user(%r)', user_id)
         assert self.couch.user is None
         assert self.thread is None
-        self.Message('Starting CouchDB...')
         self.thread = start_thread(self._set_user, user_id)
 
     def _set_user(self, user_id):
