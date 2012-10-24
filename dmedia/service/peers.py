@@ -31,6 +31,7 @@ _dmedia-accept._tcp, which initiates peering process.
 """
 
 import logging
+from os import path
 from collections import namedtuple
 import ssl
 import socket
@@ -46,7 +47,7 @@ from gi.repository import GObject, Gtk, AppIndicator3
 from microfiber import Unauthorized, CouchBase
 from microfiber import random_id, dumps, build_ssl_context
 
-
+import dmedia
 from dmedia.parallel import start_thread
 from dmedia.gtk.ubuntu import NotifyManager
 from dmedia.peering import ChallengeResponse
@@ -58,6 +59,10 @@ PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
 Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
 log = logging.getLogger()
+
+dmedia_peering_gtk = 'dmedia-peering-gtk'
+if path.isfile(path.join(dmedia.TREE, dmedia_peering_gtk)):
+    dmedia_peering_gtk = path.join(dmedia.TREE, dmedia_peering_gtk)
 
 
 def get_service(verb):
@@ -443,7 +448,7 @@ class Session:
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
         self.httpd.start()
-        self.ui = Popen(['./dmedia-secret', '--peer', peer.id])
+        self.ui = Popen([dmedia_peering_gtk, '--peer', peer.id])
 
     def free(self):
         self.httpd.shutdown()

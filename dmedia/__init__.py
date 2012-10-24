@@ -26,8 +26,11 @@ NOTE THAT DMEDIA IS NOT YET PRODUCTION READY! THERE WILL STILL BE CHANGES THAT
 WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
 """
 
+from os import path
+
 __version__ = '12.10.0'
 BUS = 'org.freedesktop.Dmedia'
+TREE = path.dirname(path.dirname(path.abspath(__file__)))
 
 
 def configure_logging():
