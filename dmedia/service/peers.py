@@ -60,9 +60,9 @@ Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
 log = logging.getLogger()
 
-dmedia_peering_gtk = 'dmedia-peering-gtk'
-if path.isfile(path.join(dmedia.TREE, dmedia_peering_gtk)):
-    dmedia_peering_gtk = path.join(dmedia.TREE, dmedia_peering_gtk)
+dmedia_setup_gtk = 'dmedia-setup-gtk'
+if path.isfile(path.join(dmedia.TREE, dmedia_setup_gtk)):
+    dmedia_setup_gtk = path.join(dmedia.TREE, dmedia_setup_gtk)
 
 
 def get_service(verb):
@@ -448,7 +448,7 @@ class Session:
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
         self.httpd.start()
-        self.ui = Popen([dmedia_peering_gtk, '--peer', peer.id])
+        self.ui = Popen([dmedia_setup_gtk, '--peer', peer.id])
 
     def free(self):
         self.httpd.shutdown()
