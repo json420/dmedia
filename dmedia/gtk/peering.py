@@ -104,8 +104,8 @@ class BaseUI:
 
 
 class ClientUI(BaseUI):
-    page = 'client.html'
-    title = 'Welcome to Novacut!'
+    page = 'test.html'
+    title = 'Dmedia Setup'
 
     signals = {
         'create_user': [],
@@ -119,6 +119,9 @@ class ClientUI(BaseUI):
         'show_screen2b': [],
         'show_screen3b': [],
         'spin_orb': [],
+
+        'init_done': [],
+        'ready': [],
     }
 
     def __init__(self, Dmedia):
@@ -138,6 +141,7 @@ class ClientUI(BaseUI):
         hub.connect('create_user', self.on_create_user)
         hub.connect('peer_with_existing', self.on_peer_with_existing)
         hub.connect('have_secret', self.on_have_secret)
+        hub.connect('ready', self.on_ready)
 
     def on_Message(self, message):
         self.hub.send('message', message)
@@ -151,15 +155,16 @@ class ClientUI(BaseUI):
             GObject.timeout_add(200, self.hub.send, 'spin_orb')
 
     def on_InitDone(self):
+        self.hub.send('init_done')
+
+    def on_ready(self, hub):
         self.window.destroy()
 
     def on_create_user(self, hub):
         self.Dmedia.CreateUser()
-        hub.send('show_screen2a')
 
     def on_peer_with_existing(self, hub):
         self.Dmedia.PeerWithExisting()
-        hub.send('show_screen2b')
 
     def on_have_secret(self, hub, secret):
         self.Dmedia.SetSecret(secret)

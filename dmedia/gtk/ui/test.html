@@ -53,6 +53,15 @@ var UI = {
         }
     },
 
+    button1_click: function() {
+        Hub.send('create_user');
+        UI.show_screen2a();
+    },
+
+    button2_click: function() {
+        UI.show_screen2b();
+    },
+
     show_screen2a: function() {
         $hide('screen1');
         $show('screen2a');
@@ -80,6 +89,15 @@ var UI = {
 
 window.onload = UI.on_load;
 
+
+Hub.connect('init_done', UI.show_screen3);
+
+Hub.connect('message',
+    function(message) {
+        $('message').textContent = message;  
+    }
+);
+
 </script>
 </head>
 <body>
@@ -92,8 +110,8 @@ window.onload = UI.on_load;
 
 <div id="screen1" class="">
     <img id="logo" src="novacut.svg" />
-    <div id="button1" class="button" onclick="UI.show_screen2a()">New Account</div>
-    <div id="button2" class="button" onclick="UI.show_screen2b()">Connect to Devices</div>
+    <div id="button1" class="button" onclick="UI.button1_click()">New Account</div>
+    <div id="button2" class="button" onclick="UI.button2_click()">Connect to Devices</div>
 </div>
 
 <div id="screen2a" class="hide">
@@ -114,7 +132,7 @@ window.onload = UI.on_load;
     <p class="point">Dmedia won't even give me the opportunity to make silly mistakes</p>
     <p class="point">Dmedia will be honest and tell me when I <em>should</em> panic</p>
 </div>
-<div id="okay_button" class="offscreen">OK, I'm ready!</div>
+<div id="okay_button" class="offscreen" onclick="Hub.send('ready')">OK, I'm ready!</div>
 </div>
 
 </div>
