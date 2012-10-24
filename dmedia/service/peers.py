@@ -60,9 +60,9 @@ Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
 log = logging.getLogger()
 
-dmedia_setup = 'dmedia-setup'
-if path.isfile(path.join(dmedia.TREE, dmedia_setup)):
-    dmedia_setup = path.join(dmedia.TREE, dmedia_setup)
+dmedia_peer_gtk = 'dmedia-peer-gtk'
+if path.isfile(path.join(dmedia.TREE, dmedia_peer_gtk)):
+    dmedia_peer_gtk = path.join(dmedia.TREE, dmedia_peer_gtk)
 
 
 def get_service(verb):
@@ -448,7 +448,7 @@ class Session:
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
         self.httpd.start()
-        self.ui = Popen([dmedia_setup, '--peer', peer.id])
+        self.ui = Popen([dmedia_peer_gtk, '--peer', peer.id])
 
     def free(self):
         self.httpd.shutdown()
@@ -557,7 +557,7 @@ class Browser:
         assert self.indicator is None
         self.indicator = AppIndicator3.Indicator.new(
             'dmedia-peer',
-            'indicator-dmedia-setup',
+            'indicator-dmedia-peer',
             AppIndicator3.IndicatorCategory.APPLICATION_STATUS
         )
         menu = Gtk.Menu()
