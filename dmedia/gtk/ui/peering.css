@@ -98,6 +98,25 @@ body, div, p, code, img {
     text-align: center;
 }
 
+#secret {
+    position: fixed;
+    z-index: 10;
+    display: inline-block;
+    font-family: "Ubuntu Mono";
+    color: white;
+    font-size: 48px;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    width: 289px;
+    height: 63px;
+    left: 132px;
+    top: 288px;
+    line-height: 63px;
+    background: -webkit-linear-gradient(top, #505050, #4b4b4b);
+    text-align: center;
+    border-radius: 5px;
+}
+
 input {
     position: fixed;
     z-index: 10;

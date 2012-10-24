@@ -434,7 +434,7 @@ class ServerUI(BaseUI):
 
     signals = {
         'get_secret': [],
-        'display_secret': ['secret'],
+        'display_secret': ['secret', 'typo'],
         'set_message': ['message'],
         'done': [],
     }
@@ -448,7 +448,7 @@ class ServerUI(BaseUI):
 
     def on_get_secret(self, hub):
         secret = self.cr.get_secret()
-        hub.send('display_secret', secret)
+        GObject.idle_add(hub.send, 'display_secret', secret, False)
 
 
 class ServerSession:
@@ -486,12 +486,9 @@ class ServerSession:
     def retry(self):
         self.httpd.shutdown()
         secret = self.cr.get_secret()
-        self.ui.hub.send('display_secret', secret)
-        self.ui.hub.send('set_message',
-            _('Typo? Please try again with new secret.')
-        )
         self.app.state = 'ready'
         self.httpd.start()
+        GObject.idle_add(self.ui.hub.send, 'display_secret', secret, True)
 
     def on_response_ok(self):
         assert self.app.state == 'response_ok'
