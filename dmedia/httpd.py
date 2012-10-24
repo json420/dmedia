@@ -514,11 +514,11 @@ class HTTPD:
 
     def serve_single_threaded(self):
         self.environ['wsgi.multithread'] = False
-        self.socket.settimeout(0.25)
+        self.socket.settimeout(0.1)
         while self.running:
             try:
                 (conn, address) = self.socket.accept()
-                conn.settimeout(0.50)
+                conn.settimeout(0.25)
                 self.handle_connection(conn, address)
             except socket.timeout:
                 pass

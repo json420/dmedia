@@ -634,6 +634,7 @@ class Publisher:
 
     def on_accept(self, avahi, peer):
         log.info('Publisher.on_accept()')
+        self.service.Accept()
         self.avahi.activate(peer.id)
         self.peer = peer
         self.cr = ChallengeResponse(avahi.id, peer.id)
@@ -644,7 +645,6 @@ class Publisher:
         env = {'url': peer.url, 'ssl': avahi.get_client_config()}
         self.client = CouchBase(env)
         avahi.unpublish()
-        self.service.Accept()
 
     def set_secret(self, secret):
         if self.thread is not None:

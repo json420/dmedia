@@ -79,6 +79,7 @@ class TestDmediaCouch(TestCase):
         self.assertEqual(inst.pki.ssldir, inst.paths.ssl)
         self.assertIsNone(inst.machine)
         self.assertIsNone(inst.user)
+        self.assertIsNone(inst.mthread)
 
         # Test lockfile
         with self.assertRaises(usercouch.LockError) as cm:
@@ -144,6 +145,15 @@ class TestDmediaCouch(TestCase):
         with self.assertRaises(Exception) as cm:
             inst.create_machine()
         self.assertEqual(str(cm.exception), 'machine already exists')
+
+    def test_create_machine_if_needed(self):
+        tmp = TempDir()
+        inst = startup.DmediaCouch(tmp.dir)
+        self.assertIs(inst.create_machine_if_needed(), True)
+        self.assertIs(inst.create_machine_if_needed(), False)
+        self.assertIs(inst.wait_for_machine(), True)
+        self.assertIsNone(inst.mthread)
+        self.assertIs(inst.wait_for_machine(), False)
 
     def test_create_user(self):
         class Subclass(startup.DmediaCouch):

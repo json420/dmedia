@@ -154,8 +154,9 @@ class Service(dbus.service.Object):
             self.Snapshot(dbname)
 
     def run(self):
-        if self.couch.isfirstrun():
+        if self.couch.user is None:
             log.info('First run, not starting CouchDB.')
+            self.couch.create_machine_if_needed()
         else:
             self.start_core()
         mainloop.run()
@@ -329,6 +330,7 @@ class Service(dbus.service.Object):
 
     def create_user(self):
         log.info('create_user()')
+        self.couch.wait_for_machine()
         self.couch.create_user()
         self.start_core()
         GObject.idle_add(self.on_init_done)
@@ -349,9 +351,20 @@ class Service(dbus.service.Object):
             return False
         if self.publisher is not None:
             return False
+        if self.thread is not None:
+            return False
         self.publisher = Publisher(self, self.couch)
-        GObject.idle_add(self.publisher.run)
+        self.thread = start_thread(self.wait)
         return True
+
+    def wait(self):
+        self.couch.wait_for_machine()
+        GObject.idle_add(self.on_wait_done)
+
+    def on_wait_done(self):
+        self.thread.join()
+        self.thread = None
+        self.publisher.run()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='b')
     def SetSecret(self, secret):
@@ -489,8 +502,6 @@ couch = DmediaCouch(dmedia.get_dmedia_dir())
 # Now go for it:
 dmedia.configure_logging()
 try:
-    if couch.machine is None:
-        couch.create_machine()
     service = Service(options.bus, couch)
     try:
         service.run()

@@ -174,10 +174,10 @@ class ClientUI(BaseUI):
         self.hub.send('message', message)
 
     def on_Accept(self):
-        self.hub.send('accept')
+        GObject.idle_add(self.hub.send, 'accept')
 
     def on_Response(self, success):
-        self.hub.send('response', success)
+        GObject.idle_add(self.hub.send, 'response', success)
 
     def on_InitDone(self):
         self.done.add('init_done')

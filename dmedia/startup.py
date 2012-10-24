@@ -33,6 +33,7 @@ import logging
 
 from usercouch import UserCouch
 
+from .parallel import start_thread
 from .peering import PKI
 
 
@@ -85,6 +86,7 @@ class DmediaCouch(UserCouch):
         self.pki = PKI(self.paths.ssl)
         self.machine = self.load_config('machine')
         self.user = self.load_config('user')
+        self.mthread = None
 
     def load_config(self, name):
         return load_config(path.join(self.basedir, name + '.json'))
@@ -107,6 +109,25 @@ class DmediaCouch(UserCouch):
         self.machine = self.load_config('machine')
         return machine_id
 
+    def create_machine_if_needed(self):
+        if self.machine is not None:
+            return False
+        if self.mthread is not None:
+            return False
+        log.info('Creating machine identity in background-thread...')
+        self.mthread = start_thread(self.create_machine)
+        return True
+
+    def wait_for_machine(self):
+        if self.mthread is None:
+            assert self.machine is not None
+            return False
+        log.info('Waiting for machine creation thread to complete...')
+        self.mthread.join()
+        self.mthread = None
+        assert self.machine is not None
+        return True
+        
     def create_user(self):
         if self.machine is None:
             raise Exception('must create machine first')
