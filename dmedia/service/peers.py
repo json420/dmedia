@@ -50,7 +50,7 @@ from microfiber import random_id, dumps, build_ssl_context
 import dmedia
 from dmedia.parallel import start_thread
 from dmedia.gtk.ubuntu import NotifyManager
-from dmedia.peering import ChallengeResponse
+from dmedia.identity import ChallengeResponse
 from dmedia.server import ServerApp, InfoApp, ClientApp
 from dmedia.httpd import WSGIError, make_server
 

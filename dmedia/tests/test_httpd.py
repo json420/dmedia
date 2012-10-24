@@ -39,7 +39,7 @@ from microfiber import random_id, CouchBase
 
 from .base import TempDir
 from dmedia import __version__
-from dmedia.peering import TempPKI
+from dmedia.identity import TempPKI
 from dmedia.httpd import WSGIError
 from dmedia import httpd
 

@@ -40,8 +40,8 @@ from microfiber import random_id, dumps
 from .base import TempDir
 import dmedia
 from dmedia.httpd import make_server, WSGIError, Input
-from dmedia.peering import encode, decode
-from dmedia import server, client, peering
+from dmedia.identity import encode, decode
+from dmedia import server, client, identity
 
 
 def random_dbname():
@@ -348,7 +348,7 @@ class TestClientApp(TestCase):
     def test_init(self):
         id1 = random_id(30)
         id2 = random_id(30)
-        cr = peering.ChallengeResponse(id1, id2)
+        cr = identity.ChallengeResponse(id1, id2)
         q = Queue()
         app = server.ClientApp(cr, q)
         self.assertIs(app.cr, cr)
@@ -363,7 +363,7 @@ class TestClientApp(TestCase):
     def test_call(self):
         _id = random_id(30)
         peer_id = random_id(30)
-        cr = peering.ChallengeResponse(_id, peer_id)
+        cr = identity.ChallengeResponse(_id, peer_id)
         app = server.ClientApp(cr, Queue())
 
         # wsgi.multithread
@@ -520,7 +520,7 @@ class TestRootAppLive(TestCase):
         couch_env['machine_id'] = random_id(30)
 
         # Test when client PKI isn't configured
-        pki = peering.TempPKI()
+        pki = identity.TempPKI()
         httpd = TempHTTPD(couch_env, pki.get_server_config())
         env = deepcopy(httpd.env)
         env['ssl'] = pki.get_client_config()
@@ -530,7 +530,7 @@ class TestRootAppLive(TestCase):
         self.assertEqual(cm.exception.response.reason, 'Forbidden SSL')
 
         # Test when cert issuer is wrong
-        pki = peering.TempPKI(True)
+        pki = identity.TempPKI(True)
         httpd = TempHTTPD(couch_env, pki.get_server_config())
         env = deepcopy(httpd.env)
         env['ssl'] = pki.get_client_config()
@@ -540,7 +540,7 @@ class TestRootAppLive(TestCase):
         self.assertEqual(cm.exception.response.reason, 'Forbidden Issuer')
 
         # Test when SSL config is correct, then test other aspects
-        pki = peering.TempPKI(True)
+        pki = identity.TempPKI(True)
         couch_env['user_id'] = pki.client_ca.id
         couch_env['machine_id'] = pki.server.id
         httpd = TempHTTPD(couch_env, pki.get_server_config())
@@ -571,7 +571,7 @@ class TestRootAppLive(TestCase):
         """
         Test push replication Couch1 => HTTPD => Couch2.
         """
-        pki = peering.TempPKI(True)
+        pki = identity.TempPKI(True)
         config = {'replicator': pki.get_client_config()}
         couch1 = TempCouch()
         couch2 = TempCouch()
@@ -611,7 +611,7 @@ class TestRootAppLive(TestCase):
 class TestServerAppLive(TestCase):
     def test_live(self):
         tmp = TempDir()
-        pki = peering.PKI(tmp.dir)
+        pki = identity.PKI(tmp.dir)
         local_id = pki.create_key()
         pki.create_ca(local_id)
         remote_id = pki.create_key()
@@ -627,8 +627,8 @@ class TestServerAppLive(TestCase):
             'cert_file': pki.path(remote_id, 'ca'),
             'key_file': pki.path(remote_id, 'key'),
         }
-        local = peering.ChallengeResponse(local_id, remote_id)
-        remote = peering.ChallengeResponse(remote_id, local_id)
+        local = identity.ChallengeResponse(local_id, remote_id)
+        remote = identity.ChallengeResponse(remote_id, local_id)
         q = Queue()
         app = server.ServerApp(local, q, None)
         httpd = make_server(app, '127.0.0.1', server_config)

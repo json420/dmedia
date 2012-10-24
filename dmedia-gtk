@@ -248,11 +248,11 @@ class App(BaseApp):
         except Exception as e:
             log.exception('exception in on_start_importer()')
             raise e
-        
+
     def on_stop_importer(self, hub):
         self.importer = None
         self.ux = None
-        self.hub.send('importer_stopped')
+        GObject.idle_add(self.hub.send, 'importer_stopped')
 
 
 app = App()

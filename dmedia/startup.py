@@ -34,7 +34,7 @@ import logging
 from usercouch import UserCouch
 
 from .parallel import start_thread
-from .peering import PKI
+from .identity import PKI
 
 
 log = logging.getLogger()

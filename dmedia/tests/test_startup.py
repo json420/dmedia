@@ -34,7 +34,7 @@ import usercouch
 from microfiber import random_id, Server
 
 from .base import TempDir
-from dmedia.peering import PKI
+from dmedia.identity import PKI
 from dmedia import startup
 
 

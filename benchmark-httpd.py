@@ -7,7 +7,7 @@ import os
 
 from microfiber import CouchBase, dumps
 
-from dmedia.peering import TempPKI
+from dmedia.identity import TempPKI
 from dmedia.httpd import run_server, echo_app
 
 

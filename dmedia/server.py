@@ -36,7 +36,7 @@ from microfiber import dumps, basic_auth_header, CouchBase
 import dmedia
 from dmedia import __version__
 from dmedia.httpd import WSGIError, make_server 
-from dmedia import local, peering
+from dmedia import local, identity
 
 
 USER = os.environ.get('USER')
@@ -419,7 +419,7 @@ class ClientApp:
         response = obj['response']
         try:
             self.cr.check_response(nonce, response)
-        except peering.WrongResponse:
+        except identity.WrongResponse:
             self.state = 'wrong_response'
             raise WSGIError('401 Unauthorized')
         self.state = 'response_ok'
