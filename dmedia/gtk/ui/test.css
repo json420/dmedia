@@ -26,15 +26,6 @@ body, div, p, code, img {
     background-image: url("1.svg");
 }
 
-#logo {
-    position: fixed;
-    z-index: 10;
-    width: 56px;
-    height: 56px;
-    top: 25px;
-    left: 877px;
-}
-
 #message {
     position: fixed;
     z-index: 10;
@@ -161,17 +152,6 @@ input:focus {
 
 #sync_button.offscreen {
     top: 540px;
-}
-
-#step {
-    position: fixed;
-    z-index: 10;
-    font-family: "Ubuntu Mono";
-    color: white;
-    font-size: 22px;
-    top: 41px;
-    left: 889px;
-    cursor: default;
 }
 
 

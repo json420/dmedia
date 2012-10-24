@@ -13,7 +13,6 @@ var B32ALPHABET = '234567ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 var UI = {
     on_load: function() {
         UI.show('screen1');
-        UI.step = $('step');
         UI.input = $('input');
         UI.input.oninput = UI.on_input;
         UI.form = $('form');
@@ -106,11 +105,6 @@ Hub.connect('response', UI.on_response);
 <body>
 
 <div id="viewport">
-
-
-<div id="step" class="hide">1/3</div>
-
-<img id="logo" src="novacut.svg" />
 
 <div id="screen1" class="hide">
     <div id="button1" class="button" onclick="UI.button1_click()">New Account</div>
