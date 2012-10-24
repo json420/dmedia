@@ -26,6 +26,20 @@ body, div, p, code, img {
     background-image: url("1.svg");
 }
 
+#message {
+    position: fixed;
+    z-index: 10;
+    cursor: default;
+    width: 400px;
+    top: 428px;
+    left: 483px;
+    line-height: 1.2em;
+    font-family: Ubuntu;
+    font-size: 20px;
+    color: #000;
+    text-align: center;
+}
+
 .button {
     position: fixed;
     z-index: 10;
