@@ -15,13 +15,13 @@
    id="svg2"
    version="1.1"
    inkscape:version="0.48.3.1 r9886"
-   sodipodi:docname="1.svg">
+   sodipodi:docname="background.svg">
   <defs
      id="defs4">
     <linearGradient
        id="linearGradient3803">
       <stop
-         style="stop-color:#eeeeef;stop-opacity:0.94117647;"
+         style="stop-color:#eeeeee;stop-opacity:1;"
          offset="0"
          id="stop3805" />
       <stop
@@ -130,7 +130,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1"
-     inkscape:cx="480"
+     inkscape:cx="303"
      inkscape:cy="270"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
