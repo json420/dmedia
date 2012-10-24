@@ -68,6 +68,7 @@ class BaseUI:
     def __init__(self):
         self.build_window()
         self.window.connect('destroy', Gtk.main_quit)
+        self.window.connect('delete-event', self.on_delete_event)
         self.hub = hub_factory(self.signals)(self.view)
         self.connect_hub_signals(self.hub)
 
@@ -121,6 +122,9 @@ class ServerUI(BaseUI):
     def connect_hub_signals(self, hub):
         hub.connect('get_secret', self.on_get_secret)
 
+    def on_delete_event(self, *args):
+        self.Dmedia.Cancel(self.peer_id)
+
     def on_get_secret(self, hub):
         self.Dmedia.GetSecret(self.peer_id)
 
@@ -155,7 +159,6 @@ class ClientUI(BaseUI):
         Dmedia.connect_to_signal('Accept', self.on_Accept)
         Dmedia.connect_to_signal('Response', self.on_Response)
         Dmedia.connect_to_signal('InitDone', self.on_InitDone)
-        self.window.connect('delete-event', self.on_delete_event)
         self.done = set()
 
     def on_delete_event(self, *args):

@@ -445,6 +445,12 @@ class Session:
         self.httpd.start()
         self.ui = Popen(['./dmedia-secret', '--peer', peer.id])
 
+    def free(self):
+        self.httpd.shutdown()
+        del self.httpd
+        self.ui.terminate()
+        self.ui.wait()
+
     def get_secret(self, peer_id):
         if peer_id != self.peer.id:
             return False
@@ -507,7 +513,7 @@ class Session:
 
     def on_cert_request(self, status):
         if status == 'cert_issued':
-            self.browser.service.PeeringDone()
+            self.browser.session_complete()
         else:
             self.browser.service.Message(_('Security Problems in CSR!'))
 
@@ -533,6 +539,9 @@ class Browser:
             self.avahi = None
             del self.service
             del self.couch
+            if self.session is not None:
+                self.session.free()
+                self.session = None
 
     def get_secret(self, peer_id):
         if self.session is None:
@@ -574,11 +583,18 @@ class Browser:
         )
         self.avahi.publish(self.session.httpd.port)
 
-    def on_delete_event(self, *args):
-        self.session.httpd.shutdown()
-        self.session.ui.window.destroy()
-        self.avahi.unpublish()
-        self.avahi.deactivate(self.session.peer_id)
+    def cancel(self, peer_id):
+        if self.avahi.deactivate(peer_id):
+            self.avahi.unpublish() 
+            self.session.free()
+            self.session = None
+
+    def session_complete(self):
+        log.info('Browser.session_complete()')
+        self.service.PeeringDone()
+        self.avahi.deactivate(self.session.peer.id)
+        self.avahi.unpublish() 
+        self.session.free()
         self.session = None
 
 

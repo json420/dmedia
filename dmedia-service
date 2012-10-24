@@ -279,10 +279,13 @@ class Service(dbus.service.Object):
             return False
         return self.peer.get_secret(peer_id)
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='b')
-    def Cancel(self):
-        log.info('Dmedia.GetSecret()')
-        return self.peer.get_secret()
+    @dbus.service.method(IFACE, in_signature='s', out_signature='b')
+    def Cancel(self, peer_id):
+        log.info('Dmedia.Cancel(%r)', peer_id)
+        if self.peer is None:
+            return False
+        GObject.idle_add(self.peer.cancel, peer_id)
+        return True
 
     @dbus.service.signal(IFACE, signature='')
     def Accept(self):
