@@ -557,7 +557,7 @@ class Browser:
         assert self.indicator is None
         self.indicator = AppIndicator3.Indicator.new(
             'dmedia-peer',
-            'indicator-novacut',
+            'indicator-dmedia-setup',
             AppIndicator3.IndicatorCategory.APPLICATION_STATUS
         )
         menu = Gtk.Menu()
