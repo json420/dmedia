@@ -2,134 +2,245 @@
     display: none !important;
 }
 
+* {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Ubuntu;
+}
+
 body, div, p, code, img {
     -webkit-user-select: none;
     -webkit-user-drag: none;
 }
 
-p, code {
+
+#viewport {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-image: url("background.svg");
+}
+
+#message {
+    position: fixed;
+    z-index: 10;
     cursor: default;
-}
-
-body {
-    font-family: Lato;
-    font-size: 21px;
-    background-color: #301438;
-    color: #fff;
+    width: 400px;
+    top: 428px;
+    left: 483px;
+    line-height: 1.2em;
+    font-family: Ubuntu;
+    font-size: 20px;
+    color: #000;
     text-align: center;
-}
-
-code, input {
-    font-family: "Ubuntu Mono";
-    font-size: 60px;
-    font-weight: bold;
-    color: #333;
-    text-shadow: 0px 0px 3px #e81f3b;
-    letter-spacing: 0.15em;
-    line-height: 1.4em;
-    margin: 0.4em;
-}
-
-input {
-    width: 5.4em;
-}
-
-.secret {
-    text-align: center;
-    background-color: #fff;
-    text-align: center;
-    box-shadow: 2px 2px 6px #000;
-    border-radius: 10px;
-    display: inline-block;
 }
 
 .button {
     position: fixed;
-    width: 440px;
-    background-color: #fff;
-    text-align: center;
-    box-shadow: 2px 2px 5px 0 #000;
-    border-radius: 8px;
-    color: #000;
+    z-index: 10;
     cursor: pointer;
+    width: 289px;
+    height: 63px;
+    left: 132px;
+    line-height: 63px;
+    border-radius: 5px;
+    font-family: Ubuntu;
+    font-size: 22px;
+    color: white;
+    padding-left: 22px;
+    box-sizing: border-box !important;
+    background: -webkit-linear-gradient(top, #505050, #4b4b4b);
 }
 
 .button:hover {
-    box-shadow: 0 0 6px 2px #e81f3b;
+    background: -webkit-linear-gradient(top, #555, #505050);
 }
 
-.button p {
-    margin: 16px;
-    cursor: pointer !important;
+#button1 {
+    top: 192px;
 }
 
-#first {
-    top: 30px;
-    left: 71px;
+#button2 {
+    top: 288px;
 }
 
-#sync {
-    bottom: 30px;
-    /*left: 449px;*/
-    right: 71px;
-}
-
-p.top {
-    font-weight: bold;
-}
-
-#logo {
+#waiting {
     position: fixed;
-    top: 190px;
-    left: 400px;
-    width: 160px;
-    height: 160px;
-    -webkit-transition: -webkit-transform 500ms linear;
-}
-
-#logo.spinleft {
-    -webkit-transform: rotate(-180deg);   
-}
-
-#logo.spinright {
-    -webkit-transform: rotate(180deg);   
-}
-
-
-p.gen {
-    margin: 2em;
-    font-size: 28px;
-}
-
-
-#finish {
-    position: fixed;
-    width: 160px;
-    height: 160px;
-    bottom: 60px;
-    right: 60px;
-    cursor: pointer;
-    -webkit-transition-timing-function: ease;
-    -webkit-transition-duration: 300ms;
-    -webkit-transition-property: right, bottom;
-}
-
-#finish.hidden {
-    bottom: -134px;
-    right: -134px;
-}
-
-#logo2 {
     z-index: 10;
+    cursor: default;
+    width: 289px;
+    height: 159px;
+    top: 192px;
+    left: 132px;
+    line-height: 53px;
+    font-family: Ubuntu;
+    font-size: 32px;
+    color: #555;
+}
+
+#enter_code {
     position: fixed;
-    width: 160px;
-    height: 160px;
-    bottom: 60px;
-    right: 60px;
-    -webkit-transition: -webkit-transform 2000ms linear;
+    z-index: 10;
+    cursor: default;
+    width: 289px;
+    height: 63px;
+    top: 192px;
+    left: 132px;
+    line-height: 63px;
+    font-family: Ubuntu;
+    font-size: 45px;
+    color: #555;
+    text-align: center;
 }
 
-#logo2.spinright {
-    -webkit-transform: rotate(360deg);   
+#secret {
+    position: fixed;
+    z-index: 10;
+    display: inline-block;
+    font-family: "Ubuntu Mono";
+    color: white;
+    font-size: 48px;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    width: 289px;
+    height: 63px;
+    left: 132px;
+    top: 288px;
+    line-height: 63px;
+    background: -webkit-linear-gradient(top, #505050, #4b4b4b);
+    text-align: center;
+    border-radius: 5px;
 }
 
+input {
+    position: fixed;
+    z-index: 10;
+    display: inline-block;
+    font-family: "Ubuntu Mono";
+    color: white;
+    font-size: 48px;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    width: 289px;
+    height: 63px;
+    left: 132px;
+    top: 288px;
+    line-height: 63px;
+    background: -webkit-linear-gradient(top, #505050, #4b4b4b);
+    text-align: center;
+    border-radius: 5px;
+    border: none;
+    box-shadow: inset 0px 1px 6px #000;
+}
+
+
+input:focus {
+    outline: none;
+    box-shadow: inset 0px 1px 6px #000, 0px 0px 2px 1px #e81f3b;
+}
+
+#typo {
+    top: 358px;
+    left: 64px;
+    width: 428px;
+
+    position: fixed;
+    z-index: 10;
+    cursor: default;
+    line-height: 1.2em;
+    font-family: Ubuntu;
+    font-size: 18px;
+    color: #000;
+    text-align: center;
+}
+
+#sync_button {
+    position: fixed;
+    z-index: 10;
+    top: 384px;
+    left: 226px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50px;
+    background-color: #e81f3b;
+    cursor: pointer;
+    text-align: center;
+    color: white;
+    line-height: 100px;
+    font-size: 30px;
+    overflow: hidden;
+
+    -webkit-transition-timing-function: ease;
+    -webkit-transition-duration: 250ms;
+    -webkit-transition-property: top;
+}
+
+#sync_button:hover {
+    box-shadow: 0 0 3px #301438;
+}
+
+#sync_button.offscreen {
+    top: 540px;
+}
+
+
+#contract {
+    position: fixed;
+    z-index: 10;
+    cursor: default;
+    width: 300px;
+    top: 125px;
+    left: 134px;
+    font-family: Ubuntu;
+    color: #555;
+}
+
+#contract .dont_panic {
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 16px;
+    line-height: 1.5em;
+}
+
+#contract .point {
+    font-size: 19px;
+    margin-bottom: 28px;
+    line-height: 1.5em;
+}
+
+
+#okay_button {
+    position: fixed;
+    z-index: 10;
+    top: 320px;
+    left: 630px;
+    width: 130px;
+    height: 130px;
+    border-radius: 70px;
+    background-color: #e81f3b;
+    cursor: pointer;
+    text-align: center;
+    color: white;
+    line-height: 35px;
+    font-size: 26px;
+    overflow: hidden;
+    padding-top: 30px;
+    box-sizing: border-box !important;
+
+    -webkit-transition-timing-function: ease;
+    -webkit-transition-duration: 750ms;
+    -webkit-transition-property: left;
+}
+
+#okay_button:hover {
+    box-shadow: 0 0 3px #301438;
+}
+
+#okay_button.offscreen {
+    left: 960px;
+}

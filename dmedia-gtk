@@ -177,7 +177,6 @@ class App(BaseApp):
         'stop_importer': [],
         'importer_stopped': [],
 
-        'onboard_complete': [],
         'batch_started': ['batch_id'],
         'import_started': ['basedir', 'import_id', 'extra'],
         'import_scanned': ['basedir', 'import_id', 'total_count', 'total_size'],
@@ -188,50 +187,8 @@ class App(BaseApp):
         'error': ['error_dict'],
     }
 
-    def extend_parser(self, parser):
-#        parser.add_option('--replay',
-#            help='replay import',
-#            action='store_true',
-#            default=False,
-#        )
-        parser.add_option('--onboard',
-            help='force run of onboarding experience',
-            action='store_true',
-            default=False,
-        )
-
-    def connect_hub_signals(self, hub):
-        hub.connect('create_project', self.on_create_project)
-        hub.connect('start_importer', self.on_start_importer)
-        hub.connect('stop_importer', self.on_stop_importer)
-        hub.connect('error', self.on_error)
-        hub.connect('onboard_complete', self.on_onboard_complete)
-
-    def choose_starting_page(self):
-        try:
-            doc = self.db.get(SETTINGS_ID)
-        except NotFound:
-            doc = {
-                '_id': SETTINGS_ID,
-                'onboarded': False,
-            }
-            self.db.save(doc)
-        if self.options.onboard:
-            doc['onboarded'] = False
-            self.db.save(doc)
-        if doc.get('onboarded'):
-            return self.page
-        else:
-            return 'dont_panic.html'
-
     def dmedia_resolver(self, uri):
         return self.proxy.ResolveURI(uri)
-
-    def on_onboard_complete(self, hub):
-        doc = self.db.get(SETTINGS_ID)
-        doc['onboarded'] = True
-        self.db.save(doc)
-        self.load_page(self.page)
 
     def create_ux(self):
         if UnityImportUX is not None:

@@ -180,7 +180,7 @@ class Service(dbus.service.Object):
         """
         log.info('[idle1 at time %.3f]', time.time() - start_time)
         if self.couch.pki.user.key_file is not None:
-            self.peer = Browser(self.couch)
+            self.peer = Browser(self, self.couch)
         self.udisks.monitor()
         GObject.timeout_add(350, self.on_idle2)
 
@@ -261,9 +261,31 @@ class Service(dbus.service.Object):
     def CardRemoved(self, obj, mount):
         pass
 
+    ###########################################
+    # Signals and Methods for Peering Protocol:
+
     @dbus.service.signal(IFACE, signature='s')
     def Message(self, message):
         log.info('@Dmedia.Message(%r)', message)
+
+    @dbus.service.signal(IFACE, signature='sb')
+    def DisplaySecret(self, secret, typo):
+        log.info('@Dmedia.DisplaySecret(<secret>, %r)', typo)
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='b')
+    def GetSecret(self, peer_id):
+        log.info('Dmedia.GetSecret(%r)', peer_id)
+        if self.peer is None:
+            return False
+        return self.peer.get_secret(peer_id)
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='b')
+    def Cancel(self, peer_id):
+        log.info('Dmedia.Cancel(%r)', peer_id)
+        if self.peer is None:
+            return False
+        GObject.idle_add(self.peer.cancel, peer_id)
+        return True
 
     @dbus.service.signal(IFACE, signature='')
     def Accept(self):
@@ -276,6 +298,10 @@ class Service(dbus.service.Object):
     @dbus.service.signal(IFACE, signature='')
     def InitDone(self):
         log.info('@Dmedia.InitDone()')
+
+    @dbus.service.signal(IFACE, signature='')
+    def PeeringDone(self):
+        log.info('@Dmedia.PeeringDone()')
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Version(self):
@@ -298,14 +324,12 @@ class Service(dbus.service.Object):
             return False
         if self.thread is not None:
             return False
-        self.Message('Creating user certificate...')
         self.thread = start_thread(self.create_user)
         return True
 
     def create_user(self):
         log.info('create_user()')
         self.couch.create_user()
-        GObject.idle_add(self.Message, 'Starting CouchDB...')
         self.start_core()
         GObject.idle_add(self.on_init_done)
 
@@ -316,8 +340,7 @@ class Service(dbus.service.Object):
         if self.publisher is not None:
             self.publisher.free()
             self.publisher = None
-        self.Message('Done!')
-        GObject.timeout_add(500, self.InitDone)
+        self.InitDone()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def PeerWithExisting(self):
@@ -339,7 +362,6 @@ class Service(dbus.service.Object):
         log.info('set_user(%r)', user_id)
         assert self.couch.user is None
         assert self.thread is None
-        self.Message('Starting CouchDB...')
         self.thread = start_thread(self._set_user, user_id)
 
     def _set_user(self, user_id):

@@ -60,13 +60,15 @@ def wrap_in_scroll(child):
 class BaseUI:
     inspector = None
     signals = None
-    title = 'Novacut'  # Default Gtk.Window title
+    title = 'Dmedia Setup'  # Default Gtk.Window title
     page = 'peering.html'  # Default page to load once CouchDB is available
     width = 960  # Default Gtk.Window width
     height = 540  # Default Gtk.Window height
 
     def __init__(self):
         self.build_window()
+        self.window.connect('destroy', Gtk.main_quit)
+        self.window.connect('delete-event', self.on_delete_event)
         self.hub = hub_factory(self.signals)(self.view)
         self.connect_hub_signals(self.hub)
 
@@ -102,34 +104,62 @@ class BaseUI:
         return self.inspector
 
 
+class ServerUI(BaseUI):
+    page = 'server.html'
+
+    signals = {
+        'get_secret': [],
+        'display_secret': ['secret', 'typo'],
+    }
+
+    def __init__(self, Dmedia, peer_id):
+        super().__init__()
+        self.Dmedia = Dmedia
+        self.peer_id = peer_id
+        Dmedia.connect_to_signal('DisplaySecret', self.on_DisplaySecret)
+        Dmedia.connect_to_signal('PeeringDone', self.on_PeeringDone)
+
+    def connect_hub_signals(self, hub):
+        hub.connect('get_secret', self.on_get_secret)
+
+    def on_delete_event(self, *args):
+        self.Dmedia.Cancel(self.peer_id)
+
+    def on_get_secret(self, hub):
+        self.Dmedia.GetSecret(self.peer_id)
+
+    def on_DisplaySecret(self, secret, typo): 
+        GObject.idle_add(self.hub.send, 'display_secret', secret, typo)
+
+    def on_PeeringDone(self): 
+        self.window.destroy()
+
+
 class ClientUI(BaseUI):
     page = 'client.html'
-    title = 'Welcome to Novacut!'
 
     signals = {
         'create_user': [],
         'peer_with_existing': [],
-        'have_secret': ['secret'],
 
+        'accept': [],
+        'have_secret': ['secret'],
         'response': ['success'],
+
+        'user_ready': [],
         'message': ['message'],
 
-        'show_screen2a': [],
-        'show_screen2b': [],
-        'show_screen3b': [],
-        'spin_orb': [],
     }
 
     def __init__(self, Dmedia):
         super().__init__()
         self.Dmedia = Dmedia
         self.quit = False
-        Dmedia.connect_to_signal('Message', self.on_Message)
+        #Dmedia.connect_to_signal('Message', self.on_Message)
         Dmedia.connect_to_signal('Accept', self.on_Accept)
         Dmedia.connect_to_signal('Response', self.on_Response)
         Dmedia.connect_to_signal('InitDone', self.on_InitDone)
-        self.window.connect('destroy', Gtk.main_quit)
-        self.window.connect('delete-event', self.on_delete_event)
+        self.done = set()
 
     def on_delete_event(self, *args):
         self.quit = True
@@ -138,28 +168,34 @@ class ClientUI(BaseUI):
         hub.connect('create_user', self.on_create_user)
         hub.connect('peer_with_existing', self.on_peer_with_existing)
         hub.connect('have_secret', self.on_have_secret)
+        hub.connect('user_ready', self.on_user_ready)
 
     def on_Message(self, message):
         self.hub.send('message', message)
 
     def on_Accept(self):
-        self.hub.send('show_screen3b')
+        self.hub.send('accept')
 
     def on_Response(self, success):
         self.hub.send('response', success)
-        if success:
-            GObject.timeout_add(200, self.hub.send, 'spin_orb')
 
     def on_InitDone(self):
-        self.window.destroy()
+        self.done.add('init_done')
+        self.do_destroy()
+
+    def on_user_ready(self, hub):
+        self.done.add('user_ready')
+        self.do_destroy()
+
+    def do_destroy(self):
+        if self.done == set(['init_done', 'user_ready']):
+            self.window.destroy()
 
     def on_create_user(self, hub):
         self.Dmedia.CreateUser()
-        hub.send('show_screen2a')
 
     def on_peer_with_existing(self, hub):
         self.Dmedia.PeerWithExisting()
-        hub.send('show_screen2b')
 
     def on_have_secret(self, hub, secret):
         self.Dmedia.SetSecret(secret)

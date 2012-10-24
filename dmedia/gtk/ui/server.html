@@ -9,8 +9,14 @@
 "use strict";
 
 Hub.connect('display_secret',
-    function(secret) {
+    function(secret, typo) {
         $('secret').textContent = secret;
+        if (typo) {
+            $show('typo');
+        }
+        else {
+            $hide('typo');
+        }
     }
 );
 
@@ -26,12 +32,12 @@ window.onload = function() {
 
 </script>
 </head>
-<p class="gen">
-This is your secret code:
-</p>
-<div class="secret">
-<code id="secret"></code>
+
+<body>
+<div id="viewport">
+    <div id="enter_code">Secret Code:</div>
+    <div id="secret"></div>
+    <p id="typo" class="hide">Typo? Please try again with new code</p>
 </div>
-<p id="message"></p>
-</body>
+</div>
 </html>
