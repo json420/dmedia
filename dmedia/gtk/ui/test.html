@@ -31,6 +31,12 @@ var UI = {
             }
         }
         UI.input.value = value;
+        if (value.length == 8) {
+            $('sync_button').classList.remove('offscreen');
+        }
+        else {
+            $('sync_button').classList.add('offscreen');
+        }
     },
 
     on_submit: function(event) {
@@ -42,7 +48,7 @@ var UI = {
     have_secret: function() {
         if (UI.input.value.length == 8 && !UI.input.disabled) {
             UI.input.disabled = true;
-            Hub.send('have_secret', UI.input.value); 
+            //Hub.send('have_secret', UI.input.value); 
         }
     },
 
@@ -50,6 +56,12 @@ var UI = {
         $hide('screen1');
         $show('screen2b');
         UI.step.textContent = '2/3';
+    },
+
+    show_screen3b: function() {
+        $hide('screen1');
+        $show('screen2b');
+        UI.step.textContent = '3/3';
     },
 }
 
@@ -68,20 +80,22 @@ window.onload = UI.on_load;
     <div id="button2" class="button" onclick="UI.show_screen2b()">Connect to Devices</div>
 </div>
 
-<div id="screen2b" class="hide">
-    <div id="enter_code">Enter Code</div>
-    <form id="form">
-    <input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
-    </form>
+<div id="screen2b" class="">
+<div id="enter_code">Enter Code</div>
+<form id="form">
+<input id="input" type="text" maxlength="8" size="8" autofocus="1"></input>
+</form>
+<div id="sync_button" class="offscreen">Sync!</div>
 </div>
 
-<div id="screen3b" class="">
+<div id="screen3b" class="hide">
 <div id="contract">
     <p class="dont_panic">DON'T PANIC</p>
     <p class="point">Dmedia will do the right thing automatically, without babysitting</p>
     <p class="point">Dmedia won't even give me the opportunity to make silly mistakes</p>
     <p class="point">Dmedia will be honest and tell me when I <em>should</em> panic</p>
 </div>
+<img id="okay" src="okay.svg" />
 </div>
 
 </div>
