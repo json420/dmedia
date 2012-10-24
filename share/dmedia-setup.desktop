@@ -2,10 +2,9 @@
 Type=Application
 Name=Dmedia Setup
 GenericName=Dmedia Setup
-Comment=Dmedia Setup Utility.
+Comment=Setup Utility for Dmedia.
 Exec=/usr/bin/dmedia-setup
 Icon=dmedia-setup
-NoDisplay=true
 Terminal=false
 StartupNotify=true
 Categories=GNOME;GTK;AudioVideo;AudioVideoEditing;
