@@ -90,6 +90,7 @@ input {
     box-shadow: inset 0px 1px 6px #000;
 }
 
+
 input:focus {
     outline: none;
     box-shadow: inset 0px 1px 6px #000, 0px 0px 2px 1px #e81f3b;
@@ -98,8 +99,8 @@ input:focus {
 #sync_button {
     position: fixed;
     z-index: 10;
-    top: 270px;
-    left: 570px;
+    top: 380px;
+    left: 226px;
     width: 100px;
     height: 100px;
     border-radius: 50px;
@@ -112,7 +113,7 @@ input:focus {
     overflow: hidden;
 
     -webkit-transition-timing-function: ease;
-    -webkit-transition-duration: 300ms;
+    -webkit-transition-duration: 250ms;
     -webkit-transition-property: top;
 }
 
