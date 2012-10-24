@@ -38,6 +38,8 @@ import threading
 from queue import Queue
 from base64 import b64encode, b64decode
 from gettext import gettext as _
+from subprocess import Popen
+import weakref
 
 import dbus
 from gi.repository import GObject, Gtk, AppIndicator3
@@ -46,7 +48,6 @@ from microfiber import random_id, dumps, build_ssl_context
 
 
 from dmedia.parallel import start_thread
-from dmedia.gtk.peering import BaseUI
 from dmedia.gtk.ubuntu import NotifyManager
 from dmedia.peering import ChallengeResponse
 from dmedia.server import ServerApp, InfoApp, ClientApp
@@ -429,43 +430,30 @@ class AvahiPeer(GObject.GObject):
         self.emit(signal, info)
 
 
-class ServerUI(BaseUI):
-    page = 'server.html'
-
-    signals = {
-        'get_secret': [],
-        'display_secret': ['secret', 'typo'],
-        'set_message': ['message'],
-        'done': [],
-    }
-
-    def __init__(self, cr):
-        super().__init__()
-        self.cr = cr
-
-    def connect_hub_signals(self, hub):
-        hub.connect('get_secret', self.on_get_secret)
-
-    def on_get_secret(self, hub):
-        secret = self.cr.get_secret()
-        GObject.idle_add(hub.send, 'display_secret', secret, False)
-
-
-class ServerSession:
-    def __init__(self, pki, _id, peer, server_config, client_config):
-        self.pki = pki
-        self.peer_id = peer.id
+class Session:
+    def __init__(self, browser, peer, server_config, client_config):
+        self.browser = weakref.proxy(browser)
         self.peer = peer
-        self.cr = ChallengeResponse(_id, peer.id)
+        self.cr = ChallengeResponse(browser.avahi.id, peer.id)
         self.q = Queue()
         start_thread(self.monitor_response)
-        self.app = ServerApp(self.cr, self.q, pki)
+        self.app = ServerApp(self.cr, self.q, browser.couch.pki)
         self.app.state = 'info'
         self.httpd = make_server(self.app, '0.0.0.0', server_config)
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
         self.httpd.start()
-        self.ui = ServerUI(self.cr)
+        self.ui = Popen(['./dmedia-secret', '--peer', peer.id])
+
+    def get_secret(self, peer_id):
+        if peer_id != self.peer.id:
+            return False
+        GObject.idle_add(self.init_secret)
+        return True
+
+    def init_secret(self):
+        secret = self.cr.get_secret()
+        self.browser.service.DisplaySecret(secret, False)
 
     def monitor_response(self):
         while True:
@@ -488,11 +476,10 @@ class ServerSession:
         secret = self.cr.get_secret()
         self.app.state = 'ready'
         self.httpd.start()
-        GObject.idle_add(self.ui.hub.send, 'display_secret', secret, True)
+        self.browser.service.DisplaySecret(secret, True)
 
     def on_response_ok(self):
         assert self.app.state == 'response_ok'
-        self.ui.hub.send('set_message', _('Counter-Challenge...'))
         start_thread(self.counter_challenge)
 
     def counter_challenge(self):
@@ -514,22 +501,20 @@ class ServerSession:
         assert self.app.state == 'response_ok'
         self.app.state = 'counter_response_ok'
         start_thread(self.monitor_cert_request)
-        self.ui.hub.send('set_message', _('Issuing Certificate...'))
 
     def on_counter_response_fail(self):
-        self.ui.hub.send('set_message', _('Very Bad Things!'))
+        self.browser.service.Message(_('Very Bad Things!'))
 
     def on_cert_request(self, status):
         if status == 'cert_issued':
-            self.ui.hub.send('set_message', _('Done!'))
-            GObject.timeout_add(250, self.ui.hub.send, 'done')
+            self.browser.service.PeeringDone()
         else:
-            self.ui.hub.send('set_message', _('Security Problems in CSR!'))
-            
+            self.browser.service.Message(_('Security Problems in CSR!'))
 
 
 class Browser:
-    def __init__(self, couch):
+    def __init__(self, service, couch):
+        self.service = service
         self.couch = couch
         self.avahi = AvahiPeer(couch.pki)
         self.avahi.connect('offer', self.on_offer)
@@ -539,8 +524,20 @@ class Browser:
         self.indicator = None
         self.session = None
 
+    def __del__(self):
+        self.free()
+
     def free(self):
-        self.avahi.unpublish()
+        if self.avahi is not None:
+            self.avahi.unpublish()
+            self.avahi = None
+            del self.service
+            del self.couch
+
+    def get_secret(self, peer_id):
+        if self.session is None:
+            return False
+        return self.session.get_secret(peer_id)
 
     def on_offer(self, avahi, info):
         assert self.indicator is None
@@ -558,7 +555,7 @@ class Browser:
         self.indicator.set_menu(menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
         self.notifymanager.replace(
-            _('Novacut Peering Offer'),
+            _('Dmedia Peering Offer'),
             '{}@{}'.format(info.name, info.host),
         )
 
@@ -571,13 +568,10 @@ class Browser:
         assert self.session is None
         self.avahi.activate(info.id)
         self.indicator = None
-        self.session = ServerSession(self.couch.pki, self.avahi.id, info,
+        self.session = Session(self, info,
             self.avahi.get_server_config(),
             self.avahi.get_client_config()
         )
-        self.session.ui.window.connect('delete-event', self.on_delete_event)
-        self.session.ui.hub.connect('done', self.on_delete_event)
-        self.session.ui.window.show_all()
         self.avahi.publish(self.session.httpd.port)
 
     def on_delete_event(self, *args):

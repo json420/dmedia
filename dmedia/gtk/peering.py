@@ -60,7 +60,7 @@ def wrap_in_scroll(child):
 class BaseUI:
     inspector = None
     signals = None
-    title = 'Novacut'  # Default Gtk.Window title
+    title = 'Dmedia Setup'  # Default Gtk.Window title
     page = 'peering.html'  # Default page to load once CouchDB is available
     width = 960  # Default Gtk.Window width
     height = 540  # Default Gtk.Window height
@@ -103,9 +103,36 @@ class BaseUI:
         return self.inspector
 
 
+class ServerUI(BaseUI):
+    page = 'server.html'
+
+    signals = {
+        'get_secret': [],
+        'display_secret': ['secret', 'typo'],
+    }
+
+    def __init__(self, Dmedia, peer_id):
+        super().__init__()
+        self.Dmedia = Dmedia
+        self.peer_id = peer_id
+        Dmedia.connect_to_signal('DisplaySecret', self.on_DisplaySecret)
+        Dmedia.connect_to_signal('PeeringDone', self.on_PeeringDone)
+
+    def connect_hub_signals(self, hub):
+        hub.connect('get_secret', self.on_get_secret)
+
+    def on_get_secret(self, hub):
+        self.Dmedia.GetSecret(self.peer_id)
+
+    def on_DisplaySecret(self, secret, typo): 
+        GObject.idle_add(self.hub.send, 'display_secret', secret, typo)
+
+    def on_PeeringDone(self): 
+        self.window.destroy()
+
+
 class ClientUI(BaseUI):
     page = 'client.html'
-    title = 'Dmedia Setup'
 
     signals = {
         'create_user': [],
