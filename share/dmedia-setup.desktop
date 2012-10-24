@@ -1,10 +1,12 @@
 [Desktop Entry]
-Version=1.0
 Type=Application
 Name=Dmedia Setup
+GenericName=Dmedia Setup
+Comment=Dmedia Setup
 Exec=/usr/bin/dmedia-setup-gtk
 Icon=dmedia-setup
 NoDisplay=true
 Terminal=false
 StartupNotify=true
+Categories=GNOME;GTK;AudioVideo;AudioVideoEditing;
 X-Ubuntu-Gettext-Domain=dmedia
