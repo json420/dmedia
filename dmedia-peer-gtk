@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import optparse
+import logging
 
 import dmedia
 from dmedia.gtk.peering import ServerUI
@@ -16,6 +17,9 @@ parser.add_option('--peer',
 )
 (options, args) = parser.parse_args()
 
-
-ui = ServerUI(get_proxy(), options.peer)
-ui.run()
+log = dmedia.configure_logging()
+try:
+    ui = ServerUI(get_proxy(), options.peer)
+    ui.run()
+except Exception:
+    log.exception('Crash in ServerUI.run()')
