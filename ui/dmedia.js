@@ -47,11 +47,11 @@ var UI = {
     },
 
     init_browser: function() {
-        UI.player = $el('video', {'id': 'player'});
-        UI.player.addEventListener('click', UI.player_click);
-        $("content").appendChild(UI.player);
-        UI.browser = new Browser(UI.importer.project, UI.player, 'right');
-        //console.log('init_browser');
+//        UI.player = $el('video', {'id': 'player'});
+//        UI.player.addEventListener('click', UI.player_click);
+//        $("content").appendChild(UI.player);
+//        UI.browser = new Browser(UI.importer.project, UI.player, 'right');
+        console.log('init_browser');
     },
 
     init_storage: function() {

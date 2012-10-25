@@ -338,3 +338,9 @@ button:focus{
 }
 
 
+p.wip {
+    text-align: center;
+    margin: 2em;
+    font-size: 18px;
+}
+
