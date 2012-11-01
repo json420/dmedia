@@ -66,7 +66,16 @@ var UI = {
             UI.player.play();
         }
     },
-  
+
+    reset_importer: function() {
+        $hide('summary');
+        $show('info');
+        UI.cards.innerHTML = null;
+        UI.total.textContent = '';
+        UI.completed.textContent = '';
+        UI.progressbar.progress = 0;
+    },
+
 }
 
 window.onload = UI.on_load;
@@ -620,8 +629,10 @@ Hub.connect('importer_started',
     }
 );
 
+
 Hub.connect('importer_stopped',
     function() {
+        UI.reset_importer();
         $hide('importer');
         $show('choose_project');
     }
@@ -631,12 +642,7 @@ Hub.connect('importer_stopped',
 // All the import related signals:
 Hub.connect('batch_started',
     function(batch_id) {
-        $hide('summary');
-        $show('info');
-        UI.cards.textContent = '';
-        UI.total.textContent = '';
-        UI.completed.textContent = '';
-        UI.progressbar.progress = 0;
+        UI.reset_importer();
     }
 );
 
