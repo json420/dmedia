@@ -73,6 +73,9 @@ class Importer:
             WeakMethod(self, 'on_batch_finished')
         )
         self.manager = ImportManager(env, WeakMethod(self, 'callback'))
+        local = self.manager.db.get('_local/dmedia')
+        self.auto_format = local.get('auto_format', False)
+        log.info('auto_format=%r', self.auto_format)
         self.settings = Gio.Settings('org.gnome.desktop.media-handling')
         self.autorun_never = self.settings.get_boolean('autorun-never')
         if not self.autorun_never:
@@ -107,8 +110,8 @@ class Importer:
         self.msg = msg
         self.workers = {}
         for (obj, mount) in self.cards.items():
-            Worker = (Ejector if has_magic_lantern(mount) else Formatter)
-            Worker = Ejector
+            auto_format = self.auto_format and not has_magic_lantern(mount)
+            Worker = (Formatter if auto_format else Ejector)
             w = Worker(obj, self.on_complete)
             self.workers[obj] = w
         self.cards.clear()

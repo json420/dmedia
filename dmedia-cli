@@ -172,6 +172,12 @@ class SnapshotAll(_Method):
     'Snapshot all databases [EXPERIMENTAL]'
 
 
+class SetAutoFormat(_Method):
+    "Set auto_format to 'true' or 'false'"
+
+    args = ['value']
+
+
 def get_authurl(env):
     if 'basic' not in env:
         return env['url']

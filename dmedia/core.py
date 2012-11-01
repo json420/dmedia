@@ -211,6 +211,12 @@ class Core:
             self.db.save(self.local)
             self.__local = deepcopy(self.local)
 
+    def set_auto_format(self, value):
+        if value not in ('true', 'false'):
+            raise Exception('bad auto_format value: {!r}'.format(value))
+        self.local['auto_format'] = json.loads(value)
+        self.save_local()
+
     def load_identity(self, machine, user):
         try:
             self.db.save_many([machine, user])

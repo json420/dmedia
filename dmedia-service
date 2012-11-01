@@ -411,7 +411,7 @@ class Service(dbus.service.Object):
         """
         Return the _local/dmedia doc.
         """
-        return dumps(self.core.db.get('_local/dmedia'))
+        return dumps(self.core.db.get('_local/dmedia'), pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Peers(self):
@@ -484,6 +484,12 @@ class Service(dbus.service.Object):
             self.pending_update = project_id
         self.Snapshot(schema.project_db_name(project_id))
         self.Snapshot('dmedia-0')
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def SetAutoFormat(self, value):
+        value = str(value)
+        log.info('Dmedia.SetAutoFormat(%r)', value)
+        self.core.set_auto_format(value)
 
 
 parser = optparse.OptionParser(
