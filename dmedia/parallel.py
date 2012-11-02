@@ -25,6 +25,7 @@ Small helpers for starting threads and processes.
 
 import threading
 import multiprocessing
+from queue import Queue
 
 
 def start_thread(target, *args, **kw):
@@ -39,4 +40,16 @@ def start_process(target, *args, **kw):
     process.daemon = True
     process.start()
     return process
+
+
+class SmartQueue(Queue):
+    """
+    Queue with custom get() that raises exception instances from the queue.
+    """
+
+    def get(self, block=True, timeout=None):
+        item = super().get(block, timeout)
+        if isinstance(item, Exception):
+            raise item
+        return item
 

@@ -124,11 +124,8 @@ ProgressBar.prototype = {
 
 
 
-function Project(coredb, id) {
+function Project(coredb) {
     this.coredb = coredb;
-    if (! this.load(id)) {
-        this.load_recent();
-    }
 }
 Project.prototype = {
     load: function(id) {

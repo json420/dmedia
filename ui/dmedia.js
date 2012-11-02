@@ -523,9 +523,37 @@ function Browser() {
     window.addEventListener('keydown', $bind(this.on_window_keydown, this));
     window.addEventListener('keypress', $bind(this.on_window_keypress, this));
 
-    this.load_items();
+    this.browser = $('browser_main');
+    this.projects = $('browser_projects');
+    var on_load = $bind(this.on_project_load, this);
+    var on_add = $bind(this.on_project_add, this);
+    this.session = new Projects(db, on_load, on_add);
+    this.session.start();
 }
 Browser.prototype = {
+    on_project_load: function(doc) {
+        var widget = new ProjectButton(this.session, doc);
+        var self = this;
+        widget.element.onclick = function() {
+            self.show(doc._id);
+        }
+        this.projects.appendChild(widget.element);
+        return widget;
+    },
+
+    on_project_add: function(doc) {
+        var widget = this.on_project_load(doc);
+        widget.element.classList.add('added');
+    },
+
+    show: function(project_id) {
+        console.log('show ' + project_id);
+        $hide(this.projects);
+        $show(this.browser);
+        this.project.load(project_id);
+        this.load_items();
+    },
+
     _review: function(value) {
         this.doc.review = value;
         this.project.db.save(this.doc);
@@ -581,17 +609,7 @@ Browser.prototype = {
             );
             child.onclick = function() {
                 self.items.select(id);
-            }
-            //child.style.backgroundImage = self.project.att_css_url(row.id);
-            
-            child.draggable = true;
-            child.ondragstart = function(e) {
-                e.dataTransfer.effectAllowed = 'copy';
-                e.dataTransfer.setData('Text', self.project.db.name + "/" + id);
-                var img = $el('img', {'src': self.project.att_url(id)});
-                e.dataTransfer.setDragImage(img, 0, 0);
-            }
-                
+            }   
             if (row.value) {
                 set_flag(child, row.value);
             }
