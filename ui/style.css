@@ -141,7 +141,7 @@ ul {
 }
 
 .project:hover {
-    box-shadow: 0 0 5px white;
+    box-shadow: 0 0 4px white;
 }
 
 
@@ -459,3 +459,30 @@ ul.tags li a {
     width: 1.5em;
 }
 
+
+#back {
+    text-shadow:0px -1px 0px rgba(0,0,0,0.5);
+    background:-webkit-linear-gradient(top, #444, #333);
+    font-weight: normal;
+    cursor: pointer;
+    padding-left: 4px;
+    line-height: 22px;  /* 2px less becaues of 1px border */
+    color: #ddd;
+    border:1px solid transparent;
+    border-top:1px solid #555;
+    border-bottom:1px solid #383838;
+    border-radius: 2px;
+    box-shadow: 0px 1px 1px rgba(0,0,0,0.7);
+    position: fixed;
+    z-index: 250;
+    bottom: 8px;
+    left: 8px;
+    width: 144px;
+}
+
+#back:hover{
+    color:#fff;
+    background:-webkit-linear-gradient(top, #555, #444);
+    border-top:1px solid #666;
+    border-bottom:1px solid #484848;
+}

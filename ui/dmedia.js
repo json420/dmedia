@@ -523,6 +523,8 @@ function Browser() {
     window.addEventListener('keydown', $bind(this.on_window_keydown, this));
     window.addEventListener('keypress', $bind(this.on_window_keypress, this));
 
+    $('back').onclick = $bind(this.hide, this);
+
     this.browser = $('browser_main');
     this.projects = $('browser_projects');
     var on_load = $bind(this.on_project_load, this);
@@ -552,6 +554,14 @@ Browser.prototype = {
         $show(this.browser);
         this.project.load(project_id);
         this.load_items();
+    },
+
+    hide: function() {
+        console.log('hide');
+        $hide(this.browser);
+        this.items.clear();
+        this.player.pause();
+        $show(this.projects);
     },
 
     _review: function(value) {
