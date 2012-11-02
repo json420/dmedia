@@ -80,6 +80,90 @@ var UI = {
 
 window.onload = UI.on_load;
 
+// Lazily init-tabs so startup is faster, more responsive
+Hub.connect('tab_changed', UI.on_tab_changed);
+
+Hub.connect('importer_started',
+    function(doc) {
+        UI.pdb = new couch.Database(doc.db_name);
+        $('target_project').textContent = doc.title;
+        $hide('choose_project');
+        $show('importer');
+    }
+);
+
+Hub.connect('importer_stopped',
+    function() {
+        UI.reset_importer();
+        $hide('importer');
+        $show('choose_project');
+    }
+);
+
+// All the import related signals:
+Hub.connect('batch_started',
+    function(batch_id) {
+        UI.reset_importer();
+    }
+);
+
+Hub.connect('batch_progress',
+    function(count, total_count, size, total_size) {
+        UI.total.textContent = count_n_size(total_count, total_size);
+        UI.completed.textContent = count_n_size(count, size);
+        UI.progressbar.update(size, total_size);
+    }
+);
+
+Hub.connect('import_started',
+    function(basedir, import_id, info) {
+        var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
+        var inner = $el('div');
+        div.appendChild(inner);
+
+        var label = $el('p', {'class': 'card-label'});
+        label.textContent = [
+            bytes10(info.partition.bytes),
+            info.partition.label
+        ].join(', ');
+        inner.appendChild(label);
+
+        var info = $el('p', {textContent: '...'});
+        inner.appendChild(info);
+        div._info = info;
+
+        UI.cards.appendChild(div);
+    }
+);
+
+Hub.connect('import_scanned',
+    function(basedir, import_id, total_count, total_size) {
+        $(import_id)._info.textContent = count_n_size(total_count, total_size);
+    }
+);
+
+Hub.connect('import_thumbnail',
+    function(basedir, import_id, doc_id) {
+        var url = UI.pdb.att_url(doc_id, 'thumbnail');
+        $(import_id).style.backgroundImage = 'url("' + url + '")'; 
+    }
+);
+
+Hub.connect('batch_finalized',
+    function(batch_id, stats, copies, msg) {
+        $hide('info');
+        $show('summary');
+        $('summary_summary').textContent = msg[0];
+        var body = $('summary_body');
+        body.textContent = '';
+        msg.slice(1).forEach(function(line) {
+            body.appendChild(
+                $el('p', {textContent: line})
+            );
+        });
+    }
+);
+
 
 function make_tag_li(remove, doc, id) {
     var id = id || doc._id;
@@ -612,94 +696,4 @@ Browser.prototype = {
     },
 
 }
-
-
-
-// Lazily init-tabs so startup is faster, more responsive
-Hub.connect('tab_changed', UI.on_tab_changed);
-
-
-
-Hub.connect('importer_started',
-    function(doc) {
-        UI.pdb = new couch.Database(doc.db_name);
-        $('target_project').textContent = doc.title;
-        $hide('choose_project');
-        $show('importer');
-    }
-);
-
-
-Hub.connect('importer_stopped',
-    function() {
-        UI.reset_importer();
-        $hide('importer');
-        $show('choose_project');
-    }
-);
-
-
-// All the import related signals:
-Hub.connect('batch_started',
-    function(batch_id) {
-        UI.reset_importer();
-    }
-);
-
-Hub.connect('batch_progress',
-    function(count, total_count, size, total_size) {
-        UI.total.textContent = count_n_size(total_count, total_size);
-        UI.completed.textContent = count_n_size(count, size);
-        UI.progressbar.update(size, total_size);
-    }
-);
-
-Hub.connect('import_started',
-    function(basedir, import_id, info) {
-        var div = $el('div', {'id': import_id, 'class': 'thumbnail'});
-        var inner = $el('div');
-        div.appendChild(inner);
-
-        var label = $el('p', {'class': 'card-label'});
-        label.textContent = [
-            bytes10(info.partition.bytes),
-            info.partition.label
-        ].join(', ');
-        inner.appendChild(label);
-
-        var info = $el('p', {textContent: '...'});
-        inner.appendChild(info);
-        div._info = info;
-
-        UI.cards.appendChild(div);
-    }
-);
-
-Hub.connect('import_scanned',
-    function(basedir, import_id, total_count, total_size) {
-        $(import_id)._info.textContent = count_n_size(total_count, total_size);
-    }
-);
-
-Hub.connect('import_thumbnail',
-    function(basedir, import_id, doc_id) {
-        var url = UI.pdb.att_url(doc_id, 'thumbnail');
-        $(import_id).style.backgroundImage = 'url("' + url + '")'; 
-    }
-);
-
-Hub.connect('batch_finalized',
-    function(batch_id, stats, copies, msg) {
-        $hide('info');
-        $show('summary');
-        $('summary_summary').textContent = msg[0];
-        var body = $('summary_body');
-        body.textContent = '';
-        msg.slice(1).forEach(function(line) {
-            body.appendChild(
-                $el('p', {textContent: line})
-            );
-        });
-    }
-);
 
