@@ -252,6 +252,7 @@ user_design = {
         'bytes': {'map': user_bytes, 'reduce': _stats},
         'needsproxy': {'map': user_needsproxy},
         'video': {'map': user_video},
+        'video_needsreview': {'map': user_video_needsreview},
         'audio': {'map': user_audio},
         'image': {'map': user_image},
         'thumbnail': {'map': user_thumbnail},

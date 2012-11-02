@@ -5,20 +5,13 @@ var db = new couch.Database('dmedia-0');
 var UI = {
     tabinit: {},
 
-    reset_added: function() {
-        var projects = $('projects');
-        var i;
-        for (i=0; i<projects.children.length; i++) {
-            projects.children[i].classList.remove('added');
-        }
-    },
-
     on_load: function() {
         UI.progressbar = new ProgressBar('progress');
         UI.total = $('total');
         UI.completed = $('completed');
         UI.cards = $('cards');
         UI.tabs = new Tabs();
+        UI.player = $('player');
         UI.tabs.show_tab('import');
     },    
 
@@ -47,11 +40,8 @@ var UI = {
     },
 
     init_browser: function() {
-//        UI.player = $el('video', {'id': 'player'});
-//        UI.player.addEventListener('click', UI.player_click);
-//        $("content").appendChild(UI.player);
-//        UI.browser = new Browser(UI.importer.project, UI.player, 'right');
-        console.log('init_browser');
+        UI.player.addEventListener('click', UI.player_click);
+        UI.browser = new Browser();
     },
 
     init_storage: function() {
@@ -64,6 +54,14 @@ var UI = {
         }
         else {
             UI.player.play();
+        }
+    },
+
+    reset_added: function() {
+        var projects = $('projects');
+        var i;
+        for (i=0; i<projects.children.length; i++) {
+            projects.children[i].classList.remove('added');
         }
     },
 
@@ -509,16 +507,15 @@ History.prototype = {
 }
 
 
-function Browser(project, player, items) {
-    this.player = $(player);
+function Browser() {
+    this.project = new Project(db);
+    this.player = $('player');
     this.tags = $('tags');
     this.doc = null;
 
-    this.items = new Items(items);
+    this.items = new Items('right');
     this.items.onchange = $bind(this.on_item_change, this);
     this.items.parent.onmousewheel = $bind(this.on_mousewheel, this);
-
-    this.project = project;
 
     this.tagger = new Tagger(this.project, 'tag_form');
     this.tagger.ontag = $bind(this.on_tag, this);
