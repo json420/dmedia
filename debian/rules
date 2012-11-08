@@ -1,12 +1,8 @@
 #!/usr/bin/make -f
 
-PYTHON3=$(shell py3versions -vr)
-
 %:
 	dh $@ --with=python3
 
-test-python%:
-	python$* setup.py test --core-only
 
 override_dh_auto_clean:
 	rm -rf build/
@@ -17,6 +13,11 @@ override_dh_auto_build:
 				--executable=/usr/bin/python3; \
 	done
 
+override_dh_auto_test:
+	set -ex; for python in $(shell py3versions -r); do \
+		$$python setup.py test --core-only; \
+	done
+
 override_dh_auto_install:
 	set -ex; for python in $(shell py3versions -r); do \
 		$$python setup.py install \
@@ -24,4 +25,3 @@ override_dh_auto_install:
 				--root=$(CURDIR)/debian/dmedia; \
 	done
 
-override_dh_auto_test: $(PYTHON3:%=test-python%)
