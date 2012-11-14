@@ -263,7 +263,7 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['origin'] value 'foo' not in ('user', 'paid', 'download', 'proxy', 'render', 'cache')"
         )
-        
+
         # atime
         bad = deepcopy(good)
         bad['atime'] = '1234567890'
@@ -271,15 +271,15 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR.format("doc['atime']", (int, float), str, '1234567890')
+            TYPE_ERROR.format("doc['atime']", int, str, '1234567890')
         )
         bad = deepcopy(good)
-        bad['atime'] = -0.3
+        bad['atime'] = -3
         with self.assertRaises(ValueError) as cm:
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['atime'] must be >= 0; got -0.3"
+            "doc['atime'] must be >= 0; got -3"
         )
 
         # Test with missing stored "copies":
@@ -604,7 +604,7 @@ class TestFunctions(TestCase):
         )
         self.assertEqual(doc['type'], 'dmedia/file')
         self.assertLessEqual(doc['time'], time.time())
-        self.assertEqual(doc['time'], doc['atime'])
+        self.assertEqual(doc['atime'], int(doc['time']))
         self.assertEqual(doc['bytes'], file_size)
         self.assertEqual(doc['origin'], 'user')
         self.assertIs(doc['stored'], stored)

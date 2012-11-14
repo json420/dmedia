@@ -697,7 +697,7 @@ def check_file(doc):
         _lowercase,
         (_is_in, 'user', 'paid', 'download', 'proxy', 'render', 'cache'),
     )
-    _check(doc, ['atime'], (int, float),
+    _check(doc, ['atime'], int,
         (_at_least, 0),
     )
 
@@ -840,7 +840,7 @@ def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
         },
         'type': 'dmedia/file',
         'time': timestamp,
-        'atime': timestamp,
+        'atime': int(timestamp),
         'bytes': file_size,
         'origin': origin,
         'stored': stored,
