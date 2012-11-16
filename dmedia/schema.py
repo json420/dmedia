@@ -245,6 +245,7 @@ from base64 import b32encode, b64encode
 import re
 import time
 import socket
+import os
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
 from microfiber import random_id, RANDOM_B32LEN
@@ -824,6 +825,21 @@ def check_store(doc):
 
 #######################################################
 # Functions for creating specific types of dmedia docs:
+
+
+def create_add(_id, file, **kw):
+    doc = {
+        '_id': random_id(),
+        'type': 'dmedia/add',
+        'time': time.time(),
+        'file_id': _id,
+        'dir': os.path.dirname(file.name),
+        'name': os.path.basename(file.name),
+        'mtime': file.mtime,
+    }
+    doc.update(kw)
+    return doc
+
 
 def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
     """
