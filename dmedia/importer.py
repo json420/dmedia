@@ -260,7 +260,6 @@ class ImportWorker(workers.CouchWorker):
             'import_id': self.id,
             'machine_id': self.env.get('machine_id'),
             'batch_id': self.env.get('batch_id'),
-            'project_id': self.env.get('project_id'),
         }
         for (file, ch) in batch_import_iter(self.batch, *filestores,
             callback=self.progress_callback
@@ -269,6 +268,7 @@ class ImportWorker(workers.CouchWorker):
                 assert file.size == 0
                 yield ('empty', file, None)
                 continue
+            log_doc = schema.create_add(ch.id, file, **common)
             stored = dict(
                 (
                     fs.id,
@@ -284,13 +284,13 @@ class ImportWorker(workers.CouchWorker):
                 doc['origin'] = 'user'
                 doc['atime'] = int(time.time())
                 merge_stored(doc['stored'], stored)
-                self.db.save(doc)
+                self.db.save_many([log_doc, doc])
                 yield ('duplicate', file, ch)
-            except microfiber.Conflict:
+            except microfiber.NotFound:
                 doc = schema.create_file(
                     ch.id, ch.file_size, ch.leaf_hashes, stored
                 )
-                self.db.save(doc)
+                self.db.save_many([log_doc, doc])
                 yield ('new', file, ch)
 
     def progress_callback(self, count, size):
