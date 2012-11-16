@@ -159,6 +159,17 @@ def get_rate(doc):
         pass
 
 
+def merge_stored(old, new):
+    for (key, value) in new.items():
+        if key in old:
+            old[key].update(value)
+            old[key].pop('verified', None)
+        else:
+            old[key] = value
+            
+            
+
+
 class ImportWorker(workers.CouchWorker):
     def __init__(self, env, q, key, args):
         super().__init__(env, q, key, args)
@@ -166,6 +177,7 @@ class ImportWorker(workers.CouchWorker):
         self.extra = None
         self.id = None
         self.doc = None
+        self.docs = []
         self.extract = self.env.get('extract', True)
         self.project = get_project_db(self.env['project_id'], self.env)
         self.project.ensure()
@@ -216,17 +228,27 @@ class ImportWorker(workers.CouchWorker):
             fs = FileStore(parentdir, info['id'], info['copies'])
             stores.append(fs)
         return stores
+        
+    def queue(self, doc):
+        self.docs.append(doc)
+
+    def flush(self):
+        if not self.docs:
+            return False
+        log.info('flushing %d docs', len(self.docs))
+        self.db.save_many(self.docs)
+        self.docs = []
+        return True
 
     def import_all(self):
         stores = self.get_filestores()
         try:
-            for (status, file, doc) in self.import_iter(*stores):
+            for (status, file, ch) in self.import_iter(*stores):
                 self.doc['stats'][status]['count'] += 1
                 self.doc['stats'][status]['bytes'] += file.size
                 self.doc['files'][file.name]['status'] = status
-                if doc is not None:
-                    self.db.save(doc)
-                    self.doc['files'][file.name]['id'] = doc['_id']
+                if ch is not None:
+                    self.doc['files'][file.name]['id'] = ch.id
             self.doc['time_end'] = time.time()
             self.doc['rate'] = get_rate(self.doc)
         finally:
@@ -234,7 +256,12 @@ class ImportWorker(workers.CouchWorker):
         self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
-        need_thumbnail = True
+        common = {
+            'import_id': self.id,
+            'machine_id': self.env.get('machine_id'),
+            'batch_id': self.env.get('batch_id'),
+            'project_id': self.env.get('project_id'),
+        }
         for (file, ch) in batch_import_iter(self.batch, *filestores,
             callback=self.progress_callback
         ):
@@ -242,49 +269,9 @@ class ImportWorker(workers.CouchWorker):
                 assert file.size == 0
                 yield ('empty', file, None)
                 continue
-
-            common = {
-                'import': {
-                    'import_id': self.id,
-                    'machine_id': self.env.get('machine_id'),
-                    'batch_id': self.env.get('batch_id'),
-                    'project_id': self.env.get('project_id'),
-                    'src': file.name,
-                    'mtime': file.mtime,
-                },
-                'meta': {},
-                'ctime': file.mtime,
-                'name': path.basename(file.name),
-            }
-            ext = normalize_ext(file.name)
-            if ext:
-                common['ext'] = ext
-            extract(file.name, common)
-
-            # Project doc
-            try:
-                doc = self.project.get(ch.id)
-            except microfiber.NotFound:
-                doc = schema.create_project_file(
-                    ch.id, ch.file_size, ch.leaf_hashes
-                )
-                doc.update(common)
-                merge_thumbnail(file.name, doc)
-                log.info('adding to %r', self.project)
-                self.project.save(doc)
-            if need_thumbnail and 'thumbnail' in doc['_attachments']:
-                (content_type, data) = self.project.get_att(ch.id, 'thumbnail')
-                self.db.save(self.doc)
-                self.db.put_att(content_type, data, self.id, 'thumbnail',
-                    rev=self.doc['_rev']
-                )
-                self.doc = self.db.get(self.id)
-                self.emit('import_thumbnail', self.id, ch.id)
-                need_thumbnail = False
-
-            # Core doc
             stored = dict(
-                (fs.id, 
+                (
+                    fs.id,
                     {
                         'copies': fs.copies,
                         'mtime': fs.stat(ch.id).mtime,
@@ -294,14 +281,17 @@ class ImportWorker(workers.CouchWorker):
             )
             try:
                 doc = self.db.get(ch.id)
-                doc['stored'].update(stored)
-                yield ('duplicate', file, doc)
-            except microfiber.NotFound:
+                doc['origin'] = 'user'
+                doc['atime'] = int(time.time())
+                merge_stored(doc['stored'], stored)
+                self.db.save(doc)
+                yield ('duplicate', file, ch)
+            except microfiber.Conflict:
                 doc = schema.create_file(
                     ch.id, ch.file_size, ch.leaf_hashes, stored
                 )
-                doc.update(common)
-                yield ('new', file, doc)
+                self.db.save(doc)
+                yield ('new', file, ch)
 
     def progress_callback(self, count, size):
         self.emit('progress', self.id,
