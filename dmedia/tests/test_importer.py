@@ -279,17 +279,20 @@ class TestFunctions(TestCase):
             id1: {
                 'copies': 1,
                 'mtime': ts1 - 100,
+                'pinned': True,  # Should be preserved
                 'verified': ts1 - 50,  # Should be removed
             },
             id2: {
                 'copies': 2,
                 'mtime': ts2 - 200,
+                'verified': ts1 - 50,  # Should be removed
                 'pinned': True,  # Should be preserved
             },
             id3: {
                 'copies': 1,
                 'mtime': ts3,
                 'verified': int(ts3 + 100),
+                'pinned': True,
             },
         }
         self.assertIsNone(importer.merge_stored(old, deepcopy(new)))
@@ -298,6 +301,7 @@ class TestFunctions(TestCase):
                 id1: {
                     'copies': 2,
                     'mtime': ts1,
+                    'pinned': True,
                 },
                 id2: {
                     'copies': 1,
@@ -308,6 +312,7 @@ class TestFunctions(TestCase):
                     'copies': 1,
                     'mtime': ts3,
                     'verified': int(ts3 + 100),
+                    'pinned': True,
                 },
             }
         )
