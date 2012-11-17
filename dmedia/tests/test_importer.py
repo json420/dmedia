@@ -275,6 +275,43 @@ class TestFunctions(TestCase):
             }
         )
 
+        old = {
+            id1: {
+                'copies': 1,
+                'mtime': ts1 - 100,
+                'verified': ts1 - 50,  # Should be removed
+            },
+            id2: {
+                'copies': 2,
+                'mtime': ts2 - 200,
+                'pinned': True,  # Should be preserved
+            },
+            id3: {
+                'copies': 1,
+                'mtime': ts3,
+                'verified': int(ts3 + 100),
+            },
+        }
+        self.assertIsNone(importer.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                    'pinned': True,
+                },
+                id3: {
+                    'copies': 1,
+                    'mtime': ts3,
+                    'verified': int(ts3 + 100),
+                },
+            }
+        )
+
 
 class ImportCase(CouchCase):
 
