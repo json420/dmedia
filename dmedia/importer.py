@@ -161,13 +161,12 @@ def get_rate(doc):
 
 def merge_stored(old, new):
     for (key, value) in new.items():
+        assert set(value) == set(['copies', 'mtime'])
         if key in old:
             old[key].update(value)
             old[key].pop('verified', None)
         else:
-            old[key] = value
-            
-            
+            old[key] = value        
 
 
 class ImportWorker(workers.CouchWorker):
