@@ -179,6 +179,7 @@ class MetaStore:
         return '{}({!r})'.format(self.__class__.__name__, self.db)
 
     def relink(self, fs):
+        start = time.time()
         log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
         for st in fs:
             try:
@@ -186,18 +187,19 @@ class MetaStore:
             except NotFound:
                 continue
             stored = get_dict(doc, 'stored')
-            s = get_dict(stored, fs.id)
-            if s.get('mtime') == st.mtime:
+            value = get_dict(stored, fs.id)
+            if value:
                 continue
-            new = {
-                'mtime': st.mtime,
-                'verified': 0,
-                'copies': (0 if 'mtime' in s else fs.copies),
-            }
-            s.update(new)
+            log.info('Relinking %s in %r', st.id, fs)
+            value.update(
+                mtime=st.mtime,
+                copies=fs.copies,
+            )
             self.db.save(doc)
+        log.info('%.3f to relink %r', time.time() - start, fs)
 
     def scan(self, fs):
+        start = time.time()
         log.info('Scanning FileStore %r at %r', fs.id, fs.parentdir)
         rows = self.db.view('file', 'stored', key=fs.id)['rows']
         for ids in id_slice_iter(rows):
@@ -215,6 +217,7 @@ class MetaStore:
                     s = get_dict(stored, fs.id)
                     if st.mtime != s['mtime']:
                         raise MTimeMismatch()
+        log.info('%.3f to scan %r', time.time() - start, fs)
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
