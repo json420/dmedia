@@ -276,7 +276,7 @@ class Core:
                 fs = self.queue.get()
                 start = time.time()
                 self.ms.scan(fs)
-                self.ms.relink(fs)
+                #self.ms.relink(fs)
                 log.info('%.3f to check %r', time.time() - start, fs)
             except Exception as e:
                 log.exception('Error in background worker:')

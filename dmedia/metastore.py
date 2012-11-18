@@ -28,7 +28,7 @@ import os
 import logging
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound
+from microfiber import NotFound, id_slice_iter
 
 from .util import get_db
 
@@ -108,14 +108,17 @@ def mark_corrupt(doc, fs, timestamp):
 
 
 def mark_mismatch(doc, fs):
+    """
+    Update mtime and copies, delete verified, preserve pinned.
+    """
     _id = doc['_id']
     stored = get_dict(doc, 'stored')
-    new = {
-        'mtime': fs.stat(_id).mtime,
-        'copies': 0,
-        'verified': 0,
-    }
-    update(stored, fs.id, new)
+    value = get_dict(stored, fs.id)
+    value.update(
+        mtime=fs.stat(_id).mtime,
+        copies=0,
+    )
+    value.pop('verified', None)
 
 
 class VerifyContext:
@@ -154,10 +157,13 @@ class ScanContext:
         if exc_type is None:
             return
         if issubclass(exc_type, FileNotFound):
+            log.warning('%s is not in %r', self.doc['_id'], self.fs)
             remove_from_stores(self.doc, self.fs)
         elif issubclass(exc_type, CorruptFile):
+            log.warning('%s is corrupt in %r', self.doc['_id'], self.fs)
             mark_corrupt(self.doc, self.fs, time.time())
         elif issubclass(exc_type, MTimeMismatch):
+            log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
             mark_mismatch(self.doc, self.fs)
         else:
             return False
@@ -193,24 +199,22 @@ class MetaStore:
 
     def scan(self, fs):
         log.info('Scanning FileStore %r at %r', fs.id, fs.parentdir)
-        v = self.db.view('file', 'stored', key=fs.id, reduce=False)
-        for row in v['rows']:
-            _id = row['id']
-            doc = self.db.get(_id)
-            leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
-            check_root_hash(_id, doc['bytes'], leaf_hashes)
-            with ScanContext(self.db, fs, doc):
-                st = fs.stat(_id)
-                if st.size != doc['bytes']:
-                    src_fp = open(st.name, 'rb')
-                    raise fs.move_to_corrupt(src_fp, _id,
-                        file_size=doc['bytes'],
-                        bad_file_size=st.size,
-                    )
-                stored = get_dict(doc, 'stored')
-                s = get_dict(stored, fs.id)
-                if st.mtime != s['mtime']:
-                    raise MTimeMismatch()
+        rows = self.db.view('file', 'stored', key=fs.id)['rows']
+        for ids in id_slice_iter(rows):
+            for doc in self.db.get_many(ids):
+                _id = doc['_id']
+                with ScanContext(self.db, fs, doc):
+                    st = fs.stat(_id)
+                    if st.size != doc.get('bytes'):
+                        src_fp = open(st.name, 'rb')
+                        raise fs.move_to_corrupt(src_fp, _id,
+                            file_size=doc['bytes'],
+                            bad_file_size=st.size,
+                        )
+                    stored = get_dict(doc, 'stored')
+                    s = get_dict(stored, fs.id)
+                    if st.mtime != s['mtime']:
+                        raise MTimeMismatch()
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
