@@ -257,8 +257,8 @@ class ImportWorker(workers.CouchWorker):
     def import_iter(self, *filestores):
         common = {
             'import_id': self.id,
-            'machine_id': self.env.get('machine_id'),
             'batch_id': self.env.get('batch_id'),
+            #'machine_id': self.env.get('machine_id'),
         }
         for (file, ch) in batch_import_iter(self.batch, *filestores,
             callback=self.progress_callback

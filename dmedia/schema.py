@@ -827,12 +827,12 @@ def check_store(doc):
 # Functions for creating specific types of dmedia docs:
 
 
-def create_add(_id, file, **kw):
+def create_add(file_id, file, **kw):
     doc = {
-        '_id': random_id(),
+        '_id': '-'.join([file_id[:8], random_id(10)]),
         'type': 'dmedia/add',
         'time': time.time(),
-        'file_id': _id,
+        'file_id': file_id,
         'dir': os.path.dirname(file.name),
         'name': os.path.basename(file.name),
         'mtime': file.mtime,
