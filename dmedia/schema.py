@@ -248,7 +248,7 @@ import socket
 import os
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
-from microfiber import random_id, RANDOM_B32LEN
+from microfiber import random_id, RANDOM_B32LEN, encode_attachment, Attachment
 
 
 # schema-compatibility version:
@@ -827,11 +827,11 @@ def check_store(doc):
 # Functions for creating specific types of dmedia docs:
 
 
-def create_add(file_id, file, **kw):
+def create_log(timestamp, file_id, file, **kw):
     doc = {
-        '_id': '-'.join([file_id[:8], random_id(10)]),
-        'type': 'dmedia/add',
-        'time': time.time(),
+        '_id': file_id[:8] + random_id(),
+        'type': 'dmedia/log',
+        'time': timestamp,
         'file_id': file_id,
         'dir': os.path.dirname(file.name),
         'name': os.path.basename(file.name),
@@ -841,23 +841,20 @@ def create_add(file_id, file, **kw):
     return doc
 
 
-def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
+def create_file(timestamp, ch, stored, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
-    timestamp = time.time()
+    leaf_hashes = Attachment('application/octet-stream', ch.leaf_hashes)
     return {
-        '_id': _id,
+        '_id': ch.id,
         '_attachments': {
-            'leaf_hashes': {
-                'data': b64encode(leaf_hashes).decode('utf-8'),
-                'content_type': 'application/octet-stream',
-            }
+            'leaf_hashes': encode_attachment(leaf_hashes),
         },
         'type': 'dmedia/file',
         'time': timestamp,
         'atime': int(timestamp),
-        'bytes': file_size,
+        'bytes': ch.file_size,
         'origin': origin,
         'stored': stored,
     }
