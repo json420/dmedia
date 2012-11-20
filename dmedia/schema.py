@@ -860,21 +860,21 @@ def create_file(timestamp, ch, stored, origin='user'):
     }
 
 
-def create_project_file(timestamp, ch, origin='user'):
+def create_project_file(timestamp, ch, file, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
-    leaf_hashes = Attachment('application/octet-stream', ch.leaf_hashes)
     return {
         '_id': ch.id,
-        '_attachments': {
-            'leaf_hashes': encode_attachment(leaf_hashes),
-        },
+        '_attachments': {},
         'type': 'dmedia/file',
         'time': timestamp,
         'bytes': ch.file_size,
         'origin': origin,
+        'ctime': file.mtime,
+        'name': os.path.basename(file.name),
         'tags': {},
+        'meta': {},
     }
 
 

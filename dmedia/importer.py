@@ -307,6 +307,7 @@ class ImportWorker(workers.CouchWorker):
 
     def extractor(self):
         try:
+            need_thumbnail = True
             while True:
                 item = self.extraction_queue.get()
                 if item is None:
@@ -315,8 +316,16 @@ class ImportWorker(workers.CouchWorker):
                 try:
                     doc = self.project.get(ch.id)
                 except microfiber.NotFound:
-                    doc = schema.create_project_file(timestamp, ch)
+                    doc = schema.create_project_file(timestamp, ch, file)
+                    ext = normalize_ext(file.name)
+                    if ext:
+                        doc['ext'] = ext
+                    extract(file.name, doc)
+                    merge_thumbnail(file.name, doc)
                     self.project.save(doc)
+                if need_thumbnail and 'thumbnail' in doc['_attachments']:
+                    need_thumbnail = False
+                    self.emit('import_thumbnail', self.id, ch.id)            
         except Exception:
             log.exception('Error in extractor thread:')
 
