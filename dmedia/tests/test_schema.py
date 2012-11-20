@@ -362,37 +362,6 @@ class TestFunctions(TestCase):
             "doc['corrupt'] cannot be empty; got {}"
         )
 
-        # ext
-        copy = deepcopy(good)
-        copy['ext'] = 'ogv'
-        self.assertIsNone(f(copy))
-        copy['ext'] = 42
-        with self.assertRaises(TypeError) as cm:
-            f(copy)
-        self.assertEqual(
-            str(cm.exception),
-            TYPE_ERROR.format("doc['ext']", str, int, 42)
-        )
-        copy['ext'] = '.mov'
-        with self.assertRaises(ValueError) as cm:
-            f(copy)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['ext']: '.mov' does not match '^[a-z0-9]+(\\\\.[a-z0-9]+)?$'"
-        )
-
-        # content_type
-        copy = deepcopy(good)
-        copy['content_type'] = 'video/quicktime'
-        self.assertIsNone(f(copy))
-        copy['content_type'] = 42
-        with self.assertRaises(TypeError) as cm:
-            f(copy)
-        self.assertEqual(
-            str(cm.exception),
-            TYPE_ERROR.format("doc['content_type']", str, int, 42)
-        )
-
         # proxy_of
         copy = deepcopy(good)
         copy['origin'] = 'proxy'
