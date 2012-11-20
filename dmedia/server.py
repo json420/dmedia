@@ -31,7 +31,7 @@ from wsgiref.util import shift_path_info
 import logging
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
-from microfiber import dumps, basic_auth_header, CouchBase
+from microfiber import dumps, basic_auth_header, CouchBase, dumps
 
 import dmedia
 from dmedia import __version__
@@ -242,17 +242,23 @@ class ProxyApp:
         print('{} {}'.format(method, path))
         for key in sorted(headers):
             print('{}: {}'.format(key, headers[key]))
-        print('')
-        
+
         db = shift_path_info(environ)
         if db and db.startswith('_'):
             raise WSGIError('403 Forbidden')
         headers['host'] = self.target_host
-        headers['authorization'] = self.basic_auth
+        #headers['authorization'] = self.basic_auth
+        print('host: {}'.format(self.target_host))
 
         response = self.client.raw_request(method, path, body, headers)
         status = '{} {}'.format(response.status, response.reason)
         headers = response.getheaders()
+        
+        print('    ' + status)
+        for (name, value) in headers:
+            print('{}: {}'.format(name, value))
+        print('')
+
         start_response(status, headers)
         body = response.read()
         if body:

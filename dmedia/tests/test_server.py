@@ -603,7 +603,7 @@ class TestRootAppLive(TestCase):
         docs = [{'_id': random_id()} for i in range(100)]
         for doc in docs:
             doc['_rev'] = s1.post(doc, name1)['rev']
-        time.sleep(0.5)
+        time.sleep(1)
         for doc in docs:
             self.assertEqual(s2.get(name2, doc['_id']), doc)
 
