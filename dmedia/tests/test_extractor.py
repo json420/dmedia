@@ -823,6 +823,4 @@ class TestMagicLantern(MagicLanternTestCase):
             extensions,
             set(extractor.NO_EXTRACT)
         )
-            
-            
-        
+  

@@ -37,7 +37,7 @@ import mimetypes
 import shutil
 from queue import Queue
 
-import microfiber
+from microfiber import NotFound, has_attachment
 from filestore import FileStore, scandir, batch_import_iter, statvfs
 
 from dmedia.parallel import start_thread
@@ -161,14 +161,6 @@ def get_rate(doc):
         pass
 
 
-def has_thumbnail(doc):
-    try:
-        doc['_attachments']['thumbnail']
-        return True
-    except KeyError:
-        return False
-
-
 def merge_stored(old, new):
     for (key, value) in new.items():
         assert set(value) == set(['copies', 'mtime'])
@@ -276,8 +268,8 @@ class ImportWorker(workers.CouchWorker):
         common = {
             'import_id': self.id,
             'batch_id': self.env.get('batch_id'),
-            #'machine_id': self.env.get('machine_id'),
-            #'project_id': self.env.get('project_id'),
+            'machine_id': self.env.get('machine_id'),
+            'project_id': self.env.get('project_id'),
         }
         for (file, ch) in batch_import_iter(self.batch, *filestores,
             callback=self.progress_callback
@@ -306,7 +298,7 @@ class ImportWorker(workers.CouchWorker):
                 merge_stored(doc['stored'], stored)
                 self.db.save_many([log_doc, doc])
                 yield ('duplicate', file, ch)
-            except microfiber.NotFound:
+            except NotFound:
                 doc = schema.create_file(timestamp, ch, stored)
                 self.db.save_many([log_doc, doc])
                 yield ('new', file, ch)
@@ -328,7 +320,7 @@ class ImportWorker(workers.CouchWorker):
                 (timestamp, file, ch) = item
                 try:
                     doc = self.project.get(ch.id)
-                except microfiber.NotFound:
+                except NotFound:
                     doc = schema.create_project_file(timestamp, ch, file)
                     ext = normalize_ext(file.name)
                     if ext:
@@ -336,7 +328,7 @@ class ImportWorker(workers.CouchWorker):
                     extract(file.name, doc)
                     merge_thumbnail(file.name, doc)
                     self.project.save(doc)
-                if need_thumbnail and has_thumbnail(doc):
+                if need_thumbnail and has_attachment(doc, 'thumbnail'):
                     need_thumbnail = False
                     self.thumbnail = self.project.get_att(ch.id, 'thumbnail') 
                     self.emit('import_thumbnail', self.id, ch.id)            
