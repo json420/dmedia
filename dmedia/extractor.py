@@ -33,12 +33,14 @@ from base64 import b64encode
 import time
 import calendar
 from collections import namedtuple
+import logging
 
 from filestore import hash_fp
 
 import dmedia
 
 
+log = logging.getLogger()
 Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
 dmedia_extract = 'dmedia-extract'
@@ -294,11 +296,14 @@ def thumbnail_raw(src, tmp):
     cmd = [
         'ufraw-batch',
         '--embedded-image',
+        '--noexif',
+        '--size', str(SIZE),
+        '--compression', '90',
         '--output', dst,
         src,
     ]
     check_call(cmd)
-    return thumbnail_image(dst, tmp)
+    return Thumbnail('image/jpeg', open(dst, 'rb').read())
 
 
 thumbnailers = {
@@ -351,18 +356,15 @@ def get_thumbnail_func(doc):
     return thumbnail_image
     
 
-
 def merge_thumbnail(src, doc):
     func = get_thumbnail_func(doc)
     if func is None:
         return False
+    start = time.time()
     thm = wrap_thumbnail_func(func, src)
     if thm is None:
         return False
     doc['_attachments']['thumbnail'] = to_attachment(thm)
+    log.info('%.3f to thumbnail', time.time() - start)
     return True
-    
-    
-    
-    
-    
+
