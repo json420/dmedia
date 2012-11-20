@@ -30,7 +30,7 @@ from base64 import b32encode, b32decode, b64encode
 from copy import deepcopy
 import time
 
-from filestore import TYPE_ERROR, DIGEST_BYTES
+from filestore import TYPE_ERROR, DIGEST_BYTES, ContentHash
 from microfiber import random_id
 
 from .base import TempDir
@@ -571,13 +571,15 @@ class TestFunctions(TestCase):
         )
 
     def test_create_file(self):
+        timestamp = time.time()
         _id = random_id(DIGEST_BYTES)
-        leaf_hashes = os.urandom(DIGEST_BYTES)
         file_size = 31415
+        leaf_hashes = os.urandom(DIGEST_BYTES)
+        ch = ContentHash(_id, file_size, leaf_hashes)
         store_id = random_id()
         stored = {store_id: {'copies': 2, 'mtime': 1234567890}}
 
-        doc = schema.create_file(_id, file_size, leaf_hashes, stored)
+        doc = schema.create_file(timestamp, ch, stored)
         schema.check_file(doc)
         self.assertEqual(
             set(doc),
@@ -603,8 +605,8 @@ class TestFunctions(TestCase):
             }
         )
         self.assertEqual(doc['type'], 'dmedia/file')
-        self.assertLessEqual(doc['time'], time.time())
-        self.assertEqual(doc['atime'], int(doc['time']))
+        self.assertEqual(doc['time'], timestamp)
+        self.assertEqual(doc['atime'], int(timestamp))
         self.assertEqual(doc['bytes'], file_size)
         self.assertEqual(doc['origin'], 'user')
         self.assertIs(doc['stored'], stored)
@@ -616,9 +618,7 @@ class TestFunctions(TestCase):
         self.assertEqual(s[store_id]['copies'], 2)
         self.assertEqual(s[store_id]['mtime'], 1234567890)
 
-        doc = schema.create_file(_id, file_size, leaf_hashes, stored,
-            origin='proxy'
-        )
+        doc = schema.create_file(timestamp, ch, stored, origin='proxy')
         doc['proxy_of'] = random_id(DIGEST_BYTES)
         schema.check_file(doc)
         self.assertEqual(doc['origin'], 'proxy')
