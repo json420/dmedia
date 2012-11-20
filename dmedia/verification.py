@@ -84,7 +84,7 @@ def verify(env, parentdir, max_delta=ONE_WEEK):
             doc['stored'][fs.id] = {
                 'copies': fs.copies,
                 'mtime': fs.stat(_id).mtime,
-                'verified': time.time(),
+                'verified': int(time.time()),
             }
         except CorruptFile:
             mark_corrupt(doc, fs)

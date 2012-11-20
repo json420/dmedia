@@ -27,7 +27,7 @@ from unittest import TestCase
 import time
 from os import path
 
-from filestore import FileStore, DIGEST_BYTES
+from filestore import FileStore, DIGEST_BYTES, ContentHash
 from microfiber import random_id
 
 from .couch import CouchCase
@@ -68,7 +68,7 @@ class TestFunctions(CouchCase):
             stored = {
                 fs.id: {'mtime': fs.stat(ch.id).mtime, 'copies': fs.copies}
             }
-            doc = create_file(ch.id, ch.file_size, ch.leaf_hashes, stored)
+            doc = create_file(time.time(), ch, stored)
             self.db.save(doc)
             good.append(ch.id)
 
@@ -81,7 +81,8 @@ class TestFunctions(CouchCase):
             stored = {
                 fs.id: {'mtime': fs.stat(_id).mtime, 'copies': fs.copies}
             }
-            doc = create_file(_id, ch.file_size, ch.leaf_hashes, stored)
+            ch = ContentHash(_id, ch.file_size, ch.leaf_hashes)
+            doc = create_file(time.time(), ch, stored)
             self.db.save(doc)
             bad.append(_id)
 
@@ -94,7 +95,7 @@ class TestFunctions(CouchCase):
             stored = {
                 fs.id: {'mtime': path.getmtime(fs.path(ch.id)), 'copies': fs.copies}
             }
-            doc = create_file(ch.id, ch.file_size, ch.leaf_hashes, stored)
+            doc = create_file(time.time(), ch, stored)
             self.db.save(doc)
             empty.append(ch.id)
  
@@ -105,7 +106,7 @@ class TestFunctions(CouchCase):
             stored = {
                 fs.id: {'mtime': path.getmtime(file.name), 'copies': fs.copies}
             }
-            doc = create_file(ch.id, ch.file_size, ch.leaf_hashes, stored)
+            doc = create_file(time.time(), ch, stored)
             self.db.save(doc)
             missing.append(ch.id)
 
@@ -123,9 +124,9 @@ class TestFunctions(CouchCase):
                 set(['copies', 'mtime', 'verified'])
             )
             verified = doc['stored'][fs.id]['verified']
-            self.assertIsInstance(verified, (int, float))
-            self.assertLessEqual(start, verified)
-            self.assertLessEqual(verified, end)
+            self.assertIsInstance(verified, int)
+            self.assertLessEqual(int(start), verified)
+            self.assertLessEqual(verified, int(end))
             self.assertNotIn('corrupt', doc)
         for _id in bad:
             doc = self.db.get(_id)
