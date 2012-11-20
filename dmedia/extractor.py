@@ -32,16 +32,15 @@ import shutil
 from base64 import b64encode
 import time
 import calendar
-from collections import namedtuple
 import logging
 
 from filestore import hash_fp
+from microfiber import Attachment, encode_attachment
 
 import dmedia
 
 
 log = logging.getLogger()
-Thumbnail = namedtuple('Thumbnail', 'content_type data')
 
 dmedia_extract = 'dmedia-extract'
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
@@ -269,7 +268,7 @@ def thumbnail_image(src, tmp):
         dst,
     ]
     check_call(cmd)
-    return Thumbnail('image/jpeg', open(dst, 'rb').read())
+    return Attachment('image/jpeg', open(dst, 'rb').read())
 
 
 def thumbnail_video(src, tmp):
@@ -303,7 +302,7 @@ def thumbnail_raw(src, tmp):
         src,
     ]
     check_call(cmd)
-    return Thumbnail('image/jpeg', open(dst, 'rb').read())
+    return Attachment('image/jpeg', open(dst, 'rb').read())
 
 
 thumbnailers = {
@@ -337,14 +336,6 @@ def wrap_thumbnail_func(func, filename):
             shutil.rmtree(tmp)
 
 
-def to_attachment(thm):
-    assert isinstance(thm, Thumbnail)
-    return {
-        'content_type': thm.content_type,
-        'data': b64encode(thm.data).decode('utf-8'),
-    }
-
-
 def get_thumbnail_func(doc):
     media = doc.get('media')
     if media not in ('video', 'image'):
@@ -363,6 +354,6 @@ def merge_thumbnail(src, doc):
     thm = wrap_thumbnail_func(func, src)
     if thm is None:
         return False
-    doc['_attachments']['thumbnail'] = to_attachment(thm)
+    doc['_attachments']['thumbnail'] = encode_attachment(thm)
     return True
 
