@@ -271,6 +271,7 @@ class TestProxyApp(TestCase):
         environ = {
             'REQUEST_METHOD': 'GET',
             'PATH_INFO': '/_config/foo',
+            'QUERY_STRING': '',
             'wsgi.input': Input(None, {'REQUEST_METHOD': 'GET'}),
         }
         with self.assertRaises(WSGIError) as cm:
