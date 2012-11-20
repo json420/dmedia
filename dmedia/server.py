@@ -237,6 +237,13 @@ class ProxyApp:
 
     def __call__(self, environ, start_response):
         (method, path, body, headers) = request_args(environ)
+
+        print('')
+        print('{} {}'.format(method, path))
+        for key in sorted(headers):
+            print('{}: {}'.format(key, headers[key]))
+        print('')
+        
         db = shift_path_info(environ)
         if db and db.startswith('_'):
             raise WSGIError('403 Forbidden')
