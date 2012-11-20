@@ -46,7 +46,7 @@ log = logging.getLogger()
 
 def iter_headers(environ):
     for (key, value) in environ.items():
-        if key in ('CONTENT_LENGHT', 'CONTENT_TYPE'):
+        if key in ('CONTENT_LENGTH', 'CONTENT_TYPE'):
             yield (key.replace('_', '-').lower(), value)
         elif key.startswith('HTTP_'):
             yield (key[5:].replace('_', '-').lower(), value)
