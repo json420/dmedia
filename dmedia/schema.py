@@ -711,7 +711,7 @@ def check_file(doc):
         _check(doc, ['stored', key, 'mtime'], (int, float),
             (_at_least, 0),
         )
-        _check_if_exists(doc, ['stored', key, 'verified'], (int, float),
+        _check_if_exists(doc, ['stored', key, 'verified'], int,
             (_at_least, 0),
         )
         _check_if_exists(doc, ['stored', key, 'pinned'], bool,

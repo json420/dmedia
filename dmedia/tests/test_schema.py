@@ -331,6 +331,14 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
         )
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] = 123.0
+        with self.assertRaises(TypeError) as cm:
+            f(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified']: need a <class 'int'>; got a <class 'float'>: 123.0"
+        )
 
         # Test with invalid stored "pinned":
         bad = deepcopy(good)
