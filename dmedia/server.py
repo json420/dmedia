@@ -246,9 +246,9 @@ class ProxyApp:
         db = shift_path_info(environ)
         if db and db.startswith('_'):
             raise WSGIError('403 Forbidden')
-        headers['host'] = self.target_host
-        #headers['authorization'] = self.basic_auth
-        print('host: {}'.format(self.target_host))
+        #headers['host'] = self.target_host
+        headers['authorization'] = self.basic_auth
+        #print('host: {}'.format(self.target_host))
 
         response = self.client.raw_request(method, path, body, headers)
         status = '{} {}'.format(response.status, response.reason)
