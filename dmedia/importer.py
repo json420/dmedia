@@ -257,6 +257,7 @@ class ImportWorker(workers.CouchWorker):
             self.doc['rate'] = get_rate(self.doc)
         finally:
             self.db.save(self.doc)
+            self.extraction_queue.put(None)
             extractor.join()
             if self.thumbnail:
                 self.db.put_att2(self.thumbnail, self.id, 'thumbnail',
@@ -302,7 +303,6 @@ class ImportWorker(workers.CouchWorker):
                 doc = schema.create_file(timestamp, ch, stored)
                 self.db.save_many([log_doc, doc])
                 yield ('new', file, ch)
-        self.extraction_queue.put(None)
 
     def progress_callback(self, count, size):
         self.emit('progress', self.id,

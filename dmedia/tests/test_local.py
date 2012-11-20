@@ -25,6 +25,7 @@ Unit tests for `dmedia.local`.
 
 from unittest import TestCase
 from random import Random
+import time
 
 import filestore
 from filestore import FileStore, DIGEST_B32LEN, DIGEST_BYTES
@@ -259,7 +260,7 @@ class TestLocalSlave(CouchCase):
         self.assertEqual(cm.exception.id, ch.id)
 
         # When doc does exist
-        doc = schema.create_file(ch.id, ch.file_size, ch.leaf_hashes, {})
+        doc = schema.create_file(time.time(), ch, {})
         inst.db.save(doc)
         self.assertEqual(inst.content_hash(ch.id), unpacked)
         self.assertEqual(inst.content_hash(ch.id, False), ch)
