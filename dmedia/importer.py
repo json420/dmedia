@@ -281,7 +281,7 @@ class ImportWorker(workers.CouchWorker):
                 continue
             timestamp = time.time()
             self.extraction_queue.put((timestamp, file, ch))
-            log_doc = schema.create_log(timestamp, ch.id, file, **common)
+            log_doc = schema.create_log(timestamp, ch, file, **common)
             stored = dict(
                 (
                     fs.id,

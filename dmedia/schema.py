@@ -817,12 +817,13 @@ def check_store(doc):
 # Functions for creating specific types of dmedia docs:
 
 
-def create_log(timestamp, file_id, file, **kw):
+def create_log(timestamp, ch, file, **kw):
     doc = {
-        '_id': file_id[:4] + random_id()[4:],
+        '_id': ch.id[:4] + random_id()[4:],
         'type': 'dmedia/log',
         'time': timestamp,
-        'file_id': file_id,
+        'file_id': ch.id,
+        'bytes': ch.file_size,
         'dir': os.path.dirname(file.name),
         'name': os.path.basename(file.name),
         'mtime': file.mtime,
