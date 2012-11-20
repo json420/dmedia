@@ -829,7 +829,7 @@ def check_store(doc):
 
 def create_log(timestamp, file_id, file, **kw):
     doc = {
-        '_id': file_id[:8] + random_id(),
+        '_id': file_id[:4] + random_id()[4:],
         'type': 'dmedia/log',
         'time': timestamp,
         'file_id': file_id,
@@ -860,21 +860,19 @@ def create_file(timestamp, ch, stored, origin='user'):
     }
 
 
-def create_project_file(_id, file_size, leaf_hashes, origin='user'):
+def create_project_file(timestamp, ch, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
+    leaf_hashes = Attachment('application/octet-stream', ch.leaf_hashes)
     return {
-        '_id': _id,
+        '_id': ch.id,
         '_attachments': {
-            'leaf_hashes': {
-                'data': b64encode(leaf_hashes).decode('utf-8'),
-                'content_type': 'application/octet-stream',
-            }
+            'leaf_hashes': encode_attachment(leaf_hashes),
         },
         'type': 'dmedia/file',
-        'time': time.time(),
-        'bytes': file_size,
+        'time': timestamp,
+        'bytes': ch.file_size,
         'origin': origin,
         'tags': {},
     }

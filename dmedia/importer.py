@@ -35,10 +35,12 @@ from subprocess import check_call
 import logging
 import mimetypes
 import shutil
+from queue import Queue
 
 import microfiber
 from filestore import FileStore, scandir, batch_import_iter, statvfs
 
+from dmedia.parallel import start_thread
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
@@ -180,6 +182,7 @@ class ImportWorker(workers.CouchWorker):
         self.extract = self.env.get('extract', True)
         self.project = get_project_db(self.env['project_id'], self.env)
         self.project.ensure()
+        self.extraction_queue = Queue()
 
     def execute(self, basedir, extra=None):
         self.extra = extra
@@ -227,7 +230,7 @@ class ImportWorker(workers.CouchWorker):
             fs = FileStore(parentdir, info['id'], info['copies'])
             stores.append(fs)
         return stores
-        
+
     def queue(self, doc):
         self.docs.append(doc)
 
@@ -240,6 +243,7 @@ class ImportWorker(workers.CouchWorker):
         return True
 
     def import_all(self):
+        extractor = start_thread(self.extractor)
         stores = self.get_filestores()
         try:
             for (status, file, ch) in self.import_iter(*stores):
@@ -252,6 +256,7 @@ class ImportWorker(workers.CouchWorker):
             self.doc['rate'] = get_rate(self.doc)
         finally:
             self.db.save(self.doc)
+        extractor.join()
         self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
@@ -269,6 +274,7 @@ class ImportWorker(workers.CouchWorker):
                 yield ('empty', file, None)
                 continue
             timestamp = time.time()
+            self.extraction_queue.put((timestamp, file, ch))
             log_doc = schema.create_log(timestamp, ch.id, file, **common)
             stored = dict(
                 (
@@ -291,6 +297,7 @@ class ImportWorker(workers.CouchWorker):
                 doc = schema.create_file(timestamp, ch, stored)
                 self.db.save_many([log_doc, doc])
                 yield ('new', file, ch)
+        self.extraction_queue.put(None)
 
     def progress_callback(self, count, size):
         self.emit('progress', self.id,
@@ -298,6 +305,20 @@ class ImportWorker(workers.CouchWorker):
             size, self.batch.size
         )
 
+    def extractor(self):
+        try:
+            while True:
+                item = self.extraction_queue.get()
+                if item is None:
+                    break
+                (timestamp, file, ch) = item
+                try:
+                    doc = self.project.get(ch.id)
+                except microfiber.NotFound:
+                    doc = schema.create_project_file(timestamp, ch)
+                    self.project.save(doc)
+        except Exception:
+            log.exception('Error in extractor thread:')
 
 
 class ImportManager(workers.CouchManager):
