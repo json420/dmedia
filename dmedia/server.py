@@ -241,28 +241,15 @@ class ProxyApp:
 
     def __call__(self, environ, start_response):
         (method, path, body, headers) = request_args(environ)
-
-        print('')
-        print('{} {}'.format(method, path))
-        for key in sorted(headers):
-            print('{}: {}'.format(key, headers[key]))
-
         db = shift_path_info(environ)
         if db and db.startswith('_'):
             raise WSGIError('403 Forbidden')
-        #headers['host'] = self.target_host
+        headers['host'] = self.target_host
         headers['authorization'] = self.basic_auth
-        #print('host: {}'.format(self.target_host))
 
         response = self.client.raw_request(method, path, body, headers)
         status = '{} {}'.format(response.status, response.reason)
         headers = response.getheaders()
-        
-        print('    ' + status)
-        for (name, value) in headers:
-            print('{}: {}'.format(name, value))
-        print('')
-
         start_response(status, headers)
         body = response.read()
         if body:

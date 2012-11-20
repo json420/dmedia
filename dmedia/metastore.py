@@ -215,7 +215,7 @@ class MetaStore:
                         )
                     stored = get_dict(doc, 'stored')
                     s = get_dict(stored, fs.id)
-                    if st.mtime != s['mtime']:
+                    if int(st.mtime) != s['mtime']:
                         raise MTimeMismatch()
         log.info('%.3f to scan %r', time.time() - start, fs)
 
