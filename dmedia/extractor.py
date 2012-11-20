@@ -360,11 +360,9 @@ def merge_thumbnail(src, doc):
     func = get_thumbnail_func(doc)
     if func is None:
         return False
-    start = time.time()
     thm = wrap_thumbnail_func(func, src)
     if thm is None:
         return False
     doc['_attachments']['thumbnail'] = to_attachment(thm)
-    log.info('%.3f to thumbnail', time.time() - start)
     return True
 

@@ -190,7 +190,7 @@ class ImportWorker(workers.CouchWorker):
         self.extract = self.env.get('extract', True)
         self.project = get_project_db(self.env['project_id'], self.env)
         self.project.ensure()
-        self.extraction_queue = Queue()
+        self.extraction_queue = Queue(10)
 
     def execute(self, basedir, extra=None):
         self.extra = extra
