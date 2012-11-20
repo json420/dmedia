@@ -265,11 +265,11 @@ class ImportWorker(workers.CouchWorker):
             self.doc['rate'] = get_rate(self.doc)
         finally:
             self.db.save(self.doc)
+            extractor.join()
             if self.thumbnail:
                 self.db.put_att2(self.thumbnail, self.id, 'thumbnail',
                     rev=self.doc['_rev']
                 )
-        extractor.join()
         self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
