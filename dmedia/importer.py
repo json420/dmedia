@@ -161,6 +161,14 @@ def get_rate(doc):
         pass
 
 
+def has_thumbnail(doc):
+    try:
+        doc['_attachments']['thumbnail']
+        return True
+    except KeyError:
+        return False
+
+
 def merge_stored(old, new):
     for (key, value) in new.items():
         assert set(value) == set(['copies', 'mtime'])
@@ -243,6 +251,7 @@ class ImportWorker(workers.CouchWorker):
         return True
 
     def import_all(self):
+        self.thumbnail = None
         extractor = start_thread(self.extractor)
         stores = self.get_filestores()
         try:
@@ -256,6 +265,10 @@ class ImportWorker(workers.CouchWorker):
             self.doc['rate'] = get_rate(self.doc)
         finally:
             self.db.save(self.doc)
+            if self.thumbnail:
+                self.db.put_att2(self.thumbnail, self.id, 'thumbnail',
+                    rev=self.doc['_rev']
+                )
         extractor.join()
         self.emit('finished', self.id, self.doc['stats'])
 
@@ -323,8 +336,9 @@ class ImportWorker(workers.CouchWorker):
                     extract(file.name, doc)
                     merge_thumbnail(file.name, doc)
                     self.project.save(doc)
-                if need_thumbnail and 'thumbnail' in doc['_attachments']:
+                if need_thumbnail and has_thumbnail(doc):
                     need_thumbnail = False
+                    self.thumbnail = self.project.get_att(ch.id, 'thumbnail') 
                     self.emit('import_thumbnail', self.id, ch.id)            
         except Exception:
             log.exception('Error in extractor thread:')
