@@ -58,7 +58,11 @@ def request_args(environ):
         body = environ['wsgi.input'].read()
     else:
         body = None
-    return (environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
+    path = environ['PATH_INFO']
+    query = environ['QUERY_STRING']
+    if query:
+        path = '?'.join([path, query])
+    return (environ['REQUEST_METHOD'], path, body, headers)
 
 
 def get_slice(environ):
