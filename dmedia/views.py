@@ -500,7 +500,6 @@ core = (
     file_design,
     project_design,
     job_design,
-    user_design,
 )
 
 

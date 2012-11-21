@@ -28,7 +28,7 @@ import os
 from os import path
 from subprocess import CalledProcessError
 
-from microfiber import random_id
+from microfiber import random_id, Attachment
 
 from .base import TempDir, SampleFilesTestCase, MagicLanternTestCase
 
@@ -612,12 +612,11 @@ class TestFunctions(SampleFilesTestCase):
             }
         )
 
-
     def test_thumbnail_video(self):
         # Test with sample_mov from 5D Mark II:
         tmp = TempDir()
         t = extractor.thumbnail_video(self.mov, tmp.dir)
-        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertIsInstance(t, Attachment)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
         self.assertGreater(len(t.data), 5000)
@@ -644,7 +643,7 @@ class TestFunctions(SampleFilesTestCase):
         # Test with sample_thm from 5D Mark II:
         tmp = TempDir()
         t = extractor.thumbnail_image(self.thm, tmp.dir)
-        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertIsInstance(t, Attachment)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
         self.assertGreater(len(t.data), 5000)
@@ -667,7 +666,7 @@ class TestFunctions(SampleFilesTestCase):
     def test_create_thumbnail(self):
         # Test with sample_mov from 5D Mark II:
         t = extractor.create_thumbnail(self.mov, 'mov')
-        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertIsInstance(t, Attachment)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
         self.assertGreater(len(t.data), 5000)
@@ -690,7 +689,7 @@ class TestFunctions(SampleFilesTestCase):
     def test_create_thumbnail(self):
         # Test with sample_mov from 5D Mark II:
         t = extractor.create_thumbnail(self.mov, 'mov')
-        self.assertIsInstance(t, extractor.Thumbnail)
+        self.assertIsInstance(t, Attachment)
         self.assertEqual(t.content_type, 'image/jpeg')
         self.assertIsInstance(t.data, bytes)
         self.assertGreater(len(t.data), 5000)
@@ -709,15 +708,6 @@ class TestFunctions(SampleFilesTestCase):
         # Test with non-existent file:
         nope = tmp.join('nope.mov')
         self.assertIsNone(extractor.create_thumbnail(nope, 'mov'))
-
-    def test_to_attachment(self):
-        data = os.urandom(2000)
-        thm = extractor.Thumbnail('image/png', data)
-        d = extractor.to_attachment(thm)
-        self.assertIsInstance(d, dict)
-        self.assertEqual(set(d), set(['content_type', 'data']))
-        self.assertEqual(d['content_type'], 'image/png')
-        self.assertEqual(d['data'], b64encode(data).decode('utf-8'))
 
     def test_get_thumbnail_func(self):
         f = extractor.get_thumbnail_func
@@ -833,6 +823,4 @@ class TestMagicLantern(MagicLanternTestCase):
             extensions,
             set(extractor.NO_EXTRACT)
         )
-            
-            
-        
+  

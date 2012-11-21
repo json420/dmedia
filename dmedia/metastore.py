@@ -28,7 +28,7 @@ import os
 import logging
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound
+from microfiber import NotFound, id_slice_iter
 
 from .util import get_db
 
@@ -108,14 +108,17 @@ def mark_corrupt(doc, fs, timestamp):
 
 
 def mark_mismatch(doc, fs):
+    """
+    Update mtime and copies, delete verified, preserve pinned.
+    """
     _id = doc['_id']
     stored = get_dict(doc, 'stored')
-    new = {
-        'mtime': fs.stat(_id).mtime,
-        'copies': 0,
-        'verified': 0,
-    }
-    update(stored, fs.id, new)
+    value = get_dict(stored, fs.id)
+    value.update(
+        mtime=fs.stat(_id).mtime,
+        copies=0,
+    )
+    value.pop('verified', None)
 
 
 class VerifyContext:
@@ -154,15 +157,29 @@ class ScanContext:
         if exc_type is None:
             return
         if issubclass(exc_type, FileNotFound):
+            log.warning('%s is not in %r', self.doc['_id'], self.fs)
             remove_from_stores(self.doc, self.fs)
         elif issubclass(exc_type, CorruptFile):
+            log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
             mark_corrupt(self.doc, self.fs, time.time())
         elif issubclass(exc_type, MTimeMismatch):
+            log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
             mark_mismatch(self.doc, self.fs)
         else:
             return False
         self.db.save(self.doc)
         return True
+
+
+def relink_iter(fs, count=25):
+    buf = []
+    for st in fs:
+        buf.append(st)
+        if len(buf) >= count:
+            yield buf
+            buf = []
+    if buf:
+        yield buf
 
 
 class MetaStore:
@@ -172,45 +189,99 @@ class MetaStore:
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
 
-    def relink(self, fs):
-        log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
-        for st in fs:
-            try:
-                doc = self.db.get(st.id)
-            except NotFound:
-                continue
-            stored = get_dict(doc, 'stored')
-            s = get_dict(stored, fs.id)
-            if s.get('mtime') == st.mtime:
-                continue
-            new = {
-                'mtime': st.mtime,
-                'verified': 0,
-                'copies': (0 if 'mtime' in s else fs.copies),
-            }
-            s.update(new)
-            self.db.save(doc)
-
     def scan(self, fs):
-        log.info('Scanning FileStore %r at %r', fs.id, fs.parentdir)
-        v = self.db.view('file', 'stored', key=fs.id, reduce=False)
-        for row in v['rows']:
-            _id = row['id']
-            doc = self.db.get(_id)
-            leaf_hashes = self.db.get_att(_id, 'leaf_hashes')[1]
-            check_root_hash(_id, doc['bytes'], leaf_hashes)
-            with ScanContext(self.db, fs, doc):
-                st = fs.stat(_id)
-                if st.size != doc['bytes']:
-                    src_fp = open(st.name, 'rb')
-                    raise fs.move_to_corrupt(src_fp, _id,
-                        file_size=doc['bytes'],
-                        bad_file_size=st.size,
-                    )
+        """
+        Make sure files we expect to be in the file-store *fs* actually are.
+
+        A fundamental design tenet of Dmedia is that it doesn't particularly
+        trust its metadata, and instead does frequent reality checks.  This
+        allows Dmedia to work even though removable storage is constantly
+        "offline".  In other distributed file-systems, this is usually called
+        being in a "network-partitioned" state.
+
+        Dmedia deals with removable storage via a quickly decaying confidence
+        in its metadata.  If a removable drive hasn't been connected longer
+        than some threshold, Dmedia will update all those copies to count for
+        zero durability.
+
+        And whenever a removable drive (on any drive for that matter) is
+        connected, Dmedia immediately checks to see what files are actually on
+        the drive, and whether they have good integrity.
+
+        `MetaStore.scan()` is the most important reality check that Dmedia does
+        because it's fast and can therefor be done quite often. Thousands of
+        files can be scanned in a few seconds.
+
+        The scan insures that for every file expected in this file-store, the
+        file exists, has the correct size, and the expected mtime.
+
+        If the file doesn't exist in this file-store, its store_id is deleted
+        from doc['stored'] and the doc is saved.
+
+        If the file has the wrong size, it's moved into the corrupt location in
+        the file-store. Then the doc is updated accordingly marking the file as
+        being corrupt in this file-store, and the doc is saved.
+
+        If the file doesn't have the expected mtime is this file-store, this
+        copy gets downgraded to zero copies worth of durability, and the last
+        verification timestamp is deleted, if present.  This will put the file
+        first in line for full content-hash verification.  If the verification
+        passes, the durability is raised back to the appropriate number of
+        copies.
+
+        :param fs: a `FileStore` instance
+        """
+        start = time.time()
+        log.info('Scanning FileStore %s at %r', fs.id, fs.parentdir)
+        rows = self.db.view('file', 'stored', key=fs.id)['rows']
+        for ids in id_slice_iter(rows):
+            for doc in self.db.get_many(ids):
+                _id = doc['_id']
+                with ScanContext(self.db, fs, doc):
+                    st = fs.stat(_id)
+                    if st.size != doc.get('bytes'):
+                        src_fp = open(st.name, 'rb')
+                        raise fs.move_to_corrupt(src_fp, _id,
+                            file_size=doc['bytes'],
+                            bad_file_size=st.size,
+                        )
+                    stored = get_dict(doc, 'stored')
+                    s = get_dict(stored, fs.id)
+                    if st.mtime != s['mtime']:
+                        raise MTimeMismatch()
+        # Update the atime for the dmedia/store doc
+        try:
+            doc = self.db.get(fs.id)
+            assert doc['type'] == 'dmedia/store'
+            doc['atime'] = int(time.time())
+            self.db.save(doc)
+            log.info('Updated FileStore %s atime to %r', fs.id, doc['atime'])
+        except NotFound:
+            log.warning('No doc for FileStore %s', fs.id)
+        log.info('%.3f to scan %r', time.time() - start, fs)
+
+    def relink(self, fs):
+        """
+        Find known files that we didn't expect in `FileStore` *fs*.
+        """
+        start = time.time()
+        log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
+        for buf in relink_iter(fs):
+            docs = self.db.get_many([st.id for st in buf])
+            for (st, doc) in zip(buf, docs):
+                if doc is None:
+                    continue
                 stored = get_dict(doc, 'stored')
-                s = get_dict(stored, fs.id)
-                if st.mtime != s['mtime']:
-                    raise MTimeMismatch()
+                value = get_dict(stored, fs.id)
+                if value:
+                    continue
+                log.info('Relinking %s in %r', st.id, fs)
+                value.update(
+                    mtime=st.mtime,
+                    copies=fs.copies,
+                )
+                self.db.save(doc)
+        log.info('%.3f to relink %r', time.time() - start, fs)
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)

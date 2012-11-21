@@ -31,7 +31,7 @@ from wsgiref.util import shift_path_info
 import logging
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
-from microfiber import dumps, basic_auth_header, CouchBase
+from microfiber import dumps, basic_auth_header, CouchBase, dumps
 
 import dmedia
 from dmedia import __version__
@@ -46,7 +46,7 @@ log = logging.getLogger()
 
 def iter_headers(environ):
     for (key, value) in environ.items():
-        if key in ('CONTENT_LENGHT', 'CONTENT_TYPE'):
+        if key in ('CONTENT_LENGTH', 'CONTENT_TYPE'):
             yield (key.replace('_', '-').lower(), value)
         elif key.startswith('HTTP_'):
             yield (key[5:].replace('_', '-').lower(), value)
@@ -58,7 +58,11 @@ def request_args(environ):
         body = environ['wsgi.input'].read()
     else:
         body = None
-    return (environ['REQUEST_METHOD'], environ['PATH_INFO'], body, headers)
+    path = environ['PATH_INFO']
+    query = environ['QUERY_STRING']
+    if query:
+        path = '?'.join([path, query])
+    return (environ['REQUEST_METHOD'], path, body, headers)
 
 
 def get_slice(environ):

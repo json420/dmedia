@@ -245,9 +245,10 @@ from base64 import b32encode, b64encode
 import re
 import time
 import socket
+import os
 
 from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
-from microfiber import random_id, RANDOM_B32LEN
+from microfiber import random_id, RANDOM_B32LEN, encode_attachment, Attachment
 
 
 # schema-compatibility version:
@@ -710,7 +711,7 @@ def check_file(doc):
         _check(doc, ['stored', key, 'mtime'], (int, float),
             (_at_least, 0),
         )
-        _check_if_exists(doc, ['stored', key, 'verified'], (int, float),
+        _check_if_exists(doc, ['stored', key, 'verified'], int,
             (_at_least, 0),
         )
         _check_if_exists(doc, ['stored', key, 'pinned'], bool,
@@ -739,21 +740,11 @@ def check_file(doc):
                 (_at_least, 0),
             )
 
-    # 'ext' like 'mov'
-    _check_if_exists(doc, ['ext'], str,
-        (_matches, EXT_PAT),
-    )
-
-    # 'content_type' like 'video/quicktime'
-    _check_if_exists(doc, ['content_type'], str)
-
     # proxy_of
     if doc['origin'] == 'proxy':
         _check(doc, ['proxy_of'], str,
             _intrinsic_id,
         )
-
-    check_file_optional(doc)
 
 
 def check_file_optional(doc):
@@ -825,45 +816,57 @@ def check_store(doc):
 #######################################################
 # Functions for creating specific types of dmedia docs:
 
-def create_file(_id, file_size, leaf_hashes, stored, origin='user'):
+
+def create_log(timestamp, ch, file, **kw):
+    doc = {
+        '_id': ch.id[:4] + random_id()[4:],
+        'type': 'dmedia/log',
+        'time': timestamp,
+        'file_id': ch.id,
+        'bytes': ch.file_size,
+        'dir': os.path.dirname(file.name),
+        'name': os.path.basename(file.name),
+        'mtime': file.mtime,
+    }
+    doc.update(kw)
+    return doc
+
+
+def create_file(timestamp, ch, stored, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
-    timestamp = time.time()
+    leaf_hashes = Attachment('application/octet-stream', ch.leaf_hashes)
     return {
-        '_id': _id,
+        '_id': ch.id,
         '_attachments': {
-            'leaf_hashes': {
-                'data': b64encode(leaf_hashes).decode('utf-8'),
-                'content_type': 'application/octet-stream',
-            }
+            'leaf_hashes': encode_attachment(leaf_hashes),
         },
         'type': 'dmedia/file',
         'time': timestamp,
         'atime': int(timestamp),
-        'bytes': file_size,
+        'bytes': ch.file_size,
         'origin': origin,
         'stored': stored,
     }
 
 
-def create_project_file(_id, file_size, leaf_hashes, origin='user'):
+def create_project_file(timestamp, ch, file, origin='user'):
     """
     Create a minimal 'dmedia/file' document.
     """
     return {
-        '_id': _id,
-        '_attachments': {
-            'leaf_hashes': {
-                'data': b64encode(leaf_hashes).decode('utf-8'),
-                'content_type': 'application/octet-stream',
-            }
-        },
+        '_id': ch.id,
+        '_attachments': {},
         'type': 'dmedia/file',
-        'time': time.time(),
-        'bytes': file_size,
+        'time': timestamp,
+        'bytes': ch.file_size,
         'origin': origin,
+        'ctime': file.mtime,
+        'dir': os.path.dirname(file.name),
+        'name': os.path.basename(file.name),
         'tags': {},
+        'meta': {},
     }
 
 

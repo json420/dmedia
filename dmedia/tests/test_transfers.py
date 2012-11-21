@@ -60,10 +60,10 @@ class DummyFP(object):
         assert chunk is not None
         assert self._chunk is None
         self._chunk = chunk
-        
+
 
 def create_file_doc(ch, store_id):     
-    return schema.create_file(ch.id, ch.file_size, ch.leaf_hashes,
+    return schema.create_file(time.time(), ch,
         {store_id: {'mtime': 123456789, 'copies': 1}}
     )
 
