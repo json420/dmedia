@@ -171,6 +171,17 @@ class ScanContext:
         return True
 
 
+def relink_iter(fs, count=25):
+    buf = []
+    for st in fs:
+        buf.append(st)
+        if len(buf) >= count:
+            yield buf
+            buf = []
+    if buf:
+        yield buf
+
+
 class MetaStore:
     def __init__(self, db):
         self.db = db
@@ -181,21 +192,21 @@ class MetaStore:
     def relink(self, fs):
         start = time.time()
         log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
-        for st in fs:
-            try:
-                doc = self.db.get(st.id)
-            except NotFound:
-                continue
-            stored = get_dict(doc, 'stored')
-            value = get_dict(stored, fs.id)
-            if value:
-                continue
-            log.info('Relinking %s in %r', st.id, fs)
-            value.update(
-                mtime=st.mtime,
-                copies=fs.copies,
-            )
-            self.db.save(doc)
+        for buf in relink_iter(fs):
+            docs = self.db.get_many([st.id for st in buf])
+            for (st, doc) in zip(buf, docs):
+                if doc is None:
+                    continue
+                stored = get_dict(doc, 'stored')
+                value = get_dict(stored, fs.id)
+                if value:
+                    continue
+                log.info('Relinking %s in %r', st.id, fs)
+                value.update(
+                    mtime=st.mtime,
+                    copies=fs.copies,
+                )
+                self.db.save(doc)
         log.info('%.3f to relink %r', time.time() - start, fs)
 
     def scan(self, fs):
