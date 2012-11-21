@@ -863,6 +863,7 @@ def create_project_file(timestamp, ch, file, origin='user'):
         'bytes': ch.file_size,
         'origin': origin,
         'ctime': file.mtime,
+        'dir': os.path.dirname(file.name),
         'name': os.path.basename(file.name),
         'tags': {},
         'meta': {},

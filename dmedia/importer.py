@@ -37,7 +37,7 @@ import mimetypes
 import shutil
 from queue import Queue
 
-from microfiber import NotFound, has_attachment
+from microfiber import NotFound, has_attachment, encode_attachment
 from filestore import FileStore, scandir, batch_import_iter, statvfs
 
 from dmedia.parallel import start_thread
@@ -231,17 +231,6 @@ class ImportWorker(workers.CouchWorker):
             stores.append(fs)
         return stores
 
-    def queue(self, doc):
-        self.docs.append(doc)
-
-    def flush(self):
-        if not self.docs:
-            return False
-        log.info('flushing %d docs', len(self.docs))
-        self.db.save_many(self.docs)
-        self.docs = []
-        return True
-
     def import_all(self):
         self.thumbnail = None
         extractor = start_thread(self.extractor)
@@ -260,9 +249,12 @@ class ImportWorker(workers.CouchWorker):
             self.extraction_queue.put(None)
             extractor.join()
             if self.thumbnail:
-                self.db.put_att2(self.thumbnail, self.id, 'thumbnail',
-                    rev=self.doc['_rev']
-                )
+                self.doc['_attachments'] = {
+                    'thumbnail': encode_attachment(self.thumbnail)
+                }
+                self.db.save(self.doc)
+            del self.doc['_rev']
+            self.project.post(self.doc)
         self.emit('finished', self.id, self.doc['stats'])
 
     def import_iter(self, *filestores):
@@ -313,6 +305,11 @@ class ImportWorker(workers.CouchWorker):
     def extractor(self):
         try:
             need_thumbnail = True
+            common = {
+                'import_id': self.id,
+                'batch_id': self.env.get('batch_id'),
+                'machine_id': self.env.get('machine_id'),
+            }
             while True:
                 item = self.extraction_queue.get()
                 if item is None:
@@ -327,6 +324,7 @@ class ImportWorker(workers.CouchWorker):
                         doc['ext'] = ext
                     extract(file.name, doc)
                     merge_thumbnail(file.name, doc)
+                    doc.update(common)
                     self.project.save(doc)
                 if need_thumbnail and has_attachment(doc, 'thumbnail'):
                     need_thumbnail = False
