@@ -32,15 +32,12 @@ import shutil
 from base64 import b64encode
 import time
 import calendar
-import logging
 
 from filestore import hash_fp
 from microfiber import Attachment, encode_attachment
 
 import dmedia
 
-
-log = logging.getLogger()
 
 dmedia_extract = 'dmedia-extract'
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
