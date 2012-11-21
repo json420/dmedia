@@ -189,27 +189,48 @@ class MetaStore:
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
 
-    def relink(self, fs):
-        start = time.time()
-        log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
-        for buf in relink_iter(fs):
-            docs = self.db.get_many([st.id for st in buf])
-            for (st, doc) in zip(buf, docs):
-                if doc is None:
-                    continue
-                stored = get_dict(doc, 'stored')
-                value = get_dict(stored, fs.id)
-                if value:
-                    continue
-                log.info('Relinking %s in %r', st.id, fs)
-                value.update(
-                    mtime=st.mtime,
-                    copies=fs.copies,
-                )
-                self.db.save(doc)
-        log.info('%.3f to relink %r', time.time() - start, fs)
-
     def scan(self, fs):
+        """
+        Make sure files we expect to be in the file-store *fs* actually are.
+
+        A fundamental design tenet of Dmedia is that it doesn't particularly
+        trust its metadata, and instead does frequent reality checks.  This
+        allows Dmedia to work even though removable storage is constantly
+        "offline".  In other distributed file-systems, this is usually called
+        being in a "network-partitioned" state.
+
+        Dmedia deals with removable storage via a quickly decaying confidence
+        in its metadata.  If a removable drive hasn't been connected longer
+        than some threshold, Dmedia will update all those copies to count for
+        zero durability.
+
+        And whenever a removable drive (on any drive for that matter) is
+        connected, Dmedia immediately checks to see what files are actually on
+        the drive, and whether they have good integrity.
+
+        `MetaStore.scan()` is the most important reality check that Dmedia does
+        because it's fast and can therefor be done quite often. Thousands of
+        files can be scanned in a few seconds.
+
+        The scan insures that for every file expected in this file-store, the
+        file exists, has the correct size, and the expected mtime.
+
+        If the file doesn't exist in this file-store, its store_id is deleted
+        from doc['stored'] and the doc is saved.
+
+        If the file has the wrong size, it's moved into the corrupt location in
+        the file-store. Then the doc is updated accordingly marking the file as
+        being corrupt in this file-store, and the doc is saved.
+
+        If the file doesn't have the expected mtime is this file-store, this
+        copy gets downgraded to zero copies worth of durability, and the last
+        verification timestamp is deleted, if present.  This will put the file
+        first in line for full content-hash verification.  If the verification
+        passes, the durability is raised back to the appropriate number of
+        copies.
+
+        :param fs: a `FileStore` instance
+        """
         start = time.time()
         log.info('Scanning FileStore %r at %r', fs.id, fs.parentdir)
         rows = self.db.view('file', 'stored', key=fs.id)['rows']
@@ -229,6 +250,29 @@ class MetaStore:
                     if st.mtime != s['mtime']:
                         raise MTimeMismatch()
         log.info('%.3f to scan %r', time.time() - start, fs)
+
+    def relink(self, fs):
+        """
+        Find known files that we didn't expect in `FileStore` *fs*.
+        """
+        start = time.time()
+        log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
+        for buf in relink_iter(fs):
+            docs = self.db.get_many([st.id for st in buf])
+            for (st, doc) in zip(buf, docs):
+                if doc is None:
+                    continue
+                stored = get_dict(doc, 'stored')
+                value = get_dict(stored, fs.id)
+                if value:
+                    continue
+                log.info('Relinking %s in %r', st.id, fs)
+                value.update(
+                    mtime=st.mtime,
+                    copies=fs.copies,
+                )
+                self.db.save(doc)
+        log.info('%.3f to relink %r', time.time() - start, fs)
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
