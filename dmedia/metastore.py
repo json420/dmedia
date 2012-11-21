@@ -232,7 +232,7 @@ class MetaStore:
         :param fs: a `FileStore` instance
         """
         start = time.time()
-        log.info('Scanning FileStore %r at %r', fs.id, fs.parentdir)
+        log.info('Scanning FileStore %s at %r', fs.id, fs.parentdir)
         rows = self.db.view('file', 'stored', key=fs.id)['rows']
         for ids in id_slice_iter(rows):
             for doc in self.db.get_many(ids):
@@ -249,6 +249,15 @@ class MetaStore:
                     s = get_dict(stored, fs.id)
                     if st.mtime != s['mtime']:
                         raise MTimeMismatch()
+        # Update the atime for the dmedia/store doc
+        try:
+            doc = self.db.get(fs.id)
+            assert doc['type'] == 'dmedia/store'
+            doc['atime'] = int(time.time())
+            self.db.save(doc)
+            log.info('Updated FileStore %s atime to %r', fs.id, doc['atime'])
+        except NotFound:
+            log.warning('No doc for FileStore %s', fs.id)
         log.info('%.3f to scan %r', time.time() - start, fs)
 
     def relink(self, fs):
