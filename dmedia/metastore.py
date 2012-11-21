@@ -115,8 +115,8 @@ def mark_mismatch(doc, fs):
     stored = get_dict(doc, 'stored')
     value = get_dict(stored, fs.id)
     value.update(
-        mtime=int(fs.stat(_id).mtime),
-        copies=1,
+        mtime=fs.stat(_id).mtime,
+        copies=0,
     )
     value.pop('verified', None)
 
@@ -247,7 +247,7 @@ class MetaStore:
                         )
                     stored = get_dict(doc, 'stored')
                     s = get_dict(stored, fs.id)
-                    if int(st.mtime) != s['mtime']:
+                    if st.mtime != s['mtime']:
                         raise MTimeMismatch()
         log.info('%.3f to scan %r', time.time() - start, fs)
 
