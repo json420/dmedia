@@ -115,8 +115,8 @@ def mark_mismatch(doc, fs):
     stored = get_dict(doc, 'stored')
     value = get_dict(stored, fs.id)
     value.update(
-        mtime=fs.stat(_id).mtime,
-        copies=0,
+        mtime=int(fs.stat(_id).mtime),
+        copies=1,
     )
     value.pop('verified', None)
 
@@ -160,7 +160,7 @@ class ScanContext:
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
             remove_from_stores(self.doc, self.fs)
         elif issubclass(exc_type, CorruptFile):
-            log.warning('%s is corrupt in %r', self.doc['_id'], self.fs)
+            log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
             mark_corrupt(self.doc, self.fs, time.time())
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
@@ -247,7 +247,7 @@ class MetaStore:
                         )
                     stored = get_dict(doc, 'stored')
                     s = get_dict(stored, fs.id)
-                    if st.mtime != s['mtime']:
+                    if int(st.mtime) != s['mtime']:
                         raise MTimeMismatch()
         log.info('%.3f to scan %r', time.time() - start, fs)
 
