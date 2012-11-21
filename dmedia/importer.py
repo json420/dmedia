@@ -178,7 +178,6 @@ class ImportWorker(workers.CouchWorker):
         self.extra = None
         self.id = None
         self.doc = None
-        self.docs = []
         self.extract = self.env.get('extract', True)
         self.project = get_project_db(self.env['project_id'], self.env)
         self.project.ensure()
