@@ -25,10 +25,16 @@ Unit tests for `dmedia.metastore`.
 
 from unittest import TestCase
 import time
+import os
+from random import SystemRandom
 
+from filestore import FileStore, DIGEST_BYTES
 from microfiber import random_id
 
+from dmedia.tests.base import TempDir
 from dmedia import metastore
+
+random = SystemRandom()
 
 
 class DummyStat:
@@ -255,4 +261,91 @@ class TestFunctions(TestCase):
                 'corrupt': {id3: 'baz', fs.id: {'time': ts}},
             }
         )
- 
+
+    def test_relink_iter(self):
+        tmp = TempDir()
+        fs = FileStore(tmp.dir)
+
+        def create():
+            _id = random_id(DIGEST_BYTES)
+            data = b'N' * random.randint(1, 1776)
+            open(fs.path(_id), 'wb').write(data)
+            st = fs.stat(_id)
+            assert st.size == len(data)
+            return st
+
+        # Test when empty
+        self.assertEqual(
+            list(metastore.relink_iter(fs)),
+            []
+        )
+
+        # Test with only 1
+        items = [create()]
+        self.assertEqual(
+            list(metastore.relink_iter(fs)),
+            [items]
+        )
+
+        # Test with 25
+        items.extend(create() for i in range(24))
+        assert len(items) == 25
+        items.sort(key=lambda st: st.id)
+        self.assertEqual(
+            list(metastore.relink_iter(fs)),
+            [items]
+        )
+
+        # Test with 26
+        items.append(create())
+        assert len(items) == 26
+        items.sort(key=lambda st: st.id)
+        self.assertEqual(
+            list(metastore.relink_iter(fs)),
+            [
+                items[:25],
+                items[25:],
+            ]
+        )
+
+        # Test with 49
+        items.extend(create() for i in range(23))
+        assert len(items) == 49
+        items.sort(key=lambda st: st.id)
+        self.assertEqual(
+            list(metastore.relink_iter(fs)),
+            [
+                items[:25],
+                items[25:],
+            ]
+        )
+
+        # Test with 100
+        items.extend(create() for i in range(51))
+        assert len(items) == 100
+        items.sort(key=lambda st: st.id)
+        self.assertEqual(
+            list(metastore.relink_iter(fs)),
+            [
+                items[0:25],
+                items[25:50],
+                items[50:75],
+                items[75:100],
+            ]
+        )
+
+        # Test with 118
+        items.extend(create() for i in range(18))
+        assert len(items) == 118
+        items.sort(key=lambda st: st.id)
+        self.assertEqual(
+            list(metastore.relink_iter(fs)),
+            [
+                items[0:25],
+                items[25:50],
+                items[50:75],
+                items[75:100],
+                items[100:118],
+            ]
+        )
+
