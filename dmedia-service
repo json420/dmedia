@@ -220,6 +220,10 @@ class Service(dbus.service.Object):
 
     def shutdown(self):
         log.info('Service.shutdown()')
+        if self.couch is not None:
+            log.info('* killing usercouch')
+            self.couch.kill()
+            self.couch = None
         if self.peer is not None:
             log.info('* freeing peer')
             self.peer.free()
@@ -233,10 +237,6 @@ class Service(dbus.service.Object):
             self.httpd.terminate()
             self.httpd.join()
             self.httpd = None
-        if self.couch is not None:
-            log.info('* killing usercouch')
-            self.couch.kill()
-            self.couch = None
 
     def on_store_added(self, udisks, obj, parentdir, store_id, info):
         try:
