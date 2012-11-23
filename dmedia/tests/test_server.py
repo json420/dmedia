@@ -608,6 +608,23 @@ class TestRootAppLive(TestCase):
         for doc in docs:
             self.assertEqual(s2.get(name2, doc['_id']), doc)
 
+        # Test with attachment to make sure LP:1080339 doesn't come back:
+        #     https://bugs.launchpad.net/dmedia/+bug/1080339
+        _id = random_id()
+        data = os.urandom(68400)
+        doc = {'_id': _id}
+        doc['_rev'] = s1.post(doc, name1)['rev']
+        time.sleep(2)
+        thumbnail = microfiber.Attachment('image/jpeg', data)
+        doc['_attachments'] = {
+            'thumbnail': microfiber.encode_attachment(thumbnail),
+        }
+        s1.post(doc, name1)
+        time.sleep(2)
+        att = s2.get_att(name2, _id, 'thumbnail')
+        self.assertEqual(att.content_type, 'image/jpeg')
+        self.assertEqual(att.data, data)
+
 
 class TestServerAppLive(TestCase):
     def test_live(self):
