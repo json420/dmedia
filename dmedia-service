@@ -89,7 +89,9 @@ class Service(dbus.service.Object):
         # Now go for it:
         dmedia.configure_logging()
 
-        self.client_obj = manager.RegisterClient('dmedia-service', '')
+        self.client_obj = manager.RegisterClient('dmedia-service', '',
+            dbus_interface='org.gnome.SessionManager'
+        )
         self.client = session.get_object('org.gnome.SessionManager', self.client_obj)
         self.client.connect_to_signal('QueryEndSession', self.on_QueryEndSession,
             dbus_interface='org.gnome.SessionManager.ClientPrivate'
@@ -118,16 +120,22 @@ class Service(dbus.service.Object):
 
     def on_QueryEndSession(self, flags):
         log.info('<QueryEndSession>')
-        self.client.EndSessionResponse(True, '')
+        self.client.EndSessionResponse(True, '',
+            dbus_interface='org.gnome.SessionManager.ClientPrivate'
+        )
 
     def on_EndSession(self, flags):
         log.info('<EndSession>')
         self.shutdown()
-        self.client.EndSessionResponse(True, '')
+        self.client.EndSessionResponse(True, '',
+            dbus_interface='org.gnome.SessionManager.ClientPrivate'
+        )
 
     def on_Stop(self):
         log.info('<Stop>')
-        manager.UnregisterClient(self.client_obj)
+        manager.UnregisterClient(self.client_obj,
+            dbus_interface='org.gnome.SessionManager'
+        )
         mainloop.quit()
 
     def snapshot_listener(self):
