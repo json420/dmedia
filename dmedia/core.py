@@ -54,6 +54,9 @@ from dmedia.local import LocalStores, FileNotLocal
 
 log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
+HOME = path.abspath(os.environ['HOME'])
+if not path.isdir(HOME):
+    raise Exception('$HOME is not a directory: {!r}'.format(HOME))
 
 
 def start_httpd(couch_env, ssl_config):
@@ -183,6 +186,23 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
+def migrate_default(dst_parentdir):
+    try:
+        dst = FileStore(dst_parentdir)
+        shared = '/home'
+        private = HOME
+        for src_parentdir in (shared, private):
+            if not util.isfilestore(src_parentdir):
+                log.info('No FileStore at %r', src_parentdir)
+                continue
+            src = FileStore(src_parentdir)
+            log.info('Migrating files from %r', src)
+            for st in src:
+                src.copy(st.id, dst)
+    except Exception:
+        log.exception('Error migrating files from old default file-stores')
+
+
 class Core:
     def __init__(self, env):
         self.env = env
@@ -226,6 +246,7 @@ class Core:
         self.save_local()
 
     def load_default_filestore(self, parentdir):
+        self.parentdir = parentdir
         (fs, doc) = util.init_filestore(parentdir)
         log.info('Default FileStore %r at %r', doc['_id'], parentdir)
         self._add_filestore(fs, doc)
@@ -253,6 +274,9 @@ class Core:
         self._sync_stores()
 
     def _background_worker(self):
+        log.info('Running migration...')
+        process = start_process(migrate_default, self.parentdir)
+        process.join()
         log.info('Background worker listing to queue...')
         while True:
             try:
