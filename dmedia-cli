@@ -133,13 +133,6 @@ class CreateFileStore(_Method):
     def validate_args(self, directory):
         return [path.abspath(directory)]
 
-
-class SetDefaultStore(_Method):
-    "Set default store to 'private', 'shared', or 'none'"
-
-    args = ['value']
-
-
 class Resolve(_Method):
     'Resolve Dmedia file ID into a regular file path'
 

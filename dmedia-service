@@ -467,13 +467,6 @@ class Service(dbus.service.Object):
         return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def SetDefaultStore(self, value):
-        value = str(value)
-        log.info('Dmedia.SetDefaultStore(%r)', value)
-        self.core.set_default_store(value)
-        return self.LocalDmedia()
-
-    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def Resolve(self, _id):
         return self.core.resolve(_id)
 
