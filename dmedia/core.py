@@ -290,6 +290,9 @@ class Core:
             log.info('Running migration...')
             process = start_process(migrate_shared, SHARED, self.parentdir)
             process.join()
+            store_id = util.get_filestore_id(SHARED)
+            if store_id is not None:
+                self.purge_store(store_id)
         log.info('Background worker listing to queue...')
         while True:
             try:
