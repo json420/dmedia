@@ -42,7 +42,7 @@ from copy import deepcopy
 from base64 import b64encode
 
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict
-from filestore import FileStore, check_root_hash, check_id
+from filestore import FileStore, check_root_hash, check_id, DOTNAME
 
 import dmedia
 from dmedia.parallel import start_thread, start_process
@@ -57,6 +57,7 @@ LOCAL_ID = '_local/dmedia'
 HOME = path.abspath(os.environ['HOME'])
 if not path.isdir(HOME):
     raise Exception('$HOME is not a directory: {!r}'.format(HOME))
+SHARED = '/home'
 
 
 def start_httpd(couch_env, ssl_config):
@@ -186,21 +187,25 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def migrate_default(dst_parentdir):
+def migrate_shared(srcdir, dstdir):
     try:
-        dst = FileStore(dst_parentdir)
-        shared = '/home'
-        private = HOME
-        for src_parentdir in (shared, private):
-            if not util.isfilestore(src_parentdir):
-                log.info('No FileStore at %r', src_parentdir)
+        count = 0
+        src = FileStore(srcdir)
+        dst = FileStore(dstdir)
+        log.info('Migrating files from %r to %r', src, dst)
+        for st in src:
+            if dst.exists(st.id):
                 continue
-            src = FileStore(src_parentdir)
-            log.info('Migrating files from %r', src)
-            for st in src:
+            log.info('Migrating %s %s', st.id, st.size)
+            try:
+                os.rename(st.name, dst.path(st.id))
+            except OSError:
                 src.copy(st.id, dst)
+                src.remove(st.id)
+            count += 1
+        log.info('Migrating %d files from %r to %r', count, src, dst)
     except Exception:
-        log.exception('Error migrating files from old default file-stores')
+        log.exception('Error migrating files from shared FileStore')
 
 
 class Core:
@@ -246,6 +251,12 @@ class Core:
         self.save_local()
 
     def load_default_filestore(self, parentdir):
+        if util.isfilestore(HOME) and not util.isfilestore(parentdir):
+            src = FileStore(HOME)
+            src.init_dirs()
+            dstdir = path.join(parentdir, DOTNAME)
+            log.info('Moving %r to %r', src.basedir, dstdir)
+            os.rename(src.basedir, dstdir)
         self.parentdir = parentdir
         (fs, doc) = util.init_filestore(parentdir)
         log.info('Default FileStore %r at %r', doc['_id'], parentdir)
@@ -274,9 +285,10 @@ class Core:
         self._sync_stores()
 
     def _background_worker(self):
-        log.info('Running migration...')
-        process = start_process(migrate_default, self.parentdir)
-        process.join()
+        if util.isfilestore(SHARED):
+            log.info('Running migration...')
+            process = start_process(migrate_shared, SHARED, self.parentdir)
+            process.join()
         log.info('Background worker listing to queue...')
         while True:
             try:
