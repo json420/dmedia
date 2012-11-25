@@ -54,8 +54,6 @@ from dmedia.local import LocalStores, FileNotLocal
 
 log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
-SHARED = '/home'
-PRIVATE = path.abspath(os.environ['HOME'])
 
 
 def start_httpd(couch_env, ssl_config):
@@ -186,17 +184,14 @@ def update_project(db, project_id):
 
 
 class Core:
-    def __init__(self, env, private=None, shared=None):
+    def __init__(self, env):
         self.env = env
-        self._private = (PRIVATE if private is None else private)
-        self._shared = (SHARED if shared is None else shared)
         self.db = util.get_db(env, init=True)
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.queue = Queue()
         self.thread = None
-        self.default = None
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
