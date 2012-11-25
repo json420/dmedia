@@ -51,7 +51,32 @@ class TestFunctions(TestCase):
         tmp.makedirs('.dmedia')
         self.assertTrue(util.isfilestore(tmp.dir))
 
-    def test_getfilestore(self):
+    def test_get_filestore_id(self):
+        tmp = TempDir()
+        doc = schema.create_filestore(1)
+        _id = doc['_id']
+
+        # Test when .dmedia/ doesn't exist
+        self.assertIsNone(util.get_filestore_id(tmp.dir))
+
+        # Test when .dmedia/ exists, but store.json doesn't:
+        tmp.makedirs('.dmedia')
+        self.assertIsNone(util.get_filestore_id(tmp.dir))
+
+        # Test when .dmedia/store.json exists
+        store = tmp.join('.dmedia', 'store.json')
+        json.dump(doc, open(store, 'w'))
+        self.assertEqual(util.get_filestore_id(tmp.dir), _id)
+
+        # Test with bad JSON
+        open(store, 'wb').write(b'bad JSON, no cookie for you')
+        self.assertIsNone(util.get_filestore_id(tmp.dir))
+
+        # Test with non-dict
+        json.dump('hello', open(store, 'w'))
+        self.assertIsNone(util.get_filestore_id(tmp.dir))
+
+    def test_get_filestore(self):
         tmp = TempDir()
         doc = schema.create_filestore(1)
 
