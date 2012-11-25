@@ -206,6 +206,7 @@ def migrate_shared(srcdir, dstdir):
         log.info('Migrating %d files from %r to %r', count, src, dst)
     except Exception:
         log.exception('Error migrating files from shared FileStore')
+    return count
 
 
 class Core:
