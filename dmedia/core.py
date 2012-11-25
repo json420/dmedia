@@ -230,24 +230,6 @@ class Core:
         self.local['user_id'] = user['_id']
         self.save_local()
 
-    def init_default_store(self):
-        value = self.local.get('default_store')
-        if value not in ('private', 'shared'):
-            log.info('no default FileStore')
-            self.default = None
-            self._sync_stores()
-            return
-        if value == 'shared' and not util.isfilestore(self._shared):
-            log.warning('Switching to private, no shared FileStore at %r', self._shared)
-            value = 'private'
-            self.local['default_store'] = value
-            self.db.save(self.local)
-        parentdir = (self._private if value == 'private' else self._shared)
-        (fs, doc) = util.init_filestore(parentdir)
-        self.default = fs
-        log.info('Connecting default FileStore %r at %r', fs.id, fs.parentdir)
-        self._add_filestore(fs, doc)
-
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
@@ -326,19 +308,6 @@ class Core:
 
     def update_project(self, project_id):
         update_project(self.db, project_id)     
-
-    def set_default_store(self, value):
-        if value not in ('private', 'shared', 'none'):
-            raise ValueError(
-                "need 'private', 'shared', or 'none'; got {!r}".format(value)
-            )
-        if self.local.get('default_store') != value:
-            self.local['default_store'] = value
-            self.db.save(self.local)
-        if self.default is not None:
-            self.disconnect_filestore(self.default.parentdir, self.default.id)
-            self.default = None
-        self.init_default_store()
 
     def create_filestore(self, parentdir):
         """
