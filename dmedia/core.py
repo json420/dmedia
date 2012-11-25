@@ -225,6 +225,12 @@ class Core:
         self.local['user_id'] = user['_id']
         self.save_local()
 
+    def load_default_filestore(self, parentdir):
+        (fs, doc) = util.init_filestore(parentdir)
+        log.info('Default FileStore %r at %r', doc['_id'], parentdir)
+        self._add_filestore(fs, doc)
+        return fs
+
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()

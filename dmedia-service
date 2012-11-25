@@ -209,9 +209,7 @@ class Service(dbus.service.Object):
         log.info('Starting CouchDB took %.3f', time.time() - start)
         self.core = Core(env)
         self.core.load_identity(self.couch.machine, self.couch.user)
-        self.core.init_default_store()
-        if self.core.local.get('default_store') is None:
-            self.core.set_default_store('shared')
+        self.core.load_default_filestore(self.couch.basedir)
         self.env_s = dumps(self.core.env, pretty=True)
         log.info('Finished core startup in %.3f', time.time() - start)
         GObject.timeout_add(250, self.on_idle1)
