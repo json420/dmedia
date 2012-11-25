@@ -503,7 +503,7 @@ class Service(dbus.service.Object):
 
     def do_update(self, project_id):
         self.core.update_project(project_id)
-        GObject.timeout_add(5000, self.on_update_complete)
+        GObject.idle_add(self.on_update_complete)
 
     def on_update_complete(self):
         self.update_thread.join()
