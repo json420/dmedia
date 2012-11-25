@@ -419,16 +419,36 @@ class Core:
             * ``doc['partial'][store_id]``
 
         Some scenarios in which you might want to do this:
-        
+
             1. The HDD was run over by a bus, the data is gone.  We need to
                embrace reality, the sooner the better.
 
             2. We're going to format or otherwise repurpose an HDD.  Ideally, we
                would have called `Core2.downgrade_store()` first.
- 
+
         Note that this method makes sense for remote cloud stores as well as for
         local file-stores
         """
+        log.info('Purging store %s', store_id)
+        ids = []
+        while True:
+            rows = self.db.view('file', 'stored',
+                key=store_id,
+                include_docs=True,
+                limit=25,
+            )['rows']
+            if not rows:
+                break
+            ids.extend(r['id'] for r in rows)
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                del doc['stored'][store_id]
+            try:
+                self.db.save_many(docs)
+            except BulkConflict:
+                log.exception('Conflict purging %s', store_id)
+        log.info('Purged %d references in %s', len(ids), store_id)
+        return ids
 
     def stat(self, _id):
         doc = self.db.get(_id)

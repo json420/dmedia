@@ -33,6 +33,7 @@ import shutil
 from random import SystemRandom
 from zipfile import ZipFile
 
+import filestore
 from filestore import File, Leaf, ContentHash, Batch, Hasher, LEAF_SIZE
 from filestore import scandir
 from microfiber import random_id
@@ -40,6 +41,10 @@ from microfiber import random_id
 
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
 random = SystemRandom()
+
+
+def random_file_id():
+    return random_id(filestore.DIGEST_BYTES)
 
 
 class DummyQueue(object):
