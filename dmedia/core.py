@@ -42,7 +42,7 @@ from copy import deepcopy
 from base64 import b64encode
 
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict
-from filestore import FileStore, check_root_hash, check_id
+from filestore import FileStore, check_root_hash, check_id, DOTNAME
 
 import dmedia
 from dmedia.parallel import start_thread, start_process
@@ -54,8 +54,10 @@ from dmedia.local import LocalStores, FileNotLocal
 
 log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
+HOME = path.abspath(os.environ['HOME'])
+if not path.isdir(HOME):
+    raise Exception('$HOME is not a directory: {!r}'.format(HOME))
 SHARED = '/home'
-PRIVATE = path.abspath(os.environ['HOME'])
 
 
 def start_httpd(couch_env, ssl_config):
@@ -185,18 +187,37 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
+def migrate_shared(srcdir, dstdir):
+    try:
+        count = 0
+        src = FileStore(srcdir)
+        dst = FileStore(dstdir)
+        log.info('Migrating files from %r to %r', src, dst)
+        for st in src:
+            if dst.exists(st.id):
+                continue
+            log.info('Migrating %s %s', st.id, st.size)
+            try:
+                os.rename(st.name, dst.path(st.id))
+            except OSError:
+                src.copy(st.id, dst)
+                src.remove(st.id)
+            count += 1
+        log.info('Migrating %d files from %r to %r', count, src, dst)
+    except Exception:
+        log.exception('Error migrating files from shared FileStore')
+    return count
+
+
 class Core:
-    def __init__(self, env, private=None, shared=None):
+    def __init__(self, env):
         self.env = env
-        self._private = (PRIVATE if private is None else private)
-        self._shared = (SHARED if shared is None else shared)
         self.db = util.get_db(env, init=True)
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.queue = Queue()
         self.thread = None
-        self.default = None
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -230,23 +251,18 @@ class Core:
         self.local['user_id'] = user['_id']
         self.save_local()
 
-    def init_default_store(self):
-        value = self.local.get('default_store')
-        if value not in ('private', 'shared'):
-            log.info('no default FileStore')
-            self.default = None
-            self._sync_stores()
-            return
-        if value == 'shared' and not util.isfilestore(self._shared):
-            log.warning('Switching to private, no shared FileStore at %r', self._shared)
-            value = 'private'
-            self.local['default_store'] = value
-            self.db.save(self.local)
-        parentdir = (self._private if value == 'private' else self._shared)
+    def load_default_filestore(self, parentdir):
+        if util.isfilestore(HOME) and not util.isfilestore(parentdir):
+            src = FileStore(HOME)
+            src.init_dirs()
+            dstdir = path.join(parentdir, DOTNAME)
+            log.info('Moving %r to %r', src.basedir, dstdir)
+            os.rename(src.basedir, dstdir)
+        self.parentdir = parentdir
         (fs, doc) = util.init_filestore(parentdir)
-        self.default = fs
-        log.info('Connecting default FileStore %r at %r', fs.id, fs.parentdir)
+        log.info('Default FileStore %s at %r', doc['_id'], parentdir)
         self._add_filestore(fs, doc)
+        return fs
 
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
@@ -270,6 +286,13 @@ class Core:
         self._sync_stores()
 
     def _background_worker(self):
+        if util.isfilestore(SHARED):
+            log.info('Running migration...')
+            process = start_process(migrate_shared, SHARED, self.parentdir)
+            process.join()
+            store_id = util.get_filestore_id(SHARED)
+            if store_id is not None:
+                self.purge_store(store_id)
         log.info('Background worker listing to queue...')
         while True:
             try:
@@ -326,19 +349,6 @@ class Core:
 
     def update_project(self, project_id):
         update_project(self.db, project_id)     
-
-    def set_default_store(self, value):
-        if value not in ('private', 'shared', 'none'):
-            raise ValueError(
-                "need 'private', 'shared', or 'none'; got {!r}".format(value)
-            )
-        if self.local.get('default_store') != value:
-            self.local['default_store'] = value
-            self.db.save(self.local)
-        if self.default is not None:
-            self.disconnect_filestore(self.default.parentdir, self.default.id)
-            self.default = None
-        self.init_default_store()
 
     def create_filestore(self, parentdir):
         """
@@ -412,16 +422,36 @@ class Core:
             * ``doc['partial'][store_id]``
 
         Some scenarios in which you might want to do this:
-        
+
             1. The HDD was run over by a bus, the data is gone.  We need to
                embrace reality, the sooner the better.
 
             2. We're going to format or otherwise repurpose an HDD.  Ideally, we
                would have called `Core2.downgrade_store()` first.
- 
+
         Note that this method makes sense for remote cloud stores as well as for
         local file-stores
         """
+        log.info('Purging store %s', store_id)
+        ids = []
+        while True:
+            rows = self.db.view('file', 'stored',
+                key=store_id,
+                include_docs=True,
+                limit=25,
+            )['rows']
+            if not rows:
+                break
+            ids.extend(r['id'] for r in rows)
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                del doc['stored'][store_id]
+            try:
+                self.db.save_many(docs)
+            except BulkConflict:
+                log.exception('Conflict purging %s', store_id)
+        log.info('Purged %d references to %s', len(ids), store_id)
+        return ids
 
     def stat(self, _id):
         doc = self.db.get(_id)

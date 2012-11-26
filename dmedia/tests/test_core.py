@@ -41,7 +41,7 @@ from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia import util, core
 
 from .couch import CouchCase
-from .base import TempDir
+from .base import TempDir, random_file_id
 
 
 class TestFunctions(TestCase):
@@ -63,6 +63,32 @@ class TestFunctions(TestCase):
                 'data': b64encode(data).decode('utf-8'),
             }
         )
+
+    def test_migrate_shared(self):
+        tmp1 = TempDir()
+        tmp2 = TempDir()
+        src = filestore.FileStore(tmp1.dir)
+        dst = filestore.FileStore(tmp2.dir)
+        st_list = []
+        for i in range(10):
+            (file, ch) = tmp1.random_file()
+            os.rename(file.name, src.path(ch.id))
+            st = src.stat(ch.id)
+            assert st.size == ch.file_size
+            st_list.append(st)
+        st_list.sort(key=lambda st: st.id)
+        self.assertEqual(list(src), st_list)
+        self.assertEqual(list(dst), [])
+        self.assertEqual(core.migrate_shared(tmp1.dir, tmp2.dir), 10)
+        self.assertEqual(list(src), [])
+        self.assertEqual(
+            [st.id for st in dst],
+            [st.id for st in st_list]
+        )
+        for st in st_list:
+            ch = dst.verify(st.id)
+            self.assertEqual(st.size, ch.file_size)
+            self.assertEqual(dst.stat(st.id).mtime, st.mtime)
 
 
 class TestCouchFunctions(CouchCase):
@@ -132,191 +158,6 @@ class TestCore(CouchCase):
                 'stores': {},
                 'machine_id': machine_id,
                 'user_id': user_id,
-            }
-        )
-
-    def test_init_default_store(self):
-        private = TempDir()
-        shared = TempDir()
-        machine_id = random_id()
-
-        # Test when default_store is missing
-        inst = core.Core(self.env, private.dir, shared.dir)
-        self.assertEqual(inst._private, private.dir)
-        self.assertEqual(inst._shared, shared.dir)
-        inst.init_default_store()
-        self.assertIsNone(inst.default)
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                'stores': {},
-            }
-        )
-
-        # Test when default_store is 'private'
-        inst = core.Core(self.env, private.dir, shared.dir)
-        self.assertEqual(inst._private, private.dir)
-        self.assertEqual(inst._shared, shared.dir)
-        inst.local['default_store'] = 'private'
-        self.assertFalse(util.isfilestore(private.dir))
-        inst.init_default_store()
-        self.assertEqual(
-            set(inst.local['stores']),
-            set([private.dir])
-        )
-        store_id = inst.local['stores'][private.dir]['id']
-        (fs1, doc) = util.get_filestore(private.dir, store_id)
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'default_store': 'private',
-                'stores': {
-                    fs1.parentdir: {
-                        'id': fs1.id,
-                        'copies': fs1.copies,
-                    }
-                }
-            }
-        )
-
-        # Again test when default_store is 'private' to make sure local isn't
-        # updated needlessly
-        inst = core.Core(self.env, private.dir, shared.dir)
-        self.assertEqual(inst._private, private.dir)
-        self.assertEqual(inst._shared, shared.dir)
-        inst.init_default_store()
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'default_store': 'private',
-                'stores': {
-                    fs1.parentdir: {
-                        'id': fs1.id,
-                        'copies': fs1.copies,
-                    }
-                }
-            }
-        )
-
-        # Test when default_store is 'shared' (which we're assuming exists)
-        self.assertFalse(util.isfilestore(shared.dir))
-        (fs2, doc) = util.init_filestore(shared.dir)
-        inst = core.Core(self.env, private.dir, shared.dir)
-        self.assertEqual(inst._private, private.dir)
-        self.assertEqual(inst._shared, shared.dir)
-        inst.local['default_store'] = 'shared'
-        inst.init_default_store()
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'default_store': 'shared',
-                'stores': {
-                    fs2.parentdir: {
-                        'id': fs2.id,
-                        'copies': fs2.copies,
-                    }
-                }
-            }
-        )
-
-        # Test when default_store is 'shared' and it doesn't exist, in which
-        # case it should automatically switch to 'private' instead
-        nope = TempDir()
-        inst = core.Core(self.env, private.dir, nope.dir)
-        self.assertEqual(inst._private, private.dir)
-        self.assertEqual(inst._shared, nope.dir)
-        inst.local['default_store'] = 'shared'
-        inst.init_default_store()
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-4',
-                'default_store': 'private',
-                'stores': {
-                    fs1.parentdir: {
-                        'id': fs1.id,
-                        'copies': fs1.copies,
-                    }
-                }
-            }
-        )
-
-    def test_set_default_store(self):
-        private = TempDir()
-        shared = TempDir()
-        (fs1, doc1) = util.init_filestore(private.dir)
-        (fs2, doc2) = util.init_filestore(shared.dir)
-        inst = core.Core(self.env, private.dir, shared.dir)
-        self.assertEqual(inst._private, private.dir)
-        self.assertEqual(inst._shared, shared.dir)
-
-        with self.assertRaises(ValueError) as cm:
-            inst.set_default_store('foobar')
-        self.assertEqual(
-            str(cm.exception),
-            "need 'private', 'shared', or 'none'; got 'foobar'"
-        )
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                'stores': {},
-            }
-        )
-
-        # Test with 'private'
-        inst.set_default_store('private')
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'default_store': 'private',
-                'stores': {
-                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
-                },
-            }
-        )
-
-        # Test with 'shared'
-        inst.set_default_store('shared')
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-5',
-                'default_store': 'shared',
-                'stores': {
-                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
-                },
-            }
-        )
-
-        # Test with 'none'
-        inst.set_default_store('none')
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-7',
-                'default_store': 'none',
-                'stores': {},
-            }
-        )
-
-        # Test with 'shared' when it doesn't exist
-        nope = TempDir()
-        inst = core.Core(self.env, private.dir, nope.dir)
-        self.assertEqual(inst._private, private.dir)
-        self.assertEqual(inst._shared, nope.dir)
-        inst.set_default_store('shared')
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-10',
-                'default_store': 'private',
-                'stores': {
-                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
-                },
             }
         )
 
@@ -501,6 +342,97 @@ class TestCore(CouchCase):
         with self.assertRaises(KeyError) as cm:
             inst.disconnect_filestore(fs1.parentdir, fs1.id)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
+
+    def test_purge_store(self):
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+        inst = core.Core(self.env)
+        db = inst.db
+
+        # Test when empty
+        self.assertEqual(inst.purge_store(store_id1), [])
+
+        docs = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'bytes': 1776,
+                'stored': {
+                    store_id1: {
+                        'copies': 1,
+                        'mtime': 1234567890,
+                    },
+                    store_id2: {
+                        'copies': 2,
+                        'mtime': 1234567891,
+                    },
+                },
+            }
+            for i in range(533)
+        ]
+        ids = [doc['_id'] for doc in docs]
+        ids.sort()
+        db.save_many(docs)
+
+        # Test when store isn't present
+        self.assertEqual(inst.purge_store(store_id3), [])
+        for doc in docs:
+            self.assertEqual(db.get(doc['_id']), doc)
+
+        # Purge one of the stores, make sure the other remains
+        self.assertEqual(inst.purge_store(store_id1), ids)
+        for doc in db.get_many(ids):
+            _id = doc['_id']
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('2-'))
+            self.assertEqual(
+                doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'bytes': 1776,
+                    'stored': {
+                        store_id2: {
+                            'copies': 2,
+                            'mtime': 1234567891,
+                        },
+                    },
+                }
+            )
+
+        # Purge the other store
+        self.assertEqual(inst.purge_store(store_id2), ids)
+        for doc in db.get_many(ids):
+            _id = doc['_id']
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(
+                doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'bytes': 1776,
+                    'stored': {},
+                }
+            )
+
+        # Purge both again, make sure no doc changes result:
+        self.assertEqual(inst.purge_store(store_id1), [])
+        self.assertEqual(inst.purge_store(store_id2), [])
+        for doc in db.get_many(ids):
+            _id = doc['_id']
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(
+                doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'bytes': 1776,
+                    'stored': {},
+                }
+            )
 
     def test_update_atime(self):
         inst = core.Core(self.env)

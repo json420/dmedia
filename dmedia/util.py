@@ -43,6 +43,15 @@ def isfilestore(parentdir):
     return path.isdir(path.join(parentdir, DOTNAME))
 
 
+def get_filestore_id(parentdir):
+    store = path.join(parentdir, DOTNAME, 'store.json')
+    try:
+        doc = json.load(open(store, 'r'))
+        return doc['_id']
+    except Exception:
+        pass
+
+
 def get_filestore(parentdir, store_id, copies=None):
     store = path.join(parentdir, DOTNAME, 'store.json')
     doc = json.load(open(store, 'r'))

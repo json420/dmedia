@@ -134,10 +134,10 @@ class CreateFileStore(_Method):
         return [path.abspath(directory)]
 
 
-class SetDefaultStore(_Method):
-    "Set default store to 'private', 'shared', or 'none'"
+class PurgeStore(_Method):
+    'Purge references to a store'
 
-    args = ['value']
+    args = ['store_id']
 
 
 class Resolve(_Method):

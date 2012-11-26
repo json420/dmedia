@@ -181,11 +181,6 @@ class Service(dbus.service.Object):
         self.snapshot_queue_in.put(dbname)
         return True
 
-    @dbus.service.method(IFACE, in_signature='as', out_signature='')
-    def SnapshotMany(self, names):
-        for dbname in names:
-            self.Snapshot(dbname)
-
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def SnapshotAll(self):
         log.info('Dmedia.SnapshotAll()')
@@ -209,9 +204,7 @@ class Service(dbus.service.Object):
         log.info('Starting CouchDB took %.3f', time.time() - start)
         self.core = Core(env)
         self.core.load_identity(self.couch.machine, self.couch.user)
-        self.core.init_default_store()
-        if self.core.local.get('default_store') is None:
-            self.core.set_default_store('shared')
+        self.core.load_default_filestore(self.couch.basedir)
         self.env_s = dumps(self.core.env, pretty=True)
         log.info('Finished core startup in %.3f', time.time() - start)
         GObject.timeout_add(250, self.on_idle1)
@@ -468,12 +461,11 @@ class Service(dbus.service.Object):
         self.core.create_filestore(parentdir)
         return self.LocalDmedia()
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def SetDefaultStore(self, value):
-        value = str(value)
-        log.info('Dmedia.SetDefaultStore(%r)', value)
-        self.core.set_default_store(value)
-        return self.LocalDmedia()
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def PurgeStore(self, store_id):
+        store_id = str(store_id)
+        log.info('Dmedia.PurgeStore(%r)', store_id)
+        start_thread(self.core.purge_store, store_id)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def Resolve(self, _id):
