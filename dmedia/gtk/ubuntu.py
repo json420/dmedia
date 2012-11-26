@@ -114,6 +114,7 @@ def notify_stats(lines):
 
 class UnityImportUX:
     def __init__(self, hub):
+        self.hub = hub
         self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
         self.notify = NotifyManager()
         self.indicator = AppIndicator3.Indicator.new('dmedia', ICON,
@@ -121,10 +122,10 @@ class UnityImportUX:
         )
         self.indicator.set_attention_icon(ICON_ATT)
         self.menu = Gtk.Menu()
-        self.close = Gtk.MenuItem()
-        self.close.set_label(_('Close Dmedia'))
-        #self.close.connect('activate', self.on_close)
-        self.menu.append(self.close)
+        self.stop = Gtk.MenuItem()
+        self.stop.set_label(_('Stop Importer'))
+        self.stop.connect('activate', WeakMethod(self, 'on_stop'))
+        self.menu.append(self.stop)
         self.menu.show_all()
         self.indicator.set_menu(self.menu)
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
@@ -133,6 +134,9 @@ class UnityImportUX:
         hub.connect('batch_progress', WeakMethod(self, 'on_batch_progress'))
         hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
         hub.connect('error', WeakMethod(self, 'on_error'))
+
+    def on_stop(self, menuitem):
+        self.hub.send('stop_importer')
 
     def on_batch_started(self, gm, batch_id):
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
