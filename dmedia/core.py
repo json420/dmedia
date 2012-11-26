@@ -260,7 +260,7 @@ class Core:
             os.rename(src.basedir, dstdir)
         self.parentdir = parentdir
         (fs, doc) = util.init_filestore(parentdir)
-        log.info('Default FileStore %r at %r', doc['_id'], parentdir)
+        log.info('Default FileStore %s at %r', doc['_id'], parentdir)
         self._add_filestore(fs, doc)
         return fs
 
@@ -450,7 +450,7 @@ class Core:
                 self.db.save_many(docs)
             except BulkConflict:
                 log.exception('Conflict purging %s', store_id)
-        log.info('Purged %d references in %s', len(ids), store_id)
+        log.info('Purged %d references to %s', len(ids), store_id)
         return ids
 
     def stat(self, _id):

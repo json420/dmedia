@@ -133,6 +133,13 @@ class CreateFileStore(_Method):
     def validate_args(self, directory):
         return [path.abspath(directory)]
 
+
+class PurgeStore(_Method):
+    'Purge references to a store'
+
+    args = ['store_id']
+
+
 class Resolve(_Method):
     'Resolve Dmedia file ID into a regular file path'
 
