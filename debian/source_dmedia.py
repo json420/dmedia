@@ -10,14 +10,15 @@ from os import path
 from apport.hookutils import attach_file_if_exists
 
 LOGS = (
-    ('ServiceLog', 'dmedia-service.log'),
-    ('GtkLog', 'dmedia-gtk.log'),
+    'dmedia-service.log',
+    'dmedia-service.log.previous',
+    'dmedia-gtk.log',
+    'dmedia-peer-gtk.log',
 )
 
 def add_info(report):
     report['CrashDB'] = 'dmedia'
     cache = path.join(os.environ['HOME'], '.cache', 'dmedia')
-    for (key, name) in LOGS:
-        log = path.join(cache, name)
-        attach_file_if_exists(report, log, key)
+    for name in LOGS:
+        attach_file_if_exists(report, path.join(cache, name), name)
 
