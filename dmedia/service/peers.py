@@ -41,6 +41,7 @@ from base64 import b64encode, b64decode
 from gettext import gettext as _
 from subprocess import Popen
 import weakref
+import time
 
 import dbus
 from gi.repository import GObject, Gtk, AppIndicator3
@@ -712,6 +713,8 @@ class Publisher:
             d = self.client.post(obj, 'csr')
             cert_data = b64decode(d['cert'].encode('utf-8'))
             self.cr.check_cert_mac(cert_data, d['mac'])
+            # Small delay to help with clocks being out of sync:
+            time.sleep(1)
             self.couch.pki.write_cert(self.cr.id, self.cr.peer_id, cert_data)
             self.couch.pki.verify_cert(self.cr.id, self.cr.peer_id)
             key_data = b64decode(d['key'].encode('utf-8'))
