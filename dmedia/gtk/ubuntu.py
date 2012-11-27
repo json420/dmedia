@@ -135,6 +135,10 @@ class UnityImportUX:
         hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
         hub.connect('error', WeakMethod(self, 'on_error'))
 
+    def __del__(self):
+        self.launcher.set_property('count_visible', False)
+        self.launcher.set_property('progress_visible', False)
+
     def on_stop(self, menuitem):
         self.hub.send('stop_importer')
 
