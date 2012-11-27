@@ -104,7 +104,7 @@ try:
         try:
             return json.loads(check_output(cmd, timeout=3).decode('utf-8'))
         except (TimeoutExpired, CalledProcessError):
-            return defalut
+            return default
 
 except ImportError:
 
