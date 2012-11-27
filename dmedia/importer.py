@@ -302,17 +302,17 @@ class ImportWorker(workers.CouchWorker):
         )
 
     def extractor(self):
-        try:
-            need_thumbnail = True
-            common = {
-                'import_id': self.id,
-                'batch_id': self.env.get('batch_id'),
-                'machine_id': self.env.get('machine_id'),
-            }
-            while True:
-                item = self.extraction_queue.get()
-                if item is None:
-                    break
+        need_thumbnail = True
+        common = {
+            'import_id': self.id,
+            'batch_id': self.env.get('batch_id'),
+            'machine_id': self.env.get('machine_id'),
+        }
+        while True:
+            item = self.extraction_queue.get()
+            if item is None:
+                break
+            try:
                 (timestamp, file, ch) = item
                 try:
                     doc = self.project.get(ch.id)
@@ -329,8 +329,8 @@ class ImportWorker(workers.CouchWorker):
                     need_thumbnail = False
                     self.thumbnail = self.project.get_att(ch.id, 'thumbnail') 
                     self.emit('import_thumbnail', self.id, ch.id)            
-        except Exception:
-            log.exception('Error in extractor thread:')
+            except Exception:
+                log.exception('Error in extractor thread:')
 
 
 class ImportManager(workers.CouchManager):
