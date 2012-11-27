@@ -149,6 +149,16 @@ def random_leaves(file_size):
         yield Leaf(index, data)
 
 
+def write_random(fp, max_size=LEAF_SIZE*4):
+    file_size = random.randint(1, max_size)
+    h = Hasher()
+    for leaf in random_leaves(file_size):
+        h.hash_leaf(leaf)
+        fp.write(leaf.data)
+    fp.close()
+    return h.content_hash()
+
+
 def random_file(tmpdir, max_size=LEAF_SIZE*4):
     filename = path.join(tmpdir, random_id())
     file_size = random.randint(1, max_size)

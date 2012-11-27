@@ -27,6 +27,7 @@ Unit tests for `dmedia.core` module.
 from unittest import TestCase
 import json
 import os
+from os import path
 import time
 from copy import deepcopy
 from base64 import b64encode
@@ -41,7 +42,7 @@ from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia import util, core
 
 from .couch import CouchCase
-from .base import TempDir, random_file_id
+from .base import TempDir, random_file_id, write_random
 
 
 class TestFunctions(TestCase):
@@ -450,3 +451,56 @@ class TestCore(CouchCase):
         self.assertIsNone(inst._update_atime(doc2))
         self.assertEqual(inst.db.get(_id), doc)
         self.assertNotEqual(inst.db.get(_id), doc2)
+
+    def test_allocate_tmp(self):
+        inst = core.Core(self.env)
+
+        with self.assertRaises(Exception) as cm:        
+            inst.allocate_tmp()
+        self.assertEqual(str(cm.exception), 'no file-stores present')
+
+        tmp = TempDir()
+        fs = inst.create_filestore(tmp.dir)
+        name = inst.allocate_tmp()
+        self.assertEqual(path.dirname(name), fs.tmp)
+        self.assertEqual(path.getsize(name), 0)
+
+    def test_hash_and_move(self):
+        inst = core.Core(self.env)
+        tmp = TempDir()
+        fs = inst.create_filestore(tmp.dir)
+        tmp_fp = fs.allocate_tmp()
+        ch = write_random(tmp_fp)
+
+        self.assertEqual(
+            inst.hash_and_move(tmp_fp.name, 'render'),
+            {
+                'file_id': ch.id,
+                'file_path': fs.path(ch.id),
+            }
+        )
+
+        doc = inst.db.get(ch.id)
+        rev = doc.pop('_rev')
+        self.assertTrue(rev.startswith('1-'))
+        att = doc.pop('_attachments')
+        self.assertIsInstance(att, dict)
+        self.assertEqual(set(att), set(['leaf_hashes']))
+        ts = doc.pop('time')
+        self.assertIsInstance(ts, float)
+        self.assertLessEqual(ts, time.time())
+        self.assertEqual(doc,
+            {
+                '_id': ch.id,
+                'type': 'dmedia/file',
+                'atime': int(ts),
+                'bytes': ch.file_size,
+                'origin': 'render',
+                'stored': {
+                    fs.id: {
+                        'copies': 1,
+                        'mtime': fs.stat(ch.id).mtime,
+                    },
+                },
+            }
+        )

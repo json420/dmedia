@@ -494,7 +494,7 @@ class Core:
     def allocate_tmp(self):
         stores = self.stores.sort_by_avail()
         if len(stores) == 0:
-            raise Exception('no filestores present')
+            raise Exception('no file-stores present')
         tmp_fp = stores[0].allocate_tmp()
         tmp_fp.close()
         return tmp_fp.name
@@ -514,13 +514,11 @@ class Core:
             doc = self.db.get(ch.id)
             doc['stored'].update(stored)
         except NotFound:
-            doc = schema.create_file(
-                ch.id, ch.file_size, ch.leaf_hashes, stored, origin
-            )
+            doc = schema.create_file(time.time(), ch, stored, origin)
         schema.check_file(doc)
         self.db.save(doc)
         return {
             'file_id': ch.id,
             'file_path': fs.path(ch.id),
         }
-        
+
