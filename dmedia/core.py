@@ -472,7 +472,7 @@ class Core:
     def resolve(self, _id):
         doc = self.db.get(_id)
         fs = self.stores.choose_local_store(doc)
-        self._update_atime(doc)
+        #self._update_atime(doc)
         return fs.stat(_id).name
 
     def resolve_uri(self, uri):
