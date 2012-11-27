@@ -32,6 +32,7 @@ import shutil
 from base64 import b64encode
 import time
 import calendar
+import logging
 
 from filestore import hash_fp
 from microfiber import Attachment, encode_attachment
@@ -39,6 +40,7 @@ from microfiber import Attachment, encode_attachment
 import dmedia
 
 
+log = logging.getLogger()
 dmedia_extract = 'dmedia-extract'
 tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
 if path.isfile(path.join(tree, 'setup.py')):
@@ -104,6 +106,7 @@ try:
         try:
             return json.loads(check_output(cmd, timeout=3).decode('utf-8'))
         except (TimeoutExpired, CalledProcessError):
+            log.exception(repr(cmd))
             return default
 
 except ImportError:
@@ -112,6 +115,7 @@ except ImportError:
         try:
             return json.loads(check_output(cmd).decode('utf-8'))
         except CalledProcessError:
+            log.exception(repr(cmd))
             return default
 
 
