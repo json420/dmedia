@@ -464,4 +464,29 @@ class TestCore(CouchCase):
                 'file_id': ch.id,
                 'file_path': fs.path(ch.id),
             }
-        )   
+        )
+
+        doc = inst.db.get(ch.id)
+        rev = doc.pop('_rev')
+        self.assertTrue(rev.startswith('1-'))
+        att = doc.pop('_attachments')
+        self.assertIsInstance(att, dict)
+        self.assertEqual(set(att), set(['leaf_hashes']))
+        ts = doc.pop('time')
+        self.assertIsInstance(ts, float)
+        self.assertLessEqual(ts, time.time())
+        self.assertEqual(doc,
+            {
+                '_id': ch.id,
+                'type': 'dmedia/file',
+                'atime': int(ts),
+                'bytes': ch.file_size,
+                'origin': 'render',
+                'stored': {
+                    fs.id: {
+                        'copies': 1,
+                        'mtime': fs.stat(ch.id).mtime,
+                    },
+                },
+            }
+        )
