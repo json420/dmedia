@@ -97,6 +97,24 @@ EXIF_CTIME_KEYS = (
 )
 
 
+try:
+    from subprocess import TimeoutExpired
+
+    def check_json(cmd, default):
+        try:
+            return json.loads(check_output(cmd, timeout=3).decode('utf-8'))
+        except (TimeoutExpired, CalledProcessError):
+            return defalut
+
+except ImportError:
+
+    def check_json(cmd, default):
+        try:
+            return json.loads(check_output(cmd).decode('utf-8'))
+        except CalledProcessError:
+            return default
+
+
 #### RAW extractors that call a script with check_output()
 def raw_exiftool_extract(filename):
     """
@@ -115,12 +133,8 @@ def raw_gst_extract(filename):
 
     Extractions is done using the `dmedia-extract` script.
     """
-    try:
-        cmd = [dmedia_extract, filename]
-        return json.loads(check_output(cmd).decode('utf-8'))
-    except Exception:
-        return {}
-
+    cmd = [dmedia_extract, filename]
+    return check_json(cmd, {})
 
 
 #### EXIF related utility functions:
