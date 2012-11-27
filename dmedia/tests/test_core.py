@@ -27,6 +27,7 @@ Unit tests for `dmedia.core` module.
 from unittest import TestCase
 import json
 import os
+from os import path
 import time
 from copy import deepcopy
 from base64 import b64encode
@@ -450,6 +451,19 @@ class TestCore(CouchCase):
         self.assertIsNone(inst._update_atime(doc2))
         self.assertEqual(inst.db.get(_id), doc)
         self.assertNotEqual(inst.db.get(_id), doc2)
+
+    def test_allocate_tmp(self):
+        inst = core.Core(self.env)
+
+        with self.assertRaises(Exception) as cm:        
+            inst.allocate_tmp()
+        self.assertEqual(str(cm.exception), 'no file-stores present')
+
+        tmp = TempDir()
+        fs = inst.create_filestore(tmp.dir)
+        name = inst.allocate_tmp()
+        self.assertEqual(path.dirname(name), fs.tmp)
+        self.assertEqual(path.getsize(name), 0)
 
     def test_hash_and_move(self):
         inst = core.Core(self.env)

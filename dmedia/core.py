@@ -494,7 +494,7 @@ class Core:
     def allocate_tmp(self):
         stores = self.stores.sort_by_avail()
         if len(stores) == 0:
-            raise Exception('no filestores present')
+            raise Exception('no file-stores present')
         tmp_fp = stores[0].allocate_tmp()
         tmp_fp.close()
         return tmp_fp.name
