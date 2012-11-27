@@ -24,26 +24,17 @@ Some Ubuntu-specific UI bits.
 """
 
 from gettext import gettext as _
-import weakref
 
 from gi.repository import Gtk, Notify, AppIndicator3, Unity
 
 from dmedia.importer import notify_started, notify_stats
 from dmedia.units import bytes10
+from dmedia.misc import WeakMethod
 
 
 Notify.init('dmedia')
 ICON = 'indicator-dmedia'
 ICON_ATT = 'indicator-dmedia-att'
-
-
-class WeakMethod:
-    def __init__(self, inst, method):
-        self.proxy = weakref.proxy(inst)
-        self.method = method
-
-    def __call__(self, *args):
-        return getattr(self.proxy, self.method)(*args)
 
 
 class NotifyManager:
