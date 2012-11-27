@@ -41,7 +41,7 @@ from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia import util, core
 
 from .couch import CouchCase
-from .base import TempDir, random_file_id
+from .base import TempDir, random_file_id, write_random
 
 
 class TestFunctions(TestCase):
@@ -450,3 +450,18 @@ class TestCore(CouchCase):
         self.assertIsNone(inst._update_atime(doc2))
         self.assertEqual(inst.db.get(_id), doc)
         self.assertNotEqual(inst.db.get(_id), doc2)
+
+    def test_hash_and_move(self):
+        inst = core.Core(self.env)
+        tmp = TempDir()
+        fs = inst.create_filestore(tmp.dir)
+        tmp_fp = fs.allocate_tmp()
+        ch = write_random(tmp_fp)
+
+        self.assertEqual(
+            inst.hash_and_move(tmp_fp.name, 'render'),
+            {
+                'file_id': ch.id,
+                'file_path': fs.path(ch.id),
+            }
+        )   
