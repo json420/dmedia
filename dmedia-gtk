@@ -239,6 +239,7 @@ class App(BaseApp):
             raise e
 
     def on_stop_importer(self, hub):
+        self.importer.manager.kill()
         self.importer = None
         self.ux = None
         GObject.idle_add(self.hub.send, 'importer_stopped')

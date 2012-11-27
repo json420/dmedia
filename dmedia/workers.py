@@ -262,7 +262,7 @@ class Manager(object):
     def _signal_thread(self):
         while self._running:
             try:
-                self._process_message(self._q.get(timeout=0.5))
+                self._process_message(self._q.get(timeout=0.25))
             except Empty:
                 pass
 
