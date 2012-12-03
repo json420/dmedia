@@ -285,11 +285,10 @@ class MetaStore:
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
-        try:
-            fs.remove(_id)
-        finally:
-            remove_from_stores(doc, fs)
-            self.db.save(doc)
+        remove_from_stores(doc, fs)
+        self.db.save(doc)
+        fs.remove(_id)  
+        return doc
 
     def verify(self, fs, _id, return_fp=False):
         doc = self.db.get(_id)

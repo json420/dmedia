@@ -29,12 +29,28 @@ import os
 from random import SystemRandom
 
 from filestore import FileStore, DIGEST_BYTES
+import microfiber
 from microfiber import random_id
 
 from dmedia.tests.base import TempDir
-from dmedia import metastore
+from dmedia.tests.couch import CouchCase
+from dmedia import util, schema, metastore
+
 
 random = SystemRandom()
+
+
+def make_stored(_id, *filestores):
+    return dict(
+        (
+            fs.id,
+            {
+                'copies': fs.copies,
+                'mtime': fs.stat(_id).mtime,
+            }
+        )
+        for fs in filestores
+    )
 
 
 class DummyStat:
@@ -347,5 +363,64 @@ class TestFunctions(TestCase):
                 items[75:100],
                 items[100:118],
             ]
+        )
+
+
+class TestMetaStore(CouchCase):
+    def test_init(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        self.assertIs(ms.db, db)
+
+    def test_remove(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        tmp1 = TempDir()
+        fs1 = util.init_filestore(tmp1.dir)[0]
+        tmp2 = TempDir()
+        fs2 = util.init_filestore(tmp2.dir)[0]
+
+        (file, ch) = tmp1.random_file()
+        self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
+        self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
+
+        # Test when file doc isn't in dmedia-0
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.remove(fs1, ch.id)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.remove(fs2, ch.id)
+        fs1.verify(ch.id)
+        fs2.verify(ch.id)
+
+        # Test when doc and file are present
+        stored = make_stored(ch.id, fs1, fs2)
+        doc = schema.create_file(time.time(), ch, stored)
+        db.save(doc)
+        doc = ms.remove(fs1, ch.id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertEqual(doc, db.get(ch.id))
+        self.assertEqual(doc['stored'],
+            {
+                fs2.id: {
+                    'mtime': fs2.stat(ch.id).mtime,
+                    'copies': 1,
+                },   
+            }
+        )
+
+        # Test when file isn't present
+        doc['stored'] = stored
+        db.save(doc)
+        with self.assertRaises(OSError) as cm:
+            ms.remove(fs1, ch.id)
+        doc = db.get(ch.id)
+        self.assertTrue(doc['_rev'].startswith('4-'))
+        self.assertEqual(doc['stored'],
+            {
+                fs2.id: {
+                    'mtime': fs2.stat(ch.id).mtime,
+                    'copies': 1,
+                },   
+            }
         )
 
