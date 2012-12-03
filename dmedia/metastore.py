@@ -28,7 +28,7 @@ import os
 import logging
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound, id_slice_iter
+from microfiber import NotFound, Conflict, id_slice_iter
 
 from .util import get_db
 
@@ -38,6 +38,24 @@ log = logging.getLogger()
 
 class MTimeMismatch(Exception):
     pass
+
+
+class UpdateConflict(Exception):
+    pass
+
+
+def update_doc(db, _id, func, *args):
+    for retry in range(2):
+        doc = db.get(_id)
+        func(doc, *args)
+        try:
+            db.save(doc)
+            return doc
+        except Conflict:
+            pass
+    raise UpdateConflict()
+        
+        
 
 
 def get_dict(d, key):
