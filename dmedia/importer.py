@@ -44,7 +44,7 @@ from dmedia.parallel import start_thread
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-from dmedia.metastore import make_stored, merge_stored
+from dmedia.metastore import create_stored, merge_stored
 from dmedia.extractor import extract, merge_thumbnail
 
 
@@ -264,16 +264,7 @@ class ImportWorker(workers.CouchWorker):
             timestamp = time.time()
             self.extraction_queue.put((timestamp, file, ch))
             log_doc = schema.create_log(timestamp, ch, file, **common)
-            stored = dict(
-                (
-                    fs.id,
-                    {
-                        'copies': fs.copies,
-                        'mtime': fs.stat(ch.id).mtime,
-                    }
-                )
-                for fs in filestores
-            )
+            stored = create_stored(ch.id, *filestores)
             try:
                 doc = self.db.get(ch.id)
                 doc['origin'] = 'user'

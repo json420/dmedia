@@ -56,7 +56,7 @@ def update_doc(db, _id, func, *args):
     raise UpdateConflict()
 
 
-def make_stored(_id, *filestores):
+def create_stored(_id, *filestores):
     return dict(
         (
             fs.id,

@@ -36,7 +36,7 @@ from microfiber import random_id
 from dmedia.tests.base import TempDir
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
-from dmedia.metastore import make_stored
+from dmedia.metastore import create_stored
 
 
 random = SystemRandom()
@@ -85,7 +85,7 @@ class TestFunctions(TestCase):
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
 
-    def test_make_stored(self):
+    def test_create_stored(self):
         tmp1 = TempDir()
         fs1 = util.init_filestore(tmp1.dir, copies=0)[0]
         tmp2 = TempDir()
@@ -94,8 +94,8 @@ class TestFunctions(TestCase):
         self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
         self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
 
-        self.assertEqual(metastore.make_stored(ch.id), {})
-        self.assertEqual(metastore.make_stored(ch.id, fs1),
+        self.assertEqual(metastore.create_stored(ch.id), {})
+        self.assertEqual(metastore.create_stored(ch.id, fs1),
             {
                 fs1.id: {
                     'copies': 0,
@@ -103,7 +103,7 @@ class TestFunctions(TestCase):
                 },
             }
         )
-        self.assertEqual(metastore.make_stored(ch.id, fs1, fs2),
+        self.assertEqual(metastore.create_stored(ch.id, fs1, fs2),
             {
                 fs1.id: {
                     'copies': 0,
@@ -530,7 +530,7 @@ class TestMetaStore(CouchCase):
         fs2.verify(ch.id)
 
         # Test when doc and file are present
-        stored = make_stored(ch.id, fs1, fs2)
+        stored = create_stored(ch.id, fs1, fs2)
         doc = schema.create_file(time.time(), ch, stored)
         db.save(doc)
         doc = ms.remove(fs1, ch.id)
@@ -574,7 +574,7 @@ class TestMetaStore(CouchCase):
 
         # Test when file and doc are present
         self.assertEqual(fs.import_file(open(file.name, 'rb')), ch)
-        stored = make_stored(ch.id, fs)
+        stored = create_stored(ch.id, fs)
         doc = schema.create_file(time.time(), ch, stored)
         db.save(doc)
         self.assertEqual(ms.verify(fs, ch.id), ch)
