@@ -215,7 +215,7 @@ class TestFunctions(TestCase):
                     fs.id: {
                         'copies': 1,
                         'mtime': 1234567891,
-                        'verified': ts,      
+                        'verified': int(ts),      
                     },
                 },
             }
@@ -243,7 +243,7 @@ class TestFunctions(TestCase):
                     fs.id: {
                         'copies': 1,
                         'mtime': 1234567892,
-                        'verified': ts,    
+                        'verified': int(ts),    
                         'pin': True,  
                     },
                     fs_id2: 'foo',
@@ -421,6 +421,39 @@ class TestMetaStore(CouchCase):
                     'mtime': fs2.stat(ch.id).mtime,
                     'copies': 1,
                 },   
+            }
+        )
+
+    def test_verify(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        tmp = TempDir()
+        fs = util.init_filestore(tmp.dir)[0]
+        (file, ch) = tmp.random_file()
+
+        # Test when file doc isn't in dmedia-0
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.remove(fs, ch.id)
+
+        # Test when file and doc are present
+        self.assertEqual(fs.import_file(open(file.name, 'rb')), ch)
+        stored = make_stored(ch.id, fs)
+        doc = schema.create_file(time.time(), ch, stored)
+        db.save(doc)
+        self.assertEqual(ms.verify(fs, ch.id), ch)
+        doc = db.get(ch.id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        schema.check_file(doc)
+        verified = doc['stored'][fs.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs.id: {
+                    'copies': 1,
+                    'mtime': fs.stat(ch.id).mtime,
+                    'verified': verified,
+                },
             }
         )
 

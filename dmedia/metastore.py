@@ -110,7 +110,7 @@ def mark_verified(doc, fs, timestamp):
     new = {
         'copies': fs.copies,
         'mtime': fs.stat(_id).mtime,
-        'verified': timestamp,
+        'verified': int(timestamp),
     }
     update(stored, fs.id, new)
 
