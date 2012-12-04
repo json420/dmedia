@@ -44,41 +44,6 @@ class UpdateConflict(Exception):
     pass
 
 
-def update_doc(db, _id, func, *args):
-    for retry in range(2):
-        doc = db.get(_id)
-        func(doc, *args)
-        try:
-            db.save(doc)
-            return doc
-        except Conflict:
-            pass
-    raise UpdateConflict()
-
-
-def create_stored(_id, *filestores):
-    return dict(
-        (
-            fs.id,
-            {
-                'copies': fs.copies,
-                'mtime': fs.stat(_id).mtime,
-            }
-        )
-        for fs in filestores
-    )
-
-
-def merge_stored(old, new):
-    for (key, value) in new.items():
-        assert set(value) == set(['copies', 'mtime'])
-        if key in old:
-            old[key].update(value)
-            old[key].pop('verified', None)
-        else:
-            old[key] = value 
-
-
 def get_dict(d, key):
     """
     Force value for *key* in *d* to be a ``dict``.
@@ -97,6 +62,47 @@ def get_dict(d, key):
         return value
     d[key] = {}
     return d[key]
+
+
+def update_doc(db, _id, func, *args):
+    for retry in range(2):
+        doc = db.get(_id)
+        func(doc, *args)
+        try:
+            db.save(doc)
+            return doc
+        except Conflict:
+            pass
+    raise UpdateConflict()
+
+
+def create_stored(_id, *filestores):
+    """
+    Create doc['stored'] for file with *_id* stored in *filestores*.
+    """
+    return dict(
+        (
+            fs.id,
+            {
+                'copies': fs.copies,
+                'mtime': fs.stat(_id).mtime,
+            }
+        )
+        for fs in filestores
+    )
+
+
+def merge_stored(old, new):
+    """
+    Update doc['stored'] based on new storage information in *new*.
+    """
+    for (key, value) in new.items():
+        assert set(value) == set(['copies', 'mtime'])
+        if key in old:
+            old[key].update(value)
+            old[key].pop('verified', None)
+        else:
+            old[key] = value 
 
 
 def update(d, key, new):
