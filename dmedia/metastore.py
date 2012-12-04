@@ -54,8 +54,19 @@ def update_doc(db, _id, func, *args):
         except Conflict:
             pass
     raise UpdateConflict()
-        
-        
+
+
+def make_stored(_id, *filestores):
+    return dict(
+        (
+            fs.id,
+            {
+                'copies': fs.copies,
+                'mtime': fs.stat(_id).mtime,
+            }
+        )
+        for fs in filestores
+    )
 
 
 def get_dict(d, key):

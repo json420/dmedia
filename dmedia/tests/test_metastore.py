@@ -35,22 +35,10 @@ from microfiber import random_id
 from dmedia.tests.base import TempDir
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
+from dmedia.metastore import make_stored
 
 
 random = SystemRandom()
-
-
-def make_stored(_id, *filestores):
-    return dict(
-        (
-            fs.id,
-            {
-                'copies': fs.copies,
-                'mtime': fs.stat(_id).mtime,
-            }
-        )
-        for fs in filestores
-    )
 
 
 class DummyStat:
@@ -95,6 +83,37 @@ class TestFunctions(TestCase):
         self.assertEqual(ret, {'bar': 0, 'baz': 1})
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
+
+    def test_make_stored(self):
+        tmp1 = TempDir()
+        fs1 = util.init_filestore(tmp1.dir, copies=0)[0]
+        tmp2 = TempDir()
+        fs2 = util.init_filestore(tmp2.dir, copies=2)[0]
+        (file, ch) = tmp1.random_file()
+        self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
+        self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
+
+        self.assertEqual(metastore.make_stored(ch.id), {})
+        self.assertEqual(metastore.make_stored(ch.id, fs1),
+            {
+                fs1.id: {
+                    'copies': 0,
+                    'mtime': fs1.stat(ch.id).mtime,
+                },
+            }
+        )
+        self.assertEqual(metastore.make_stored(ch.id, fs1, fs2),
+            {
+                fs1.id: {
+                    'copies': 0,
+                    'mtime': fs1.stat(ch.id).mtime,
+                },
+                fs2.id: {
+                    'copies': 2,
+                    'mtime': fs2.stat(ch.id).mtime,
+                }, 
+            }
+        )
 
     def test_update(self):
         new = {'foo': 2, 'bar': 2}
