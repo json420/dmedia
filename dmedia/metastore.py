@@ -69,6 +69,16 @@ def make_stored(_id, *filestores):
     )
 
 
+def merge_stored(old, new):
+    for (key, value) in new.items():
+        assert set(value) == set(['copies', 'mtime'])
+        if key in old:
+            old[key].update(value)
+            old[key].pop('verified', None)
+        else:
+            old[key] = value 
+
+
 def get_dict(d, key):
     """
     Force value for *key* in *d* to be a ``dict``.

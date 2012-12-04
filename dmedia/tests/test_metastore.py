@@ -27,6 +27,7 @@ from unittest import TestCase
 import time
 import os
 from random import SystemRandom
+from copy import deepcopy
 
 from filestore import FileStore, DIGEST_BYTES
 import microfiber
@@ -112,6 +113,123 @@ class TestFunctions(TestCase):
                     'copies': 2,
                     'mtime': fs2.stat(ch.id).mtime,
                 }, 
+            }
+        )
+
+    def test_merge_stored(self):
+        id1 = random_id()
+        id2 = random_id()
+        id3 = random_id()
+        ts1 = time.time()
+        ts2 = time.time() - 2.5
+        ts3 = time.time() - 5
+        new = {
+            id1: {
+                'copies': 2,
+                'mtime': ts1,
+            },
+            id2: {
+                'copies': 1,
+                'mtime': ts2,
+            },
+        }
+
+        old = {}
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old, new)
+
+        old = {
+            id3: {
+                'copies': 1,
+                'mtime': ts3,
+                'verified': int(ts3 + 100),
+            }
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                },
+                id3: {
+                    'copies': 1,
+                    'mtime': ts3,
+                    'verified': int(ts3 + 100),
+                }
+            }
+        )
+
+        old = {
+            id1: {
+                'copies': 1,
+                'mtime': ts1 - 100,
+                'verified': ts1 - 50,  # Should be removed
+            },
+            id2: {
+                'copies': 2,
+                'mtime': ts2 - 200,
+                'pinned': True,  # Should be preserved
+            },
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                    'pinned': True,
+                },
+            }
+        )
+
+        old = {
+            id1: {
+                'copies': 1,
+                'mtime': ts1 - 100,
+                'pinned': True,  # Should be preserved
+                'verified': ts1 - 50,  # Should be removed
+            },
+            id2: {
+                'copies': 2,
+                'mtime': ts2 - 200,
+                'verified': ts1 - 50,  # Should be removed
+                'pinned': True,  # Should be preserved
+            },
+            id3: {
+                'copies': 1,
+                'mtime': ts3,
+                'verified': int(ts3 + 100),
+                'pinned': True,
+            },
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                    'pinned': True,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                    'pinned': True,
+                },
+                id3: {
+                    'copies': 1,
+                    'mtime': ts3,
+                    'verified': int(ts3 + 100),
+                    'pinned': True,
+                },
             }
         )
 
