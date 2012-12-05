@@ -27,6 +27,7 @@ from unittest import TestCase
 import time
 import os
 from os import path
+import io
 from random import SystemRandom
 from copy import deepcopy
 
@@ -749,6 +750,67 @@ class TestMetaStore(CouchCase):
         self.assertTrue(db.get(_id)['_rev'].startswith('2-'))
         self.assertEqual(ms.content_md5(fs, _id, force=True), content_md5)
         self.assertTrue(db.get(_id)['_rev'].startswith('3-'))
+
+    def test_allocate_partial(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs1 = TempFileStore(random_id(), 1)
+        fs2 = TempFileStore(random_id(), 1)
+
+        _id = random_file_id()
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.allocate_partial(fs2, _id)
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        tmp_fp = ms.allocate_partial(fs2, _id)
+        self.assertIsInstance(tmp_fp, io.BufferedWriter)
+        self.assertEqual(tmp_fp.name,
+            path.join(fs2.basedir, 'partial', _id)
+        )
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                },
+            }   
+        )
+        self.assertEqual(doc['partial'],
+            {
+                fs2.id: {
+                    'mtime': path.getmtime(fs2.partial_path(_id)),
+                },
+            }   
+        )
+
+        # Also test MetaStore.verify_and_move():
+        src_fp = fs1.open(_id)
+        while True:
+            chunk = src_fp.read(1024 * 1024)
+            if not chunk:
+                break
+            tmp_fp.write(chunk)
+        tmp_fp.close()
+        tmp_fp = open(tmp_fp.name, 'rb')
+        ms.verify_and_move(fs2, tmp_fp, _id)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('3-'))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': fs2.stat(_id).mtime,
+                },
+            }   
+        )
+        self.assertNotIn('partial', doc)
 
     def test_copy(self):
         db = util.get_db(self.env, True)

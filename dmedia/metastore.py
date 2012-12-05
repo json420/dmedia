@@ -384,6 +384,8 @@ class MetaStore:
             del partial[fs.id]
         except KeyError:
             pass
+        if not partial:
+            del doc['partial']
         add_to_stores(doc, fs)
         self.db.save(doc)
         return ch
