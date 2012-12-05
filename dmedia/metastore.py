@@ -393,4 +393,4 @@ class MetaStore:
             ch = src_filestore.copy(_id, *dst_filestores)
             add_to_stores(doc, *dst_filestores)
             return ch
-        
+

@@ -34,7 +34,7 @@ from filestore import TempFileStore, FileStore, DIGEST_BYTES
 import microfiber
 from microfiber import random_id
 
-from dmedia.tests.base import TempDir, write_random
+from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored
@@ -719,4 +719,39 @@ class TestMetaStore(CouchCase):
                 },
             }
         )
+
+    def test_content_md5(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore(random_id(), 1)
+
+        _id = random_file_id()
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.content_md5(fs, _id)
+
+        doc = create_random_file(fs, db)
+        _id = doc['_id']
+        self.assertNotIn('content_md5', doc)
+        content_md5 = ms.content_md5(fs, _id)
+        self.assertEqual(content_md5, fs.content_md5(_id)[1])
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertEqual(doc['content_md5'], content_md5)
+        verified = doc['stored'][fs.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs.id: {
+                    'copies': 1,
+                    'mtime': fs.stat(_id).mtime,
+                    'verified': verified,
+                },   
+            }
+        )
+
+        self.assertEqual(ms.content_md5(fs, _id), content_md5)
+        self.assertTrue(db.get(_id)['_rev'].startswith('2-'))
+        self.assertEqual(ms.content_md5(fs, _id, force=True), content_md5)
+        self.assertTrue(db.get(_id)['_rev'].startswith('3-'))
 
