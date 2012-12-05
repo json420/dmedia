@@ -607,21 +607,19 @@ class TestMetaStore(CouchCase):
         fs = TempFileStore(random_id(), 1)
 
         # A few good files
-        good = [create_random_file(fs, db) for i in range(10)]
+        good = [create_random_file(fs, db) for i in range(8)]
 
         # A few missing files
-        missing = [create_random_file(fs, db) for i in range(16)]
+        missing = [create_random_file(fs, db) for i in range(18)]
         for doc in missing:
             doc['stored'] = {}
             db.save(doc)
 
-        self.assertEqual(ms.relink(fs), 16)
-
+        self.assertEqual(ms.relink(fs), 18)
         for doc in good:
             _id = doc['_id']
             self.assertEqual(db.get(_id), doc)
             fs.verify(_id)
-
         for doc in missing:
             _id = doc['_id']
             doc = db.get(_id)
@@ -635,6 +633,7 @@ class TestMetaStore(CouchCase):
                     },
                 }
             )
+        self.assertEqual(ms.relink(fs), 0)
 
     def test_remove(self):
         db = util.get_db(self.env, True)
