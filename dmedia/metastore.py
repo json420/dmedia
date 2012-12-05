@@ -20,7 +20,21 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Doodle.
+A FileStore-like API that also updates the CouchDB docs.
+
+The FileStore only deals with files, and does nothing with the metadata about
+the files.
+
+The idea with the MetaStore is to wrap both the file and metadata operations
+together with a high-level API.  A good example is coping a file from one
+FileStore to another, which involves a fairly complicated metadata update:
+
+    1) As we verify a we read, upon a successful read we updated the
+       verification timestamp for the source FileStore; if the file is corrupt
+       or missing, we likewise update the document
+
+    2) We also need to update doc['stored'] with each new FileStore this file is
+       now in
 """
 
 import time
