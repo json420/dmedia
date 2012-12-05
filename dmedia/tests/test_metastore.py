@@ -601,6 +601,41 @@ class TestMetaStore(CouchCase):
         self.assertIsInstance(atime, int)
         self.assertLessEqual(atime, int(time.time()))
 
+    def test_relink(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore(random_id(), 1)
+
+        # A few good files
+        good = [create_random_file(fs, db) for i in range(10)]
+
+        # A few missing files
+        missing = [create_random_file(fs, db) for i in range(16)]
+        for doc in missing:
+            doc['stored'] = {}
+            db.save(doc)
+
+        self.assertEqual(ms.relink(fs), 16)
+
+        for doc in good:
+            _id = doc['_id']
+            self.assertEqual(db.get(_id), doc)
+            fs.verify(_id)
+
+        for doc in missing:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            fs.verify(_id)
+            self.assertEqual(doc['stored'],
+                {
+                    fs.id: {
+                        'copies': 1,
+                        'mtime': fs.stat(_id).mtime,
+                    },
+                }
+            )
+
     def test_remove(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)

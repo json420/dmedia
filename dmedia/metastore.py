@@ -311,6 +311,7 @@ class MetaStore:
         Find known files that we didn't expect in `FileStore` *fs*.
         """
         start = time.time()
+        count = 0
         log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
         for buf in relink_iter(fs):
             docs = self.db.get_many([st.id for st in buf])
@@ -327,7 +328,9 @@ class MetaStore:
                     copies=fs.copies,
                 )
                 self.db.save(doc)
+                count += 1
         log.info('%.3f to relink %r', time.time() - start, fs)
+        return count
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
