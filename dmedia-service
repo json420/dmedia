@@ -113,6 +113,7 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_added', self.on_card_added)
         self.udisks.connect('card_removed', self.on_card_removed)
 
+        self.snapshot_all = None
         self.snapshot_queue_in = multiprocessing.Queue()
         self.snapshot_queue_out = multiprocessing.Queue()
         self.snapshots_in_flight = set()
@@ -164,6 +165,20 @@ class Service(dbus.service.Object):
     @dbus.service.signal(IFACE, signature='sb')
     def SnapshotComplete(self, dbname, success):
         log.info('@Dmedia.SnapshotComplete(%r, %r)', dbname, success)
+        if self.snapshot_all is None:
+            return
+        try:
+            self.snapshot_all.remove(dbname)
+        except KeyError:
+            return
+        self.snapshot_all_success = (self.snapshot_all_success and success)
+        if len(self.snapshot_all) == 0:
+            self.snapshot_all = None
+            self.SnapshotAllComplete(self.snapshot_all_success)
+
+    @dbus.service.signal(IFACE, signature='b')
+    def SnapshotAllComplete(self, success):
+        log.info('@Dmedia.SnapshotAllComplete(%r)', success)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='b')
     def Snapshot(self, dbname):
@@ -185,13 +200,21 @@ class Service(dbus.service.Object):
         self.snapshot_queue_in.put(dbname)
         return True
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def SnapshotAll(self):
         log.info('Dmedia.SnapshotAll()')
-        for dbname in self.core.server.get('_all_dbs'):
-            if dbname.startswith('_') or dbname == 'thumbnails':
+        if self.snapshot_all is not None:
+            return False
+        names = set()
+        for db in self.core.server.get('_all_dbs'):
+            if db.startswith('_') or db == 'thumbnails':
                 continue
-            self.Snapshot(dbname)
+            names.add(db)
+        self.snapshot_all_success = True
+        self.snapshot_all = names
+        for db in sorted(names):
+            self.Snapshot(db)
+        return True
 
     def run(self):
         if self.couch.user is None:
