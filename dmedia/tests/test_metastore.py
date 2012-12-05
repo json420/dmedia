@@ -26,20 +26,32 @@ Unit tests for `dmedia.metastore`.
 from unittest import TestCase
 import time
 import os
+from os import path
 from random import SystemRandom
 from copy import deepcopy
 
-from filestore import FileStore, DIGEST_BYTES
+from filestore import TempFileStore, FileStore, DIGEST_BYTES
 import microfiber
 from microfiber import random_id
 
-from dmedia.tests.base import TempDir
+from dmedia.tests.base import TempDir, write_random
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored
 
 
 random = SystemRandom()
+
+
+def create_random_file(fs, db):
+    tmp_fp = fs.allocate_tmp()
+    ch = write_random(tmp_fp)
+    tmp_fp = open(tmp_fp.name, 'rb')
+    fs.move_to_canonical(tmp_fp, ch.id)
+    stored = create_stored(ch.id, fs)
+    doc = schema.create_file(time.time(), ch, stored)
+    db.save(doc)
+    return db.get(ch.id)
 
 
 class DummyStat:
@@ -253,7 +265,7 @@ class TestFunctions(TestCase):
         self.assertEqual(stored,
             {'one': {'foo': 2, 'bar': 2, 'baz': 1}}
         )
-        
+
     def test_add_to_stores(self):
         fs1 = DummyFileStore()
         fs2 = DummyFileStore()
@@ -508,6 +520,79 @@ class TestMetaStore(CouchCase):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         self.assertIs(ms.db, db)
+        self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
+
+    def test_scan(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore(random_id(), 1)
+
+        # A few good files
+        good = [create_random_file(fs, db) for i in range(10)]
+
+        # A few files with bad mtime
+        bad_mtime = [create_random_file(fs, db) for i in range(8)]
+        for doc in bad_mtime:
+            value = doc['stored'][fs.id]
+            value['mtime'] -= 100
+            value['verified'] = 1234567890
+            value['pinned'] = True
+            db.save(doc)
+
+        # A few files with bad size
+        bad_size = [create_random_file(fs, db) for i in range(4)]
+        for doc in bad_size:
+            doc['bytes'] += 1776
+            db.save(doc)
+
+        # A few missing files
+        missing = [create_random_file(fs, db) for i in range(4)]
+        for doc in missing:
+            fs.remove(doc['_id'])
+
+        self.assertEqual(ms.scan(fs), 26)
+
+        for doc in good:
+            self.assertEqual(db.get(doc['_id']), doc)
+            self.assertTrue(doc['_rev'].startswith('1-'))
+
+        for doc in bad_mtime:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(doc['stored'],
+                {
+                    fs.id: {
+                        'copies': 0,
+                        'mtime': fs.stat(_id).mtime,
+                        'pinned': True,
+                    },
+                }
+            )
+
+        for doc in bad_size:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(doc['stored'], {})
+            ts = doc['corrupt'][fs.id]['time']
+            self.assertIsInstance(ts, float)
+            self.assertLessEqual(ts, time.time())
+            self.assertEqual(doc['corrupt'],
+                {
+                    fs.id: {
+                        'time': ts,
+                    },
+                }
+            )
+            self.assertFalse(path.exists(fs.path(_id)))
+            self.assertTrue(path.isfile(fs.corrupt_path(_id)))
+
+        for doc in missing:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
 
     def test_remove(self):
         db = util.get_db(self.env, True)

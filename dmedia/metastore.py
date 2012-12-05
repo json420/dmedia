@@ -303,7 +303,9 @@ class MetaStore:
             log.info('Updated FileStore %s atime to %r', fs.id, doc['atime'])
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
-        log.info('%.3f to scan %r', time.time() - start, fs)
+        count = len(rows)
+        log.info('%.3f to scan %r files in %r', time.time() - start, count, fs)
+        return count
 
     def relink(self, fs):
         """
