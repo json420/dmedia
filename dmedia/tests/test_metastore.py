@@ -26,15 +26,33 @@ Unit tests for `dmedia.metastore`.
 from unittest import TestCase
 import time
 import os
+from os import path
+import io
 from random import SystemRandom
+from copy import deepcopy
 
-from filestore import FileStore, DIGEST_BYTES
+from filestore import TempFileStore, FileStore, DIGEST_BYTES
+import microfiber
 from microfiber import random_id
 
-from dmedia.tests.base import TempDir
-from dmedia import metastore
+from dmedia.tests.base import TempDir, write_random, random_file_id
+from dmedia.tests.couch import CouchCase
+from dmedia import util, schema, metastore
+from dmedia.metastore import create_stored
+
 
 random = SystemRandom()
+
+
+def create_random_file(fs, db):
+    tmp_fp = fs.allocate_tmp()
+    ch = write_random(tmp_fp)
+    tmp_fp = open(tmp_fp.name, 'rb')
+    fs.move_to_canonical(tmp_fp, ch.id)
+    stored = create_stored(ch.id, fs)
+    doc = schema.create_file(time.time(), ch, stored)
+    db.save(doc)
+    return db.get(ch.id)
 
 
 class DummyStat:
@@ -80,6 +98,154 @@ class TestFunctions(TestCase):
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
 
+    def test_create_stored(self):
+        tmp1 = TempDir()
+        fs1 = util.init_filestore(tmp1.dir, copies=0)[0]
+        tmp2 = TempDir()
+        fs2 = util.init_filestore(tmp2.dir, copies=2)[0]
+        (file, ch) = tmp1.random_file()
+        self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
+        self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
+
+        self.assertEqual(metastore.create_stored(ch.id), {})
+        self.assertEqual(metastore.create_stored(ch.id, fs1),
+            {
+                fs1.id: {
+                    'copies': 0,
+                    'mtime': fs1.stat(ch.id).mtime,
+                },
+            }
+        )
+        self.assertEqual(metastore.create_stored(ch.id, fs1, fs2),
+            {
+                fs1.id: {
+                    'copies': 0,
+                    'mtime': fs1.stat(ch.id).mtime,
+                },
+                fs2.id: {
+                    'copies': 2,
+                    'mtime': fs2.stat(ch.id).mtime,
+                }, 
+            }
+        )
+
+    def test_merge_stored(self):
+        id1 = random_id()
+        id2 = random_id()
+        id3 = random_id()
+        ts1 = time.time()
+        ts2 = time.time() - 2.5
+        ts3 = time.time() - 5
+        new = {
+            id1: {
+                'copies': 2,
+                'mtime': ts1,
+            },
+            id2: {
+                'copies': 1,
+                'mtime': ts2,
+            },
+        }
+
+        old = {}
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old, new)
+
+        old = {
+            id3: {
+                'copies': 1,
+                'mtime': ts3,
+                'verified': int(ts3 + 100),
+            }
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                },
+                id3: {
+                    'copies': 1,
+                    'mtime': ts3,
+                    'verified': int(ts3 + 100),
+                }
+            }
+        )
+
+        old = {
+            id1: {
+                'copies': 1,
+                'mtime': ts1 - 100,
+                'verified': ts1 - 50,  # Should be removed
+            },
+            id2: {
+                'copies': 2,
+                'mtime': ts2 - 200,
+                'pinned': True,  # Should be preserved
+            },
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                    'pinned': True,
+                },
+            }
+        )
+
+        old = {
+            id1: {
+                'copies': 1,
+                'mtime': ts1 - 100,
+                'pinned': True,  # Should be preserved
+                'verified': ts1 - 50,  # Should be removed
+            },
+            id2: {
+                'copies': 2,
+                'mtime': ts2 - 200,
+                'verified': ts1 - 50,  # Should be removed
+                'pinned': True,  # Should be preserved
+            },
+            id3: {
+                'copies': 1,
+                'mtime': ts3,
+                'verified': int(ts3 + 100),
+                'pinned': True,
+            },
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                    'pinned': True,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                    'pinned': True,
+                },
+                id3: {
+                    'copies': 1,
+                    'mtime': ts3,
+                    'verified': int(ts3 + 100),
+                    'pinned': True,
+                },
+            }
+        )
+
     def test_update(self):
         new = {'foo': 2, 'bar': 2}
 
@@ -100,7 +266,7 @@ class TestFunctions(TestCase):
         self.assertEqual(stored,
             {'one': {'foo': 2, 'bar': 2, 'baz': 1}}
         )
-        
+
     def test_add_to_stores(self):
         fs1 = DummyFileStore()
         fs2 = DummyFileStore()
@@ -116,7 +282,6 @@ class TestFunctions(TestCase):
                     fs1.id: {
                         'copies': 1,
                         'mtime': 1234567891,
-                        'verified': 0,
                     },
                 },
             }
@@ -132,12 +297,10 @@ class TestFunctions(TestCase):
                     fs1.id: {
                         'copies': 1,
                         'mtime': 1234567892,
-                        'verified': 0,
                     },
                     fs2.id: {
                         'copies': 1,
                         'mtime': 1234567891,
-                        'verified': 0,
                     },
                 },
             }
@@ -153,13 +316,11 @@ class TestFunctions(TestCase):
                     fs1.id: {
                         'copies': 1,
                         'mtime': 1234567893,
-                        'verified': 0,
                         'pin': True,
                     },
                     fs2.id: {
                         'copies': 1,
                         'mtime': 1234567892,
-                        'verified': 0,
                     },
                 },
             }
@@ -199,7 +360,7 @@ class TestFunctions(TestCase):
                     fs.id: {
                         'copies': 1,
                         'mtime': 1234567891,
-                        'verified': ts,      
+                        'verified': int(ts),      
                     },
                 },
             }
@@ -227,7 +388,7 @@ class TestFunctions(TestCase):
                     fs.id: {
                         'copies': 1,
                         'mtime': 1234567892,
-                        'verified': ts,    
+                        'verified': int(ts),    
                         'pin': True,  
                     },
                     fs_id2: 'foo',
@@ -349,3 +510,368 @@ class TestFunctions(TestCase):
             ]
         )
 
+
+class TestMetaStore(CouchCase):
+    def test_init(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        self.assertIs(ms.db, db)
+        self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
+
+    def test_scan(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore(random_id(), 1)
+        db.save({'_id': fs.id, 'type': 'dmedia/store'})
+
+        # A few good files
+        good = [create_random_file(fs, db) for i in range(10)]
+
+        # A few files with bad mtime
+        bad_mtime = [create_random_file(fs, db) for i in range(8)]
+        for doc in bad_mtime:
+            value = doc['stored'][fs.id]
+            value['mtime'] -= 100
+            value['verified'] = 1234567890
+            value['pinned'] = True
+            db.save(doc)
+
+        # A few files with bad size
+        bad_size = [create_random_file(fs, db) for i in range(4)]
+        for doc in bad_size:
+            doc['bytes'] += 1776
+            db.save(doc)
+
+        # A few missing files
+        missing = [create_random_file(fs, db) for i in range(4)]
+        for doc in missing:
+            fs.remove(doc['_id'])
+
+        self.assertEqual(ms.scan(fs), 26)
+
+        for doc in good:
+            self.assertEqual(db.get(doc['_id']), doc)
+            self.assertTrue(doc['_rev'].startswith('1-'))
+
+        for doc in bad_mtime:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(doc['stored'],
+                {
+                    fs.id: {
+                        'copies': 0,
+                        'mtime': fs.stat(_id).mtime,
+                        'pinned': True,
+                    },
+                }
+            )
+
+        for doc in bad_size:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(doc['stored'], {})
+            ts = doc['corrupt'][fs.id]['time']
+            self.assertIsInstance(ts, float)
+            self.assertLessEqual(ts, time.time())
+            self.assertEqual(doc['corrupt'],
+                {
+                    fs.id: {
+                        'time': ts,
+                    },
+                }
+            )
+            self.assertFalse(path.exists(fs.path(_id)))
+            self.assertTrue(path.isfile(fs.corrupt_path(_id)))
+
+        for doc in missing:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+
+        doc = db.get(fs.id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        atime = doc.get('atime')
+        self.assertIsInstance(atime, int)
+        self.assertLessEqual(atime, int(time.time()))
+
+    def test_relink(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore(random_id(), 1)
+
+        # A few good files
+        good = [create_random_file(fs, db) for i in range(8)]
+
+        # A few missing files
+        missing = [create_random_file(fs, db) for i in range(18)]
+        for doc in missing:
+            doc['stored'] = {}
+            db.save(doc)
+
+        self.assertEqual(ms.relink(fs), 18)
+        for doc in good:
+            _id = doc['_id']
+            self.assertEqual(db.get(_id), doc)
+            fs.verify(_id)
+        for doc in missing:
+            _id = doc['_id']
+            doc = db.get(_id)
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            fs.verify(_id)
+            self.assertEqual(doc['stored'],
+                {
+                    fs.id: {
+                        'copies': 1,
+                        'mtime': fs.stat(_id).mtime,
+                    },
+                }
+            )
+        self.assertEqual(ms.relink(fs), 0)
+
+    def test_remove(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        tmp1 = TempDir()
+        fs1 = util.init_filestore(tmp1.dir)[0]
+        tmp2 = TempDir()
+        fs2 = util.init_filestore(tmp2.dir)[0]
+
+        (file, ch) = tmp1.random_file()
+        self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
+        self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
+
+        # Test when file doc isn't in dmedia-0
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.remove(fs1, ch.id)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.remove(fs2, ch.id)
+        fs1.verify(ch.id)
+        fs2.verify(ch.id)
+
+        # Test when doc and file are present
+        stored = create_stored(ch.id, fs1, fs2)
+        doc = schema.create_file(time.time(), ch, stored)
+        db.save(doc)
+        doc = ms.remove(fs1, ch.id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertEqual(doc, db.get(ch.id))
+        self.assertEqual(doc['stored'],
+            {
+                fs2.id: {
+                    'mtime': fs2.stat(ch.id).mtime,
+                    'copies': 1,
+                },   
+            }
+        )
+
+        # Test when file isn't present
+        doc['stored'] = stored
+        db.save(doc)
+        with self.assertRaises(OSError) as cm:
+            ms.remove(fs1, ch.id)
+        doc = db.get(ch.id)
+        self.assertTrue(doc['_rev'].startswith('4-'))
+        self.assertEqual(doc['stored'],
+            {
+                fs2.id: {
+                    'mtime': fs2.stat(ch.id).mtime,
+                    'copies': 1,
+                },   
+            }
+        )
+
+    def test_verify(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        tmp = TempDir()
+        fs = util.init_filestore(tmp.dir)[0]
+        (file, ch) = tmp.random_file()
+
+        # Test when file doc isn't in dmedia-0
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.remove(fs, ch.id)
+
+        # Test when file and doc are present
+        self.assertEqual(fs.import_file(open(file.name, 'rb')), ch)
+        stored = create_stored(ch.id, fs)
+        doc = schema.create_file(time.time(), ch, stored)
+        db.save(doc)
+        self.assertEqual(ms.verify(fs, ch.id), ch)
+        doc = db.get(ch.id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        schema.check_file(doc)
+        verified = doc['stored'][fs.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs.id: {
+                    'copies': 1,
+                    'mtime': fs.stat(ch.id).mtime,
+                    'verified': verified,
+                },
+            }
+        )
+
+    def test_content_md5(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore(random_id(), 1)
+
+        _id = random_file_id()
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.content_md5(fs, _id)
+
+        doc = create_random_file(fs, db)
+        _id = doc['_id']
+        self.assertNotIn('content_md5', doc)
+        content_md5 = ms.content_md5(fs, _id)
+        self.assertEqual(content_md5, fs.content_md5(_id)[1])
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertEqual(doc['content_md5'], content_md5)
+        verified = doc['stored'][fs.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs.id: {
+                    'copies': 1,
+                    'mtime': fs.stat(_id).mtime,
+                    'verified': verified,
+                },   
+            }
+        )
+
+        self.assertEqual(ms.content_md5(fs, _id), content_md5)
+        self.assertTrue(db.get(_id)['_rev'].startswith('2-'))
+        self.assertEqual(ms.content_md5(fs, _id, force=True), content_md5)
+        self.assertTrue(db.get(_id)['_rev'].startswith('3-'))
+
+    def test_allocate_partial(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs1 = TempFileStore(random_id(), 1)
+        fs2 = TempFileStore(random_id(), 1)
+
+        _id = random_file_id()
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.allocate_partial(fs2, _id)
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        tmp_fp = ms.allocate_partial(fs2, _id)
+        self.assertIsInstance(tmp_fp, io.BufferedWriter)
+        self.assertEqual(tmp_fp.name,
+            path.join(fs2.basedir, 'partial', _id)
+        )
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                },
+            }   
+        )
+        self.assertEqual(doc['partial'],
+            {
+                fs2.id: {
+                    'mtime': path.getmtime(fs2.partial_path(_id)),
+                },
+            }   
+        )
+
+        # Also test MetaStore.verify_and_move():
+        src_fp = fs1.open(_id)
+        while True:
+            chunk = src_fp.read(1024 * 1024)
+            if not chunk:
+                break
+            tmp_fp.write(chunk)
+        tmp_fp.close()
+        tmp_fp = open(tmp_fp.name, 'rb')
+        ms.verify_and_move(fs2, tmp_fp, _id)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('3-'))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': fs2.stat(_id).mtime,
+                },
+            }   
+        )
+        self.assertNotIn('partial', doc)
+
+    def test_copy(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs1 = TempFileStore(random_id(), 1)
+        fs2 = TempFileStore(random_id(), 1)
+        fs3 = TempFileStore(random_id(), 1)
+
+        _id = random_file_id()
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.copy(fs1, _id, fs2)
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        ms.copy(fs1, _id, fs2)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        verified = doc['stored'][fs1.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                    'verified': verified,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': fs2.stat(_id).mtime,
+                }, 
+            }
+        )
+        fs1.verify(_id)
+        fs2.verify(_id)
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        ms.copy(fs1, _id, fs2, fs3)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        verified = doc['stored'][fs1.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                    'verified': verified,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': fs2.stat(_id).mtime,
+                },
+                fs3.id: {
+                    'copies': 1,
+                    'mtime': fs3.stat(_id).mtime,
+                },
+            }
+        )
+        fs1.verify(_id)
+        fs2.verify(_id)
+        fs3.verify(_id)

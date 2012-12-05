@@ -44,6 +44,7 @@ from dmedia.parallel import start_thread
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
+from dmedia.metastore import create_stored, merge_stored
 from dmedia.extractor import extract, merge_thumbnail
 
 
@@ -158,17 +159,7 @@ def get_rate(doc):
         rate = doc['stats']['total']['bytes'] / elapsed
         return bytes10(rate) + '/s'
     except Exception:
-        pass
-
-
-def merge_stored(old, new):
-    for (key, value) in new.items():
-        assert set(value) == set(['copies', 'mtime'])
-        if key in old:
-            old[key].update(value)
-            old[key].pop('verified', None)
-        else:
-            old[key] = value        
+        pass       
 
 
 class ImportWorker(workers.CouchWorker):
@@ -273,16 +264,7 @@ class ImportWorker(workers.CouchWorker):
             timestamp = time.time()
             self.extraction_queue.put((timestamp, file, ch))
             log_doc = schema.create_log(timestamp, ch, file, **common)
-            stored = dict(
-                (
-                    fs.id,
-                    {
-                        'copies': fs.copies,
-                        'mtime': fs.stat(ch.id).mtime,
-                    }
-                )
-                for fs in filestores
-            )
+            stored = create_stored(ch.id, *filestores)
             try:
                 doc = self.db.get(ch.id)
                 doc['origin'] = 'user'

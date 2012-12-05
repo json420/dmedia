@@ -20,7 +20,21 @@
 #   Jason Gerard DeRose <jderose@novacut.com>
 
 """
-Doodle.
+A FileStore-like API that also updates the CouchDB docs.
+
+The FileStore only deals with files, and does nothing with the metadata about
+the files.
+
+The idea with the MetaStore is to wrap both the file and metadata operations
+together with a high-level API.  A good example is copying a file from one
+FileStore to another, which involves a fairly complicated metadata update:
+
+    1) As we verify as we read, upon a successful read we update the
+       verification timestamp for the source FileStore; if the file is corrupt
+       or missing, we likewise update the document accordingly
+
+    2) We also need to update doc['stored'] with each new FileStore this file is
+       now in
 """
 
 import time
@@ -28,7 +42,7 @@ import os
 import logging
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound, id_slice_iter
+from microfiber import NotFound, Conflict, id_slice_iter
 
 from .util import get_db
 
@@ -37,6 +51,10 @@ log = logging.getLogger()
 
 
 class MTimeMismatch(Exception):
+    pass
+
+
+class UpdateConflict(Exception):
     pass
 
 
@@ -60,6 +78,47 @@ def get_dict(d, key):
     return d[key]
 
 
+def update_doc(db, _id, func, *args):
+    for retry in range(2):
+        doc = db.get(_id)
+        func(doc, *args)
+        try:
+            db.save(doc)
+            return doc
+        except Conflict:
+            pass
+    raise UpdateConflict()
+
+
+def create_stored(_id, *filestores):
+    """
+    Create doc['stored'] for file with *_id* stored in *filestores*.
+    """
+    return dict(
+        (
+            fs.id,
+            {
+                'copies': fs.copies,
+                'mtime': fs.stat(_id).mtime,
+            }
+        )
+        for fs in filestores
+    )
+
+
+def merge_stored(old, new):
+    """
+    Update doc['stored'] based on new storage information in *new*.
+    """
+    for (key, value) in new.items():
+        assert set(value) == set(['copies', 'mtime'])
+        if key in old:
+            old[key].update(value)
+            old[key].pop('verified', None)
+        else:
+            old[key] = value 
+
+
 def update(d, key, new):
     old = get_dict(d, key)
     old.update(new)
@@ -67,14 +126,9 @@ def update(d, key, new):
 
 def add_to_stores(doc, *filestores):
     _id = doc['_id']
-    stored = get_dict(doc, 'stored')
-    for fs in filestores:
-        new = {
-            'copies': fs.copies,
-            'mtime': fs.stat(_id).mtime,
-            'verified': 0,
-        }
-        update(stored, fs.id, new)
+    old = get_dict(doc, 'stored')
+    new = create_stored(_id, *filestores)
+    merge_stored(old, new)
 
 
 def remove_from_stores(doc, *filestores):
@@ -92,7 +146,7 @@ def mark_verified(doc, fs, timestamp):
     new = {
         'copies': fs.copies,
         'mtime': fs.stat(_id).mtime,
-        'verified': timestamp,
+        'verified': int(timestamp),
     }
     update(stored, fs.id, new)
 
@@ -255,16 +309,18 @@ class MetaStore:
             assert doc['type'] == 'dmedia/store'
             doc['atime'] = int(time.time())
             self.db.save(doc)
-            log.info('Updated FileStore %s atime to %r', fs.id, doc['atime'])
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
-        log.info('%.3f to scan %r', time.time() - start, fs)
+        count = len(rows)
+        log.info('%.3f to scan %r files in %r', time.time() - start, count, fs)
+        return count
 
     def relink(self, fs):
         """
         Find known files that we didn't expect in `FileStore` *fs*.
         """
         start = time.time()
+        count = 0
         log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
         for buf in relink_iter(fs):
             docs = self.db.get_many([st.id for st in buf])
@@ -281,28 +337,21 @@ class MetaStore:
                     copies=fs.copies,
                 )
                 self.db.save(doc)
+                count += 1
         log.info('%.3f to relink %r', time.time() - start, fs)
+        return count
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
-        try:
-            fs.remove(_id)
-        finally:
-            remove_from_stores(doc, fs)
-            self.db.save(doc)
+        remove_from_stores(doc, fs)
+        self.db.save(doc)
+        fs.remove(_id)  
+        return doc
 
     def verify(self, fs, _id, return_fp=False):
         doc = self.db.get(_id)
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
-
-    def verify_iter(self, fs, _id):
-        doc = self.db.get(_id)
-        file_size = doc['bytes']
-        (content_type, leaf_hashes) = self.db.get_att(_id, 'leaf_hashes')
-        with VerifyContext(self.db, fs, doc):
-            for leaf in fs.verify_iter(_id, file_size, leaf_hashes):
-                yield leaf
 
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)
@@ -335,6 +384,8 @@ class MetaStore:
             del partial[fs.id]
         except KeyError:
             pass
+        if not partial:
+            del doc['partial']
         add_to_stores(doc, fs)
         self.db.save(doc)
         return ch
@@ -345,4 +396,4 @@ class MetaStore:
             ch = src_filestore.copy(_id, *dst_filestores)
             add_to_stores(doc, *dst_filestores)
             return ch
-        
+
