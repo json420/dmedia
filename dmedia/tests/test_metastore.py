@@ -281,7 +281,6 @@ class TestFunctions(TestCase):
                     fs1.id: {
                         'copies': 1,
                         'mtime': 1234567891,
-                        'verified': 0,
                     },
                 },
             }
@@ -297,12 +296,10 @@ class TestFunctions(TestCase):
                     fs1.id: {
                         'copies': 1,
                         'mtime': 1234567892,
-                        'verified': 0,
                     },
                     fs2.id: {
                         'copies': 1,
                         'mtime': 1234567891,
-                        'verified': 0,
                     },
                 },
             }
@@ -318,13 +315,11 @@ class TestFunctions(TestCase):
                     fs1.id: {
                         'copies': 1,
                         'mtime': 1234567893,
-                        'verified': 0,
                         'pin': True,
                     },
                     fs2.id: {
                         'copies': 1,
                         'mtime': 1234567892,
-                        'verified': 0,
                     },
                 },
             }
@@ -755,3 +750,66 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.content_md5(fs, _id, force=True), content_md5)
         self.assertTrue(db.get(_id)['_rev'].startswith('3-'))
 
+    def test_copy(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs1 = TempFileStore(random_id(), 1)
+        fs2 = TempFileStore(random_id(), 1)
+        fs3 = TempFileStore(random_id(), 1)
+
+        _id = random_file_id()
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.copy(fs1, _id, fs2)
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        ms.copy(fs1, _id, fs2)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        verified = doc['stored'][fs1.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                    'verified': verified,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': fs2.stat(_id).mtime,
+                }, 
+            }
+        )
+        fs1.verify(_id)
+        fs2.verify(_id)
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        ms.copy(fs1, _id, fs2, fs3)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        verified = doc['stored'][fs1.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': fs1.stat(_id).mtime,
+                    'verified': verified,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': fs2.stat(_id).mtime,
+                },
+                fs3.id: {
+                    'copies': 1,
+                    'mtime': fs3.stat(_id).mtime,
+                },
+            }
+        )
+        fs1.verify(_id)
+        fs2.verify(_id)
+        fs3.verify(_id)

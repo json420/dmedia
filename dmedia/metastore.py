@@ -112,14 +112,9 @@ def update(d, key, new):
 
 def add_to_stores(doc, *filestores):
     _id = doc['_id']
-    stored = get_dict(doc, 'stored')
-    for fs in filestores:
-        new = {
-            'copies': fs.copies,
-            'mtime': fs.stat(_id).mtime,
-            'verified': 0,
-        }
-        update(stored, fs.id, new)
+    old = get_dict(doc, 'stored')
+    new = create_stored(_id, *filestores)
+    merge_stored(old, new)
 
 
 def remove_from_stores(doc, *filestores):
