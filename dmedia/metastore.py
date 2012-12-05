@@ -300,7 +300,6 @@ class MetaStore:
             assert doc['type'] == 'dmedia/store'
             doc['atime'] = int(time.time())
             self.db.save(doc)
-            log.info('Updated FileStore %s atime to %r', fs.id, doc['atime'])
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
         count = len(rows)

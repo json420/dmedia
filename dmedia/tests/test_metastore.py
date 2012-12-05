@@ -526,6 +526,7 @@ class TestMetaStore(CouchCase):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         fs = TempFileStore(random_id(), 1)
+        db.save({'_id': fs.id, 'type': 'dmedia/store'})
 
         # A few good files
         good = [create_random_file(fs, db) for i in range(10)]
@@ -593,6 +594,12 @@ class TestMetaStore(CouchCase):
             doc = db.get(_id)
             self.assertTrue(doc['_rev'].startswith('2-'))
             self.assertEqual(doc['stored'], {})
+
+        doc = db.get(fs.id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        atime = doc.get('atime')
+        self.assertIsInstance(atime, int)
+        self.assertLessEqual(atime, int(time.time()))
 
     def test_remove(self):
         db = util.get_db(self.env, True)
