@@ -353,14 +353,6 @@ class MetaStore:
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
 
-    def verify_iter(self, fs, _id):
-        doc = self.db.get(_id)
-        file_size = doc['bytes']
-        (content_type, leaf_hashes) = self.db.get_att(_id, 'leaf_hashes')
-        with VerifyContext(self.db, fs, doc):
-            for leaf in fs.verify_iter(_id, file_size, leaf_hashes):
-                yield leaf
-
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)
         if not force:
