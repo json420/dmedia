@@ -708,7 +708,7 @@ def check_file(doc):
         _check(doc, ['stored', key, 'copies'], int,
             (_at_least, 0),
         )
-        _check(doc, ['stored', key, 'mtime'], (int, float),
+        _check(doc, ['stored', key, 'mtime'], int,
             (_at_least, 0),
         )
         _check_if_exists(doc, ['stored', key, 'verified'], int,

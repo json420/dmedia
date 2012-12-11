@@ -281,6 +281,11 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['atime'] must be >= 0; got -3"
         )
+        
+        #####################################################
+        # Test all manner of things in doc['stored'].values()
+
+        label = "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']"
 
         # Test with missing stored "copies":
         bad = deepcopy(good)
@@ -290,16 +295,6 @@ class TestFunctions(TestCase):
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exist"
-        )
-
-        # Test with missing stored "mtime"
-        bad = deepcopy(good)
-        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime']
-        with self.assertRaises(ValueError) as cm:
-            f(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] does not exist"
         )
 
         # Test with invalid stored "copies":
@@ -312,11 +307,31 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
         )
 
-        # Test with invalid stored "mtime":
+        # Test with missing stored "mtime"
+        bad = deepcopy(good)
+        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime']
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] does not exist"
+        )
+
+        # Test with bad "mtime" type
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] = 123.45
+        with self.assertRaises(TypeError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format(label + "['mtime']", int, float, 123.45)
+        )
+
+        # Test with bad "mtime" value:
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] = -1
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] must be >= 0; got -1"
