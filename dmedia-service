@@ -113,7 +113,6 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_added', self.on_card_added)
         self.udisks.connect('card_removed', self.on_card_removed)
 
-        self.snapshot_all = None
         self.snapshot_queue_in = multiprocessing.Queue()
         self.snapshot_queue_out = multiprocessing.Queue()
         self.snapshots_in_flight = set()
@@ -151,8 +150,8 @@ class Service(dbus.service.Object):
             GObject.idle_add(self.on_snapshot_complete, item)
 
     def on_snapshot_complete(self, item):
-        (dbname, success) = item
-        self.snapshots_in_flight.remove(dbname)
+        (name, success) = item
+        self.snapshots_in_flight.remove(name)
         if not self.snapshots_in_flight:
             log.info('No in-flight snapshots, shutting down worker...')
             self.snapshot_queue_in.put(None)
@@ -160,34 +159,26 @@ class Service(dbus.service.Object):
             self.snapshot_process = None
             self.snapshot_thread.join()
             self.snapshot_thread = None
-        self.SnapshotComplete(dbname, success)
+        self.SnapshotComplete(name, success)
 
     @dbus.service.signal(IFACE, signature='sb')
-    def SnapshotComplete(self, dbname, success):
-        log.info('@Dmedia.SnapshotComplete(%r, %r)', dbname, success)
-        if self.snapshot_all is None:
-            return
-        try:
-            self.snapshot_all.remove(dbname)
-        except KeyError:
-            return
-        self.snapshot_all_success = (self.snapshot_all_success and success)
-        if len(self.snapshot_all) == 0:
-            self.snapshot_all = None
-            self.SnapshotAllComplete(self.snapshot_all_success)
+    def SnapshotComplete(self, name, success):
+        log.info('@Dmedia.SnapshotComplete(%r, %r)', name, success)
+        if name == '__all__':
+            self.SnapshotAllComplete(success)
 
     @dbus.service.signal(IFACE, signature='b')
     def SnapshotAllComplete(self, success):
         log.info('@Dmedia.SnapshotAllComplete(%r)', success)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='b')
-    def Snapshot(self, dbname):
-        dbname = str(dbname)
-        log.info('Dmedia.Snapshot(%r)', dbname)
-        if dbname in self.snapshots_in_flight:
-            log.warning('Snapshot of %r already in-flight', dbname)
+    def Snapshot(self, name):
+        name = str(name)
+        log.info('Dmedia.Snapshot(%r)', name)
+        if name in self.snapshots_in_flight:
+            log.warning('Snapshot of %r already in-flight', name)
             return False
-        self.snapshots_in_flight.add(dbname)
+        self.snapshots_in_flight.add(name)
         if self.snapshot_process is None:
             assert self.snapshot_thread is None
             self.snapshot_process = start_process(snapshot_worker,
@@ -197,24 +188,13 @@ class Service(dbus.service.Object):
                 self.snapshot_queue_out
             )
             self.snapshot_thread = start_thread(self.snapshot_listener)
-        self.snapshot_queue_in.put(dbname)
+        self.snapshot_queue_in.put(name)
         return True
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def SnapshotAll(self):
         log.info('Dmedia.SnapshotAll()')
-        if self.snapshot_all is not None:
-            return False
-        names = set()
-        for db in self.core.server.get('_all_dbs'):
-            if db.startswith('_') or db == 'thumbnails':
-                continue
-            names.add(db)
-        self.snapshot_all_success = True
-        self.snapshot_all = names
-        for db in sorted(names):
-            self.Snapshot(db)
-        return True
+        return self.Snapshot('__all__')
 
     def run(self):
         if self.couch.user is None:

@@ -70,6 +70,46 @@ def start_httpd(couch_env, ssl_config):
     return (process, env)
 
 
+def db_dump_iter(server):
+    assert isinstance(server, Server)
+    for name in server.get('_all_dbs'):
+        if name.startswith('_') or name == 'thumbnails':
+            continue
+        yield name
+
+
+def dump_all(server, dumpdir):
+    log.info('Dumping __all__ into %r', dumpdir)
+    start = time.time()
+    files = []
+    for name in db_dump_iter(server):
+        log.info(name)
+        db = server.database(name)
+        filename = path.join(dumpdir, name + '.json')  
+        db.dump(filename)
+        check_call(['bzr', 'add', filename])
+        files.append(filename)
+    log.info('** %.3f to dump __all__', time.time() - start)
+    msg = 'Snapshot __all__'
+    cmd = ['bzr', 'commit', '-m', msg, '--unchanged']
+    cmd.extend(files)
+    check_call(cmd)
+    log.info('Committed snapshot of __all__')
+
+
+def dump_one(server, dumpdir, name):
+    db = server.database(name)
+    filename = path.join(dumpdir, name + '.json')  
+    log.info('Dumping %r to %r', name, filename)
+    start = time.time()
+    db.dump(filename)
+    log.info('** %.2f to dump %r', time.time() - start, name)
+    check_call(['bzr', 'add', filename])
+    msg = 'Snapshot of {!r}'.format(name)
+    check_call(['bzr', 'commit', filename, '-m', msg, '--unchanged'])
+    log.info('Committed snapshot of %r', name)
+
+
 def snapshot_worker(env, dumpdir, queue_in, queue_out):
     server = Server(env)
     try:
@@ -80,25 +120,19 @@ def snapshot_worker(env, dumpdir, queue_in, queue_out):
     except CalledProcessError:
         pass
     while True:
-        dbname = queue_in.get()
-        if dbname is None:
+        name = queue_in.get()
+        if name is None:
             queue_out.put(None)
             break
         try:
-            db = server.database(dbname)
-            filename = path.join(dumpdir, dbname + '.json')  
-            log.info('Dumping %r to %r', dbname, filename)
-            start = time.time()
-            db.dump(filename)
-            log.info('** %.2f to dump %r', time.time() - start, dbname)
-            check_call(['bzr', 'add', filename])
-            msg = 'Snapshot of {!r}'.format(dbname)
-            check_call(['bzr', 'commit', filename, '-m', msg, '--unchanged'])
-            log.info('Committed snapshot of %r', dbname)
-            queue_out.put((dbname, True))
+            if name == '__all__':
+                dump_all(server, dumpdir)
+            else:
+                dump_one(server, dumpdir, name)
+            queue_out.put((name, True))
         except Exception:
-            log.exception('Error snapshotting %r', dbname)
-            queue_out.put((dbname, False))
+            log.exception('Error snapshotting %r', name)
+            queue_out.put((name, False))
 
 
 def projects_iter(server):

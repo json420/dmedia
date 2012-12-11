@@ -93,6 +93,16 @@ class TestFunctions(TestCase):
 
 
 class TestCouchFunctions(CouchCase):
+    def test_db_dump_iter(self):
+        server = microfiber.Server(self.env)
+        self.assertEqual(list(core.db_dump_iter(server)), [])
+        server.put(None, 'thumbnails')
+        self.assertEqual(list(core.db_dump_iter(server)), [])
+        server.put(None, 'foo')
+        self.assertEqual(list(core.db_dump_iter(server)), ['foo'])
+        server.put(None, 'bar')
+        self.assertEqual(list(core.db_dump_iter(server)), ['bar', 'foo'])
+
     def test_projects_iter(self):
         server = microfiber.Server(self.env)
         self.assertEqual(list(core.projects_iter(server)), [])
