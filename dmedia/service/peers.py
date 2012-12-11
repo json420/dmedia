@@ -56,7 +56,8 @@ from dmedia.server import ServerApp, InfoApp, ClientApp
 from dmedia.httpd import WSGIError, make_server
 
 
-PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
+PROTO = 1  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
+BIND_ADDRESS = ('::' if PROTO == 1 else '0.0.0.0')
 Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
 log = logging.getLogger()
@@ -64,6 +65,14 @@ log = logging.getLogger()
 dmedia_peer_gtk = 'dmedia-peer-gtk'
 if path.isfile(path.join(dmedia.TREE, dmedia_peer_gtk)):
     dmedia_peer_gtk = path.join(dmedia.TREE, dmedia_peer_gtk)
+
+
+def make_url(ip, port):
+    if PROTO == 0:
+        return 'https://{}:{}/'.format(ip, port)
+    elif PROTO == 1:
+        return 'https://[{}]:{}/'.format(ip, port)
+    raise Exception('bad PROTO')
 
 
 def get_service(verb):
@@ -214,9 +223,7 @@ class AvahiPeer(GObject.GObject):
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
         assert self.info.id == peer_id
-        assert self.info.url == 'https://{}:{}/'.format(
-            self.peer.ip, self.peer.port
-        )
+        assert self.info.url == make_url(self.peer.ip, self.peer.port)
 
     def deactivate(self, peer_id):
         if not self.state.deactivate(peer_id):
@@ -228,9 +235,7 @@ class AvahiPeer(GObject.GObject):
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
         assert self.info.id == peer_id
-        assert self.info.url == 'https://{}:{}/'.format(
-            self.peer.ip, self.peer.port
-        )
+        assert self.info.url == make_url(self.peer.ip, self.peer.port)
         GObject.timeout_add(15 * 1000, self.on_timeout, peer_id)
 
     def abort(self, peer_id):
@@ -400,7 +405,7 @@ class AvahiPeer(GObject.GObject):
 
         # 3 Make get request to verify peer has private key:
         try:
-            url = 'https://{}:{}/'.format(peer.ip, peer.port)
+            url = make_url(peer.ip, peer.port)
             ssl_config = {
                 'ca_file': ca_file,
                 'check_hostname': False,
@@ -445,7 +450,7 @@ class Session:
         start_thread(self.monitor_response)
         self.app = ServerApp(self.cr, self.q, browser.couch.pki)
         self.app.state = 'info'
-        self.httpd = make_server(self.app, '0.0.0.0', server_config)
+        self.httpd = make_server(self.app, BIND_ADDRESS, server_config)
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
         self.httpd.start()
@@ -626,7 +631,7 @@ class Publisher:
         self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
         self.avahi.connect('accept', self.on_accept)
         app = InfoApp(self.avahi.id)
-        self.httpd = make_server(app, '0.0.0.0',
+        self.httpd = make_server(app, BIND_ADDRESS,
             self.avahi.get_server_config()
         )
         self.httpd.start()
