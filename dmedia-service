@@ -31,19 +31,18 @@ start_time = time.time()
 import optparse
 import logging
 import signal
-import multiprocessing
 
 import dbus
 import dbus.service
-from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GObject
+from gi.repository import GLib
 from microfiber import NotFound, dumps
 
 import dmedia
 from dmedia import schema
-from dmedia.parallel import start_thread, start_process
+from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
-from dmedia.core import Core, start_httpd, snapshot_worker
+from dmedia.core import Core, start_httpd
+from dmedia.service.background import Snapshots
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, Publisher
@@ -52,10 +51,8 @@ from dmedia.service.peers import Browser, Publisher
 BUS = dmedia.BUS
 IFACE = BUS
 log = logging.getLogger()
-GObject.threads_init()
-DBusGMainLoop(set_as_default=True)
 session = dbus.SessionBus()
-mainloop = GObject.MainLoop()
+mainloop = GLib.MainLoop()
 
 
 def on_sighup(signum, frame):
@@ -113,15 +110,9 @@ class Service(dbus.service.Object):
         self.udisks.connect('card_added', self.on_card_added)
         self.udisks.connect('card_removed', self.on_card_removed)
 
-        self.snapshot_queue_in = multiprocessing.Queue()
-        self.snapshot_queue_out = multiprocessing.Queue()
-        self.snapshots_in_flight = set()
-        self.snapshot_process = None
-        self.snapshot_thread = None
-
+        self.first_snapshot = True
         self.update_thread = None
         self.pending_update = None
-        self.first_snapshot = True
 
     def on_QueryEndSession(self, flags):
         log.info('<QueryEndSession>')
@@ -143,25 +134,6 @@ class Service(dbus.service.Object):
         )
         mainloop.quit()
 
-    def snapshot_listener(self):
-        while True:
-            item = self.snapshot_queue_out.get()
-            if item is None:
-                break
-            GObject.idle_add(self.on_snapshot_complete, item)
-
-    def on_snapshot_complete(self, item):
-        (name, success) = item
-        self.snapshots_in_flight.remove(name)
-        if not self.snapshots_in_flight:
-            log.info('No in-flight snapshots, shutting down worker...')
-            self.snapshot_queue_in.put(None)
-            self.snapshot_process.join()
-            self.snapshot_process = None
-            self.snapshot_thread.join()
-            self.snapshot_thread = None
-        self.SnapshotComplete(name, success)
-
     @dbus.service.signal(IFACE, signature='sb')
     def SnapshotComplete(self, name, success):
         log.info('@Dmedia.SnapshotComplete(%r, %r)', name, success)
@@ -179,21 +151,7 @@ class Service(dbus.service.Object):
     def Snapshot(self, name):
         name = str(name)
         log.info('Dmedia.Snapshot(%r)', name)
-        if name in self.snapshots_in_flight:
-            log.warning('Snapshot of %r already in-flight', name)
-            return False
-        self.snapshots_in_flight.add(name)
-        if self.snapshot_process is None:
-            assert self.snapshot_thread is None
-            self.snapshot_process = start_process(snapshot_worker,
-                self.core.env,
-                self.couch.paths.dump,
-                self.snapshot_queue_in,
-                self.snapshot_queue_out
-            )
-            self.snapshot_thread = start_thread(self.snapshot_listener)
-        self.snapshot_queue_in.put(name)
-        return True
+        return self.snapshots.run(name)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='b')
     def SnapshotAll(self):
@@ -217,8 +175,13 @@ class Service(dbus.service.Object):
         self.core.load_identity(self.couch.machine, self.couch.user)
         self.core.load_default_filestore(self.couch.basedir)
         self.env_s = dumps(self.core.env, pretty=True)
+        self.snapshots = Snapshots(
+                self.core.env,
+                self.couch.paths.dump,
+                self.SnapshotComplete,
+        )
         log.info('Finished core startup in %.3f', time.time() - start)
-        GObject.timeout_add(350, self.on_idle1)
+        GLib.timeout_add(350, self.on_idle1)
 
     def on_idle1(self):
         """
@@ -236,7 +199,7 @@ class Service(dbus.service.Object):
         Init project views, prep project/atime, update project stats.
         """
         self.core.init_project_views()
-        GObject.idle_add(self.on_idle2)
+        GLib.idle_add(self.on_idle2)
 
     def on_idle2(self):
         """
@@ -248,7 +211,7 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core.env, port, ssl_config)
         self.avahi.run()
-        GObject.timeout_add(10*1000, self.on_idle3)
+        GLib.timeout_add(10*1000, self.on_idle3)
 
     def on_idle3(self):
         """
@@ -326,7 +289,7 @@ class Service(dbus.service.Object):
         log.info('Dmedia.Cancel(%r)', peer_id)
         if self.peer is None:
             return False
-        GObject.idle_add(self.peer.cancel, peer_id)
+        GLib.idle_add(self.peer.cancel, peer_id)
         return True
 
     @dbus.service.signal(IFACE, signature='')
@@ -374,7 +337,7 @@ class Service(dbus.service.Object):
         self.couch.wait_for_machine()
         self.couch.create_user()
         self.start_core()
-        GObject.idle_add(self.on_init_done)
+        GLib.idle_add(self.on_init_done)
 
     def on_init_done(self):
         log.info('on_init_done()')
@@ -400,7 +363,7 @@ class Service(dbus.service.Object):
 
     def wait(self):
         self.couch.wait_for_machine()
-        GObject.idle_add(self.on_wait_done)
+        GLib.idle_add(self.on_wait_done)
 
     def on_wait_done(self):
         self.thread.join()
@@ -421,7 +384,7 @@ class Service(dbus.service.Object):
     def _set_user(self, user_id):
         self.couch.set_user(user_id)
         self.start_core()
-        GObject.idle_add(self.on_init_done)
+        GLib.idle_add(self.on_init_done)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
     def Kill(self):
@@ -506,7 +469,7 @@ class Service(dbus.service.Object):
 
     def do_update(self, project_id):
         self.core.update_project(project_id)
-        GObject.idle_add(self.on_update_complete)
+        GLib.idle_add(self.on_update_complete)
 
     def on_update_complete(self):
         self.update_thread.join()

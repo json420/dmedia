@@ -29,12 +29,11 @@ import logging
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GObject
+from gi.repository import GLib
 
 
 DBusGMainLoop(set_as_default=True)
-GObject.threads_init()
-
+GLib.threads_init()
 BUS = 'org.freedesktop.Dmedia'
 
 
