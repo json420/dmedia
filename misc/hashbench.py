@@ -48,6 +48,18 @@ except ImportError:
     print('Could not import `skein`.')
     print('Download pyskein at http://packages.python.org/pyskein/')
     print('')
+try:
+    import sha3
+    hashes.extend([
+        sha3.sha3_224,
+        sha3.sha3_256,
+        sha3.sha3_384,
+        sha3.sha3_512,
+    ])
+except ImportError:
+    print('Could not import `sha3`.')
+    print('Download pysha3 at http://pypi.python.org/pypi/pysha3/')
+    print('')
 
 
 def benchmark(hashfunc):
