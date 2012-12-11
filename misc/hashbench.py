@@ -63,11 +63,9 @@ except ImportError:
 
 
 def benchmark(hashfunc):
-    h = hashfunc()
     start = time.time()
     for i in range(options.count):
-        h.update(leaf)
-    h.digest()
+        hashfunc(leaf).digest()
     return time.time() - start
 
 
