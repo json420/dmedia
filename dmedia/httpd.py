@@ -409,10 +409,11 @@ class HTTPD:
         if bind_address in ('::1', '::'):
             template = '{}://[::1]:{}/'
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            self.socket.bind((bind_address, 0, 0, 1))
         else:
             template = '{}://127.0.0.1:{}/'
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.bind((bind_address, 0))
+            self.socket.bind((bind_address, 0))
         self.port = self.socket.getsockname()[1]
         self.scheme = ('http' if context is None else 'https')
         self.url = template.format(self.scheme, self.port)

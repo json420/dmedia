@@ -385,10 +385,11 @@ class AvahiPeer(GObject.GObject):
                 # The server will only let its cert be retrieved by the client
                 # bound to the peering session
                 ctx.load_cert_chain(self.cert_file, self.key_file)
-            sock = ctx.wrap_socket(
-                socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            )
-            sock.connect((peer.ip, peer.port))
+            _sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            scopeid = (1 if peer.ip.startswith('fe80:') else 0)
+            print(peer.ip, peer.port, 0, scopeid)
+            _sock.connect((peer.ip, peer.port, 0, 1))
+            sock = ctx.wrap_socket(_sock)
             pem = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
         except Exception as e:
             log.exception('Could not retrieve cert for %r', peer)
