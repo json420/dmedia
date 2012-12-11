@@ -56,8 +56,7 @@ from dmedia.server import ServerApp, InfoApp, ClientApp
 from dmedia.httpd import WSGIError, make_server
 
 
-PROTO = 1  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
-BIND_ADDRESS = ('::' if PROTO == 1 else '0.0.0.0')
+PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
 Peer = namedtuple('Peer', 'id ip port')
 Info = namedtuple('Info', 'name host url id')
 log = logging.getLogger()
@@ -65,14 +64,6 @@ log = logging.getLogger()
 dmedia_peer_gtk = 'dmedia-peer-gtk'
 if path.isfile(path.join(dmedia.TREE, dmedia_peer_gtk)):
     dmedia_peer_gtk = path.join(dmedia.TREE, dmedia_peer_gtk)
-
-
-def make_url(ip, port):
-    if PROTO == 0:
-        return 'https://{}:{}/'.format(ip, port)
-    elif PROTO == 1:
-        return 'https://[{}]:{}/'.format(ip, port)
-    raise Exception('bad PROTO')
 
 
 def get_service(verb):
@@ -223,7 +214,9 @@ class AvahiPeer(GObject.GObject):
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
         assert self.info.id == peer_id
-        assert self.info.url == make_url(self.peer.ip, self.peer.port)
+        assert self.info.url == 'https://{}:{}/'.format(
+            self.peer.ip, self.peer.port
+        )
 
     def deactivate(self, peer_id):
         if not self.state.deactivate(peer_id):
@@ -235,7 +228,9 @@ class AvahiPeer(GObject.GObject):
         assert self.state.peer_id == peer_id
         assert self.peer.id == peer_id
         assert self.info.id == peer_id
-        assert self.info.url == make_url(self.peer.ip, self.peer.port)
+        assert self.info.url == 'https://{}:{}/'.format(
+            self.peer.ip, self.peer.port
+        )
         GObject.timeout_add(15 * 1000, self.on_timeout, peer_id)
 
     def abort(self, peer_id):
@@ -385,11 +380,10 @@ class AvahiPeer(GObject.GObject):
                 # The server will only let its cert be retrieved by the client
                 # bound to the peering session
                 ctx.load_cert_chain(self.cert_file, self.key_file)
-            _sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-            scopeid = (1 if peer.ip.startswith('fe80:') else 0)
-            print(peer.ip, peer.port, 0, scopeid)
-            _sock.connect((peer.ip, peer.port, 0, 1))
-            sock = ctx.wrap_socket(_sock)
+            sock = ctx.wrap_socket(
+                socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            )
+            sock.connect((peer.ip, peer.port))
             pem = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
         except Exception as e:
             log.exception('Could not retrieve cert for %r', peer)
@@ -406,7 +400,7 @@ class AvahiPeer(GObject.GObject):
 
         # 3 Make get request to verify peer has private key:
         try:
-            url = make_url(peer.ip, peer.port)
+            url = 'https://{}:{}/'.format(peer.ip, peer.port)
             ssl_config = {
                 'ca_file': ca_file,
                 'check_hostname': False,
@@ -451,7 +445,7 @@ class Session:
         start_thread(self.monitor_response)
         self.app = ServerApp(self.cr, self.q, browser.couch.pki)
         self.app.state = 'info'
-        self.httpd = make_server(self.app, BIND_ADDRESS, server_config)
+        self.httpd = make_server(self.app, '0.0.0.0', server_config)
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
         self.httpd.start()
@@ -632,7 +626,7 @@ class Publisher:
         self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
         self.avahi.connect('accept', self.on_accept)
         app = InfoApp(self.avahi.id)
-        self.httpd = make_server(app, BIND_ADDRESS,
+        self.httpd = make_server(app, '0.0.0.0',
             self.avahi.get_server_config()
         )
         self.httpd.start()
