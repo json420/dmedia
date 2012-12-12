@@ -48,7 +48,7 @@ import dmedia
 from dmedia.parallel import start_thread, start_process
 from dmedia.server import run_server
 from dmedia import util, schema, views
-from dmedia.metastore import MetaStore
+from dmedia.metastore import MetaStore, create_stored
 from dmedia.local import LocalStores, FileNotLocal
 
 
@@ -538,12 +538,7 @@ class Core:
         fs = self.stores.by_parentdir(parentdir)
         tmp_fp = open(tmp, 'rb')
         ch = fs.hash_and_move(tmp_fp)
-        stored = {
-            fs.id: {
-                'copies': fs.copies,
-                'mtime': fs.stat(ch.id).mtime,
-            }
-        }
+        stored = create_stored(ch.id, fs)
         try:
             doc = self.db.get(ch.id)
             doc['stored'].update(stored)
