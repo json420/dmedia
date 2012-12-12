@@ -42,7 +42,7 @@ import os
 import logging
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound, Conflict, id_slice_iter
+from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
 from .util import get_db
 
@@ -240,12 +240,53 @@ def relink_iter(fs, count=25):
         yield buf
 
 
+class BufferedSave:
+    __slots__ = ('db', 'size', 'docs', 'count')
+
+    def __init__(self, db, size=25):
+        self.db = db
+        self.size = size
+        self.docs = []
+        self.count = 0
+
+    def save(self, doc):
+        self.docs.append(doc)
+        if len(self.docs) >= self.size:
+            self.flush()
+
+    def flush(self):
+        if self.docs:
+            log.info('saving %d docs', len(self.docs))
+            self.count += len(self.docs)
+            try:
+                self.db.save_many([])
+            except BulkConflict:
+                log.exception()
+            self.docs = []
+
+
 class MetaStore:
     def __init__(self, db):
         self.db = db
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
+
+    def schema_check(self):
+        buf = BufferedSave(self.db)
+        rows = self.db.view('doc', 'type', key='dmedia/file')['rows']
+        for ids in id_slice_iter(rows):
+            for doc in self.db.get_many(ids):
+                changed = False
+                for value in doc['stored'].values():
+                    if isinstance(value.get('mtime'), float):
+                        changed = True
+                        value['mtime'] = int(value['mtime'])
+                if changed:
+                    buf.save(doc)
+        buf.flush()
+        log.info('converted mtime from `float` to `int` for %d docs', buf.count)
+        return buf.count
 
     def scan(self, fs):
         """
