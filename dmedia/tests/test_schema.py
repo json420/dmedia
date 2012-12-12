@@ -145,8 +145,6 @@ class TestFunctions(TestCase):
             )
 
     def test_check_file(self):
-        f = schema.check_file
-
         # Test with good doc:
         good = {
             '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
@@ -168,8 +166,7 @@ class TestFunctions(TestCase):
                 },
             },
         }
-        g = deepcopy(good)
-        self.assertEqual(f(g), None)
+        self.assertEqual(schema.check_file(deepcopy(good)), None)
 
         required = [
             '_id',
@@ -187,7 +184,7 @@ class TestFunctions(TestCase):
             bad = deepcopy(good)
             del bad[key]
             with self.assertRaises(ValueError) as cm:
-                f(bad)
+                schema.check_file(bad)
             self.assertEqual(
                 str(cm.exception),
                 "doc[{!r}] does not exist".format(key)
@@ -197,17 +194,17 @@ class TestFunctions(TestCase):
         bad = deepcopy(good)
         bad['type'] = 'dmedia/files'
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['type'] must equal 'dmedia/file'; got 'dmedia/files'"
         )
 
-        # Test with bytes wrong type:
+        # Bad "bytes" type:
         bad = deepcopy(good)
         bad['bytes'] *= 1.0
         with self.assertRaises(TypeError) as cm:
-            f(bad)
+            schema.check_file(bad)
         try:
             self.assertEqual(
                 str(cm.exception),
@@ -219,36 +216,36 @@ class TestFunctions(TestCase):
                 TYPE_ERROR.formtat("doc['bytes']", long, float, bad['bytes'])
             )
 
-        # Test with bytes == 0:
+        # Bad "bytes" value == 0:
         bad = deepcopy(good)
         bad['bytes'] = 0
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['bytes'] must be >= 1; got 0"
         )
 
-        # Test with bytes == -1:
+        # Bad "bytes" value == -1:
         bad = deepcopy(good)
         bad['bytes'] = -1
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['bytes'] must be >= 1; got -1"
         )
 
-        # Test with bytes=1
-        g = deepcopy(good)
-        g['bytes'] = 1
-        self.assertIsNone(f(g))
+        # Good "bytes" value == 1:
+        also_good = deepcopy(good)
+        also_good['bytes'] = 1
+        self.assertIsNone(schema.check_file(also_good))
 
         # Test with upercase origin
         bad = deepcopy(good)
         bad['origin'] = 'USER'
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['origin'] must be lowercase; got 'USER'"
@@ -258,56 +255,68 @@ class TestFunctions(TestCase):
         bad = deepcopy(good)
         bad['origin'] = 'foo'
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['origin'] value 'foo' not in ('user', 'paid', 'download', 'proxy', 'render', 'cache')"
         )
 
-        # atime
+        # Bad "atime" type:
         bad = deepcopy(good)
-        bad['atime'] = '1234567890'
+        bad['atime'] = 1234567890.5
         with self.assertRaises(TypeError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR.format("doc['atime']", int, str, '1234567890')
+            TYPE_ERROR.format("doc['atime']", int, float, 1234567890.5)
         )
+
+        # Bad "atime" value:
         bad = deepcopy(good)
-        bad['atime'] = -3
+        bad['atime'] = -1
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['atime'] must be >= 0; got -3"
+            "doc['atime'] must be >= 0; got -1"
         )
         
         #####################################################
         # Test all manner of things in doc['stored'].values()
 
-        label = "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']"
-
-        # Test with missing stored "copies":
+        # Missing "copies":
         bad = deepcopy(good)
         del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies']
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exist"
         )
 
-        # Test with invalid stored "copies":
+        # Bad "copies" type:
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = 1.5
+        with self.assertRaises(TypeError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format(
+                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies']", int, float, 1.5
+            )
+        )
+
+        # Bad "copies" value:
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -1
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
         )
 
-        # Test with missing stored "mtime"
+        # Missing "mtime":
         bad = deepcopy(good)
         del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime']
         with self.assertRaises(ValueError) as cm:
@@ -317,17 +326,19 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] does not exist"
         )
 
-        # Test with bad "mtime" type
+        # Bad "mtime" type:
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] = 123.45
         with self.assertRaises(TypeError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            TYPE_ERROR.format(label + "['mtime']", int, float, 123.45)
+            TYPE_ERROR.format(
+                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime']", int, float, 123.45
+            )
         )
 
-        # Test with bad "mtime" value:
+        # Bad "mtime" value:
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] = -1
         with self.assertRaises(ValueError) as cm:
@@ -337,68 +348,87 @@ class TestFunctions(TestCase):
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] must be >= 0; got -1"
         )
 
-        # Test with invalid stored "verified":
+        # Bad "verified" type:
+        bad = deepcopy(good)
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] = 1234.5
+        with self.assertRaises(TypeError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format(
+                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified']", int, float, 1234.5
+            )
+        )
+
+        # Bad "verified" value:
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] = -1
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
         )
+
+        # Bad "pinned" type:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] = 123.0
+        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] = 1
         with self.assertRaises(TypeError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified']: need a <class 'int'>; got a <class 'float'>: 123.0"
+            TYPE_ERROR.format(
+                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned']", bool, int, 1
+            )
         )
 
-        # Test with invalid stored "pinned":
+        # Bad "pinned" value:
         bad = deepcopy(good)
         bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] = False
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] must equal True; got False"
         )
+        
+        ##################################################
+        # Test doc['partial'], doc['corrupt'], doc['proxy_of']:
 
-        # Test with empty partial
+        # Empty "partial"
         bad = deepcopy(good)
         bad['partial'] = {}
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['partial'] cannot be empty; got {}"
         )
 
-        # Test with empty corrupt
+        # Empty "corrupt"
         bad = deepcopy(good)
         bad['corrupt'] = {}
         with self.assertRaises(ValueError) as cm:
-            f(bad)
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             "doc['corrupt'] cannot be empty; got {}"
         )
 
-        # proxy_of
+        # "proxy_of"
         copy = deepcopy(good)
         copy['origin'] = 'proxy'
         bad_id = random_id()
         copy['proxy_of'] = bad_id
         with self.assertRaises(ValueError) as cm:
-            f(copy)
+            schema.check_file(copy)
         self.assertEqual(
             str(cm.exception),
             "doc['proxy_of']: intrinsic ID must be 48 characters, got 24: {!r}".format(bad_id)
         )
         good_id = random_id(DIGEST_BYTES)
         copy['proxy_of'] = good_id
-        self.assertIsNone(f(copy))
+        self.assertIsNone(schema.check_file(copy))
 
     def test_file_optional(self):
 
