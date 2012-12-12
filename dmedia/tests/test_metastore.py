@@ -511,6 +511,98 @@ class TestFunctions(TestCase):
         )
 
 
+class TestBufferedSave(CouchCase):
+    def test_init(self):
+        db = microfiber.Database('foo', self.env)
+        db.ensure()
+        buf = metastore.BufferedSave(db, size=10)
+        self.assertIs(buf.db, db)
+        self.assertEqual(buf.size, 10)
+        self.assertIsInstance(buf.docs, list)
+        self.assertEqual(buf.docs, [])
+        self.assertIsInstance(buf.count, int)
+        self.assertEqual(buf.count, 0)
+        self.assertIsInstance(buf.conflicts, int)
+        self.assertEqual(buf.conflicts, 0)
+
+        buf = metastore.BufferedSave(db)
+        self.assertEqual(buf.size, 25)
+
+        # Save the first 24, which should just be stored in the buffer:
+        docs = []
+        for i in range(24):
+            doc = {'_id': random_id(), 'i': i}
+            docs.append(doc)
+            buf.save(doc)
+            self.assertEqual(buf.docs, docs)
+            self.assertEqual(buf.count, 0)
+            self.assertEqual(buf.conflicts, 0)
+        self.assertEqual(
+            db.get_many([doc['_id'] for doc in docs]),
+            [None for doc in docs]
+        )
+        for doc in docs:
+            self.assertNotIn('_rev', doc)
+
+        # Now save the 25th, which should trigger a flush:
+        doc = {'_id': random_id()}
+        docs.append(doc)
+        buf.save(doc)
+        self.assertEqual(buf.docs, [])
+        self.assertEqual(buf.count, 25)
+        self.assertEqual(buf.conflicts, 0)
+        self.assertEqual(len(docs), 25)
+        self.assertEqual(
+            db.get_many([doc['_id'] for doc in docs]),
+            docs
+        )
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('1-'))
+
+        # Create conflicts, save till a flush is triggered:
+        for i in range(19):
+            db.post(docs[i])
+        docs2 = []
+        for i in range(24):
+            doc = docs[i]
+            docs2.append(doc)
+            buf.save(doc)
+            self.assertEqual(buf.docs, docs2)
+            self.assertEqual(buf.count, 25)
+            self.assertEqual(buf.conflicts, 0)
+        buf.save(docs[-1])
+        self.assertEqual(buf.docs, [])
+        self.assertEqual(buf.count, 50)
+        self.assertEqual(buf.conflicts, 19)
+        for (i, doc) in enumerate(docs):
+            if i < 19:
+                self.assertTrue(doc['_rev'].startswith('1-'))
+                self.assertNotEqual(db.get(doc['_id']), doc)
+            else:
+                self.assertTrue(doc['_rev'].startswith('2-'))
+                self.assertEqual(db.get(doc['_id']), doc)
+
+        # Put some in the buffer directly, test flush()
+        docs3 = []
+        for i in range(50):
+            doc = {'_id': random_id()}
+            docs3.append(doc)
+            if i >= 18:
+                db.post(doc)
+        buf.docs.extend(docs3)
+        buf.flush()
+        self.assertEqual(buf.docs, [])
+        self.assertEqual(buf.count, 100)
+        self.assertEqual(buf.conflicts, 51)
+        for (i, doc) in enumerate(docs3):
+            if i >= 18:
+                self.assertNotIn('_rev', doc)
+                self.assertNotEqual(db.get(doc['_id']), doc)
+            else:
+                self.assertTrue(doc['_rev'].startswith('1-'))
+                self.assertEqual(db.get(doc['_id']), doc)
+
+
 class TestMetaStore(CouchCase):
     def test_init(self):
         db = util.get_db(self.env, True)

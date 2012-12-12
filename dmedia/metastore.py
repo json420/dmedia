@@ -241,13 +241,17 @@ def relink_iter(fs, count=25):
 
 
 class BufferedSave:
-    __slots__ = ('db', 'size', 'docs', 'count')
+    __slots__ = ('db', 'size', 'docs', 'count', 'conflicts')
 
     def __init__(self, db, size=25):
         self.db = db
         self.size = size
         self.docs = []
         self.count = 0
+        self.conflicts = 0
+
+    def __del__(self):
+        self.flush()
 
     def save(self, doc):
         self.docs.append(doc)
@@ -259,9 +263,10 @@ class BufferedSave:
             log.info('saving %d docs', len(self.docs))
             self.count += len(self.docs)
             try:
-                self.db.save_many([])
-            except BulkConflict:
-                log.exception()
+                self.db.save_many(self.docs)
+            except BulkConflict as e:
+                log.exception('Conflicts in BufferedSave.flush()')
+                self.conflicts += len(e.conflicts)
             self.docs = []
 
 
