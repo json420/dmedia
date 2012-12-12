@@ -200,6 +200,36 @@ class TestFunctions(TestCase):
             "doc['type'] must equal 'dmedia/file'; got 'dmedia/files'"
         )
 
+        # Empty "_attachments":
+        bad = deepcopy(good)
+        bad['_attachments'] = {}
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['_attachments'] cannot be empty; got {}"
+        )
+
+        # Empty "leaf_hashes":
+        bad = deepcopy(good)
+        bad['_attachments']['leaf_hashes'] = {}
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['_attachments']['leaf_hashes'] cannot be empty; got {}"
+        )
+
+        # Bad "content_type" value:
+        bad = deepcopy(good)
+        bad['_attachments']['leaf_hashes']['content_type'] = 'foo/bar'
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['_attachments']['leaf_hashes']['content_type'] must equal 'application/octet-stream'; got 'foo/bar'"
+        )
+
         # Bad "bytes" type:
         bad = deepcopy(good)
         bad['bytes'] *= 1.0

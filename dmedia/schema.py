@@ -685,12 +685,16 @@ def check_file(doc):
         (_equals, 'dmedia/file'),
     )
 
+    _check(doc, ['_attachments'], dict,
+        _nonempty,
+    )
     _check(doc, ['_attachments', 'leaf_hashes'], dict,
         _nonempty,
     )
     _check(doc, ['_attachments', 'leaf_hashes', 'content_type'], str,
         (_equals, 'application/octet-stream'),
     )
+
     _check(doc, ['bytes'], int,
         (_at_least, 1),
     )
