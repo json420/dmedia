@@ -38,7 +38,7 @@ from microfiber import random_id
 from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
-from dmedia.metastore import create_stored
+from dmedia.metastore import create_stored, get_mtime
 
 
 random = SystemRandom()
@@ -112,7 +112,7 @@ class TestFunctions(TestCase):
             {
                 fs1.id: {
                     'copies': 0,
-                    'mtime': int(fs1.stat(ch.id).mtime),
+                    'mtime': get_mtime(fs1, ch.id),
                 },
             }
         )
@@ -120,11 +120,11 @@ class TestFunctions(TestCase):
             {
                 fs1.id: {
                     'copies': 0,
-                    'mtime': int(fs1.stat(ch.id).mtime),
+                    'mtime': get_mtime(fs1, ch.id),
                 },
                 fs2.id: {
                     'copies': 2,
-                    'mtime': int(fs2.stat(ch.id).mtime),
+                    'mtime': get_mtime(fs2, ch.id),
                 }, 
             }
         )
@@ -155,7 +155,7 @@ class TestFunctions(TestCase):
             id3: {
                 'copies': 1,
                 'mtime': ts3,
-                'verified': int(ts3 + 100),
+                'verified': ts3 + 100,
             }
         }
         self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
@@ -172,7 +172,7 @@ class TestFunctions(TestCase):
                 id3: {
                     'copies': 1,
                     'mtime': ts3,
-                    'verified': int(ts3 + 100),
+                    'verified': ts3 + 100,
                 }
             }
         )
@@ -220,7 +220,7 @@ class TestFunctions(TestCase):
             id3: {
                 'copies': 1,
                 'mtime': ts3,
-                'verified': int(ts3 + 100),
+                'verified': ts3 + 100,
                 'pinned': True,
             },
         }
@@ -240,7 +240,7 @@ class TestFunctions(TestCase):
                 id3: {
                     'copies': 1,
                     'mtime': ts3,
-                    'verified': int(ts3 + 100),
+                    'verified': ts3 + 100,
                     'pinned': True,
                 },
             }
@@ -561,7 +561,7 @@ class TestMetaStore(CouchCase):
                 {
                     fs.id: {
                         'copies': 0,
-                        'mtime': int(fs.stat(_id).mtime),
+                        'mtime': get_mtime(fs, _id),
                         'pinned': True,
                     },
                 }
@@ -625,7 +625,7 @@ class TestMetaStore(CouchCase):
                 {
                     fs.id: {
                         'copies': 1,
-                        'mtime': int(fs.stat(_id).mtime),
+                        'mtime': get_mtime(fs, _id),
                     },
                 }
             )
@@ -661,7 +661,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(doc['stored'],
             {
                 fs2.id: {
-                    'mtime': int(fs2.stat(ch.id).mtime),
+                    'mtime': get_mtime(fs2, ch.id),
                     'copies': 1,
                 },   
             }
@@ -677,7 +677,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(doc['stored'],
             {
                 fs2.id: {
-                    'mtime': int(fs2.stat(ch.id).mtime),
+                    'mtime': get_mtime(fs2, ch.id),
                     'copies': 1,
                 },   
             }
@@ -710,7 +710,7 @@ class TestMetaStore(CouchCase):
             {
                 fs.id: {
                     'copies': 1,
-                    'mtime': int(fs.stat(ch.id).mtime),
+                    'mtime': get_mtime(fs, ch.id),
                     'verified': verified,
                 },
             }
@@ -740,7 +740,7 @@ class TestMetaStore(CouchCase):
             {
                 fs.id: {
                     'copies': 1,
-                    'mtime': int(fs.stat(_id).mtime),
+                    'mtime': get_mtime(fs, _id),
                     'verified': verified,
                 },   
             }
@@ -774,7 +774,7 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': int(fs1.stat(_id).mtime),
+                    'mtime': get_mtime(fs1, _id),
                 },
             }   
         )
@@ -802,11 +802,11 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': int(fs1.stat(_id).mtime),
+                    'mtime': get_mtime(fs1, _id),
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': int(fs2.stat(_id).mtime),
+                    'mtime': get_mtime(fs2, _id),
                 },
             }   
         )
@@ -835,12 +835,12 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': int(fs1.stat(_id).mtime),
+                    'mtime': get_mtime(fs1, _id),
                     'verified': verified,
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': int(fs2.stat(_id).mtime),
+                    'mtime': get_mtime(fs2, _id),
                 }, 
             }
         )
@@ -859,16 +859,16 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': int(fs1.stat(_id).mtime),
+                    'mtime': get_mtime(fs1, _id),
                     'verified': verified,
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': int(fs2.stat(_id).mtime),
+                    'mtime': get_mtime(fs2, _id),
                 },
                 fs3.id: {
                     'copies': 1,
-                    'mtime': int(fs3.stat(_id).mtime),
+                    'mtime': get_mtime(fs3, _id),
                 },
             }
         )

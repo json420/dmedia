@@ -90,6 +90,10 @@ def update_doc(db, _id, func, *args):
     raise UpdateConflict()
 
 
+def get_mtime(fs, _id):
+    return int(fs.stat(_id).mtime)
+
+
 def create_stored(_id, *filestores):
     """
     Create doc['stored'] for file with *_id* stored in *filestores*.
@@ -99,7 +103,7 @@ def create_stored(_id, *filestores):
             fs.id,
             {
                 'copies': fs.copies,
-                'mtime': int(fs.stat(_id).mtime),
+                'mtime': get_mtime(fs, _id),
             }
         )
         for fs in filestores
@@ -145,7 +149,7 @@ def mark_verified(doc, fs, timestamp):
     stored = get_dict(doc, 'stored')
     new = {
         'copies': fs.copies,
-        'mtime': int(fs.stat(_id).mtime),
+        'mtime': get_mtime(fs, _id),
         'verified': int(timestamp),
     }
     update(stored, fs.id, new)
@@ -169,7 +173,7 @@ def mark_mismatch(doc, fs):
     stored = get_dict(doc, 'stored')
     value = get_dict(stored, fs.id)
     value.update(
-        mtime=int(fs.stat(_id).mtime),
+        mtime=get_mtime(fs, _id),
         copies=0,
     )
     value.pop('verified', None)
