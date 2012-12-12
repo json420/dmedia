@@ -327,6 +327,7 @@ class Core:
             store_id = util.get_filestore_id(SHARED)
             if store_id is not None:
                 self.purge_store(store_id)
+        self.ms.schema_check()
         log.info('Background worker listing to queue...')
         while True:
             try:
