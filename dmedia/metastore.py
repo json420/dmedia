@@ -278,6 +278,9 @@ class MetaStore:
         return '{}({!r})'.format(self.__class__.__name__, self.db)
 
     def schema_check(self):
+        """
+        If needed, migrate mtime from float to int.
+        """
         buf = BufferedSave(self.db)
         rows = self.db.view('doc', 'type', key='dmedia/file')['rows']
         for ids in id_slice_iter(rows):

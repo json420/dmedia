@@ -610,6 +610,117 @@ class TestMetaStore(CouchCase):
         self.assertIs(ms.db, db)
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
 
+    def test_schema_check(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        self.assertEqual(ms.schema_check(), 0)
+        store_id1 = random_id()
+        store_id2 = random_id()
+
+        good = []
+        for i in range(30):
+            doc = {
+                '_id': random_file_id(),
+                'time': time.time(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': int(time.time()),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': int(time.time()),
+                    }, 
+                },
+            }
+            db.save(doc)
+            good.append(doc)
+        self.assertEqual(len(good), 30)
+
+        bad = []
+        for i in range(30):
+            doc = {
+                '_id': random_file_id(),
+                'time': time.time(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': time.time(),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': time.time(),
+                    }, 
+                },
+            }
+            db.save(doc)
+            bad.append(doc)
+        self.assertEqual(len(bad), 30)
+
+        tricky = []
+        for i in range(30):
+            doc = {
+                '_id': random_file_id(),
+                'time': time.time(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': int(time.time()),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': time.time(),
+                    }, 
+                },
+            }
+            db.save(doc)
+            tricky.append(doc)
+        self.assertEqual(len(tricky), 30)
+
+        # Now test:
+        self.assertEqual(ms.schema_check(), 60)
+        for doc in good:
+            self.assertEqual(db.get(doc['_id']), doc)
+            self.assertTrue(doc['_rev'].startswith('1-'))
+        for old in bad:
+            new = db.get(old['_id'])
+            self.assertNotEqual(new, old)
+            self.assertTrue(new['_rev'].startswith('2-'))
+            self.assertEqual(new['stored'],
+                {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': int(old['stored'][store_id1]['mtime']),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': int(old['stored'][store_id2]['mtime']),
+                    },
+                }
+            )
+        for old in tricky:
+            new = db.get(old['_id'])
+            self.assertNotEqual(new, old)
+            self.assertTrue(new['_rev'].startswith('2-'))
+            self.assertEqual(new['stored'],
+                {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': old['stored'][store_id1]['mtime'],
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': int(old['stored'][store_id2]['mtime']),
+                    },
+                }
+            )
+
+        # Once more with feeling:
+        self.assertEqual(ms.schema_check(), 0)
+
     def test_scan(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
