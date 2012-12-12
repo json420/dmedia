@@ -38,6 +38,7 @@ from .couch import CouchCase
 from .base import TempDir, DummyQueue, MagicLanternTestCase2
 
 from dmedia.util import get_db
+from dmedia.metastore import get_mtime
 from dmedia import importer, schema
 
 
@@ -348,22 +349,17 @@ class TestImportWorker(ImportCase):
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
             self.assertEqual(leaf_hashes, ch.leaf_hashes)
-            self.assertEqual(
-                set(doc['stored']),
-                set([self.store1_id, self.store2_id])
-            )
-            self.assertEqual(
-                doc['stored'][self.store1_id],
+            self.assertEqual(doc['stored'],
                 {
-                    'mtime': fs1.stat(ch.id).mtime,
-                    'copies': 1,
-                }
-            )
-            self.assertEqual(
-                doc['stored'][self.store2_id],
-                {
-                    'mtime': fs2.stat(ch.id).mtime,
-                    'copies': 2,
+                    self.store1_id: {
+                        'copies': 1,
+                        'mtime': get_mtime(fs1, ch.id),
+                    },
+                    self.store2_id: {
+                        'copies': 2,
+                        'mtime': get_mtime(fs2, ch.id),
+                    }
+                
                 }
             )
 
@@ -820,22 +816,17 @@ class TestImportManager(ImportCase):
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
             self.assertEqual(leaf_hashes, ch.leaf_hashes)
-            self.assertEqual(
-                set(doc['stored']),
-                set([self.store1_id, self.store2_id])
-            )
-            self.assertEqual(
-                doc['stored'][self.store1_id],
+            self.assertEqual(doc['stored'],
                 {
-                    'mtime': fs1.stat(ch.id).mtime,
-                    'copies': 1,
-                }
-            )
-            self.assertEqual(
-                doc['stored'][self.store2_id],
-                {
-                    'mtime': fs2.stat(ch.id).mtime,
-                    'copies': 2,
+                    self.store1_id: {
+                        'copies': 1,
+                        'mtime': get_mtime(fs1, ch.id),
+                    },
+                    self.store2_id: {
+                        'copies': 2,
+                        'mtime': get_mtime(fs2, ch.id),
+                    }
+                
                 }
             )
 
@@ -914,22 +905,17 @@ class TestImportManager(ImportCase):
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
             self.assertEqual(leaf_hashes, ch.leaf_hashes)
-            self.assertEqual(
-                set(doc['stored']),
-                set([self.store1_id, self.store2_id])
-            )
-            self.assertEqual(
-                doc['stored'][self.store1_id],
+            self.assertEqual(doc['stored'],
                 {
-                    'mtime': fs1.stat(ch.id).mtime,
-                    'copies': 1,
-                }
-            )
-            self.assertEqual(
-                doc['stored'][self.store2_id],
-                {
-                    'mtime': fs2.stat(ch.id).mtime,
-                    'copies': 2,
+                    self.store1_id: {
+                        'copies': 1,
+                        'mtime': get_mtime(fs1, ch.id),
+                    },
+                    self.store2_id: {
+                        'copies': 2,
+                        'mtime': get_mtime(fs2, ch.id),
+                    }
+                
                 }
             )
 
