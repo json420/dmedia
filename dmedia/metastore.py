@@ -99,7 +99,7 @@ def create_stored(_id, *filestores):
             fs.id,
             {
                 'copies': fs.copies,
-                'mtime': fs.stat(_id).mtime,
+                'mtime': int(fs.stat(_id).mtime),
             }
         )
         for fs in filestores
@@ -145,7 +145,7 @@ def mark_verified(doc, fs, timestamp):
     stored = get_dict(doc, 'stored')
     new = {
         'copies': fs.copies,
-        'mtime': fs.stat(_id).mtime,
+        'mtime': int(fs.stat(_id).mtime),
         'verified': int(timestamp),
     }
     update(stored, fs.id, new)
@@ -169,7 +169,7 @@ def mark_mismatch(doc, fs):
     stored = get_dict(doc, 'stored')
     value = get_dict(stored, fs.id)
     value.update(
-        mtime=fs.stat(_id).mtime,
+        mtime=int(fs.stat(_id).mtime),
         copies=0,
     )
     value.pop('verified', None)
@@ -301,7 +301,7 @@ class MetaStore:
                         )
                     stored = get_dict(doc, 'stored')
                     s = get_dict(stored, fs.id)
-                    if st.mtime != s['mtime']:
+                    if s['mtime'] != int(st.mtime):
                         raise MTimeMismatch()
         # Update the atime for the dmedia/store doc
         try:
@@ -333,7 +333,7 @@ class MetaStore:
                     continue
                 log.info('Relinking %s in %r', st.id, fs)
                 value.update(
-                    mtime=st.mtime,
+                    mtime=int(st.mtime),
                     copies=fs.copies,
                 )
                 self.db.save(doc)

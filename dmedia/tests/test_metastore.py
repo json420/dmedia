@@ -112,7 +112,7 @@ class TestFunctions(TestCase):
             {
                 fs1.id: {
                     'copies': 0,
-                    'mtime': fs1.stat(ch.id).mtime,
+                    'mtime': int(fs1.stat(ch.id).mtime),
                 },
             }
         )
@@ -120,11 +120,11 @@ class TestFunctions(TestCase):
             {
                 fs1.id: {
                     'copies': 0,
-                    'mtime': fs1.stat(ch.id).mtime,
+                    'mtime': int(fs1.stat(ch.id).mtime),
                 },
                 fs2.id: {
                     'copies': 2,
-                    'mtime': fs2.stat(ch.id).mtime,
+                    'mtime': int(fs2.stat(ch.id).mtime),
                 }, 
             }
         )
@@ -133,9 +133,9 @@ class TestFunctions(TestCase):
         id1 = random_id()
         id2 = random_id()
         id3 = random_id()
-        ts1 = time.time()
-        ts2 = time.time() - 2.5
-        ts3 = time.time() - 5
+        ts1 = int(time.time())
+        ts2 = ts1 - 3
+        ts3 = ts1 - 5
         new = {
             id1: {
                 'copies': 2,
@@ -561,7 +561,7 @@ class TestMetaStore(CouchCase):
                 {
                     fs.id: {
                         'copies': 0,
-                        'mtime': fs.stat(_id).mtime,
+                        'mtime': int(fs.stat(_id).mtime),
                         'pinned': True,
                     },
                 }
@@ -625,7 +625,7 @@ class TestMetaStore(CouchCase):
                 {
                     fs.id: {
                         'copies': 1,
-                        'mtime': fs.stat(_id).mtime,
+                        'mtime': int(fs.stat(_id).mtime),
                     },
                 }
             )
@@ -661,7 +661,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(doc['stored'],
             {
                 fs2.id: {
-                    'mtime': fs2.stat(ch.id).mtime,
+                    'mtime': int(fs2.stat(ch.id).mtime),
                     'copies': 1,
                 },   
             }
@@ -677,7 +677,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(doc['stored'],
             {
                 fs2.id: {
-                    'mtime': fs2.stat(ch.id).mtime,
+                    'mtime': int(fs2.stat(ch.id).mtime),
                     'copies': 1,
                 },   
             }
@@ -710,7 +710,7 @@ class TestMetaStore(CouchCase):
             {
                 fs.id: {
                     'copies': 1,
-                    'mtime': fs.stat(ch.id).mtime,
+                    'mtime': int(fs.stat(ch.id).mtime),
                     'verified': verified,
                 },
             }
@@ -740,7 +740,7 @@ class TestMetaStore(CouchCase):
             {
                 fs.id: {
                     'copies': 1,
-                    'mtime': fs.stat(_id).mtime,
+                    'mtime': int(fs.stat(_id).mtime),
                     'verified': verified,
                 },   
             }
@@ -774,7 +774,7 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': int(fs1.stat(_id).mtime),
                 },
             }   
         )
@@ -802,11 +802,11 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': int(fs1.stat(_id).mtime),
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': fs2.stat(_id).mtime,
+                    'mtime': int(fs2.stat(_id).mtime),
                 },
             }   
         )
@@ -835,12 +835,12 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': int(fs1.stat(_id).mtime),
                     'verified': verified,
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': fs2.stat(_id).mtime,
+                    'mtime': int(fs2.stat(_id).mtime),
                 }, 
             }
         )
@@ -859,16 +859,16 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': int(fs1.stat(_id).mtime),
                     'verified': verified,
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': fs2.stat(_id).mtime,
+                    'mtime': int(fs2.stat(_id).mtime),
                 },
                 fs3.id: {
                     'copies': 1,
-                    'mtime': fs3.stat(_id).mtime,
+                    'mtime': int(fs3.stat(_id).mtime),
                 },
             }
         )
