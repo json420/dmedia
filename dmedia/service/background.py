@@ -27,10 +27,11 @@ import multiprocessing
 import logging
 import time
 
+from gi.repository import GLib
+from microfiber import BulkConflict
+
 from dmedia.parallel import start_thread, start_process
 from dmedia.core import snapshot_worker
-
-from gi.repository import GLib
 
 
 log = logging.getLogger()
@@ -89,3 +90,36 @@ class Snapshots:
             self.start()
         self.in_q.put(name)
         return True
+
+
+class LazyAccess:
+    def __init__(self, db, seconds=30):
+        self.db = db
+        self.delay = seconds * 1000
+        self.buf = {}
+        self.timeout_id = None
+
+    def access(self, _id):
+        self.buf[_id] = int(time.time())
+        if self.timeout_id is None:
+            self.timeout_id = GLib.timeout_add(self.delay, self.on_timeout)
+
+    def on_timeout(self):
+        assert self.timeout_id is not None
+        self.timeout_id = None
+        self.flush()
+
+    def flush(self):
+        if self.buf:
+            log.info('Flushing atime updates for %d files', len(self.buf))
+            ids = sorted(self.buf)
+            docs = list(filter(None, self.db.get_many(ids)))
+            for doc in docs:
+                doc['atime'] = self.buf[doc['_id']]
+            try:
+                self.db.save_many(docs)
+            except BulkConflict as e:
+                log.exception('Conflicts in LazyAccess.flush()')
+            self.buf.clear()
+            return len(docs)
+
