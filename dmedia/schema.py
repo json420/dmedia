@@ -685,12 +685,16 @@ def check_file(doc):
         (_equals, 'dmedia/file'),
     )
 
+    _check(doc, ['_attachments'], dict,
+        _nonempty,
+    )
     _check(doc, ['_attachments', 'leaf_hashes'], dict,
         _nonempty,
     )
     _check(doc, ['_attachments', 'leaf_hashes', 'content_type'], str,
         (_equals, 'application/octet-stream'),
     )
+
     _check(doc, ['bytes'], int,
         (_at_least, 1),
     )
@@ -708,7 +712,7 @@ def check_file(doc):
         _check(doc, ['stored', key, 'copies'], int,
             (_at_least, 0),
         )
-        _check(doc, ['stored', key, 'mtime'], (int, float),
+        _check(doc, ['stored', key, 'mtime'], int,
             (_at_least, 0),
         )
         _check_if_exists(doc, ['stored', key, 'verified'], int,

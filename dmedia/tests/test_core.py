@@ -37,7 +37,7 @@ from microfiber import random_id
 import filestore
 
 from dmedia.local import LocalStores
-from dmedia.metastore import MetaStore
+from dmedia.metastore import MetaStore, get_mtime
 from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia import util, core
 
@@ -509,7 +509,7 @@ class TestCore(CouchCase):
                 'stored': {
                     fs.id: {
                         'copies': 1,
-                        'mtime': fs.stat(ch.id).mtime,
+                        'mtime': get_mtime(fs, ch.id),
                     },
                 },
             }

@@ -38,7 +38,7 @@ from microfiber import random_id
 from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
-from dmedia.metastore import create_stored
+from dmedia.metastore import create_stored, get_mtime
 
 
 random = SystemRandom()
@@ -112,7 +112,7 @@ class TestFunctions(TestCase):
             {
                 fs1.id: {
                     'copies': 0,
-                    'mtime': fs1.stat(ch.id).mtime,
+                    'mtime': get_mtime(fs1, ch.id),
                 },
             }
         )
@@ -120,11 +120,11 @@ class TestFunctions(TestCase):
             {
                 fs1.id: {
                     'copies': 0,
-                    'mtime': fs1.stat(ch.id).mtime,
+                    'mtime': get_mtime(fs1, ch.id),
                 },
                 fs2.id: {
                     'copies': 2,
-                    'mtime': fs2.stat(ch.id).mtime,
+                    'mtime': get_mtime(fs2, ch.id),
                 }, 
             }
         )
@@ -133,9 +133,9 @@ class TestFunctions(TestCase):
         id1 = random_id()
         id2 = random_id()
         id3 = random_id()
-        ts1 = time.time()
-        ts2 = time.time() - 2.5
-        ts3 = time.time() - 5
+        ts1 = int(time.time())
+        ts2 = ts1 - 3
+        ts3 = ts1 - 5
         new = {
             id1: {
                 'copies': 2,
@@ -155,7 +155,7 @@ class TestFunctions(TestCase):
             id3: {
                 'copies': 1,
                 'mtime': ts3,
-                'verified': int(ts3 + 100),
+                'verified': ts3 + 100,
             }
         }
         self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
@@ -172,7 +172,7 @@ class TestFunctions(TestCase):
                 id3: {
                     'copies': 1,
                     'mtime': ts3,
-                    'verified': int(ts3 + 100),
+                    'verified': ts3 + 100,
                 }
             }
         )
@@ -220,7 +220,7 @@ class TestFunctions(TestCase):
             id3: {
                 'copies': 1,
                 'mtime': ts3,
-                'verified': int(ts3 + 100),
+                'verified': ts3 + 100,
                 'pinned': True,
             },
         }
@@ -240,7 +240,7 @@ class TestFunctions(TestCase):
                 id3: {
                     'copies': 1,
                     'mtime': ts3,
-                    'verified': int(ts3 + 100),
+                    'verified': ts3 + 100,
                     'pinned': True,
                 },
             }
@@ -511,12 +511,215 @@ class TestFunctions(TestCase):
         )
 
 
+class TestBufferedSave(CouchCase):
+    def test_init(self):
+        db = microfiber.Database('foo', self.env)
+        db.ensure()
+        buf = metastore.BufferedSave(db, size=10)
+        self.assertIs(buf.db, db)
+        self.assertEqual(buf.size, 10)
+        self.assertIsInstance(buf.docs, list)
+        self.assertEqual(buf.docs, [])
+        self.assertIsInstance(buf.count, int)
+        self.assertEqual(buf.count, 0)
+        self.assertIsInstance(buf.conflicts, int)
+        self.assertEqual(buf.conflicts, 0)
+
+        buf = metastore.BufferedSave(db)
+        self.assertEqual(buf.size, 25)
+
+        # Save the first 24, which should just be stored in the buffer:
+        docs = []
+        for i in range(24):
+            doc = {'_id': random_id(), 'i': i}
+            docs.append(doc)
+            buf.save(doc)
+            self.assertEqual(buf.docs, docs)
+            self.assertEqual(buf.count, 0)
+            self.assertEqual(buf.conflicts, 0)
+        self.assertEqual(
+            db.get_many([doc['_id'] for doc in docs]),
+            [None for doc in docs]
+        )
+        for doc in docs:
+            self.assertNotIn('_rev', doc)
+
+        # Now save the 25th, which should trigger a flush:
+        doc = {'_id': random_id()}
+        docs.append(doc)
+        buf.save(doc)
+        self.assertEqual(buf.docs, [])
+        self.assertEqual(buf.count, 25)
+        self.assertEqual(buf.conflicts, 0)
+        self.assertEqual(len(docs), 25)
+        self.assertEqual(
+            db.get_many([doc['_id'] for doc in docs]),
+            docs
+        )
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('1-'))
+
+        # Create conflicts, save till a flush is triggered:
+        for i in range(19):
+            db.post(docs[i])
+        docs2 = []
+        for i in range(24):
+            doc = docs[i]
+            docs2.append(doc)
+            buf.save(doc)
+            self.assertEqual(buf.docs, docs2)
+            self.assertEqual(buf.count, 25)
+            self.assertEqual(buf.conflicts, 0)
+        buf.save(docs[-1])
+        self.assertEqual(buf.docs, [])
+        self.assertEqual(buf.count, 50)
+        self.assertEqual(buf.conflicts, 19)
+        for (i, doc) in enumerate(docs):
+            if i < 19:
+                self.assertTrue(doc['_rev'].startswith('1-'))
+                self.assertNotEqual(db.get(doc['_id']), doc)
+            else:
+                self.assertTrue(doc['_rev'].startswith('2-'))
+                self.assertEqual(db.get(doc['_id']), doc)
+
+        # Put some in the buffer directly, test flush()
+        docs3 = []
+        for i in range(50):
+            doc = {'_id': random_id()}
+            docs3.append(doc)
+            if i >= 18:
+                db.post(doc)
+        buf.docs.extend(docs3)
+        buf.flush()
+        self.assertEqual(buf.docs, [])
+        self.assertEqual(buf.count, 100)
+        self.assertEqual(buf.conflicts, 51)
+        for (i, doc) in enumerate(docs3):
+            if i >= 18:
+                self.assertNotIn('_rev', doc)
+                self.assertNotEqual(db.get(doc['_id']), doc)
+            else:
+                self.assertTrue(doc['_rev'].startswith('1-'))
+                self.assertEqual(db.get(doc['_id']), doc)
+
+
 class TestMetaStore(CouchCase):
     def test_init(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         self.assertIs(ms.db, db)
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
+
+    def test_schema_check(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        self.assertEqual(ms.schema_check(), 0)
+        store_id1 = random_id()
+        store_id2 = random_id()
+
+        good = []
+        for i in range(30):
+            doc = {
+                '_id': random_file_id(),
+                'time': time.time(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': int(time.time()),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': int(time.time()),
+                    }, 
+                },
+            }
+            db.save(doc)
+            good.append(doc)
+        self.assertEqual(len(good), 30)
+
+        bad = []
+        for i in range(30):
+            doc = {
+                '_id': random_file_id(),
+                'time': time.time(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': time.time(),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': time.time(),
+                    }, 
+                },
+            }
+            db.save(doc)
+            bad.append(doc)
+        self.assertEqual(len(bad), 30)
+
+        tricky = []
+        for i in range(30):
+            doc = {
+                '_id': random_file_id(),
+                'time': time.time(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': int(time.time()),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': time.time(),
+                    }, 
+                },
+            }
+            db.save(doc)
+            tricky.append(doc)
+        self.assertEqual(len(tricky), 30)
+
+        # Now test:
+        self.assertEqual(ms.schema_check(), 60)
+        for doc in good:
+            self.assertEqual(db.get(doc['_id']), doc)
+            self.assertTrue(doc['_rev'].startswith('1-'))
+        for old in bad:
+            new = db.get(old['_id'])
+            self.assertNotEqual(new, old)
+            self.assertTrue(new['_rev'].startswith('2-'))
+            self.assertEqual(new['stored'],
+                {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': int(old['stored'][store_id1]['mtime']),
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': int(old['stored'][store_id2]['mtime']),
+                    },
+                }
+            )
+        for old in tricky:
+            new = db.get(old['_id'])
+            self.assertNotEqual(new, old)
+            self.assertTrue(new['_rev'].startswith('2-'))
+            self.assertEqual(new['stored'],
+                {
+                    store_id1: {
+                        'copies': 2,
+                        'mtime': old['stored'][store_id1]['mtime'],
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': int(old['stored'][store_id2]['mtime']),
+                    },
+                }
+            )
+
+        # Once more with feeling:
+        self.assertEqual(ms.schema_check(), 0)
 
     def test_scan(self):
         db = util.get_db(self.env, True)
@@ -561,7 +764,7 @@ class TestMetaStore(CouchCase):
                 {
                     fs.id: {
                         'copies': 0,
-                        'mtime': fs.stat(_id).mtime,
+                        'mtime': get_mtime(fs, _id),
                         'pinned': True,
                     },
                 }
@@ -625,7 +828,7 @@ class TestMetaStore(CouchCase):
                 {
                     fs.id: {
                         'copies': 1,
-                        'mtime': fs.stat(_id).mtime,
+                        'mtime': get_mtime(fs, _id),
                     },
                 }
             )
@@ -661,7 +864,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(doc['stored'],
             {
                 fs2.id: {
-                    'mtime': fs2.stat(ch.id).mtime,
+                    'mtime': get_mtime(fs2, ch.id),
                     'copies': 1,
                 },   
             }
@@ -677,7 +880,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(doc['stored'],
             {
                 fs2.id: {
-                    'mtime': fs2.stat(ch.id).mtime,
+                    'mtime': get_mtime(fs2, ch.id),
                     'copies': 1,
                 },   
             }
@@ -710,7 +913,7 @@ class TestMetaStore(CouchCase):
             {
                 fs.id: {
                     'copies': 1,
-                    'mtime': fs.stat(ch.id).mtime,
+                    'mtime': get_mtime(fs, ch.id),
                     'verified': verified,
                 },
             }
@@ -740,7 +943,7 @@ class TestMetaStore(CouchCase):
             {
                 fs.id: {
                     'copies': 1,
-                    'mtime': fs.stat(_id).mtime,
+                    'mtime': get_mtime(fs, _id),
                     'verified': verified,
                 },   
             }
@@ -774,7 +977,7 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': get_mtime(fs1, _id),
                 },
             }   
         )
@@ -802,11 +1005,11 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': get_mtime(fs1, _id),
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': fs2.stat(_id).mtime,
+                    'mtime': get_mtime(fs2, _id),
                 },
             }   
         )
@@ -835,12 +1038,12 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': get_mtime(fs1, _id),
                     'verified': verified,
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': fs2.stat(_id).mtime,
+                    'mtime': get_mtime(fs2, _id),
                 }, 
             }
         )
@@ -859,16 +1062,16 @@ class TestMetaStore(CouchCase):
             {
                 fs1.id: {
                     'copies': 1,
-                    'mtime': fs1.stat(_id).mtime,
+                    'mtime': get_mtime(fs1, _id),
                     'verified': verified,
                 },
                 fs2.id: {
                     'copies': 1,
-                    'mtime': fs2.stat(_id).mtime,
+                    'mtime': get_mtime(fs2, _id),
                 },
                 fs3.id: {
                     'copies': 1,
-                    'mtime': fs3.stat(_id).mtime,
+                    'mtime': get_mtime(fs3, _id),
                 },
             }
         )

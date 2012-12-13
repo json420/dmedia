@@ -42,7 +42,7 @@ import os
 import logging
 
 from filestore import CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound, Conflict, id_slice_iter
+from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
 from .util import get_db
 
@@ -90,6 +90,10 @@ def update_doc(db, _id, func, *args):
     raise UpdateConflict()
 
 
+def get_mtime(fs, _id):
+    return int(fs.stat(_id).mtime)
+
+
 def create_stored(_id, *filestores):
     """
     Create doc['stored'] for file with *_id* stored in *filestores*.
@@ -99,7 +103,7 @@ def create_stored(_id, *filestores):
             fs.id,
             {
                 'copies': fs.copies,
-                'mtime': fs.stat(_id).mtime,
+                'mtime': get_mtime(fs, _id),
             }
         )
         for fs in filestores
@@ -145,7 +149,7 @@ def mark_verified(doc, fs, timestamp):
     stored = get_dict(doc, 'stored')
     new = {
         'copies': fs.copies,
-        'mtime': fs.stat(_id).mtime,
+        'mtime': get_mtime(fs, _id),
         'verified': int(timestamp),
     }
     update(stored, fs.id, new)
@@ -169,7 +173,7 @@ def mark_mismatch(doc, fs):
     stored = get_dict(doc, 'stored')
     value = get_dict(stored, fs.id)
     value.update(
-        mtime=fs.stat(_id).mtime,
+        mtime=get_mtime(fs, _id),
         copies=0,
     )
     value.pop('verified', None)
@@ -236,12 +240,61 @@ def relink_iter(fs, count=25):
         yield buf
 
 
+class BufferedSave:
+    __slots__ = ('db', 'size', 'docs', 'count', 'conflicts')
+
+    def __init__(self, db, size=25):
+        self.db = db
+        self.size = size
+        self.docs = []
+        self.count = 0
+        self.conflicts = 0
+
+    def __del__(self):
+        self.flush()
+
+    def save(self, doc):
+        self.docs.append(doc)
+        if len(self.docs) >= self.size:
+            self.flush()
+
+    def flush(self):
+        if self.docs:
+            log.info('saving %d docs', len(self.docs))
+            self.count += len(self.docs)
+            try:
+                self.db.save_many(self.docs)
+            except BulkConflict as e:
+                log.exception('Conflicts in BufferedSave.flush()')
+                self.conflicts += len(e.conflicts)
+            self.docs = []
+
+
 class MetaStore:
     def __init__(self, db):
         self.db = db
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
+
+    def schema_check(self):
+        """
+        If needed, migrate mtime from float to int.
+        """
+        buf = BufferedSave(self.db)
+        rows = self.db.view('doc', 'type', key='dmedia/file')['rows']
+        for ids in id_slice_iter(rows):
+            for doc in self.db.get_many(ids):
+                changed = False
+                for value in doc['stored'].values():
+                    if isinstance(value.get('mtime'), float):
+                        changed = True
+                        value['mtime'] = int(value['mtime'])
+                if changed:
+                    buf.save(doc)
+        buf.flush()
+        log.info('converted mtime from `float` to `int` for %d docs', buf.count)
+        return buf.count
 
     def scan(self, fs):
         """
@@ -301,7 +354,7 @@ class MetaStore:
                         )
                     stored = get_dict(doc, 'stored')
                     s = get_dict(stored, fs.id)
-                    if st.mtime != s['mtime']:
+                    if s['mtime'] != int(st.mtime):
                         raise MTimeMismatch()
         # Update the atime for the dmedia/store doc
         try:
@@ -333,7 +386,7 @@ class MetaStore:
                     continue
                 log.info('Relinking %s in %r', st.id, fs)
                 value.update(
-                    mtime=st.mtime,
+                    mtime=int(st.mtime),
                     copies=fs.copies,
                 )
                 self.db.save(doc)
