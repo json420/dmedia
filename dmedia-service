@@ -453,7 +453,6 @@ class Service(dbus.service.Object):
         """
         FIXME: Should we even have this method?
         """
-        log.info(uri)
         if not uri.startswith('dmedia:'):
             raise ValueError('not a dmedia: URI {!r}'.format(uri))
         _id = uri[7:]
