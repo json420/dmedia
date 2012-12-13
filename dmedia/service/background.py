@@ -122,15 +122,23 @@ class LazyAccess:
         self.delay = seconds * 1000
         self.buf = {}
         self.timeout_id = None
+        self.idle_id = None
 
     def access(self, _id):
         self.buf[_id] = int(time.time())
-        if self.timeout_id is None:
+        if len(self.buf) >= 200 and self.idle_id is None:
+            self.idle_id = GLib.idle_add(self.on_idle)
+        elif self.timeout_id is None:
             self.timeout_id = GLib.timeout_add(self.delay, self.on_timeout)
 
     def on_timeout(self):
         assert self.timeout_id is not None
         self.timeout_id = None
+        self.flush()
+
+    def on_idle(self):
+        assert self.idle_id is not None
+        self.idle_id = None
         self.flush()
 
     def flush(self):

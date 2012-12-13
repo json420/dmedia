@@ -79,6 +79,7 @@ class TestLazyAccess(TestCase):
         self.assertEqual(inst.delay, 30 * 1000)
         self.assertEqual(inst.buf, {})
         self.assertIsNone(inst.timeout_id)
+        self.assertIsNone(inst.idle_id)
 
         inst = background.LazyAccess(db, seconds=45)
         self.assertIs(inst.db, db)
@@ -86,17 +87,18 @@ class TestLazyAccess(TestCase):
         self.assertEqual(inst.delay, 45 * 1000)
         self.assertEqual(inst.buf, {})
         self.assertIsNone(inst.timeout_id)
+        self.assertIsNone(inst.idle_id)
 
     def test_access(self):
         db = Database('dmedia-0')
         inst = background.LazyAccess(db)
 
         # So it's easier to test without requiring a mainloop:
-        inst.timeout_id = 'dummy timeout'
+        inst.timeout_id = 'dummy timeout id'
 
         _id = random_file_id()
         self.assertIsNone(inst.access(_id))
-        self.assertEqual(inst.timeout_id, 'dummy timeout')
+        self.assertEqual(inst.timeout_id, 'dummy timeout id')
         atime = inst.buf[_id]
         self.assertIsInstance(atime, int)
         self.assertLessEqual(atime, int(time.time()))
@@ -116,7 +118,7 @@ class TestLazyAccess(TestCase):
         class Dummy(background.LazyAccess):
             def __init__(self):
                 self.flush_called = False
-                self.timeout_id = 'dummy timeout'
+                self.timeout_id = 'dummy timeout id'
 
             def flush(self):
                 assert self.flush_called is False
@@ -125,6 +127,21 @@ class TestLazyAccess(TestCase):
         inst = Dummy()
         self.assertIsNone(inst.on_timeout())
         self.assertIsNone(inst.timeout_id)
+        self.assertIs(inst.flush_called, True)
+
+    def test_on_idle(self):
+        class Dummy(background.LazyAccess):
+            def __init__(self):
+                self.flush_called = False
+                self.idle_id = 'dummy idle id'
+
+            def flush(self):
+                assert self.flush_called is False
+                self.flush_called = True
+
+        inst = Dummy()
+        self.assertIsNone(inst.on_idle())
+        self.assertIsNone(inst.idle_id)
         self.assertIs(inst.flush_called, True)
 
     def test_flush(self):
