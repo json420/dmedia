@@ -99,12 +99,12 @@ class LazyAccess:
     The class solves two problems:
 
     First, we don't want to do any CouchDB writes inside a call to
-    Dmedia.Resolve() or Dmedia.ResolveURI() because that we considerably hamper
-    the performance, limit the number of resolves per second.  So we want to
-    update the atime only when the mainloop is idle.
+    Dmedia.Resolve() or Dmedia.ResolveURI() because that has too big a
+    performance hit. So we want to update the atime only when the mainloop is
+    idle.
 
     Second, we want to limit the frequency of doc updates.  It's quite common
-    (especially in Novacut) for the same file to be revolved several time in a
+    (especially in Novacut) for the same file to be resolved several time in a
     short period of time.  This class will only write out the atime updates at
     most once every 30 seconds, writing out only the latest access time in cases
     where the file was resolved multiple times during those 30 seconds.
