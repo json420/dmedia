@@ -450,7 +450,16 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def ResolveURI(self, uri):
-        return self.core.resolve_uri(uri)
+        """
+        FIXME: Should we even have this method?
+        """
+        log.info(uri)
+        if not uri.startswith('dmedia:'):
+            raise ValueError('not a dmedia: URI {!r}'.format(uri))
+        _id = uri[7:]
+        filename = self.core.resolve(_id)
+        self.lazy_access.access(_id)
+        return 'file://' + filename
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def AllocateTmp(self):
