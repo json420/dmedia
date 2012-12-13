@@ -39,6 +39,7 @@ from microfiber import NotFound, dumps
 
 import dmedia
 from dmedia import schema
+from dmedia.units import bytes10
 from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
@@ -172,6 +173,13 @@ class Service(dbus.service.Object):
         log.info('%r', self.couch._welcome)
         log.info('Starting CouchDB took %.3f', time.time() - start)
         self.core = Core(env)
+        d = self.core.db.get()
+        log.info('doc_count: %s, update_seq: %s, data_size: %s, disk_size: %s',
+            d['doc_count'],
+            d['update_seq'],
+            bytes10(d['data_size']),
+            bytes10(d['disk_size']),
+        )
         self.core.load_identity(self.couch.machine, self.couch.user)
         self.core.load_default_filestore(self.couch.basedir)
         self.env_s = dumps(self.core.env, pretty=True)
