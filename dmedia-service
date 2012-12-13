@@ -42,7 +42,7 @@ from dmedia import schema
 from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
-from dmedia.service.background import Snapshots
+from dmedia.service.background import Snapshots, LazyAccess
 from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, Publisher
@@ -180,6 +180,7 @@ class Service(dbus.service.Object):
                 self.couch.paths.dump,
                 self.SnapshotComplete,
         )
+        self.lazy_access = LazyAccess(self.core.db)
         log.info('Finished core startup in %.3f', time.time() - start)
         GLib.timeout_add(350, self.on_idle1)
 
@@ -443,7 +444,9 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def Resolve(self, _id):
-        return self.core.resolve(_id)
+        filename = self.core.resolve(_id)
+        self.lazy_access.access(_id)
+        return filename
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def ResolveURI(self, uri):
