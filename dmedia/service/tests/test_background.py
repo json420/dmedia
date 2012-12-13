@@ -79,7 +79,6 @@ class TestLazyAccess(TestCase):
         self.assertEqual(inst.delay, 30 * 1000)
         self.assertEqual(inst.buf, {})
         self.assertIsNone(inst.timeout_id)
-        self.assertIsNone(inst.idle_id)
 
         inst = background.LazyAccess(db, seconds=45)
         self.assertIs(inst.db, db)
@@ -87,7 +86,6 @@ class TestLazyAccess(TestCase):
         self.assertEqual(inst.delay, 45 * 1000)
         self.assertEqual(inst.buf, {})
         self.assertIsNone(inst.timeout_id)
-        self.assertIsNone(inst.idle_id)
 
     def test_access(self):
         db = Database('dmedia-0')
@@ -127,21 +125,6 @@ class TestLazyAccess(TestCase):
         inst = Dummy()
         self.assertIsNone(inst.on_timeout())
         self.assertIsNone(inst.timeout_id)
-        self.assertIs(inst.flush_called, True)
-
-    def test_on_idle(self):
-        class Dummy(background.LazyAccess):
-            def __init__(self):
-                self.flush_called = False
-                self.idle_id = 'dummy idle id'
-
-            def flush(self):
-                assert self.flush_called is False
-                self.flush_called = True
-
-        inst = Dummy()
-        self.assertIsNone(inst.on_idle())
-        self.assertIsNone(inst.idle_id)
         self.assertIs(inst.flush_called, True)
 
     def test_flush(self):
