@@ -191,6 +191,21 @@ class TestCore(CouchCase):
         self.assertIsNone(inst.vigilance)
         self.assertIs(inst.vigilance_first_run, False)
 
+    def test_restart_vigilance(self):
+        class Dummy(core.Core):
+            def __init__(self):
+                self.calls = []
+
+            def start_vigilance(self):
+                self.calls.append('start')
+
+            def stop_vigilance(self):
+                self.calls.append('stop')
+                
+        inst = Dummy()
+        self.assertIsNone(inst.restart_vigilance())
+        self.assertEqual(inst.calls, ['stop', 'start'])
+
     def test_create_filestore(self):
         inst = core.Core(self.env)
 
