@@ -532,6 +532,176 @@ class TestFileDesign(DesignTestCase):
             {'rows': []}
         )
 
+    def test_copies(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('copies')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('file', 'copies'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Schema-wise, doc['stored'] is supposed to be present and non-empty,
+        # but lets still make sure files are reported as fragile when this
+        # isn't the case.
+        _id = random_id(DIGEST_BYTES)
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+            'origin': 'user',
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'copies'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'copies', endkey=2),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Make things work even if copies is missing
+        doc['stored'] = {
+            random_id(): {},
+            random_id(): {},
+            random_id(): {},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'copies'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'copies', endkey=2),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Make things work even if copies isn't a number
+        doc['stored'] = {
+            random_id(): {'copies': 'foo'},
+            random_id(): {'copies': 'bar'},
+            random_id(): {'copies': 'baz'},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'copies'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'copies', endkey=2),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Make sure copies is being properly summed
+        doc['stored'] = {
+            random_id(): {'copies': 1},
+            random_id(): {'copies': -1},
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'copies'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 2, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'copies', endkey=2),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 2, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Check when one store provides 3 copies
+        doc['stored'] = {
+            random_id(): {'copies': 3},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'copies'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'copies', endkey=2),
+            {'rows': [], 'offset': 0, 'total_rows': 1},
+        )
+
+        # Check when each store provides 1 copy
+        doc['stored'] = {
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'copies'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'copies', endkey=2),
+            {'rows': [], 'offset': 0, 'total_rows': 1},
+        )
+
     def test_fragile(self):
         db = Database('foo', self.env)
         db.put(None)
