@@ -421,7 +421,7 @@ class MetaStore:
 
     def verify_all(self, fs):
         start = [fs.id, None]
-        end = [fs.id, time.time() - ONE_WEEK]
+        end = [fs.id, int(time.time()) - ONE_WEEK]
         count = 0
         t = TimeDelta()
         log.info('verifying %r', fs)
@@ -435,6 +435,7 @@ class MetaStore:
             _id = r['rows'][0]['id']
             self.verify(fs, _id)
         t.log('verified %s files in %r', count, fs)
+        return count
 
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)

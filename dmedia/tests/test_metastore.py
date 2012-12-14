@@ -919,6 +919,51 @@ class TestMetaStore(CouchCase):
             }
         )
 
+    def test_verify_all(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore(random_id(), 1)
+
+        # 6 files need verification
+        base = int(time.time())
+        docs1 = [create_random_file(fs, db) for i in range(6)]
+        ids = [doc['_id'] for doc in docs1]
+        self.assertEqual(ms.verify_all(fs), 6)
+        self.assertEqual(ms.verify_all(fs), 0)
+        docs2 = db.get_many(ids)
+        for (old, new) in zip(docs1, docs2):
+            schema.check_file(new)
+            self.assertTrue(new['_rev'].startswith('2-'))
+            verified = new['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertLess(verified, time.time())
+            self.assertEqual(new['stored'],
+                {
+                    fs.id: {
+                        'copies': 1,
+                        'mtime': old['stored'][fs.id]['mtime'],
+                        'verified': verified,
+                    },
+                }
+            )
+
+        # Only 4 need checked
+        again = docs2[:4]
+        assert len(again) == 4
+        for doc in again:
+            doc['stored'][fs.id]['verified'] -= (metastore.ONE_WEEK + 1)
+            db.save(doc)
+        self.assertEqual(ms.verify_all(fs), 4)
+        self.assertEqual(ms.verify_all(fs), 0)
+        again = set(doc['_id'] for doc in again)
+        docs3 = db.get_many(ids)
+        for doc in docs3:
+            rev = doc['_rev']
+            if doc['_id'] in again:
+                self.assertTrue(rev.startswith('4-'))
+            else:
+                self.assertTrue(rev.startswith('2-'))
+
     def test_content_md5(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
