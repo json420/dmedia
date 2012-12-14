@@ -243,12 +243,13 @@ def migrate_shared(srcdir, dstdir):
     return count
 
 
-def vigilance(env, stores):
+def vigilance(env, stores, first_run):
     try:
         log.info('vigilance() running %r', stores)
         db = util.get_db(env)
         ms = MetaStore(db)
-        ms.schema_check()
+        if first_run:
+            ms.schema_check()
         filestores = []
         for (parentdir, info) in stores.items():
             fs = util.get_filestore(parentdir, info['id'], info['copies'])[0]
@@ -273,6 +274,7 @@ class Core:
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.vigilance = None
+        self.vigilance_first_run = True
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -322,6 +324,8 @@ class Core:
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
+        if not self.vigilance_first_run:
+            self.restart_vigilance()
 
     def _add_filestore(self, fs, doc):
         self.stores.add(fs)
@@ -342,7 +346,10 @@ class Core:
     def start_vigilance(self):
         assert self.vigilance is None
         stores = self.stores.local_stores()
-        self.vigilance = start_process(vigilance, self.env, stores)
+        first_run = self.vigilance_first_run
+        if first_run:
+            self.vigilance_first_run = False
+        self.vigilance = start_process(vigilance, self.env, stores, first_run)
 
     def stop_vigilance(self):
         if self.vigilance is not None:
