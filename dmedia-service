@@ -227,7 +227,7 @@ class Service(dbus.service.Object):
         Start the background filestore checking tasks.
         """
         log.info('[idle3 at time %.3f]', time.time() - start_time)
-        self.core.start_background_tasks()
+        self.core.start_vigilance()
 
     def shutdown(self):
         log.info('Service.shutdown()')

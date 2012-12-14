@@ -243,6 +243,26 @@ def migrate_shared(srcdir, dstdir):
     return count
 
 
+def vigilance(env, stores):
+    try:
+        log.info('vigilance() running %r', stores)
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        ms.schema_check()
+        filestores = []
+        for (parentdir, info) in stores.items():
+            fs = util.get_filestore(parentdir, info['id'], info['copies'])[0]
+            log.info(fs)
+            filestores.append(fs)
+        for fs in filestores:
+            ms.scan(fs)
+        for fs in filestores:
+            ms.relink(fs)
+        log.info('vigilance() is exiting...')
+    except Exception:
+        log.exception('Error in vigilance()')
+
+
 class Core:
     def __init__(self, env):
         self.env = env
@@ -250,8 +270,7 @@ class Core:
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
-        self.queue = Queue()
-        self.thread = None
+        self.vigilance = None
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -313,11 +332,25 @@ class Core:
         except Conflict:
             pass
         self._sync_stores()
-        self.queue.put(fs)
 
     def _remove_filestore(self, fs):
         self.stores.remove(fs)
         self._sync_stores()
+
+    def start_vigilance(self):
+        assert self.vigilance is None
+        stores = self.stores.local_stores()
+        self.vigilance = start_process(vigilance, self.env, stores)
+
+    def stop_vigilance(self):
+        if self.vigilance is not None:
+            self.vigilance.terminate()
+            self.vigilance.join()
+            self.vigilance = None
+
+    def restart_vigilance(self):
+        self.stop_vigilance()
+        self.start_vigilance()
 
     def _background_worker(self):
         if util.isfilestore(SHARED):
