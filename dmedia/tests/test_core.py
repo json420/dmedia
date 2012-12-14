@@ -31,6 +31,7 @@ from os import path
 import time
 from copy import deepcopy
 from base64 import b64encode
+import multiprocessing
 
 import microfiber
 from microfiber import random_id
@@ -119,11 +120,14 @@ class TestCouchFunctions(CouchCase):
 class TestCore(CouchCase):
     def test_init(self):
         inst = core.Core(self.env)
+        self.assertIs(inst.env, self.env)
         self.assertIsInstance(inst.db, microfiber.Database)
         self.assertEqual(inst.db.name, DB_NAME)
         self.assertIsInstance(inst.server, microfiber.Server)
         self.assertIs(inst.db.ctx, inst.server.ctx)
         self.assertIsInstance(inst.stores, LocalStores)
+        self.assertIsNone(inst.vigilance)
+        self.assertIs(inst.vigilance_first_run, True)
         self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
 
     def test_load_identity(self):
@@ -171,6 +175,36 @@ class TestCore(CouchCase):
                 'user_id': user_id,
             }
         )
+
+    def test_start_vigilance(self):
+        inst = core.Core(self.env)
+        self.assertIsNone(inst.vigilance)
+        self.assertIs(inst.vigilance_first_run, True)
+        self.assertIsNone(inst.start_vigilance())
+        self.assertIsInstance(inst.vigilance, multiprocessing.Process)
+        self.assertIs(inst.vigilance_first_run, False)
+
+        # Test stop_vigilance() also:
+        process = inst.vigilance
+        self.assertIsNone(inst.stop_vigilance())
+        self.assertFalse(process.is_alive())
+        self.assertIsNone(inst.vigilance)
+        self.assertIs(inst.vigilance_first_run, False)
+
+    def test_restart_vigilance(self):
+        class Dummy(core.Core):
+            def __init__(self):
+                self.calls = []
+
+            def start_vigilance(self):
+                self.calls.append('start')
+
+            def stop_vigilance(self):
+                self.calls.append('stop')
+                
+        inst = Dummy()
+        self.assertIsNone(inst.restart_vigilance())
+        self.assertEqual(inst.calls, ['stop', 'start'])
 
     def test_create_filestore(self):
         inst = core.Core(self.env)

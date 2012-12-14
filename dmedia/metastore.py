@@ -47,6 +47,7 @@ from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 from .util import get_db
 
 
+ONE_WEEK = 60 * 60 * 24 * 7
 log = logging.getLogger()
 
 
@@ -56,6 +57,18 @@ class MTimeMismatch(Exception):
 
 class UpdateConflict(Exception):
     pass
+
+
+class TimeDelta:
+    def __init__(self):
+        self.start = time.time()
+
+    @property
+    def delta(self):
+        return time.time() - self.start
+
+    def log(self, msg, *args):
+        log.info('[%.2fs] ' + msg, self.delta, *args)
 
 
 def get_dict(d, key):
@@ -338,7 +351,7 @@ class MetaStore:
 
         :param fs: a `FileStore` instance
         """
-        start = time.time()
+        t = TimeDelta()
         log.info('Scanning FileStore %s at %r', fs.id, fs.parentdir)
         rows = self.db.view('file', 'stored', key=fs.id)['rows']
         for ids in id_slice_iter(rows):
@@ -365,14 +378,14 @@ class MetaStore:
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
         count = len(rows)
-        log.info('%.3f to scan %r files in %r', time.time() - start, count, fs)
+        t.log('scanned %r files in %r', count, fs)
         return count
 
     def relink(self, fs):
         """
         Find known files that we didn't expect in `FileStore` *fs*.
         """
-        start = time.time()
+        t = TimeDelta()
         count = 0
         log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
         for buf in relink_iter(fs):
@@ -391,7 +404,7 @@ class MetaStore:
                 )
                 self.db.save(doc)
                 count += 1
-        log.info('%.3f to relink %r', time.time() - start, fs)
+        t.log('relinked %d files in %r', count, fs)
         return count
 
     def remove(self, fs, _id):
@@ -405,6 +418,24 @@ class MetaStore:
         doc = self.db.get(_id)
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
+
+    def verify_all(self, fs):
+        start = [fs.id, None]
+        end = [fs.id, int(time.time()) - ONE_WEEK]
+        count = 0
+        t = TimeDelta()
+        log.info('verifying %r', fs)
+        while True:
+            r = self.db.view('file', 'verified',
+                startkey=start, endkey=end, limit=1
+            )
+            if not r['rows']:
+                break
+            count += 1
+            _id = r['rows'][0]['id']
+            self.verify(fs, _id)
+        t.log('verified %s files in %r', count, fs)
+        return count
 
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)
