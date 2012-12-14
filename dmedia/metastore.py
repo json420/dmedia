@@ -47,6 +47,7 @@ from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 from .util import get_db
 
 
+ONE_WEEK = 60 * 60 * 24 * 7
 log = logging.getLogger()
 
 
@@ -405,6 +406,18 @@ class MetaStore:
         doc = self.db.get(_id)
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
+
+    def verify_all(self, fs):
+        start = [fs.id, None]
+        end = [fs.id, time.time() - ONE_WEEK]
+        while True:
+            r = self.db.view('file', 'verified',
+                startkey=start, endkey=end, limit=1
+            )
+            if not r['rows']:
+                break
+            _id = r['rows'][0]['id']
+            self.verify(fs, _id)
 
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)

@@ -258,6 +258,8 @@ def vigilance(env, stores):
             ms.scan(fs)
         for fs in filestores:
             ms.relink(fs)
+        for fs in filestores:
+            ms.verify_all(fs)
         log.info('vigilance() is exiting...')
     except Exception:
         log.exception('Error in vigilance()')
