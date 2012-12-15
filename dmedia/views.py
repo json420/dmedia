@@ -173,6 +173,22 @@ file_design = {
 }
 
 
+# For dmedia/store docs
+store_atime = """
+function(doc) {
+    if (doc.type == 'dmedia/store') {
+        emit(doc.atime, null);
+    }
+}
+"""
+
+store_design = {
+    '_id': '_design/store',
+    'views': {
+        'atime': {'map': store_atime},
+    },
+}
+
 
 # The _design/user design, for dmedia/file docs where origin == 'user':
 user_tags = """
@@ -275,7 +291,6 @@ user_design = {
         'thumbnail': {'map': user_thumbnail},
     },
 }
-
 
 
 # For dmedia/project docs:
@@ -515,6 +530,7 @@ job_design = {
 core = (
     doc_design,
     file_design,
+    store_design,
     project_design,
     job_design,
 )
