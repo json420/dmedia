@@ -804,6 +804,65 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
+        # Test when some already have copies=0:
+        sample = random.sample(ids, 23)
+        docs2 = db.get_many(sample)
+        for doc in docs2:
+            doc['stored'][store_id1]['copies'] = 1
+        db.save_many(docs2)
+        self.assertEqual(ms.downgrade(store_id1), 23)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            if _id in sample:
+                self.assertTrue(rev.startswith('5-'))
+            else:
+                self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': 123,
+                        },
+                        store_id2: {
+                            'copies': 0,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
+        # Test when some have junk values for copies:
+        sample2 = list(filter(lambda _id: _id not in sample, ids))
+        docs2 = db.get_many(sample2)
+        for (i, doc) in enumerate(docs2):
+            # `False` makes sure the file/nonzero view is using !==
+            junk = ('hello', False)[i % 2 == 0]
+            doc['stored'][store_id2]['copies'] = junk
+        db.save_many(docs2)
+        self.assertEqual(ms.downgrade(store_id2), 66)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('5-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': 123,
+                        },
+                        store_id2: {
+                            'copies': 0,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
     def test_scan(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
