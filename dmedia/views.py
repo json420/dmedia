@@ -140,6 +140,31 @@ function(doc) {
 }
 """
 
+file_never_verified = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key, value;
+        for (key in doc.stored) {
+            value = doc.stored[key];
+            if (value.status == 'new') {
+                emit(value.mtime, null);
+            }
+        }
+    }
+}
+"""
+
+file_last_verified = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.stored) {
+            emit(doc.stored[key].verified, null);
+        }
+    }
+}
+"""
+
 file_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -167,6 +192,8 @@ file_design = {
         'copies': {'map': file_copies},
         'fragile': {'map': file_fragile},
         'reclaimable': {'map': file_reclaimable},
+        'never_verified': {'map': file_never_verified},
+        'last_verified': {'map': file_last_verified},
         'verified': {'map': file_verified},
         'origin': {'map': file_origin, 'reduce': _stats},
     },
