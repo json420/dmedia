@@ -863,6 +863,13 @@ class TestMetaStore(CouchCase):
                 }
             )
 
+        # Again, make sure downgrading both again causes no change:
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade(store_id1), 0)
+        self.assertEqual(ms.downgrade(store_id2), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
     def test_scan(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
