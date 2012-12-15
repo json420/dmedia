@@ -309,6 +309,39 @@ class MetaStore:
         log.info('converted mtime from `float` to `int` for %d docs', buf.count)
         return buf.count
 
+    def downgrade_by_never_verified(self):
+        pass
+
+    def downgrade_by_last_verified(self):
+        pass
+
+    def downgrade_by_store_atime(self):
+        pass
+
+    def downgrade(self, store_id):
+        t = TimeDelta()
+        log.info('Downgrading store %s', store_id)
+        count = 0
+        while True:
+            rows = self.db.view('file', 'nonzero',
+                key=store_id,
+                include_docs=True,
+                limit=50,
+            )['rows']
+            if not rows:
+                break
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                doc['stored'][store_id]['copies'] = 0
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict as e:
+                log.exception('Conflict downgrading %s', store_id)
+                count -= len(e.conflicts)
+        t.log('Downgraded %d copies in %s', count, store_id)
+        return count
+
     def scan(self, fs):
         """
         Make sure files we expect to be in the file-store *fs* actually are.

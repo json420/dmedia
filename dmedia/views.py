@@ -86,6 +86,19 @@ function(doc) {
 }
 """
 
+file_nonzero = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key;
+        for (key in doc.stored) {
+            if (doc.stored[key].copies !== 0) {
+                emit(key, null);
+            }
+        }
+    }
+}
+"""
+
 file_copies = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -189,11 +202,12 @@ file_design = {
     '_id': '_design/file',
     'views': {
         'stored': {'map': file_stored, 'reduce': _stats},
+        'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
         'fragile': {'map': file_fragile},
         'reclaimable': {'map': file_reclaimable},
-        'never_verified': {'map': file_never_verified},
-        'last_verified': {'map': file_last_verified},
+        'never-verified': {'map': file_never_verified},
+        'last-verified': {'map': file_last_verified},
         'verified': {'map': file_verified},
         'origin': {'map': file_origin, 'reduce': _stats},
     },
