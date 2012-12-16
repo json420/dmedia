@@ -317,8 +317,34 @@ class MetaStore:
     def downgrade_by_never_verified(self):
         pass
 
-    def downgrade_by_last_verified(self):
-        pass
+    def downgrade_by_last_verified(self, curtime=None):
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
+        endkey = curtime - DOWNGRADE_BY_LAST_VERIFIED
+        count = 0
+        while True:
+            rows = self.db.view('file', 'last-verified',
+                endkey=endkey,
+                include_docs=True,
+                limit=100,
+            )['rows']
+            if not rows:
+                break
+            dmap = dict(
+                (row['id'], row['doc']) for row in rows
+            )
+            for row in rows:
+                doc = dmap[row['id']]
+                doc['stored'][row['value']]['copies'] = 0
+            docs = list(dmap.values())
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict as e:
+                log.exception('Conflict in downgrade_by_last_verified()')
+                count -= len(e.conflicts)
+        return count
 
     def downgrade_by_store_atime(self, curtime=None):
         if curtime is None:

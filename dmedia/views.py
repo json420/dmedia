@@ -159,7 +159,7 @@ function(doc) {
         var key, value;
         for (key in doc.stored) {
             value = doc.stored[key];
-            if (value.copies !== 0 && !value.verified) {
+            if (typeof value.verified != 'number' && value.copies !== 0) {
                 emit(value.mtime, key);
             }
         }
@@ -171,15 +171,11 @@ file_last_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key, value;
-        var verified = [];
         for (key in doc.stored) {
             value = doc.stored[key];
-            if (value.copies !== 0) {
-                verified.push(value.verified);
+            if (typeof value.verified == 'number' && value.copies !== 0) {
+                emit(value.verified, key);
             }
-        }
-        if (verified.length > 0) {
-            emit(Math.min.apply(null, verified), null);
         }
     }
 }
