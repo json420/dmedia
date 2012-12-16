@@ -318,7 +318,7 @@ class MetaStore:
     def downgrade_by_store_atime(self):
         pass
 
-    def downgrade(self, store_id):
+    def downgrade_store(self, store_id):
         t = TimeDelta()
         log.info('Downgrading store %s', store_id)
         count = 0

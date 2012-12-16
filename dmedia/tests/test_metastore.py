@@ -727,7 +727,7 @@ class TestMetaStore(CouchCase):
         store_id1 = random_id()
         store_id2 = random_id()
         store_id3 = random_id()
-        self.assertEqual(ms.downgrade(store_id1), 0)
+        self.assertEqual(ms.downgrade_store(store_id1), 0)
         ids = [random_file_id() for i in range(89)]
         docs = []
         for _id in ids:
@@ -749,12 +749,12 @@ class TestMetaStore(CouchCase):
         db.save_many(docs)
 
         # Make sure downgrading an unrelated store causes no change:
-        self.assertEqual(ms.downgrade(store_id3), 0)
+        self.assertEqual(ms.downgrade_store(store_id3), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
         # Downgrade the first store:
-        self.assertEqual(ms.downgrade(store_id1), 89)
+        self.assertEqual(ms.downgrade_store(store_id1), 89)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -776,7 +776,7 @@ class TestMetaStore(CouchCase):
             )
 
         # Downgrade the 2nd store:
-        self.assertEqual(ms.downgrade(store_id2), 89)
+        self.assertEqual(ms.downgrade_store(store_id2), 89)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('3-'))
@@ -799,8 +799,8 @@ class TestMetaStore(CouchCase):
 
         # Make sure downgrading both again causes no change:
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade(store_id1), 0)
-        self.assertEqual(ms.downgrade(store_id2), 0)
+        self.assertEqual(ms.downgrade_store(store_id1), 0)
+        self.assertEqual(ms.downgrade_store(store_id2), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
@@ -810,7 +810,7 @@ class TestMetaStore(CouchCase):
         for doc in docs2:
             doc['stored'][store_id1]['copies'] = 1
         db.save_many(docs2)
-        self.assertEqual(ms.downgrade(store_id1), 23)
+        self.assertEqual(ms.downgrade_store(store_id1), 23)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             if _id in sample:
@@ -842,7 +842,7 @@ class TestMetaStore(CouchCase):
             junk = ('hello', False)[i % 2 == 0]
             doc['stored'][store_id2]['copies'] = junk
         db.save_many(docs2)
-        self.assertEqual(ms.downgrade(store_id2), 66)
+        self.assertEqual(ms.downgrade_store(store_id2), 66)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('5-'))
@@ -865,8 +865,8 @@ class TestMetaStore(CouchCase):
 
         # Again, make sure downgrading both again causes no change:
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade(store_id1), 0)
-        self.assertEqual(ms.downgrade(store_id2), 0)
+        self.assertEqual(ms.downgrade_store(store_id1), 0)
+        self.assertEqual(ms.downgrade_store(store_id2), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
