@@ -1299,6 +1299,100 @@ class TestFileDesign(DesignTestCase):
         )
 
 
+class TestStoreDesign(DesignTestCase):
+    """
+    Test each view function in the _design/store design.
+    """
+    design = views.store_design
+
+    def test_atime(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('atime')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('store', 'atime'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        docs = []
+        for i in range(9):
+            doc = {
+                '_id': random_id(),
+                'type': 'dmedia/store',
+                'atime': 100 + i
+            }
+            docs.append(doc)
+        db.save_many(docs)
+        self.assertEqual(
+            db.view('store', 'atime'),
+            {
+                'offset': 0,
+                'total_rows': 9,
+                'rows': [
+                    {'key': doc['atime'], 'id': doc['_id'], 'value': None}
+                    for doc in docs
+                ],
+            },
+        )
+
+        # Test our assumputions about endkey
+        self.assertEqual(
+            db.view('store', 'atime', endkey=99),
+            {'offset': 0, 'total_rows': 9, 'rows': []},
+        )
+        self.assertEqual(
+            db.view('store', 'atime', endkey=100),
+            {
+                'offset': 0,
+                'total_rows': 9,
+                'rows': [
+                    {'key': 100, 'id': docs[0]['_id'], 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('store', 'atime', endkey=102),
+            {
+                'offset': 0,
+                'total_rows': 9,
+                'rows': [
+                    {'key': 100, 'id': docs[0]['_id'], 'value': None},
+                    {'key': 101, 'id': docs[1]['_id'], 'value': None},
+                    {'key': 102, 'id': docs[2]['_id'], 'value': None},
+                ],
+            },
+        )
+
+        # Test when atime is missing
+        doc = docs[-1]
+        del doc['atime']
+        db.save(doc)
+        self.assertEqual(
+            db.view('store', 'atime', endkey=102),
+            {
+                'offset': 0,
+                'total_rows': 9,
+                'rows': [
+                    {'key': None, 'id': doc['_id'], 'value': None},
+                    {'key': 100, 'id': docs[0]['_id'], 'value': None},
+                    {'key': 101, 'id': docs[1]['_id'], 'value': None},
+                    {'key': 102, 'id': docs[2]['_id'], 'value': None},
+                ],
+            },
+        )
+
+        # Make sure doc.type is being checked
+        for doc in docs:
+            doc['type'] = 'dmedia/other'
+        db.save_many(docs)
+        self.assertEqual(
+            db.view('store', 'atime'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+
 class TestJobDesign(DesignTestCase):
     """
     Test each view function in the _design/job design.

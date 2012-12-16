@@ -720,6 +720,10 @@ class TestMetaStore(CouchCase):
 
         # Once more with feeling:
         self.assertEqual(ms.schema_check(), 0)
+    
+    def test_downgrade_store(self):   
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
 
     def test_downgrade_store(self):    
         db = util.get_db(self.env, True)

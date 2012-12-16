@@ -314,8 +314,10 @@ class MetaStore:
     def downgrade_by_last_verified(self):
         pass
 
-    def downgrade_by_store_atime(self):
-        pass
+    def downgrade_by_store_atime(self, curtime=None):
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
