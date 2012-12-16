@@ -720,10 +720,55 @@ class TestMetaStore(CouchCase):
 
         # Once more with feeling:
         self.assertEqual(ms.schema_check(), 0)
-    
-    def test_downgrade_store(self):   
+
+    def test_downgrade_by_store_atime(self):   
         db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
+
+        class Dummy(metastore.MetaStore):
+            def __init__(self, db):
+                super().__init__(db)
+                self._calls = []
+
+            def downgrade_store(self, store_id):
+                self._calls.append(store_id)
+
+        # Test when empty
+        ms = Dummy(db)
+        self.assertEqual(ms.downgrade_by_store_atime(), [])
+        self.assertEqual(ms._calls, [])
+        curtime = int(time.time())
+        self.assertEqual(ms.downgrade_by_store_atime(curtime), [])
+        self.assertEqual(ms._calls, [])
+
+        # Test when some need to be downgraded
+        base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
+        docs = []
+        for i in range(8):
+            doc = {
+                '_id': random_id(),
+                'type': 'dmedia/store',
+                'atime': base + i,
+            }
+            docs.append(doc)
+        db.save_many(docs)
+        ids = [doc['_id'] for doc in docs]
+        self.assertEqual(ms.downgrade_by_store_atime(curtime - 1), [])
+        self.assertEqual(ms._calls, [])
+        for i in range(8):
+            expected = ids[:i+1]
+            self.assertEqual(
+                ms.downgrade_by_store_atime(curtime + i),
+                expected
+            )
+            self.assertEqual(ms._calls, expected)
+            ms._calls = []
+
+        # Once more with feeling
+        self.assertEqual(
+            ms.downgrade_by_store_atime(curtime),
+            [ids[0]]
+        )
+        self.assertEqual(ms._calls, [ids[0]])
 
     def test_downgrade_store(self):    
         db = util.get_db(self.env, True)

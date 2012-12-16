@@ -47,8 +47,13 @@ from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 from .util import get_db
 
 
-ONE_WEEK = 60 * 60 * 24 * 7
 log = logging.getLogger()
+DAY = 60 * 60 * 24
+WEEK = DAY * 7
+ONE_WEEK = DAY * 7
+
+DOWNGRADE_BY_STORE_ATIME = 7 * DAY
+
 
 
 class MTimeMismatch(Exception):
@@ -318,6 +323,13 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
+        rows = self.db.view('store', 'atime',
+            endkey=(curtime - DOWNGRADE_BY_STORE_ATIME)
+        )['rows']
+        ids = [row['id'] for row in rows]
+        for store_id in ids:
+            self.downgrade_store(store_id)
+        return ids
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
