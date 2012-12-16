@@ -257,10 +257,13 @@ def vigilance(env, stores, first_run):
             filestores.append(fs)
         for fs in filestores:
             ms.scan(fs)
+        ms.downgrade_by_store_atime()
         for fs in filestores:
             ms.relink(fs)
         for fs in filestores:
             ms.verify_all(fs)
+        ms.downgrade_by_never_verified()
+        ms.downgrade_by_last_verified()
         log.info('vigilance() is exiting...')
     except Exception:
         log.exception('Error in vigilance()')

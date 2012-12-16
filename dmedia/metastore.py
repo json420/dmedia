@@ -48,9 +48,8 @@ from .util import get_db
 
 
 log = logging.getLogger()
-DAY = 60 * 60 * 24
-WEEK = DAY * 7
-ONE_WEEK = DAY * 7
+DAY = 24 * 60 * 60
+ONE_WEEK = 7 * DAY
 
 DOWNGRADE_BY_STORE_ATIME = 7 * DAY  # 1 week
 DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY  # 48 hours
@@ -329,6 +328,7 @@ class MetaStore:
         return self._downgrade_by_verified(endkey, 'last-verified')
 
     def _downgrade_by_verified(self, endkey, view):
+        t = TimeDelta()
         count = 0
         while True:
             rows = self.db.view('file', view,
@@ -351,6 +351,7 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict in downgrade_by %r', view)
                 count -= len(e.conflicts)
+        t.log('downgraded %d files by %s', count, view)
         return count
 
     def downgrade_by_store_atime(self, curtime=None):
@@ -386,7 +387,7 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict downgrading %s', store_id)
                 count -= len(e.conflicts)
-        t.log('Downgraded %d copies in %s', count, store_id)
+        t.log('downgraded %d copies in %s', count, store_id)
         return count
 
     def purge_store(self, store_id):
