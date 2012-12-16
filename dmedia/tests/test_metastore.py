@@ -721,14 +721,14 @@ class TestMetaStore(CouchCase):
         # Once more with feeling:
         self.assertEqual(ms.schema_check(), 0)
 
-    def test_downgrade(self):    
+    def test_downgrade_store(self):    
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         store_id1 = random_id()
         store_id2 = random_id()
         store_id3 = random_id()
         self.assertEqual(ms.downgrade_store(store_id1), 0)
-        ids = [random_file_id() for i in range(89)]
+        ids = [random_file_id() for i in range(189)]
         docs = []
         for _id in ids:
             doc = {
@@ -754,7 +754,7 @@ class TestMetaStore(CouchCase):
             self.assertEqual(old, new)
 
         # Downgrade the first store:
-        self.assertEqual(ms.downgrade_store(store_id1), 89)
+        self.assertEqual(ms.downgrade_store(store_id1), 189)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -776,7 +776,7 @@ class TestMetaStore(CouchCase):
             )
 
         # Downgrade the 2nd store:
-        self.assertEqual(ms.downgrade_store(store_id2), 89)
+        self.assertEqual(ms.downgrade_store(store_id2), 189)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('3-'))
@@ -842,7 +842,7 @@ class TestMetaStore(CouchCase):
             junk = ('hello', False)[i % 2 == 0]
             doc['stored'][store_id2]['copies'] = junk
         db.save_many(docs2)
-        self.assertEqual(ms.downgrade_store(store_id2), 66)
+        self.assertEqual(ms.downgrade_store(store_id2), 166)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('5-'))
@@ -880,7 +880,7 @@ class TestMetaStore(CouchCase):
         # Test when empty:
         self.assertEqual(ms.purge_store(store_id1), 0)
 
-        ids = [random_file_id() for i in range(89)]
+        ids = [random_file_id() for i in range(189)]
         docs = []
         for _id in ids:
             doc = {
@@ -906,7 +906,7 @@ class TestMetaStore(CouchCase):
             self.assertEqual(old, new)
 
         # Purge the first store:
-        self.assertEqual(ms.purge_store(store_id1), 89)
+        self.assertEqual(ms.purge_store(store_id1), 189)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -924,7 +924,7 @@ class TestMetaStore(CouchCase):
             )
 
         # Purge the 2nd store:
-        self.assertEqual(ms.purge_store(store_id2), 89)
+        self.assertEqual(ms.purge_store(store_id2), 189)
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('3-'))
