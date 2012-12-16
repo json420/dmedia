@@ -870,6 +870,112 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
+    def test_purge_store(self):    
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+
+        # Test when empty:
+        self.assertEqual(ms.purge_store(store_id1), 0)
+
+        ids = [random_file_id() for i in range(89)]
+        docs = []
+        for _id in ids:
+            doc = {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 1,
+                        'mtime': 123,
+                    },
+                    store_id2: {
+                        'copies': 2,
+                        'mtime': 456,
+                    },
+                },
+            }
+            docs.append(doc)
+        db.save_many(docs)
+
+        # Make sure purging an unrelated store causes no change:
+        self.assertEqual(ms.purge_store(store_id3), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Purge the first store:
+        self.assertEqual(ms.purge_store(store_id1), 89)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('2-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id2: {
+                            'copies': 2,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
+        # Purge the 2nd store:
+        self.assertEqual(ms.purge_store(store_id2), 89)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {},
+                }
+            )
+
+        # Make sure purging both again causes no change:
+        docs = db.get_many(ids)
+        self.assertEqual(ms.purge_store(store_id1), 0)
+        self.assertEqual(ms.purge_store(store_id2), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Test when some already have been purged:
+        sample = random.sample(ids, 23)
+        docs2 = db.get_many(sample)
+        for doc in docs2:
+            doc['stored'] = {
+                store_id1: {
+                    'copies': 1,
+                    'mtime': 123,
+                },
+            }
+        db.save_many(docs2)
+        self.assertEqual(ms.purge_store(store_id1), 23)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            if _id in sample:
+                self.assertTrue(rev.startswith('5-'))
+            else:
+                self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {},
+                }
+            )
+
+        # Again, make sure purging both again causes no change:
+        docs = db.get_many(ids)
+        self.assertEqual(ms.purge_store(store_id1), 0)
+        self.assertEqual(ms.purge_store(store_id2), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
     def test_scan(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)

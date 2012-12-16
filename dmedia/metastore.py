@@ -342,6 +342,30 @@ class MetaStore:
         t.log('Downgraded %d copies in %s', count, store_id)
         return count
 
+    def purge_store(self, store_id):
+        t = TimeDelta()
+        log.info('Purging store %s', store_id)
+        count = 0
+        while True:
+            rows = self.db.view('file', 'stored',
+                key=store_id,
+                include_docs=True,
+                limit=50,
+            )['rows']
+            if not rows:
+                break
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                del doc['stored'][store_id]
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict:
+                log.exception('Conflict purging %s', store_id)
+                count -= len(e.conflicts)
+        log.info('Purged %d copies to %s', count, store_id)
+        return count
+
     def scan(self, fs):
         """
         Make sure files we expect to be in the file-store *fs* actually are.
