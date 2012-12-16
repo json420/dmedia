@@ -30,6 +30,7 @@ from copy import deepcopy
 from microfiber import Database, random_id
 from filestore import DIGEST_BYTES
 
+from dmedia.tests.base import random_file_id
 from dmedia.tests.couch import CouchCase
 from dmedia import util, views
 
@@ -990,6 +991,138 @@ class TestFileDesign(DesignTestCase):
         db.save(doc)
         self.assertEqual(
             db.view('file', 'reclaimable'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+    def test_last_verified(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('last-verified')
+        db.save(design)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Make sure things are well behaved even when doc['stored'] is missed:
+        id1 = random_file_id()
+        doc1 = {
+            '_id': id1,
+            'type': 'dmedia/file',
+        }
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # And when doc['stored'] is empty:
+        doc1['stored'] = {}
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test when there are 2 stores
+        store_id1 = random_id()
+        store_id2 = random_id()
+        doc1['stored'] = {
+            store_id1: {
+                'copies': 1,
+                'verified': 1001,
+            },
+            store_id2: {
+                'copies': 1,
+                'verified': 1003,
+            },
+        }
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': 1001, 'id': id1, 'value': store_id1},
+                    {'key': 1003, 'id': id1, 'value': store_id2},
+                ]
+            }
+        )
+
+        # Test that stores are excluded when copies === 0
+        doc1['stored'][store_id1]['copies'] = 0
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1003, 'id': id1, 'value': store_id2},
+                ]
+            }
+        )
+        doc1['stored'][store_id2]['copies'] = 0
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Add another doc
+        id2 = random_file_id()
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/file',
+            'stored': {
+                store_id1: {
+                    'copies': 2,
+                    'verified': 1002,
+                },
+                store_id2: {
+                    'copies': 19,
+                    'verified': 1004,
+                },
+            }
+        }
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': 1002, 'id': id2, 'value': store_id1},
+                    {'key': 1004, 'id': id2, 'value': store_id2},
+                ]
+            }
+        )
+
+        # Make sure it's filtering with !== 0
+        doc1['stored'][store_id1]['copies'] = '0'
+        doc1['stored'][store_id2]['copies'] = False
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'last-verified'),
+            {
+                'offset': 0,
+                'total_rows': 4,
+                'rows': [
+                    {'key': 1001, 'id': id1, 'value': store_id1},
+                    {'key': 1002, 'id': id2, 'value': store_id1},
+                    {'key': 1003, 'id': id1, 'value': store_id2},
+                    {'key': 1004, 'id': id2, 'value': store_id2},
+                ]
+            }
+        )
+
+        # Make sure doc.type is being checked
+        doc1['type'] = 'dmedia/foo'
+        doc2['type'] = 'dmedia/bar'
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'last-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 

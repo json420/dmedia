@@ -52,8 +52,9 @@ DAY = 60 * 60 * 24
 WEEK = DAY * 7
 ONE_WEEK = DAY * 7
 
-DOWNGRADE_BY_STORE_ATIME = 7 * DAY
-
+DOWNGRADE_BY_STORE_ATIME = 7 * DAY  # 1 week
+DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY  # 48 hours
+DOWNGRADE_BY_LAST_VERIFIED = 28 * DAY  # 4 weeks
 
 
 class MTimeMismatch(Exception):

@@ -159,8 +159,8 @@ function(doc) {
         var key, value;
         for (key in doc.stored) {
             value = doc.stored[key];
-            if (value.status == 'new') {
-                emit(value.mtime, null);
+            if (value.copies !== 0 && !value.verified) {
+                emit(value.mtime, key);
             }
         }
     }
@@ -170,9 +170,12 @@ function(doc) {
 file_last_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        var key;
+        var key, value;
         for (key in doc.stored) {
-            emit(doc.stored[key].verified, null);
+            value = doc.stored[key];
+            if (value.copies !== 0) {
+                emit(value.verified, key);
+            }
         }
     }
 }
