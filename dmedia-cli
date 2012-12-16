@@ -134,6 +134,12 @@ class CreateFileStore(_Method):
         return [path.abspath(directory)]
 
 
+class DowngradeStore(_Method):
+    'Downgrade durability confidence to zero copies'
+
+    args = ['store_id']
+
+
 class PurgeStore(_Method):
     'Purge references to a store'
 
