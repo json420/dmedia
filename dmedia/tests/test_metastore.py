@@ -789,6 +789,39 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
+        # Test when only one store should be downgraded
+        for doc in docs:
+            doc['stored'][store_id1]['copies'] = 1
+            doc['stored'][store_id2]['copies'] = 1
+        db.save_many(docs)
+        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 10)
+        for (i, doc) in enumerate(db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('4-'))
+            _id = ids[i]
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'verified': base + i,
+                        },
+                        store_id2: {
+                            'copies': 1,
+                            'verified': base + i + count,
+                        },
+                    },
+                }
+            )
+
+        # Again, Test when they're all already downgraded
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
     def test_downgrade_by_store_atime(self):   
         db = util.get_db(self.env, True)
 
