@@ -1042,10 +1042,9 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'last-verified'),
             {
                 'offset': 0,
-                'total_rows': 2,
+                'total_rows': 1,
                 'rows': [
-                    {'key': 1001, 'id': id1, 'value': store_id1},
-                    {'key': 1003, 'id': id1, 'value': store_id2},
+                    {'key': 1001, 'id': id1, 'value': None},
                 ]
             }
         )
@@ -1059,7 +1058,7 @@ class TestFileDesign(DesignTestCase):
                 'offset': 0,
                 'total_rows': 1,
                 'rows': [
-                    {'key': 1003, 'id': id1, 'value': store_id2},
+                    {'key': 1003, 'id': id1, 'value': None},
                 ]
             }
         )
@@ -1091,10 +1090,9 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'last-verified'),
             {
                 'offset': 0,
-                'total_rows': 2,
+                'total_rows': 1,
                 'rows': [
-                    {'key': 1002, 'id': id2, 'value': store_id1},
-                    {'key': 1004, 'id': id2, 'value': store_id2},
+                    {'key': 1002, 'id': id2, 'value': None},
                 ]
             }
         )
@@ -1107,12 +1105,10 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'last-verified'),
             {
                 'offset': 0,
-                'total_rows': 4,
+                'total_rows': 2,
                 'rows': [
-                    {'key': 1001, 'id': id1, 'value': store_id1},
-                    {'key': 1002, 'id': id2, 'value': store_id1},
-                    {'key': 1003, 'id': id1, 'value': store_id2},
-                    {'key': 1004, 'id': id2, 'value': store_id2},
+                    {'key': 1001, 'id': id1, 'value': None},
+                    {'key': 1002, 'id': id2, 'value': None},
                 ]
             }
         )
