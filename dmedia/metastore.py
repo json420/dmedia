@@ -273,7 +273,6 @@ class BufferedSave:
 
     def flush(self):
         if self.docs:
-            log.info('saving %d docs', len(self.docs))
             self.count += len(self.docs)
             try:
                 self.db.save_many(self.docs)
@@ -326,7 +325,7 @@ class MetaStore:
             rows = self.db.view('file', 'nonzero',
                 key=store_id,
                 include_docs=True,
-                limit=50,
+                limit=100,
             )['rows']
             if not rows:
                 break
@@ -350,7 +349,7 @@ class MetaStore:
             rows = self.db.view('file', 'stored',
                 key=store_id,
                 include_docs=True,
-                limit=50,
+                limit=100,
             )['rows']
             if not rows:
                 break
@@ -363,7 +362,7 @@ class MetaStore:
             except BulkConflict:
                 log.exception('Conflict purging %s', store_id)
                 count -= len(e.conflicts)
-        log.info('Purged %d copies to %s', count, store_id)
+        t.log('Purged %d copies from %s', count, store_id)
         return count
 
     def scan(self, fs):
