@@ -482,6 +482,7 @@ class Core:
         Note that this method makes sense for remote cloud stores as well as for
         local file-stores.
         """
+        return self.ms.downgrade_store(store_id)
 
     def purge_store(self, store_id):
         """
@@ -509,26 +510,7 @@ class Core:
         Note that this method makes sense for remote cloud stores as well as for
         local file-stores
         """
-        log.info('Purging store %s', store_id)
-        ids = []
-        while True:
-            rows = self.db.view('file', 'stored',
-                key=store_id,
-                include_docs=True,
-                limit=25,
-            )['rows']
-            if not rows:
-                break
-            ids.extend(r['id'] for r in rows)
-            docs = [r['doc'] for r in rows]
-            for doc in docs:
-                del doc['stored'][store_id]
-            try:
-                self.db.save_many(docs)
-            except BulkConflict:
-                log.exception('Conflict purging %s', store_id)
-        log.info('Purged %d references to %s', len(ids), store_id)
-        return ids
+        return self.ms.purge_store(store_id)
 
     def stat(self, _id):
         doc = self.db.get(_id)
