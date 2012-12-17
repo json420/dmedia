@@ -82,7 +82,6 @@ def benchmark(hashfunc):
 
 
 print('-' * 80)
-print('Clock provider: {!r}'.format(timefunc))
 print('Leaf size: {} MiB'.format(options.leaf))
 print('Leaf count: {}'.format(options.count))
 print('Total size: {} MiB'.format(size // MiB))
