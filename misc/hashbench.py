@@ -3,6 +3,7 @@
 import os
 import optparse
 import time
+import zlib
 import hashlib
 import platform
 
@@ -30,6 +31,8 @@ leaf = b'a' * leaf_size
 
 # Build list of hashes:
 hashes = [
+    zlib.adler32,
+    zlib.crc32,
     hashlib.md5,
     hashlib.sha1,
     #hashlib.sha224,
@@ -62,6 +65,13 @@ except ImportError:
     print('')
 
 
+def benchmark_crc(crcfunc):
+    start = time.time()
+    for i in range(options.count):
+        crcfunc(leaf)
+    return time.time() - start
+
+
 def benchmark(hashfunc):
     start = time.time()
     for i in range(options.count):
@@ -80,7 +90,10 @@ print('Python: {}, {}, {}'.format(
 
 report = []
 for hashfunc in hashes:
-    avg = benchmark(hashfunc)
+    if hashfunc in (zlib.adler32, zlib.crc32):
+        avg = benchmark_crc(hashfunc)
+    else:
+        avg = benchmark(hashfunc)
     bytes_per_second = (size / avg)
     report.append(
         dict(
