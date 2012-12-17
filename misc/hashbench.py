@@ -8,6 +8,8 @@ import hashlib
 import platform
 
 
+timefunc = (time.monotonic if hasattr(time, 'monotonic') else time.time)
+
 parser = optparse.OptionParser()
 parser.add_option('--leaf',
     help='Leaf size in MiB; default=8',
@@ -66,20 +68,21 @@ except ImportError:
 
 
 def benchmark_crc(crcfunc):
-    start = time.time()
+    start = timefunc()
     for i in range(options.count):
         crcfunc(leaf)
-    return time.time() - start
+    return timefunc() - start
 
 
 def benchmark(hashfunc):
-    start = time.time()
+    start = timefunc()
     for i in range(options.count):
         hashfunc(leaf).digest()
-    return time.time() - start
+    return timefunc() - start
 
 
 print('-' * 80)
+print('Clock provider: {!r}'.format(timefunc))
 print('Leaf size: {} MiB'.format(options.leaf))
 print('Leaf count: {}'.format(options.count))
 print('Total size: {} MiB'.format(size // MiB))
