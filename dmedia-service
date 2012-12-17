@@ -446,6 +446,12 @@ class Service(dbus.service.Object):
         return self.LocalDmedia()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
+    def DowngradeStore(self, store_id):
+        store_id = str(store_id)
+        log.info('Dmedia.DowngradeStore(%r)', store_id)
+        start_thread(self.core.downgrade_store, store_id)
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def PurgeStore(self, store_id):
         store_id = str(store_id)
         log.info('Dmedia.PurgeStore(%r)', store_id)

@@ -39,6 +39,7 @@ from filestore import scandir
 from microfiber import random_id
 
 
+MAX_SIZE = LEAF_SIZE * 3
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
 random = SystemRandom()
 
@@ -149,7 +150,7 @@ def random_leaves(file_size):
         yield Leaf(index, data)
 
 
-def write_random(fp, max_size=LEAF_SIZE*4):
+def write_random(fp, max_size=MAX_SIZE):
     file_size = random.randint(1, max_size)
     h = Hasher()
     for leaf in random_leaves(file_size):
@@ -159,7 +160,7 @@ def write_random(fp, max_size=LEAF_SIZE*4):
     return h.content_hash()
 
 
-def random_file(tmpdir, max_size=LEAF_SIZE*4):
+def random_file(tmpdir, max_size=MAX_SIZE):
     filename = path.join(tmpdir, random_id())
     file_size = random.randint(1, max_size)
     dst_fp = open(filename, 'wb')
@@ -223,7 +224,7 @@ class TempDir(object):
         shutil.copy(src, dst)
         return dst
 
-    def random_batch(self, count, empties=0, max_size=LEAF_SIZE*4):
+    def random_batch(self, count, empties=0, max_size=MAX_SIZE):
         result = list(self.random_file(max_size) for i in range(count))
         result.extend(self.random_empty() for i in range(empties))
         result.sort(key=lambda tup: tup[0].name)
@@ -231,7 +232,7 @@ class TempDir(object):
         batch = Batch(files, sum(f.size for f in files), len(files))
         return (batch, result)
 
-    def random_file(self, max_size=LEAF_SIZE*4):
+    def random_file(self, max_size=MAX_SIZE):
         return random_file(self.dir, max_size)
 
     def random_empty(self):

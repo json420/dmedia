@@ -47,8 +47,13 @@ from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 from .util import get_db
 
 
-ONE_WEEK = 60 * 60 * 24 * 7
 log = logging.getLogger()
+DAY = 24 * 60 * 60
+ONE_WEEK = 7 * DAY
+
+DOWNGRADE_BY_STORE_ATIME = 7 * DAY  # 1 week
+DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY  # 48 hours
+DOWNGRADE_BY_LAST_VERIFIED = 28 * DAY  # 4 weeks
 
 
 class MTimeMismatch(Exception):
@@ -273,7 +278,6 @@ class BufferedSave:
 
     def flush(self):
         if self.docs:
-            log.info('saving %d docs', len(self.docs))
             self.count += len(self.docs)
             try:
                 self.db.save_many(self.docs)
@@ -308,6 +312,107 @@ class MetaStore:
         buf.flush()
         log.info('converted mtime from `float` to `int` for %d docs', buf.count)
         return buf.count
+
+    def downgrade_by_never_verified(self, curtime=None):
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
+        endkey = curtime - DOWNGRADE_BY_NEVER_VERIFIED
+        return self._downgrade_by_verified(endkey, 'never-verified')
+
+    def downgrade_by_last_verified(self, curtime=None):
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
+        endkey = curtime - DOWNGRADE_BY_LAST_VERIFIED
+        return self._downgrade_by_verified(endkey, 'last-verified')
+
+    def _downgrade_by_verified(self, endkey, view):
+        t = TimeDelta()
+        count = 0
+        while True:
+            rows = self.db.view('file', view,
+                endkey=endkey,
+                include_docs=True,
+                limit=100,
+            )['rows']
+            if not rows:
+                break
+            dmap = dict(
+                (row['id'], row['doc']) for row in rows
+            )
+            for row in rows:
+                doc = dmap[row['id']]
+                doc['stored'][row['value']]['copies'] = 0
+            docs = list(dmap.values())
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict as e:
+                log.exception('Conflict in downgrade_by %r', view)
+                count -= len(e.conflicts)
+        t.log('downgraded %d files by %s', count, view)
+        return count
+
+    def downgrade_by_store_atime(self, curtime=None):
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
+        rows = self.db.view('store', 'atime',
+            endkey=(curtime - DOWNGRADE_BY_STORE_ATIME)
+        )['rows']
+        ids = [row['id'] for row in rows]
+        for store_id in ids:
+            self.downgrade_store(store_id)
+        return ids
+
+    def downgrade_store(self, store_id):
+        t = TimeDelta()
+        log.info('Downgrading store %s', store_id)
+        count = 0
+        while True:
+            rows = self.db.view('file', 'nonzero',
+                key=store_id,
+                include_docs=True,
+                limit=100,
+            )['rows']
+            if not rows:
+                break
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                doc['stored'][store_id]['copies'] = 0
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict as e:
+                log.exception('Conflict downgrading %s', store_id)
+                count -= len(e.conflicts)
+        t.log('downgraded %d copies in %s', count, store_id)
+        return count
+
+    def purge_store(self, store_id):
+        t = TimeDelta()
+        log.info('Purging store %s', store_id)
+        count = 0
+        while True:
+            rows = self.db.view('file', 'stored',
+                key=store_id,
+                include_docs=True,
+                limit=100,
+            )['rows']
+            if not rows:
+                break
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                del doc['stored'][store_id]
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict:
+                log.exception('Conflict purging %s', store_id)
+                count -= len(e.conflicts)
+        t.log('Purged %d copies from %s', count, store_id)
+        return count
 
     def scan(self, fs):
         """

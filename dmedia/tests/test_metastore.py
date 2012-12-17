@@ -721,6 +721,512 @@ class TestMetaStore(CouchCase):
         # Once more with feeling:
         self.assertEqual(ms.schema_check(), 0)
 
+    def test_downgrade_by_never_verified(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # Test when empty
+        self.assertEqual(ms.downgrade_by_never_verified(), 0)
+        curtime = int(time.time())
+        self.assertEqual(ms.downgrade_by_never_verified(curtime), 0)
+
+        # Populate
+        base = curtime - metastore.DOWNGRADE_BY_NEVER_VERIFIED
+        store_id1 = random_id()
+        store_id2 = random_id()
+        docs = []
+        count = 10
+        for i in range(count):
+            doc = {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 1,
+                        'mtime': base + i,
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'mtime': base + i + count,
+                    },
+                },
+            }
+            docs.append(doc)
+        db.save_many(docs)
+        ids = [doc['_id'] for doc in docs]
+
+        # Test when none should be downgraded
+        self.assertEqual(ms.downgrade_by_never_verified(curtime - 1), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Test when they all should be downgraded
+        self.assertEqual(ms.downgrade_by_never_verified(curtime + 19), 10)
+        for (i, doc) in enumerate(db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('2-'))
+            _id = ids[i]
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': base + i,
+                        },
+                        store_id2: {
+                            'copies': 0,
+                            'mtime': base + i + count,
+                        },
+                    },
+                }
+            )
+
+        # Test when they're all already downgraded
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade_by_never_verified(curtime + 19), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Test when only one store should be downgraded
+        for doc in docs:
+            doc['stored'][store_id1]['copies'] = 1
+            doc['stored'][store_id2]['copies'] = 1
+        db.save_many(docs)
+        self.assertEqual(ms.downgrade_by_never_verified(curtime + 9), 10)
+        for (i, doc) in enumerate(db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('4-'))
+            _id = ids[i]
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': base + i,
+                        },
+                        store_id2: {
+                            'copies': 1,
+                            'mtime': base + i + count,
+                        },
+                    },
+                }
+            )
+
+        # Again, test when they're all already downgraded
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade_by_never_verified(curtime + 9), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+    def test_downgrade_by_last_verified(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # Test when empty
+        self.assertEqual(ms.downgrade_by_last_verified(), 0)
+        curtime = int(time.time())
+        self.assertEqual(ms.downgrade_by_last_verified(curtime), 0)
+
+        # Populate
+        base = curtime - metastore.DOWNGRADE_BY_LAST_VERIFIED
+        store_id1 = random_id()
+        store_id2 = random_id()
+        docs = []
+        count = 10
+        for i in range(count):
+            doc = {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 1,
+                        'verified': base + i,
+                    },
+                    store_id2: {
+                        'copies': 1,
+                        'verified': base + i + count,
+                    },
+                },
+            }
+            docs.append(doc)
+        db.save_many(docs)
+        ids = [doc['_id'] for doc in docs]
+
+        # Test when none should be downgraded
+        self.assertEqual(ms.downgrade_by_last_verified(curtime - 1), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Test when they all should be downgraded
+        self.assertEqual(ms.downgrade_by_last_verified(curtime + 19), 10)
+        for (i, doc) in enumerate(db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('2-'))
+            _id = ids[i]
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'verified': base + i,
+                        },
+                        store_id2: {
+                            'copies': 0,
+                            'verified': base + i + count,
+                        },
+                    },
+                }
+            )
+
+        # Test when they're all already downgraded
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade_by_last_verified(curtime + 19), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Test when only one store should be downgraded
+        for doc in docs:
+            doc['stored'][store_id1]['copies'] = 1
+            doc['stored'][store_id2]['copies'] = 1
+        db.save_many(docs)
+        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 10)
+        for (i, doc) in enumerate(db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('4-'))
+            _id = ids[i]
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'verified': base + i,
+                        },
+                        store_id2: {
+                            'copies': 1,
+                            'verified': base + i + count,
+                        },
+                    },
+                }
+            )
+
+        # Again, test when they're all already downgraded
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+    def test_downgrade_by_store_atime(self):   
+        db = util.get_db(self.env, True)
+
+        class Dummy(metastore.MetaStore):
+            def __init__(self, db):
+                super().__init__(db)
+                self._calls = []
+
+            def downgrade_store(self, store_id):
+                self._calls.append(store_id)
+
+        # Test when empty
+        ms = Dummy(db)
+        self.assertEqual(ms.downgrade_by_store_atime(), [])
+        self.assertEqual(ms._calls, [])
+        curtime = int(time.time())
+        self.assertEqual(ms.downgrade_by_store_atime(curtime), [])
+        self.assertEqual(ms._calls, [])
+
+        # Test when some need to be downgraded
+        base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
+        docs = []
+        for i in range(8):
+            doc = {
+                '_id': random_id(),
+                'type': 'dmedia/store',
+                'atime': base + i,
+            }
+            docs.append(doc)
+        db.save_many(docs)
+        ids = [doc['_id'] for doc in docs]
+        self.assertEqual(ms.downgrade_by_store_atime(curtime - 1), [])
+        self.assertEqual(ms._calls, [])
+        for i in range(8):
+            expected = ids[:i+1]
+            self.assertEqual(
+                ms.downgrade_by_store_atime(curtime + i),
+                expected
+            )
+            self.assertEqual(ms._calls, expected)
+            ms._calls = []
+
+        # Once more with feeling
+        self.assertEqual(
+            ms.downgrade_by_store_atime(curtime),
+            [ids[0]]
+        )
+        self.assertEqual(ms._calls, [ids[0]])
+
+    def test_downgrade_store(self):    
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+        self.assertEqual(ms.downgrade_store(store_id1), 0)
+        ids = [random_file_id() for i in range(189)]
+        docs = []
+        for _id in ids:
+            doc = {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 1,
+                        'mtime': 123,
+                    },
+                    store_id2: {
+                        'copies': 2,
+                        'mtime': 456,
+                    },
+                },
+            }
+            docs.append(doc)
+        db.save_many(docs)
+
+        # Make sure downgrading an unrelated store causes no change:
+        self.assertEqual(ms.downgrade_store(store_id3), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Downgrade the first store:
+        self.assertEqual(ms.downgrade_store(store_id1), 189)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('2-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': 123,
+                        },
+                        store_id2: {
+                            'copies': 2,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
+        # Downgrade the 2nd store:
+        self.assertEqual(ms.downgrade_store(store_id2), 189)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': 123,
+                        },
+                        store_id2: {
+                            'copies': 0,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
+        # Make sure downgrading both again causes no change:
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade_store(store_id1), 0)
+        self.assertEqual(ms.downgrade_store(store_id2), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Test when some already have copies=0:
+        sample = random.sample(ids, 23)
+        docs2 = db.get_many(sample)
+        for doc in docs2:
+            doc['stored'][store_id1]['copies'] = 1
+        db.save_many(docs2)
+        self.assertEqual(ms.downgrade_store(store_id1), 23)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            if _id in sample:
+                self.assertTrue(rev.startswith('5-'))
+            else:
+                self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': 123,
+                        },
+                        store_id2: {
+                            'copies': 0,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
+        # Test when some have junk values for copies:
+        sample2 = list(filter(lambda _id: _id not in sample, ids))
+        docs2 = db.get_many(sample2)
+        for (i, doc) in enumerate(docs2):
+            # `False` makes sure the file/nonzero view is using !==
+            junk = ('hello', False)[i % 2 == 0]
+            doc['stored'][store_id2]['copies'] = junk
+        db.save_many(docs2)
+        self.assertEqual(ms.downgrade_store(store_id2), 166)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('5-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id1: {
+                            'copies': 0,
+                            'mtime': 123,
+                        },
+                        store_id2: {
+                            'copies': 0,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
+        # Again, make sure downgrading both again causes no change:
+        docs = db.get_many(ids)
+        self.assertEqual(ms.downgrade_store(store_id1), 0)
+        self.assertEqual(ms.downgrade_store(store_id2), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+    def test_purge_store(self):    
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+
+        # Test when empty:
+        self.assertEqual(ms.purge_store(store_id1), 0)
+
+        ids = [random_file_id() for i in range(189)]
+        docs = []
+        for _id in ids:
+            doc = {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {
+                        'copies': 1,
+                        'mtime': 123,
+                    },
+                    store_id2: {
+                        'copies': 2,
+                        'mtime': 456,
+                    },
+                },
+            }
+            docs.append(doc)
+        db.save_many(docs)
+
+        # Make sure purging an unrelated store causes no change:
+        self.assertEqual(ms.purge_store(store_id3), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Purge the first store:
+        self.assertEqual(ms.purge_store(store_id1), 189)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('2-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {
+                        store_id2: {
+                            'copies': 2,
+                            'mtime': 456,
+                        },
+                    },
+                }
+            )
+
+        # Purge the 2nd store:
+        self.assertEqual(ms.purge_store(store_id2), 189)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {},
+                }
+            )
+
+        # Make sure purging both again causes no change:
+        docs = db.get_many(ids)
+        self.assertEqual(ms.purge_store(store_id1), 0)
+        self.assertEqual(ms.purge_store(store_id2), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
+        # Test when some already have been purged:
+        sample = random.sample(ids, 23)
+        docs2 = db.get_many(sample)
+        for doc in docs2:
+            doc['stored'] = {
+                store_id1: {
+                    'copies': 1,
+                    'mtime': 123,
+                },
+            }
+        db.save_many(docs2)
+        self.assertEqual(ms.purge_store(store_id1), 23)
+        for (_id, doc) in zip(ids, db.get_many(ids)):
+            rev = doc.pop('_rev')
+            if _id in sample:
+                self.assertTrue(rev.startswith('5-'))
+            else:
+                self.assertTrue(rev.startswith('3-'))
+            self.assertEqual(doc,
+                {
+                    '_id': _id,
+                    'type': 'dmedia/file',
+                    'stored': {},
+                }
+            )
+
+        # Again, make sure purging both again causes no change:
+        docs = db.get_many(ids)
+        self.assertEqual(ms.purge_store(store_id1), 0)
+        self.assertEqual(ms.purge_store(store_id2), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+
     def test_scan(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
