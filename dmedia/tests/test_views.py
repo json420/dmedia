@@ -533,6 +533,111 @@ class TestFileDesign(DesignTestCase):
             {'rows': []}
         )
 
+    def test_nonzero(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('nonzero')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test when doc.stored doesn't exist
+        _id = random_file_id()
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test when doc.stored is empty
+        doc['stored'] = {}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test when copies is missing:
+        (store_id1, store_id2) = sorted(random_id() for i in range(2))
+        doc['stored'] = {
+            store_id1: {},
+            store_id2: {},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': store_id1, 'id': _id, 'value': None},
+                    {'key': store_id2, 'id': _id, 'value': None},
+                ],
+            }
+        )
+
+        # Test that compare is done with !== 0:
+        doc['stored'] = {
+            store_id1: {'copies': '0'},
+            store_id2: {'copies': False},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': store_id1, 'id': _id, 'value': None},
+                    {'key': store_id2, 'id': _id, 'value': None},
+                ],
+            }
+        )
+
+        # Test when copies === 0:
+        doc['stored'] = {
+            store_id1: {'copies': 0},
+            store_id2: {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test with typical values:
+        doc['stored'] = {
+            store_id1: {'copies': 2},
+            store_id2: {'copies': 1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': store_id1, 'id': _id, 'value': None},
+                    {'key': store_id2, 'id': _id, 'value': None},
+                ],
+            }
+        )
+
+        # Make sure doc.type is considered
+        doc['type'] = 'dmedia/files'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'nonzero'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
     def test_copies(self):
         db = Database('foo', self.env)
         db.put(None)
@@ -1141,7 +1246,6 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'never-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
-
 
     def test_last_verified(self):
         db = Database('foo', self.env)
