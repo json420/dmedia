@@ -1751,7 +1751,7 @@ class TestStoreDesign(DesignTestCase):
             },
         )
 
-        # Test when atime is missing
+        # Test when atime and time are missing
         doc = docs[-1]
         del doc['atime']
         db.save(doc)
@@ -1762,6 +1762,24 @@ class TestStoreDesign(DesignTestCase):
                 'total_rows': 9,
                 'rows': [
                     {'key': None, 'id': doc['_id'], 'value': None},
+                    {'key': 100, 'id': docs[0]['_id'], 'value': None},
+                    {'key': 101, 'id': docs[1]['_id'], 'value': None},
+                    {'key': 102, 'id': docs[2]['_id'], 'value': None},
+                ],
+            },
+        )
+
+        # Test when atime is missing, but time is present
+        doc = docs[-1]
+        doc['time'] = 50.5
+        db.save(doc)
+        self.assertEqual(
+            db.view('store', 'atime', endkey=102),
+            {
+                'offset': 0,
+                'total_rows': 9,
+                'rows': [
+                    {'key': 50.5, 'id': doc['_id'], 'value': None},
                     {'key': 100, 'id': docs[0]['_id'], 'value': None},
                     {'key': 101, 'id': docs[1]['_id'], 'value': None},
                     {'key': 102, 'id': docs[2]['_id'], 'value': None},

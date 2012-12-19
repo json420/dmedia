@@ -221,7 +221,12 @@ file_design = {
 store_atime = """
 function(doc) {
     if (doc.type == 'dmedia/store') {
-        emit(doc.atime, null);
+        if (typeof doc.atime == 'number') {
+            emit(doc.atime, null);
+        }
+        else {
+            emit(doc.time, null);
+        }
     }
 }
 """
