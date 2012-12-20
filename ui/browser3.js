@@ -239,7 +239,10 @@ Browser.prototype = {
     on_doc: function(req) {
         this.doc = req.read();
         var resolution = this.doc.width + 'x' + this.doc.height;
-        var fps = (this.doc.framerate.num/this.doc.framerate.denom).toFixed(2);
+        var fnum = this.doc.framerate.num;
+        var fdenom = this.doc.framerate.denom;
+        var fps = Math.round((fnum/fdenom)*100)/100;
+        
         $('clip_name').textContent = this.doc.name;
         $('clip_res').textContent = resolution;
         $('clip_len').textContent = this.doc.duration.seconds;
