@@ -238,6 +238,13 @@ Browser.prototype = {
 
     on_doc: function(req) {
         this.doc = req.read();
+        var resolution = this.doc.width + 'x' + this.doc.height;
+        var fps = (this.doc.framerate.num/this.doc.framerate.denom).toFixed(2);
+        $('clip_name').textContent = this.doc.name;
+        $('clip_res').textContent = resolution;
+        $('clip_len').textContent = this.doc.duration.seconds;
+        $('clip_fps').textContent = fps + ' fps';
+        
         var keys = Object.keys(this.doc.tags);
         var remove = $bind(this.on_tag_remove, this);
         keys.forEach(function(key) {
