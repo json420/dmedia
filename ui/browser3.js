@@ -127,7 +127,6 @@ Picker.prototype = {
 }
 
 
-
 function Browser(project, player, items) {
     this.player = $(player);
     this.tags = $('tags');
@@ -242,10 +241,11 @@ Browser.prototype = {
         var fnum = this.doc.framerate.num;
         var fdenom = this.doc.framerate.denom;
         var fps = Math.round((fnum/fdenom)*100)/100;
-        
+        var length = format_time(this.doc.duration.seconds);
+
         $('clip_name').textContent = this.doc.name;
         $('clip_res').textContent = resolution;
-        $('clip_len').textContent = this.doc.duration.seconds;
+        $('clip_len').textContent = length;
         $('clip_fps').textContent = fps + ' fps';
         
         var keys = Object.keys(this.doc.tags);
