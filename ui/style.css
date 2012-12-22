@@ -351,9 +351,9 @@ p.wip {
     position: fixed;
     z-index: 200;
     top: 38px;
-    bottom: 170px;
+    bottom: 128px;
     left: 0;
-    right: 210px;
+    right: 258px;
     background-color: black;
 }
 
@@ -365,40 +365,40 @@ p.wip {
     height: 100%;
 }
 
-#lower {
+#east {
     position: fixed;
     z-index: 200;
-    height: 170px;
-    bottom: 0;
-    left: 0;
-    right: 210px;
-    background-color: black;
-    overflow-x: auto;
-    overflow-y: visible;
+    width: 258px;
+    top: 38px;
+    bottom: 128px;
+    right: 0;
+    overflow-y: auto;
     background: -webkit-linear-gradient(top, #222, #333);
 }
 
-#right {
+#south {
     position: fixed;
     z-index: 200;
-    top: 38px;
+    left: 0;
     bottom: 0;
-    width: 210px;
+    height: 128px;
     right: 0;
     background-color: #555;
-    overflow-y: scroll;
-    overflow-x: hidden;
+    overflow-x: scroll;
+    overflow-y: hidden;
     line-height: 0;
+    white-space: nowrap;
 }
 
-#right img.thumbnail {
+#south img.thumbnail {
     width: 192px;
     height: 108px;
     border: 2px solid black;
-    border-top: 2px solid #111;
+    border-left: 2px solid #111;
+    overflow: hidden;
 }
 
-#right img.thumbnail.selected {
+#south img.thumbnail.selected {
     border-color: #e81f3b;
 }
 
@@ -430,10 +430,13 @@ ul.matches li.selected {
 
 
 ul.tags {
+    position: relative;
+    top: -8px;
+
     font-size: 0;
     list-style: none;
     
-    height: 150px;
+    height: 100px;
     padding: 2px;
 }
 
@@ -473,10 +476,10 @@ ul.tags li a {
     border-bottom:1px solid #383838;
     border-radius: 2px;
     box-shadow: 0px 1px 1px rgba(0,0,0,0.7);
-    position: fixed;
     z-index: 250;
-    bottom: 8px;
-    left: 8px;
+    position: absolute;
+    bottom: 5px;
+    right: 10px; 
     width: 144px;
 }
 
