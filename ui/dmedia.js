@@ -524,8 +524,8 @@ function Browser() {
 
     $('back').onclick = $bind(this.hide, this);
     
-    $('clip_title_form').onSubmit = $bind(this.on_title, this);
-    $('clip_title').onBlur = $bind(this.on_title, this);
+    //$('clip_title_form').onsubmit = $bind(this.on_title, this);
+    $('clip_title').onblur = $bind(this.on_title, this);
 
     this.browser = $('browser_main');
     this.projects = $('browser_projects');
@@ -654,8 +654,12 @@ Browser.prototype = {
         var length = format_time(this.doc.duration.seconds);
 
         if (this.doc.title) {
-            $('clip_title').textContent = this.doc.title;
+            $('clip_title').value = this.doc.title;
         }
+        else {
+            $('clip_title').value = '';
+        }
+
         $('clip_title').placeholder = this.doc.name;
         $('clip_res').textContent = resolution;
         $('clip_len').textContent = length;
@@ -671,17 +675,22 @@ Browser.prototype = {
     },
 
     on_title: function(title) {
-        console.log(title);
+        title = $('clip_title').value;
+        //console.log('Title: ' + title);
         if (!this.doc) {
             return;
         }
         if (title == '') {
-            return;
+            if (this.doc.title) {
+                delete this.doc.title;
+            }
         }
         else {
-            this.doc.title = title
+            if (this.doc.title != title) {
+                this.doc.title = title
+            }
         }
-        //this.project.db.save(this.doc);
+        this.project.db.save(this.doc);
     },
 
     on_tag: function(tag) {
