@@ -648,23 +648,30 @@ Browser.prototype = {
     on_doc: function(req) {
         this.doc = req.read();
 
-        var resolution = this.doc.width + 'x' + this.doc.height;
-        var framerate = this.doc.framerate;
-        var fps = Math.round((framerate.num/framerate.denom)*100)/100;
-        var length = format_time(this.doc.duration.seconds);
-
+        $('clip_title').placeholder = this.doc.name;
         if (this.doc.title) {
             $('clip_title').value = this.doc.title;
-        }
+        } 
         else {
             $('clip_title').value = '';
         }
 
-        $('clip_title').placeholder = this.doc.name;
-        $('clip_res').textContent = resolution;
-        $('clip_len').textContent = length;
-        $('clip_fps').textContent = fps + ' fps';
+        if (this.doc.media == 'video') {
+            var resolution = this.doc.width + 'x' + this.doc.height;
+            var framerate = this.doc.framerate;
+            var fps = Math.round((framerate.num/framerate.denom)*100)/100;
+            var length = format_time(this.doc.duration.seconds);
 
+            $('info_1_label').textContent = 'Length';
+            $('info_1_data').textContent = length;
+
+            $('info_2_label').textContent = 'Resolution';
+            $('info_2_data').textContent = resolution;
+
+            $('info_3_label').textContent = 'Framerate';
+            $('info_3_data').textContent = fps + ' fps';
+        }
+        
         var keys = Object.keys(this.doc.tags);
         var remove = $bind(this.on_tag_remove, this);
         keys.forEach(function(key) {

@@ -353,7 +353,7 @@ p.wip {
     top: 38px;
     bottom: 128px;
     left: 0;
-    right: 258px;
+    right: 262px;
     background-color: black;
 }
 
@@ -368,7 +368,7 @@ p.wip {
 #east {
     position: fixed;
     z-index: 200;
-    width: 258px;
+    width: 262px;
     top: 38px;
     bottom: 128px;
     right: 0;
@@ -428,6 +428,9 @@ ul.matches li.selected {
     background-color: #e81f3b;
 }
 
+.label {
+    font-weight: bold;
+}
 
 ul.tags {
     position: relative;
