@@ -246,7 +246,8 @@ class Service(dbus.service.Object):
             self.httpd = None
         if self.couch is not None:
             log.info('* killing usercouch')
-            self.lazy_access.flush()
+            if hasattr(self, 'lazy_access'):
+	            self.lazy_access.flush()
             self.couch.kill()
             self.couch = None
 
