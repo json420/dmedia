@@ -210,10 +210,13 @@ class VerifyContext:
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         if exc_type is None:
+            log.info('Verified %s in %r', self.doc['_id'], self.fs)
             mark_verified(self.doc, self.fs, time.time())
         elif issubclass(exc_type, CorruptFile):
+            log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
             mark_corrupt(self.doc, self.fs, time.time())
         elif issubclass(exc_type, FileNotFound):
+            log.warning('%s is not in %r', self.doc['_id'], self.fs)
             remove_from_stores(self.doc, self.fs)
         self.db.save(self.doc)
 
