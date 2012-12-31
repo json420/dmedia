@@ -31,7 +31,8 @@ import io
 from random import SystemRandom
 from copy import deepcopy
 
-from filestore import TempFileStore, FileStore, DIGEST_BYTES
+from filestore import FileStore, DIGEST_BYTES
+from filestore.misc import TempFileStore
 import microfiber
 from microfiber import random_id
 
