@@ -17,7 +17,7 @@ bus = random_bus()
 service = path.join(path.dirname(path.abspath(__file__)), 'dummy-service')
 assert path.isfile(service)
 p = Popen([service, '--bus', bus])
-time.sleep(0.25)
+time.sleep(1)
 
 N = 5 * 1000
 
