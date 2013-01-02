@@ -7,6 +7,8 @@ from base64 import b32encode
 from subprocess import Popen
 import timeit
 
+import dbus
+
 
 def random_bus():
     random = b32encode(os.urandom(10)).decode('utf-8').lower()
@@ -18,6 +20,8 @@ service = path.join(path.dirname(path.abspath(__file__)), 'dummy-service')
 assert path.isfile(service)
 p = Popen([service, '--bus', bus])
 time.sleep(1)
+session = dbus.SessionBus()
+Dmedia = session.get_object(bus, '/')
 
 N = 5 * 1000
 
@@ -53,5 +57,5 @@ try:
     benchmark('Dmedia.Resolve(_id)')
     benchmark('Dmedia.ResolveMany(ids)')
 finally:
-    p.terminate()
+    Dmedia.Kill()
     p.wait()

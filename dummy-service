@@ -29,6 +29,7 @@ class Dmedia(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def Kill(self):
+        print('Dmedia.Kill()')
         mainloop.quit()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
