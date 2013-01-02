@@ -19,14 +19,24 @@ assert path.isfile(service)
 p = Popen([service, '--bus', bus])
 time.sleep(0.25)
 
-N = 10 * 1000
+N = 5 * 1000
 
 setup = """
 import dbus
 
-_id = 'FWV6OJYI36C5NN5DC4GS2IGWZXFCZCGJGHK35YV62LKAG7D2Z4LO4Z2S'
 session = dbus.SessionBus()
 Dmedia = session.get_object({!r}, '/')
+
+ids = [
+    'FWV6OJYI36C5NN5DC4GS2IGWZXFCZCGJGHK35YV62LKAG7D2Z4LO4Z2S',
+    'OB756PX5V32JMKJAFKIAJ4AFSFPA2WLNIK32ELNO4FJLJPEEEN6DCAAJ',
+    'QSOHXCDH64IQBOG2NM67XEC6MLZKKPGBTISWWRPMCFCJ2EKMA2SMLY46',
+    'BQ5UTB33ML2VDTCTLVXK6N4VSMGGKKKDYKG24B6DOAFJB6NRSGMB5BNO',
+    'ER3LDDZ2LHMTDLOPE5XA5GEEZ6OE45VFIFLY42GEMV4TSZ2B7GJJXAIX',
+    'R6RN5KL7UBNJWR5SK5YPUKIGAOWWFMYYOVESU5DPT34X5MEK75PXXYIX',
+]
+_id = ids[0]
+
 """.format(bus)
 
 
@@ -42,6 +52,7 @@ try:
     benchmark('Dmedia.Resolve2(_id)')
     benchmark('Dmedia.Resolve3(_id)')
     benchmark('Dmedia.Resolve4(_id)')
+    benchmark('Dmedia.ResolveMany(ids)')
 finally:
     p.terminate()
     p.wait()

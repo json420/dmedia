@@ -49,6 +49,15 @@ class Dmedia(dbus.service.Object):
     def Resolve4(self, _id):
         return (_id, FLAG_UNAVAILABLE, '')
 
+    @dbus.service.method(IFACE, in_signature='as', out_signature='a(sys)')
+    def ResolveMany(self, ids):
+        return [
+            (_id, FLAG_RESOLVED,
+                path.join('/media/MyDrive/.dmedia/files', _id[:2], _id[2:])
+            )
+            for _id in ids
+        ]
+
 
 parser = optparse.OptionParser()
 parser.add_option('--bus',
