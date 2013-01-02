@@ -32,22 +32,18 @@ class Dmedia(dbus.service.Object):
         mainloop.quit()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
-    def Resolve1(self):
+    def Empty(self):
         pass
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def Resolve2(self, _id):
+    def Echo(self, _id):
         return _id
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='(sys)')
-    def Resolve3(self, _id):
+    def Resolve(self, _id):
         return (_id, FLAG_RESOLVED,
             path.join('/media/MyDrive/.dmedia/files', _id[:2], _id[2:])
         )
-
-    @dbus.service.method(IFACE, in_signature='s', out_signature='(sys)')
-    def Resolve4(self, _id):
-        return (_id, FLAG_UNAVAILABLE, '')
 
     @dbus.service.method(IFACE, in_signature='as', out_signature='a(sys)')
     def ResolveMany(self, ids):

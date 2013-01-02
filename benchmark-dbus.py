@@ -48,10 +48,9 @@ def benchmark(statement):
 
 
 try:
-    benchmark('Dmedia.Resolve1()')
-    benchmark('Dmedia.Resolve2(_id)')
-    benchmark('Dmedia.Resolve3(_id)')
-    benchmark('Dmedia.Resolve4(_id)')
+    benchmark('Dmedia.Empty()')
+    benchmark('Dmedia.Echo(_id)')
+    benchmark('Dmedia.Resolve(_id)')
     benchmark('Dmedia.ResolveMany(ids)')
 finally:
     p.terminate()
