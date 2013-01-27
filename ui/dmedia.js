@@ -638,23 +638,24 @@ Browser.prototype = {
             this.player.src = null;
             return;
         }
+
         this.player.src = 'dmedia:' + id;
         this.player.play();
         this.tagger.reset();
         this.tags.innerHTML = null;
         this.project.db.get($bind(this.on_doc, this), id);
+        $('clip_title').placeholder = null;
+        $('clip_title').value = null;
+
+        while ($('metadata').firstChild) 
+            $('metadata').removeChild($('metadata').firstChild );
     },
 
     on_doc: function(req) {
         this.doc = req.read();
 
         $('clip_title').placeholder = this.doc.name;
-        if (this.doc.title) {
-            $('clip_title').value = this.doc.title;
-        } 
-        else {
-            $('clip_title').value = '';
-        }
+        if (this.doc.title) $('clip_title').value = this.doc.title;
 
         if (this.doc.media == 'video') {
             var resolution = this.doc.width + 'x' + this.doc.height;
@@ -662,9 +663,9 @@ Browser.prototype = {
             var fps = Math.round((framerate.num/framerate.denom)*100)/100;
             var length = format_time(this.doc.duration.seconds);
 
-            $('metadata_1').textContent = length;
-            $('metadata_2').textContent = resolution;
-            $('metadata_3').textContent = fps + ' fps';
+            $('metadata').appendChild($el('p',{'class':'metadata', 'textContent':length}));
+            $('metadata').appendChild($el('p',{'class':'metadata', 'textContent':resolution}));
+            $('metadata').appendChild($el('p',{'class':'metadata', 'textContent':fps + ' fps'}));
         }
         
         var keys = Object.keys(this.doc.tags);
