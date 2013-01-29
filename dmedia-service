@@ -444,7 +444,7 @@ class Service(dbus.service.Object):
         parentdir = str(parentdir)
         log.info('Dmedia.CreateFileStore(%r)', parentdir)
         self.core.create_filestore(parentdir)
-        return self.LocalDmedia()
+        return self.Stores()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def DowngradeStore(self, store_id):
