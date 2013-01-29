@@ -990,6 +990,7 @@ class TestMetaStore(CouchCase):
                     store_id1: {
                         'copies': 1,
                         'mtime': 123,
+                        'verified': int(time.time()),
                     },
                     store_id2: {
                         'copies': 2,

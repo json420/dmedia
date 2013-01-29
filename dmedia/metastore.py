@@ -384,6 +384,7 @@ class MetaStore:
             docs = [r['doc'] for r in rows]
             for doc in docs:
                 doc['stored'][store_id]['copies'] = 0
+                doc['stored'][store_id].pop('verified', None)
             count += len(docs)
             try:
                 self.db.save_many(docs)
