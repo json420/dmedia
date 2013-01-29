@@ -469,17 +469,9 @@ class Core:
         fs = self.stores.choose_local_store(doc)
         return fs.stat(doc['_id'])
 
-    def _update_atime(self, doc):
-        doc['atime'] = int(time.time())
-        try:
-            self.db.save(doc)
-        except Conflict:
-            pass
-
     def resolve(self, _id):
         doc = self.db.get(_id)
         fs = self.stores.choose_local_store(doc)
-        #self._update_atime(doc)
         return fs.stat(_id).name
 
     def resolve_uri(self, uri):

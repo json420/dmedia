@@ -408,23 +408,6 @@ class TestCore(CouchCase):
             inst.disconnect_filestore(fs1.parentdir, fs1.id)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
 
-    def test_update_atime(self):
-        inst = core.Core(self.env)
-        _id = random_id()
-        doc = {'_id': _id}
-        self.assertIsNone(inst._update_atime(doc))
-        self.assertIsInstance(doc['atime'], int)
-        self.assertLessEqual(doc['atime'], int(time.time()))
-        self.assertTrue(doc['_rev'].startswith('1-'))
-        self.assertEqual(inst.db.get(_id), doc)
-
-        # Test with conflict
-        doc2 = deepcopy(doc)
-        inst.db.save(doc)
-        self.assertIsNone(inst._update_atime(doc2))
-        self.assertEqual(inst.db.get(_id), doc)
-        self.assertNotEqual(inst.db.get(_id), doc2)
-
     def test_allocate_tmp(self):
         inst = core.Core(self.env)
 
