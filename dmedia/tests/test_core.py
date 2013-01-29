@@ -66,32 +66,6 @@ class TestFunctions(TestCase):
             }
         )
 
-    def test_migrate_shared(self):
-        tmp1 = TempDir()
-        tmp2 = TempDir()
-        src = filestore.FileStore(tmp1.dir)
-        dst = filestore.FileStore(tmp2.dir)
-        st_list = []
-        for i in range(10):
-            (file, ch) = tmp1.random_file()
-            os.rename(file.name, src.path(ch.id))
-            st = src.stat(ch.id)
-            assert st.size == ch.file_size
-            st_list.append(st)
-        st_list.sort(key=lambda st: st.id)
-        self.assertEqual(list(src), st_list)
-        self.assertEqual(list(dst), [])
-        self.assertEqual(core.migrate_shared(tmp1.dir, tmp2.dir), 10)
-        self.assertEqual(list(src), [])
-        self.assertEqual(
-            [st.id for st in dst],
-            [st.id for st in st_list]
-        )
-        for st in st_list:
-            ch = dst.verify(st.id)
-            self.assertEqual(st.size, ch.file_size)
-            self.assertEqual(dst.stat(st.id).mtime, st.mtime)
-
 
 class TestCouchFunctions(CouchCase):
     def test_db_dump_iter(self):
