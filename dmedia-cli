@@ -117,12 +117,12 @@ class GetDiskInfo(_Method):
     'Get info on drives and partitions from UDisks'
 
 
-class LocalDmedia(_Method):
-    'Get the _local/dmedia document (shows file-stores)'
+class Stores(_Method):
+    'Show the currently connected file-stores'
 
 
 class Peers(_Method):
-    'Show local peers'
+    'Show peers'
 
 
 class CreateFileStore(_Method):
