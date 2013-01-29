@@ -66,32 +66,6 @@ class TestFunctions(TestCase):
             }
         )
 
-    def test_migrate_shared(self):
-        tmp1 = TempDir()
-        tmp2 = TempDir()
-        src = filestore.FileStore(tmp1.dir)
-        dst = filestore.FileStore(tmp2.dir)
-        st_list = []
-        for i in range(10):
-            (file, ch) = tmp1.random_file()
-            os.rename(file.name, src.path(ch.id))
-            st = src.stat(ch.id)
-            assert st.size == ch.file_size
-            st_list.append(st)
-        st_list.sort(key=lambda st: st.id)
-        self.assertEqual(list(src), st_list)
-        self.assertEqual(list(dst), [])
-        self.assertEqual(core.migrate_shared(tmp1.dir, tmp2.dir), 10)
-        self.assertEqual(list(src), [])
-        self.assertEqual(
-            [st.id for st in dst],
-            [st.id for st in st_list]
-        )
-        for st in st_list:
-            ch = dst.verify(st.id)
-            self.assertEqual(st.size, ch.file_size)
-            self.assertEqual(dst.stat(st.id).mtime, st.mtime)
-
 
 class TestCouchFunctions(CouchCase):
     def test_db_dump_iter(self):
@@ -175,6 +149,52 @@ class TestCore(CouchCase):
                 'user_id': user_id,
             }
         )
+
+    def test_load_default_filestore(self):
+        # Test when FileStore doesn't yet exist
+        inst = core.Core(self.env)
+        tmp = TempDir()
+        fs = inst.load_default_filestore(tmp.dir)
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.copies, 1)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'stores': {
+                    tmp.dir: {
+                        'id': fs.id,
+                        'copies': 1,
+                    }
+                },
+            }
+        )
+        self.assertTrue(inst.db.get(fs.id)['_rev'].startswith('1-'))
+
+        # Test when FileStore already exists
+        _id = fs.id
+        inst = core.Core(self.env)
+        fs = inst.load_default_filestore(tmp.dir)
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.copies, 1)
+        self.assertEqual(fs.id, _id)
+        self.assertEqual(
+            inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'stores': {
+                    tmp.dir: {
+                        'id': _id,
+                        'copies': 1,
+                    }
+                },
+            }
+        )
+        self.assertTrue(inst.db.get(_id)['_rev'].startswith('1-'))
 
     def test_start_vigilance(self):
         inst = core.Core(self.env)
@@ -387,23 +407,6 @@ class TestCore(CouchCase):
         with self.assertRaises(KeyError) as cm:
             inst.disconnect_filestore(fs1.parentdir, fs1.id)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
-
-    def test_update_atime(self):
-        inst = core.Core(self.env)
-        _id = random_id()
-        doc = {'_id': _id}
-        self.assertIsNone(inst._update_atime(doc))
-        self.assertIsInstance(doc['atime'], int)
-        self.assertLessEqual(doc['atime'], int(time.time()))
-        self.assertTrue(doc['_rev'].startswith('1-'))
-        self.assertEqual(inst.db.get(_id), doc)
-
-        # Test with conflict
-        doc2 = deepcopy(doc)
-        inst.db.save(doc)
-        self.assertIsNone(inst._update_atime(doc2))
-        self.assertEqual(inst.db.get(_id), doc)
-        self.assertNotEqual(inst.db.get(_id), doc2)
 
     def test_allocate_tmp(self):
         inst = core.Core(self.env)

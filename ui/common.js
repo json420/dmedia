@@ -304,7 +304,6 @@ function create_tag(tag) {
     }
 }
 
-
 function Tagger(project, form) {
     this.key = null;
     this.old_value = '';

@@ -54,10 +54,6 @@ from dmedia.local import LocalStores, FileNotLocal
 
 log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
-HOME = path.abspath(os.environ['HOME'])
-if not path.isdir(HOME):
-    raise Exception('$HOME is not a directory: {!r}'.format(HOME))
-SHARED = '/home'
 
 
 def start_httpd(couch_env, ssl_config):
@@ -221,28 +217,6 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def migrate_shared(srcdir, dstdir):
-    try:
-        count = 0
-        src = FileStore(srcdir)
-        dst = FileStore(dstdir)
-        log.info('Migrating files from %r to %r', src, dst)
-        for st in src:
-            if dst.exists(st.id):
-                continue
-            log.info('Migrating %s %s', st.id, st.size)
-            try:
-                os.rename(st.name, dst.path(st.id))
-            except OSError:
-                src.copy(st.id, dst)
-                src.remove(st.id)
-            count += 1
-        log.info('Migrating %d files from %r to %r', count, src, dst)
-    except Exception:
-        log.exception('Error migrating files from shared FileStore')
-    return count
-
-
 def vigilance(env, stores, first_run):
     try:
         log.info('vigilance() running %r', stores)
@@ -312,13 +286,6 @@ class Core:
         self.save_local()
 
     def load_default_filestore(self, parentdir):
-        if util.isfilestore(HOME) and not util.isfilestore(parentdir):
-            src = FileStore(HOME)
-            src.init_dirs()
-            dstdir = path.join(parentdir, DOTNAME)
-            log.info('Moving %r to %r', src.basedir, dstdir)
-            os.rename(src.basedir, dstdir)
-        self.parentdir = parentdir
         (fs, doc) = util.init_filestore(parentdir)
         log.info('Default FileStore %s at %r', doc['_id'], parentdir)
         self._add_filestore(fs, doc)
@@ -363,28 +330,6 @@ class Core:
     def restart_vigilance(self):
         self.stop_vigilance()
         self.start_vigilance()
-
-    def _background_worker(self):
-        if util.isfilestore(SHARED):
-            log.info('Running migration...')
-            process = start_process(migrate_shared, SHARED, self.parentdir)
-            process.join()
-            store_id = util.get_filestore_id(SHARED)
-            if store_id is not None:
-                self.purge_store(store_id)
-        self.ms.schema_check()
-        log.info('Background worker listing to queue...')
-        while True:
-            try:
-                fs = self.queue.get()
-                self.ms.scan(fs)
-                self.ms.relink(fs)
-            except Exception as e:
-                log.exception('Error in background worker:')
-
-    def start_background_tasks(self):
-        assert self.thread is None
-        self.thread = start_thread(self._background_worker)
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
@@ -524,17 +469,9 @@ class Core:
         fs = self.stores.choose_local_store(doc)
         return fs.stat(doc['_id'])
 
-    def _update_atime(self, doc):
-        doc['atime'] = int(time.time())
-        try:
-            self.db.save(doc)
-        except Conflict:
-            pass
-
     def resolve(self, _id):
         doc = self.db.get(_id)
         fs = self.stores.choose_local_store(doc)
-        #self._update_atime(doc)
         return fs.stat(_id).name
 
     def resolve_uri(self, uri):

@@ -422,11 +422,11 @@ class Service(dbus.service.Object):
         return dumps(self.udisks.info, pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def LocalDmedia(self):
+    def Stores(self):
         """
-        Return the _local/dmedia doc.
+        Return currently connected filestores
         """
-        return dumps(self.core.db.get('_local/dmedia'), pretty=True)
+        return dumps(self.core.local['stores'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Peers(self):
@@ -444,7 +444,7 @@ class Service(dbus.service.Object):
         parentdir = str(parentdir)
         log.info('Dmedia.CreateFileStore(%r)', parentdir)
         self.core.create_filestore(parentdir)
-        return self.LocalDmedia()
+        return self.Stores()
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def DowngradeStore(self, store_id):

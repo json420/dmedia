@@ -162,7 +162,6 @@ Hub.connect('batch_finalized',
     }
 );
 
-
 function make_tag_li(remove, doc, id) {
     var id = id || doc._id;
     var li = $el('li', {textContent: doc.value});
@@ -513,7 +512,7 @@ function Browser() {
     this.tags = $('tags');
     this.doc = null;
 
-    this.items = new Items('right');
+    this.items = new Items('south');
     this.items.onchange = $bind(this.on_item_change, this);
     this.items.parent.onmousewheel = $bind(this.on_mousewheel, this);
 
@@ -524,6 +523,9 @@ function Browser() {
     window.addEventListener('keypress', $bind(this.on_window_keypress, this));
 
     $('back').onclick = $bind(this.hide, this);
+    
+    //$('clip_title_form').onsubmit = $bind(this.on_title, this);
+    $('clip_title').onblur = $bind(this.on_title, this);
 
     this.browser = $('browser_main');
     this.projects = $('browser_projects');
@@ -636,15 +638,36 @@ Browser.prototype = {
             this.player.src = null;
             return;
         }
+
         this.player.src = 'dmedia:' + id;
         this.player.play();
         this.tagger.reset();
         this.tags.innerHTML = null;
         this.project.db.get($bind(this.on_doc, this), id);
+        $('clip_title').placeholder = null;
+        $('clip_title').value = null;
+
+        while ($('metadata').firstChild) 
+            $('metadata').removeChild($('metadata').firstChild );
     },
 
     on_doc: function(req) {
         this.doc = req.read();
+
+        $('clip_title').placeholder = this.doc.name;
+        if (this.doc.title) $('clip_title').value = this.doc.title;
+
+        if (this.doc.media == 'video') {
+            var resolution = this.doc.width + 'x' + this.doc.height;
+            var framerate = this.doc.framerate;
+            var fps = Math.round((framerate.num/framerate.denom)*100)/100;
+            var length = format_time(this.doc.duration.seconds);
+
+            $('metadata').appendChild($el('p',{'class':'metadata', 'textContent':length}));
+            $('metadata').appendChild($el('p',{'class':'metadata', 'textContent':resolution}));
+            $('metadata').appendChild($el('p',{'class':'metadata', 'textContent':fps + ' fps'}));
+        }
+        
         var keys = Object.keys(this.doc.tags);
         var remove = $bind(this.on_tag_remove, this);
         keys.forEach(function(key) {
@@ -652,6 +675,25 @@ Browser.prototype = {
                 (make_tag_li(remove, this.doc.tags[key], key)
             );
         }, this);
+    },
+
+    on_title: function(title) {
+        title = $('clip_title').value;
+        //console.log('Title: ' + title);
+        if (!this.doc) {
+            return;
+        }
+        if (title == '') {
+            if (this.doc.title) {
+                delete this.doc.title;
+            }
+        }
+        else {
+            if (this.doc.title != title) {
+                this.doc.title = title
+            }
+        }
+        this.project.db.save(this.doc);
     },
 
     on_tag: function(tag) {
@@ -685,19 +727,19 @@ Browser.prototype = {
     on_mousewheel: function(event) {
         event.preventDefault();
         var delta = wheel_delta(event) * 112;  // 108px height + 2px border
-        this.items.parent.scrollTop += delta;
+        this.items.parent.scrollLeft += delta;
     },
 
 
     on_window_keydown: function(event) {
         var keyID = event.keyIdentifier;
-        if (['Up', 'Down', 'Enter', 'U+007F'].indexOf(keyID) > -1 && !this.tagger.input.value) {
+        if (['Left', 'Right', 'Enter', 'U+007F'].indexOf(keyID) > -1 && !this.tagger.input.value) {
             event.preventDefault();
             event.stopPropagation();
-            if (keyID == 'Up') {
+            if (keyID == 'Left') {
                 this.previous();
             }
-            else if (keyID == 'Down') {
+            else if (keyID == 'Right') {
                 this.next();
             }
             else if (keyID == 'Enter') {
@@ -716,7 +758,7 @@ Browser.prototype = {
         }
         // Don't focus on Backspace, Enter, Spacebar, or Delete
         if ([8, 13, 32, 127].indexOf(event.keyCode) == -1) {
-            this.tagger.focus();
+            return;
         }
     },
 
