@@ -221,28 +221,6 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def migrate_shared(srcdir, dstdir):
-    try:
-        count = 0
-        src = FileStore(srcdir)
-        dst = FileStore(dstdir)
-        log.info('Migrating files from %r to %r', src, dst)
-        for st in src:
-            if dst.exists(st.id):
-                continue
-            log.info('Migrating %s %s', st.id, st.size)
-            try:
-                os.rename(st.name, dst.path(st.id))
-            except OSError:
-                src.copy(st.id, dst)
-                src.remove(st.id)
-            count += 1
-        log.info('Migrating %d files from %r to %r', count, src, dst)
-    except Exception:
-        log.exception('Error migrating files from shared FileStore')
-    return count
-
-
 def vigilance(env, stores, first_run):
     try:
         log.info('vigilance() running %r', stores)
@@ -363,28 +341,6 @@ class Core:
     def restart_vigilance(self):
         self.stop_vigilance()
         self.start_vigilance()
-
-    def _background_worker(self):
-        if util.isfilestore(SHARED):
-            log.info('Running migration...')
-            process = start_process(migrate_shared, SHARED, self.parentdir)
-            process.join()
-            store_id = util.get_filestore_id(SHARED)
-            if store_id is not None:
-                self.purge_store(store_id)
-        self.ms.schema_check()
-        log.info('Background worker listing to queue...')
-        while True:
-            try:
-                fs = self.queue.get()
-                self.ms.scan(fs)
-                self.ms.relink(fs)
-            except Exception as e:
-                log.exception('Error in background worker:')
-
-    def start_background_tasks(self):
-        assert self.thread is None
-        self.thread = start_thread(self._background_worker)
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
