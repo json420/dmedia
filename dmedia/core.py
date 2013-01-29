@@ -54,10 +54,6 @@ from dmedia.local import LocalStores, FileNotLocal
 
 log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
-HOME = path.abspath(os.environ['HOME'])
-if not path.isdir(HOME):
-    raise Exception('$HOME is not a directory: {!r}'.format(HOME))
-SHARED = '/home'
 
 
 def start_httpd(couch_env, ssl_config):
@@ -290,13 +286,6 @@ class Core:
         self.save_local()
 
     def load_default_filestore(self, parentdir):
-        if util.isfilestore(HOME) and not util.isfilestore(parentdir):
-            src = FileStore(HOME)
-            src.init_dirs()
-            dstdir = path.join(parentdir, DOTNAME)
-            log.info('Moving %r to %r', src.basedir, dstdir)
-            os.rename(src.basedir, dstdir)
-        self.parentdir = parentdir
         (fs, doc) = util.init_filestore(parentdir)
         log.info('Default FileStore %s at %r', doc['_id'], parentdir)
         self._add_filestore(fs, doc)
