@@ -452,6 +452,11 @@ class Service(dbus.service.Object):
         log.info('Dmedia.DowngradeStore(%r)', store_id)
         start_thread(self.core.downgrade_store, store_id)
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def DowngradeAll(self):
+        log.info('Dmedia.DowngradeAll()')
+        start_thread(self.core.ms.downgrade_all)
+
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def PurgeStore(self, store_id):
         store_id = str(store_id)
@@ -523,7 +528,7 @@ class Service(dbus.service.Object):
 
 
 parser = optparse.OptionParser(
-	version=dmedia.__version__,
+    version=dmedia.__version__,
 )
 parser.add_option('--bus',
     help='DBus bus name; default is {!r}'.format(BUS),

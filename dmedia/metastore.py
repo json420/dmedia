@@ -394,6 +394,17 @@ class MetaStore:
         t.log('downgraded %d copies in %s', count, store_id)
         return count
 
+    def downgrade_all(self):
+        """
+        Downgrade every file in every store.
+
+        Note: this is only really useful for testing.
+        """
+        r = self.db.view('file', 'stored', reduce=True, group=True)
+        for row in r['rows']:
+            store_id = row['key']
+            self.downgrade_store(store_id)
+
     def purge_store(self, store_id):
         t = TimeDelta()
         log.info('Purging store %s', store_id)

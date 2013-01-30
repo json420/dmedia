@@ -140,6 +140,10 @@ class DowngradeStore(_Method):
     args = ['store_id']
 
 
+class DowngradeAll(_Method):
+    'Downgrade all files in all stores (stress test)'
+
+
 class PurgeStore(_Method):
     'Purge references to a store'
 
@@ -208,7 +212,7 @@ class futon(_Method):
 
 parser = optparse.OptionParser(
     usage='%prog METHOD [ARGS...]',
-	version=dmedia.__version__,
+    version=dmedia.__version__,
 )
 parser.add_option('--bus',
     help='DBus bus name; default is {!r}'.format(dmedia.BUS),
