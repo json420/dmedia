@@ -400,10 +400,14 @@ class MetaStore:
 
         Note: this is only really useful for testing.
         """
-        r = self.db.view('file', 'stored', reduce=True, group=True)
-        for row in r['rows']:
+        t = TimeDelta()
+        count = 0
+        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
+        for row in rows:
             store_id = row['key']
-            self.downgrade_store(store_id)
+            count += self.downgrade_store(store_id)
+        t.log('downgraded %d total copies in %d stores', count, len(rows))
+        return count
 
     def purge_store(self, store_id):
         t = TimeDelta()
