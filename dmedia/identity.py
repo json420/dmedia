@@ -34,7 +34,7 @@ from subprocess import check_call, check_output
 import logging
 
 from skein import skein512
-from microfiber import random_id
+from dbase32.rfc3548 import random_id
 
 
 # Skein personalization strings

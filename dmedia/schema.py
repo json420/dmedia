@@ -249,7 +249,6 @@ import os
 
 from dbase32 import RANDOM_B32LEN
 from dbase32.rfc3548 import isb32, random_id
-from dbase32 import random_id
 from filestore import DIGEST_B32LEN, TYPE_ERROR
 from microfiber import encode_attachment, Attachment
 
