@@ -39,7 +39,7 @@ from dmedia.gtk.util import Timer
 from dmedia.service import init_if_needed
 from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager, has_magic_lantern
-from gi.repository import GObject, Gtk, Gio
+from gi.repository import GLib, Gtk, Gio
 
 try:
     from dmedia.gtk.ubuntu import UnityImportUX
@@ -83,7 +83,7 @@ class Importer:
             self.settings.set_boolean('autorun-never', False)
 
     def callback(self, signal, args):
-        GObject.idle_add(self.hub.send, signal, *args)
+        GLib.idle_add(self.hub.send, signal, *args)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         log.info('batch_finished: %s', batch_id)
@@ -210,7 +210,7 @@ class App(BaseApp):
         project = get_project_db(doc['_id'], self.env, True)
         project.post(doc)
         self.db.save(doc)
-        GObject.idle_add(self.start_importer, doc)
+        GLib.idle_add(self.start_importer, doc)
 
     def on_start_importer(self, hub, project_id):
         name = schema.project_db_name(project_id)
@@ -224,7 +224,7 @@ class App(BaseApp):
         except NotFound:
             del pdoc['_rev']
         self.db.save(pdoc)
-        GObject.idle_add(self.start_importer, pdoc)
+        GLib.idle_add(self.start_importer, pdoc)
 
     def start_importer(self, doc):    
         try:
@@ -242,7 +242,7 @@ class App(BaseApp):
         self.importer.manager.kill()
         self.importer = None
         self.ux = None
-        GObject.idle_add(self.hub.send, 'importer_stopped')
+        GLib.idle_add(self.hub.send, 'importer_stopped')
 
 
 app = App()
