@@ -31,7 +31,6 @@ from os import path
 import os
 from gettext import gettext as _
 from gettext import ngettext
-from subprocess import check_call
 import logging
 import mimetypes
 import shutil
@@ -44,7 +43,7 @@ from dmedia.parallel import start_thread
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-from dmedia.metastore import create_stored, merge_stored
+from dmedia.metastore import create_stored, merge_stored, TimeDelta
 from dmedia.extractor import extract, merge_thumbnail
 
 
@@ -352,11 +351,12 @@ class ImportManager(workers.CouchManager):
 
     def last_worker_finished(self):
         assert self._workers == {}
-        log.info('Calling /bin/sync')
-        check_call(['/bin/sync'])
-        log.info('sync done')
+        t = TimeDelta()
+        os.sync()
+        t.log('called os.sync()')
         self.doc['time_end'] = time.time()
         self.doc['rate'] = get_rate(self.doc)
+        log.info('Combined batch import rate: %s', self.doc['rate'])
         self.db.save(self.doc)
         self.emit('batch_finished',
             self.doc['_id'],

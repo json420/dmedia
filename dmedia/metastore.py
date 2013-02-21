@@ -61,6 +61,8 @@ class MTimeMismatch(Exception):
 
 
 class TimeDelta:
+    __slots__ = ('start',)
+
     def __init__(self):
         self.start = time.perf_counter()
 
