@@ -247,8 +247,11 @@ import time
 import socket
 import os
 
-from filestore import DIGEST_B32LEN, B32ALPHABET, TYPE_ERROR
-from microfiber import random_id, RANDOM_B32LEN, encode_attachment, Attachment
+from dbase32 import RANDOM_B32LEN
+from dbase32.rfc3548 import isb32, random_id
+from dbase32 import random_id
+from filestore import DIGEST_B32LEN, TYPE_ERROR
+from microfiber import encode_attachment, Attachment
 
 
 # schema-compatibility version:
@@ -554,7 +557,7 @@ def _any_id(value, label):
             '{}: length of ID ({}) not multiple of 8: {!r}'.format(
                     label, len(value), value)
         )
-    if not set(value).issubset(B32ALPHABET):
+    if not isb32(value):
         raise ValueError(
             '{}: ID not subset of B32ALPHABET: {!r}'.format(
                     label, value)
@@ -582,7 +585,7 @@ def _random_id(value, label):
             '{}: random ID must be {} characters, got {}: {!r}'.format(
                     label, RANDOM_B32LEN, len(value), value)
         )
-    if not set(value).issubset(B32ALPHABET):
+    if not isb32(value):
         raise ValueError(
             '{}: random ID not subset of B32ALPHABET: {!r}'.format(
                     label, value)
@@ -610,7 +613,7 @@ def _intrinsic_id(value, label):
             '{}: intrinsic ID must be {} characters, got {}: {!r}'.format(
                     label, DIGEST_B32LEN, len(value), value)
         )
-    if not set(value).issubset(B32ALPHABET):
+    if not isb32(value):
         raise ValueError(
             '{}: intrinsic ID not subset of B32ALPHABET: {!r}'.format(
                     label, value)

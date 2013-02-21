@@ -30,7 +30,7 @@ from base64 import b64encode, b64decode
 from wsgiref.util import shift_path_info
 import logging
 
-from filestore import DIGEST_B32LEN, B32ALPHABET, LEAF_SIZE
+from filestore import DIGEST_B32LEN, LEAF_SIZE
 from microfiber import dumps, basic_auth_header, CouchBase, dumps
 
 import dmedia
@@ -70,7 +70,7 @@ def get_slice(environ):
     if len(parts) > 3:
         raise BadRequest('too many slashes in request path')
     _id = parts[0]
-    if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
+    if not (len(_id) == DIGEST_B32LEN and isb32(_id)):
         raise BadRequest('badly formed dmedia ID')
     try:
         start = (int(parts[1]) if len(parts) > 1 else 0)
@@ -265,7 +265,7 @@ class FilesApp:
         if environ['REQUEST_METHOD'] != 'GET':
             raise WSGIError('405 Method Not Allowed')
         _id = shift_path_info(environ)
-        if not (len(_id) == DIGEST_B32LEN and set(_id).issubset(B32ALPHABET)):
+        if not (len(_id) == DIGEST_B32LEN and isb32(_id)):
             raise WSGIError('400 Bad Request ID')
         try:
             doc = self.local.get_doc(_id)
