@@ -156,21 +156,18 @@ def add_to_stores(doc, *filestores):
 def remove_from_stores(doc, *filestores):
     stored = get_dict(doc, 'stored')
     for fs in filestores:
-        try:
-            del stored[fs.id]
-        except KeyError:
-            pass
+        stored.pop(fs.id, None)
 
 
 def mark_verified(doc, fs, timestamp):
     _id = doc['_id']
     stored = get_dict(doc, 'stored')
     value = get_dict(stored, fs.id)
-    value.update({
-        'copies': fs.copies,
-        'mtime': get_mtime(fs, _id),
-        'verified': int(timestamp),
-    })
+    value.update(
+        copies=fs.copies,
+        mtime=get_mtime(fs, _id),
+        verified=int(timestamp),
+    )
 
 
 def mark_corrupt(doc, fs, timestamp):
@@ -211,14 +208,16 @@ class VerifyContext:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if exc_type is None:
             log.info('Verified %s in %r', self.doc['_id'], self.fs)
-            mark_verified(self.doc, self.fs, time.time())
+            update_doc(self.db, self.doc, mark_verified, self.fs, time.time())
         elif issubclass(exc_type, CorruptFile):
             log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
-            mark_corrupt(self.doc, self.fs, time.time())
+            update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            remove_from_stores(self.doc, self.fs)
-        self.db.save(self.doc)
+            update_doc(self.db, self.doc, remove_from_stores, self.fs)
+        else:
+            return False
+        return True
 
 
 class ScanContext:
@@ -237,16 +236,15 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            remove_from_stores(self.doc, self.fs)
+            update_doc(self.db, self.doc, remove_from_stores, self.fs)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
-            mark_corrupt(self.doc, self.fs, time.time())
+            update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
-            mark_mismatch(self.doc, self.fs)
+            update_doc(self.db, self.doc, mark_mismatch, self.fs)
         else:
             return False
-        self.db.save(self.doc)
         return True
 
 

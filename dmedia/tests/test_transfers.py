@@ -75,7 +75,7 @@ class TestFunctions(TestCase):
         transfers._downloaders.clear()
 
     def test_download_key(self):
-        file_id = random_id(4)
+        file_id = random_id(30)
         store_id = random_id()
         self.assertEqual(
             transfers.download_key(file_id, store_id),
@@ -83,7 +83,7 @@ class TestFunctions(TestCase):
         )
 
     def test_upload_key(self):
-        file_id = random_id(4)
+        file_id = random_id(30)
         store_id = random_id()
         self.assertEqual(
             transfers.upload_key(file_id, store_id),
