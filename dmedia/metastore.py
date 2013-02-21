@@ -60,10 +60,6 @@ class MTimeMismatch(Exception):
     pass
 
 
-class UpdateConflict(Exception):
-    pass
-
-
 class TimeDelta:
     def __init__(self):
         self.start = time.time()
@@ -96,16 +92,20 @@ def get_dict(d, key):
     return d[key]
 
 
-def update_doc(db, _id, func, *args):
-    for retry in range(2):
-        doc = db.get(_id)
-        func(doc, *args)
-        try:
-            db.save(doc)
-            return doc
-        except Conflict:
-            pass
-    raise UpdateConflict()
+def update_doc(db, doc, func, *args):
+    """
+    Update *doc* with *func*, then save to *db*.
+    """
+    func(doc, *args)
+    try:
+        db.save(doc)
+        return doc
+    except Conflict:
+        log.warning('Conflict saving %s', doc['_id'])
+    doc = db.get(doc['_id'])
+    func(doc, *args)
+    db.save(doc)
+    return doc
 
 
 def get_mtime(fs, _id):
@@ -165,12 +165,12 @@ def remove_from_stores(doc, *filestores):
 def mark_verified(doc, fs, timestamp):
     _id = doc['_id']
     stored = get_dict(doc, 'stored')
-    new = {
+    value = get_dict(stored, fs.id)
+    value.update({
         'copies': fs.copies,
         'mtime': get_mtime(fs, _id),
         'verified': int(timestamp),
-    }
-    update(stored, fs.id, new)
+    })
 
 
 def mark_corrupt(doc, fs, timestamp):
