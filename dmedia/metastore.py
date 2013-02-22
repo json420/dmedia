@@ -49,11 +49,10 @@ from .util import get_db
 
 log = logging.getLogger()
 DAY = 24 * 60 * 60
-ONE_WEEK = 7 * DAY
-
-DOWNGRADE_BY_STORE_ATIME = 7 * DAY  # 1 week
-DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY  # 48 hours
-DOWNGRADE_BY_LAST_VERIFIED = 28 * DAY  # 4 weeks
+WEEK = 7 * DAY
+DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
+DOWNGRADE_BY_STORE_ATIME = WEEK
+DOWNGRADE_BY_LAST_VERIFIED = 4 * WEEK
 
 
 class MTimeMismatch(Exception):
@@ -557,7 +556,7 @@ class MetaStore:
 
     def verify_all(self, fs):
         start = [fs.id, None]
-        end = [fs.id, int(time.time()) - ONE_WEEK]
+        end = [fs.id, int(time.time()) - WEEK]
         count = 0
         t = TimeDelta()
         log.info('verifying %r', fs)
