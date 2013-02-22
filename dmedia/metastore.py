@@ -361,13 +361,25 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        rows = self.db.view('store', 'atime',
-            endkey=(curtime - DOWNGRADE_BY_STORE_ATIME)
-        )['rows']
-        ids = [row['id'] for row in rows]
-        for store_id in ids:
-            self.downgrade_store(store_id)
-        return ids
+        threshold = curtime - DOWNGRADE_BY_STORE_ATIME
+
+        t = TimeDelta()
+        result = {}
+        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
+        for row in rows:
+            store_id = row['key']
+            try:
+                doc = self.db.get(store_id)
+                atime = doc.get('atime')
+                if isinstance(atime, int) and atime > threshold:
+                    log.info('Store %s okay at atime %s', store_id, atime)
+                    continue
+            except NotFound:
+                log.warning('No doc found for store %s, forcing downgrade')
+            result[store_id] = self.downgrade_store(store_id)
+        total = sum(result.values())
+        t.log('downgraded %d total copies in %d stores', total, len(result))
+        return result
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
