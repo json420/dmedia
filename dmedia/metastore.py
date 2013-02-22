@@ -48,14 +48,13 @@ from .util import get_db
 
 
 log = logging.getLogger()
+
 DAY = 24 * 60 * 60
 WEEK = 7 * DAY
-
 DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
-VERIFY_THRESHOLD = 6 * DAY
+VERIFY_THRESHOLD = WEEK
 DOWNGRADE_BY_STORE_ATIME = WEEK
 DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
-PURGE_BY_STORE_ATIME = 4 * WEEK
 
 
 class MTimeMismatch(Exception):
@@ -322,7 +321,6 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        log.info('MetaStore.downgrade_by_never_verified(%r)', curtime)
         endkey = curtime - DOWNGRADE_BY_NEVER_VERIFIED
         return self._downgrade_by_verified(endkey, 'never-verified')
 
@@ -330,7 +328,6 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        log.info('MetaStore.downgrade_by_last_verified(%r)', curtime)
         endkey = curtime - DOWNGRADE_BY_LAST_VERIFIED
         return self._downgrade_by_verified(endkey, 'last-verified')
 
@@ -365,7 +362,6 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        log.info('downgrade_by_store_atime(%r)', curtime)
         threshold = curtime - DOWNGRADE_BY_STORE_ATIME
         t = TimeDelta()
         result = {}
@@ -387,7 +383,7 @@ class MetaStore:
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
-        log.info('MetaStore.downgrade_store(%r)', store_id)
+        log.info('Downgrading store %s', store_id)
         count = 0
         while True:
             rows = self.db.view('file', 'nonzero',
@@ -407,7 +403,7 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict downgrading %s', store_id)
                 count -= len(e.conflicts)
-        t.log('Downgraded %d copies in %s', count, store_id)
+        t.log('downgraded %d copies in %s', count, store_id)
         return count
 
     def downgrade_all(self):
@@ -422,12 +418,12 @@ class MetaStore:
         for row in rows:
             store_id = row['key']
             count += self.downgrade_store(store_id)
-        t.log('Downgraded %d total copies in %d stores', count, len(rows))
+        t.log('downgraded %d total copies in %d stores', count, len(rows))
         return count
 
     def purge_store(self, store_id):
         t = TimeDelta()
-        log.info('MetaStore.purge_store(%r)', store_id)
+        log.info('Purging store %s', store_id)
         count = 0
         while True:
             rows = self.db.view('file', 'stored',
