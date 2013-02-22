@@ -1019,15 +1019,22 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
-    def test_downgrade_by_store_atime(self):   
+    def test_downgrade_by_store_atime(self):
+        class PassThrough(metastore.MetaStore):
+            def downgrade_store(self, store_id):
+                self._calls.append(store_id)
+                return super().downgrade_store(store_id)
+
         db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
+        ms = PassThrough(db)
         curtime = int(time.time())
         base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
 
         # Test when empty:
+        ms._calls = []
         self.assertEqual(ms.downgrade_by_store_atime(), {})
         self.assertEqual(ms.downgrade_by_store_atime(curtime), {})
+        self.assertEqual(ms._calls, [])
 
         # One store that's missing its doc:
         store_id1 = random_id()
@@ -1091,6 +1098,9 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.downgrade_by_store_atime(curtime),
             {store_id1: 17, store_id2: 18, store_id4: 20}
         )
+        self.assertEqual(ms._calls,
+            sorted([store_id1, store_id2, store_id4])
+        )
         for doc in db.get_many(ids1):
             self.assertTrue(doc['_rev'].startswith('2-'))
             self.assertEqual(doc['stored'], {store_id1: {'copies': 0}})
@@ -1105,8 +1115,12 @@ class TestMetaStore(CouchCase):
             self.assertEqual(doc['stored'], {store_id4: {'copies': 0}})
 
         # Test at curtime + 1:
+        ms._calls = []
         self.assertEqual(ms.downgrade_by_store_atime(curtime + 1),
             {store_id1: 0, store_id2: 0, store_id3: 19, store_id4: 0}
+        )
+        self.assertEqual(ms._calls,
+            sorted([store_id1, store_id2, store_id3, store_id4])
         )
         for doc in db.get_many(ids1):
             self.assertTrue(doc['_rev'].startswith('2-'))
