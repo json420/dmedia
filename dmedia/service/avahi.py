@@ -30,7 +30,7 @@ from collections import namedtuple
 
 from microfiber import dumps, NotFound, Context, Server, Database
 import dbus
-from gi.repository import GObject
+from gi.repository import GLib
 
 from dmedia.parallel import start_thread
 from dmedia import util, views
@@ -109,7 +109,7 @@ class Avahi:
         self.browser = system.get_object('org.freedesktop.Avahi', browser_path)
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
         self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
-        self.timeout_id = GObject.timeout_add(15000, self.on_timeout)
+        self.timeout_id = GLib.timeout_add(15000, self.on_timeout)
 
     def free(self):
         if self.group is not None:
@@ -121,7 +121,7 @@ class Avahi:
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Avahi: peer removed: %s', key)
-        GObject.idle_add(self.remove_peer, key)
+        GLib.idle_add(self.remove_peer, key)
 
     def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
         # Ignore what we publish ourselves:
@@ -154,7 +154,7 @@ class Avahi:
             assert info.pop('machine_id') == key
             info['url'] = url
             log.info('Avahi: got peer info: %s', dumps(info, pretty=True))
-            GObject.idle_add(self.add_peer, key, info)
+            GLib.idle_add(self.add_peer, key, info)
         except Exception:
             log.exception('Avahi: could not get info for %s', url)
 
