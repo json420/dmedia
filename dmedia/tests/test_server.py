@@ -29,18 +29,18 @@ import time
 from copy import deepcopy
 import os
 import socket
-from base64 import b64encode, b64decode
+from base64 import b64encode
 from queue import Queue
 
+from dbase32.rfc3548 import b32enc, b32dec, random_id
 from usercouch.misc import TempCouch
 from filestore import DIGEST_B32LEN, DIGEST_BYTES
 import microfiber
-from microfiber import random_id, dumps
+from microfiber import dumps
 
 from .base import TempDir
 import dmedia
 from dmedia.httpd import make_server, WSGIError, Input
-from dmedia.identity import encode, decode
 from dmedia import server, client, identity
 
 
@@ -292,7 +292,7 @@ class TestInfoApp(TestCase):
                     'version': dmedia.__version__,
                     'user': os.environ.get('USER'),
                     'host': socket.gethostname(),
-                }   
+                }
             ).encode('utf-8')
         )
         self.assertEqual(app.info_length, str(int(len(app.info))))
@@ -474,7 +474,7 @@ class TestClientApp(TestCase):
         }
         sr = StartResponse()
         ret = app(environ, sr)
-        data = dumps({'challenge': encode(cr.challenge)}).encode('utf-8')
+        data = dumps({'challenge': b32enc(cr.challenge)}).encode('utf-8')
         self.assertEqual(ret, [data])
         self.assertEqual(sr.status, '200 OK')
         self.assertEqual(sr.headers,
@@ -701,7 +701,7 @@ class TestServerAppLive(TestCase):
         self.assertEqual(app.state, 'gave_challenge')
         self.assertIsInstance(obj, dict)
         self.assertEqual(set(obj), set(['challenge']))
-        self.assertEqual(local.challenge, decode(obj['challenge']))
+        self.assertEqual(local.challenge, b32dec(obj['challenge']))
         with self.assertRaises(microfiber.BadRequest) as cm:
             client.get('challenge')
         self.assertEqual(
