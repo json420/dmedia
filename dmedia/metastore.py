@@ -48,12 +48,13 @@ from .util import get_db
 
 
 log = logging.getLogger()
-DAY = 24 * 60 * 60
-ONE_WEEK = 7 * DAY
 
-DOWNGRADE_BY_STORE_ATIME = 7 * DAY  # 1 week
-DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY  # 48 hours
-DOWNGRADE_BY_LAST_VERIFIED = 28 * DAY  # 4 weeks
+DAY = 24 * 60 * 60
+WEEK = 7 * DAY
+DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
+VERIFY_THRESHOLD = WEEK
+DOWNGRADE_BY_STORE_ATIME = WEEK
+DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
 
 
 class MTimeMismatch(Exception):
@@ -71,7 +72,7 @@ class TimeDelta:
         return time.perf_counter() - self.start
 
     def log(self, msg, *args):
-        log.info('[%.3fs] ' + msg, self.delta, *args)
+        log.info('[%.3f] ' + msg, self.delta, *args)
 
 
 def get_dict(d, key):
@@ -361,13 +362,24 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        rows = self.db.view('store', 'atime',
-            endkey=(curtime - DOWNGRADE_BY_STORE_ATIME)
-        )['rows']
-        ids = [row['id'] for row in rows]
-        for store_id in ids:
-            self.downgrade_store(store_id)
-        return ids
+        threshold = curtime - DOWNGRADE_BY_STORE_ATIME
+        t = TimeDelta()
+        result = {}
+        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
+        for row in rows:
+            store_id = row['key']
+            try:
+                doc = self.db.get(store_id)
+                atime = doc.get('atime')
+                if isinstance(atime, int) and atime > threshold:
+                    log.info('Store %s okay at atime %s', store_id, atime)
+                    continue
+            except NotFound:
+                log.warning('No doc found for store %s, forcing downgrade')
+            result[store_id] = self.downgrade_store(store_id)
+        total = sum(result.values())
+        t.log('downgraded %d total copies in %d stores', total, len(result))
+        return result
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
@@ -545,7 +557,7 @@ class MetaStore:
 
     def verify_all(self, fs):
         start = [fs.id, None]
-        end = [fs.id, int(time.time()) - ONE_WEEK]
+        end = [fs.id, int(time.time()) - VERIFY_THRESHOLD]
         count = 0
         t = TimeDelta()
         log.info('verifying %r', fs)
