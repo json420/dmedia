@@ -50,9 +50,12 @@ from .util import get_db
 log = logging.getLogger()
 DAY = 24 * 60 * 60
 WEEK = 7 * DAY
+
 DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
+VERIFY_THRESHOLD = 6 * DAY
 DOWNGRADE_BY_STORE_ATIME = WEEK
-DOWNGRADE_BY_LAST_VERIFIED = 4 * WEEK
+DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
+PURGE_BY_STORE_ATIME = 4 * WEEK
 
 
 class MTimeMismatch(Exception):
@@ -361,7 +364,6 @@ class MetaStore:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
         threshold = curtime - DOWNGRADE_BY_STORE_ATIME
-
         t = TimeDelta()
         result = {}
         rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
@@ -556,7 +558,7 @@ class MetaStore:
 
     def verify_all(self, fs):
         start = [fs.id, None]
-        end = [fs.id, int(time.time()) - WEEK]
+        end = [fs.id, int(time.time()) - VERIFY_THRESHOLD]
         count = 0
         t = TimeDelta()
         log.info('verifying %r', fs)

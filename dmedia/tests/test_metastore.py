@@ -1614,7 +1614,7 @@ class TestMetaStore(CouchCase):
         again = docs2[:4]
         assert len(again) == 4
         for doc in again:
-            doc['stored'][fs.id]['verified'] -= (metastore.WEEK + 1)
+            doc['stored'][fs.id]['verified'] -= (metastore.VERIFY_THRESHOLD + 1)
             db.save(doc)
         self.assertEqual(ms.verify_all(fs), 4)
         self.assertEqual(ms.verify_all(fs), 0)
