@@ -2,7 +2,7 @@ from os import path
 import json
 import logging
 
-from gi.repository import GObject, Gtk, WebKit
+from gi.repository import GLib, GObject, Gtk, WebKit
 
 
 log = logging.getLogger()
@@ -129,7 +129,7 @@ class ServerUI(BaseUI):
         self.Dmedia.GetSecret(self.peer_id)
 
     def on_DisplaySecret(self, secret, typo): 
-        GObject.idle_add(self.hub.send, 'display_secret', secret, typo)
+        GLib.idle_add(self.hub.send, 'display_secret', secret, typo)
 
     def on_PeeringDone(self): 
         self.window.destroy()
@@ -174,10 +174,10 @@ class ClientUI(BaseUI):
         self.hub.send('message', message)
 
     def on_Accept(self):
-        GObject.idle_add(self.hub.send, 'accept')
+        GLib.idle_add(self.hub.send, 'accept')
 
     def on_Response(self, success):
-        GObject.idle_add(self.hub.send, 'response', success)
+        GLib.idle_add(self.hub.send, 'response', success)
 
     def on_InitDone(self):
         self.done.add('init_done')
