@@ -31,10 +31,10 @@ import json
 
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import GObject, Gst
+from gi.repository import GLib, Gst
 
 
-GObject.threads_init()
+GLib.threads_init()
 Gst.init(None)
 
 
@@ -184,7 +184,7 @@ class Transcoder(object):
         """
         assert isinstance(job, dict)
         self.job = job
-        self.mainloop = GObject.MainLoop()
+        self.mainloop = GLib.MainLoop()
         self.pipeline = Gst.Pipeline()
         self.doc = {}
 

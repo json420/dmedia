@@ -61,15 +61,17 @@ class MTimeMismatch(Exception):
 
 
 class TimeDelta:
+    __slots__ = ('start',)
+
     def __init__(self):
-        self.start = time.time()
+        self.start = time.perf_counter()
 
     @property
     def delta(self):
-        return time.time() - self.start
+        return time.perf_counter() - self.start
 
     def log(self, msg, *args):
-        log.info('[%.2fs] ' + msg, self.delta, *args)
+        log.info('[%.3fs] ' + msg, self.delta, *args)
 
 
 def get_dict(d, key):

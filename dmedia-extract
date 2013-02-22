@@ -50,9 +50,9 @@ if not path.isfile(filename):
 
 import gi
 gi.require_version('Gst', '1.0')
-from gi.repository import GObject, Gst
+from gi.repository import GLib, Gst
 
-GObject.threads_init()
+GLib.threads_init()
 Gst.init(None)
 
 
@@ -156,7 +156,7 @@ class Extractor(object):
     def __init__(self, filename, full):
         self.full = full
         self.doc = {'video_ns': 0, 'audio_ns': 0, 'duration': {}}
-        self.mainloop = GObject.MainLoop()
+        self.mainloop = GLib.MainLoop()
         self.pipeline = Gst.Pipeline()
 
         # Create bus and connect several handlers
@@ -191,7 +191,7 @@ class Extractor(object):
 
     def run(self):
         self.pipeline.set_state(Gst.State.PLAYING)
-        GObject.timeout_add(2000, self.on_timeout)
+        GLib.timeout_add(2000, self.on_timeout)
         self.mainloop.run()
 
     def on_timeout(self):
@@ -243,7 +243,7 @@ class Extractor(object):
     def on_callback(self, fakebin):
         self.have.add(fakebin)
         if self.have == self.need and not self.full:
-            GObject.idle_add(self.kill)
+            GLib.idle_add(self.kill)
 
     def on_eos(self, bus, msg):
         for fakebin in (self.audio, self.video):

@@ -25,7 +25,8 @@ Extract meta-data from media files.
 """
 
 from os import path
-from subprocess import check_call, check_output, CalledProcessError
+from subprocess import check_call, check_output
+from subprocess import CalledProcessError, TimeoutExpired
 import json
 import tempfile
 import shutil
@@ -99,24 +100,13 @@ EXIF_CTIME_KEYS = (
 )
 
 
-try:
-    from subprocess import TimeoutExpired
 
-    def check_json(cmd, default):
-        try:
-            return json.loads(check_output(cmd, timeout=3).decode('utf-8'))
-        except (TimeoutExpired, CalledProcessError):
-            log.exception(repr(cmd))
-            return default
-
-except ImportError:
-
-    def check_json(cmd, default):
-        try:
-            return json.loads(check_output(cmd).decode('utf-8'))
-        except CalledProcessError:
-            log.exception(repr(cmd))
-            return default
+def check_json(cmd, default):
+    try:
+        return json.loads(check_output(cmd, timeout=3).decode('utf-8'))
+    except (TimeoutExpired, CalledProcessError):
+        log.exception(repr(cmd))
+        return default
 
 
 #### RAW extractors that call a script with check_output()
@@ -124,11 +114,8 @@ def raw_exiftool_extract(filename):
     """
     Extract EXIF metadata using `exiftool`.
     """
-    try:
-        cmd = ['exiftool', '-j', filename]
-        return json.loads(check_output(cmd).decode('utf-8'))[0]
-    except Exception:
-        return {}
+    cmd = ['exiftool', '-j', filename]
+    return check_json(cmd, [{}])[0]
 
 
 def raw_gst_extract(filename):
@@ -282,7 +269,7 @@ def thumbnail_image(src, tmp):
         '-quality', '90', 
         dst,
     ]
-    check_call(cmd)
+    check_call(cmd, timeout=3)
     return Attachment('image/jpeg', open(dst, 'rb').read())
 
 
@@ -298,7 +285,7 @@ def thumbnail_video(src, tmp):
         src,
         dst,
     ]
-    check_call(cmd)
+    check_call(cmd, timeout=3)
     return thumbnail_image(dst, tmp)
 
 
@@ -316,7 +303,7 @@ def thumbnail_raw(src, tmp):
         '--output', dst,
         src,
     ]
-    check_call(cmd)
+    check_call(cmd, timeout=3)
     return Attachment('image/jpeg', open(dst, 'rb').read())
 
 
