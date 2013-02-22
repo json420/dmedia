@@ -269,7 +269,7 @@ def thumbnail_image(src, tmp):
         '-quality', '90', 
         dst,
     ]
-    check_call(cmd)
+    check_call(cmd, timeout=3)
     return Attachment('image/jpeg', open(dst, 'rb').read())
 
 
@@ -285,7 +285,7 @@ def thumbnail_video(src, tmp):
         src,
         dst,
     ]
-    check_call(cmd)
+    check_call(cmd, timeout=3)
     return thumbnail_image(dst, tmp)
 
 
@@ -303,7 +303,7 @@ def thumbnail_raw(src, tmp):
         '--output', dst,
         src,
     ]
-    check_call(cmd)
+    check_call(cmd, timeout=3)
     return Attachment('image/jpeg', open(dst, 'rb').read())
 
 
