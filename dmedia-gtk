@@ -29,6 +29,8 @@ from copy import deepcopy
 
 from userwebkit import BaseApp
 from microfiber import NotFound, Database
+from filestore import statvfs
+from gi.repository import GLib, Gtk, Gio
 
 import dmedia
 from dmedia.util import get_project_db, isfilestore
@@ -38,7 +40,6 @@ from dmedia import schema
 from dmedia.gtk.util import Timer
 from dmedia.service import init_if_needed
 from dmedia.importer import ImportManager, has_magic_lantern
-from gi.repository import GLib, Gtk, Gio
 
 try:
     from dmedia.gtk.ubuntu import UnityImportUX
@@ -130,9 +131,15 @@ class Importer:
         if self.blocking:
             log.warning('Blocking, ignoring card-insert %r', basedir)
             return
+        info = {
+            'partition': {
+                'label': mount.get_name(),
+                'bytes': statvfs(basedir).size, 
+            },
+        }
         assert basedir not in self.mounts
         self.mounts[basedir] = mount
-        self.manager.start_import(basedir)
+        self.manager.start_import(basedir, info)
 
     def on_mount_removed(self, vm, mount):
         basedir = mount.get_root().get_path()
