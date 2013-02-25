@@ -85,14 +85,15 @@ class Importer:
         self.settings = Gio.Settings('org.gnome.desktop.media-handling')
         self.autorun_never = self.settings.get_boolean('autorun-never')
         if not self.autorun_never:
+            log.info("setting 'autorun-never' from False to True")
             self.settings.set_boolean('autorun-never', True)
 
     def __del__(self):
         self.reset()
 
     def reset(self):
-        print('reset')
         if not self.autorun_never:
+            log.info("resetting 'autorun-never' to False")
             self.settings.set_boolean('autorun-never', False)
 
     def callback(self, signal, args):
@@ -150,34 +151,6 @@ class Importer:
                 self.batch_id, self.stats, self.copies, self.msg
             )
             self.blocking = False
-
-    def on_CardAdded(self, obj, mount, info):
-        obj = str(obj)
-        mount = str(mount)
-        if self.blocking:
-            log.warning('Blocking, ignoring card-insert %r', obj)
-            return
-        log.info('CardAdded %r %r', obj, mount)
-        self.cards[obj] = mount
-        self.manager.start_import(mount, json.loads(info))
-
-
-class Replay:
-    def __init__(self, filename, hub):
-        self.events = json.load(open(filename, 'r'))
-        assert isinstance(self.events, list)
-        self.i = 0
-        self.hub = hub
-        self.timer = Timer(1, self.on_timer)
-        self.timer.start()
-
-    def on_timer(self):
-        if self.i >= len(self.events):
-            self.timer.stop()
-            return
-        (signal, args) = self.events[self.i]
-        self.i += 1
-        self.hub.send(signal, *args)
 
 
 WELCOMED_ID = '_local/welcomed'
