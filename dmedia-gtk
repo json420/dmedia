@@ -31,13 +31,12 @@ from userwebkit import BaseApp
 from microfiber import NotFound, Database
 
 import dmedia
-from dmedia.util import get_project_db
+from dmedia.util import get_project_db, isfilestore
 from dmedia.misc import WeakMethod
 from dmedia import views
 from dmedia import schema
 from dmedia.gtk.util import Timer
 from dmedia.service import init_if_needed
-from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager, has_magic_lantern
 from gi.repository import GLib, Gtk, Gio
 
@@ -51,17 +50,29 @@ log = dmedia.configure_logging()
 init_if_needed()
 
 
+def on_eject(mount, result, data):
+    log.info('finishing eject: %r', mount.get_root().get_path())
+    mount.eject_with_operation_finish(result)
+
+
+def eject(mount):
+    log.info('finishing eject: %r', mount.get_root().get_path())
+    mount.eject_with_operation(0, None, None, on_eject, None)
+
+
 class Importer:
     def __init__(self, env, proxy, hub):
         super().__init__()
         self.env = env
         self.project_id = env['project_id']
         self.blocking = False
-        self.cards = {}
+        self.mounts = {}
         self.proxy = proxy
-        self.proxy.connect_to_signal('CardAdded',
-            WeakMethod(self, 'on_CardAdded')
-        )
+
+        self.vm = Gio.VolumeMonitor.get()
+        self.vm.connect('mount-added', WeakMethod(self, 'on_mount_added'))
+        self.vm.connect('mount-removed', WeakMethod(self, 'on_mount_removed'))
+
         self.hub = hub
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
@@ -79,6 +90,7 @@ class Importer:
         self.reset()
 
     def reset(self):
+        print('reset')
         if not self.autorun_never:
             self.settings.set_boolean('autorun-never', False)
 
@@ -94,16 +106,10 @@ class Importer:
         self.copies = copies
         self.stats = stats
         self.msg = msg
-        self.workers = {}
-        for (obj, mount) in self.cards.items():
-            auto_format = self.auto_format and not has_magic_lantern(mount)
-            Worker = (Formatter if auto_format else Ejector)
-            w = Worker(obj, self.on_complete)
-            self.workers[obj] = w
-        self.cards.clear()
-        for worker in self.workers.values():
-            worker.run()
- 
+        mounts = tuple(self.mounts.values())
+        for mount in mounts:
+            eject(mount)
+
     def on_complete(self, worker, obj):
         log.info('Completed: %r', worker)
         w = self.workers.pop(obj)
@@ -114,6 +120,29 @@ class Importer:
             self.hub.send('batch_finalized',
                 self.batch_id, self.stats, self.copies, self.msg
             )
+
+    def on_mount_added(self, vm, mount):
+        basedir = mount.get_root().get_path()
+        log.info('mount_added: %r', basedir)
+        if isfilestore(basedir):
+            log.warning('%r is a filestore, skipping')
+            return
+        if self.blocking:
+            log.warning('Blocking, ignoring card-insert %r', basedir)
+            return
+        assert basedir not in self.mounts
+        self.mounts[basedir] = mount
+        self.manager.start_import(basedir)
+
+    def on_mount_removed(self, vm, mount):
+        basedir = mount.get_root().get_path()
+        log.info('mount_removed: %r', basedir)
+        if self.mounts.pop(basedir, None) and len(self.mounts) == 0:
+            log.info('emitting batch_finalized to UI')
+            self.hub.send('batch_finalized',
+                self.batch_id, self.stats, self.copies, self.msg
+            )
+            self.blocking = False
 
     def on_CardAdded(self, obj, mount, info):
         obj = str(obj)
