@@ -48,32 +48,31 @@ from .util import get_db
 
 
 log = logging.getLogger()
-DAY = 24 * 60 * 60
-ONE_WEEK = 7 * DAY
 
-DOWNGRADE_BY_STORE_ATIME = 7 * DAY  # 1 week
-DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY  # 48 hours
-DOWNGRADE_BY_LAST_VERIFIED = 28 * DAY  # 4 weeks
+DAY = 24 * 60 * 60
+WEEK = 7 * DAY
+DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
+VERIFY_THRESHOLD = WEEK
+DOWNGRADE_BY_STORE_ATIME = WEEK
+DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
 
 
 class MTimeMismatch(Exception):
     pass
 
 
-class UpdateConflict(Exception):
-    pass
-
-
 class TimeDelta:
+    __slots__ = ('start',)
+
     def __init__(self):
-        self.start = time.time()
+        self.start = time.perf_counter()
 
     @property
     def delta(self):
-        return time.time() - self.start
+        return time.perf_counter() - self.start
 
     def log(self, msg, *args):
-        log.info('[%.2fs] ' + msg, self.delta, *args)
+        log.info('[%.3f] ' + msg, self.delta, *args)
 
 
 def get_dict(d, key):
@@ -96,16 +95,20 @@ def get_dict(d, key):
     return d[key]
 
 
-def update_doc(db, _id, func, *args):
-    for retry in range(2):
-        doc = db.get(_id)
-        func(doc, *args)
-        try:
-            db.save(doc)
-            return doc
-        except Conflict:
-            pass
-    raise UpdateConflict()
+def update_doc(db, doc, func, *args):
+    """
+    Update *doc* with *func*, then save to *db*.
+    """
+    func(doc, *args)
+    try:
+        db.save(doc)
+        return doc
+    except Conflict:
+        log.warning('Conflict saving %s', doc['_id'])
+    doc = db.get(doc['_id'])
+    func(doc, *args)
+    db.save(doc)
+    return doc
 
 
 def get_mtime(fs, _id):
@@ -156,21 +159,18 @@ def add_to_stores(doc, *filestores):
 def remove_from_stores(doc, *filestores):
     stored = get_dict(doc, 'stored')
     for fs in filestores:
-        try:
-            del stored[fs.id]
-        except KeyError:
-            pass
+        stored.pop(fs.id, None)
 
 
 def mark_verified(doc, fs, timestamp):
     _id = doc['_id']
     stored = get_dict(doc, 'stored')
-    new = {
-        'copies': fs.copies,
-        'mtime': get_mtime(fs, _id),
-        'verified': int(timestamp),
-    }
-    update(stored, fs.id, new)
+    value = get_dict(stored, fs.id)
+    value.update(
+        copies=fs.copies,
+        mtime=get_mtime(fs, _id),
+        verified=int(timestamp),
+    )
 
 
 def mark_corrupt(doc, fs, timestamp):
@@ -211,14 +211,16 @@ class VerifyContext:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if exc_type is None:
             log.info('Verified %s in %r', self.doc['_id'], self.fs)
-            mark_verified(self.doc, self.fs, time.time())
+            update_doc(self.db, self.doc, mark_verified, self.fs, time.time())
         elif issubclass(exc_type, CorruptFile):
             log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
-            mark_corrupt(self.doc, self.fs, time.time())
+            update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            remove_from_stores(self.doc, self.fs)
-        self.db.save(self.doc)
+            update_doc(self.db, self.doc, remove_from_stores, self.fs)
+        else:
+            return False
+        return True
 
 
 class ScanContext:
@@ -237,16 +239,15 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            remove_from_stores(self.doc, self.fs)
+            update_doc(self.db, self.doc, remove_from_stores, self.fs)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
-            mark_corrupt(self.doc, self.fs, time.time())
+            update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
-            mark_mismatch(self.doc, self.fs)
+            update_doc(self.db, self.doc, mark_mismatch, self.fs)
         else:
             return False
-        self.db.save(self.doc)
         return True
 
 
@@ -361,13 +362,24 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        rows = self.db.view('store', 'atime',
-            endkey=(curtime - DOWNGRADE_BY_STORE_ATIME)
-        )['rows']
-        ids = [row['id'] for row in rows]
-        for store_id in ids:
-            self.downgrade_store(store_id)
-        return ids
+        threshold = curtime - DOWNGRADE_BY_STORE_ATIME
+        t = TimeDelta()
+        result = {}
+        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
+        for row in rows:
+            store_id = row['key']
+            try:
+                doc = self.db.get(store_id)
+                atime = doc.get('atime')
+                if isinstance(atime, int) and atime > threshold:
+                    log.info('Store %s okay at atime %s', store_id, atime)
+                    continue
+            except NotFound:
+                log.warning('doc NotFound for %s, forcing downgrade', store_id)
+            result[store_id] = self.downgrade_store(store_id)
+        total = sum(result.values())
+        t.log('downgraded %d total copies in %d stores', total, len(result))
+        return result
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
@@ -392,6 +404,21 @@ class MetaStore:
                 log.exception('Conflict downgrading %s', store_id)
                 count -= len(e.conflicts)
         t.log('downgraded %d copies in %s', count, store_id)
+        return count
+
+    def downgrade_all(self):
+        """
+        Downgrade every file in every store.
+
+        Note: this is only really useful for testing.
+        """
+        t = TimeDelta()
+        count = 0
+        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
+        for row in rows:
+            store_id = row['key']
+            count += self.downgrade_store(store_id)
+        t.log('downgraded %d total copies in %d stores', count, len(rows))
         return count
 
     def purge_store(self, store_id):
@@ -530,7 +557,7 @@ class MetaStore:
 
     def verify_all(self, fs):
         start = [fs.id, None]
-        end = [fs.id, int(time.time()) - ONE_WEEK]
+        end = [fs.id, int(time.time()) - VERIFY_THRESHOLD]
         count = 0
         t = TimeDelta()
         log.info('verifying %r', fs)

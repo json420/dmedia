@@ -34,7 +34,7 @@ from copy import deepcopy
 from filestore import FileStore, DIGEST_BYTES
 from filestore.misc import TempFileStore
 import microfiber
-from microfiber import random_id
+from microfiber import random_id, dumps, Conflict
 
 from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
@@ -73,6 +73,36 @@ class DummyFileStore:
         return DummyStat(self._mtime)
 
 
+class DummyConflict(Conflict):
+    def __init__(self):
+        pass
+
+
+class DummyDatabase:
+    def __init__(self, doc, newrev):
+        self._calls = []
+        self._id = doc['_id']
+        self._rev = doc['_rev']
+        self._doc = deepcopy(doc)
+        self._newrev = newrev
+
+    def save(self, doc):
+        self._calls.append(('save', deepcopy(doc)))
+        if doc['_rev'] != self._rev:
+            raise DummyConflict()
+        doc['_rev'] = self._newrev
+        return doc
+
+    def get(self, _id):
+        assert _id == self._id
+        self._calls.append(('get', _id))
+        return deepcopy(self._doc)
+
+    def _func(self, doc, key, value):
+        self._calls.append(('func', deepcopy(doc), key, value))
+        doc[key] = value
+
+
 class TestFunctions(TestCase):
     def test_get_dict(self):
         doc = {}
@@ -98,6 +128,71 @@ class TestFunctions(TestCase):
         self.assertEqual(ret, {'bar': 0, 'baz': 1})
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
+
+    def test_update_doc(self):
+        _id = random_id()
+        rev1 = random_id()
+        rev2 = random_id()
+        rev3 = random_id()
+        key = random_id()
+        value = random_id()
+        doc1 = {
+            '_id': _id,
+            '_rev': rev1,
+            'hello': 'world',
+        }
+        doc1a = {
+            '_id': _id,
+            '_rev': rev1,
+            'hello': 'world',
+            key: value,
+        }
+        doc2 = {
+            '_id': _id,
+            '_rev': rev2,
+            'stuff': 'junk',
+        }
+        doc2a = {
+            '_id': _id,
+            '_rev': rev2,
+            'stuff': 'junk',
+            key: value,
+        }
+
+        # Test when there is a mid-flight collision:
+        db = DummyDatabase(deepcopy(doc2), rev3)
+        self.assertEqual(
+            metastore.update_doc(db, deepcopy(doc1), db._func, key, value),
+            {
+                '_id': _id,
+                '_rev': rev3,
+                'stuff': 'junk',
+                key: value,
+            }
+        )
+        self.assertEqual(db._calls, [
+            ('func', doc1, key, value),
+            ('save', doc1a),
+            ('get', _id),
+            ('func', doc2, key, value),
+            ('save', doc2a),
+        ])
+
+        # Test when there is no conflict:
+        db = DummyDatabase(deepcopy(doc1), rev3)
+        self.assertEqual(
+            metastore.update_doc(db, deepcopy(doc1), db._func, key, value),
+            {
+                '_id': _id,
+                '_rev': rev3,
+                'hello': 'world',
+                key: value,
+            }
+        )
+        self.assertEqual(db._calls, [
+            ('func', doc1, key, value),
+            ('save', doc1a),
+        ])
 
     def test_create_stored(self):
         tmp1 = TempDir()
@@ -924,54 +1019,128 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
-    def test_downgrade_by_store_atime(self):   
-        db = util.get_db(self.env, True)
-
-        class Dummy(metastore.MetaStore):
-            def __init__(self, db):
-                super().__init__(db)
-                self._calls = []
-
+    def test_downgrade_by_store_atime(self):
+        class PassThrough(metastore.MetaStore):
             def downgrade_store(self, store_id):
                 self._calls.append(store_id)
+                return super().downgrade_store(store_id)
 
-        # Test when empty
-        ms = Dummy(db)
-        self.assertEqual(ms.downgrade_by_store_atime(), [])
-        self.assertEqual(ms._calls, [])
+        db = util.get_db(self.env, True)
+        ms = PassThrough(db)
         curtime = int(time.time())
-        self.assertEqual(ms.downgrade_by_store_atime(curtime), [])
-        self.assertEqual(ms._calls, [])
-
-        # Test when some need to be downgraded
         base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
-        docs = []
-        for i in range(8):
-            doc = {
-                '_id': random_id(),
-                'type': 'dmedia/store',
-                'atime': base + i,
-            }
-            docs.append(doc)
-        db.save_many(docs)
-        ids = [doc['_id'] for doc in docs]
-        self.assertEqual(ms.downgrade_by_store_atime(curtime - 1), [])
-        self.assertEqual(ms._calls, [])
-        for i in range(8):
-            expected = ids[:i+1]
-            self.assertEqual(
-                ms.downgrade_by_store_atime(curtime + i),
-                expected
-            )
-            self.assertEqual(ms._calls, expected)
-            ms._calls = []
 
-        # Once more with feeling
-        self.assertEqual(
-            ms.downgrade_by_store_atime(curtime),
-            [ids[0]]
+        # Test when empty:
+        ms._calls = []
+        self.assertEqual(ms.downgrade_by_store_atime(), {})
+        self.assertEqual(ms.downgrade_by_store_atime(curtime), {})
+        self.assertEqual(ms._calls, [])
+
+        # One store that's missing its doc:
+        store_id1 = random_id()
+        ids1 = tuple(random_id() for i in range(17))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id1: {'copies': 1}},
+            }
+            for _id in ids1
+        ]
+        db.save_many(docs)
+
+        # Another store with an atime old enough to trigger a downgrade:
+        store_id2 = random_id()
+        doc2 = {'_id': store_id2, 'atime': base}
+        db.save(doc2)
+        ids2 = tuple(random_id() for i in range(18))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id2: {'copies': 1}},
+            }
+            for _id in ids2
+        ]
+        db.save_many(docs)
+
+        # A store with an atime new enough to be okay:
+        store_id3 = random_id()
+        doc3 = {'_id': store_id3, 'atime': base + 1}
+        db.save(doc3)
+        ids3 = tuple(random_id() for i in range(19))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id3: {'copies': 1}},
+            }
+            for _id in ids3
+        ]
+        db.save_many(docs)
+
+        # And finally a store missing its doc['atime']:
+        store_id4 = random_id()
+        doc4 = {'_id': store_id4}
+        db.save(doc4)
+        ids4 = tuple(random_id() for i in range(20))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id4: {'copies': 1}},
+            }
+            for _id in ids4
+        ]
+        db.save_many(docs)
+
+        # Test at curtime:
+        self.assertEqual(ms.downgrade_by_store_atime(curtime),
+            {store_id1: 17, store_id2: 18, store_id4: 20}
         )
-        self.assertEqual(ms._calls, [ids[0]])
+        self.assertEqual(ms._calls,
+            sorted([store_id1, store_id2, store_id4])
+        )
+        for doc in db.get_many(ids1):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {store_id1: {'copies': 0}})
+        for doc in db.get_many(ids2):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {store_id2: {'copies': 0}})
+        for doc in db.get_many(ids3):
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(doc['stored'], {store_id3: {'copies': 1}})
+        for doc in db.get_many(ids4):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {store_id4: {'copies': 0}})
+
+        # Test at curtime + 1:
+        ms._calls = []
+        self.assertEqual(ms.downgrade_by_store_atime(curtime + 1),
+            {store_id1: 0, store_id2: 0, store_id3: 19, store_id4: 0}
+        )
+        self.assertEqual(ms._calls,
+            sorted([store_id1, store_id2, store_id3, store_id4])
+        )
+        for doc in db.get_many(ids1):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {store_id1: {'copies': 0}})
+        for doc in db.get_many(ids2):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {store_id2: {'copies': 0}})
+        for doc in db.get_many(ids3):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {store_id3: {'copies': 0}})
+        for doc in db.get_many(ids4):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {store_id4: {'copies': 0}})
+
+        # Make sure the dmedia/store docs aren't modified:
+        with self.assertRaises(microfiber.NotFound) as cm:
+            db.get(store_id1)
+        self.assertEqual(db.get(store_id2), doc2)
+        self.assertEqual(db.get(store_id3), doc3)
+        self.assertEqual(db.get(store_id4), doc4)
 
     def test_downgrade_store(self):    
         db = util.get_db(self.env, True)
@@ -1459,7 +1628,7 @@ class TestMetaStore(CouchCase):
         again = docs2[:4]
         assert len(again) == 4
         for doc in again:
-            doc['stored'][fs.id]['verified'] -= (metastore.ONE_WEEK + 1)
+            doc['stored'][fs.id]['verified'] -= (metastore.VERIFY_THRESHOLD + 1)
             db.save(doc)
         self.assertEqual(ms.verify_all(fs), 4)
         self.assertEqual(ms.verify_all(fs), 0)

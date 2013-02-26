@@ -29,7 +29,7 @@ from datetime import date
 from gettext import gettext as _
 import json
 
-from gi.repository import GObject
+from gi.repository import GLib
 from filestore import DOTNAME
 
 import dmedia
@@ -94,8 +94,8 @@ else:
     project.save(doc)
 env['project_id'] = project_id
 
-GObject.threads_init()
-mainloop = GObject.MainLoop()
+GLib.threads_init()
+mainloop = GLib.MainLoop()
 
 
 def callback(signal, args):

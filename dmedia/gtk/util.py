@@ -23,14 +23,14 @@
 Misc. utility functions and classes.
 """
 
-from gi.repository import GObject
+from gi.repository import GLib
 
 from dmedia.constants import TYPE_ERROR, CALLABLE_ERROR
 
 
 class Timer:
     """
-    A handy GObject-based periodic timer.
+    A handy GLib-based periodic timer.
     """
 
     def __init__(self, seconds, callback):
@@ -57,7 +57,7 @@ class Timer:
     def start(self):
         if self.__timeout_id is not None:
             return False
-        self.__timeout_id = GObject.timeout_add(
+        self.__timeout_id = GLib.timeout_add(
             int(self.seconds * 1000),
             self.__on_timeout
         )
@@ -66,7 +66,7 @@ class Timer:
     def stop(self):
         if self.__timeout_id is None:
             return False
-        GObject.source_remove(self.__timeout_id)
+        GLib.source_remove(self.__timeout_id)
         self.__timeout_id = None
         return True
 

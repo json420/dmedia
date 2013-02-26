@@ -1,8 +1,9 @@
-'''apport package hook for dmedia.
+"""
+Apport package hook for dmedia (requires Apport 2.5 or newer).
 
 (c) 2012 Novacut Inc
 Author: Jason Gerard DeRose <jderose@novacut.com>
-'''
+"""
 
 import os
 from os import path
@@ -17,7 +18,7 @@ LOGS = (
 )
 
 def add_info(report):
-    report['CrashDB'] = 'dmedia'
+    report['CrashDB'] = "{'impl': 'launchpad', 'project': 'dmedia'}"
     cache = path.join(os.environ['HOME'], '.cache', 'dmedia')
     for name in LOGS:
         attach_file_if_exists(report, path.join(cache, name), name)

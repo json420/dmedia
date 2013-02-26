@@ -26,6 +26,6 @@ GTK3 UI components for dmedia and apps built atop dmedia.
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('WebKit', '3.0')
-from gi.repository import GObject, Gtk, WebKit
+from gi.repository import GLib, Gtk, WebKit
 
-GObject.threads_init()
+GLib.threads_init()

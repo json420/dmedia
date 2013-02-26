@@ -23,7 +23,6 @@
 Secure peering protocol, SSL-based machine and user identity.
 """
 
-from base64 import b32encode, b32decode
 import os
 from os import path
 import stat
@@ -34,7 +33,7 @@ from subprocess import check_call, check_output
 import logging
 
 from skein import skein512
-from microfiber import random_id
+from dbase32.rfc3548 import b32enc, b32dec, random_id
 
 
 # Skein personalization strings
@@ -93,41 +92,6 @@ class WrongMAC(Exception):
         super().__init__('Incorrect MAC')
 
 
-
-###########################################
-# Helper functions for base32 encode/decode
-
-def encode(value):
-    """
-    Base32-encode the bytes *value*.
-
-    For example:
-
-    >>> encode(b'skein')
-    'ONVWK2LO'
-
-    """
-    assert isinstance(value, bytes)
-    assert len(value) > 0 and len(value) % 5 == 0
-    return b32encode(value).decode('utf-8')
-
-
-def decode(value):
-    """
-    Base32-decode the str *value*.
-
-    For example:
-
-    >>> decode('ONVWK2LO')
-    b'skein'
-
-    """
-    assert isinstance(value, str)
-    assert len(value) > 0 and len(value) % 8 == 0
-    return b32decode(value.encode('utf-8'))
-
-
-
 ###########################################################
 # Skein-based hashing functions and ChallengeResponse class
 
@@ -145,7 +109,7 @@ def hash_pubkey(pubkey_data):
         digest_bits=240,
         pers=PERS_PUBKEY,
     )
-    return encode(skein.digest())
+    return b32enc(skein.digest())
 
 
 def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
@@ -171,7 +135,7 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     )
     skein.update(challenger_hash)
     skein.update(responder_hash)
-    return encode(skein.digest())
+    return b32enc(skein.digest())
 
 
 def compute_csr_mac(secret, csr_data, remote_hash, local_hash):
@@ -192,7 +156,7 @@ def compute_csr_mac(secret, csr_data, remote_hash, local_hash):
         key=secret,
         key_id=(remote_hash + local_hash),
     )
-    return encode(skein.digest())
+    return b32enc(skein.digest())
 
 
 def compute_cert_mac(secret, cert_data, remote_hash, local_hash):
@@ -213,7 +177,7 @@ def compute_cert_mac(secret, cert_data, remote_hash, local_hash):
         key=secret,
         key_id=(remote_hash + local_hash),
     )
-    return encode(skein.digest())
+    return b32enc(skein.digest())
 
 
 class ChallengeResponse:
@@ -224,41 +188,41 @@ class ChallengeResponse:
     def __init__(self, _id, peer_id):
         self.id = _id
         self.peer_id = peer_id
-        self.local_hash = decode(_id)
-        self.remote_hash = decode(peer_id)
+        self.local_hash = b32dec(_id)
+        self.remote_hash = b32dec(peer_id)
         assert len(self.local_hash) == 30
         assert len(self.remote_hash) == 30
 
     def get_secret(self):
         # 40-bit secret (8 characters when base32 encoded)
         self.secret = os.urandom(5)
-        return encode(self.secret)
+        return b32enc(self.secret)
 
     def set_secret(self, secret):
         assert len(secret) == 8
-        self.secret = decode(secret)
+        self.secret = b32dec(secret)
         assert len(self.secret) == 5
 
     def get_challenge(self):
         self.challenge = os.urandom(20)
-        return encode(self.challenge)
+        return b32enc(self.challenge)
 
     def create_response(self, challenge):
         nonce = os.urandom(20)
         response = compute_response(
             self.secret,
-            decode(challenge),
+            b32dec(challenge),
             nonce,
             self.remote_hash,
             self.local_hash
         )
-        return (encode(nonce), response)
+        return (b32enc(nonce), response)
 
     def check_response(self, nonce, response):
         expected = compute_response(
             self.secret,
             self.challenge,
-            decode(nonce),
+            b32dec(nonce),
             self.local_hash,
             self.remote_hash
         )

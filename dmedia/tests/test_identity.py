@@ -29,11 +29,10 @@ from os import path, urandom
 import subprocess
 import socket
 
-from microfiber import random_id
+from dbase32.rfc3548 import b32enc, b32dec, random_id
 from skein import skein512
 
 from .base import TempDir
-from dmedia.identity import encode, decode
 from dmedia import identity
 
 
@@ -48,7 +47,7 @@ class TestSkeinFunctions(TestCase):
             pers=b'20120918 jderose@novacut.com dmedia/pubkey',
         )
         self.assertEqual(
-            decode(_id),
+            b32dec(_id),
             skein.digest()
         )
 
@@ -76,7 +75,7 @@ class TestSkeinFunctions(TestCase):
             nonce=(challenge + nonce),
         )
         self.assertEqual(
-            decode(response),
+            b32dec(response),
             skein.digest()
         )
 
@@ -130,7 +129,7 @@ class TestSkeinFunctions(TestCase):
             key_id=(remote_hash + local_hash),
         )
         self.assertEqual(
-            decode(mac),
+            b32dec(mac),
             skein.digest()
         )
 
@@ -178,7 +177,7 @@ class TestSkeinFunctions(TestCase):
             key_id=(remote_hash + local_hash),
         )
         self.assertEqual(
-            decode(mac),
+            b32dec(mac),
             skein.digest()
         )
 
@@ -219,8 +218,8 @@ class TestChallengeResponse(TestCase):
         inst = identity.ChallengeResponse(id1, id2)
         self.assertIs(inst.id, id1)
         self.assertIs(inst.peer_id, id2)
-        self.assertEqual(inst.local_hash, identity.decode(id1))
-        self.assertEqual(inst.remote_hash, identity.decode(id2))
+        self.assertEqual(inst.local_hash, identity.b32dec(id1))
+        self.assertEqual(inst.remote_hash, identity.b32dec(id2))
 
     def test_get_secret(self):
         id1 = random_id(30)
@@ -229,12 +228,12 @@ class TestChallengeResponse(TestCase):
         s1 = inst.get_secret()
         self.assertIsInstance(s1, str)
         self.assertEqual(len(s1), 8)
-        self.assertEqual(identity.decode(s1), inst.secret)
+        self.assertEqual(identity.b32dec(s1), inst.secret)
         s2 = inst.get_secret()
         self.assertNotEqual(s1, s2)
         self.assertIsInstance(s2, str)
         self.assertEqual(len(s2), 8)
-        self.assertEqual(identity.decode(s2), inst.secret)
+        self.assertEqual(identity.b32dec(s2), inst.secret)
 
     def test_set_secret(self):
         id1 = random_id(30)
@@ -242,10 +241,10 @@ class TestChallengeResponse(TestCase):
         inst = identity.ChallengeResponse(id1, id2)
         s1 = random_id(5)
         self.assertIsNone(inst.set_secret(s1))
-        self.assertEqual(identity.encode(inst.secret), s1)
+        self.assertEqual(identity.b32enc(inst.secret), s1)
         s2 = random_id(5)
         self.assertIsNone(inst.set_secret(s2))
-        self.assertEqual(identity.encode(inst.secret), s2)
+        self.assertEqual(identity.b32enc(inst.secret), s2)
 
     def test_get_challenge(self):
         id1 = random_id(30)
@@ -254,19 +253,19 @@ class TestChallengeResponse(TestCase):
         c1 = inst.get_challenge()
         self.assertIsInstance(c1, str)
         self.assertEqual(len(c1), 32)
-        self.assertEqual(identity.decode(c1), inst.challenge)
+        self.assertEqual(identity.b32dec(c1), inst.challenge)
         c2 = inst.get_challenge()
         self.assertNotEqual(c1, c2)
         self.assertIsInstance(c2, str)
         self.assertEqual(len(c2), 32)
-        self.assertEqual(identity.decode(c2), inst.challenge)
+        self.assertEqual(identity.b32dec(c2), inst.challenge)
 
     def test_create_response(self):
         id1 = random_id(30)
         id2 = random_id(30)
         inst = identity.ChallengeResponse(id1, id2)
-        local_hash = decode(id1)
-        remote_hash = decode(id2)
+        local_hash = b32dec(id1)
+        remote_hash = b32dec(id2)
         secret1 = random_id(5)
         challenge1 = random_id(20)
         inst.set_secret(secret1)
@@ -277,7 +276,7 @@ class TestChallengeResponse(TestCase):
         self.assertEqual(len(response1), 56)
         self.assertEqual(response1,
             identity.compute_response(
-                decode(secret1), decode(challenge1), decode(nonce1),
+                b32dec(secret1), b32dec(challenge1), b32dec(nonce1),
                 remote_hash, local_hash
             )
         )
@@ -292,7 +291,7 @@ class TestChallengeResponse(TestCase):
         self.assertEqual(len(response2), 56)
         self.assertEqual(response2,
             identity.compute_response(
-                decode(secret1), decode(challenge1), decode(nonce2),
+                b32dec(secret1), b32dec(challenge1), b32dec(nonce2),
                 remote_hash, local_hash
             )
         )
@@ -311,7 +310,7 @@ class TestChallengeResponse(TestCase):
         self.assertEqual(len(response3), 56)
         self.assertEqual(response3,
             identity.compute_response(
-                decode(secret2), decode(challenge1), decode(nonce3),
+                b32dec(secret2), b32dec(challenge1), b32dec(nonce3),
                 remote_hash, local_hash
             )
         )
@@ -331,7 +330,7 @@ class TestChallengeResponse(TestCase):
         self.assertEqual(len(response4), 56)
         self.assertEqual(response4,
             identity.compute_response(
-                decode(secret2), decode(challenge2), decode(nonce4),
+                b32dec(secret2), b32dec(challenge2), b32dec(nonce4),
                 remote_hash, local_hash
             )
         )
@@ -340,20 +339,20 @@ class TestChallengeResponse(TestCase):
         id1 = random_id(30)
         id2 = random_id(30)
         inst = identity.ChallengeResponse(id1, id2)
-        local_hash = decode(id1)
-        remote_hash = decode(id2)
+        local_hash = b32dec(id1)
+        remote_hash = b32dec(id2)
         secret = inst.get_secret()
         challenge = inst.get_challenge()
         nonce = random_id(20)
         response = identity.compute_response(
-            decode(secret), decode(challenge), decode(nonce),
+            b32dec(secret), b32dec(challenge), b32dec(nonce),
             local_hash, remote_hash
         )
         self.assertIsNone(inst.check_response(nonce, response))
 
         # Test with (local, remote) order flipped
         bad = identity.compute_response(
-            decode(secret), decode(challenge), decode(nonce),
+            b32dec(secret), b32dec(challenge), b32dec(nonce),
             remote_hash, local_hash
         )
         with self.assertRaises(identity.WrongResponse) as cm:
@@ -362,13 +361,13 @@ class TestChallengeResponse(TestCase):
         self.assertEqual(cm.exception.got, bad)
         self.assertFalse(hasattr(inst, 'secret'))
         self.assertFalse(hasattr(inst, 'challenge'))
-        inst.secret = decode(secret)
-        inst.challenge = decode(challenge)
+        inst.secret = b32dec(secret)
+        inst.challenge = b32dec(challenge)
 
         # Test with wrong secret
         for i in range(100):
             bad = identity.compute_response(
-                os.urandom(5), decode(challenge), decode(nonce),
+                os.urandom(5), b32dec(challenge), b32dec(nonce),
                 local_hash, remote_hash
             )
             with self.assertRaises(identity.WrongResponse) as cm:
@@ -377,13 +376,13 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = decode(secret)
-            inst.challenge = decode(challenge)
+            inst.secret = b32dec(secret)
+            inst.challenge = b32dec(challenge)
 
         # Test with wrong challenge
         for i in range(100):
             bad = identity.compute_response(
-                decode(secret), os.urandom(20), decode(nonce),
+                b32dec(secret), os.urandom(20), b32dec(nonce),
                 local_hash, remote_hash
             )
             with self.assertRaises(identity.WrongResponse) as cm:
@@ -392,13 +391,13 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = decode(secret)
-            inst.challenge = decode(challenge)
+            inst.secret = b32dec(secret)
+            inst.challenge = b32dec(challenge)
 
         # Test with wrong nonce
         for i in range(100):
             bad = identity.compute_response(
-                decode(secret), decode(challenge), os.urandom(20),
+                b32dec(secret), b32dec(challenge), os.urandom(20),
                 local_hash, remote_hash
             )
             with self.assertRaises(identity.WrongResponse) as cm:
@@ -407,13 +406,13 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = decode(secret)
-            inst.challenge = decode(challenge)
+            inst.secret = b32dec(secret)
+            inst.challenge = b32dec(challenge)
 
         # Test with wrong local_hash
         for i in range(100):
             bad = identity.compute_response(
-                decode(secret), decode(challenge), decode(nonce),
+                b32dec(secret), b32dec(challenge), b32dec(nonce),
                 os.urandom(30), remote_hash
             )
             with self.assertRaises(identity.WrongResponse) as cm:
@@ -422,13 +421,13 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = decode(secret)
-            inst.challenge = decode(challenge)
+            inst.secret = b32dec(secret)
+            inst.challenge = b32dec(challenge)
 
         # Test with wrong remote_hash
         for i in range(100):
             bad = identity.compute_response(
-                decode(secret), decode(challenge), decode(nonce),
+                b32dec(secret), b32dec(challenge), b32dec(nonce),
                 local_hash, os.urandom(30)
             )
             with self.assertRaises(identity.WrongResponse) as cm:
@@ -437,14 +436,14 @@ class TestChallengeResponse(TestCase):
             self.assertEqual(cm.exception.got, bad)
             self.assertFalse(hasattr(inst, 'secret'))
             self.assertFalse(hasattr(inst, 'challenge'))
-            inst.secret = decode(secret)
-            inst.challenge = decode(challenge)
+            inst.secret = b32dec(secret)
+            inst.challenge = b32dec(challenge)
 
         # Test with more nonce, used as expected:
         for i in range(100):
             newnonce = random_id(20)
             good = identity.compute_response(
-                decode(secret), decode(challenge), decode(newnonce),
+                b32dec(secret), b32dec(challenge), b32dec(newnonce),
                 local_hash, remote_hash
             )
             self.assertNotEqual(good, response)

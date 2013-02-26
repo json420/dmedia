@@ -29,17 +29,17 @@ from copy import deepcopy
 
 from userwebkit import BaseApp
 from microfiber import NotFound, Database
+from filestore import statvfs
+from gi.repository import GLib, Gtk, Gio
 
 import dmedia
-from dmedia.util import get_project_db
+from dmedia.util import get_project_db, isfilestore
 from dmedia.misc import WeakMethod
 from dmedia import views
 from dmedia import schema
 from dmedia.gtk.util import Timer
 from dmedia.service import init_if_needed
-from dmedia.service.udisks import Ejector, Formatter
 from dmedia.importer import ImportManager, has_magic_lantern
-from gi.repository import GObject, Gtk, Gio
 
 try:
     from dmedia.gtk.ubuntu import UnityImportUX
@@ -51,17 +51,29 @@ log = dmedia.configure_logging()
 init_if_needed()
 
 
+def on_eject(mount, result, data):
+    log.info('finishing eject: %r', mount.get_root().get_path())
+    mount.eject_with_operation_finish(result)
+
+
+def eject(mount):
+    log.info('finishing eject: %r', mount.get_root().get_path())
+    mount.eject_with_operation(0, None, None, on_eject, None)
+
+
 class Importer:
     def __init__(self, env, proxy, hub):
         super().__init__()
         self.env = env
         self.project_id = env['project_id']
         self.blocking = False
-        self.cards = {}
+        self.mounts = {}
         self.proxy = proxy
-        self.proxy.connect_to_signal('CardAdded',
-            WeakMethod(self, 'on_CardAdded')
-        )
+
+        self.vm = Gio.VolumeMonitor.get()
+        self.vm.connect('mount-added', WeakMethod(self, 'on_mount_added'))
+        self.vm.connect('mount-removed', WeakMethod(self, 'on_mount_removed'))
+
         self.hub = hub
         self.hub.connect('batch_finished',
             WeakMethod(self, 'on_batch_finished')
@@ -73,6 +85,7 @@ class Importer:
         self.settings = Gio.Settings('org.gnome.desktop.media-handling')
         self.autorun_never = self.settings.get_boolean('autorun-never')
         if not self.autorun_never:
+            log.info("setting 'autorun-never' from False to True")
             self.settings.set_boolean('autorun-never', True)
 
     def __del__(self):
@@ -80,10 +93,11 @@ class Importer:
 
     def reset(self):
         if not self.autorun_never:
+            log.info("resetting 'autorun-never' to False")
             self.settings.set_boolean('autorun-never', False)
 
     def callback(self, signal, args):
-        GObject.idle_add(self.hub.send, signal, *args)
+        GLib.idle_add(self.hub.send, signal, *args)
 
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         log.info('batch_finished: %s', batch_id)
@@ -94,58 +108,38 @@ class Importer:
         self.copies = copies
         self.stats = stats
         self.msg = msg
-        self.workers = {}
-        for (obj, mount) in self.cards.items():
-            auto_format = self.auto_format and not has_magic_lantern(mount)
-            Worker = (Formatter if auto_format else Ejector)
-            w = Worker(obj, self.on_complete)
-            self.workers[obj] = w
-        self.cards.clear()
-        for worker in self.workers.values():
-            worker.run()
- 
-    def on_complete(self, worker, obj):
-        log.info('Completed: %r', worker)
-        w = self.workers.pop(obj)
-        assert worker is w
-        if len(self.workers) == 0:
-            self.blocking = False
+        mounts = tuple(self.mounts.values())
+        for mount in mounts:
+            eject(mount)
+
+    def on_mount_added(self, vm, mount):
+        basedir = mount.get_root().get_path()
+        log.info('mount_added: %r', basedir)
+        if isfilestore(basedir):
+            log.warning('%r is a filestore, skipping')
+            return
+        if self.blocking:
+            log.warning('Blocking, ignoring card-insert %r', basedir)
+            return
+        info = {
+            'partition': {
+                'label': mount.get_name(),
+                'bytes': statvfs(basedir).size, 
+            },
+        }
+        assert basedir not in self.mounts
+        self.mounts[basedir] = mount
+        self.manager.start_import(basedir, info)
+
+    def on_mount_removed(self, vm, mount):
+        basedir = mount.get_root().get_path()
+        log.info('mount_removed: %r', basedir)
+        if self.mounts.pop(basedir, None) and len(self.mounts) == 0:
             log.info('emitting batch_finalized to UI')
             self.hub.send('batch_finalized',
                 self.batch_id, self.stats, self.copies, self.msg
             )
-
-    def on_CardAdded(self, obj, mount, info):
-        obj = str(obj)
-        mount = str(mount)
-        if self.blocking:
-            log.warning('Blocking, ignoring card-insert %r', obj)
-            return
-        log.info('CardAdded %r %r', obj, mount)
-        self.cards[obj] = mount
-        self.manager.start_import(mount, json.loads(info))
-
-
-class Replay:
-    def __init__(self, filename, hub):
-        self.events = json.load(open(filename, 'r'))
-        assert isinstance(self.events, list)
-        self.i = 0
-        self.hub = hub
-        self.timer = Timer(1, self.on_timer)
-        self.timer.start()
-
-    def on_timer(self):
-        if self.i >= len(self.events):
-            self.timer.stop()
-            return
-        (signal, args) = self.events[self.i]
-        self.i += 1
-        self.hub.send(signal, *args)
-
-
-WELCOMED_ID = '_local/welcomed'
-SETTINGS_ID = '_local/settings'
+            self.blocking = False
 
 
 class App(BaseApp):
@@ -210,7 +204,7 @@ class App(BaseApp):
         project = get_project_db(doc['_id'], self.env, True)
         project.post(doc)
         self.db.save(doc)
-        GObject.idle_add(self.start_importer, doc)
+        GLib.idle_add(self.start_importer, doc)
 
     def on_start_importer(self, hub, project_id):
         name = schema.project_db_name(project_id)
@@ -224,7 +218,7 @@ class App(BaseApp):
         except NotFound:
             del pdoc['_rev']
         self.db.save(pdoc)
-        GObject.idle_add(self.start_importer, pdoc)
+        GLib.idle_add(self.start_importer, pdoc)
 
     def start_importer(self, doc):    
         try:
@@ -242,7 +236,7 @@ class App(BaseApp):
         self.importer.manager.kill()
         self.importer = None
         self.ux = None
-        GObject.idle_add(self.hub.send, 'importer_stopped')
+        GLib.idle_add(self.hub.send, 'importer_stopped')
 
 
 app = App()

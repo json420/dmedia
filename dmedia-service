@@ -34,17 +34,17 @@ import signal
 
 import dbus
 import dbus.service
-from gi.repository import GLib
+from gi.repository import GLib, Gio
 from microfiber import NotFound, dumps
 
 import dmedia
 from dmedia import schema
 from dmedia.units import bytes10
+from dmedia.util import get_filestore_id
 from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
 from dmedia.service.background import Snapshots, LazyAccess
-from dmedia.service.udisks import UDisks
 from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, Publisher
 
@@ -54,6 +54,7 @@ IFACE = BUS
 log = logging.getLogger()
 session = dbus.SessionBus()
 mainloop = GLib.MainLoop()
+VolumeMonitor = Gio.VolumeMonitor.get()
 
 
 def on_sighup(signum, frame):
@@ -81,6 +82,9 @@ class Service(dbus.service.Object):
 
         # Now go for it:
         dmedia.configure_logging()
+        self.first_snapshot = True
+        self.update_thread = None
+        self.pending_update = None
 
         try:
             self.manager = session.get_object(
@@ -104,16 +108,6 @@ class Service(dbus.service.Object):
             )
         except dbus.DBusException:
             log.warning('org.gnome.SessionManager not available')
-
-        self.udisks = UDisks()
-        self.udisks.connect('store_added', self.on_store_added)
-        self.udisks.connect('store_removed', self.on_store_removed)
-        self.udisks.connect('card_added', self.on_card_added)
-        self.udisks.connect('card_removed', self.on_card_removed)
-
-        self.first_snapshot = True
-        self.update_thread = None
-        self.pending_update = None
 
     def on_QueryEndSession(self, flags):
         log.info('<QueryEndSession>')
@@ -194,13 +188,15 @@ class Service(dbus.service.Object):
 
     def on_idle1(self):
         """
-        UDisks, peering browser, and SnapshotAll.
+        VolumeMontior, peering browser, and SnapshotAll.
         """
         log.info('[idle1 at time %.3f]', time.time() - start_time)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
-        self.udisks.monitor()
-        # SnapshotAllComplete() does start_thread(self.init_views)
+        VolumeMonitor.connect('mount-added', self.on_mount_added)
+        VolumeMonitor.connect('mount-removed', self.on_mount_removed)
+        for mount in VolumeMonitor.get_mounts():
+            self.on_mount_added(VolumeMonitor, mount)
         self.SnapshotAll()
 
     def init_views(self):
@@ -251,31 +247,26 @@ class Service(dbus.service.Object):
             self.couch.kill()
             self.couch = None
 
-    def on_store_added(self, udisks, obj, parentdir, store_id, info):
+    def on_mount_added(self, vm, mount):
+        parentdir = mount.get_root().get_path()
+        log.info('mount_added: %r', parentdir)
+        store_id = get_filestore_id(parentdir)
+        if store_id is None:
+            log.warning('%r is not a filestore, skipping', parentdir)
+            return
         try:
             self.core.connect_filestore(parentdir, store_id)
         except Exception:
             log.exception('Could not connect FileStore %r', parentdir)
 
-    def on_store_removed(self, udisks, obj, parentdir, store_id):
+    def on_mount_removed(self, vm, mount):
+        parentdir = mount.get_root().get_path()
+        log.info('mount_removed: %r', parentdir)
         try:
-            self.core.disconnect_filestore(parentdir, store_id)
-        except Exception:
-            log.exception('Could not disconnect FileStore %r', parentdir)
-
-    def on_card_added(self, udisks, obj, mount, info):
-        self.CardAdded(obj, mount, dumps(info))
-
-    def on_card_removed(self, udisks, obj, mount):
-        self.CardRemoved(obj, mount)
-
-    @dbus.service.signal(IFACE, signature='sss')
-    def CardAdded(self, obj, mount, info):
-        pass
-
-    @dbus.service.signal(IFACE, signature='ss')
-    def CardRemoved(self, obj, mount):
-        pass
+            fs = self.core.stores.by_parentdir(parentdir)
+            self.core.disconnect_filestore(parentdir, fs.id)
+        except KeyError:
+            log.warning('%r is not a connected filestore', parentdir)
 
     ###########################################
     # Signals and Methods for Peering Protocol:
@@ -415,13 +406,6 @@ class Service(dbus.service.Object):
         return self.env_s
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def GetDiskInfo(self):
-        """
-        Return Dmedia-friendly info on disks from UDisks, as a JSON string.
-        """
-        return dumps(self.udisks.info, pretty=True)
-
-    @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Stores(self):
         """
         Return currently connected filestores
@@ -451,6 +435,11 @@ class Service(dbus.service.Object):
         store_id = str(store_id)
         log.info('Dmedia.DowngradeStore(%r)', store_id)
         start_thread(self.core.downgrade_store, store_id)
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def DowngradeAll(self):
+        log.info('Dmedia.DowngradeAll()')
+        start_thread(self.core.ms.downgrade_all)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def PurgeStore(self, store_id):
@@ -523,7 +512,7 @@ class Service(dbus.service.Object):
 
 
 parser = optparse.OptionParser(
-	version=dmedia.__version__,
+    version=dmedia.__version__,
 )
 parser.add_option('--bus',
     help='DBus bus name; default is {!r}'.format(BUS),

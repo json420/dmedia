@@ -32,7 +32,7 @@ import logging
 import time
 
 import dbus
-from gi.repository import GObject
+from gi.repository import GLib, GObject
 from filestore import DOTNAME
 
 from dmedia.units import bytes10
@@ -222,7 +222,7 @@ class DeviceWorker:
             # FIXME: This wait is to work around UDisks issues: when we get the
             # JobChanged signal, it seems that often UDisks isn't actually ready
             # for the next step
-            GObject.timeout_add(250, self.on_timeout, next)
+            GLib.timeout_add(250, self.on_timeout, next)
 
     def on_reply(self, *args):
         log.info('%.3f to %s %r', self.elapsed, self.verb, self)
@@ -238,7 +238,7 @@ class DeviceWorker:
     def run(self):
         # This should fix LP:1067142 and also prevents the UI from blocking
         # too long:
-        GObject.timeout_add(250, self.unmount)
+        GLib.timeout_add(250, self.unmount)
 
     def _unmount(self):
         self.start = time.time()
@@ -253,7 +253,7 @@ class DeviceWorker:
 
     def finish(self):
         self.next = None
-        GObject.idle_add(self.callback, self, self.obj)
+        GLib.idle_add(self.callback, self, self.obj)
 
 
 class Ejector(DeviceWorker):

@@ -44,7 +44,7 @@ import weakref
 import time
 
 import dbus
-from gi.repository import GObject, Gtk, AppIndicator3
+from gi.repository import GLib, GObject, Gtk, AppIndicator3
 from microfiber import Unauthorized, CouchBase
 from microfiber import random_id, dumps, build_ssl_context
 
@@ -235,10 +235,10 @@ class AvahiPeer(GObject.GObject):
         assert self.peer.id == peer_id
         assert self.info.id == peer_id
         assert self.info.url == make_url(self.peer.ip, self.peer.port)
-        GObject.timeout_add(15 * 1000, self.on_timeout, peer_id)
+        GLib.timeout_add(15 * 1000, self.on_timeout, peer_id)
 
     def abort(self, peer_id):
-        GObject.idle_add(self.unbind, peer_id)
+        GLib.idle_add(self.unbind, peer_id)
 
     def unbind(self, peer_id):
         retract = (self.state.state == 'verified')
@@ -251,7 +251,7 @@ class AvahiPeer(GObject.GObject):
         if retract:
             log.info("Peering: firing 'retract' signal")
             self.emit('retract')
-        GObject.timeout_add(10 * 1000, self.on_timeout, peer_id)
+        GLib.timeout_add(10 * 1000, self.on_timeout, peer_id)
 
     def on_timeout(self, peer_id):
         if not self.state.free(peer_id):
@@ -421,7 +421,7 @@ class AvahiPeer(GObject.GObject):
             log.exception('GET / failed for %r', peer)
             return self.abort(peer.id)
         log.info('GET / succeeded with %r', info)
-        GObject.idle_add(self.on_cert_complete, peer, info)
+        GLib.idle_add(self.on_cert_complete, peer, info)
 
     def on_cert_complete(self, peer, info):
         if not self.state.verify(peer.id):
@@ -464,7 +464,7 @@ class Session:
     def get_secret(self, peer_id):
         if peer_id != self.peer.id:
             return False
-        GObject.idle_add(self.init_secret)
+        GLib.idle_add(self.init_secret)
         return True
 
     def init_secret(self):
@@ -475,9 +475,9 @@ class Session:
         while True:
             signal = self.q.get()
             if signal == 'wrong_response':
-                GObject.idle_add(self.retry)
+                GLib.idle_add(self.retry)
             elif signal == 'response_ok':
-                GObject.timeout_add(500, self.on_response_ok)
+                GLib.timeout_add(500, self.on_response_ok)
                 break
 
     def monitor_cert_request(self):
@@ -485,7 +485,7 @@ class Session:
         if status != 'cert_issued':
             log.error('Bad cert request from %r', self.peer)
             log.warning('Possible malicious peer: %r', self.peer)
-        GObject.idle_add(self.on_cert_request, status)
+        GLib.idle_add(self.on_cert_request, status)
 
     def retry(self):
         self.httpd.shutdown()
@@ -507,11 +507,11 @@ class Session:
         try:
             r = self.client.post(obj, 'response')
             log.info('Counter-response accepted')
-            GObject.idle_add(self.on_counter_response_ok)
+            GLib.idle_add(self.on_counter_response_ok)
         except Unauthorized:
             log.error('Counter-response rejected!')
             log.warning('Possible malicious peer: %r', self.peer)
-            GObject.idle_add(self.on_counter_response_fail)
+            GLib.idle_add(self.on_counter_response_fail)
 
     def on_counter_response_ok(self):
         assert self.app.state == 'response_ok'
@@ -672,7 +672,7 @@ class Publisher:
         except Unauthorized:
             log.info('Response rejected')
             success = False
-        GObject.idle_add(self.on_response, success)
+        GLib.idle_add(self.on_response, success)
 
     def on_response(self, success):
         self.thread.join()
@@ -692,7 +692,7 @@ class Publisher:
         if status != 'response_ok':
             log.error('Wrong counter-response!')
             log.warning('Possible malicious peer: %r', self.peer)
-        GObject.timeout_add(500, self.on_counter_response, status)
+        GLib.timeout_add(500, self.on_counter_response, status)
 
     def on_counter_response(self, status):
         self.thread.join()
@@ -727,7 +727,7 @@ class Publisher:
             success = True
         except Exception as e:
             log.exception('Could not request cert')
-        GObject.idle_add(self.on_csr_response, success)
+        GLib.idle_add(self.on_csr_response, success)
 
     def on_csr_response(self, success):
         self.thread.join()

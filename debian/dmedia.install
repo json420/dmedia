@@ -1,2 +1,1 @@
-debian/dmedia-crashdb.conf etc/apport/crashdb.conf.d/
 debian/source_dmedia.py usr/share/apport/package-hooks/
