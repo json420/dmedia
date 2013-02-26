@@ -111,10 +111,6 @@ class Kill(_Method):
 
 class GetEnv(_Method):
     'Get the CouchDB and Dmedia environment info'
-    
-
-class GetDiskInfo(_Method):
-    'Get info on drives and partitions from UDisks'
 
 
 class Stores(_Method):

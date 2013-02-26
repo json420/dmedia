@@ -375,7 +375,7 @@ class MetaStore:
                     log.info('Store %s okay at atime %s', store_id, atime)
                     continue
             except NotFound:
-                log.warning('No doc found for store %s, forcing downgrade')
+                log.warning('doc NotFound for %s, forcing downgrade', store_id)
             result[store_id] = self.downgrade_store(store_id)
         total = sum(result.values())
         t.log('downgraded %d total copies in %d stores', total, len(result))

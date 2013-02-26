@@ -147,7 +147,7 @@ class UnityImportUX:
         icons = {
             'usb': 'notification-device-usb',
         }
-        icon = icons.get(info['drive']['connection'])
+        icon = icons['usb']  # FIXME: Need equivalent info from VolumeMonitor
         self.notify.replace(summary, body, icon)
 
     def on_batch_progress(self, gm, count, total_count, size, total_size):
