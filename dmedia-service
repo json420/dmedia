@@ -193,14 +193,11 @@ class Service(dbus.service.Object):
         log.info('[idle1 at time %.3f]', time.time() - start_time)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
-
         VolumeMonitor.connect('mount-added', self.on_mount_added)
         VolumeMonitor.connect('mount-removed', self.on_mount_removed)
         for mount in VolumeMonitor.get_mounts():
             self.on_mount_added(VolumeMonitor, mount)
-
-        # SnapshotAllComplete() does start_thread(self.init_views)
-        #self.SnapshotAll()
+        self.SnapshotAll()
 
     def init_views(self):
         """
@@ -407,13 +404,6 @@ class Service(dbus.service.Object):
         """
         log.info('Service.GetEnv()')
         return self.env_s
-
-    @dbus.service.method(IFACE, in_signature='', out_signature='s')
-    def GetDiskInfo(self):
-        """
-        Return Dmedia-friendly info on disks from UDisks, as a JSON string.
-        """
-        return dumps(self.udisks.info, pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Stores(self):
