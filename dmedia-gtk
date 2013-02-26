@@ -112,17 +112,6 @@ class Importer:
         for mount in mounts:
             eject(mount)
 
-    def on_complete(self, worker, obj):
-        log.info('Completed: %r', worker)
-        w = self.workers.pop(obj)
-        assert worker is w
-        if len(self.workers) == 0:
-            self.blocking = False
-            log.info('emitting batch_finalized to UI')
-            self.hub.send('batch_finalized',
-                self.batch_id, self.stats, self.copies, self.msg
-            )
-
     def on_mount_added(self, vm, mount):
         basedir = mount.get_root().get_path()
         log.info('mount_added: %r', basedir)
@@ -151,10 +140,6 @@ class Importer:
                 self.batch_id, self.stats, self.copies, self.msg
             )
             self.blocking = False
-
-
-WELCOMED_ID = '_local/welcomed'
-SETTINGS_ID = '_local/settings'
 
 
 class App(BaseApp):
