@@ -899,6 +899,94 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
+    def test_fragile2(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('fragile2')
+        db.save(design)
+
+        self.assertEqual(
+            db.view('file', 'fragile2'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        _id = random_id(DIGEST_BYTES)
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+            'origin': 'user',
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile2'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Make things work even if copies is missing
+        (store_id1, store_id2, store_id3) = sorted(random_id() for i in range(3))
+        doc['stored'] = {
+            store_id1: {},
+            store_id2: {},
+            store_id3: {},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile2'),
+            {
+                'offset': 0, 
+                'total_rows': 3,
+                'rows': [
+                    {'key': [0, store_id1], 'id': _id, 'value': None},
+                    {'key': [0, store_id2], 'id': _id, 'value': None},
+                    {'key': [0, store_id3], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Make sure copies is being properly summed
+        doc['stored'] = {
+            store_id1: {'copies': 'bad number'},
+            store_id2: {'copies': -7},
+            store_id3: {'copies': 2},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile2'),
+            {
+                'offset': 0, 
+                'total_rows': 3,
+                'rows': [
+                    {'key': [2, store_id1], 'id': _id, 'value': None},
+                    {'key': [2, store_id2], 'id': _id, 'value': None},
+                    {'key': [2, store_id3], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Check when one store provides 3 copies
+        doc['stored'] = {
+            store_id1: {'copies': 'bad number'},
+            store_id2: {'copies': 3},
+            store_id3: {'copies': -17},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile2'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Check when each store provides 1 copy
+        doc['stored'] = {
+            store_id1: {'copies': 1},
+            store_id2: {'copies': 1},
+            store_id3: {'copies': 1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile2'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
     def test_reclaimable(self):
         db = Database('foo', self.env)
         db.put(None)

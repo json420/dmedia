@@ -119,14 +119,35 @@ file_fragile = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
         var copies = 0;
-        var key;
+        var key, value;
         for (key in doc.stored) {
-            if (doc.stored[key].copies) {
-                copies += doc.stored[key].copies;
+            value = doc.stored[key];
+            if (typeof value.copies == 'number' && value.copies >= 0) {
+                copies += value.copies;
             }
         }
         if (copies < 3) {
             emit(copies, null);
+        }
+    }
+}
+"""
+
+file_fragile2 = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var copies = 0;
+        var key, value;
+        for (key in doc.stored) {
+            value = doc.stored[key];
+            if (typeof value.copies == 'number' && value.copies >= 0) {
+                copies += value.copies;
+            }
+        }
+        if (copies < 3) {
+            for (key in doc.stored) {
+                emit([copies, key], null);
+            }
         }
     }
 }
@@ -208,6 +229,7 @@ file_design = {
         'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
         'fragile': {'map': file_fragile},
+        'fragile2': {'map': file_fragile2},
         'reclaimable': {'map': file_reclaimable},
         'never-verified': {'map': file_never_verified},
         'last-verified': {'map': file_last_verified},
