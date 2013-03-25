@@ -248,6 +248,9 @@ def increase_copies(env):
     slave = LocalSlave(db.env)
     ms = MetaStore(db)
 
+    total = 0
+    new = 0
+
     for copies in range(3):
         rows = db.view('file', 'fragile', key=copies)['rows']
         for ids in id_slice_iter(rows, 100):
@@ -263,6 +266,10 @@ def increase_copies(env):
                     need = max(3 - copies, len(free))
                     dst = [slave.stores.by_id(free[i]) for i in range(need)]
                     ms.copy(src, doc, *dst)
+                    total += 1
+                    new += len(dst)
+
+    log.info('Created %s new copies of %s total files', new, total)
 
 
 class Core:

@@ -462,24 +462,24 @@ class TestFunctions(TestCase):
             }
         )
 
-    def test_remove_from_stores(self):
+    def test_mark_removed(self):
         fs1 = DummyFileStore()
         fs2 = DummyFileStore()
 
         doc = {}
-        metastore.remove_from_stores(doc, fs1, fs2)
+        metastore.mark_removed(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
 
         doc = {'stored': {}}
-        metastore.remove_from_stores(doc, fs1, fs2)
+        metastore.mark_removed(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
 
         doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
-        metastore.remove_from_stores(doc, fs1)
+        metastore.mark_removed(doc, fs1)
         self.assertEqual(doc, {'stored': {fs2.id: 'bar'}})
 
         doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
-        metastore.remove_from_stores(doc, fs1, fs2)
+        metastore.mark_removed(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
 
     def test_mark_verified(self):

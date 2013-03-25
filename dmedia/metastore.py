@@ -165,7 +165,7 @@ def add_to_stores(doc, *filestores):
     merge_stored(old, new)
 
 
-def remove_from_stores(doc, *filestores):
+def mark_removed(doc, *filestores):
     stored = get_dict(doc, 'stored')
     for fs in filestores:
         stored.pop(fs.id, None)
@@ -235,7 +235,7 @@ class VerifyContext:
             update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, remove_from_stores, self.fs)
+            update_doc(self.db, self.doc, mark_removed, self.fs)
         else:
             return False
         return True
@@ -257,7 +257,7 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, remove_from_stores, self.fs)
+            update_doc(self.db, self.doc, mark_removed, self.fs)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
             update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
@@ -563,7 +563,7 @@ class MetaStore:
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
-        remove_from_stores(doc, fs)
+        mark_removed(doc, fs)
         self.db.save(doc)
         fs.remove(_id)  
         return doc
@@ -645,7 +645,7 @@ class MetaStore:
             update_doc(self.db, doc, mark_copied, src, time.time(), *dst)
         except FileNotFound:
             log.warning('%s is not in %s', _id, src.id)
-            update_doc(self.db, doc, remove_from_stores, src)
+            update_doc(self.db, doc, mark_removed, src)
         except CorruptFile:
             log.error('%s is corrupt in %s', _id, src.id)
             update_doc(self.db, doc, mark_corrupt, src, time.time())
