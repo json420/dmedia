@@ -40,6 +40,7 @@ from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored, get_mtime
+from dmedia.constants import TYPE_ERROR
 
 
 random = SystemRandom()
@@ -105,6 +106,24 @@ class DummyDatabase:
 
 class TestFunctions(TestCase):
     def test_get_dict(self):
+        # Bad `d` type:
+        bad = [random_id(), random_id()]
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_dict(bad, random_id())
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('d', dict, list, bad)
+        )
+
+        # Bad `key` type:
+        bad = random.randint(0, 1000)
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_dict({}, bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('key', str, int, bad)
+        )
+
         doc = {}
         ret = metastore.get_dict(doc, 'foo')
         self.assertEqual(ret, {})

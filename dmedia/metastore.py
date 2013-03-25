@@ -44,6 +44,8 @@ import logging
 from filestore import CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
+from .constants import TYPE_ERROR
+
 
 log = logging.getLogger()
 
@@ -86,8 +88,10 @@ def get_dict(d, key):
     {'foo': {}}
 
     """
-    assert isinstance(d, dict)
-    assert isinstance(key, str)
+    if not isinstance(d, dict):
+        raise TypeError(TYPE_ERROR.format('d', dict, type(d), d))
+    if not isinstance(key, str):
+        raise TypeError(TYPE_ERROR.format('key', str, type(key), key))
     value = d.get(key)
     if isinstance(value, dict):
         return value
