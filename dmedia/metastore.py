@@ -135,11 +135,16 @@ def merge_stored(old, new):
     """
     Update doc['stored'] based on new storage information in *new*.
     """
+    assert isinstance(old, dict)
+    assert isinstance(new, dict)
     for (key, value) in new.items():
+        assert isinstance(key, str)
+        assert isinstance(value, dict)
         assert set(value) == set(['copies', 'mtime'])
         if key in old:
-            old[key].update(value)
-            old[key].pop('verified', None)
+            old_value = get_dict(old, key)
+            old_value.update(value)
+            old_value.pop('verified', None)
         else:
             old[key] = value 
 

@@ -636,6 +636,68 @@ class TestFunctions(TestCase):
             }
         )
 
+        # One destination, broken doc['stored'][src.id]:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: 'bad dog',
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
+            }
+        )
+
+        # Two destinations, broken doc['stored'][src.id]:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: 'still a bad dog',
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    dst2.id: {
+                        'copies': dst2.copies,
+                        'mtime': int(dst2._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
+            }
+        )
+
     def test_relink_iter(self):
         tmp = TempDir()
         fs = FileStore(tmp.dir)
