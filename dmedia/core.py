@@ -262,7 +262,7 @@ def increase_copies(env):
                     src = slave.stores.choose_local_store(doc)
                     need = max(3 - copies, len(free))
                     dst = [slave.stores.by_id(free[i]) for i in range(need)]
-                    print(ms.copy(src, doc, *dst).id)
+                    ms.copy(src, doc, *dst)
 
 
 class Core:

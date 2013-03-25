@@ -635,10 +635,19 @@ class MetaStore:
             return (self.db.get(obj), obj)
         raise TypeError('obj must be a doc or _id (a dict or str)')
 
-    def copy(self, src_filestore, doc_or_id, *dst_filestores):
+    def copy(self, src, doc_or_id, *dst):
         (doc, _id) = self.doc_and_id(doc_or_id)
-        with VerifyContext(self.db, src_filestore, doc):
-            ch = src_filestore.copy(_id, *dst_filestores)
-            add_to_stores(doc, *dst_filestores)
-            return ch
+        try:
+            ch = src.copy(_id, *dst)
+            log.info('Copied %s from %s to %s', _id, src.id, 
+                ', '.join(d.id for d in dst)
+            )
+            update_doc(self.db, doc, mark_copied, src, time.time(), *dst)
+        except FileNotFound:
+            log.warning('%s is not in %s', _id, src.id)
+            update_doc(self.db, doc, remove_from_stores, src)
+        except CorruptFile:
+            log.error('%s is corrupt in %s', _id, src.id)
+            update_doc(self.db, doc, mark_corrupt, src, time.time())
+        return doc
 

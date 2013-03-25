@@ -1963,9 +1963,57 @@ class TestMetaStore(CouchCase):
         fs2 = TempFileStore(random_id(), 1)
         fs3 = TempFileStore(random_id(), 1)
 
+        # doc does not exist:
         _id = random_file_id()
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.copy(fs1, _id, fs2)
+
+        # File does not exist
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': int(time.time()),
+                },
+            }
+        }
+        db.save(doc)
+        ret = ms.copy(fs1, _id, fs2, fs3)
+        self.assertEqual(ret, db.get(_id))
+        self.assertEqual(ret,
+            {
+                '_id': _id,
+                '_rev': ret['_rev'],
+                'stored': {},
+            }
+        )
+
+        # File is corrupt
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        filename = fs1.path(_id)
+        os.chmod(filename, 0o600)
+        open(filename, 'ab').write(os.urandom(16))
+        os.chmod(filename, 0o444)
+        ret = ms.copy(fs1, _id, fs2, fs3)
+        self.assertEqual(ret, db.get(_id))
+        self.assertEqual(ret,
+            {
+                '_id': _id,
+                '_rev': ret['_rev'],
+                '_attachments': ret['_attachments'],
+                'time': doc['time'],
+                'atime': doc['atime'],
+                'type': 'dmedia/file',
+                'bytes': doc['bytes'],
+                'origin': 'user',
+                'stored': {},
+                'corrupt': {
+                    fs1.id: {'time': ret['corrupt'][fs1.id]['time']}
+                }
+            }
+        )
 
         doc = create_random_file(fs1, db)
         _id = doc['_id']
