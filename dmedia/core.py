@@ -41,7 +41,7 @@ from subprocess import check_call, CalledProcessError
 from copy import deepcopy
 from base64 import b64encode
 
-from microfiber import Server, Database, NotFound, Conflict, BulkConflict
+from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
 from filestore import FileStore, check_root_hash, check_id, DOTNAME
 
 import dmedia
@@ -49,7 +49,7 @@ from dmedia.parallel import start_thread, start_process
 from dmedia.server import run_server
 from dmedia import util, schema, views
 from dmedia.metastore import MetaStore, create_stored
-from dmedia.local import LocalStores, FileNotLocal
+from dmedia.local import LocalStores, FileNotLocal, LocalSlave
 
 
 log = logging.getLogger()
@@ -241,6 +241,28 @@ def vigilance(env, stores, first_run):
         log.info('vigilance() is exiting...')
     except Exception:
         log.exception('Error in vigilance()')
+
+
+def increase_copies(env):
+    db = util.get_db(env)
+    slave = LocalSlave(db.env)
+    ms = MetaStore(db)
+
+    for copies in range(3):
+        rows = db.view('file', 'fragile', key=copies)['rows']
+        for ids in id_slice_iter(rows, 100):
+            slave.update_stores()
+            connected = frozenset(slave.stores.ids)
+            docs = db.get_many(ids)
+            for doc in docs:
+                stored = frozenset(doc['stored'])
+                local = connected.intersection(stored)
+                free = sorted(connected - stored)
+                if local and free:
+                    src = slave.stores.choose_local_store(doc)
+                    need = max(3 - copies, len(free))
+                    dst = [slave.stores.by_id(free[i]) for i in range(need)]
+                    print(ms.copy(src, doc, *dst).id)
 
 
 class Core:

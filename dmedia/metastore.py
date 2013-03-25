@@ -156,6 +156,15 @@ def add_to_stores(doc, *filestores):
     merge_stored(old, new)
 
 
+def op_copy(doc, timestamp, *filestores):
+    assert len(filestores) >= 2
+    _id = doc['_id']
+    old = get_dict(doc, 'stored')
+    new = create_stored(_id, *filestores)
+    merge_stored(old, new)
+    
+
+
 def remove_from_stores(doc, *filestores):
     stored = get_dict(doc, 'stored')
     for fs in filestores:
@@ -610,8 +619,15 @@ class MetaStore:
         self.db.save(doc)
         return ch
 
-    def copy(self, src_filestore, _id, *dst_filestores):
-        doc = self.db.get(_id)
+    def doc_and_id(self, obj):
+        if isinstance(obj, dict):
+            return (obj, obj['_id'])
+        if isinstance(obj, str):
+            return (self.db.get(obj), obj)
+        raise TypeError('obj must be a doc or _id (a dict or str)')
+
+    def copy(self, src_filestore, doc_or_id, *dst_filestores):
+        (doc, _id) = self.doc_and_id(doc_or_id)
         with VerifyContext(self.db, src_filestore, doc):
             ch = src_filestore.copy(_id, *dst_filestores)
             add_to_stores(doc, *dst_filestores)
