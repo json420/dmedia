@@ -88,6 +88,8 @@ def get_dict(d, key):
     {'foo': {}}
 
     """
+    assert isinstance(d, dict)
+    assert isinstance(key, str)
     value = d.get(key)
     if isinstance(value, dict):
         return value

@@ -342,6 +342,27 @@ class TestFunctions(TestCase):
             }
         )
 
+        # Test when an existing doc['stored'][store_id] value is bad:
+        old = {
+            id1: 'broken1',
+            id2: 'broken2',
+            id3: 'broken3',
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                },
+                id3: 'broken3',
+            }
+        )
+
     def test_update(self):
         new = {'foo': 2, 'bar': 2}
 
