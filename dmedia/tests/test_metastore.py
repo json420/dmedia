@@ -519,6 +519,123 @@ class TestFunctions(TestCase):
             }
         )
 
+    def test_mark_copied(self):
+        _id = random_file_id()
+        src = DummyFileStore()
+        ts = time.time()
+        dst1 = DummyFileStore()
+        dst2 = DummyFileStore()
+        other_id1 = random_id()
+        other_id2 = random_id()
+
+        # One destination, no doc['stored']:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                }
+            }
+        )
+
+        # Two destinations, no doc['stored']:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    dst2.id: {
+                        'copies': dst2.copies,
+                        'mtime': int(dst2._mtime),
+                    },
+                }
+            }
+        )
+
+        # One destination, existing doc['stored']:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: {'pinned': True},
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                        'pinned': True,
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
+            }
+        )
+
+        # Two destinations, existing doc['stored']:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: {'pinned': True},
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                        'pinned': True,
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    dst2.id: {
+                        'copies': dst2.copies,
+                        'mtime': int(dst2._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
+            }
+        )
+
     def test_relink_iter(self):
         tmp = TempDir()
         fs = FileStore(tmp.dir)

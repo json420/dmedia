@@ -156,15 +156,6 @@ def add_to_stores(doc, *filestores):
     merge_stored(old, new)
 
 
-def op_copy(doc, timestamp, *filestores):
-    assert len(filestores) >= 2
-    _id = doc['_id']
-    old = get_dict(doc, 'stored')
-    new = create_stored(_id, *filestores)
-    merge_stored(old, new)
-    
-
-
 def remove_from_stores(doc, *filestores):
     stored = get_dict(doc, 'stored')
     for fs in filestores:
@@ -190,6 +181,15 @@ def mark_corrupt(doc, fs, timestamp):
         pass
     corrupt = get_dict(doc, 'corrupt')
     corrupt[fs.id] = {'time': timestamp}
+
+
+def mark_copied(doc, src, timestamp, *dst):
+    assert len(dst) >= 1
+    _id = doc['_id']
+    old = get_dict(doc, 'stored')
+    new = create_stored(_id, src, *dst)
+    merge_stored(old, new)
+    old[src.id]['verified'] = int(timestamp)
 
 
 def mark_mismatch(doc, fs):
