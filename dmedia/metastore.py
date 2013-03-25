@@ -44,8 +44,6 @@ import logging
 from filestore import CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
-from .util import get_db
-
 
 log = logging.getLogger()
 
