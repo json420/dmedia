@@ -65,11 +65,11 @@ class DummyFileStore:
     def __init__(self):
         self.id = random_id()
         self.copies = 1
-        self._mtime = 1234567890
+        self._mtime = time.time() - random.randint(0, 10000)
+        self._calls = 0
 
     def stat(self, _id):
         self._file_id = _id
-        self._mtime += 1
         return DummyStat(self._mtime)
 
 
@@ -398,7 +398,7 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs1.id: {
                         'copies': 1,
-                        'mtime': 1234567891,
+                        'mtime': int(fs1._mtime),
                     },
                 },
             }
@@ -413,11 +413,11 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs1.id: {
                         'copies': 1,
-                        'mtime': 1234567892,
+                        'mtime': int(fs1._mtime),
                     },
                     fs2.id: {
                         'copies': 1,
-                        'mtime': 1234567891,
+                        'mtime': int(fs2._mtime),
                     },
                 },
             }
@@ -432,12 +432,12 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs1.id: {
                         'copies': 1,
-                        'mtime': 1234567893,
+                        'mtime': int(fs1._mtime),
                         'pin': True,
                     },
                     fs2.id: {
                         'copies': 1,
-                        'mtime': 1234567892,
+                        'mtime': int(fs2._mtime),
                     },
                 },
             }
@@ -476,7 +476,7 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs.id: {
                         'copies': 1,
-                        'mtime': 1234567891,
+                        'mtime': int(fs._mtime),
                         'verified': int(ts),      
                     },
                 },
@@ -490,7 +490,7 @@ class TestFunctions(TestCase):
             'stored': {
                 fs.id: {
                     'copies': 2,
-                    'mtime': 1234567890,
+                    'mtime': int(fs._mtime),
                     'verified': 4,
                     'pin': True,
                 },
@@ -504,7 +504,7 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs.id: {
                         'copies': 1,
-                        'mtime': 1234567892,
+                        'mtime': int(fs._mtime),
                         'verified': int(ts),    
                         'pin': True,  
                     },
