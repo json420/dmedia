@@ -110,7 +110,7 @@ def snapshot_worker(env, dumpdir, queue_in, queue_out):
     server = Server(env)
     try:
         check_call(['bzr', 'init', dumpdir])
-        whoami = env['machine_id']
+        whoami = 'user@localhost'
         check_call(['bzr', 'whoami', '--branch', '-d', dumpdir, whoami])
         log.info('Initialized bzr branch in %r', dumpdir)
     except CalledProcessError:
