@@ -299,7 +299,6 @@ def decrease_copies(env):
                 break
             row = rows[0]
             _id = row['id']
-            log.info('Removing %s from %s', _id, fs)
             ms.remove(fs, _id)
             total += 1
         log.info('Deleted %s total copies in %s', total, fs.id)
