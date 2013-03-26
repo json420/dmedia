@@ -271,7 +271,7 @@ def increase_copies(env):
                 free = sorted(connected - stored)
                 if local and free:
                     src = slave.stores.choose_local_store(doc)
-                    need = max(3 - copies, len(free))
+                    need = min(3 - copies, len(free))
                     dst = [slave.stores.by_id(free[i]) for i in range(need)]
                     ms.copy(src, doc, *dst)
                     total += 1
