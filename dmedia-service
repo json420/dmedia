@@ -224,6 +224,12 @@ class Service(dbus.service.Object):
         """
         log.info('[idle3 at time %.3f]', time.time() - start_time)
         self.core.start_vigilance()
+        GLib.timeout_add(10 * 60 * 1000, on_vigilance_restart)
+
+    def on_vigilance_restart(self):
+        log.info('vigilance restart')
+        self.core.restart_vigilance()
+        return True
 
     def shutdown(self):
         log.info('Service.shutdown()')
