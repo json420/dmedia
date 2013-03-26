@@ -227,7 +227,7 @@ class Service(dbus.service.Object):
         GLib.timeout_add(10 * 60 * 1000, self.on_vigilance_restart)
 
     def on_vigilance_restart(self):
-        log.info('vigilance restart')
+        log.info('on_vigilance_restart()')
         self.core.restart_vigilance()
         return True
 
