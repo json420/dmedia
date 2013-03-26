@@ -565,7 +565,8 @@ class MetaStore:
         doc = self.db.get(_id)
         mark_removed(doc, fs)
         self.db.save(doc)
-        fs.remove(_id)  
+        fs.remove(_id)
+        log.info('Removed %s from %s', _id, fs.id)
         return doc
 
     def verify(self, fs, _id, return_fp=False):
