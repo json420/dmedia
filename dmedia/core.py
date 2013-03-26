@@ -238,6 +238,8 @@ def vigilance(env, stores, first_run):
             ms.verify_all(fs)
         ms.downgrade_by_never_verified()
         ms.downgrade_by_last_verified()
+        increase_copies(env)
+        decrease_copies(env)
         log.info('vigilance() is exiting...')
     except Exception:
         log.exception('Error in vigilance()')
@@ -254,10 +256,8 @@ def increase_copies(env):
     db = util.get_db(env)
     slave = LocalSlave(db.env)
     ms = MetaStore(db)
-
     total = 0
     new = 0
-
     for copies in range(3):
         rows = db.view('file', 'fragile', key=copies)['rows']
         for ids in id_slice_iter(rows):
@@ -278,7 +278,6 @@ def increase_copies(env):
                     new += len(dst)
                 elif free and peers:
                     log.info('Would try and download %s from %s', doc['_id'], sorted(peers))
-
     log.info('Created %s new copies of %s total files', new, total)
 
 
