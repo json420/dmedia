@@ -243,6 +243,13 @@ def vigilance(env, stores, first_run):
         log.exception('Error in vigilance()')
 
 
+def get_peers(db):
+    try:
+        return db.get('_local/peers')['peers']
+    except NotFound:
+        return {}
+
+
 def increase_copies(env):
     db = util.get_db(env)
     slave = LocalSlave(db.env)
@@ -253,9 +260,10 @@ def increase_copies(env):
 
     for copies in range(3):
         rows = db.view('file', 'fragile', key=copies)['rows']
-        for ids in id_slice_iter(rows, 100):
+        for ids in id_slice_iter(rows):
             slave.update_stores()
             connected = frozenset(slave.stores.ids)
+            peers = get_peers(db)
             docs = db.get_many(ids)
             for doc in docs:
                 stored = frozenset(doc['stored'])
@@ -268,8 +276,34 @@ def increase_copies(env):
                     ms.copy(src, doc, *dst)
                     total += 1
                     new += len(dst)
+                elif free and peers:
+                    log.info('Would try and download %s from %s', doc['_id'], sorted(peers))
 
     log.info('Created %s new copies of %s total files', new, total)
+
+
+def decrease_copies(env):
+    db = util.get_db(env)
+    slave = LocalSlave(db.env)
+    ms = MetaStore(db)
+    slave.update_stores()
+    for fs in slave.stores.sort_by_avail(reverse=False):
+        total = 0
+        while True:
+            kw = {
+                'startkey': [fs.id, None],
+                'endkey': [fs.id, int(time.time())],
+                'limit': 1,
+            }
+            rows = db.view('file', 'reclaimable', **kw)['rows']
+            if not rows:
+                break
+            row = rows[0]
+            _id = row['id']
+            log.info('Removing %s from %s', _id, fs)
+            ms.remove(fs, _id)
+            total += 1
+        log.info('Deleted %s total copies in %s', total, fs.id)
 
 
 class Core:
