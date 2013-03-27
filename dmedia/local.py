@@ -156,10 +156,10 @@ class LocalStores:
         store_id = choose_local_store(doc, self.fast, self.slow)
         return self.ids[store_id]
 
-    def sort_by_avail(self):
+    def sort_by_avail(self, reverse=True):
         return sorted(self.ids.values(),
             key=lambda fs: fs.statvfs().avail,
-            reverse=True,
+            reverse=reverse,
         )
 
     def local_stores(self):

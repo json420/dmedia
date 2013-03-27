@@ -40,6 +40,7 @@ from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored, get_mtime
+from dmedia.constants import TYPE_ERROR
 
 
 random = SystemRandom()
@@ -65,11 +66,11 @@ class DummyFileStore:
     def __init__(self):
         self.id = random_id()
         self.copies = 1
-        self._mtime = 1234567890
+        self._mtime = time.time() - random.randint(0, 10000)
+        self._calls = 0
 
     def stat(self, _id):
         self._file_id = _id
-        self._mtime += 1
         return DummyStat(self._mtime)
 
 
@@ -105,6 +106,24 @@ class DummyDatabase:
 
 class TestFunctions(TestCase):
     def test_get_dict(self):
+        # Bad `d` type:
+        bad = [random_id(), random_id()]
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_dict(bad, random_id())
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('d', dict, list, bad)
+        )
+
+        # Bad `key` type:
+        bad = random.randint(0, 1000)
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_dict({}, bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('key', str, int, bad)
+        )
+
         doc = {}
         ret = metastore.get_dict(doc, 'foo')
         self.assertEqual(ret, {})
@@ -342,6 +361,27 @@ class TestFunctions(TestCase):
             }
         )
 
+        # Test when an existing doc['stored'][store_id] value is bad:
+        old = {
+            id1: 'broken1',
+            id2: 'broken2',
+            id3: 'broken3',
+        }
+        self.assertIsNone(metastore.merge_stored(old, deepcopy(new)))
+        self.assertEqual(old,
+            {
+                id1: {
+                    'copies': 2,
+                    'mtime': ts1,
+                },
+                id2: {
+                    'copies': 1,
+                    'mtime': ts2,
+                },
+                id3: 'broken3',
+            }
+        )
+
     def test_update(self):
         new = {'foo': 2, 'bar': 2}
 
@@ -377,7 +417,7 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs1.id: {
                         'copies': 1,
-                        'mtime': 1234567891,
+                        'mtime': int(fs1._mtime),
                     },
                 },
             }
@@ -392,11 +432,11 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs1.id: {
                         'copies': 1,
-                        'mtime': 1234567892,
+                        'mtime': int(fs1._mtime),
                     },
                     fs2.id: {
                         'copies': 1,
-                        'mtime': 1234567891,
+                        'mtime': int(fs2._mtime),
                     },
                 },
             }
@@ -411,35 +451,35 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs1.id: {
                         'copies': 1,
-                        'mtime': 1234567893,
+                        'mtime': int(fs1._mtime),
                         'pin': True,
                     },
                     fs2.id: {
                         'copies': 1,
-                        'mtime': 1234567892,
+                        'mtime': int(fs2._mtime),
                     },
                 },
             }
         )
 
-    def test_remove_from_stores(self):
+    def test_mark_removed(self):
         fs1 = DummyFileStore()
         fs2 = DummyFileStore()
 
         doc = {}
-        metastore.remove_from_stores(doc, fs1, fs2)
+        metastore.mark_removed(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
 
         doc = {'stored': {}}
-        metastore.remove_from_stores(doc, fs1, fs2)
+        metastore.mark_removed(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
 
         doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
-        metastore.remove_from_stores(doc, fs1)
+        metastore.mark_removed(doc, fs1)
         self.assertEqual(doc, {'stored': {fs2.id: 'bar'}})
 
         doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
-        metastore.remove_from_stores(doc, fs1, fs2)
+        metastore.mark_removed(doc, fs1, fs2)
         self.assertEqual(doc, {'stored': {}})
 
     def test_mark_verified(self):
@@ -455,7 +495,7 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs.id: {
                         'copies': 1,
-                        'mtime': 1234567891,
+                        'mtime': int(fs._mtime),
                         'verified': int(ts),      
                     },
                 },
@@ -469,7 +509,7 @@ class TestFunctions(TestCase):
             'stored': {
                 fs.id: {
                     'copies': 2,
-                    'mtime': 1234567890,
+                    'mtime': int(fs._mtime),
                     'verified': 4,
                     'pin': True,
                 },
@@ -483,7 +523,7 @@ class TestFunctions(TestCase):
                 'stored': {
                     fs.id: {
                         'copies': 1,
-                        'mtime': 1234567892,
+                        'mtime': int(fs._mtime),
                         'verified': int(ts),    
                         'pin': True,  
                     },
@@ -516,6 +556,185 @@ class TestFunctions(TestCase):
             {
                 'stored': {id2: 'bar'},
                 'corrupt': {id3: 'baz', fs.id: {'time': ts}},
+            }
+        )
+
+    def test_mark_copied(self):
+        _id = random_file_id()
+        src = DummyFileStore()
+        ts = time.time()
+        dst1 = DummyFileStore()
+        dst2 = DummyFileStore()
+        other_id1 = random_id()
+        other_id2 = random_id()
+
+        # One destination, no doc['stored']:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                }
+            }
+        )
+
+        # Two destinations, no doc['stored']:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    dst2.id: {
+                        'copies': dst2.copies,
+                        'mtime': int(dst2._mtime),
+                    },
+                }
+            }
+        )
+
+        # One destination, existing doc['stored']:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: {'pinned': True},
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                        'pinned': True,
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
+            }
+        )
+
+        # Two destinations, existing doc['stored']:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: {'pinned': True},
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                        'pinned': True,
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    dst2.id: {
+                        'copies': dst2.copies,
+                        'mtime': int(dst2._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
+            }
+        )
+
+        # One destination, broken doc['stored'][src.id]:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: 'bad dog',
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
+            }
+        )
+
+        # Two destinations, broken doc['stored'][src.id]:
+        doc = {
+            '_id': _id,
+            'stored': {
+                src.id: 'still a bad dog',
+                other_id1: 'foo',
+                other_id2: 'bar',
+            }
+        }
+        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    src.id: {
+                        'copies': src.copies,
+                        'mtime': int(src._mtime),
+                        'verified': int(ts),
+                    },
+                    dst1.id: {
+                        'copies': dst1.copies,
+                        'mtime': int(dst1._mtime),
+                    },
+                    dst2.id: {
+                        'copies': dst2.copies,
+                        'mtime': int(dst2._mtime),
+                    },
+                    other_id1: 'foo',
+                    other_id2: 'bar',
+                }
             }
         )
 
@@ -1744,9 +1963,57 @@ class TestMetaStore(CouchCase):
         fs2 = TempFileStore(random_id(), 1)
         fs3 = TempFileStore(random_id(), 1)
 
+        # doc does not exist:
         _id = random_file_id()
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.copy(fs1, _id, fs2)
+
+        # File does not exist
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': int(time.time()),
+                },
+            }
+        }
+        db.save(doc)
+        ret = ms.copy(fs1, _id, fs2, fs3)
+        self.assertEqual(ret, db.get(_id))
+        self.assertEqual(ret,
+            {
+                '_id': _id,
+                '_rev': ret['_rev'],
+                'stored': {},
+            }
+        )
+
+        # File is corrupt
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        filename = fs1.path(_id)
+        os.chmod(filename, 0o600)
+        open(filename, 'ab').write(os.urandom(16))
+        os.chmod(filename, 0o444)
+        ret = ms.copy(fs1, _id, fs2, fs3)
+        self.assertEqual(ret, db.get(_id))
+        self.assertEqual(ret,
+            {
+                '_id': _id,
+                '_rev': ret['_rev'],
+                '_attachments': ret['_attachments'],
+                'time': doc['time'],
+                'atime': doc['atime'],
+                'type': 'dmedia/file',
+                'bytes': doc['bytes'],
+                'origin': 'user',
+                'stored': {},
+                'corrupt': {
+                    fs1.id: {'time': ret['corrupt'][fs1.id]['time']}
+                }
+            }
+        )
 
         doc = create_random_file(fs1, db)
         _id = doc['_id']

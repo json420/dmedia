@@ -44,7 +44,7 @@ import logging
 from filestore import CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
-from .util import get_db
+from .constants import TYPE_ERROR
 
 
 log = logging.getLogger()
@@ -88,6 +88,10 @@ def get_dict(d, key):
     {'foo': {}}
 
     """
+    if not isinstance(d, dict):
+        raise TypeError(TYPE_ERROR.format('d', dict, type(d), d))
+    if not isinstance(key, str):
+        raise TypeError(TYPE_ERROR.format('key', str, type(key), key))
     value = d.get(key)
     if isinstance(value, dict):
         return value
@@ -135,11 +139,16 @@ def merge_stored(old, new):
     """
     Update doc['stored'] based on new storage information in *new*.
     """
+    assert isinstance(old, dict)
+    assert isinstance(new, dict)
     for (key, value) in new.items():
+        assert isinstance(key, str)
+        assert isinstance(value, dict)
         assert set(value) == set(['copies', 'mtime'])
         if key in old:
-            old[key].update(value)
-            old[key].pop('verified', None)
+            old_value = get_dict(old, key)
+            old_value.update(value)
+            old_value.pop('verified', None)
         else:
             old[key] = value 
 
@@ -156,7 +165,7 @@ def add_to_stores(doc, *filestores):
     merge_stored(old, new)
 
 
-def remove_from_stores(doc, *filestores):
+def mark_removed(doc, *filestores):
     stored = get_dict(doc, 'stored')
     for fs in filestores:
         stored.pop(fs.id, None)
@@ -181,6 +190,15 @@ def mark_corrupt(doc, fs, timestamp):
         pass
     corrupt = get_dict(doc, 'corrupt')
     corrupt[fs.id] = {'time': timestamp}
+
+
+def mark_copied(doc, src, timestamp, *dst):
+    assert len(dst) >= 1
+    _id = doc['_id']
+    old = get_dict(doc, 'stored')
+    new = create_stored(_id, src, *dst)
+    merge_stored(old, new)
+    old[src.id]['verified'] = int(timestamp)
 
 
 def mark_mismatch(doc, fs):
@@ -217,7 +235,7 @@ class VerifyContext:
             update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, remove_from_stores, self.fs)
+            update_doc(self.db, self.doc, mark_removed, self.fs)
         else:
             return False
         return True
@@ -239,7 +257,7 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, remove_from_stores, self.fs)
+            update_doc(self.db, self.doc, mark_removed, self.fs)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
             update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
@@ -545,9 +563,10 @@ class MetaStore:
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
-        remove_from_stores(doc, fs)
+        mark_removed(doc, fs)
         self.db.save(doc)
-        fs.remove(_id)  
+        fs.remove(_id)
+        log.info('Removed %s from %s', _id, fs.id)
         return doc
 
     def verify(self, fs, _id, return_fp=False):
@@ -610,10 +629,26 @@ class MetaStore:
         self.db.save(doc)
         return ch
 
-    def copy(self, src_filestore, _id, *dst_filestores):
-        doc = self.db.get(_id)
-        with VerifyContext(self.db, src_filestore, doc):
-            ch = src_filestore.copy(_id, *dst_filestores)
-            add_to_stores(doc, *dst_filestores)
-            return ch
+    def doc_and_id(self, obj):
+        if isinstance(obj, dict):
+            return (obj, obj['_id'])
+        if isinstance(obj, str):
+            return (self.db.get(obj), obj)
+        raise TypeError('obj must be a doc or _id (a dict or str)')
+
+    def copy(self, src, doc_or_id, *dst):
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        try:
+            ch = src.copy(_id, *dst)
+            log.info('Copied %s from %s to %s', _id, src.id, 
+                ', '.join(d.id for d in dst)
+            )
+            update_doc(self.db, doc, mark_copied, src, time.time(), *dst)
+        except FileNotFound:
+            log.warning('%s is not in %s', _id, src.id)
+            update_doc(self.db, doc, mark_removed, src)
+        except CorruptFile:
+            log.error('%s is corrupt in %s', _id, src.id)
+            update_doc(self.db, doc, mark_corrupt, src, time.time())
+        return doc
 
