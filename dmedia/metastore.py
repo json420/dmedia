@@ -99,22 +99,6 @@ def get_dict(d, key):
     return d[key]
 
 
-def update_doc(db, doc, func, *args):
-    """
-    Update *doc* with *func*, then save to *db*.
-    """
-    func(doc, *args)
-    try:
-        db.save(doc)
-        return doc
-    except Conflict:
-        log.warning('Conflict saving %s', doc['_id'])
-    doc = db.get(doc['_id'])
-    func(doc, *args)
-    db.save(doc)
-    return doc
-
-
 def get_mtime(fs, _id):
     return int(fs.stat(_id).mtime)
 
@@ -229,13 +213,13 @@ class VerifyContext:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if exc_type is None:
             log.info('Verified %s in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, mark_verified, self.fs, time.time())
+            self.db.update(self.doc, mark_verified, self.fs, time.time())
         elif issubclass(exc_type, CorruptFile):
             log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
+            self.db.update(self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, mark_removed, self.fs)
+            self.db.update(self.doc, mark_removed, self.fs)
         else:
             return False
         return True
@@ -257,13 +241,13 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, mark_removed, self.fs)
+            self.db.update(self.doc, mark_removed, self.fs)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, mark_corrupt, self.fs, time.time())
+            self.db.update(self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
-            update_doc(self.db, self.doc, mark_mismatch, self.fs)
+            self.db.update(self.doc, mark_mismatch, self.fs)
         else:
             return False
         return True
