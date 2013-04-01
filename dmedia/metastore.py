@@ -163,10 +163,7 @@ def mark_verified(doc, fs, timestamp):
 
 def mark_corrupt(doc, fs, timestamp):
     stored = get_dict(doc, 'stored')
-    try:
-        del stored[fs.id]
-    except KeyError:
-        pass
+    stored.pop(fs.id, None)
     corrupt = get_dict(doc, 'corrupt')
     corrupt[fs.id] = {'time': timestamp}
 
