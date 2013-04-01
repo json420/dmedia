@@ -317,34 +317,13 @@ class TestFunctions(TestCase):
             }
         )
 
-    def test_update(self):
-        new = {'foo': 2, 'bar': 2}
-
-        stored = {}
-        metastore.update(stored, 'one', new)
-        self.assertEqual(stored,
-            {'one': {'foo': 2, 'bar': 2}}
-        )
-
-        stored = {'one': {'foo': 1, 'bar': 1}}
-        metastore.update(stored, 'one', new)
-        self.assertEqual(stored,
-            {'one': {'foo': 2, 'bar': 2}}
-        )
-
-        stored = {'one': {'foo': 1, 'bar': 1, 'baz': 1}}
-        metastore.update(stored, 'one', new)
-        self.assertEqual(stored,
-            {'one': {'foo': 2, 'bar': 2, 'baz': 1}}
-        )
-
-    def test_add_to_stores(self):
+    def test_mark_added(self):
         fs1 = DummyFileStore()
         fs2 = DummyFileStore()
         _id = random_id(30)
 
         doc = {'_id': _id}
-        metastore.add_to_stores(doc, fs1)
+        metastore.mark_added(doc, fs1)
         self.assertIs(fs1._file_id, _id)
         self.assertEqual(doc, 
             {
@@ -359,7 +338,7 @@ class TestFunctions(TestCase):
         )
 
         doc = {'_id': _id}
-        metastore.add_to_stores(doc, fs1, fs2)
+        metastore.mark_added(doc, fs1, fs2)
         self.assertIs(fs2._file_id, _id)
         self.assertEqual(doc, 
             {
@@ -378,7 +357,7 @@ class TestFunctions(TestCase):
         )
 
         doc = {'_id': _id, 'stored': {fs1.id: {'pin': True}}} 
-        metastore.add_to_stores(doc, fs1, fs2)
+        metastore.mark_added(doc, fs1, fs2)
         self.assertIs(fs2._file_id, _id)
         self.assertEqual(doc, 
             {

@@ -137,12 +137,7 @@ def merge_stored(old, new):
             old[key] = value 
 
 
-def update(d, key, new):
-    old = get_dict(d, key)
-    old.update(new)
-
-
-def add_to_stores(doc, *filestores):
+def mark_added(doc, *filestores):
     _id = doc['_id']
     old = get_dict(doc, 'stored')
     new = create_stored(_id, *filestores)
@@ -594,8 +589,7 @@ class MetaStore:
         ch = check_root_hash(_id, doc['bytes'], leaf_hashes)
         tmp_fp = fs.allocate_partial(ch.file_size, ch.id)
         partial = get_dict(doc, 'partial')
-        new = {'mtime': os.fstat(tmp_fp.fileno()).st_mtime}
-        update(partial, fs.id, new)
+        partial[fs.id] = {'mtime': os.fstat(tmp_fp.fileno()).st_mtime}
         self.db.save(doc)
         return tmp_fp
 
@@ -609,7 +603,7 @@ class MetaStore:
             pass
         if not partial:
             del doc['partial']
-        add_to_stores(doc, fs)
+        mark_added(doc, fs)
         self.db.save(doc)
         return ch
 
