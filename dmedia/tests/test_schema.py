@@ -31,7 +31,7 @@ from copy import deepcopy
 import time
 
 from filestore import TYPE_ERROR, DIGEST_BYTES, ContentHash
-from microfiber import random_id
+from dbase32.rfc3548 import random_id
 
 from .base import TempDir
 

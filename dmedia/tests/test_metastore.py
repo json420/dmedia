@@ -33,8 +33,9 @@ from copy import deepcopy
 
 from filestore import FileStore, DIGEST_BYTES
 from filestore.misc import TempFileStore
+from dbase32.rfc3548 import random_id
 import microfiber
-from microfiber import random_id, dumps, Conflict
+from microfiber import dumps, Conflict
 
 from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
