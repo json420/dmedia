@@ -39,7 +39,7 @@ to all the space.
 
 Dmedia will try to always keep a certain amount of space free on the drives it
 manages.  However, in a pinch, it's nice for Dmedia to be able to use every drop
-of space in order to preserve sufficient file durability.
+of space in order to maintain sufficient file durability.
 """
 
 import argparse
