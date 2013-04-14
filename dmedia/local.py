@@ -31,7 +31,7 @@ import microfiber
 from dmedia.util import get_db
 
 
-MiB = 10**20
+MiB = 2**20
 
 
 class NoSuchFile(Exception):
