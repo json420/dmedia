@@ -255,27 +255,28 @@ def get_peers(db):
 def increase_copies(env):
     db = util.get_db(env)
     slave = LocalSlave(db.env)
+    slave.update_stores()
+    connected = frozenset(slave.stores.ids)
     ms = MetaStore(db)
     total = 0
     new = 0
     for copies in range(3):
         rows = db.view('file', 'fragile', key=copies)['rows']
         for ids in id_slice_iter(rows):
-            slave.update_stores()
-            connected = frozenset(slave.stores.ids)
             peers = get_peers(db)
             docs = db.get_many(ids)
             for doc in docs:
                 stored = frozenset(doc['stored'])
-                local = connected.intersection(stored)
-                free = sorted(connected - stored)
+                local = connected.intersection(stored)  # Any local copies?
+                free = connected - stored  # Local drives without a copy?
                 if local and free:
                     src = slave.stores.choose_local_store(doc)
-                    need = min(3 - copies, len(free))
-                    dst = [slave.stores.by_id(free[i]) for i in range(need)]
-                    ms.copy(src, doc, *dst)
-                    total += 1
-                    new += len(dst)
+                    size = src.stat(doc['_id']).size
+                    dst = slave.stores.filter_by_avail(free, size, 3 - copies)
+                    if dst:
+                        ms.copy(src, doc, *dst)
+                        total += 1
+                        new += len(dst)
                 elif free and peers:
                     log.info('Would try and download %s from %s', doc['_id'], sorted(peers))
     log.info('Created %s new copies of %s total files', new, total)
