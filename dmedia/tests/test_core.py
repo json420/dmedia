@@ -411,13 +411,13 @@ class TestCore(CouchCase):
     def test_resolve(self):
         inst = core.Core(self.env)
 
-        bad_id = random_id(25)
-        self.assertEqual(inst.resolve(bad_id),
-            (bad_id, 3, '')
+        bad_id1 = random_id(25)  # Wrong length
+        self.assertEqual(inst.resolve(bad_id1),
+            (bad_id1, 3, '')
         )
-        bad_id = '0' * 48  # Invalid letter in both Base32 and Dbase32
-        self.assertEqual(inst.resolve(bad_id),
-            (bad_id, 3, '')
+        bad_id2 = random_id(30)[:-1] + '0'  # Invalid letter
+        self.assertEqual(inst.resolve(bad_id2),
+            (bad_id2, 3, '')
         )
 
         unknown_id = random_id(30)

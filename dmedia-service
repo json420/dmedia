@@ -460,6 +460,12 @@ class Service(dbus.service.Object):
             self.lazy_access.access(_id)
         return (_id, status, filename)
 
+    @dbus.service.method(IFACE, in_signature='as', out_signature='a(sys)')
+    def ResolveMany(self, ids):
+        # FIXME: This is just a place holder while we decide for sure whether
+        # we want the ResolveMany method
+        return [(_id, 1, '') for _id in ids]
+
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def AllocateTmp(self):
         return self.core.allocate_tmp()
