@@ -99,7 +99,7 @@ class LazyAccess:
     The class solves two problems:
 
     First, we don't want to do any CouchDB writes inside a call to
-    Dmedia.Resolve() or Dmedia.ResolveURI() because that has too big a
+    Dmedia.Resolve() or Dmedia.ResolveMany() because that has too big a
     performance hit. So we want to update the atime only when the mainloop is
     idle.
 
@@ -125,7 +125,7 @@ class LazyAccess:
 
     def access(self, _id):
         self.buf[_id] = int(time.time())
-        if len(self.buf) >= 200:
+        if len(self.buf) >= 500:
             log.warning('Doing a synchronous atime flush')
             self.flush()
         elif self.timeout_id is None:
