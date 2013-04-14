@@ -56,11 +56,6 @@ from dmedia.local import LocalStores, FileNotLocal, LocalSlave
 log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
 
-FLAG_RESOLVED = 0
-FLAG_UNAVAILABLE = 1
-FLAG_UNKNOWN = 2
-FLAG_BAD_ID = 3
-
 
 def start_httpd(couch_env, ssl_config):
     queue = multiprocessing.Queue()
