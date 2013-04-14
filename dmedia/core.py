@@ -567,22 +567,6 @@ class Core:
         # It's all good:
         return (_id, 0, st.name)
 
-    def resolve_uri(self, uri):
-        if not uri.startswith('dmedia:'):
-            raise ValueError('not a dmedia: URI {!r}'.format(uri))
-        _id = uri[7:]
-        doc = self.db.get(_id)
-        if doc.get('proxies'):
-            proxies = doc['proxies']
-            for proxy in proxies:
-                try:
-                    st = self.stat(proxy)
-                    return 'file://' + st.name
-                except (NotFound, FileNotLocal):
-                    pass
-        st = self.stat2(doc)
-        return 'file://' + st.name
-
     def allocate_tmp(self):
         stores = self.stores.sort_by_avail()
         if len(stores) == 0:
