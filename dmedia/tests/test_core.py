@@ -449,7 +449,11 @@ class TestCore(CouchCase):
         )
 
         filename = fs.path(good_id)
-        open(filename, 'xb').write(b'non empty')
+        open(filename, 'xb').close()
+        self.assertEqual(inst.resolve(good_id),
+            (good_id, 1, '')
+        )
+        open(filename, 'wb').write(b'non empty')
         self.assertEqual(inst.resolve(good_id),
             (good_id, 0, filename)
         )
@@ -464,6 +468,9 @@ class TestCore(CouchCase):
         unknown_id = random_id(30)
         nonlocal_id = random_id(30)
         missing_id = random_id(30)
+        empty_id = random_id(30)
+        empty_filename = fs.path(empty_id)
+        open(empty_filename, 'xb').close()
         good_id = random_id(30)
         good_filename = fs.path(good_id)
         open(good_filename, 'xb').write(b'non empty')
@@ -483,15 +490,22 @@ class TestCore(CouchCase):
             }
         }
         doc3 = {
+            '_id': empty_id,
+            'stored': {
+                fs.id: {},
+                random_id(): {},
+            }
+        }
+        doc4 = {
             '_id': good_id,
             'stored': {
                 fs.id: {},
                 random_id(): {},
             }
         }
-        inst.db.save_many([doc1, doc2, doc3])
+        inst.db.save_many([doc1, doc2, doc3, doc4])
 
-        ids = [bad_id1, bad_id2, unknown_id, nonlocal_id, missing_id, good_id]
+        ids = [bad_id1, bad_id2, unknown_id, nonlocal_id, missing_id, empty_id, good_id]
         self.assertEqual(inst.resolve_many(ids),
             [
                 (bad_id1, 3, ''),
@@ -499,6 +513,7 @@ class TestCore(CouchCase):
                 (unknown_id, 2, ''),
                 (nonlocal_id, 1, ''),
                 (missing_id, 1, ''),
+                (empty_id, 1, ''),
                 (good_id, 0, good_filename)
             ]
         )
