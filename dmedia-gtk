@@ -176,8 +176,8 @@ class App(BaseApp):
         hub.connect('stop_importer', self.on_stop_importer)
         hub.connect('error', self.on_error)
 
-    def dmedia_resolver(self, uri):
-        return self.proxy.ResolveURI(uri)
+    def dmedia_resolver(self, _id):
+        return self.proxy.Resolve(_id)
 
     def create_ux(self):
         if UnityImportUX is not None:
