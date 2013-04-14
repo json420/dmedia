@@ -152,12 +152,6 @@ class Resolve(_Method):
     args = ['file_id']
 
 
-class ResolveURI(_Method):
-    'Resolve a Dmedia URI into a file URI'
-
-    args = ['uri']
-
-
 class AllocateTmp(_Method):
     'Allocate a temporary file for rendering or import'
 

@@ -76,7 +76,7 @@ class TestLazyAccess(TestCase):
         inst = background.LazyAccess(db)
         self.assertIs(inst.db, db)
         self.assertIsInstance(inst.delay, int)
-        self.assertEqual(inst.delay, 30 * 1000)
+        self.assertEqual(inst.delay, 15 * 1000)
         self.assertEqual(inst.buf, {})
         self.assertIsNone(inst.timeout_id)
 

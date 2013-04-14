@@ -453,23 +453,20 @@ class Service(dbus.service.Object):
         log.info('Dmedia.PurgeStore(%r)', store_id)
         start_thread(self.core.purge_store, store_id)
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    @dbus.service.method(IFACE, in_signature='s', out_signature='(sys)')
     def Resolve(self, _id):
-        filename = self.core.resolve(_id)
-        self.lazy_access.access(_id)
-        return filename
+        (_id, status, filename) = self.core.resolve(_id)
+        if status in (0, 1):
+            self.lazy_access.access(_id)
+        return (_id, status, filename)
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
-    def ResolveURI(self, uri):
-        """
-        FIXME: Should we even have this method?
-        """
-        if not uri.startswith('dmedia:'):
-            raise ValueError('not a dmedia: URI {!r}'.format(uri))
-        _id = uri[7:]
-        filename = self.core.resolve(_id)
-        self.lazy_access.access(_id)
-        return 'file://' + filename
+    @dbus.service.method(IFACE, in_signature='as', out_signature='a(sys)')
+    def ResolveMany(self, ids):
+        result = self.core.resolve_many(ids)
+        for (_id, status, filename) in result:
+            if status in (0, 1):
+                self.lazy_access.access(_id)
+        return result
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def AllocateTmp(self):
