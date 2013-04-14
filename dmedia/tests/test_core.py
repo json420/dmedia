@@ -454,6 +454,55 @@ class TestCore(CouchCase):
             (good_id, 0, filename)
         )
 
+    def test_resolve_many(self):
+        inst = core.Core(self.env)
+        tmp = TempDir()
+        fs = inst.create_filestore(tmp.dir)
+
+        bad_id1 = random_id(25)  # Wrong length
+        bad_id2 = random_id(30)[:-1] + '0'  # Invalid letter
+        unknown_id = random_id(30)
+        nonlocal_id = random_id(30)
+        missing_id = random_id(30)
+        good_id = random_id(30)
+        good_filename = fs.path(good_id)
+        open(good_filename, 'xb').write(b'non empty')
+
+        doc1 = {
+            '_id': nonlocal_id,
+            'stored': {
+                random_id(): {},
+                random_id(): {},
+            }
+        }
+        doc2 = {
+            '_id': missing_id,
+            'stored': {
+                fs.id: {},
+                random_id(): {},
+            }
+        }
+        doc3 = {
+            '_id': good_id,
+            'stored': {
+                fs.id: {},
+                random_id(): {},
+            }
+        }
+        inst.db.save_many([doc1, doc2, doc3])
+
+        ids = [bad_id1, bad_id2, unknown_id, nonlocal_id, missing_id, good_id]
+        self.assertEqual(inst.resolve_many(ids),
+            [
+                (bad_id1, 3, ''),
+                (bad_id2, 3, ''),
+                (unknown_id, 2, ''),
+                (nonlocal_id, 1, ''),
+                (missing_id, 1, ''),
+                (good_id, 0, good_filename)
+            ]
+        )
+
     def test_allocate_tmp(self):
         inst = core.Core(self.env)
 

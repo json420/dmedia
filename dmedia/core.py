@@ -311,6 +311,16 @@ def decrease_copies(env):
         log.info('Deleted %s total copies in %s', total, fs.id)
 
 
+def is_file_id(_id):
+    return isb32(_id) and len(_id) == 48
+
+
+def clean_file_id(_id):
+    if is_file_id(_id):
+        return _id
+    return None
+
+
 class Core:
     def __init__(self, env):
         self.env = env
@@ -553,7 +563,7 @@ class Core:
         When the ``status`` is anything other than zero, ``filename`` will be an
         empty string.
         """
-        if not (isb32(_id) and len(_id) == 48):
+        if not is_file_id(_id):
             return (_id, 3, '')
         try:
             doc = self.db.get(_id)
@@ -562,10 +572,31 @@ class Core:
         try:
             fs = self.stores.choose_local_store(doc)
             st = fs.stat(_id)
+            return (_id, 0, st.name)
         except (FileNotLocal, FileNotFound):
             return (_id, 1, '')
-        # It's all good:
-        return (_id, 0, st.name)
+
+    def _resolve_many_iter(self, ids):
+        # Yes, we call is_file_id() twice on each ID, but the point is to make
+        # only a single request to CouchDB, which is the real performance
+        # bottleneck.
+        clean_ids = list(map(clean_file_id, ids))
+        docs = self.db.get_many(clean_ids)
+        for (_id, doc) in zip(ids, docs):
+            if not is_file_id(_id):
+                yield (_id, 3, '')
+            elif doc is None:
+                yield (_id, 2, '')
+            else:
+                try:
+                    fs = self.stores.choose_local_store(doc)
+                    st = fs.stat(_id)
+                    yield (_id, 0, st.name)
+                except (FileNotLocal, FileNotFound):
+                    yield (_id, 1, '')
+
+    def resolve_many(self, ids):
+        return list(self._resolve_many_iter(ids))
 
     def allocate_tmp(self):
         stores = self.stores.sort_by_avail()
