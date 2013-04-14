@@ -41,8 +41,9 @@ from subprocess import check_call, CalledProcessError
 from copy import deepcopy
 from base64 import b64encode
 
+from dbase32.rfc3548 import isb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
-from filestore import FileStore, check_root_hash, check_id, DOTNAME
+from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
 
 import dmedia
 from dmedia.parallel import start_thread, start_process
@@ -54,6 +55,11 @@ from dmedia.local import LocalStores, FileNotLocal, LocalSlave
 
 log = logging.getLogger()
 LOCAL_ID = '_local/dmedia'
+
+FLAG_RESOLVED = 0
+FLAG_UNAVAILABLE = 1
+FLAG_UNKNOWN = 2
+FLAG_BAD_ID = 3
 
 
 def start_httpd(couch_env, ssl_config):
@@ -532,9 +538,34 @@ class Core:
         return fs.stat(doc['_id'])
 
     def resolve(self, _id):
-        doc = self.db.get(_id)
-        fs = self.stores.choose_local_store(doc)
-        return fs.stat(_id).name
+        """
+        Resolve a Dmedia file ID into a regular file path.
+
+        The return value is an ``(_id, status, filename)`` tuple.
+
+        The ``status`` is an ``int`` with one of 4 values:
+
+            0 - the ID was resolved successfully
+            1 - the file is not available locally
+            2 - the file is unknown (no doc in CouchDB)
+            3 - the ID is malformed
+
+        When the ``status`` is anything other than zero, ``filename`` will be an
+        empty string.
+        """
+        if not (isb32(_id) and len(_id) == 48):
+            return (_id, 3, '')
+        try:
+            doc = self.db.get(_id)
+        except NotFound:
+            return (_id, 2, '')
+        try:
+            fs = self.stores.choose_local_store(doc)
+            st = fs.stat(_id)
+        except (FileNotLocal, FileNotFound):
+            return (_id, 1, '')
+        # It's all good:
+        return (_id, 0, st.name)
 
     def resolve_uri(self, uri):
         if not uri.startswith('dmedia:'):
