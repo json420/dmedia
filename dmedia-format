@@ -1,0 +1,110 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2013 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+"""
+Helper script to format an entire drive for Dmedia storage.
+
+Some opinionated decisions:
+
+    1. We always use a GPT partition table, even when this disk is 2TB or under
+
+    2. Partition starts at 1 MiB, as per current best practice
+
+    3. We format as ext4 with 0% reserved blocks
+
+This script is *not* intended for formatting the system disk contained the OS,
+a situation where the default 5% reserved blocks makes sense.  This is for
+secondary drives (possibly removable) where it's best for Dmedia to have access
+to all the space.
+
+Dmedia will try to always keep a certain amount of space free on the drives it
+manages.  However, in a pinch, it's nice for Dmedia to be able to use every drop
+of space in order to maintain sufficient file durability.
+"""
+
+import argparse
+import re
+import time
+import subprocess
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('dev')
+parser.add_argument('label')
+parser.add_argument('--dummy', action='store_true', default=False)
+args = parser.parse_args()
+
+
+def check_call(cmd, **kw):
+    print(cmd)
+    if not args.dummy:
+        subprocess.check_call(cmd, **kw)
+
+
+def check_output(cmd, **kw):
+    print(cmd)
+    if args.dummy:
+        return b'Disk /dev/sdb: 1430767MiB\n'
+    return subprocess.check_output(cmd, **kw)
+
+
+def parted(*parts):
+    cmd = ['parted', '-s', args.dev, 'unit', 'MiB']
+    cmd.extend(parts)
+    return cmd
+
+
+def get_size():
+    text = check_output(parted('print')).decode('utf-8')
+    for line in text.splitlines():
+        match = re.match('Disk /dev/\w+: (\d+)MiB', line)
+        if match:
+            return int(match.group(1))
+    raise Exception('Could not parse disk size for {}'.format(args.dev))
+
+
+# Wipe out old partition table:
+check_call(['dd',
+    'if=/dev/zero',
+    'of={}'.format(args.dev),
+    'bs=1M',
+    'count=2',
+    'oflag=sync',
+])
+time.sleep(2)  # Even with oflag=sync, sometimes the device wont be ready
+check_call(['blockdev', '--rereadpt', args.dev])
+
+# Create a new GPT partition table
+check_call(parted('mklabel', 'gpt'))
+
+# Get disk size and create a single partition
+size = get_size()
+start = 1
+end = size - 1
+check_call(parted('mkpart', 'primary', 'ext2', str(start), str(end)))
+
+# Format partition 1 as ext4, no reason to have reserved blocks in this case:
+part_dev = args.dev + '1'
+check_call(['mkfs.ext4', part_dev, '-L', args.label, '-m', '0'])
+print(check_output(parted('print')).decode('utf-8'))
+

@@ -31,6 +31,9 @@ import microfiber
 from dmedia.util import get_db
 
 
+MiB = 2**20
+
+
 class NoSuchFile(Exception):
     def __init__(self, _id):
         self.id = _id
@@ -156,11 +159,23 @@ class LocalStores:
         store_id = choose_local_store(doc, self.fast, self.slow)
         return self.ids[store_id]
 
-    def sort_by_avail(self):
+    def sort_by_avail(self, reverse=True):
         return sorted(self.ids.values(),
             key=lambda fs: fs.statvfs().avail,
-            reverse=True,
+            reverse=reverse,
         )
+
+    def filter_by_avail(self, free_set, size, copies_needed):
+        assert isinstance(size, int) and size >= 1
+        assert isinstance(copies_needed, int) and 1 <= copies_needed <= 3
+        stores = []
+        required_avail = size + MiB
+        for fs in self.sort_by_avail():
+            if fs.id in free_set and fs.statvfs().avail >= required_avail:
+                stores.append(fs)
+                if len(stores) >= copies_needed:
+                    break
+        return stores
 
     def local_stores(self):
         stores = {}
