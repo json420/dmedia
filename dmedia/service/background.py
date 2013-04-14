@@ -117,7 +117,7 @@ class LazyAccess:
     using Database.save_many().  Any conflicts created between the get and save
     are ignored, although logged.
     """
-    def __init__(self, db, seconds=30):
+    def __init__(self, db, seconds=15):
         self.db = db
         self.delay = seconds * 1000
         self.buf = {}
