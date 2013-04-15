@@ -77,6 +77,7 @@ import ssl
 import threading
 import platform
 import json
+import os
 from hashlib import md5
 import logging
 
@@ -240,6 +241,12 @@ class FileWrapper:
 
     def __iter__(self):
         assert not self._closed
+        os.posix_fadvise(
+            self.fp.fileno(),
+            self.fp.tell(),
+            self.content_length,
+            os.POSIX_FADV_SEQUENTIAL
+        )
         remaining = self.content_length
         while remaining:
             read = min(remaining, MiB)
