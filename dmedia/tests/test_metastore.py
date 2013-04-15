@@ -59,7 +59,7 @@ def create_random_file(fs, db):
 
 
 def random_time():
-    return time.time() - random.randint(0, 100000)
+    return time.time() - random.randint(0, 1234567890)
 
 
 def random_int_time():
@@ -775,11 +775,11 @@ class TestFunctions(TestCase):
             '_id': _id,
             'stored': {
                 fs_id: {
-                    'copies': 18,
-                    'mtime': random_int_time(),
-                    'verified': random_int_time(),
-                    'pinned': True,
-                    'foo': bar,
+                    'copies': 18,  # Replaced
+                    'mtime': random_int_time(),  # Replaced
+                    'verified': random_int_time(),  # Replaced
+                    'pinned': True,  # Preserved
+                    'foo': bar,  # Preserved
                 },
                 fs2_id: {
                     'copies': 1,
@@ -809,29 +809,99 @@ class TestFunctions(TestCase):
         )
 
     def test_mark_corrupt(self):
-        fs = DummyFileStore()
-        ts = time.time()
+        _id = random_file_id()
+        timestamp = random_time()
+        fs_id = random_id()
+        fs2_id = random_id()
 
-        doc = {}
-        metastore.mark_corrupt(doc, fs, ts)
+        # Empty, broken doc:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_corrupt(doc, timestamp, fs_id))
         self.assertEqual(doc, 
             {
+                '_id': _id,
                 'stored': {},
-                'corrupt': {fs.id: {'time': ts}},
+                'corrupt': {
+                    fs_id: {'time': timestamp},
+                },
             }
         )
 
-        id2 = random_id()
-        id3 = random_id()
-        doc = {
-            'stored': {fs.id: 'foo', id2: 'bar'},
-            'corrupt': {id3: 'baz'},
-        }
-        metastore.mark_corrupt(doc, fs, ts)
+        # doc['corrupt'] and doc['stored'] both have wrong type:
+        doc = {'_id': _id, 'stored': 'very', 'corrupt': 'bad'}
+        self.assertIsNone(metastore.mark_corrupt(doc, timestamp, fs_id))
         self.assertEqual(doc, 
             {
-                'stored': {id2: 'bar'},
-                'corrupt': {id3: 'baz', fs.id: {'time': ts}},
+                '_id': _id,
+                'stored': {},
+                'corrupt': {
+                    fs_id: {'time': timestamp},
+                },
+            }
+        )
+
+        # Ensure that doc['stored'] entry is deleted, doc['corrupt'] is replaced:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs_id: {
+                    'copies': 1,
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
+                    'pinned': True,
+                },
+            },
+            'corrupt': {
+                fs_id: {
+                    'time': random_time(),
+                    'foo': random_id(),
+                    'bar': random_id(),
+                }
+            }
+        }
+        self.assertIsNone(metastore.mark_corrupt(doc, timestamp, fs_id))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {},
+                'corrupt': {
+                    fs_id: {'time': timestamp},
+                },
+            }
+        )
+
+        # Ensure that unrelated entries are not changed:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs_id: {
+                    'copies': 1,
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
+                    'pinned': True,
+                },
+                fs2_id: 'hello',
+            },
+            'corrupt': {
+                fs_id: {
+                    'time': random_time(),
+                    'foo': random_id(),
+                    'bar': random_id(),
+                },
+                fs2_id: 'world',
+            }
+        }
+        self.assertIsNone(metastore.mark_corrupt(doc, timestamp, fs_id))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs2_id: 'hello',
+                },
+                'corrupt': {
+                    fs_id: {'time': timestamp},
+                    fs2_id: 'world',
+                },
             }
         )
 

@@ -126,7 +126,7 @@ def create_stored(_id, *filestores):
 
 def merge_stored(old, new):
     """
-    Update doc['stored'] based on new storage information in *new*.
+    Update doc['stored'] based on storage information in *new*.
     """
     assert isinstance(old, dict)
     assert isinstance(new, dict)
@@ -186,11 +186,11 @@ def mark_verified(doc, fs_id, new_value):
     old_value.update(new_value)
 
 
-def mark_corrupt(doc, fs, timestamp):
+def mark_corrupt(doc, timestamp, fs_id):
     stored = get_dict(doc, 'stored')
-    stored.pop(fs.id, None)
+    stored.pop(fs_id, None)
     corrupt = get_dict(doc, 'corrupt')
-    corrupt[fs.id] = {'time': timestamp}
+    corrupt[fs_id] = {'time': timestamp}
 
 
 def mark_copied(doc, src, timestamp, *dst):
@@ -234,7 +234,7 @@ class VerifyContext:
             self.db.update(self.doc, mark_verified, self.fs.id, value)
         elif issubclass(exc_type, CorruptFile):
             log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_corrupt, self.fs, time.time())
+            self.db.update(self.doc, mark_corrupt, time.time(), self.fs.id)
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
             self.db.update(self.doc, mark_removed, self.fs.id)
@@ -262,7 +262,7 @@ class ScanContext:
             self.db.update(self.doc, mark_removed, self.fs.id)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_corrupt, self.fs, time.time())
+            self.db.update(self.doc, mark_corrupt, time.time(), self.fs.id)
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
             self.db.update(self.doc, mark_mismatch, self.fs)
@@ -656,6 +656,6 @@ class MetaStore:
             self.db.update(doc, mark_removed, src.id)
         except CorruptFile:
             log.error('%s is corrupt in %s', _id, src.id)
-            self.db.update(doc, mark_corrupt, src, time.time())
+            self.db.update(doc, mark_corrupt, time.time(), src.id)
         return doc
 
