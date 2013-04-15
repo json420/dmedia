@@ -222,8 +222,6 @@ class Input:
 
 
 MiB = 1024 * 1024
-CHUNK_SIZE = 8 * MiB
-
 
 class FileWrapper:
     """
@@ -244,7 +242,7 @@ class FileWrapper:
         assert not self._closed
         remaining = self.content_length
         while remaining:
-            read = min(remaining, CHUNK_SIZE)
+            read = min(remaining, MiB)
             remaining -= read
             data = self.fp.read(read)
             assert len(data) == read
