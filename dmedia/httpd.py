@@ -287,7 +287,8 @@ class Handler:
             while self.handle_one():
                 count += 1
         finally:
-            log.info('%s\tHandled %r Requests', self.remote, count)
+            pass
+            #log.info('%s\tHandled %r Requests', self.remote, count)
 
     def handle_one(self):
         self.start = None

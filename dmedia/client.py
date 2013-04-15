@@ -114,16 +114,24 @@ def check_slice(ch, start, stop):
     return (ch, start, stop)
 
 
-def range_header(ch, start=0, stop=None):
-    check_slice(ch, start, stop)
-    if start == 0 and (stop is None or stop == len(ch.leaf_hashes)):
-        return {}
-    _start = start * LEAF_SIZE
-    if stop is None or stop == len(ch.leaf_hashes):
-        _stop = None
-    else:
-        _stop = stop * LEAF_SIZE
-    return {'Range': bytes_range(_start, _stop)}
+def range_header(ch, start, stop):
+    """
+    When needed, convert a leaf-wise slice into an HTTP Range header.
+
+    If the slice represents the entire file, None is returned.
+
+    Note: we assume (ch, start, stop) were already validated with
+    `check_slice()`.  See `HTTPClient.get_leaves()`.
+    """
+    count = len(ch.leaf_hashes)
+    assert 0 <= start < stop <= count
+    if start == 0 and stop == count:
+        return None
+    start_bytes = start * LEAF_SIZE
+    stop_bytes = min(ch.file_size, stop * LEAF_SIZE)
+    assert 0 <= start_bytes < stop_bytes <= ch.file_size
+    end_bytes = stop_bytes - 1
+    return {'Range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
 
 
 def response_reader(response, queue, start=0):
@@ -174,19 +182,18 @@ class Downloader:
         self.tmp_fp = ms.start_download(fs, self.doc)
         self.ms = ms
         self.fs = fs
-        resuming = (self.tmp_fp.mode != 'xb')
-        if resuming:
-            gen = missing_leaves(self.ch, self.tmp_fp)
-        else:
-            gen = enumerate(self.ch.leaf_hashes)
-        self.missing = OrderedDict(gen)
-        if resuming:
-            log.info('Resuming download of %s, need %d/%d leaves',
-                self.ch.id, len(self.missing), len(self.ch.leaf_hashes)
+        if self.tmp_fp.mode != 'xb':
+            log.info('Resuming download of %s in %r', self.ch.id, fs)
+            self.missing = OrderedDict(missing_leaves(self.ch, self.tmp_fp))
+            log.info('Need %d of %d leaves in partial file %s',
+                len(self.missing), len(self.ch.leaf_hashes), self.ch.id
             )
+        else:
+            self.missing = OrderedDict(enumerate(self.ch.leaf_hashes))
 
     def write_leaf(self, leaf):
         if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
+            log.warning('Received corrupt leaf %s[%d]', self.ch.id, leaf.index)
             return False
         self.tmp_fp.seek(leaf.index * LEAF_SIZE)
         self.tmp_fp.write(leaf.data)
@@ -225,9 +232,12 @@ class Downloader:
 
 class HTTPClient(CouchBase):
     def get_leaves(self, ch, start=0, stop=None):
-        headers = range_header(ch, start, stop)
-        log.info('Downloading %s from %s', ch.id, self.url)
-        return self.request('GET', ('files', ch.id), None, headers=headers)
+        (ch, start, stop) = check_slice(ch, start, stop)
+        log.info('Requesting leaves %s[%d:%d] from %s',
+                ch.id, start, stop, self.url)
+        return self.request('GET', ('files', ch.id), None,
+            headers=range_header(ch, start, stop),
+        )
 
     def iter_leaves(self, ch, start=0, stop=None):
         response = self.get_leaves(ch, start, stop)

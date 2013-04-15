@@ -297,7 +297,9 @@ class FilesApp:
             stop = st.size
         if not (0 <= start < stop <= st.size):
             raise WSGIError('416 Requested Range Not Satisfiable')
-        log.info('Serving %s[%d:%d] to %s', _id, start, stop, environ['REMOTE_ADDR'])
+        log.info('Returning bytes %s[%d:%d] to %s:%d', _id, start, stop,
+            environ['REMOTE_ADDR'], environ['REMOTE_PORT']
+        )
 
         length = str(stop - start)
         headers = [('Content-Length', length)]

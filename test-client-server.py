@@ -38,8 +38,8 @@ ssl_context = build_ssl_context(ssl_config)
 fs = init_filestore('/media/jderose/dmedia2')[0]
 file_id = 'DDKVF5J6YJJ3WJAIDNZDDWN672MXPLTWVGVYGI7N63SRFIHV'
 downloader = Downloader(file_id, ms, fs)
-print(dumps(downloader.doc, True))
-print(len(downloader.missing))
+#print(dumps(downloader.doc, True))
+#print(len(downloader.missing))
 
 
 for (machine_id, info) in peers.items():
@@ -54,7 +54,7 @@ for (machine_id, info) in peers.items():
     start = time.monotonic()
 
     downloader.download_from(client)
-    print(dumps(downloader.doc, True))
+    #print(dumps(downloader.doc, True))
 
     delta = time.monotonic() - start
     rate = int(downloader.ch.file_size / delta)
