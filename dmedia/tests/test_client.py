@@ -43,71 +43,7 @@ class FakeResponse:
         return self._data
 
 
-class TestErrors(TestCase):
-    def test_errors(self):
-        self.assertEqual(
-            client.errors,
-            {
-                400: client.BadRequest,
-                401: client.Unauthorized,
-                403: client.Forbidden,
-                404: client.NotFound,
-                405: client.MethodNotAllowed,
-                406: client.NotAcceptable,
-                409: client.Conflict,
-                412: client.PreconditionFailed,
-                415: client.BadContentType,
-                416: client.BadRangeRequest,
-                417: client.ExpectationFailed,
-            }
-        )
-        method = 'MOST'
-        path = '/restful?and=awesome'
-        for (status, klass) in client.errors.items():
-            reason = random_id()
-            r = FakeResponse(status, reason)
-            inst = klass(r, method, path)
-            self.assertIs(inst.response, r)
-            self.assertEqual(inst.method, method)
-            self.assertEqual(inst.path, path)
-            self.assertEqual(inst.data, r._data)
-            self.assertEqual(
-                str(inst),
-                '{} {}: {} {}'.format(status, reason, method, path)
-            )
-
-
 class TestFunctions(TestCase):
-    def test_http_conn(self):
-        f = client.http_conn
-
-        # Test with bad scheme
-        with self.assertRaises(ValueError) as cm:
-            (conn, t) = f('ftp://foo.s3.amazonaws.com/')
-        self.assertEqual(
-            str(cm.exception),
-            "url scheme must be http or https: 'ftp://foo.s3.amazonaws.com/'"
-        )
-
-        # Test with bad url
-        with self.assertRaises(ValueError) as cm:
-            (inst, t) = f('http:foo.s3.amazonaws.com/')
-        self.assertEqual(
-            str(cm.exception),
-            "bad url: 'http:foo.s3.amazonaws.com/'"
-        )
-
-        # Test with HTTP
-        (conn, t) = f('http://foo.s3.amazonaws.com/')
-        self.assertIsInstance(conn, HTTPConnection)
-        self.assertNotIsInstance(conn, HTTPSConnection)
-        self.assertEqual(t, ('http', 'foo.s3.amazonaws.com', '/', '', '', ''))
-
-        # Test with HTTPS
-        (conn, t) = f('https://foo.s3.amazonaws.com/')
-        self.assertIsInstance(conn, HTTPSConnection)
-        self.assertEqual(t, ('https', 'foo.s3.amazonaws.com', '/', '', '', ''))
-
     def test_bytes_range(self):
         f = client.bytes_range
         self.assertEqual(f(0, 500), 'bytes=0-499')
@@ -216,44 +152,6 @@ class TestFunctions(TestCase):
 
 
 class TestHTTPClient(TestCase):        
-    def test_init(self):
-        bad = 'sftp://localhost:5984/'
-        with self.assertRaises(ValueError) as cm:
-            inst = client.HTTPClient(bad)
-        self.assertEqual(
-            str(cm.exception),
-            'url scheme must be http or https: {!r}'.format(bad)
-        )
-        bad = 'http:localhost:5984/foo/bar'
-        with self.assertRaises(ValueError) as cm:
-            inst = client.HTTPClient(bad)
-        self.assertEqual(
-            str(cm.exception),
-            'bad url: {!r}'.format(bad)
-        )
+    def test_get_leaves(self):
+        inst = client.HTTPClient()
 
-        inst = client.HTTPClient('https://localhost:5984/couch?foo=bar/')
-        self.assertEqual(inst.url, 'https://localhost:5984/couch/')
-        self.assertEqual(inst.basepath, '/couch/')
-        self.assertIsInstance(inst.conn, HTTPSConnection)
-
-        inst = client.HTTPClient('http://localhost:5984?/')
-        self.assertEqual(inst.url, 'http://localhost:5984/')
-        self.assertEqual(inst.basepath, '/')
-        self.assertIsInstance(inst.conn, HTTPConnection)
-
-        inst = client.HTTPClient('http://localhost:5001/')
-        self.assertEqual(inst.url, 'http://localhost:5001/')
-        self.assertIsInstance(inst.conn, HTTPConnection)
-
-        inst = client.HTTPClient('http://localhost:5002')
-        self.assertEqual(inst.url, 'http://localhost:5002/')
-        self.assertIsInstance(inst.conn, HTTPConnection)
-
-        inst = client.HTTPClient('https://localhost:5003/')
-        self.assertEqual(inst.url, 'https://localhost:5003/')
-        self.assertIsInstance(inst.conn, HTTPSConnection)
-
-        inst = client.HTTPClient('https://localhost:5004')
-        self.assertEqual(inst.url, 'https://localhost:5004/')
-        self.assertIsInstance(inst.conn, HTTPSConnection)

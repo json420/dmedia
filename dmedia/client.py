@@ -24,152 +24,11 @@ dmedia HTTP client.
 """
 
 import os
-from urllib.parse import urlparse
-from http.client import HTTPConnection, HTTPSConnection
 from collections import OrderedDict
 
+from microfiber import CouchBase
 from filestore import LEAF_SIZE, TYPE_ERROR, hash_leaf, reader_iter
 from filestore import Leaf, ContentHash, SmartQueue, _start_thread
-
-from dmedia import __version__
-
-
-USER_AGENT = 'dmedia {}'.format(__version__)
-
-
-class HTTPError(Exception):
-    """
-    Base class for custom HTTP client exceptions.
-    """
-
-    def __init__(self, response, method, path):
-        self.response = response
-        self.method = method
-        self.path = path
-        self.data = response.read()
-        super().__init__(
-            '{} {}: {} {}'.format(response.status, response.reason, method, path)
-        )
-
-
-class ClientError(HTTPError):
-    """
-    Base class for all 4xx Client Error exceptions.
-    """
-
-
-class BadRequest(ClientError):
-    """
-    400 Bad Request.
-    """
-
-
-class Unauthorized(ClientError):
-    """
-    401 Unauthorized.
-    """
-
-
-class Forbidden(ClientError):
-    """
-    403 Forbidden.
-    """
-
-
-class NotFound(ClientError):
-    """
-    404 Not Found.
-    """
-
-
-class MethodNotAllowed(ClientError):
-    """
-    405 Method Not Allowed.
-    """
-
-
-class NotAcceptable(ClientError):
-    """
-    406 Not Acceptable.
-    """
-
-
-class Conflict(ClientError):
-    """
-    409 Conflict.
-
-    Raised when the request resulted in an update conflict.
-    """
-
-
-class PreconditionFailed(ClientError):
-    """
-    412 Precondition Failed.
-    """
-
-
-class BadContentType(ClientError):
-    """
-    415 Unsupported Media Type.
-    """
-
-
-class BadRangeRequest(ClientError):
-    """
-    416 Requested Range Not Satisfiable.
-    """
-
-
-class ExpectationFailed(ClientError):
-    """
-    417 Expectation Failed.
-
-    Raised when a bulk operation failed.
-    """
-
-
-class ServerError(HTTPError):
-    """
-    Used to raise exceptions for any 5xx Server Errors.
-    """
-
-
-errors = {
-    400: BadRequest,
-    401: Unauthorized,
-    403: Forbidden,
-    404: NotFound,
-    405: MethodNotAllowed,
-    406: NotAcceptable,
-    409: Conflict,
-    412: PreconditionFailed,
-    415: BadContentType,
-    416: BadRangeRequest,
-    417: ExpectationFailed,
-}
-
-
-def http_conn(url, **options):
-    """
-    Return (connection, parsed) tuple.
-
-    For example:
-
-    >>> (conn, parsed) = http_conn('http://foo.s3.amazonaws.com/')
-
-    The returned connection will be either an ``HTTPConnection`` or
-    ``HTTPSConnection`` instance based on the *url* scheme.
-
-    The 2nd item in the returned tuple will be *url* parsed with ``urlparse()``.
-    """
-    u = urlparse(url)
-    if u.scheme not in ('http', 'https'):
-        raise ValueError('url scheme must be http or https: {!r}'.format(url))
-    if not u.netloc:
-        raise ValueError('bad url: {!r}'.format(url))
-    klass = (HTTPConnection if u.scheme == 'http' else HTTPSConnection)
-    conn = klass(u.netloc, **options)
-    return (conn, u)
 
 
 def bytes_range(start, stop=None):
@@ -309,6 +168,7 @@ def missing_leaves(ch, tmp_fp):
 class DownloadComplete(Exception):
     pass
 
+
 class DownloadWriter:
     def __init__(self, ch, store):
         self.ch = ch
@@ -351,35 +211,8 @@ class DownloadWriter:
         return self.store.verify_and_move(tmp_fp, self.ch.id)
 
 
-class HTTPClient:
-    def __init__(self, url, debug=False):
-        (self.conn, u) = http_conn(url)
-        self.basepath = (u.path if u.path.endswith('/') else u.path + '/')
-        self.url = ''.join([u.scheme, '://', u.netloc, self.basepath])
-        self.u = u
-        if debug:
-            self.conn.set_debuglevel(1)
-
-    def request(self, method, relpath, body=None, headers=None):
-        assert not relpath.startswith('/')
-        path = self.basepath + relpath
-        h = {'User-Agent': USER_AGENT}
-        if headers:
-            h.update(headers)
-        try:
-            self.conn.request(method, path, body, h)
-            response = self.conn.getresponse()
-        except Exception as e:
-            self.conn.close()
-            raise e
-        if response.status >= 500:
-            raise ServerError(response, method, path)
-        if response.status >= 400:
-            E = errors.get(response.status, ClientError)
-            raise E(response, method, path)
-        return response
-
-    def get(self, ch, start=0, stop=None):
+class HTTPClient(CouchBase):
+    def get_leaves(self, ch, start=0, stop=None):
         headers = range_header(ch, start, stop)
-        return self.request('GET', ch.id, headers=headers)
+        return self.request('GET', ('files', ch.id), None, headers=headers)
 

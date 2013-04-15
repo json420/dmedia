@@ -6,17 +6,19 @@ from os import path
 import time
 
 import dbus
-from microfiber import Database, CouchBase, build_ssl_context, dumps
+from microfiber import Database, build_ssl_context, dumps
 from filestore import LEAF_SIZE
 
 import dmedia
 from dmedia.units import bytes10
-from dmedia.client import threaded_response_iter
+from dmedia.metastore import MetaStore
+from dmedia.client import HTTPClient, threaded_response_iter
 
 
 Dmedia = dbus.SessionBus().get_object('org.freedesktop.Dmedia', '/')
 env = json.loads(Dmedia.GetEnv())
 db = Database('dmedia-0', env)
+ms = MetaStore(db)
 peers = db.get('_local/peers')['peers']
 
 basedir = dmedia.get_dmedia_dir()
@@ -29,14 +31,11 @@ ssl_config = {
 ssl_context = build_ssl_context(ssl_config)
 
 
-class Client(CouchBase):
-    def get(self, _id):
-        return self.request('GET', ('files', _id), None)
-
-
 
 file_id = 'DQQMPJ7IZVXUWXVGZTYLD74XU6GJ3HFPFR2XTPORKTK2CCGE'
 file_id = 'DDKVF5J6YJJ3WJAIDNZDDWN672MXPLTWVGVYGI7N63SRFIHV'
+ch = ms.content_hash(file_id)
+
 for (machine_id, info) in peers.items():
     client_env = {
         'url': info['url'],
@@ -45,16 +44,16 @@ for (machine_id, info) in peers.items():
             'check_hostname': False,
         },
     }
-    client = Client(client_env)
+    client = HTTPClient(client_env)
     size = 0
     start = time.monotonic()
-    for leaf in threaded_response_iter(client.get(file_id)):
+    for leaf in threaded_response_iter(client.get_leaves(ch)):
         size += len(leaf.data)
     delta = time.monotonic() - start
     rate = int(size / delta)
     print(bytes10(rate))
     print(bytes10(size))
-    
+
 
 sys.exit()
 

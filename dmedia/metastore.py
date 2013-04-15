@@ -292,6 +292,18 @@ class MetaStore:
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
 
+    def doc_and_id(self, obj):
+        if isinstance(obj, dict):
+            return (obj, obj['_id'])
+        if isinstance(obj, str):
+            return (self.db.get(obj), obj)
+        raise TypeError('obj must be a doc or _id (a dict or str)')
+
+    def content_hash(self, doc_or_id, unpack=True):
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
+        return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
+
     def schema_check(self):
         """
         If needed, migrate mtime from float to int.
@@ -603,13 +615,6 @@ class MetaStore:
         mark_added(doc, fs)
         self.db.save(doc)
         return ch
-
-    def doc_and_id(self, obj):
-        if isinstance(obj, dict):
-            return (obj, obj['_id'])
-        if isinstance(obj, str):
-            return (self.db.get(obj), obj)
-        raise TypeError('obj must be a doc or _id (a dict or str)')
 
     def copy(self, src, doc_or_id, *dst):
         (doc, _id) = self.doc_and_id(doc_or_id)
