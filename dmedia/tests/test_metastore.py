@@ -1130,6 +1130,104 @@ class TestFunctions(TestCase):
             }
         )
 
+    def test_mark_mismatched(self):
+        _id = random_file_id()
+        fs1_id = random_id()
+        fs1_mtime = random_int_time()
+        fs2_id = random_id()
+        fs2_mtime = random_int_time()
+        fs2_verified = random_int_time()
+
+        # Empty, broken doc:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_mismatched(doc, fs1_id, fs1_mtime))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 0,
+                        'mtime': fs1_mtime,
+                    },
+                },
+            }
+        )
+
+        # Wrong doc['stored'] type:
+        doc = {'_id': _id, 'stored': 'naughty naughty'}
+        self.assertIsNone(metastore.mark_mismatched(doc, fs1_id, fs1_mtime))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 0,
+                        'mtime': fs1_mtime,
+                    },
+                },
+            }
+        )
+
+        # Wrong doc['stored'][fs1_id] type:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1_id: 'junk',
+                fs2_id: 'also junk',
+            },
+        }
+        self.assertIsNone(metastore.mark_mismatched(doc, fs1_id, fs1_mtime))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 0,
+                        'mtime': fs1_mtime,
+                    },
+                    fs2_id: 'also junk',
+                },
+            }
+        )
+
+        # Make sure value is properly updated, others left alone:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1_id: {
+                    'copies': 17,
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
+                    'pinned': True,
+                },
+                fs2_id: {
+                    'copies': 18,
+                    'mtime': fs2_mtime,
+                    'verified': fs2_verified,
+                    'pinned': True,
+                },
+            },
+        }
+        self.assertIsNone(metastore.mark_mismatched(doc, fs1_id, fs1_mtime))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 0,
+                        'mtime': fs1_mtime,
+                        'pinned': True,
+                    },
+                    fs2_id: {
+                        'copies': 18,
+                        'mtime': fs2_mtime,
+                        'verified': fs2_verified,
+                        'pinned': True,
+                    },
+                },
+            }
+        )
+
     def test_relink_iter(self):
         tmp = TempDir()
         fs = FileStore(tmp.dir)

@@ -201,17 +201,14 @@ def mark_copied(doc, timestamp, src_id, new):
     old[src_id]['verified'] = int(timestamp)
 
 
-def mark_mismatch(doc, fs):
+def mark_mismatched(doc, fs_id, mtime):
     """
-    Update mtime and copies, delete verified, preserve pinned.
+    Update 'mtime' and 'copies', delete 'verified', preserve 'pinned'.
     """
-    _id = doc['_id']
+    assert isinstance(mtime, int)
     stored = get_dict(doc, 'stored')
-    value = get_dict(stored, fs.id)
-    value.update(
-        mtime=get_mtime(fs, _id),
-        copies=0,
-    )
+    value = get_dict(stored, fs_id)
+    value.update({'copies': 0, 'mtime': mtime})
     value.pop('verified', None)
 
 
@@ -264,7 +261,8 @@ class ScanContext:
             self.db.update(self.doc, mark_corrupt, time.time(), self.fs.id)
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_mismatch, self.fs)
+            mtime = get_mtime(self.fs, self.doc['_id'])
+            self.db.update(self.doc, mark_mismatched, self.fs.id, mtime)
         else:
             return False
         return True
