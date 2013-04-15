@@ -103,18 +103,23 @@ def get_mtime(fs, _id):
     return int(fs.stat(_id).mtime)
 
 
+def create_stored_value(_id, fs, verified=None):
+    value = {
+        'copies': fs.copies,
+        'mtime': get_mtime(fs, _id),
+    }
+    if verified is not None:
+        assert isinstance(verified, (int, float))
+        value['verified'] = int(verified)
+    return value
+
+
 def create_stored(_id, *filestores):
     """
     Create doc['stored'] for file with *_id* stored in *filestores*.
     """
     return dict(
-        (
-            fs.id,
-            {
-                'copies': fs.copies,
-                'mtime': get_mtime(fs, _id),
-            }
-        )
+        (fs.id, create_stored_value(_id, fs))
         for fs in filestores
     )
 
@@ -170,15 +175,15 @@ def mark_removed(doc, *removed):
         stored.pop(fs_id, None)
 
 
-def mark_verified(doc, fs, timestamp):
-    _id = doc['_id']
+def mark_verified(doc, fs_id, new_value):
+    assert isinstance(new_value, dict)
+    assert set(new_value) == set(['copies', 'mtime', 'verified'])
+    assert isinstance(new_value['copies'], int)
+    assert isinstance(new_value['mtime'], int)
+    assert isinstance(new_value['verified'], int)
     stored = get_dict(doc, 'stored')
-    value = get_dict(stored, fs.id)
-    value.update(
-        copies=fs.copies,
-        mtime=get_mtime(fs, _id),
-        verified=int(timestamp),
-    )
+    old_value = get_dict(stored, fs_id)
+    old_value.update(new_value)
 
 
 def mark_corrupt(doc, fs, timestamp):
@@ -225,7 +230,8 @@ class VerifyContext:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if exc_type is None:
             log.info('Verified %s in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_verified, self.fs, time.time())
+            value = create_stored_value(self.doc['_id'], self.fs, time.time())
+            self.db.update(self.doc, mark_verified, self.fs.id, value)
         elif issubclass(exc_type, CorruptFile):
             log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
             self.db.update(self.doc, mark_corrupt, self.fs, time.time())

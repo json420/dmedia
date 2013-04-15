@@ -698,51 +698,112 @@ class TestFunctions(TestCase):
         )
 
     def test_mark_verified(self):
-        fs = DummyFileStore()
-        ts = time.time()
-        _id = random_id(30)
+        _id = random_file_id()
+        fs_id = random_id()
+        mtime = random_int_time()
+        verified = random_int_time()
+        fs2_id = random_id()
+        mtime2 = random_int_time()
+        bar = random_id()
 
+        # Empty, broken doc:
         doc = {'_id': _id}
-        metastore.mark_verified(doc, fs, ts)
+        value = {'copies': 1, 'mtime': mtime, 'verified': verified}
+        self.assertIsNone(metastore.mark_verified(doc, fs_id, value))
         self.assertEqual(doc,
             {
                 '_id': _id,
                 'stored': {
-                    fs.id: {
+                    fs_id: {
                         'copies': 1,
-                        'mtime': int(fs._mtime),
-                        'verified': int(ts),      
+                        'mtime': mtime,
+                        'verified': verified,
                     },
                 },
             }
         )
-        self.assertIs(fs._file_id, _id)
 
-        fs_id2 = random_id()
-        doc = {
-            '_id': _id, 
-            'stored': {
-                fs.id: {
-                    'copies': 2,
-                    'mtime': int(fs._mtime),
-                    'verified': 4,
-                    'pin': True,
-                },
-                fs_id2: 'foo',
-            },
-        }
-        metastore.mark_verified(doc, fs, ts)
+        # doc['stored'] is wrong type:
+        doc = {'_id': _id, 'stored': 'naught nurse'}
+        value = {'copies': 2, 'mtime': mtime, 'verified': verified}
+        self.assertIsNone(metastore.mark_verified(doc, fs_id, value))
         self.assertEqual(doc,
             {
                 '_id': _id,
                 'stored': {
-                    fs.id: {
-                        'copies': 1,
-                        'mtime': int(fs._mtime),
-                        'verified': int(ts),    
-                        'pin': True,  
+                    fs_id: {
+                        'copies': 2,
+                        'mtime': mtime,
+                        'verified': verified,
                     },
-                    fs_id2: 'foo',
+                },
+            }
+        )
+
+        # old_value is wrong type, plus ensure unrelated entries are not changed:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs_id: 'dirty dirty',
+                fs2_id: {
+                    'copies': 3,
+                    'mtime': mtime2,
+                }
+            },
+        }
+        value = {'copies': 1, 'mtime': mtime, 'verified': verified}
+        self.assertIsNone(metastore.mark_verified(doc, fs_id, value))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs_id: {
+                        'copies': 1,
+                        'mtime': mtime,
+                        'verified': verified,
+                    },
+                    fs2_id: {
+                        'copies': 3,
+                        'mtime': mtime2,
+                    },
+                },
+            }
+        )
+
+        # Ensure new_value is properly merged in with old_value:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs_id: {
+                    'copies': 18,
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
+                    'pinned': True,
+                    'foo': bar,
+                },
+                fs2_id: {
+                    'copies': 1,
+                    'mtime': mtime2,
+                }
+            },
+        }
+        value = {'copies': 2, 'mtime': mtime, 'verified': verified}
+        self.assertIsNone(metastore.mark_verified(doc, fs_id, value))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs_id: {
+                        'copies': 2,
+                        'mtime': mtime,
+                        'verified': verified,
+                        'pinned': True,
+                        'foo': bar,
+                    },
+                    fs2_id: {
+                        'copies': 1,
+                        'mtime': mtime2,
+                    },
                 },
             }
         )
