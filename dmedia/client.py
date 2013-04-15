@@ -116,7 +116,7 @@ def check_slice(ch, start, stop):
 
 def range_header(ch, start, stop):
     """
-    When needed, convert a leaf-wise slice into an HTTP Range header.
+    When needed, convert a leaf-wise slice into a bytes-wise HTTP Range header.
 
     If the slice represents the entire file, None is returned.
 
@@ -185,7 +185,7 @@ class Downloader:
         if self.tmp_fp.mode != 'xb':
             log.info('Resuming download of %s in %r', self.ch.id, fs)
             self.missing = OrderedDict(missing_leaves(self.ch, self.tmp_fp))
-            log.info('Need %d of %d leaves in partial file %s',
+            log.info('Missing %d of %d leaves in partial file %s',
                 len(self.missing), len(self.ch.leaf_hashes), self.ch.id
             )
         else:
@@ -197,8 +197,8 @@ class Downloader:
             return False
         self.tmp_fp.seek(leaf.index * LEAF_SIZE)
         self.tmp_fp.write(leaf.data)
-        lh = self.missing.pop(leaf.index)
-        assert lh == self.ch.leaf_hashes[leaf.index]
+        leaf_hash = self.missing.pop(leaf.index)
+        assert leaf_hash == self.ch.leaf_hashes[leaf.index]
         return True
 
     def next_slice(self):
