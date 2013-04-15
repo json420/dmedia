@@ -213,6 +213,7 @@ class RootApp:
         }
 
     def __call__(self, environ, start_response):
+        log.info(environ['PATH_INFO'])
         if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
             raise WSGIError('403 Forbidden SSL')
         if environ.get('SSL_CLIENT_I_DN_CN') != self.user_id:
@@ -278,7 +279,8 @@ class FilesApp:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
-        except Exception:
+        except Exception as e:
+            log.exception('%s %s', _id, e)
             raise WSGIError('404 Not Found')
 
         if 'HTTP_RANGE' in environ:
