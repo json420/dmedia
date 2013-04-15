@@ -1,14 +1,60 @@
 #!/usr/bin/python3
 
-from microfiber import dmedia_env
-from filestore import FileStore
-import time
+import sys
+import json
+from os import path
 
-from dmedia.core import Core, start_file_server
+import dbus
+from microfiber import Database, CouchBase, build_ssl_context, dumps
+from filestore import LEAF_SIZE
+
+import dmedia
+from dmedia.client import threaded_response_iter
+
+
+Dmedia = dbus.SessionBus().get_object('org.freedesktop.Dmedia', '/')
+env = json.loads(Dmedia.GetEnv())
+db = Database('dmedia-0', env)
+peers = db.get('_local/peers')['peers']
+
+basedir = dmedia.get_dmedia_dir()
+ssldir = path.join(basedir, 'ssl')
+ssl_config = {
+    'ca_file': path.join(ssldir, env['user_id'] + '.ca'),
+    'cert_file': path.join(ssldir, env['machine_id'] + '.cert'),
+    'key_file': path.join(ssldir, env['machine_id'] + '.key'),
+}
+ssl_context = build_ssl_context(ssl_config)
+
+
+class Client(CouchBase):
+    def get(self, _id):
+        return self.request('GET', ('files', _id), None)
+
+
+
+file_id = 'DQQMPJ7IZVXUWXVGZTYLD74XU6GJ3HFPFR2XTPORKTK2CCGE'
+for (machine_id, info) in peers.items():
+    client_env = {
+        'url': info['url'],
+        'ssl': {
+            'context': ssl_context,
+            'check_hostname': False,
+        },
+    }
+    client = Client(client_env)
+    for leaf in threaded_response_iter(client.get(file_id)):
+        print(leaf.index)
+    
+
+sys.exit()
+
 from dmedia.tests.base import TempDir
 from dmedia.client import HTTPClient, threaded_response_iter
 from dmedia.client import DownloadWriter, DownloadComplete
 from dmedia.local import LocalSlave
+
+
 
 core = Core(dmedia_env())
 (httpd, port) = start_file_server(core.env)

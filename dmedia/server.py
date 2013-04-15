@@ -32,6 +32,7 @@ import logging
 
 from filestore import DIGEST_B32LEN, LEAF_SIZE
 from microfiber import dumps, basic_auth_header, CouchBase, dumps
+from dbase32.rfc3548 import isb32
 
 import dmedia
 from dmedia import __version__
