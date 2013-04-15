@@ -233,8 +233,7 @@ class Downloader:
 class HTTPClient(CouchBase):
     def get_leaves(self, ch, start=0, stop=None):
         (ch, start, stop) = check_slice(ch, start, stop)
-        log.info('Requesting leaves %s[%d:%d] from %s',
-                ch.id, start, stop, self.url)
+        log.info('GET leaves %s[%d:%d] from %s', ch.id, start, stop, self.url)
         return self.request('GET', ('files', ch.id), None,
             headers=range_header(ch, start, stop),
         )

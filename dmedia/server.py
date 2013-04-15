@@ -297,7 +297,7 @@ class FilesApp:
             stop = st.size
         if not (0 <= start < stop <= st.size):
             raise WSGIError('416 Requested Range Not Satisfiable')
-        log.info('Returning bytes %s[%d:%d] to %s:%d', _id, start, stop,
+        log.info('GET=> bytes %s[%d:%d] to %s:%s', _id, start, stop,
             environ['REMOTE_ADDR'], environ['REMOTE_PORT']
         )
 
