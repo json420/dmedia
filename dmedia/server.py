@@ -213,7 +213,6 @@ class RootApp:
         }
 
     def __call__(self, environ, start_response):
-        log.info(environ['PATH_INFO'])
         if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
             raise WSGIError('403 Forbidden SSL')
         if environ.get('SSL_CLIENT_I_DN_CN') != self.user_id:
