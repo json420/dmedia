@@ -144,7 +144,18 @@ def mark_added(doc, *filestores):
     merge_stored(old, new)
 
 
+def mark_partial(doc, timestamp, fs_id):
+    """
+    Add download in progress entry in doc['partial'].
+    """
+    partial = get_dict(doc, 'partial')
+    partial[fs_id] = {'time': timestamp}
+
+
 def mark_downloaded(doc, fs_id, new):
+    """
+    Update doc appropriately after a download completes.
+    """
     assert fs_id in new
     old = get_dict(doc, 'stored')
     merge_stored(old, new)

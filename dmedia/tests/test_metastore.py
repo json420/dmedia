@@ -58,7 +58,11 @@ def create_random_file(fs, db):
     return db.get(ch.id)
 
 
-def random_mtime():
+def random_time():
+    return time.time() - random.randint(0, 100000)
+
+
+def random_int_time():
     return random.randint(1, 1234567890)
 
 
@@ -71,7 +75,7 @@ class DummyFileStore:
     def __init__(self):
         self.id = random_id()
         self.copies = 1
-        self._mtime = time.time() - random.randint(0, 10000)
+        self._mtime = random_time()
         self._calls = 0
 
     def stat(self, _id):
@@ -381,15 +385,97 @@ class TestFunctions(TestCase):
             }
         )
 
+    def test_mark_partial(self):
+        _id = random_file_id()
+        fs1_id = random_id()
+        fs2_id = random_id()
+        timestamp = random_time()
+
+        # Empty, broken doc:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'partial': {
+                    fs1_id: {'time': timestamp},
+                }
+            }
+        )
+
+        # doc['partial'] isn't a dict:
+        doc = {'_id': _id, 'partial': 'hello'}
+        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'partial': {
+                    fs1_id: {'time': timestamp},
+                }
+            }
+        )
+
+        # make sure existing doc['partial'][fs1_id] is replaced:
+        doc = {
+            '_id': _id,
+            'partial': {
+                fs1_id: {'time': random_time(), 'foo': 'bar'},
+            }
+        }
+        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'partial': {
+                    fs1_id: {'time': timestamp},
+                },
+            }
+        )
+
+        # make sure other items in doc['partial'] aren't disturbed:
+        doc = {
+            '_id': _id,
+            'partial': {
+                fs1_id: 'junk',
+                fs2_id: 'also junk',
+            }
+        }
+        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'partial': {
+                    fs1_id: {'time': timestamp},
+                    fs2_id: 'also junk',
+                },
+            }
+        )
+
     def test_mark_downloaded(self):
         _id = random_file_id()
         fs1_id = random_id()
         fs2_id = random_id()
-        mtime1 = random_mtime()
-        mtime2 = random_mtime()
+        mtime1 = random_int_time()
+        mtime2 = random_int_time()
 
         # Empty, broken doc:
         doc = {'_id': _id}
+        new = {fs1_id: {'mtime': mtime1, 'copies': 1}}
+        self.assertIsNone(metastore.mark_downloaded(doc, fs1_id, new))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 1,
+                        'mtime': mtime1,
+                    },
+                },
+            }
+        )
+
+        # doc['stored'] and doc['partial'] are the wrong type:
+        doc = {'_id': _id, 'stored': 'dirty', 'partial': 'bad'}
         new = {fs1_id: {'mtime': mtime1, 'copies': 1}}
         self.assertIsNone(metastore.mark_downloaded(doc, fs1_id, new))
         self.assertEqual(doc,
@@ -449,8 +535,8 @@ class TestFunctions(TestCase):
             'stored': {
                 fs1_id: {
                     'copies': 2,
-                    'mtime': random_mtime(),
-                    'verified': random_mtime(),
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
                     'pinned': True,
                 },
                 fs2_id: {
