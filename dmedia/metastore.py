@@ -193,13 +193,12 @@ def mark_corrupt(doc, timestamp, fs_id):
     corrupt[fs_id] = {'time': timestamp}
 
 
-def mark_copied(doc, src, timestamp, *dst):
-    assert len(dst) >= 1
-    _id = doc['_id']
+def mark_copied(doc, timestamp, src_id, new):
+    assert src_id in new
+    assert len(new) >= 2
     old = get_dict(doc, 'stored')
-    new = create_stored(_id, src, *dst)
     merge_stored(old, new)
-    old[src.id]['verified'] = int(timestamp)
+    old[src_id]['verified'] = int(timestamp)
 
 
 def mark_mismatch(doc, fs):
@@ -650,7 +649,8 @@ class MetaStore:
             log.info('Copied %s from %s to %s', _id, src.id, 
                 ', '.join(d.id for d in dst)
             )
-            self.db.update(doc, mark_copied, src, time.time(), *dst)
+            new = create_stored(_id, src, *dst)
+            self.db.update(doc, mark_copied, time.time(), src.id, new)
         except FileNotFound:
             log.warning('%s is not in %s', _id, src.id)
             self.db.update(doc, mark_removed, src.id)

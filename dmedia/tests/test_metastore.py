@@ -907,28 +907,35 @@ class TestFunctions(TestCase):
 
     def test_mark_copied(self):
         _id = random_file_id()
-        src = DummyFileStore()
-        ts = time.time()
-        dst1 = DummyFileStore()
-        dst2 = DummyFileStore()
+        timestamp = random_time()
+        src_id = random_id()
+        src_mtime = random_int_time()
+        dst1_id = random_id()
+        dst1_mtime = random_int_time()
+        dst2_id = random_id()
+        dst2_mtime = random_int_time()
         other_id1 = random_id()
         other_id2 = random_id()
 
         # One destination, no doc['stored']:
         doc = {'_id': _id}
-        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        new = {
+            src_id: {'copies': 1, 'mtime': src_mtime},
+            dst1_id: {'copies': 1, 'mtime': dst1_mtime},
+        }
+        self.assertIsNone(metastore.mark_copied(doc, timestamp, src_id, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    src.id: {
-                        'copies': src.copies,
-                        'mtime': int(src._mtime),
-                        'verified': int(ts),
+                    src_id: {
+                        'copies': 1,
+                        'mtime': src_mtime,
+                        'verified': int(timestamp),
                     },
-                    dst1.id: {
-                        'copies': dst1.copies,
-                        'mtime': int(dst1._mtime),
+                    dst1_id: {
+                        'copies': 1,
+                        'mtime': dst1_mtime,
                     },
                 }
             }
@@ -936,23 +943,28 @@ class TestFunctions(TestCase):
 
         # Two destinations, no doc['stored']:
         doc = {'_id': _id}
-        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        new = {
+            src_id: {'copies': 2, 'mtime': src_mtime},
+            dst1_id: {'copies': 1, 'mtime': dst1_mtime},
+            dst2_id: {'copies': 3, 'mtime': dst2_mtime},
+        }
+        self.assertIsNone(metastore.mark_copied(doc, timestamp, src_id, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    src.id: {
-                        'copies': src.copies,
-                        'mtime': int(src._mtime),
-                        'verified': int(ts),
+                    src_id: {
+                        'copies': 2,
+                        'mtime': src_mtime,
+                        'verified': int(timestamp),
                     },
-                    dst1.id: {
-                        'copies': dst1.copies,
-                        'mtime': int(dst1._mtime),
+                    dst1_id: {
+                        'copies': 1,
+                        'mtime': dst1_mtime,
                     },
-                    dst2.id: {
-                        'copies': dst2.copies,
-                        'mtime': int(dst2._mtime),
+                    dst2_id: {
+                        'copies': 3,
+                        'mtime': dst2_mtime,
                     },
                 }
             }
@@ -962,29 +974,45 @@ class TestFunctions(TestCase):
         doc = {
             '_id': _id,
             'stored': {
-                src.id: {'pinned': True},
+                src_id: {
+                    'copies': 21,
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
+                    'pinned': True,
+                },
+                dst1_id: {
+                    'copies': 17,
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
+                    'pinned': True,
+                },
                 other_id1: 'foo',
                 other_id2: 'bar',
-            }
+            },
         }
-        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        new = {
+            src_id: {'copies': 1, 'mtime': src_mtime},
+            dst1_id: {'copies': 2, 'mtime': dst1_mtime},
+        }
+        self.assertIsNone(metastore.mark_copied(doc, timestamp, src_id, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    src.id: {
-                        'copies': src.copies,
-                        'mtime': int(src._mtime),
-                        'verified': int(ts),
+                    src_id: {
+                        'copies': 1,
+                        'mtime': src_mtime,
+                        'verified': int(timestamp),
                         'pinned': True,
                     },
-                    dst1.id: {
-                        'copies': dst1.copies,
-                        'mtime': int(dst1._mtime),
+                    dst1_id: {
+                        'copies': 2,
+                        'mtime': dst1_mtime,
+                        'pinned': True,
                     },
                     other_id1: 'foo',
                     other_id2: 'bar',
-                }
+                },
             }
         )
 
@@ -992,95 +1020,113 @@ class TestFunctions(TestCase):
         doc = {
             '_id': _id,
             'stored': {
-                src.id: {'pinned': True},
+                src_id: {'pinned': True},
+                dst1_id: 'junk value',
+                dst2_id: {'verified': random_int_time()},
                 other_id1: 'foo',
                 other_id2: 'bar',
             }
         }
-        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        new = {
+            src_id: {'copies': 3, 'mtime': src_mtime},
+            dst1_id: {'copies': 2, 'mtime': dst1_mtime},
+            dst2_id: {'copies': 1, 'mtime': dst2_mtime},
+        }
+        self.assertIsNone(metastore.mark_copied(doc, timestamp, src_id, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    src.id: {
-                        'copies': src.copies,
-                        'mtime': int(src._mtime),
-                        'verified': int(ts),
+                    src_id: {
+                        'copies': 3,
+                        'mtime': src_mtime,
+                        'verified': int(timestamp),
                         'pinned': True,
                     },
-                    dst1.id: {
-                        'copies': dst1.copies,
-                        'mtime': int(dst1._mtime),
+                    dst1_id: {
+                        'copies': 2,
+                        'mtime': dst1_mtime,
                     },
-                    dst2.id: {
-                        'copies': dst2.copies,
-                        'mtime': int(dst2._mtime),
+                    dst2_id: {
+                        'copies': 1,
+                        'mtime': dst2_mtime,
                     },
                     other_id1: 'foo',
                     other_id2: 'bar',
-                }
+                },
             }
         )
 
-        # One destination, broken doc['stored'][src.id]:
+        # One destination, broken doc['stored'][src_id]:
         doc = {
             '_id': _id,
             'stored': {
-                src.id: 'bad dog',
+                src_id: 'bad dog',
                 other_id1: 'foo',
                 other_id2: 'bar',
             }
         }
-        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1))
+        new = {
+            src_id: {'copies': 1, 'mtime': src_mtime},
+            dst1_id: {'copies': 1, 'mtime': dst1_mtime},
+        }
+        self.assertIsNone(metastore.mark_copied(doc, timestamp, src_id, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    src.id: {
-                        'copies': src.copies,
-                        'mtime': int(src._mtime),
-                        'verified': int(ts),
+                    src_id: {
+                        'copies': 1,
+                        'mtime': src_mtime,
+                        'verified': int(timestamp),
                     },
-                    dst1.id: {
-                        'copies': dst1.copies,
-                        'mtime': int(dst1._mtime),
+                    dst1_id: {
+                        'copies': 1,
+                        'mtime': dst1_mtime,
                     },
                     other_id1: 'foo',
                     other_id2: 'bar',
-                }
+                },
             }
         )
 
-        # Two destinations, broken doc['stored'][src.id]:
+        # Two destinations, broken doc['stored'][src_id]:
         doc = {
             '_id': _id,
             'stored': {
-                src.id: 'still a bad dog',
+                src_id: 'still a bad dog',
+                dst1_id: ['hello', 'naughty'],
+                dst2_id: 18,
                 other_id1: 'foo',
                 other_id2: 'bar',
             }
         }
-        self.assertIsNone(metastore.mark_copied(doc, src, ts, dst1, dst2))
+        new = {
+            src_id: {'copies': 3, 'mtime': src_mtime},
+            dst1_id: {'copies': 3, 'mtime': dst1_mtime},
+            dst2_id: {'copies': 3, 'mtime': dst2_mtime},
+        }
+        self.assertIsNone(metastore.mark_copied(doc, timestamp, src_id, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    src.id: {
-                        'copies': src.copies,
-                        'mtime': int(src._mtime),
-                        'verified': int(ts),
+                    src_id: {
+                        'copies': 3,
+                        'mtime': src_mtime,
+                        'verified': int(timestamp),
                     },
-                    dst1.id: {
-                        'copies': dst1.copies,
-                        'mtime': int(dst1._mtime),
+                    dst1_id: {
+                        'copies': 3,
+                        'mtime': dst1_mtime,
                     },
-                    dst2.id: {
-                        'copies': dst2.copies,
-                        'mtime': int(dst2._mtime),
+                    dst2_id: {
+                        'copies': 3,
+                        'mtime': dst2_mtime,
                     },
                     other_id1: 'foo',
                     other_id2: 'bar',
-                }
+                },
             }
         )
 
