@@ -625,6 +625,16 @@ class MetaStore:
         self.db.save(doc)
         return tmp_fp
 
+    def start_download(self, fs, doc):
+        tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
+        self.db.update(doc, mark_partial, time.time(), fs.id)
+        return tmp_fp
+
+    def finish_download(self, fs, doc, tmp_fp):
+        fs.move_to_canonical(tmp_fp, doc['_id'])
+        new = create_stored(doc['_id'], fs)
+        return self.db.update(doc, mark_downloaded, fs.id, new)
+
     def verify_and_move(self, fs, tmp_fp, _id):
         doc = self.db.get(_id)
         ch = fs.verify_and_move(tmp_fp, _id)

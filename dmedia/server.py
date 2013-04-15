@@ -290,7 +290,7 @@ class FilesApp:
             status = '200 OK'
 
         # '416 Requested Range Not Satisfiable'
-
+        log.info('Serving %s to %s', _id, environ['REMOTE_ADDR'])
         stop = (st.size if stop is None else min(st.size, stop))
         length = str(stop - start)
         headers = [('Content-Length', length)]

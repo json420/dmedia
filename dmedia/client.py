@@ -159,16 +159,19 @@ class DownloadComplete(Exception):
     pass
 
 
-class DownloadWriter:
-    def __init__(self, ch, store):
-        self.ch = ch
-        self.store = store
-        self.tmp_fp = store.allocate_partial(ch.file_size, ch.id)
+class Downloader:
+    def __init__(self, doc_or_id, ms, fs):
+        (self.doc, self.id) = ms.doc_and_id(doc_or_id)
+        self.ch = ms.content_hash(self.doc)
+        self.tmp_fp = ms.start_download(fs, self.doc)
+        self.ms = ms
+        self.fs = fs
         self.resumed = (self.tmp_fp.mode != 'xb')
         if self.resumed:
-            gen = missing_leaves(ch, self.tmp_fp)
+            print('resuming...')
+            gen = missing_leaves(self.ch, self.tmp_fp)
         else:
-            gen = enumerate(ch.leaf_hashes)
+            gen = enumerate(self.ch.leaf_hashes)
         self.missing = OrderedDict(gen)
 
     def write_leaf(self, leaf):
@@ -196,7 +199,7 @@ class DownloadWriter:
 
     def finish(self):
         assert not self.missing
-        self.store.move_to_canonical(self.tmp_fp, self.ch.id)
+        self.doc = self.ms.finish_download(self.fs, self.doc, self.tmp_fp)
 
     def download_from(self, client):
         while True:
