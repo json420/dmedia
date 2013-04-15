@@ -221,7 +221,6 @@ def update_project(db, project_id):
 def vigilance(env, stores, first_run):
     try:
         log.info('vigilance() running %r', stores)
-        return
         db = util.get_db(env)
         ms = MetaStore(db)
         if first_run:
