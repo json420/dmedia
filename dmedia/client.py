@@ -118,6 +118,20 @@ def range_header(ch, start=0, stop=None):
     return {'Range': bytes_range(_start, _stop)}
 
 
+def response_reader(response, queue, start=0):
+    try:
+        index = start
+        while True:
+            data = response.read(LEAF_SIZE)
+            if not data:
+                queue.put(None)
+                break
+            queue.put(Leaf(index, data))
+            index += 1
+    except Exception as e:
+        queue.put(e)
+
+
 def response_iter(response, start=0):
     q = SmartQueue(4)
     thread = _start_thread(response_reader, response, q, start)
@@ -127,16 +141,6 @@ def response_iter(response, start=0):
             break
         yield leaf
     thread.join()  # Make sure reader() terminates
-
-
-def response_iter(response, start=0):
-    index = start
-    while True:
-        data = response.read(LEAF_SIZE)
-        if not data:
-            break
-        yield Leaf(index, data)
-        index += 1
 
 
 def missing_leaves(ch, tmp_fp):
