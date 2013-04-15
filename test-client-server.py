@@ -3,12 +3,14 @@
 import sys
 import json
 from os import path
+import time
 
 import dbus
 from microfiber import Database, CouchBase, build_ssl_context, dumps
 from filestore import LEAF_SIZE
 
 import dmedia
+from dmedia.units import bytes10
 from dmedia.client import threaded_response_iter
 
 
@@ -43,8 +45,14 @@ for (machine_id, info) in peers.items():
         },
     }
     client = Client(client_env)
-    for leaf in threaded_response_iter(client.get(file_id)):
-        print(leaf.index)
+    size = 0
+    start = time.monotonic()
+    for i in range(10):
+        for leaf in threaded_response_iter(client.get(file_id)):
+            size += len(leaf.data)
+    delta = time.monotonic() - start
+    rate = int(size / delta)
+    print(bytes10(rate))
     
 
 sys.exit()
