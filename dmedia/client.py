@@ -78,6 +78,7 @@ def check_slice(ch, start, stop):
     """
     Validate the crap out of a leaf-wise slice of a file.
     """
+    # Check `ch` type
     if not isinstance(ch, ContentHash):
         raise TypeError(
             TYPE_ERROR.format('ch', ContentHash, type(ch), ch)
@@ -88,26 +89,29 @@ def check_slice(ch, start, stop):
         )
     if not ch.leaf_hashes:
         raise ValueError('got empty ch.leaf_hashes for ch.id={}'.format(ch.id))
+
+    # Check `start` type:
     if not isinstance(start, int):
         raise TypeError(
             TYPE_ERROR.format('start', int, type(start), start)
         )
-    if not (stop is None or isinstance(stop, int)):
+
+    # Check `stop` type:
+    count = len(ch.leaf_hashes)
+    stop = (count if stop is None else stop)
+    if not isinstance(stop, int):
         raise TypeError(
             TYPE_ERROR.format('stop', int, type(stop), stop)
         )
-    if not (0 <= start < len(ch.leaf_hashes)):
-        raise ValueError('Need 0 <= start < {}; got start={}'.format(
-               len(ch.leaf_hashes), start)
-        )
-    if not (stop is None or 1 <= stop <= len(ch.leaf_hashes)):
-        raise ValueError('Need 1 <= stop <= {}; got stop={}'.format(
-               len(ch.leaf_hashes), stop)
-        )
-    if not (stop is None or start < stop):
+
+    # Check slice math:
+    if not (0 <= start < stop <= count):
         raise ValueError(
-            'Need start < stop; got start={}, stop={}'.format(start, stop)
+            '[{}:{}] invalid slice for {} leaves'.format(start, stop, count)
         )
+
+    # We at most change `stop`, but return them all for clarity:
+    return (ch, start, stop)
 
 
 def range_header(ch, start=0, stop=None):

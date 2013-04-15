@@ -55,15 +55,15 @@ class TestFunctions(TestCase):
         ch = ContentHash('foo', None, (1, 2, 3))
 
         # Test all valid slices
-        client.check_slice(ch, 0, None)
-        client.check_slice(ch, 1, None)
-        client.check_slice(ch, 2, None)
-        client.check_slice(ch, 0, 1)
-        client.check_slice(ch, 0, 2)
-        client.check_slice(ch, 1, 2)
-        client.check_slice(ch, 0, 3)
-        client.check_slice(ch, 1, 3)
-        client.check_slice(ch, 2, 3)
+        self.assertEqual(client.check_slice(ch, 0, None), (ch, 0, 3))
+        self.assertEqual(client.check_slice(ch, 1, None), (ch, 1, 3))
+        self.assertEqual(client.check_slice(ch, 2, None), (ch, 2, 3))
+        self.assertEqual(client.check_slice(ch, 0, 1), (ch, 0, 1))
+        self.assertEqual(client.check_slice(ch, 0, 2), (ch, 0, 2))
+        self.assertEqual(client.check_slice(ch, 1, 2), (ch, 1, 2))
+        self.assertEqual(client.check_slice(ch, 0, 3), (ch, 0, 3))
+        self.assertEqual(client.check_slice(ch, 1, 3), (ch, 1, 3))
+        self.assertEqual(client.check_slice(ch, 2, 3), (ch, 2, 3))
 
         # ch type
         with self.assertRaises(TypeError) as cm:
@@ -108,47 +108,26 @@ class TestFunctions(TestCase):
             TYPE_ERROR.format('stop', int, float, 1.0)
         )
 
-        # start value
+        # start < 0:
         with self.assertRaises(ValueError) as cm:
             client.check_slice(ch, -1, None)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 0 <= start < 3; got start=-1'
-        )
+        self.assertEqual(str(cm.exception), '[-1:3] invalid slice for 3 leaves')
         with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 3, None)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 0 <= start < 3; got start=3'
-        )
+            client.check_slice(ch, -1, 3)
+        self.assertEqual(str(cm.exception), '[-1:3] invalid slice for 3 leaves')
 
-        # stop value
+        # stop > len(ch.leaf_hashes):
         with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 0, 0)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 1 <= stop <= 3; got stop=0'
-        )
-        with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 0, 4)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 1 <= stop <= 3; got stop=4'
-        )
+            client.check_slice(ch, 1, 4)
+        self.assertEqual(str(cm.exception), '[1:4] invalid slice for 3 leaves')
 
-        # start < stop
-        with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 2, 1)
-        self.assertEqual(
-            str(cm.exception),
-            'Need start < stop; got start=2, stop=1'
-        )
+        # start >= stop:
         with self.assertRaises(ValueError) as cm:
             client.check_slice(ch, 1, 1)
-        self.assertEqual(
-            str(cm.exception),
-            'Need start < stop; got start=1, stop=1'
-        )
+        self.assertEqual(str(cm.exception), '[1:1] invalid slice for 3 leaves')
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, 2, 1)
+        self.assertEqual(str(cm.exception), '[2:1] invalid slice for 3 leaves')
 
 
 class TestHTTPClient(TestCase):        
