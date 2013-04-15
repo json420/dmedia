@@ -163,10 +163,11 @@ def mark_downloaded(doc, fs_id, new):
         del doc['partial']
 
 
-def mark_removed(doc, *filestores):
+def mark_removed(doc, *removed):
     stored = get_dict(doc, 'stored')
-    for fs in filestores:
-        stored.pop(fs.id, None)
+    for fs_id in removed:
+        assert isinstance(fs_id, str)
+        stored.pop(fs_id, None)
 
 
 def mark_verified(doc, fs, timestamp):
@@ -230,7 +231,7 @@ class VerifyContext:
             self.db.update(self.doc, mark_corrupt, self.fs, time.time())
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_removed, self.fs)
+            self.db.update(self.doc, mark_removed, self.fs.id)
         else:
             return False
         return True
@@ -252,7 +253,7 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_removed, self.fs)
+            self.db.update(self.doc, mark_removed, self.fs.id)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
             self.db.update(self.doc, mark_corrupt, self.fs, time.time())
@@ -570,7 +571,7 @@ class MetaStore:
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
-        mark_removed(doc, fs)
+        mark_removed(doc, fs.id)
         self.db.save(doc)
         fs.remove(_id)
         log.info('Removed %s from %s', _id, fs.id)
@@ -646,7 +647,7 @@ class MetaStore:
             self.db.update(doc, mark_copied, src, time.time(), *dst)
         except FileNotFound:
             log.warning('%s is not in %s', _id, src.id)
-            self.db.update(doc, mark_removed, src)
+            self.db.update(doc, mark_removed, src.id)
         except CorruptFile:
             log.error('%s is corrupt in %s', _id, src.id)
             self.db.update(doc, mark_corrupt, src, time.time())

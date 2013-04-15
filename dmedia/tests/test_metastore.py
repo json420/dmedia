@@ -621,24 +621,81 @@ class TestFunctions(TestCase):
         )
 
     def test_mark_removed(self):
-        fs1 = DummyFileStore()
-        fs2 = DummyFileStore()
+        _id = random_file_id()
+        fs1_id = random_id()
+        fs2_id = random_id()
+        fs3_id = random_id()
+        mtime1 = random_int_time()
 
-        doc = {}
-        metastore.mark_removed(doc, fs1, fs2)
-        self.assertEqual(doc, {'stored': {}})
+        # Empty, broken doc:
+        doc = {'_id': _id}
+        self.assertIsNone(metastore.mark_removed(doc, fs1_id, fs2_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {},   
+            }
+        )
 
-        doc = {'stored': {}}
-        metastore.mark_removed(doc, fs1, fs2)
-        self.assertEqual(doc, {'stored': {}})
+        # doc['stored'] is wrong type:
+        doc = {'_id': _id, 'stored': 'very very bad'}
+        self.assertIsNone(metastore.mark_removed(doc, fs1_id, fs2_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {},   
+            }
+        )
 
-        doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
-        metastore.mark_removed(doc, fs1)
-        self.assertEqual(doc, {'stored': {fs2.id: 'bar'}})
+        # Ensure that entries are removed, even if broken:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1_id: {
+                    'copies': 1,
+                    'mtime': random_int_time(),
+                    'verified': random_int_time(),
+                    'pinned': True,
+                },
+                fs2_id: 'Ich bin ein Broken',
+            },
+        }
+        self.assertIsNone(metastore.mark_removed(doc, fs1_id, fs2_id, fs3_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {},   
+            }
+        )
 
-        doc = {'stored': {fs1.id: 'foo', fs2.id: 'bar'}}
-        metastore.mark_removed(doc, fs1, fs2)
-        self.assertEqual(doc, {'stored': {}})
+        # Ensure that unrelated entries are not changed:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1_id: {
+                    'copies': 1,
+                    'mtime': mtime1,
+                },
+                fs2_id: {
+                    'copies': 1,
+                    'mtime': random_int_time(),
+                },
+                fs3_id: 'Ich bin ein Broken',
+            },
+        }
+        self.assertIsNone(metastore.mark_removed(doc, fs2_id))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 1,
+                        'mtime': mtime1,
+                    },
+                    fs3_id: 'Ich bin ein Broken',
+                },   
+            }
+        )
 
     def test_mark_verified(self):
         fs = DummyFileStore()
