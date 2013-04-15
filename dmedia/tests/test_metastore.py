@@ -327,60 +327,107 @@ class TestFunctions(TestCase):
         )
 
     def test_mark_added(self):
-        fs1 = DummyFileStore()
-        fs2 = DummyFileStore()
-        _id = random_id(30)
+        _id = random_file_id()
+        fs1_id = random_id()
+        fs2_id = random_id()
+        mtime1 = random_int_time()
+        mtime2 = random_int_time()
 
+        # Empty, broken doc:
         doc = {'_id': _id}
-        metastore.mark_added(doc, fs1)
-        self.assertIs(fs1._file_id, _id)
+        new = {
+            fs1_id: {'copies': 1, 'mtime': mtime1},
+        }
+        self.assertIsNone(metastore.mark_added(doc, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    fs1.id: {
+                    fs1_id: {
                         'copies': 1,
-                        'mtime': int(fs1._mtime),
+                        'mtime': mtime1,
                     },
                 },
             }
         )
 
-        doc = {'_id': _id}
-        metastore.mark_added(doc, fs1, fs2)
-        self.assertIs(fs2._file_id, _id)
+        # Bad doc['stored'] type:
+        doc = {'_id': _id, 'stored': 'naughty'}
+        new = {
+            fs1_id: {'copies': 1, 'mtime': mtime1},
+            fs2_id: {'copies': 0, 'mtime': mtime2},
+        }
+        self.assertIsNone(metastore.mark_added(doc, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    fs1.id: {
+                    fs1_id: {
                         'copies': 1,
-                        'mtime': int(fs1._mtime),
+                        'mtime': mtime1,
                     },
-                    fs2.id: {
-                        'copies': 1,
-                        'mtime': int(fs2._mtime),
-                    },
+                    fs2_id: {
+                        'copies': 0,
+                        'mtime': mtime2,
+                    }
                 },
             }
         )
 
-        doc = {'_id': _id, 'stored': {fs1.id: {'pin': True}}} 
-        metastore.mark_added(doc, fs1, fs2)
-        self.assertIs(fs2._file_id, _id)
+        # Ensure `new` is properly merged into existing doc['stored'][fs1_id]:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1_id: {
+                    'copies': 17,  # Replaced
+                    'mtime': random_int_time(),  # Replaced
+                    'verified': random_int_time(),  # Removed
+                    'pinned': True,  # Preserved
+                },
+            },
+        }
+        new = {
+            fs1_id: {'copies': 1, 'mtime': mtime1},
+            fs2_id: {'copies': 0, 'mtime': mtime2},
+        }
+        self.assertIsNone(metastore.mark_added(doc, new))
         self.assertEqual(doc, 
             {
                 '_id': _id,
                 'stored': {
-                    fs1.id: {
+                    fs1_id: {
                         'copies': 1,
-                        'mtime': int(fs1._mtime),
-                        'pin': True,
+                        'mtime': mtime1,
+                        'pinned': True,
                     },
-                    fs2.id: {
+                    fs2_id: {
+                        'copies': 0,
+                        'mtime': mtime2,
+                    }
+                },
+            }
+        )
+
+        # Ensure unrelated entries in doc['stored'] are not changed:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs2_id: 'truly junk',
+            },
+        }
+        new = {
+            fs1_id: {'copies': 1, 'mtime': mtime1},
+        }
+        self.assertIsNone(metastore.mark_added(doc, new))
+        self.assertEqual(doc, 
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
                         'copies': 1,
-                        'mtime': int(fs2._mtime),
+                        'mtime': mtime1,
                     },
+                    fs2_id: 'truly junk',
                 },
             }
         )

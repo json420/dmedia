@@ -137,10 +137,8 @@ def merge_stored(old, new):
             old[key] = value 
 
 
-def mark_added(doc, *filestores):
-    _id = doc['_id']
+def mark_added(doc, new):
     old = get_dict(doc, 'stored')
-    new = create_stored(_id, *filestores)
     merge_stored(old, new)
 
 
@@ -633,7 +631,8 @@ class MetaStore:
             pass
         if not partial:
             del doc['partial']
-        mark_added(doc, fs)
+        new = create_stored(_id, fs)
+        mark_added(doc, new)
         self.db.save(doc)
         return ch
 
