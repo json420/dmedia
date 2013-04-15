@@ -36,6 +36,7 @@ class Client(CouchBase):
 
 
 file_id = 'DQQMPJ7IZVXUWXVGZTYLD74XU6GJ3HFPFR2XTPORKTK2CCGE'
+file_id = 'DDKVF5J6YJJ3WJAIDNZDDWN672MXPLTWVGVYGI7N63SRFIHV'
 for (machine_id, info) in peers.items():
     client_env = {
         'url': info['url'],
@@ -47,12 +48,12 @@ for (machine_id, info) in peers.items():
     client = Client(client_env)
     size = 0
     start = time.monotonic()
-    for i in range(10):
-        for leaf in threaded_response_iter(client.get(file_id)):
-            size += len(leaf.data)
+    for leaf in threaded_response_iter(client.get(file_id)):
+        size += len(leaf.data)
     delta = time.monotonic() - start
     rate = int(size / delta)
     print(bytes10(rate))
+    print(bytes10(size))
     
 
 sys.exit()

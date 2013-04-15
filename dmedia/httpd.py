@@ -251,7 +251,7 @@ class FileWrapper:
         while remaining:
             read = min(remaining, MiB)
             remaining -= read
-            data = self.fp.read(read)
+            data = self.fp.read1(read)
             assert len(data) == read
             yield data
         self._closed = True
