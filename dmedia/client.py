@@ -156,7 +156,7 @@ def response_iter(response, start=0):
 def missing_leaves(ch, tmp_fp):
     assert isinstance(ch.leaf_hashes, tuple)
     assert os.fstat(tmp_fp.fileno()).st_size == ch.file_size
-    assert tmp_fp.mode in ('rb+', 'r+b')
+    assert tmp_fp.mode == 'rb+'
     tmp_fp.seek(0)
     for leaf in reader_iter(tmp_fp):
         leaf_hash = ch.leaf_hashes[leaf.index]
@@ -174,7 +174,7 @@ class DownloadWriter:
         self.ch = ch
         self.store = store
         self.tmp_fp = store.allocate_partial(ch.file_size, ch.id)
-        self.resumed = (self.tmp_fp.mode != 'wb')
+        self.resumed = (self.tmp_fp.mode != 'xb')
         if self.resumed:
             gen = missing_leaves(ch, self.tmp_fp)
         else:
@@ -206,13 +206,25 @@ class DownloadWriter:
 
     def finish(self):
         assert not self.missing
-        self.tmp_fp.close()
-        tmp_fp = open(self.tmp_fp.name, 'rb')
-        return self.store.verify_and_move(tmp_fp, self.ch.id)
+        self.store.move_to_canonical(self.tmp_fp, self.ch.id)
+
+    def download_from(self, client):
+        while True:
+            try:
+                (start, stop) = self.next_slice()
+            except DownloadComplete:
+                break
+            for leaf in client.iter_leaves(self.ch, start, stop):
+                self.write_leaf(leaf)
+        self.finish()
 
 
 class HTTPClient(CouchBase):
     def get_leaves(self, ch, start=0, stop=None):
         headers = range_header(ch, start, stop)
         return self.request('GET', ('files', ch.id), None, headers=headers)
+
+    def iter_leaves(self, ch, start=0, stop=None):
+        response = self.get_leaves(ch, start, stop)
+        return threaded_response_iter(response, start)
 

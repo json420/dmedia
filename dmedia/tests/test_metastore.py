@@ -58,6 +58,10 @@ def create_random_file(fs, db):
     return db.get(ch.id)
 
 
+def random_mtime():
+    return random.randint(1, 1234567890)
+
+
 class DummyStat:
     def __init__(self, mtime):
         self.mtime = mtime
@@ -373,6 +377,112 @@ class TestFunctions(TestCase):
                         'copies': 1,
                         'mtime': int(fs2._mtime),
                     },
+                },
+            }
+        )
+
+    def test_mark_downloaded(self):
+        _id = random_file_id()
+        fs1_id = random_id()
+        fs2_id = random_id()
+        mtime1 = random_mtime()
+        mtime2 = random_mtime()
+
+        # Empty, broken doc:
+        doc = {'_id': _id}
+        new = {fs1_id: {'mtime': mtime1, 'copies': 1}}
+        self.assertIsNone(metastore.mark_downloaded(doc, fs1_id, new))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 1,
+                        'mtime': mtime1,
+                    },
+                },
+            }
+        )
+
+        # doc['partial'] only contains fs1_id:
+        doc = {
+            '_id': _id,
+            'partial': {fs1_id: {}},
+        }
+        new = {fs1_id: {'mtime': mtime1, 'copies': 1}}
+        self.assertIsNone(metastore.mark_downloaded(doc, fs1_id, new))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 1,
+                        'mtime': mtime1,
+                    },
+                },
+            }
+        )
+
+        # doc['partial'] contains both fs1_id and fs2_id:
+        doc = {
+            '_id': _id,
+            'partial': {fs1_id: {}, fs2_id: {}},
+        }
+        new = {fs1_id: {'mtime': mtime1, 'copies': 1}}
+        self.assertIsNone(metastore.mark_downloaded(doc, fs1_id, new))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 1,
+                        'mtime': mtime1,
+                    },
+                },
+                'partial': {fs2_id: {}},
+            }
+        )
+
+        # Make sure new is properly merged into existing doc['stored']:
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1_id: {
+                    'copies': 2,
+                    'mtime': random_mtime(),
+                    'verified': random_mtime(),
+                    'pinned': True,
+                },
+                fs2_id: {
+                    'copies': 1,
+                    'mtime': mtime2,
+                    'verified': mtime2 + 1,
+                },
+            },
+            'partial': {
+                fs1_id: {},
+                fs2_id: {},
+            },
+        }
+        new = {fs1_id: {'mtime': mtime1, 'copies': 1}}
+        self.assertIsNone(metastore.mark_downloaded(doc, fs1_id, new))
+        self.assertEqual(doc,
+            {
+                '_id': _id,
+                'stored': {
+                    fs1_id: {
+                        'copies': 1,
+                        'mtime': mtime1,
+                        'pinned': True,
+                    },
+                    fs2_id: {
+                        'copies': 1,
+                        'mtime': mtime2,
+                        'verified': mtime2 + 1,
+                    }
+                },
+                'partial': {
+                    fs2_id: {},
                 },
             }
         )
