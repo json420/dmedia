@@ -193,7 +193,7 @@ class Downloader:
 
     def write_leaf(self, leaf):
         if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
-            log.warning('Received corrupt leaf %s[%d]', self.ch.id, leaf.index)
+            log.warning('Got corrupt leaf %s[%d]', self.ch.id, leaf.index)
             return False
         self.tmp_fp.seek(leaf.index * LEAF_SIZE)
         self.tmp_fp.write(leaf.data)
@@ -233,7 +233,7 @@ class Downloader:
 class HTTPClient(CouchBase):
     def get_leaves(self, ch, start=0, stop=None):
         (ch, start, stop) = check_slice(ch, start, stop)
-        log.info('GET leaves %s[%d:%d] from %s', ch.id, start, stop, self.url)
+        log.info('Getting leaves %s[%d:%d] from %s', ch.id, start, stop, self.url)
         return self.request('GET', ('files', ch.id), None,
             headers=range_header(ch, start, stop),
         )
