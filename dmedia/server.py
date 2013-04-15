@@ -123,7 +123,7 @@ def range_to_slice(value):
     unit = 'bytes='
     if not value.startswith(unit):
         raise WSGIError('400 Bad Range Units')
-    value = value[len(unit):]
+    value = value[len(unit):].strip()
     if value.startswith('-'):
         try:
             return (int(value), None)
@@ -141,6 +141,7 @@ def range_to_slice(value):
         stop = (int(end) + 1 if end else None)
     except ValueError:
         raise WSGIError('400 Bad Range End')
+    assert start >= 0
     if not (stop is None or start < stop):
         raise WSGIError('400 Bad Range')
     return (start, stop)
@@ -290,9 +291,14 @@ class FilesApp:
             stop = None
             status = '200 OK'
 
-        # '416 Requested Range Not Satisfiable'
-        log.info('Serving %s to %s', _id, environ['REMOTE_ADDR'])
-        stop = (st.size if stop is None else min(st.size, stop))
+        if start < 0:
+            start = st.size + start
+        if stop is None:
+            stop = st.size
+        if not (0 <= start < stop <= st.size):
+            raise WSGIError('416 Requested Range Not Satisfiable')
+        log.info('Serving %s[%d:%d] to %s', _id, start, stop, environ['REMOTE_ADDR'])
+
         length = str(stop - start)
         headers = [('Content-Length', length)]
         if 'HTTP_RANGE' in environ:

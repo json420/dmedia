@@ -25,10 +25,14 @@ dmedia HTTP client.
 
 import os
 from collections import OrderedDict
+import logging
 
 from microfiber import CouchBase
 from filestore import LEAF_SIZE, TYPE_ERROR, hash_leaf, reader_iter
 from filestore import Leaf, ContentHash, SmartQueue, _start_thread
+
+
+log = logging.getLogger()
 
 
 def bytes_range(start, stop=None):
@@ -166,13 +170,16 @@ class Downloader:
         self.tmp_fp = ms.start_download(fs, self.doc)
         self.ms = ms
         self.fs = fs
-        self.resumed = (self.tmp_fp.mode != 'xb')
-        if self.resumed:
-            print('resuming...')
+        resuming = (self.tmp_fp.mode != 'xb')
+        if resuming:
             gen = missing_leaves(self.ch, self.tmp_fp)
         else:
             gen = enumerate(self.ch.leaf_hashes)
         self.missing = OrderedDict(gen)
+        if resuming:
+            log.info('Resuming download of %s, need %d/%d leaves',
+                self.ch.id, len(self.missing), len(self.ch.leaf_hashes)
+            )
 
     def write_leaf(self, leaf):
         if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
@@ -215,6 +222,7 @@ class Downloader:
 class HTTPClient(CouchBase):
     def get_leaves(self, ch, start=0, stop=None):
         headers = range_header(ch, start, stop)
+        log.info('Downloading %s from %s', ch.id, self.url)
         return self.request('GET', ('files', ch.id), None, headers=headers)
 
     def iter_leaves(self, ch, start=0, stop=None):

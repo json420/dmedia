@@ -4,6 +4,7 @@ import sys
 import json
 from os import path
 import time
+import logging
 
 import dbus
 from microfiber import Database, build_ssl_context, dumps
@@ -15,6 +16,8 @@ from dmedia.util import init_filestore
 from dmedia.units import bytes10
 from dmedia.metastore import MetaStore
 from dmedia.client import HTTPClient, Downloader
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 Dmedia = dbus.SessionBus().get_object('org.freedesktop.Dmedia', '/')
