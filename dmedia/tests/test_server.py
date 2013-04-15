@@ -41,7 +41,7 @@ from microfiber import dumps
 from .base import TempDir
 import dmedia
 from dmedia.httpd import make_server, WSGIError, Input
-from dmedia import server, client, identity
+from dmedia import server, client, identity, local
 
 
 def random_dbname():
@@ -277,6 +277,64 @@ class TestProxyApp(TestCase):
         with self.assertRaises(WSGIError) as cm:
             app(environ, None)
         self.assertEqual(cm.exception.status, '403 Forbidden')
+
+
+class TestFilesApp(TestCase):
+    def test_init(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = server.FilesApp(env)
+        self.assertIsInstance(app.local, local.LocalSlave)
+        self.assertIs(app.local.db.env, env)
+
+    def test_call(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = server.FilesApp(env)
+
+        # REQUEST_METHOD
+        environ = {'REQUEST_METHOD': 'PUT'}
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '405 Method Not Allowed')
+
+        # PATH_INFO
+        bad_id1 = random_id(30)[:-1] + '0'  # Invalid letter
+        environ = {'REQUEST_METHOD': 'GET', 'PATH_INFO': '/' + bad_id1}
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 Bad File ID')
+
+        bad_id2 = random_id(25)  # Wrong length
+        environ = {'REQUEST_METHOD': 'GET', 'PATH_INFO': '/' + bad_id2}
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 Bad File ID Length')
+
+        good_id = random_id(30)
+        environ = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/{}/more'.format(good_id),
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '410 Gone')
+
+        # QUERY_STRING
+        environ = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/' + good_id,
+            'QUERY_STRING': 'foo=bar',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 No Query For You')
 
 
 class TestInfoApp(TestCase):

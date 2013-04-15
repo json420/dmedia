@@ -266,8 +266,14 @@ class FilesApp:
         if environ['REQUEST_METHOD'] != 'GET':
             raise WSGIError('405 Method Not Allowed')
         _id = shift_path_info(environ)
-        if not (len(_id) == DIGEST_B32LEN and isb32(_id)):
-            raise WSGIError('400 Bad Request ID')
+        if not isb32(_id):
+            raise WSGIError('400 Bad File ID')
+        if len(_id) != DIGEST_B32LEN:
+            raise WSGIError('400 Bad File ID Length')
+        if environ['PATH_INFO'] != '':
+            raise WSGIError('410 Gone')
+        if environ['QUERY_STRING']:
+            raise WSGIError('400 No Query For You')
         try:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
