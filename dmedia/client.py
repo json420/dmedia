@@ -291,7 +291,6 @@ def download_one(ms, ssl_context, _id, tmpfs=None):
         fs = local_stores.sort_by_avail()[0]
     if tmpfs is not None:
         fs = tmpfs
-    log.info('Saving into %r', fs)
 
     # Could happen occasionally:
     downloader = Downloader(doc, ms, fs)

@@ -89,68 +89,9 @@ def get_slice(environ):
     return (_id, start, stop)
 
 
-def range_to_slice(value):
-    """
-    Convert from HTTP Range request to Python slice semantics.
-
-    Python slice semantics are quite natural to deal with, whereas the HTTP
-    Range semantics are a touch wacky, so this function will help prevent silly
-    errors.
-
-    For example, say we're requesting parts of a 10,000 byte long file.  This
-    requests the first 500 bytes:
-
-    >>> range_to_slice('bytes=0-499')
-    (0, 500)
-
-    This requests the second 500 bytes:
-
-    >>> range_to_slice('bytes=500-999')
-    (500, 1000)
-
-    All three of these request the final 500 bytes:
-
-    >>> range_to_slice('bytes=9500-9999')
-    (9500, 10000)
-    >>> range_to_slice('bytes=-500')
-    (-500, None)
-    >>> range_to_slice('bytes=9500-')
-    (9500, None)
-
-    For details on HTTP Range header, see:
-
-      http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
-    """
-    unit = 'bytes='
-    if not value.startswith(unit):
-        raise WSGIError('400 Bad Range Units')
-    value = value[len(unit):].strip()
-    if value.startswith('-'):
-        try:
-            return (int(value), None)
-        except ValueError:
-            raise WSGIError('400 Bad Range Negative Start')  
-    parts = value.split('-')
-    if not len(parts) == 2:
-        raise WSGIError('400 Bad Range Format')
-    try:
-        start = int(parts[0])
-    except ValueError:
-        raise WSGIError('400 Bad Range Start')
-    try:
-        end = parts[1]
-        stop = (int(end) + 1 if end else None)
-    except ValueError:
-        raise WSGIError('400 Bad Range End')
-    assert start >= 0
-    if not (stop is None or start < stop):
-        raise WSGIError('400 Bad Range')
-    return (start, stop)
-
-
 RE_RANGE = re.compile('^bytes=(\d+)-(\d+)$')
 
-def range_to_slice_strict(value, file_size):
+def range_to_slice(value, file_size):
     """
     No bullshit HTTP Range parser from the wrong side of the tracks.
 
@@ -174,18 +115,18 @@ def range_to_slice_strict(value, file_size):
 
     For example, a request for the first 500 bytes in a 1000 byte file:
 
-    >>> range_to_slice_strict('bytes=0-499', 1000)
+    >>> range_to_slice('bytes=0-499', 1000)
     (0, 500)
 
     Or a request for the final 500 bytes in the same:
 
-    >>> range_to_slice_strict('bytes=500-999', 1000)
+    >>> range_to_slice('bytes=500-999', 1000)
     (500, 1000)
 
     But if you slip up and start thinking like a coder or someone who knows
     math, this tough kid has your back:
 
-    >>> range_to_slice_strict('bytes=500-1000', 1000)
+    >>> range_to_slice('bytes=500-1000', 1000)
     Traceback (most recent call last):
       ...
     dmedia.httpd.WSGIError: 416 Requested Range Not Satisfiable
@@ -353,7 +294,7 @@ class FilesApp:
             raise WSGIError('404 Not Found')
 
         if 'HTTP_RANGE' in environ:
-            (start, stop) = range_to_slice_strict(environ['HTTP_RANGE'], st.size)
+            (start, stop) = range_to_slice(environ['HTTP_RANGE'], st.size)
             status = '206 Partial Content'
         else:
             start = 0
