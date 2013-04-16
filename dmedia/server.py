@@ -131,6 +131,9 @@ def range_to_slice(value, file_size):
       ...
     dmedia.httpd.WSGIError: 416 Requested Range Not Satisfiable
 
+    For details on HTTP Range header, see:
+
+        http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
     """
     assert isinstance(file_size, int)
     assert file_size > 0
@@ -166,8 +169,6 @@ def slice_to_content_range(start, stop, file_size):
 
 
 MiB = 1024 * 1024
-CHUNK_SIZE = 4 * MiB
-
 
 class FileSlice:
     __slots__ = ('fp', 'start', 'stop', 'content_length')
@@ -191,7 +192,7 @@ class FileSlice:
         )
         remaining = self.content_length
         while remaining:
-            read = min(remaining, CHUNK_SIZE)
+            read = min(remaining, MiB)
             remaining -= read
             data = self.fp.read1(read)
             assert len(data) == read
