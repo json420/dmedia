@@ -211,39 +211,51 @@ def slice_to_content_range(start, stop, length):
     For example, a slice containing the first 500 bytes of a 1234 byte file:
 
     >>> slice_to_content_range(0, 500, 1234)
-    'bytes 0-499/1234'
+    ('Content-Range', 'bytes 0-499/1234')
 
     Or the 2nd 500 bytes:
 
     >>> slice_to_content_range(500, 1000, 1234)
-    'bytes 500-999/1234'
+    ('Content-Range', 'bytes 500-999/1234')
 
     """
     assert 0 <= start < stop <= length
-    return 'bytes {}-{}/{}'.format(start, stop - 1, length)
+    end = stop - 1
+    return ('Content-Range', 'bytes {}-{}/{}'.format(start, end, length))
 
 
 MiB = 1024 * 1024
+CHUNK_SIZE = 4 * MiB
 
 
 class FileSlice:
-    __slots__ = ('fp', 'start', 'stop')
+    __slots__ = ('fp', 'start', 'stop', 'content_length')
 
-    def __init__(self, fp, start=0, stop=None):
+    def __init__(self, fp, start, stop):
+        assert isinstance(start, int)
+        assert isinstance(stop, int)
+        assert 0 <= start < stop
         self.fp = fp
         self.start = start
         self.stop = stop
+        self.content_length = stop - start
 
     def __iter__(self):
         self.fp.seek(self.start)
-        remaining = self.stop - self.start
+        os.posix_fadvise(
+            self.fp.fileno(),
+            self.start,
+            self.content_length,
+            os.POSIX_FADV_SEQUENTIAL
+        )
+        remaining = self.content_length
         while remaining:
-            read = min(remaining, MiB)
+            read = min(remaining, CHUNK_SIZE)
             remaining -= read
-            data = self.fp.read(read)
+            data = self.fp.read1(read)
             assert len(data) == read
             yield data
-        assert remaining == 0
+        self.fp.close()
 
 
 class RootApp:
@@ -341,31 +353,24 @@ class FilesApp:
             raise WSGIError('404 Not Found')
 
         if 'HTTP_RANGE' in environ:
-            (start, stop) = range_to_slice(environ['HTTP_RANGE'])                
+            (start, stop) = range_to_slice_strict(environ['HTTP_RANGE'], st.size)
             status = '206 Partial Content'
         else:
             start = 0
-            stop = None
+            stop = st.size
             status = '200 OK'
 
-        if start < 0:
-            start = st.size + start
-        if stop is None:
-            stop = st.size
-        if not (0 <= start < stop <= st.size):
-            raise WSGIError('416 Requested Range Not Satisfiable')
         log.info('Sending bytes %s[%d:%d] to %s:%s', _id, start, stop,
             environ['REMOTE_ADDR'], environ['REMOTE_PORT']
         )
-
-        length = str(stop - start)
-        headers = [('Content-Length', length)]
-        if 'HTTP_RANGE' in environ:
+        file_slice = FileSlice(fp, start, stop)
+        headers = [('Content-Length', file_slice.content_length)]
+        if status == '206 Partial Content':
             headers.append(
-                ('Content-Range', slice_to_content_range(start, stop, st.size))
+                slice_to_content_range(start, stop, st.size)
             )
         start_response(status, headers)
-        return FileSlice(fp, start, stop)
+        return file_slice
 
 
 class InfoApp:
