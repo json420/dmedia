@@ -432,7 +432,7 @@ class TestFunctions(TestCase):
             }
         )
 
-    def test_mark_partial(self):
+    def test_mark_downloading(self):
         _id = random_file_id()
         fs1_id = random_id()
         fs2_id = random_id()
@@ -440,7 +440,7 @@ class TestFunctions(TestCase):
 
         # Empty, broken doc:
         doc = {'_id': _id}
-        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertIsNone(metastore.mark_downloading(doc, timestamp, fs1_id))
         self.assertEqual(doc,
             {
                 '_id': _id,
@@ -452,7 +452,7 @@ class TestFunctions(TestCase):
 
         # doc['partial'] isn't a dict:
         doc = {'_id': _id, 'partial': 'hello'}
-        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertIsNone(metastore.mark_downloading(doc, timestamp, fs1_id))
         self.assertEqual(doc,
             {
                 '_id': _id,
@@ -469,7 +469,7 @@ class TestFunctions(TestCase):
                 fs1_id: {'time': random_time(), 'foo': 'bar'},
             }
         }
-        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertIsNone(metastore.mark_downloading(doc, timestamp, fs1_id))
         self.assertEqual(doc,
             {
                 '_id': _id,
@@ -487,7 +487,7 @@ class TestFunctions(TestCase):
                 fs2_id: 'also junk',
             }
         }
-        self.assertIsNone(metastore.mark_partial(doc, timestamp, fs1_id))
+        self.assertIsNone(metastore.mark_downloading(doc, timestamp, fs1_id))
         self.assertEqual(doc,
             {
                 '_id': _id,

@@ -147,7 +147,7 @@ def mark_added(doc, new):
     merge_stored(old, new)
 
 
-def mark_partial(doc, timestamp, fs_id):
+def mark_downloading(doc, timestamp, fs_id):
     """
     Add download in progress entry in doc['partial'].
     """
@@ -627,7 +627,7 @@ class MetaStore:
 
     def start_download(self, fs, doc):
         tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
-        self.db.update(doc, mark_partial, time.time(), fs.id)
+        self.db.update(doc, mark_downloading, time.time(), fs.id)
         return tmp_fp
 
     def finish_download(self, fs, doc, tmp_fp):
