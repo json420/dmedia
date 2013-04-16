@@ -123,6 +123,61 @@ class TestFunctions(TestCase):
                 (start, stop)
             )
 
+    def test_range_to_slice_strict(self):
+        # First byte:
+        self.assertEqual(
+            server.range_to_slice_strict('bytes=0-0', 1000), (0, 1)
+        )
+
+        # Final byte:
+        self.assertEqual(
+            server.range_to_slice_strict('bytes=999-999', 1000), (999, 1000)
+        )
+
+        # stop > file_size
+        with self.assertRaises(WSGIError) as cm:
+            server.range_to_slice_strict('bytes=999-1000', 1000)
+        self.assertEqual(
+            str(cm.exception),
+            '416 Requested Range Not Satisfiable'
+        )
+
+        # start >= stop
+        with self.assertRaises(WSGIError) as cm:
+            server.range_to_slice_strict('bytes=200-199', 1000)
+        self.assertEqual(
+            str(cm.exception),
+            '416 Requested Range Not Satisfiable'
+        )
+
+        # But confirm this works:
+        self.assertEqual(
+            server.range_to_slice_strict('bytes=200-200', 1000), (200, 201)
+        )
+
+        # And this too:
+        self.assertEqual(
+            server.range_to_slice_strict('bytes=100-199', 1000), (100, 200)
+        )
+
+        # Use above as basis for a bunch of malformed values:
+        bad_eggs = [
+            ' bytes=100-199',
+            'bytes=100-199 ',
+            'bytes= 100-199',
+            'bytes=-100',
+            'bytes=100-',
+            'bytes=-100-199',
+            'bits=100-199',
+            'cows=100-199',
+            'bytes=10.0-20.0',
+            'bytes=100:199'
+        ]
+        for value in bad_eggs:
+            with self.assertRaises(WSGIError) as cm:
+                server.range_to_slice_strict(value, 1000)
+            self.assertEqual(str(cm.exception), '400 Bad Range Request')
+
 
 class TestRootApp(TestCase):
     def test_init(self):

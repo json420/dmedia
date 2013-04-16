@@ -27,6 +27,7 @@ import json
 import os
 import socket
 from base64 import b64encode, b64decode
+import re
 from wsgiref.util import shift_path_info
 import logging
 
@@ -144,6 +145,62 @@ def range_to_slice(value):
     assert start >= 0
     if not (stop is None or start < stop):
         raise WSGIError('400 Bad Range')
+    return (start, stop)
+
+
+RE_RANGE = re.compile('^bytes=(\d+)-(\d+)$')
+
+def range_to_slice_strict(value, file_size):
+    """
+    No bullshit HTTP Range parser from the wrong side of the tracks.
+
+    Converts a byte-wise HTTP Range into a sane Python-esque byte-wise slice,
+    and checks that this condition is met::
+
+        0 <= start < stop <= file_size
+
+    If not, a `WSGIError` is raised, aborting the request handling.  This is a
+    strict parser only designed to handle the boring, predictable Range requests
+    that the Dmedia HTTP client will make.  The Range request must have this
+    form::
+
+        bytes=START-END
+
+    Where `START` and `END` are integers.  Some exciting variations that this
+    parser does not support::
+
+        bytes=-START
+        bytes=START-
+
+    For example, a request for the first 500 bytes in a 1000 byte file:
+
+    >>> range_to_slice_strict('bytes=0-499', 1000)
+    (0, 500)
+
+    Or a request for the final 500 bytes in the same:
+
+    >>> range_to_slice_strict('bytes=500-999', 1000)
+    (500, 1000)
+
+    But if you slip up and start thinking like a coder or someone who knows
+    math, this tough kid has your back:
+
+    >>> range_to_slice_strict('bytes=500-1000', 1000)
+    Traceback (most recent call last):
+      ...
+    dmedia.httpd.WSGIError: 416 Requested Range Not Satisfiable
+
+    """
+    assert isinstance(file_size, int)
+    assert file_size > 0
+    match = RE_RANGE.match(value)
+    if match is None:
+        raise WSGIError('400 Bad Range Request')
+    start = int(match.group(1))
+    end = int(match.group(2))
+    stop = end + 1
+    if not (0 <= start < stop <= file_size):
+        raise WSGIError('416 Requested Range Not Satisfiable')
     return (start, stop)
 
 
