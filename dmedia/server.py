@@ -131,7 +131,7 @@ def range_to_slice(value, file_size):
       ...
     dmedia.httpd.WSGIError: 416 Requested Range Not Satisfiable
 
-    For details on HTTP Range header, see:
+    For details on the HTTP Range header, see:
 
         http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
     """

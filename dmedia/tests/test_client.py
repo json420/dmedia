@@ -25,6 +25,7 @@ Unit tests for `dmedia.client`.
 
 from unittest import TestCase
 import os
+from collections import OrderedDict
 
 from microfiber import random_id
 from filestore import ContentHash, TYPE_ERROR, DIGEST_BYTES, LEAF_SIZE
@@ -182,6 +183,41 @@ class TestFunctions(TestCase):
         self.assertEqual(client.range_header(ch, 0, 1),
             {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
         )
+
+
+class TestDownloader(TestCase):
+    def test_next_slice(self):
+        class Dummy(client.Downloader):
+            def __init__(self, indexes):
+                self.missing = OrderedDict((i, None) for i in indexes)
+
+        # missing is empty
+        dl = Dummy([])
+        self.assertIsNone(dl.next_slice())
+
+        # all leaves are missing
+        dl = Dummy(range(413))
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (0, 413))
+
+        # should chose first contiguous slice:
+        dl = Dummy([17, 18, 19, 20, 21, 106, 107, 108, 700, 999])
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (17, 22))
+
+        # even if that slice is only 1 in length:
+        dl = Dummy([19, 119, 120, 121, 123])
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (19, 20))
+
+        # even there is only a single missing leaf:
+        dl = Dummy([1775])
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (1775, 1776))
 
 
 class TestHTTPClient(TestCase):        
