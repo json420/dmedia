@@ -194,17 +194,20 @@ class Downloader:
         else:
             self.missing = OrderedDict(enumerate(self.ch.leaf_hashes))
 
-    def write_leaf(self, leaf):
-        if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
-            log.warning('Got corrupt leaf %s[%d]', self.ch.id, leaf.index)
+    def download_is_complete(self):
+        if len(self.missing) > 0:
             return False
-        self.tmp_fp.seek(leaf.index * LEAF_SIZE)
-        self.tmp_fp.write(leaf.data)
-        leaf_hash = self.missing.pop(leaf.index)
-        assert leaf_hash == self.ch.leaf_hashes[leaf.index]
+        self.doc = self.ms.finish_download(self.fs, self.doc, self.tmp_fp)
         return True
 
     def next_slice(self):
+        """
+        Return the next needed contiguous leaf-wise slice.
+
+        If the partial file has been completely downloaded, ``None`` is
+        returned.  Otherwise a `Slice` namedtuple is returned, with handy
+        *start* and *stop* attributes.
+        """
         if len(self.missing) == 0:
             return None
         first = None
@@ -218,10 +221,14 @@ class Downloader:
                 last = i
         return Slice(first, last + 1)
 
-    def download_is_complete(self):
-        if self.missing:
+    def write_leaf(self, leaf):
+        if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
+            log.warning('Got corrupt leaf %s[%d]', self.ch.id, leaf.index)
             return False
-        self.doc = self.ms.finish_download(self.fs, self.doc, self.tmp_fp)
+        self.tmp_fp.seek(leaf.index * LEAF_SIZE)
+        self.tmp_fp.write(leaf.data)
+        leaf_hash = self.missing.pop(leaf.index)
+        assert leaf_hash == self.ch.leaf_hashes[leaf.index]
         return True
 
     def download_from(self, client):
