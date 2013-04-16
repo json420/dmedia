@@ -228,13 +228,13 @@ class VerifyContext:
         if exc_type is None:
             log.info('Verified %s in %r', self.doc['_id'], self.fs)
             value = create_stored_value(self.doc['_id'], self.fs, time.time())
-            self.db.update(self.doc, mark_verified, self.fs.id, value)
+            self.db.update(mark_verified, self.doc, self.fs.id, value)
         elif issubclass(exc_type, CorruptFile):
             log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_corrupt, time.time(), self.fs.id)
+            self.db.update(mark_corrupt, self.doc, time.time(), self.fs.id)
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_removed, self.fs.id)
+            self.db.update(mark_removed, self.doc, self.fs.id)
         else:
             return False
         return True
@@ -256,14 +256,14 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_removed, self.fs.id)
+            self.db.update(mark_removed, self.doc, self.fs.id)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_corrupt, time.time(), self.fs.id)
+            self.db.update(mark_corrupt, self.doc, time.time(), self.fs.id)
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
             mtime = get_mtime(self.fs, self.doc['_id'])
-            self.db.update(self.doc, mark_mismatched, self.fs.id, mtime)
+            self.db.update(mark_mismatched, self.doc, self.fs.id, mtime)
         else:
             return False
         return True
@@ -643,13 +643,13 @@ class MetaStore:
 
     def start_download(self, fs, doc):
         tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
-        self.db.update(doc, mark_downloading, time.time(), fs.id)
+        self.db.update(mark_downloading, doc, time.time(), fs.id)
         return tmp_fp
 
     def finish_download(self, fs, doc, tmp_fp):
         fs.move_to_canonical(tmp_fp, doc['_id'])
         new = create_stored(doc['_id'], fs)
-        return self.db.update(doc, mark_downloaded, fs.id, new)
+        return self.db.update(mark_downloaded, doc, fs.id, new)
 
     def verify_and_move(self, fs, tmp_fp, _id):
         doc = self.db.get(_id)
@@ -674,12 +674,12 @@ class MetaStore:
                 ', '.join(d.id for d in dst)
             )
             new = create_stored(_id, src, *dst)
-            self.db.update(doc, mark_copied, time.time(), src.id, new)
+            self.db.update(mark_copied, doc, time.time(), src.id, new)
         except FileNotFound:
             log.warning('%s is not in %s', _id, src.id)
-            self.db.update(doc, mark_removed, src.id)
+            self.db.update(mark_removed, doc, src.id)
         except CorruptFile:
             log.error('%s is corrupt in %s', _id, src.id)
-            self.db.update(doc, mark_corrupt, time.time(), src.id)
+            self.db.update(mark_corrupt, doc, time.time(), src.id)
         return doc
 
