@@ -178,10 +178,6 @@ def missing_leaves(ch, tmp_fp):
     assert leaf.index == len(ch.leaf_hashes) - 1
 
 
-class DownloadComplete(Exception):
-    pass
-
-
 class Downloader:
     def __init__(self, doc_or_id, ms, fs):
         (self.doc, self.id) = ms.doc_and_id(doc_or_id)
