@@ -77,7 +77,6 @@ import ssl
 import threading
 import platform
 import json
-import os
 from hashlib import md5
 import logging
 
@@ -241,17 +240,11 @@ class FileWrapper:
 
     def __iter__(self):
         assert not self._closed
-        os.posix_fadvise(
-            self.fp.fileno(),
-            self.fp.tell(),
-            self.content_length,
-            os.POSIX_FADV_SEQUENTIAL
-        )
         remaining = self.content_length
         while remaining:
             read = min(remaining, MiB)
             remaining -= read
-            data = self.fp.read1(read)
+            data = self.fp.read(read)
             assert len(data) == read
             yield data
         self._closed = True
@@ -287,8 +280,7 @@ class Handler:
             while self.handle_one():
                 count += 1
         finally:
-            pass
-            #log.info('%s\tHandled %r Requests', self.remote, count)
+            log.info('%s\tHandled %r Requests', self.remote, count)
 
     def handle_one(self):
         self.start = None
