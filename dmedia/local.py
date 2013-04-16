@@ -132,6 +132,9 @@ class LocalStores:
     def by_parentdir(self, parentdir):
         return self.parentdirs[parentdir]
 
+    def intersection(self, items):
+        return set(self.ids).intersection(items)
+
     def add(self, fs, fast=True):
         if fs.id in self.ids:
             raise Exception('already have ID {!r}'.format(fs.id))

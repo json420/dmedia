@@ -41,7 +41,7 @@ from microfiber import dumps
 from .base import TempDir
 import dmedia
 from dmedia.httpd import make_server, WSGIError, Input
-from dmedia import server, client, identity
+from dmedia import server, client, identity, local
 
 
 def random_dbname():
@@ -61,65 +61,70 @@ class StartResponse:
 
 class TestFunctions(TestCase):
     def test_range_to_slice(self):
-        with self.assertRaises(WSGIError) as cm:
-            (start, stop) = server.range_to_slice('goats=0-500')
-        self.assertEqual(cm.exception.status, '400 Bad Range Units')
-
-        with self.assertRaises(WSGIError) as cm:
-            (start, stop) = server.range_to_slice('bytes=-500-999')
-        self.assertEqual(cm.exception.status, '400 Bad Range Negative Start')
-
-        with self.assertRaises(WSGIError) as cm:
-            (start, stop) = server.range_to_slice('bytes=-foo')
-        self.assertEqual(cm.exception.status, '400 Bad Range Negative Start')
-
-        with self.assertRaises(WSGIError) as cm:
-            (start, stop) = server.range_to_slice('bytes=500')
-        self.assertEqual(cm.exception.status, '400 Bad Range Format')
-
-        with self.assertRaises(WSGIError) as cm:
-            (start, stop) = server.range_to_slice('bytes=foo-999')
-        self.assertEqual(cm.exception.status, '400 Bad Range Start')
-
-        with self.assertRaises(WSGIError) as cm:
-            (start, stop) = server.range_to_slice('bytes=500-bar')
-        self.assertEqual(cm.exception.status, '400 Bad Range End')
-
-        with self.assertRaises(WSGIError) as cm:
-            (start, stop) = server.range_to_slice('bytes=500-499')
-        self.assertEqual(cm.exception.status, '400 Bad Range')
-
+        # First byte:
         self.assertEqual(
-            server.range_to_slice('bytes=0-0'), (0, 1)
-        )
-        self.assertEqual(
-            server.range_to_slice('bytes=0-499'), (0, 500)
-        )
-        self.assertEqual(
-            server.range_to_slice('bytes=500-999'), (500, 1000)
-        )
-        self.assertEqual(
-            server.range_to_slice('bytes=9500-9999'), (9500, 10000)
-        )
-        self.assertEqual(
-            server.range_to_slice('bytes=9500-'), (9500, None)
-        )
-        self.assertEqual(
-            server.range_to_slice('bytes=-500'), (-500, None)
+            server.range_to_slice('bytes=0-0', 1000), (0, 1)
         )
 
-        # Test the round-trip with client.bytes_range
+        # Final byte:
+        self.assertEqual(
+            server.range_to_slice('bytes=999-999', 1000), (999, 1000)
+        )
+
+        # stop > file_size
+        with self.assertRaises(WSGIError) as cm:
+            server.range_to_slice('bytes=999-1000', 1000)
+        self.assertEqual(
+            str(cm.exception),
+            '416 Requested Range Not Satisfiable'
+        )
+
+        # start >= stop
+        with self.assertRaises(WSGIError) as cm:
+            server.range_to_slice('bytes=200-199', 1000)
+        self.assertEqual(
+            str(cm.exception),
+            '416 Requested Range Not Satisfiable'
+        )
+
+        # But confirm this works:
+        self.assertEqual(
+            server.range_to_slice('bytes=200-200', 1000), (200, 201)
+        )
+
+        # And this too:
+        self.assertEqual(
+            server.range_to_slice('bytes=100-199', 1000), (100, 200)
+        )
+
+        # Use above as basis for a bunch of malformed values:
+        bad_eggs = [
+            ' bytes=100-199',
+            'bytes=100-199 ',
+            'bytes= 100-199',
+            'bytes=-100',
+            'bytes=100-',
+            'bytes=-100-199',
+            'bits=100-199',
+            'cows=100-199',
+            'bytes=10.0-20.0',
+            'bytes=100:199'
+        ]
+        for value in bad_eggs:
+            with self.assertRaises(WSGIError) as cm:
+                server.range_to_slice(value, 1000)
+            self.assertEqual(str(cm.exception), '400 Bad Range Request')
+
+       # Test the round-trip with client.bytes_range
         slices = [
             (0, 1),
             (0, 500),
             (500, 1000),
             (9500, 10000),
-            (-500, None),
-            (9500, None),
         ]
         for (start, stop) in slices:
             self.assertEqual(
-                server.range_to_slice(client.bytes_range(start, stop)),
+                server.range_to_slice(client.bytes_range(start, stop), 10000),
                 (start, stop)
             )
 
@@ -277,6 +282,64 @@ class TestProxyApp(TestCase):
         with self.assertRaises(WSGIError) as cm:
             app(environ, None)
         self.assertEqual(cm.exception.status, '403 Forbidden')
+
+
+class TestFilesApp(TestCase):
+    def test_init(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = server.FilesApp(env)
+        self.assertIsInstance(app.local, local.LocalSlave)
+        self.assertIs(app.local.db.env, env)
+
+    def test_call(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = server.FilesApp(env)
+
+        # REQUEST_METHOD
+        environ = {'REQUEST_METHOD': 'PUT'}
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '405 Method Not Allowed')
+
+        # PATH_INFO
+        bad_id1 = random_id(30)[:-1] + '0'  # Invalid letter
+        environ = {'REQUEST_METHOD': 'GET', 'PATH_INFO': '/' + bad_id1}
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 Bad File ID')
+
+        bad_id2 = random_id(25)  # Wrong length
+        environ = {'REQUEST_METHOD': 'GET', 'PATH_INFO': '/' + bad_id2}
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 Bad File ID Length')
+
+        good_id = random_id(30)
+        environ = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/{}/more'.format(good_id),
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '410 Gone')
+
+        # QUERY_STRING
+        environ = {
+            'REQUEST_METHOD': 'GET',
+            'PATH_INFO': '/' + good_id,
+            'QUERY_STRING': 'foo=bar',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 No Query For You')
 
 
 class TestInfoApp(TestCase):

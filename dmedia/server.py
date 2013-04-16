@@ -27,6 +27,7 @@ import json
 import os
 import socket
 from base64 import b64encode, b64decode
+import re
 from wsgiref.util import shift_path_info
 import logging
 
@@ -88,104 +89,115 @@ def get_slice(environ):
     return (_id, start, stop)
 
 
-def range_to_slice(value):
+RE_RANGE = re.compile('^bytes=(\d+)-(\d+)$')
+
+def range_to_slice(value, file_size):
     """
-    Convert from HTTP Range request to Python slice semantics.
+    No bullshit HTTP Range parser from the wrong side of the tracks.
 
-    Python slice semantics are quite natural to deal with, whereas the HTTP
-    Range semantics are a touch wacky, so this function will help prevent silly
-    errors.
+    Converts a byte-wise HTTP Range into a sane Python-esque byte-wise slice,
+    and then checks that the following condition is met::
 
-    For example, say we're requesting parts of a 10,000 byte long file.  This
-    requests the first 500 bytes:
+        0 <= start < stop <= file_size
 
-    >>> range_to_slice('bytes=0-499')
+    If not, a `WSGIError` is raised, aborting the request handling.  This is a
+    strict parser only designed to handle the boring, predictable Range requests
+    that the Dmedia HTTP client will make.  The Range request must have this
+    form::
+
+        bytes=START-END
+
+    Where `START` and `END` are integers.  Some exciting variations that this
+    parser does not support::
+
+        bytes=-START
+        bytes=START-
+
+    For example, a request for the first 500 bytes in a 1000 byte file:
+
+    >>> range_to_slice('bytes=0-499', 1000)
     (0, 500)
 
-    This requests the second 500 bytes:
+    Or a request for the final 500 bytes in the same:
 
-    >>> range_to_slice('bytes=500-999')
+    >>> range_to_slice('bytes=500-999', 1000)
     (500, 1000)
 
-    All three of these request the final 500 bytes:
+    But if you slip up and start thinking like a coder or someone who knows
+    math, this tough kid has your back:
 
-    >>> range_to_slice('bytes=9500-9999')
-    (9500, 10000)
-    >>> range_to_slice('bytes=-500')
-    (-500, None)
-    >>> range_to_slice('bytes=9500-')
-    (9500, None)
+    >>> range_to_slice('bytes=500-1000', 1000)
+    Traceback (most recent call last):
+      ...
+    dmedia.httpd.WSGIError: 416 Requested Range Not Satisfiable
 
-    For details on HTTP Range header, see:
+    For details on the HTTP Range header, see:
 
-      http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
+        http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
     """
-    unit = 'bytes='
-    if not value.startswith(unit):
-        raise WSGIError('400 Bad Range Units')
-    value = value[len(unit):]
-    if value.startswith('-'):
-        try:
-            return (int(value), None)
-        except ValueError:
-            raise WSGIError('400 Bad Range Negative Start')  
-    parts = value.split('-')
-    if not len(parts) == 2:
-        raise WSGIError('400 Bad Range Format')
-    try:
-        start = int(parts[0])
-    except ValueError:
-        raise WSGIError('400 Bad Range Start')
-    try:
-        end = parts[1]
-        stop = (int(end) + 1 if end else None)
-    except ValueError:
-        raise WSGIError('400 Bad Range End')
-    if not (stop is None or start < stop):
-        raise WSGIError('400 Bad Range')
+    assert isinstance(file_size, int)
+    assert file_size > 0
+    match = RE_RANGE.match(value)
+    if match is None:
+        raise WSGIError('400 Bad Range Request')
+    start = int(match.group(1))
+    end = int(match.group(2))
+    stop = end + 1
+    if not (0 <= start < stop <= file_size):
+        raise WSGIError('416 Requested Range Not Satisfiable')
     return (start, stop)
 
 
-def slice_to_content_range(start, stop, length):
+def slice_to_content_range(start, stop, file_size):
     """
     Convert Python slice to HTTP Content-Range.
 
     For example, a slice containing the first 500 bytes of a 1234 byte file:
 
     >>> slice_to_content_range(0, 500, 1234)
-    'bytes 0-499/1234'
+    ('Content-Range', 'bytes 0-499/1234')
 
     Or the 2nd 500 bytes:
 
     >>> slice_to_content_range(500, 1000, 1234)
-    'bytes 500-999/1234'
+    ('Content-Range', 'bytes 500-999/1234')
 
     """
-    assert 0 <= start < stop <= length
-    return 'bytes {}-{}/{}'.format(start, stop - 1, length)
+    assert 0 <= start < stop <= file_size
+    end = stop - 1
+    return ('Content-Range', 'bytes {}-{}/{}'.format(start, end, file_size))
 
 
 MiB = 1024 * 1024
 
-
 class FileSlice:
-    __slots__ = ('fp', 'start', 'stop')
+    __slots__ = ('fp', 'start', 'stop', 'content_length')
 
-    def __init__(self, fp, start=0, stop=None):
+    def __init__(self, fp, start, stop):
+        assert isinstance(start, int)
+        assert isinstance(stop, int)
+        assert 0 <= start < stop
         self.fp = fp
         self.start = start
         self.stop = stop
+        self.content_length = stop - start
 
     def __iter__(self):
         self.fp.seek(self.start)
-        remaining = self.stop - self.start
+        os.posix_fadvise(
+            self.fp.fileno(),
+            self.start,
+            self.content_length,
+            os.POSIX_FADV_SEQUENTIAL
+        )
+        remaining = self.content_length
         while remaining:
             read = min(remaining, MiB)
             remaining -= read
-            data = self.fp.read(read)
+            data = self.fp.read1(read)
             assert len(data) == read
             yield data
-        assert remaining == 0
+        self.fp.close()
 
 
 class RootApp:
@@ -266,34 +278,41 @@ class FilesApp:
         if environ['REQUEST_METHOD'] != 'GET':
             raise WSGIError('405 Method Not Allowed')
         _id = shift_path_info(environ)
-        if not (len(_id) == DIGEST_B32LEN and isb32(_id)):
-            raise WSGIError('400 Bad Request ID')
+        if not isb32(_id):
+            raise WSGIError('400 Bad File ID')
+        if len(_id) != DIGEST_B32LEN:
+            raise WSGIError('400 Bad File ID Length')
+        if environ['PATH_INFO'] != '':
+            raise WSGIError('410 Gone')
+        if environ['QUERY_STRING']:
+            raise WSGIError('400 No Query For You')
         try:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
-        except Exception:
+        except Exception as e:
+            log.exception('%s %s', _id, e)
             raise WSGIError('404 Not Found')
 
         if 'HTTP_RANGE' in environ:
-            (start, stop) = range_to_slice(environ['HTTP_RANGE'])                
+            (start, stop) = range_to_slice(environ['HTTP_RANGE'], st.size)
             status = '206 Partial Content'
         else:
             start = 0
-            stop = None
+            stop = st.size
             status = '200 OK'
 
-        # '416 Requested Range Not Satisfiable'
-
-        stop = (st.size if stop is None else min(st.size, stop))
-        length = str(stop - start)
-        headers = [('Content-Length', length)]
-        if 'HTTP_RANGE' in environ:
+        log.info('Sending bytes %s[%d:%d] to %s:%s', _id, start, stop,
+            environ['REMOTE_ADDR'], environ['REMOTE_PORT']
+        )
+        file_slice = FileSlice(fp, start, stop)
+        headers = [('Content-Length', file_slice.content_length)]
+        if status == '206 Partial Content':
             headers.append(
-                ('Content-Range', slice_to_content_range(start, stop, st.size))
+                slice_to_content_range(start, stop, st.size)
             )
         start_response(status, headers)
-        return FileSlice(fp, start, stop)
+        return file_slice
 
 
 class InfoApp:

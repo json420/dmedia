@@ -41,10 +41,11 @@ import time
 import os
 import logging
 
-from filestore import CorruptFile, FileNotFound, check_root_hash
+from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
 from .constants import TYPE_ERROR
+from .local import LocalStores
 
 
 log = logging.getLogger()
@@ -103,25 +104,30 @@ def get_mtime(fs, _id):
     return int(fs.stat(_id).mtime)
 
 
+def create_stored_value(_id, fs, verified=None):
+    value = {
+        'copies': fs.copies,
+        'mtime': get_mtime(fs, _id),
+    }
+    if verified is not None:
+        assert isinstance(verified, (int, float))
+        value['verified'] = int(verified)
+    return value
+
+
 def create_stored(_id, *filestores):
     """
     Create doc['stored'] for file with *_id* stored in *filestores*.
     """
     return dict(
-        (
-            fs.id,
-            {
-                'copies': fs.copies,
-                'mtime': get_mtime(fs, _id),
-            }
-        )
+        (fs.id, create_stored_value(_id, fs))
         for fs in filestores
     )
 
 
 def merge_stored(old, new):
     """
-    Update doc['stored'] based on new storage information in *new*.
+    Update doc['stored'] based on storage information in *new*.
     """
     assert isinstance(old, dict)
     assert isinstance(new, dict)
@@ -137,57 +143,73 @@ def merge_stored(old, new):
             old[key] = value 
 
 
-def mark_added(doc, *filestores):
-    _id = doc['_id']
+def mark_added(doc, new):
     old = get_dict(doc, 'stored')
-    new = create_stored(_id, *filestores)
     merge_stored(old, new)
 
 
-def mark_removed(doc, *filestores):
+def mark_downloading(doc, timestamp, fs_id):
+    """
+    Add download in progress entry in doc['partial'].
+    """
+    partial = get_dict(doc, 'partial')
+    partial[fs_id] = {'time': timestamp}
+
+
+def mark_downloaded(doc, fs_id, new):
+    """
+    Update doc appropriately after a download completes.
+    """
+    assert fs_id in new
+    old = get_dict(doc, 'stored')
+    merge_stored(old, new)
+    partial = get_dict(doc, 'partial')
+    partial.pop(fs_id, None)
+    if not partial:
+        del doc['partial']
+
+
+def mark_removed(doc, *removed):
     stored = get_dict(doc, 'stored')
-    for fs in filestores:
-        stored.pop(fs.id, None)
+    for fs_id in removed:
+        assert isinstance(fs_id, str)
+        stored.pop(fs_id, None)
 
 
-def mark_verified(doc, fs, timestamp):
-    _id = doc['_id']
+def mark_verified(doc, fs_id, new_value):
+    assert isinstance(new_value, dict)
+    assert set(new_value) == set(['copies', 'mtime', 'verified'])
+    assert isinstance(new_value['copies'], int)
+    assert isinstance(new_value['mtime'], int)
+    assert isinstance(new_value['verified'], int)
     stored = get_dict(doc, 'stored')
-    value = get_dict(stored, fs.id)
-    value.update(
-        copies=fs.copies,
-        mtime=get_mtime(fs, _id),
-        verified=int(timestamp),
-    )
+    old_value = get_dict(stored, fs_id)
+    old_value.update(new_value)
 
 
-def mark_corrupt(doc, fs, timestamp):
+def mark_corrupt(doc, timestamp, fs_id):
     stored = get_dict(doc, 'stored')
-    stored.pop(fs.id, None)
+    stored.pop(fs_id, None)
     corrupt = get_dict(doc, 'corrupt')
-    corrupt[fs.id] = {'time': timestamp}
+    corrupt[fs_id] = {'time': timestamp}
 
 
-def mark_copied(doc, src, timestamp, *dst):
-    assert len(dst) >= 1
-    _id = doc['_id']
+def mark_copied(doc, timestamp, src_id, new):
+    assert src_id in new
+    assert len(new) >= 2
     old = get_dict(doc, 'stored')
-    new = create_stored(_id, src, *dst)
     merge_stored(old, new)
-    old[src.id]['verified'] = int(timestamp)
+    old[src_id]['verified'] = int(timestamp)
 
 
-def mark_mismatch(doc, fs):
+def mark_mismatched(doc, fs_id, mtime):
     """
-    Update mtime and copies, delete verified, preserve pinned.
+    Update 'mtime' and 'copies', delete 'verified', preserve 'pinned'.
     """
-    _id = doc['_id']
+    assert isinstance(mtime, int)
     stored = get_dict(doc, 'stored')
-    value = get_dict(stored, fs.id)
-    value.update(
-        mtime=get_mtime(fs, _id),
-        copies=0,
-    )
+    value = get_dict(stored, fs_id)
+    value.update({'copies': 0, 'mtime': mtime})
     value.pop('verified', None)
 
 
@@ -205,13 +227,14 @@ class VerifyContext:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if exc_type is None:
             log.info('Verified %s in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_verified, self.fs, time.time())
+            value = create_stored_value(self.doc['_id'], self.fs, time.time())
+            self.db.update(self.doc, mark_verified, self.fs.id, value)
         elif issubclass(exc_type, CorruptFile):
             log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_corrupt, self.fs, time.time())
+            self.db.update(self.doc, mark_corrupt, time.time(), self.fs.id)
         elif issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_removed, self.fs)
+            self.db.update(self.doc, mark_removed, self.fs.id)
         else:
             return False
         return True
@@ -233,13 +256,14 @@ class ScanContext:
             return
         if issubclass(exc_type, FileNotFound):
             log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_removed, self.fs)
+            self.db.update(self.doc, mark_removed, self.fs.id)
         elif issubclass(exc_type, CorruptFile):
             log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_corrupt, self.fs, time.time())
+            self.db.update(self.doc, mark_corrupt, time.time(), self.fs.id)
         elif issubclass(exc_type, MTimeMismatch):
             log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
-            self.db.update(self.doc, mark_mismatch, self.fs)
+            mtime = get_mtime(self.fs, self.doc['_id'])
+            self.db.update(self.doc, mark_mismatched, self.fs.id, mtime)
         else:
             return False
         return True
@@ -291,6 +315,33 @@ class MetaStore:
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
+
+    def doc_and_id(self, obj):
+        if isinstance(obj, dict):
+            return (obj, obj['_id'])
+        if isinstance(obj, str):
+            return (self.db.get(obj), obj)
+        raise TypeError('obj must be a doc or _id (a dict or str)')
+
+    def content_hash(self, doc_or_id, unpack=True):
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
+        return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
+
+    def get_local_stores(self):
+        doc = self.db.get('_local/dmedia')
+        local_stores = LocalStores()
+        for (parentdir, info) in doc['stores'].items():
+            fs = FileStore(parentdir, info['id'], info['copies'])
+            local_stores.add(fs)
+        return local_stores
+
+    def get_peers(self):
+        try:
+            doc = self.db.get('_local/peers')
+            return get_dict(doc, 'peers')
+        except NotFound:
+            return {}
 
     def schema_check(self):
         """
@@ -539,7 +590,7 @@ class MetaStore:
 
     def remove(self, fs, _id):
         doc = self.db.get(_id)
-        mark_removed(doc, fs)
+        mark_removed(doc, fs.id)
         self.db.save(doc)
         fs.remove(_id)
         log.info('Removed %s from %s', _id, fs.id)
@@ -590,6 +641,16 @@ class MetaStore:
         self.db.save(doc)
         return tmp_fp
 
+    def start_download(self, fs, doc):
+        tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
+        self.db.update(doc, mark_downloading, time.time(), fs.id)
+        return tmp_fp
+
+    def finish_download(self, fs, doc, tmp_fp):
+        fs.move_to_canonical(tmp_fp, doc['_id'])
+        new = create_stored(doc['_id'], fs)
+        return self.db.update(doc, mark_downloaded, fs.id, new)
+
     def verify_and_move(self, fs, tmp_fp, _id):
         doc = self.db.get(_id)
         ch = fs.verify_and_move(tmp_fp, _id)
@@ -600,16 +661,10 @@ class MetaStore:
             pass
         if not partial:
             del doc['partial']
-        mark_added(doc, fs)
+        new = create_stored(_id, fs)
+        mark_added(doc, new)
         self.db.save(doc)
         return ch
-
-    def doc_and_id(self, obj):
-        if isinstance(obj, dict):
-            return (obj, obj['_id'])
-        if isinstance(obj, str):
-            return (self.db.get(obj), obj)
-        raise TypeError('obj must be a doc or _id (a dict or str)')
 
     def copy(self, src, doc_or_id, *dst):
         (doc, _id) = self.doc_and_id(doc_or_id)
@@ -618,12 +673,13 @@ class MetaStore:
             log.info('Copied %s from %s to %s', _id, src.id, 
                 ', '.join(d.id for d in dst)
             )
-            self.db.update(doc, mark_copied, src, time.time(), *dst)
+            new = create_stored(_id, src, *dst)
+            self.db.update(doc, mark_copied, time.time(), src.id, new)
         except FileNotFound:
             log.warning('%s is not in %s', _id, src.id)
-            self.db.update(doc, mark_removed, src)
+            self.db.update(doc, mark_removed, src.id)
         except CorruptFile:
             log.error('%s is corrupt in %s', _id, src.id)
-            self.db.update(doc, mark_corrupt, src, time.time())
+            self.db.update(doc, mark_corrupt, time.time(), src.id)
         return doc
 

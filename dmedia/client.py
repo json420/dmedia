@@ -23,153 +23,23 @@
 dmedia HTTP client.
 """
 
+from collections import OrderedDict, namedtuple
 import os
-from urllib.parse import urlparse
-from http.client import HTTPConnection, HTTPSConnection
-from collections import OrderedDict
+from os import path
+import time
+import logging
 
+from microfiber import CouchBase, build_ssl_context, NotFound
 from filestore import LEAF_SIZE, TYPE_ERROR, hash_leaf, reader_iter
 from filestore import Leaf, ContentHash, SmartQueue, _start_thread
 
-from dmedia import __version__
+from .util import get_db
+from .units import bytes10
+from .metastore import MetaStore, get_dict
 
 
-USER_AGENT = 'dmedia {}'.format(__version__)
-
-
-class HTTPError(Exception):
-    """
-    Base class for custom HTTP client exceptions.
-    """
-
-    def __init__(self, response, method, path):
-        self.response = response
-        self.method = method
-        self.path = path
-        self.data = response.read()
-        super().__init__(
-            '{} {}: {} {}'.format(response.status, response.reason, method, path)
-        )
-
-
-class ClientError(HTTPError):
-    """
-    Base class for all 4xx Client Error exceptions.
-    """
-
-
-class BadRequest(ClientError):
-    """
-    400 Bad Request.
-    """
-
-
-class Unauthorized(ClientError):
-    """
-    401 Unauthorized.
-    """
-
-
-class Forbidden(ClientError):
-    """
-    403 Forbidden.
-    """
-
-
-class NotFound(ClientError):
-    """
-    404 Not Found.
-    """
-
-
-class MethodNotAllowed(ClientError):
-    """
-    405 Method Not Allowed.
-    """
-
-
-class NotAcceptable(ClientError):
-    """
-    406 Not Acceptable.
-    """
-
-
-class Conflict(ClientError):
-    """
-    409 Conflict.
-
-    Raised when the request resulted in an update conflict.
-    """
-
-
-class PreconditionFailed(ClientError):
-    """
-    412 Precondition Failed.
-    """
-
-
-class BadContentType(ClientError):
-    """
-    415 Unsupported Media Type.
-    """
-
-
-class BadRangeRequest(ClientError):
-    """
-    416 Requested Range Not Satisfiable.
-    """
-
-
-class ExpectationFailed(ClientError):
-    """
-    417 Expectation Failed.
-
-    Raised when a bulk operation failed.
-    """
-
-
-class ServerError(HTTPError):
-    """
-    Used to raise exceptions for any 5xx Server Errors.
-    """
-
-
-errors = {
-    400: BadRequest,
-    401: Unauthorized,
-    403: Forbidden,
-    404: NotFound,
-    405: MethodNotAllowed,
-    406: NotAcceptable,
-    409: Conflict,
-    412: PreconditionFailed,
-    415: BadContentType,
-    416: BadRangeRequest,
-    417: ExpectationFailed,
-}
-
-
-def http_conn(url, **options):
-    """
-    Return (connection, parsed) tuple.
-
-    For example:
-
-    >>> (conn, parsed) = http_conn('http://foo.s3.amazonaws.com/')
-
-    The returned connection will be either an ``HTTPConnection`` or
-    ``HTTPSConnection`` instance based on the *url* scheme.
-
-    The 2nd item in the returned tuple will be *url* parsed with ``urlparse()``.
-    """
-    u = urlparse(url)
-    if u.scheme not in ('http', 'https'):
-        raise ValueError('url scheme must be http or https: {!r}'.format(url))
-    if not u.netloc:
-        raise ValueError('bad url: {!r}'.format(url))
-    klass = (HTTPConnection if u.scheme == 'http' else HTTPSConnection)
-    conn = klass(u.netloc, **options)
-    return (conn, u)
+log = logging.getLogger()
+Slice = namedtuple('Slice', 'start stop')
 
 
 def bytes_range(start, stop=None):
@@ -215,6 +85,7 @@ def check_slice(ch, start, stop):
     """
     Validate the crap out of a leaf-wise slice of a file.
     """
+    # Check `ch` type
     if not isinstance(ch, ContentHash):
         raise TypeError(
             TYPE_ERROR.format('ch', ContentHash, type(ch), ch)
@@ -225,38 +96,49 @@ def check_slice(ch, start, stop):
         )
     if not ch.leaf_hashes:
         raise ValueError('got empty ch.leaf_hashes for ch.id={}'.format(ch.id))
+
+    # Check `start` type:
     if not isinstance(start, int):
         raise TypeError(
             TYPE_ERROR.format('start', int, type(start), start)
         )
-    if not (stop is None or isinstance(stop, int)):
+
+    # Check `stop` type:
+    count = len(ch.leaf_hashes)
+    stop = (count if stop is None else stop)
+    if not isinstance(stop, int):
         raise TypeError(
             TYPE_ERROR.format('stop', int, type(stop), stop)
         )
-    if not (0 <= start < len(ch.leaf_hashes)):
-        raise ValueError('Need 0 <= start < {}; got start={}'.format(
-               len(ch.leaf_hashes), start)
-        )
-    if not (stop is None or 1 <= stop <= len(ch.leaf_hashes)):
-        raise ValueError('Need 1 <= stop <= {}; got stop={}'.format(
-               len(ch.leaf_hashes), stop)
-        )
-    if not (stop is None or start < stop):
+
+    # Check slice math:
+    if not (0 <= start < stop <= count):
         raise ValueError(
-            'Need start < stop; got start={}, stop={}'.format(start, stop)
+            '[{}:{}] invalid slice for {} leaves'.format(start, stop, count)
         )
 
+    # We at most change `stop`, but return them all for clarity:
+    return (ch, start, stop)
 
-def range_header(ch, start=0, stop=None):
-    check_slice(ch, start, stop)
-    if start == 0 and (stop is None or stop == len(ch.leaf_hashes)):
-        return {}
-    _start = start * LEAF_SIZE
-    if stop is None or stop == len(ch.leaf_hashes):
-        _stop = None
-    else:
-        _stop = stop * LEAF_SIZE
-    return {'Range': bytes_range(_start, _stop)}
+
+def range_header(ch, start, stop):
+    """
+    When needed, convert a leaf-wise slice into a byte-wise HTTP Range header.
+
+    If the slice represents the entire file, None is returned.
+
+    Note: we assume (ch, start, stop) were already validated with
+    `check_slice()`.  See `HTTPClient.get_leaves()`.
+    """
+    count = len(ch.leaf_hashes)
+    assert 0 <= start < stop <= count
+    if start == 0 and stop == count:
+        return None
+    start_bytes = start * LEAF_SIZE
+    stop_bytes = min(ch.file_size, stop * LEAF_SIZE)
+    assert 0 <= start_bytes < stop_bytes <= ch.file_size
+    end_bytes = stop_bytes - 1
+    return {'Range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
 
 
 def response_reader(response, queue, start=0):
@@ -273,7 +155,7 @@ def response_reader(response, queue, start=0):
         queue.put(e)
 
 
-def threaded_response_iter(response, start=0):
+def response_iter(response, start=0):
     q = SmartQueue(4)
     thread = _start_thread(response_reader, response, q, start)
     while True:
@@ -284,20 +166,10 @@ def threaded_response_iter(response, start=0):
     thread.join()  # Make sure reader() terminates
 
 
-def response_iter(response, start=0):
-    index = start
-    while True:
-        data = response.read(LEAF_SIZE)
-        if not data:
-            break
-        yield Leaf(index, data)
-        index += 1
-
-
 def missing_leaves(ch, tmp_fp):
     assert isinstance(ch.leaf_hashes, tuple)
     assert os.fstat(tmp_fp.fileno()).st_size == ch.file_size
-    assert tmp_fp.mode in ('rb+', 'r+b')
+    assert tmp_fp.mode == 'rb+'
     tmp_fp.seek(0)
     for leaf in reader_iter(tmp_fp):
         leaf_hash = ch.leaf_hashes[leaf.index]
@@ -306,80 +178,168 @@ def missing_leaves(ch, tmp_fp):
     assert leaf.index == len(ch.leaf_hashes) - 1
 
 
-class DownloadComplete(Exception):
-    pass
-
-class DownloadWriter:
-    def __init__(self, ch, store):
-        self.ch = ch
-        self.store = store
-        self.tmp_fp = store.allocate_partial(ch.file_size, ch.id)
-        self.resumed = (self.tmp_fp.mode != 'wb')
-        if self.resumed:
-            gen = missing_leaves(ch, self.tmp_fp)
+class Downloader:
+    def __init__(self, doc_or_id, ms, fs):
+        (self.doc, self.id) = ms.doc_and_id(doc_or_id)
+        self.ch = ms.content_hash(self.doc)
+        self.tmp_fp = ms.start_download(fs, self.doc)
+        self.ms = ms
+        self.fs = fs
+        if self.tmp_fp.mode != 'xb':
+            log.info('Resuming download of %s in %r', self.ch.id, fs)
+            self.missing = OrderedDict(missing_leaves(self.ch, self.tmp_fp))
+            log.info('Missing %d of %d leaves in partial file %s',
+                len(self.missing), len(self.ch.leaf_hashes), self.ch.id
+            )
         else:
-            gen = enumerate(ch.leaf_hashes)
-        self.missing = OrderedDict(gen)
+            self.missing = OrderedDict(enumerate(self.ch.leaf_hashes))
 
-    def write_leaf(self, leaf):
-        if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
+    def download_is_complete(self):
+        if len(self.missing) > 0:
             return False
-        self.tmp_fp.seek(leaf.index * LEAF_SIZE)
-        self.tmp_fp.write(leaf.data)
-        lh = self.missing.pop(leaf.index)
-        assert lh == self.ch.leaf_hashes[leaf.index]
+        self.doc = self.ms.finish_download(self.fs, self.doc, self.tmp_fp)
         return True
 
     def next_slice(self):
-        if not self.missing:
-            raise DownloadComplete()
+        """
+        Return the next needed contiguous leaf-wise slice.
+
+        If the partial file has been completely downloaded, ``None`` is
+        returned.  Otherwise a `Slice` namedtuple is returned, with handy
+        *start* and *stop* attributes.
+        """
+        if len(self.missing) == 0:
+            return None
         first = None
         for i in self.missing:
             if first is None:
                 first = i
                 last = i
             elif i != last + 1:
-                return (first, last + 1)
+                return Slice(first, last + 1)
             else:
                 last = i
-        return (first, last + 1)
+        return Slice(first, last + 1)
 
-    def finish(self):
-        assert not self.missing
-        self.tmp_fp.close()
-        tmp_fp = open(self.tmp_fp.name, 'rb')
-        return self.store.verify_and_move(tmp_fp, self.ch.id)
+    def write_leaf(self, leaf):
+        if hash_leaf(leaf.index, leaf.data) != self.ch.leaf_hashes[leaf.index]:
+            log.warning('Got corrupt leaf %s[%d]', self.ch.id, leaf.index)
+            return False
+        self.tmp_fp.seek(leaf.index * LEAF_SIZE)
+        self.tmp_fp.write(leaf.data)
+        leaf_hash = self.missing.pop(leaf.index)
+        assert leaf_hash == self.ch.leaf_hashes[leaf.index]
+        return True
+
+    def download_from(self, client):
+        start = time.monotonic()
+        total = 0
+
+        next = self.next_slice()
+        while next is not None:
+            for leaf in client.iter_leaves(self.ch, next.start, next.stop):
+                self.write_leaf(leaf)
+                total += len(leaf.data)
+            next = self.next_slice()
+
+        delta = time.monotonic() - start
+        rate = int(total / delta)
+        log.info('**** %s per second from %s', bytes10(rate), client.url)
 
 
-class HTTPClient:
-    def __init__(self, url, debug=False):
-        (self.conn, u) = http_conn(url)
-        self.basepath = (u.path if u.path.endswith('/') else u.path + '/')
-        self.url = ''.join([u.scheme, '://', u.netloc, self.basepath])
-        self.u = u
-        if debug:
-            self.conn.set_debuglevel(1)
+class HTTPClient(CouchBase):
+    """
+    Relax while Microfiber does the heavy lifting.
+    """
 
-    def request(self, method, relpath, body=None, headers=None):
-        assert not relpath.startswith('/')
-        path = self.basepath + relpath
-        h = {'User-Agent': USER_AGENT}
-        if headers:
-            h.update(headers)
+    def get_leaves(self, ch, start=0, stop=None):
+        (ch, start, stop) = check_slice(ch, start, stop)
+        log.info('Requesting leaves %s[%d:%d] from %s', ch.id, start, stop, self.url)
+        return self.request('GET', ('files', ch.id), None,
+            headers=range_header(ch, start, stop),
+        )
+
+    def iter_leaves(self, ch, start=0, stop=None):
+        response = self.get_leaves(ch, start, stop)
+        return response_iter(response, start)
+
+
+def download_one(ms, ssl_context, _id, tmpfs=None):
+    try:
+        doc = ms.db.get(_id)
+    except NotFound:
+        log.error('doc for %s NotFound in CouchDB', _id)
+        return
+
+    # We can't do anything if there are no local stores:
+    local_stores = ms.get_local_stores()
+    if tmpfs is not None:
+        local_stores.add(tmpfs)
+    if len(local_stores) == 0:
+        log.warning('No connected FileStore, nothing to download to...')
+        return
+
+    # Pointless to download when the file is already local:
+    stored = local_stores.intersection(get_dict(doc, 'stored'))
+    if stored and tmpfs is None:
+        log.error('%s is already local in %r', _id, stored)
+        return
+
+    # If a partial download already exists, use that FileStore, otherwise use
+    # the FileStore with the most available free space:
+    partial = local_stores.intersection(get_dict(doc, 'partial'))
+    if partial:
+        fs = local_stores.by_id(partial.pop())
+    else:
+        fs = local_stores.sort_by_avail()[0]
+    if tmpfs is not None:
+        fs = tmpfs
+
+    # Could happen occasionally:
+    downloader = Downloader(doc, ms, fs)
+    if downloader.download_is_complete():
+        log.info('Hey, the partial file for %s was already complete', _id)
+        return
+
+    # We can't do anything if no peers are available:
+    peers = ms.get_peers()
+    if not peers:
+        log.warning('No peers on local network, cannot download %s', _id)
+        return
+
+    # Try downloading from each local peer till we succeed (or give up):
+    for (machine_id, info) in peers.items():
+        url = info['url']
+        client_env = {
+            'url': url,
+            'ssl': {
+                'context': ssl_context,
+                'check_hostname': False,
+            },
+        }
+        client = HTTPClient(client_env)
         try:
-            self.conn.request(method, path, body, h)
-            response = self.conn.getresponse()
-        except Exception as e:
-            self.conn.close()
-            raise e
-        if response.status >= 500:
-            raise ServerError(response, method, path)
-        if response.status >= 400:
-            E = errors.get(response.status, ClientError)
-            raise E(response, method, path)
-        return response
+            downloader.download_from(client)
+        except Exception:
+            log.exception('Error downloading %s from %s', _id, url)
+        if downloader.download_is_complete():
+            break
 
-    def get(self, ch, start=0, stop=None):
-        headers = range_header(ch, start, stop)
-        return self.request('GET', ch.id, headers=headers)
+
+def download_worker(queue, env, ssl_config, tmpfs=None):
+    ms = MetaStore(get_db(env))
+    ssl_context = build_ssl_context(ssl_config)
+    while True:
+        _id = queue.get()
+        if _id is None:
+            break
+        try:
+            download_one(ms, ssl_context, _id, tmpfs)
+        except Exception:
+            log.exception('An error occurred when downloading %s', _id)
+        if tmpfs is not None:
+            for filename in [tmpfs.path(_id), tmpfs.partial_path(_id)]:
+                if path.isfile(filename):
+                    log.info('Removing %s', filename)
+                    os.remove(filename)
 

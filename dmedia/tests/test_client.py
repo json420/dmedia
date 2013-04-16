@@ -25,89 +25,15 @@ Unit tests for `dmedia.client`.
 
 from unittest import TestCase
 import os
-from http.client import HTTPConnection, HTTPSConnection
+from collections import OrderedDict
 
 from microfiber import random_id
-from filestore import ContentHash, TYPE_ERROR, DIGEST_BYTES
+from filestore import ContentHash, TYPE_ERROR, DIGEST_BYTES, LEAF_SIZE
 
 from dmedia import client
 
 
-class FakeResponse:
-    def __init__(self, status, reason):
-        self.status = status
-        self.reason = reason
-        self._data = os.urandom(16)
-
-    def read(self):
-        return self._data
-
-
-class TestErrors(TestCase):
-    def test_errors(self):
-        self.assertEqual(
-            client.errors,
-            {
-                400: client.BadRequest,
-                401: client.Unauthorized,
-                403: client.Forbidden,
-                404: client.NotFound,
-                405: client.MethodNotAllowed,
-                406: client.NotAcceptable,
-                409: client.Conflict,
-                412: client.PreconditionFailed,
-                415: client.BadContentType,
-                416: client.BadRangeRequest,
-                417: client.ExpectationFailed,
-            }
-        )
-        method = 'MOST'
-        path = '/restful?and=awesome'
-        for (status, klass) in client.errors.items():
-            reason = random_id()
-            r = FakeResponse(status, reason)
-            inst = klass(r, method, path)
-            self.assertIs(inst.response, r)
-            self.assertEqual(inst.method, method)
-            self.assertEqual(inst.path, path)
-            self.assertEqual(inst.data, r._data)
-            self.assertEqual(
-                str(inst),
-                '{} {}: {} {}'.format(status, reason, method, path)
-            )
-
-
 class TestFunctions(TestCase):
-    def test_http_conn(self):
-        f = client.http_conn
-
-        # Test with bad scheme
-        with self.assertRaises(ValueError) as cm:
-            (conn, t) = f('ftp://foo.s3.amazonaws.com/')
-        self.assertEqual(
-            str(cm.exception),
-            "url scheme must be http or https: 'ftp://foo.s3.amazonaws.com/'"
-        )
-
-        # Test with bad url
-        with self.assertRaises(ValueError) as cm:
-            (inst, t) = f('http:foo.s3.amazonaws.com/')
-        self.assertEqual(
-            str(cm.exception),
-            "bad url: 'http:foo.s3.amazonaws.com/'"
-        )
-
-        # Test with HTTP
-        (conn, t) = f('http://foo.s3.amazonaws.com/')
-        self.assertIsInstance(conn, HTTPConnection)
-        self.assertNotIsInstance(conn, HTTPSConnection)
-        self.assertEqual(t, ('http', 'foo.s3.amazonaws.com', '/', '', '', ''))
-
-        # Test with HTTPS
-        (conn, t) = f('https://foo.s3.amazonaws.com/')
-        self.assertIsInstance(conn, HTTPSConnection)
-        self.assertEqual(t, ('https', 'foo.s3.amazonaws.com', '/', '', '', ''))
-
     def test_bytes_range(self):
         f = client.bytes_range
         self.assertEqual(f(0, 500), 'bytes=0-499')
@@ -119,15 +45,15 @@ class TestFunctions(TestCase):
         ch = ContentHash('foo', None, (1, 2, 3))
 
         # Test all valid slices
-        client.check_slice(ch, 0, None)
-        client.check_slice(ch, 1, None)
-        client.check_slice(ch, 2, None)
-        client.check_slice(ch, 0, 1)
-        client.check_slice(ch, 0, 2)
-        client.check_slice(ch, 1, 2)
-        client.check_slice(ch, 0, 3)
-        client.check_slice(ch, 1, 3)
-        client.check_slice(ch, 2, 3)
+        self.assertEqual(client.check_slice(ch, 0, None), (ch, 0, 3))
+        self.assertEqual(client.check_slice(ch, 1, None), (ch, 1, 3))
+        self.assertEqual(client.check_slice(ch, 2, None), (ch, 2, 3))
+        self.assertEqual(client.check_slice(ch, 0, 1), (ch, 0, 1))
+        self.assertEqual(client.check_slice(ch, 0, 2), (ch, 0, 2))
+        self.assertEqual(client.check_slice(ch, 1, 2), (ch, 1, 2))
+        self.assertEqual(client.check_slice(ch, 0, 3), (ch, 0, 3))
+        self.assertEqual(client.check_slice(ch, 1, 3), (ch, 1, 3))
+        self.assertEqual(client.check_slice(ch, 2, 3), (ch, 2, 3))
 
         # ch type
         with self.assertRaises(TypeError) as cm:
@@ -172,88 +98,129 @@ class TestFunctions(TestCase):
             TYPE_ERROR.format('stop', int, float, 1.0)
         )
 
-        # start value
+        # start < 0:
         with self.assertRaises(ValueError) as cm:
             client.check_slice(ch, -1, None)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 0 <= start < 3; got start=-1'
-        )
+        self.assertEqual(str(cm.exception), '[-1:3] invalid slice for 3 leaves')
         with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 3, None)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 0 <= start < 3; got start=3'
-        )
+            client.check_slice(ch, -1, 3)
+        self.assertEqual(str(cm.exception), '[-1:3] invalid slice for 3 leaves')
 
-        # stop value
+        # stop > len(ch.leaf_hashes):
         with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 0, 0)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 1 <= stop <= 3; got stop=0'
-        )
-        with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 0, 4)
-        self.assertEqual(
-            str(cm.exception),
-            'Need 1 <= stop <= 3; got stop=4'
-        )
+            client.check_slice(ch, 1, 4)
+        self.assertEqual(str(cm.exception), '[1:4] invalid slice for 3 leaves')
 
-        # start < stop
-        with self.assertRaises(ValueError) as cm:
-            client.check_slice(ch, 2, 1)
-        self.assertEqual(
-            str(cm.exception),
-            'Need start < stop; got start=2, stop=1'
-        )
+        # start >= stop:
         with self.assertRaises(ValueError) as cm:
             client.check_slice(ch, 1, 1)
-        self.assertEqual(
-            str(cm.exception),
-            'Need start < stop; got start=1, stop=1'
+        self.assertEqual(str(cm.exception), '[1:1] invalid slice for 3 leaves')
+        with self.assertRaises(ValueError) as cm:
+            client.check_slice(ch, 2, 1)
+        self.assertEqual(str(cm.exception), '[2:1] invalid slice for 3 leaves')
+
+    def test_range_header(self):
+        leaf_hashes = (1, 2, 3)
+        ch = ContentHash(None, None, leaf_hashes)
+        self.assertIsNone(client.range_header(ch, 0, 3))
+
+        # Smallest 3 leaf file:
+        size = 2 * LEAF_SIZE + 1
+        ch = ContentHash(None, size, leaf_hashes)
+        self.assertIsNone(client.range_header(ch, 0, 3))
+        self.assertEqual(client.range_header(ch, 1, 3),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
         )
+        self.assertEqual(client.range_header(ch, 2, 3),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 0, 2),
+            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 1, 2),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 0, 1),
+            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
+        )
+
+        # Largest 3 leaf file:
+        size = 3 * LEAF_SIZE
+        ch = ContentHash(None, size, leaf_hashes)
+        self.assertIsNone(client.range_header(ch, 0, 3))
+        self.assertEqual(client.range_header(ch, 1, 3),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 2, 3),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 0, 2),
+            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 1, 2),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 0, 1),
+            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
+        )
+
+        # One byte smaller than largest 3 leaf file:
+        size = 3 * LEAF_SIZE - 1
+        ch = ContentHash(None, size, leaf_hashes)
+        self.assertIsNone(client.range_header(ch, 0, 3))
+        self.assertEqual(client.range_header(ch, 1, 3),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 2, 3),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 0, 2),
+            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 1, 2),
+            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
+        )
+        self.assertEqual(client.range_header(ch, 0, 1),
+            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
+        )
+
+
+class TestDownloader(TestCase):
+    def test_next_slice(self):
+        class Dummy(client.Downloader):
+            def __init__(self, indexes):
+                self.missing = OrderedDict((i, None) for i in indexes)
+
+        # missing is empty
+        dl = Dummy([])
+        self.assertIsNone(dl.next_slice())
+
+        # all leaves are missing
+        dl = Dummy(range(413))
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (0, 413))
+
+        # should chose first contiguous slice:
+        dl = Dummy([17, 18, 19, 20, 21, 106, 107, 108, 700, 999])
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (17, 22))
+
+        # even if that slice is only 1 in length:
+        dl = Dummy([19, 119, 120, 121, 123])
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (19, 20))
+
+        # even there is only a single missing leaf:
+        dl = Dummy([1775])
+        s = dl.next_slice()
+        self.assertIsInstance(s, client.Slice)
+        self.assertEqual(s, (1775, 1776))
 
 
 class TestHTTPClient(TestCase):        
-    def test_init(self):
-        bad = 'sftp://localhost:5984/'
-        with self.assertRaises(ValueError) as cm:
-            inst = client.HTTPClient(bad)
-        self.assertEqual(
-            str(cm.exception),
-            'url scheme must be http or https: {!r}'.format(bad)
-        )
-        bad = 'http:localhost:5984/foo/bar'
-        with self.assertRaises(ValueError) as cm:
-            inst = client.HTTPClient(bad)
-        self.assertEqual(
-            str(cm.exception),
-            'bad url: {!r}'.format(bad)
-        )
+    def test_get_leaves(self):
+        inst = client.HTTPClient()
 
-        inst = client.HTTPClient('https://localhost:5984/couch?foo=bar/')
-        self.assertEqual(inst.url, 'https://localhost:5984/couch/')
-        self.assertEqual(inst.basepath, '/couch/')
-        self.assertIsInstance(inst.conn, HTTPSConnection)
-
-        inst = client.HTTPClient('http://localhost:5984?/')
-        self.assertEqual(inst.url, 'http://localhost:5984/')
-        self.assertEqual(inst.basepath, '/')
-        self.assertIsInstance(inst.conn, HTTPConnection)
-
-        inst = client.HTTPClient('http://localhost:5001/')
-        self.assertEqual(inst.url, 'http://localhost:5001/')
-        self.assertIsInstance(inst.conn, HTTPConnection)
-
-        inst = client.HTTPClient('http://localhost:5002')
-        self.assertEqual(inst.url, 'http://localhost:5002/')
-        self.assertIsInstance(inst.conn, HTTPConnection)
-
-        inst = client.HTTPClient('https://localhost:5003/')
-        self.assertEqual(inst.url, 'https://localhost:5003/')
-        self.assertIsInstance(inst.conn, HTTPSConnection)
-
-        inst = client.HTTPClient('https://localhost:5004')
-        self.assertEqual(inst.url, 'https://localhost:5004/')
-        self.assertIsInstance(inst.conn, HTTPSConnection)
