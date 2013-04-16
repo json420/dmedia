@@ -1,9 +1,7 @@
 #!/usr/bin/python3
 
-import sys
 import json
 from os import path
-import time
 import logging
 import multiprocessing
 

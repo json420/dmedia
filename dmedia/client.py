@@ -245,9 +245,13 @@ class Downloader:
 
 
 class HTTPClient(CouchBase):
+    """
+    Relax while Microfiber does the heavy lifting.
+    """
+
     def get_leaves(self, ch, start=0, stop=None):
         (ch, start, stop) = check_slice(ch, start, stop)
-        log.info('Getting leaves %s[%d:%d] from %s', ch.id, start, stop, self.url)
+        log.info('Requesting leaves %s[%d:%d] from %s', ch.id, start, stop, self.url)
         return self.request('GET', ('files', ch.id), None,
             headers=range_header(ch, start, stop),
         )
@@ -336,6 +340,4 @@ def download_worker(queue, env, ssl_config, tmpfs=None):
                 if path.isfile(filename):
                     log.info('Removing %s', filename)
                     os.remove(filename)
-
-            
 
