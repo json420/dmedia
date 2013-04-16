@@ -23,16 +23,23 @@
 dmedia HTTP client.
 """
 
+from collections import OrderedDict, namedtuple
 import os
-from collections import OrderedDict
+from os import path
+import time
 import logging
 
-from microfiber import CouchBase
+from microfiber import CouchBase, build_ssl_context, NotFound
 from filestore import LEAF_SIZE, TYPE_ERROR, hash_leaf, reader_iter
 from filestore import Leaf, ContentHash, SmartQueue, _start_thread
 
+from .util import get_db
+from .units import bytes10
+from .metastore import MetaStore, get_dict
+
 
 log = logging.getLogger()
+Slice = namedtuple('Slice', 'start stop')
 
 
 def bytes_range(start, stop=None):
@@ -116,7 +123,7 @@ def check_slice(ch, start, stop):
 
 def range_header(ch, start, stop):
     """
-    When needed, convert a leaf-wise slice into a bytes-wise HTTP Range header.
+    When needed, convert a leaf-wise slice into a byte-wise HTTP Range header.
 
     If the slice represents the entire file, None is returned.
 
@@ -202,32 +209,39 @@ class Downloader:
         return True
 
     def next_slice(self):
-        if not self.missing:
-            raise DownloadComplete()
+        if len(self.missing) == 0:
+            return None
         first = None
         for i in self.missing:
             if first is None:
                 first = i
                 last = i
             elif i != last + 1:
-                return (first, last + 1)
+                return Slice(first, last + 1)
             else:
                 last = i
-        return (first, last + 1)
+        return Slice(first, last + 1)
 
-    def finish(self):
-        assert not self.missing
+    def download_is_complete(self):
+        if self.missing:
+            return False
         self.doc = self.ms.finish_download(self.fs, self.doc, self.tmp_fp)
+        return True
 
     def download_from(self, client):
-        while True:
-            try:
-                (start, stop) = self.next_slice()
-            except DownloadComplete:
-                break
-            for leaf in client.iter_leaves(self.ch, start, stop):
+        start = time.monotonic()
+        total = 0
+
+        next = self.next_slice()
+        while next is not None:
+            for leaf in client.iter_leaves(self.ch, next.start, next.stop):
                 self.write_leaf(leaf)
-        self.finish()
+                total += len(leaf.data)
+            next = self.next_slice()
+
+        delta = time.monotonic() - start
+        rate = int(total / delta)
+        log.info('**** %s per second from %s', bytes10(rate), client.url)
 
 
 class HTTPClient(CouchBase):
@@ -241,4 +255,87 @@ class HTTPClient(CouchBase):
     def iter_leaves(self, ch, start=0, stop=None):
         response = self.get_leaves(ch, start, stop)
         return response_iter(response, start)
+
+
+def download_one(ms, ssl_context, _id, tmpfs=None):
+    try:
+        doc = ms.db.get(_id)
+    except NotFound:
+        log.error('doc for %s NotFound in CouchDB', _id)
+        return
+
+    # We can't do anything if there are no local stores:
+    local_stores = ms.get_local_stores()
+    if tmpfs is not None:
+        local_stores.add(tmpfs)
+    if len(local_stores) == 0:
+        log.warning('No connected FileStore, nothing to download to...')
+        return
+
+    # Pointless to download when the file is already local:
+    stored = local_stores.intersection(get_dict(doc, 'stored'))
+    if stored and tmpfs is None:
+        log.error('%s is already local in %r', _id, stored)
+        return
+
+    # If a partial download already exists, use that FileStore, otherwise use
+    # the FileStore with the most available free space:
+    partial = local_stores.intersection(get_dict(doc, 'partial'))
+    if partial:
+        fs = local_stores.by_id(partial.pop())
+    else:
+        fs = local_stores.sort_by_avail()[0]
+    if tmpfs is not None:
+        fs = tmpfs
+    log.info('Saving into %r', fs)
+
+    # Could happen occasionally:
+    downloader = Downloader(doc, ms, fs)
+    if downloader.download_is_complete():
+        log.info('Hey, the partial file for %s was already complete', _id)
+        return
+
+    # We can't do anything if no peers are available:
+    peers = ms.get_peers()
+    if not peers:
+        log.warning('No peers on local network, cannot download %s', _id)
+        return
+
+    # Try downloading from each local peer till we succeed (or give up):
+    for (machine_id, info) in peers.items():
+        url = info['url']
+        client_env = {
+            'url': url,
+            'ssl': {
+                'context': ssl_context,
+                'check_hostname': False,
+            },
+        }
+        client = HTTPClient(client_env)
+        try:
+            downloader.download_from(client)
+        except Exception:
+            log.exception('Error downloading %s from %s', _id, url)
+        if downloader.download_is_complete():
+            break
+
+
+def download_worker(queue, env, ssl_config, tmpfs=None):
+    ms = MetaStore(get_db(env))
+    ssl_context = build_ssl_context(ssl_config)
+    while True:
+        _id = queue.get()
+        if _id is None:
+            break
+        try:
+            download_one(ms, ssl_context, _id, tmpfs)
+        except Exception:
+            log.exception('An error occurred when downloading %s', _id)
+        if tmpfs is not None:
+            for filename in [tmpfs.path(_id), tmpfs.partial_path(_id)]:
+                if path.isfile(filename):
+                    log.info('Removing %s', filename)
+                    os.remove(filename)
+
+            
 

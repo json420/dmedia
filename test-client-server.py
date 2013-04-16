@@ -5,26 +5,26 @@ import json
 from os import path
 import time
 import logging
+import multiprocessing
 
 import dbus
-from microfiber import Database, build_ssl_context, dumps
-from filestore import LEAF_SIZE
 from filestore.misc import TempFileStore
+from dbase32.rfc3548 import random_id
 
 import dmedia
-from dmedia.util import init_filestore
+from dmedia.util import get_db
 from dmedia.units import bytes10
-from dmedia.metastore import MetaStore
-from dmedia.client import HTTPClient, Downloader
+from dmedia.client import download_worker
+from dmedia.parallel import start_process
+
 
 logging.basicConfig(level=logging.DEBUG)
 
 
 Dmedia = dbus.SessionBus().get_object('org.freedesktop.Dmedia', '/')
 env = json.loads(Dmedia.GetEnv())
-db = Database('dmedia-0', env)
-ms = MetaStore(db)
-peers = db.get('_local/peers')['peers']
+db = get_db(env)
+tmpfs = TempFileStore(random_id())
 
 basedir = dmedia.get_dmedia_dir()
 ssldir = path.join(basedir, 'ssl')
@@ -33,29 +33,14 @@ ssl_config = {
     'cert_file': path.join(ssldir, env['machine_id'] + '.cert'),
     'key_file': path.join(ssldir, env['machine_id'] + '.key'),
 }
-ssl_context = build_ssl_context(ssl_config)
 
-fs = init_filestore('/media/jderose/dmedia2')[0]
-file_id = 'DDKVF5J6YJJ3WJAIDNZDDWN672MXPLTWVGVYGI7N63SRFIHV'
-downloader = Downloader(file_id, ms, fs)
-#print(dumps(downloader.doc, True))
-#print(len(downloader.missing))
+queue = multiprocessing.Queue()
+worker = start_process(download_worker, queue, env, ssl_config, tmpfs=tmpfs)
 
+for row in db.view('doc', 'type', key='dmedia/file', limit=200)['rows']:
+    _id = row['id']
+    queue.put(_id)
 
-for (machine_id, info) in peers.items():
-    client_env = {
-        'url': info['url'],
-        'ssl': {
-            'context': ssl_context,
-            'check_hostname': False,
-        },
-    }
-    client = HTTPClient(client_env)
-    start = time.monotonic()
+queue.put(None)
+worker.join()
 
-    downloader.download_from(client)
-    #print(dumps(downloader.doc, True))
-
-    delta = time.monotonic() - start
-    rate = int(downloader.ch.file_size / delta)
-    print(bytes10(rate))

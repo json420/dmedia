@@ -41,10 +41,11 @@ import time
 import os
 import logging
 
-from filestore import CorruptFile, FileNotFound, check_root_hash
+from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
 from .constants import TYPE_ERROR
+from .local import LocalStores
 
 
 log = logging.getLogger()
@@ -326,6 +327,21 @@ class MetaStore:
         (doc, _id) = self.doc_and_id(doc_or_id)
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
+
+    def get_local_stores(self):
+        doc = self.db.get('_local/dmedia')
+        local_stores = LocalStores()
+        for (parentdir, info) in doc['stores'].items():
+            fs = FileStore(parentdir, info['id'], info['copies'])
+            local_stores.add(fs)
+        return local_stores
+
+    def get_peers(self):
+        try:
+            doc = self.db.get('_local/peers')
+            return get_dict(doc, 'peers')
+        except NotFound:
+            return {}
 
     def schema_check(self):
         """

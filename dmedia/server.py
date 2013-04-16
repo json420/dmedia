@@ -155,7 +155,7 @@ def range_to_slice_strict(value, file_size):
     No bullshit HTTP Range parser from the wrong side of the tracks.
 
     Converts a byte-wise HTTP Range into a sane Python-esque byte-wise slice,
-    and checks that this condition is met::
+    and then checks that the following condition is met::
 
         0 <= start < stop <= file_size
 
@@ -204,7 +204,7 @@ def range_to_slice_strict(value, file_size):
     return (start, stop)
 
 
-def slice_to_content_range(start, stop, length):
+def slice_to_content_range(start, stop, file_size):
     """
     Convert Python slice to HTTP Content-Range.
 
@@ -219,9 +219,9 @@ def slice_to_content_range(start, stop, length):
     ('Content-Range', 'bytes 500-999/1234')
 
     """
-    assert 0 <= start < stop <= length
+    assert 0 <= start < stop <= file_size
     end = stop - 1
-    return ('Content-Range', 'bytes {}-{}/{}'.format(start, end, length))
+    return ('Content-Range', 'bytes {}-{}/{}'.format(start, end, file_size))
 
 
 MiB = 1024 * 1024
