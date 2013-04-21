@@ -44,7 +44,7 @@ from dmedia.util import get_filestore_id
 from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
-from dmedia.service.background import Snapshots, LazyAccess
+from dmedia.service.background import Snapshots, LazyAccess, Downloads
 from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, Publisher
 
@@ -183,6 +183,7 @@ class Service(dbus.service.Object):
                 self.SnapshotComplete,
         )
         self.lazy_access = LazyAccess(self.core.db)
+        self.downloads = Downloads(self.core.env, self.couch.get_ssl_config())
         log.info('Finished core startup in %.3f', time.time() - start)
         GLib.timeout_add(350, self.on_idle1)
 
@@ -454,11 +455,13 @@ class Service(dbus.service.Object):
         start_thread(self.core.purge_store, store_id)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='(sys)')
-    def Resolve(self, _id):
-        (_id, status, filename) = self.core.resolve(_id)
+    def Resolve(self, file_id):
+        (file_id, status, filename) = self.core.resolve(file_id)
         if status in (0, 1):
-            self.lazy_access.access(_id)
-        return (_id, status, filename)
+            self.lazy_access.access(file_id)
+            if status == 1:
+                self.downloads.download(file_id)
+        return (file_id, status, filename)
 
     @dbus.service.method(IFACE, in_signature='as', out_signature='a(sys)')
     def ResolveMany(self, ids):

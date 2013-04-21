@@ -32,6 +32,7 @@ from microfiber import BulkConflict
 
 from dmedia.parallel import start_thread, start_process
 from dmedia.core import snapshot_worker
+from dmedia.client import download_worker
 
 
 log = logging.getLogger()
@@ -149,4 +150,19 @@ class LazyAccess:
                 log.exception('Conflicts in LazyAccess.flush()')
             self.buf.clear()
             return len(docs)
+
+
+class Downloads:
+    def __init__(self, env, ssl_config):
+        self.env = env
+        self.ssl_config = ssl_config
+        self.queue = multiprocessing.Queue()
+        self.process = None
+
+    def download(self, file_id):
+        self.queue.put(file_id)
+        if self.process is None:
+            self.process = start_process(
+                download_worker, self.queue, self.env, self.ssl_config
+            )
 
