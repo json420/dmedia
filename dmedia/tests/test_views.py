@@ -840,7 +840,7 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Make things work even if copies is missing
+        # Make sure things work even if copies is missing:
         doc['stored'] = {
             random_id(): {},
             random_id(): {},
@@ -858,7 +858,7 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Make sure copies is being properly summed
+        # Make sure copies is being properly summed, excluding negative values:
         doc['stored'] = {
             random_id(): {'copies': 1},
             random_id(): {'copies': [17]},
@@ -889,7 +889,7 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        # Check when one store provides 3 copies
+        # Check when one store provides 3 copies:
         doc['stored'] = {
             random_id(): {'copies': 3},
         }
@@ -899,7 +899,7 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        # Check when each store provides 1 copy
+        # Check when each store provides 1 copy:
         doc['stored'] = {
             random_id(): {'copies': 1},
             random_id(): {'copies': 1},
