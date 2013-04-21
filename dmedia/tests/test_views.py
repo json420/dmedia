@@ -861,9 +861,9 @@ class TestFileDesign(DesignTestCase):
         # Make sure copies is being properly summed
         doc['stored'] = {
             random_id(): {'copies': 1},
-            random_id(): {'copies': 0},
+            random_id(): {'copies': [17]},
             random_id(): {'copies': 1},
-            random_id(): {'copies': 0},
+            random_id(): {'copies': -2},
         }
         db.save(doc)
         self.assertEqual(
@@ -875,6 +875,18 @@ class TestFileDesign(DesignTestCase):
                     {'key': 2, 'id': _id, 'value': None},
                 ],
             },
+        )
+
+        # Another check with bad `copies` types/values:
+        doc['stored'] = {
+            random_id(): {'copies': 'bad number'},
+            random_id(): {'copies': 3},
+            random_id(): {'copies': -17},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
         # Check when one store provides 3 copies
@@ -897,6 +909,46 @@ class TestFileDesign(DesignTestCase):
         self.assertEqual(
             db.view('file', 'fragile'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test sort order:
+        id1 = random_file_id()
+        id2 = random_file_id()
+        id3 = random_file_id()
+        doc1 = {
+            '_id': id1,
+            'type': 'dmedia/file',
+            'origin': 'user',
+        }
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'stored': {
+                random_id(): {'copies': 1},
+            },
+        }
+        doc3 = {
+            '_id': id3,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'stored': {
+                random_id(): {'copies': 1},
+                random_id(): {'copies': 1},
+            },
+        }
+        db.save_many([doc1, doc2, doc3])
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {
+                'offset': 0, 
+                'total_rows': 3,
+                'rows': [
+                    {'key': 0, 'id': id1, 'value': None},
+                    {'key': 1, 'id': id2, 'value': None},
+                    {'key': 2, 'id': id3, 'value': None},
+                ],
+            },
         )
 
     def test_fragile2(self):

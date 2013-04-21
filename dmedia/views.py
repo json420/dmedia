@@ -118,16 +118,16 @@ function(doc) {
 file_fragile = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var copies = 0;
-        var key, value;
+        var total = 0;
+        var key, copies;
         for (key in doc.stored) {
-            value = doc.stored[key];
-            if (typeof value.copies == 'number' && value.copies >= 0) {
-                copies += value.copies;
+            copies = doc.stored[key].copies;
+            if (typeof copies == 'number' && copies > 0) {
+                total += copies;
             }
         }
-        if (copies < 3) {
-            emit(copies, null);
+        if (total < 3) {
+            emit(total, null);
         }
     }
 }
