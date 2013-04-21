@@ -244,7 +244,7 @@ class Downloader:
 
         delta = time.monotonic() - start
         rate = int(total / delta)
-        log.info('**** %s per second from %s', bytes10(rate), client.url)
+        log.info('%s at %s per second from %s', bytes10(total), bytes10(rate), client.url)
 
 
 class HTTPClient(CouchBase):
