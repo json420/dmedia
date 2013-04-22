@@ -724,9 +724,8 @@ class MetaStore:
         Yield doc for each fragile file.     
         """
         result = self.db.view('file', 'fragile', update_seq=True)
-        for ids in id_slice_iter(result['rows']):
-            for doc in self.db.get_many(ids):
-                yield doc
+        for row in result['rows']:
+            yield self.db.get(row['id'])
         if not monitor:
             return
         # Now we enter an event-based loop using the _changes feed:
