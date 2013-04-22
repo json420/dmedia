@@ -367,6 +367,11 @@ class MetaStore:
         except NotFound:
             return {}
 
+    def iter_stores(self):
+        result = self.db.view('file', 'stored', reduce=True, group=True)
+        for row in result['rows']:
+            yield row['key']
+
     def schema_check(self):
         """
         If needed, migrate mtime from float to int.
@@ -434,9 +439,7 @@ class MetaStore:
         threshold = curtime - DOWNGRADE_BY_STORE_ATIME
         t = TimeDelta()
         result = {}
-        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
-        for row in rows:
-            store_id = row['key']
+        for store_id in self.iter_stores():
             try:
                 doc = self.db.get(store_id)
                 atime = doc.get('atime')
@@ -482,16 +485,14 @@ class MetaStore:
         """
         t = TimeDelta()
         count = 0
-        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
-        for row in rows:
-            store_id = row['key']
+        stores = tuple(self.iter_stores())
+        for store_id in stores:
             count += self.downgrade_store(store_id)
-        t.log('downgraded %d total copies in %d stores', count, len(rows))
+        t.log('downgrade %d total copies in %d stores', count, len(stores))
         return count
 
     def purge_store(self, store_id):
         t = TimeDelta()
-        log.info('Purging store %s', store_id)
         count = 0
         while True:
             rows = self.db.view('file', 'stored',
@@ -510,7 +511,21 @@ class MetaStore:
             except BulkConflict:
                 log.exception('Conflict purging %s', store_id)
                 count -= len(e.conflicts)
-        t.log('Purged %d copies from %s', count, store_id)
+        t.log('purge %d copies from %s', count, store_id)
+        return count
+
+    def purge_all(self):
+        """
+        Purge every file in every store.
+
+        Note: this is only really useful for testing.
+        """
+        t = TimeDelta()
+        count = 0
+        stores = tuple(self.iter_stores())
+        for store_id in stores:
+            count += self.purge_store(store_id)
+        t.log('purge %d total copies in %d stores', count, len(stores))
         return count
 
     def scan(self, fs):
