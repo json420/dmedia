@@ -219,6 +219,7 @@ def update_project(db, project_id):
 
 
 def vigilance(env, stores, first_run):
+    return
     try:
         log.info('vigilance() running %r', stores)
         db = util.get_db(env)
@@ -244,6 +245,19 @@ def vigilance(env, stores, first_run):
         log.info('vigilance() is exiting...')
     except Exception:
         log.exception('Error in vigilance()')
+
+
+def check_filestore_worker(env, parentdir, store_id):
+    try:
+        log.info('Checking FileStore %s at %r', store_id, parentdir)
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        fs = util.get_filestore(parentdir, store_id)[0]
+        ms.scan(fs)
+        ms.relink(fs)
+        ms.verify_all(fs)
+    except Exception:
+        log.exception('Error checking FileStore %s at %r', store_id, parentdir)
 
 
 def get_peers(db):
@@ -323,8 +337,9 @@ class Core:
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
+        self.pool = multiprocessing.Pool(2, maxtasksperchild=1)
         self.vigilance = None
-        self.vigilance_first_run = True
+        self.vigilance_first_run = True        
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -333,6 +348,26 @@ class Core:
                 'stores': {},
             }
         self.__local = deepcopy(self.local)
+
+        self.checking_filestores = False
+        self.pending_filestore_checks = []
+
+    def _check_filestore(self, parentdir, store_id):
+        args = (self.env, parentdir, store_id)
+        self.pool.apply_async(check_filestore_worker, args)
+
+    def check_filestore(self, parentdir, store_id):
+        if self.checking_filestores:
+            self._check_filestore(parentdir, store_id)
+        else:
+            self.pending_filestore_checks.append((parentdir, store_id))
+
+    def start_filestore_checks(self):
+        self.checking_filestores = True
+        pending = self.pending_filestore_checks
+        self.pending_filestore_checks = None
+        for (parentdir, store_id) in pending:
+            self._check_filestore(parentdir, store_id)
 
     def save_local(self):
         if self.local != self.__local:
@@ -380,6 +415,7 @@ class Core:
             self.db.save(doc)
         except Conflict:
             pass
+        self.check_filestore(fs.parentdir, fs.id)
         self._sync_stores()
 
     def _remove_filestore(self, fs):

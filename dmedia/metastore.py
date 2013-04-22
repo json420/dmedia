@@ -97,7 +97,7 @@ class TimeDelta:
         return time.perf_counter() - self.start
 
     def log(self, msg, *args):
-        log.info('[%.3f] ' + msg, self.delta, *args)
+        log.info('%.3fs to ' + msg, self.delta, *args)
 
 
 def get_dict(d, key):
@@ -557,7 +557,6 @@ class MetaStore:
         :param fs: a `FileStore` instance
         """
         t = TimeDelta()
-        log.info('Scanning FileStore %s at %r', fs.id, fs.parentdir)
         rows = self.db.view('file', 'stored', key=fs.id)['rows']
         for ids in id_slice_iter(rows):
             for doc in self.db.get_many(ids):
@@ -583,7 +582,7 @@ class MetaStore:
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
         count = len(rows)
-        t.log('scanned %r files in %r', count, fs)
+        t.log('scan %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
         return count
 
     def relink(self, fs):
@@ -592,7 +591,6 @@ class MetaStore:
         """
         t = TimeDelta()
         count = 0
-        log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
         for buf in relink_iter(fs):
             docs = self.db.get_many([st.id for st in buf])
             for (st, doc) in zip(buf, docs):
@@ -609,7 +607,7 @@ class MetaStore:
                 )
                 self.db.save(doc)
                 count += 1
-        t.log('relinked %d files in %r', count, fs)
+        t.log('relink %d files in %r', count, fs)
         return count
 
     def remove(self, fs, _id):
@@ -630,7 +628,6 @@ class MetaStore:
         end = [fs.id, int(time.time()) - VERIFY_THRESHOLD]
         count = 0
         t = TimeDelta()
-        log.info('verifying %r', fs)
         while True:
             r = self.db.view('file', 'verified',
                 startkey=start, endkey=end, limit=1
@@ -640,7 +637,7 @@ class MetaStore:
             count += 1
             _id = r['rows'][0]['id']
             self.verify(fs, _id)
-        t.log('verified %s files in %r', count, fs)
+        t.log('verify %s files in %r', count, fs)
         return count
 
     def content_md5(self, fs, _id, force=False):
@@ -724,6 +721,7 @@ class MetaStore:
             'filter': 'file/fragile',
         }
         last_seq = result['update_seq']
+        log.info('Monitoring _changes feed from update_seq %s', last_seq)
         while True:
             try:
                 kw['since'] = last_seq
