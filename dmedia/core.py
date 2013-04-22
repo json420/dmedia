@@ -218,70 +218,12 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def vigilance(env, stores, first_run):
-    return
-    try:
-        log.info('vigilance() running %r', stores)
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        if first_run:
-            ms.schema_check()
-        filestores = []
-        for (parentdir, info) in stores.items():
-            fs = util.get_filestore(parentdir, info['id'], info['copies'])[0]
-            log.info(fs)
-            filestores.append(fs)
-        for fs in filestores:
-            ms.scan(fs)
-        ms.downgrade_by_store_atime()
-        for fs in filestores:
-            ms.relink(fs)
-        for fs in filestores:
-            ms.verify_all(fs)
-        ms.downgrade_by_never_verified()
-        ms.downgrade_by_last_verified()
-        increase_copies(env)
-        decrease_copies(env)
-        log.info('vigilance() is exiting...')
-    except Exception:
-        log.exception('Error in vigilance()')
-
-
-def downgrade_worker(env):
-    try:
-        log.info('Enter downgrade_worker()...')
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        ms.downgrade_by_store_atime()
-        ms.downgrade_by_never_verified()
-        ms.downgrade_by_last_verified()
-    except Exception:
-        log.exception('Error in downgrade_worker():')
-
-
-def check_filestore_worker(env, parentdir, store_id):
-    try:
-        log.info('Checking FileStore %s at %r', store_id, parentdir)
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        fs = util.get_filestore(parentdir, store_id)[0]
-        ms.scan(fs)
-        ms.relink(fs)
-        ms.verify_all(fs)
-    except Exception:
-        log.exception('Error checking FileStore %s at %r', store_id, parentdir)
-
-
-def get_peers(db):
-    try:
-        return db.get('_local/peers')['peers']
-    except NotFound:
-        return {}
-
-
 def vigilance_worker(env):
+    """
+    Run the event-based copy-increasing loop to maintain file durability.
+    """
     try:
-        log.info('Enter vigilance_worker()...')
+        log.info('Entering vigilance_worker()...')
         db = util.get_db(env)
         ms = MetaStore(db)
         local_stores = ms.get_local_stores()
@@ -304,34 +246,29 @@ def vigilance_worker(env):
         log.exception('Error in vigilance_worker():')
 
 
-def increase_copies(env):
-    db = util.get_db(env)
-    slave = LocalSlave(db.env)
-    slave.update_stores()
-    connected = frozenset(slave.stores.ids)
-    ms = MetaStore(db)
-    total = 0
-    new = 0
-    for copies in range(3):
-        rows = db.view('file', 'fragile', key=copies)['rows']
-        for ids in id_slice_iter(rows):
-            peers = get_peers(db)
-            docs = db.get_many(ids)
-            for doc in docs:
-                stored = frozenset(doc['stored'])
-                local = connected.intersection(stored)  # Any local copies?
-                free = connected - stored  # Local drives without a copy?
-                if local and free:
-                    src = slave.stores.choose_local_store(doc)
-                    size = src.stat(doc['_id']).size
-                    dst = slave.stores.filter_by_avail(free, size, 3 - copies)
-                    if dst:
-                        ms.copy(src, doc, *dst)
-                        total += 1
-                        new += len(dst)
-                elif free and peers:
-                    log.info('Would try and download %s from %s', doc['_id'], sorted(peers))
-    log.info('Created %s new copies of %s total files', new, total)
+def downgrade_worker(env):
+    try:
+        log.info('Entering downgrade_worker()...')
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        ms.downgrade_by_store_atime()
+        ms.downgrade_by_never_verified()
+        ms.downgrade_by_last_verified()
+    except Exception:
+        log.exception('Error in downgrade_worker():')
+
+
+def check_filestore_worker(env, parentdir, store_id):
+    try:
+        log.info('Checking FileStore %s at %r', store_id, parentdir)
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        fs = util.get_filestore(parentdir, store_id)[0]
+        ms.scan(fs)
+        ms.relink(fs)
+        ms.verify_all(fs)
+    except Exception:
+        log.exception('Error checking FileStore %s at %r', store_id, parentdir)
 
 
 def decrease_copies(env):
