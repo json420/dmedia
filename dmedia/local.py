@@ -31,7 +31,7 @@ import microfiber
 from dmedia.util import get_db
 
 
-MiB = 2**20
+MIN_FREE_SPACE = 8 * 1024**3  # 8 GiB min free space
 
 
 class NoSuchFile(Exception):
@@ -176,13 +176,21 @@ class LocalStores:
         assert isinstance(size, int) and size >= 1
         assert isinstance(copies_needed, int) and 1 <= copies_needed <= 3
         stores = []
-        required_avail = size + MiB
+        required_avail = size + MIN_FREE_SPACE
         for fs in self.sort_by_avail():
             if fs.id in free_set and fs.statvfs().avail >= required_avail:
                 stores.append(fs)
                 if len(stores) >= copies_needed:
                     break
         return stores
+
+    def find_dst_store(self, size):
+        stores = self.sort_by_avail()
+        if not stores:
+            return
+        fs = stores[0]
+        if fs.statvfs().avail >= size + MIN_FREE_SPACE:
+            return fs
 
     def local_stores(self):
         stores = {}

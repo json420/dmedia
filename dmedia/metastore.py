@@ -363,9 +363,10 @@ class MetaStore:
     def get_peers(self):
         try:
             doc = self.db.get('_local/peers')
-            return get_dict(doc, 'peers')
+            self._peers = get_dict(doc, 'peers')
         except NotFound:
-            return {}
+            self._peers = {}
+        return self._peers
 
     def iter_stores(self):
         result = self.db.view('file', 'stored', reduce=True, group=True)

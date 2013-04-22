@@ -166,7 +166,7 @@ class Service(dbus.service.Object):
         env = self.couch.auto_bootstrap()
         log.info('%r', self.couch._welcome)
         log.info('Starting CouchDB took %.3f', time.time() - start)
-        self.core = Core(env)
+        self.core = Core(env, self.couch.get_ssl_config())
         d = self.core.db.get()
         log.info('doc_count: %s, update_seq: %s, data_size: %s, disk_size: %s',
             d['doc_count'],

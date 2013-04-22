@@ -266,6 +266,17 @@ class HTTPClient(CouchBase):
         return response_iter(response, start)
 
 
+def get_client(url, ssl_context):
+    client_env = {
+            'url': url,
+            'ssl': {
+                'context': ssl_context,
+                'check_hostname': False,
+            },
+        }
+    return HTTPClient(client_env)
+
+
 def download_one(ms, ssl_context, _id, tmpfs=None):
     try:
         doc = ms.db.get(_id)

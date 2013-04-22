@@ -101,7 +101,6 @@ class TestCore(CouchCase):
         self.assertIs(inst.db.ctx, inst.server.ctx)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertIsNone(inst.vigilance)
-        self.assertIs(inst.vigilance_first_run, True)
         self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
 
     def test_load_identity(self):
@@ -199,17 +198,14 @@ class TestCore(CouchCase):
     def test_start_vigilance(self):
         inst = core.Core(self.env)
         self.assertIsNone(inst.vigilance)
-        self.assertIs(inst.vigilance_first_run, True)
         self.assertIsNone(inst.start_vigilance())
         self.assertIsInstance(inst.vigilance, multiprocessing.Process)
-        self.assertIs(inst.vigilance_first_run, False)
 
         # Test stop_vigilance() also:
         process = inst.vigilance
         self.assertIsNone(inst.stop_vigilance())
         self.assertFalse(process.is_alive())
         self.assertIsNone(inst.vigilance)
-        self.assertIs(inst.vigilance_first_run, False)
 
     def test_restart_vigilance(self):
         class Dummy(core.Core):

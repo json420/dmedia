@@ -49,8 +49,9 @@ import dmedia
 from dmedia.parallel import start_thread, start_process
 from dmedia.server import run_server
 from dmedia import util, schema, views
-from dmedia.metastore import MetaStore, create_stored
-from dmedia.local import LocalStores, FileNotLocal, LocalSlave
+from dmedia.client import Downloader, get_client, build_ssl_context
+from dmedia.metastore import MetaStore, create_stored, get_dict
+from dmedia.local import LocalStores, FileNotLocal, MIN_FREE_SPACE
 
 
 log = logging.getLogger()
@@ -218,7 +219,7 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def vigilance_worker(env):
+def vigilance_worker(env, ssl_config):
     """
     Run the event-based copy-increasing loop to maintain file durability.
     """
@@ -226,22 +227,50 @@ def vigilance_worker(env):
         log.info('Entering vigilance_worker()...')
         db = util.get_db(env)
         ms = MetaStore(db)
+        ssl_context = build_ssl_context(ssl_config)
         local_stores = ms.get_local_stores()
+        if len(local_stores) == 0:
+            log.warning('No connected local stores, cannot increase copies')
+            return
         connected = frozenset(local_stores.ids)
         log.info('Connected %r', connected)
+
         for (doc, stored) in ms.iter_actionable_fragile(connected, True):
+            _id = doc['_id']
             copies = sum(v['copies'] for v in doc['stored'].values())
             if copies >= 3:
-                log.warning('%s already has >= copies, skipping', doc['_id'])
+                log.warning('%s already has >= copies, skipping', _id)
                 continue
+            size = doc['bytes']
             local = connected.intersection(stored)  # Any local copies?
             if local:
                 free = connected - stored
                 src = local_stores.choose_local_store(doc)
-                size = src.stat(doc['_id']).size
                 dst = local_stores.filter_by_avail(free, size, 3 - copies)
                 if dst:
                     ms.copy(src, doc, *dst)
+            elif ms.get_peers():
+                peers = ms._peers
+                partial = local_stores.intersection(get_dict(doc, 'partial'))
+                if partial:
+                    fs = local_stores.by_id(partial.pop())
+                else:
+                    fs = local_stores.find_dst_store(size)
+                if fs is None:
+                    log.warning(
+                        'No FileStore with avail space to download %s', _id
+                    )
+                    continue
+                downloader = Downloader(doc, ms, fs)
+                for (machine_id, info) in peers.items():
+                    url = info['url']
+                    client = get_client(url, ssl_context)
+                    try:
+                        downloader.download_from(client)
+                    except Exception:
+                        log.exception('Error downloading %s from %s', _id, url)
+                    if downloader.download_is_complete():
+                        break
     except Exception:
         log.exception('Error in vigilance_worker():')
 
@@ -305,15 +334,15 @@ def clean_file_id(_id):
 
 
 class Core:
-    def __init__(self, env):
+    def __init__(self, env, ssl_config=None):
         self.env = env
+        self.ssl_config = ssl_config
         self.db = util.get_db(env, init=True)
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.pool = multiprocessing.Pool(2, maxtasksperchild=1)
-        self.vigilance = None
-        self.vigilance_first_run = True        
+        self.vigilance = None      
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -372,7 +401,7 @@ class Core:
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
-        if not self.vigilance_first_run:
+        if self.vigilance is not None:
             self.restart_vigilance()
 
     def _add_filestore(self, fs, doc):
@@ -393,11 +422,10 @@ class Core:
         self._sync_stores()
 
     def start_vigilance(self):
-        assert self.vigilance is None
-        first_run = self.vigilance_first_run
-        if first_run:
-            self.vigilance_first_run = False
-        self.vigilance = start_process(vigilance_worker, self.env)
+        if self.vigilance is None:
+            self.vigilance = start_process(
+                vigilance_worker, self.env, self.ssl_config
+            )
 
     def stop_vigilance(self):
         if self.vigilance is not None:
