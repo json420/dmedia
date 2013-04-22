@@ -29,12 +29,35 @@ The idea with the MetaStore is to wrap both the file and metadata operations
 together with a high-level API.  A good example is copying a file from one
 FileStore to another, which involves a fairly complicated metadata update:
 
-    1) As we verify as we read, upon a successful read we update the
+    1. As we verify as we read, upon a successful read we update the
        verification timestamp for the source FileStore; if the file is corrupt
        or missing, we likewise update the document accordingly
 
-    2) We also need to update doc['stored'] with each new FileStore this file is
+    2. We also need to update doc['stored'] with each new FileStore this file is
        now in
+
+
+Note on types of background talks:
+
+    Pure metadata
+        These tasks operate across the entire library metadata, regardless of
+        what FileStore (drives) are currently connected.
+
+        Currently this includes the schema check and the various downgrade
+        behaviors.
+
+    All connected FileStore
+        These tasks must consider all currently connected FileStore (drives),
+        plus the metadata across the entire library.
+
+        Currently this includes the copy increasing and copy decreasing
+        behaviors.
+
+    Single connected FileStore
+        These tasks consider only the metadata for files that are (assumed) to
+        be on a single connected FileStore (drive).
+
+        Currently this includes the scan, relink, and verify behaviors.
 """
 
 import time
@@ -682,4 +705,20 @@ class MetaStore:
             log.error('%s is corrupt in %s', _id, src.id)
             self.db.update(mark_corrupt, doc, time.time(), src.id)
         return doc
+
+    def iter_actionable_fragile(self, connected):
+        """
+        Yield doc for each fragile file that this node might be able to fix.
+
+        To be "actionable", this machine must have at least one currently
+        connected FileStore (drive) that does *not* already contain a copy of
+        the fragile file.       
+        """
+        assert isinstance(connected, frozenset)
+        rows = self.db.view('file', 'fragile')['rows']
+        for ids in id_slice_iter(rows):
+            for doc in self.db.get_many(ids):
+                stored = frozenset(get_dict(doc, 'stored'))
+                if (connected - stored):
+                    yield (doc, stored)
 

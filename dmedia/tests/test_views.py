@@ -985,7 +985,7 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
-        
+
         # Test when copies is missing:
         doc['stored'] = {
             stores[0]: {'copies': 3},
