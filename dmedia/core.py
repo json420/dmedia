@@ -279,6 +279,31 @@ def get_peers(db):
         return {}
 
 
+def vigilance_worker(env):
+    try:
+        log.info('Enter vigilance_worker()...')
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        local_stores = ms.get_local_stores()
+        connected = frozenset(local_stores.ids)
+        log.info('Connected %r', connected)
+        for (doc, stored) in ms.iter_actionable_fragile(connected, True):
+            copies = sum(v['copies'] for v in doc['stored'].values())
+            if copies >= 3:
+                log.warning('%s already has >= copies, skipping', doc['_id'])
+                continue
+            local = connected.intersection(stored)  # Any local copies?
+            if local:
+                free = connected - stored
+                src = local_stores.choose_local_store(doc)
+                size = src.stat(doc['_id']).size
+                dst = local_stores.filter_by_avail(free, size, 3 - copies)
+                if dst:
+                    ms.copy(src, doc, *dst)
+    except Exception:
+        log.exception('Error in vigilance_worker():')
+
+
 def increase_copies(env):
     db = util.get_db(env)
     slave = LocalSlave(db.env)
@@ -432,11 +457,10 @@ class Core:
 
     def start_vigilance(self):
         assert self.vigilance is None
-        stores = self.stores.local_stores()
         first_run = self.vigilance_first_run
         if first_run:
             self.vigilance_first_run = False
-        self.vigilance = start_process(vigilance, self.env, stores, first_run)
+        self.vigilance = start_process(vigilance_worker, self.env)
 
     def stop_vigilance(self):
         if self.vigilance is not None:
