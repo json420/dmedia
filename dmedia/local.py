@@ -126,6 +126,10 @@ class LocalStores:
     def __len__(self):
         return len(self.ids)
 
+    def __iter__(self):
+        for fs in self.ids.values():
+            yield fs
+
     def by_id(self, _id):
         return self.ids[_id]
 

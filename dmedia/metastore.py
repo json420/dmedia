@@ -424,7 +424,7 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict in downgrade_by %r', view)
                 count -= len(e.conflicts)
-        t.log('downgraded %d files by %s', count, view)
+        t.log('downgrade %d files by %s', count, view)
         return count
 
     def downgrade_by_store_atime(self, curtime=None):
@@ -447,12 +447,11 @@ class MetaStore:
                 log.warning('doc NotFound for %s, forcing downgrade', store_id)
             result[store_id] = self.downgrade_store(store_id)
         total = sum(result.values())
-        t.log('downgraded %d total copies in %d stores', total, len(result))
+        t.log('downgrade %d total copies in %d stores', total, len(result))
         return result
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
-        log.info('Downgrading store %s', store_id)
         count = 0
         while True:
             rows = self.db.view('file', 'nonzero',
@@ -472,7 +471,7 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict downgrading %s', store_id)
                 count -= len(e.conflicts)
-        t.log('downgraded %d copies in %s', count, store_id)
+        t.log('downgrade %d copies in %s', count, store_id)
         return count
 
     def downgrade_all(self):
@@ -607,7 +606,7 @@ class MetaStore:
                 )
                 self.db.save(doc)
                 count += 1
-        t.log('relink %d files in %r', count, fs)
+        t.log('relink %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
         return count
 
     def remove(self, fs, _id):
@@ -637,7 +636,7 @@ class MetaStore:
             count += 1
             _id = r['rows'][0]['id']
             self.verify(fs, _id)
-        t.log('verify %s files in %r', count, fs)
+        t.log('verify %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
         return count
 
     def content_md5(self, fs, _id, force=False):
