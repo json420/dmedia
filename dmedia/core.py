@@ -271,6 +271,7 @@ def vigilance_worker(env, ssl_config):
                         log.exception('Error downloading %s from %s', _id, url)
                     if downloader.download_is_complete():
                         break
+
     except Exception:
         log.exception('Error in vigilance_worker():')
 
