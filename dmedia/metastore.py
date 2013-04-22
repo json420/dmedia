@@ -63,6 +63,7 @@ Note on types of background talks:
 import time
 import os
 import logging
+from http.client import ResponseNotReady
 
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
@@ -706,7 +707,36 @@ class MetaStore:
             self.db.update(mark_corrupt, doc, time.time(), src.id)
         return doc
 
-    def iter_actionable_fragile(self, connected):
+    def iter_fragile(self, monitor=False):
+        """
+        Yield doc for each fragile file.     
+        """
+        result = self.db.view('file', 'fragile', update_seq=True)
+        for ids in id_slice_iter(result['rows']):
+            for doc in self.db.get_many(ids):
+                yield doc
+        if not monitor:
+            return
+        # Now we enter an event-based loop using the _changes feed:
+        kw = {
+            'feed': 'longpoll',
+            'include_docs': True,
+            'filter': 'file/fragile',
+        }
+        last_seq = result['update_seq']
+        while True:
+            try:
+                kw['since'] = last_seq
+                result = self.db.get('_changes', **kw)
+                if result['last_seq'] == last_seq:
+                    continue  # No changes we care about
+                for row in result['results']:
+                    yield row['doc']
+                last_seq = result['last_seq']
+            except ResponseNotReady:
+                pass
+
+    def iter_actionable_fragile(self, connected, monitor=False):
         """
         Yield doc for each fragile file that this node might be able to fix.
 
@@ -715,10 +745,8 @@ class MetaStore:
         the fragile file.       
         """
         assert isinstance(connected, frozenset)
-        rows = self.db.view('file', 'fragile')['rows']
-        for ids in id_slice_iter(rows):
-            for doc in self.db.get_many(ids):
-                stored = frozenset(get_dict(doc, 'stored'))
-                if (connected - stored):
-                    yield (doc, stored)
+        for doc in self.iter_fragile(monitor):
+            stored = frozenset(get_dict(doc, 'stored'))
+            if (connected - stored):
+                yield (doc, stored)
 

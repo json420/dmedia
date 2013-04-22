@@ -133,6 +133,25 @@ function(doc) {
 }
 """
 
+filter_file_fragile = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var total = 0;
+        var key, copies;
+        for (key in doc.stored) {
+            copies = doc.stored[key].copies;
+            if (typeof copies == 'number' && copies > 0) {
+                total += copies;
+            }
+        }
+        if (total < 3) {
+            return true;
+        }
+        return false;
+    }
+}
+"""
+
 file_reclaimable = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -214,6 +233,9 @@ file_design = {
         'last-verified': {'map': file_last_verified},
         'verified': {'map': file_verified},
         'origin': {'map': file_origin, 'reduce': _stats},
+    },
+    'filters': {
+        'fragile': filter_file_fragile,
     },
 }
 
