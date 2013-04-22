@@ -37,25 +37,25 @@ FileStore to another, which involves a fairly complicated metadata update:
        now in
 
 
-Note on types of background talks:
+Types of background tasks:
 
     Pure metadata
         These tasks operate across the entire library metadata, regardless of
-        what FileStore (drives) are currently connected.
+        what FileStore (drives) are connected to the local machine.
 
         Currently this includes the schema check and the various downgrade
         behaviors.
 
     All connected FileStore
-        These tasks must consider all currently connected FileStore (drives),
-        plus the metadata across the entire library.
+        These tasks must consider all FileStore (drives) connected to the local
+        machine, plus metadata across the entire library.
 
         Currently this includes the copy increasing and copy decreasing
         behaviors.
 
     Single connected FileStore
         These tasks consider only the metadata for files that are (assumed) to
-        be on a single connected FileStore (drive).
+        be stored in a single FileStore (drive) connected to the local machine.
 
         Currently this includes the scan, relink, and verify behaviors.
 """
