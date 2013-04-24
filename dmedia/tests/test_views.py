@@ -840,7 +840,7 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Make things work even if copies is missing
+        # Make sure things work even if copies is missing:
         doc['stored'] = {
             random_id(): {},
             random_id(): {},
@@ -858,12 +858,12 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Make sure copies is being properly summed
+        # Make sure copies is being properly summed, excluding negative values:
         doc['stored'] = {
             random_id(): {'copies': 1},
-            random_id(): {'copies': 0},
+            random_id(): {'copies': [17]},
             random_id(): {'copies': 1},
-            random_id(): {'copies': 0},
+            random_id(): {'copies': -2},
         }
         db.save(doc)
         self.assertEqual(
@@ -877,7 +877,19 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Check when one store provides 3 copies
+        # Another check with bad `copies` types/values:
+        doc['stored'] = {
+            random_id(): {'copies': 'bad number'},
+            random_id(): {'copies': 3},
+            random_id(): {'copies': -17},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'fragile'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Check when one store provides 3 copies:
         doc['stored'] = {
             random_id(): {'copies': 3},
         }
@@ -887,7 +899,7 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        # Check when each store provides 1 copy
+        # Check when each store provides 1 copy:
         doc['stored'] = {
             random_id(): {'copies': 1},
             random_id(): {'copies': 1},
@@ -899,92 +911,44 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-    def test_fragile2(self):
-        db = Database('foo', self.env)
-        db.put(None)
-        design = self.build_view('fragile2')
-        db.save(design)
-
-        self.assertEqual(
-            db.view('file', 'fragile2'),
-            {'rows': [], 'offset': 0, 'total_rows': 0},
-        )
-
-        _id = random_id(DIGEST_BYTES)
-        doc = {
-            '_id': _id,
+        # Test sort order:
+        id1 = random_file_id()
+        id2 = random_file_id()
+        id3 = random_file_id()
+        doc1 = {
+            '_id': id1,
             'type': 'dmedia/file',
             'origin': 'user',
         }
-        db.save(doc)
-        self.assertEqual(
-            db.view('file', 'fragile2'),
-            {'rows': [], 'offset': 0, 'total_rows': 0},
-        )
-
-        # Make things work even if copies is missing
-        (store_id1, store_id2, store_id3) = sorted(random_id() for i in range(3))
-        doc['stored'] = {
-            store_id1: {},
-            store_id2: {},
-            store_id3: {},
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'stored': {
+                random_id(): {'copies': 1},
+            },
         }
-        db.save(doc)
+        doc3 = {
+            '_id': id3,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'stored': {
+                random_id(): {'copies': 1},
+                random_id(): {'copies': 1},
+            },
+        }
+        db.save_many([doc1, doc2, doc3])
         self.assertEqual(
-            db.view('file', 'fragile2'),
+            db.view('file', 'fragile'),
             {
                 'offset': 0, 
                 'total_rows': 3,
                 'rows': [
-                    {'key': [0, store_id1], 'id': _id, 'value': None},
-                    {'key': [0, store_id2], 'id': _id, 'value': None},
-                    {'key': [0, store_id3], 'id': _id, 'value': None},
+                    {'key': 0, 'id': id1, 'value': None},
+                    {'key': 1, 'id': id2, 'value': None},
+                    {'key': 2, 'id': id3, 'value': None},
                 ],
             },
-        )
-
-        # Make sure copies is being properly summed
-        doc['stored'] = {
-            store_id1: {'copies': 'bad number'},
-            store_id2: {'copies': -7},
-            store_id3: {'copies': 2},
-        }
-        db.save(doc)
-        self.assertEqual(
-            db.view('file', 'fragile2'),
-            {
-                'offset': 0, 
-                'total_rows': 3,
-                'rows': [
-                    {'key': [2, store_id1], 'id': _id, 'value': None},
-                    {'key': [2, store_id2], 'id': _id, 'value': None},
-                    {'key': [2, store_id3], 'id': _id, 'value': None},
-                ],
-            },
-        )
-
-        # Check when one store provides 3 copies
-        doc['stored'] = {
-            store_id1: {'copies': 'bad number'},
-            store_id2: {'copies': 3},
-            store_id3: {'copies': -17},
-        }
-        db.save(doc)
-        self.assertEqual(
-            db.view('file', 'fragile2'),
-            {'rows': [], 'offset': 0, 'total_rows': 0},
-        )
-
-        # Check when each store provides 1 copy
-        doc['stored'] = {
-            store_id1: {'copies': 1},
-            store_id2: {'copies': 1},
-            store_id3: {'copies': 1},
-        }
-        db.save(doc)
-        self.assertEqual(
-            db.view('file', 'fragile2'),
-            {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
     def test_reclaimable(self):
@@ -1021,7 +985,7 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
-        
+
         # Test when copies is missing:
         doc['stored'] = {
             stores[0]: {'copies': 3},

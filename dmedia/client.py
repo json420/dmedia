@@ -244,7 +244,9 @@ class Downloader:
 
         delta = time.monotonic() - start
         rate = int(total / delta)
-        log.info('**** %s per second from %s', bytes10(rate), client.url)
+        log.info('Downloaded %s from %s at %s/s',
+            bytes10(total), client.url, bytes10(rate)
+        )
 
 
 class HTTPClient(CouchBase):
@@ -262,6 +264,17 @@ class HTTPClient(CouchBase):
     def iter_leaves(self, ch, start=0, stop=None):
         response = self.get_leaves(ch, start, stop)
         return response_iter(response, start)
+
+
+def get_client(url, ssl_context):
+    client_env = {
+            'url': url,
+            'ssl': {
+                'context': ssl_context,
+                'check_hostname': False,
+            },
+        }
+    return HTTPClient(client_env)
 
 
 def download_one(ms, ssl_context, _id, tmpfs=None):

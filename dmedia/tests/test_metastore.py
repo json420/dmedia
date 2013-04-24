@@ -2557,3 +2557,93 @@ class TestMetaStore(CouchCase):
         fs1.verify(_id)
         fs2.verify(_id)
         fs3.verify(_id)
+
+    def test_iter_actionable_fragile(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+        store_id4 = random_id()
+        empty = frozenset()
+        one = frozenset([store_id1])
+        two = frozenset([store_id1, store_id2])
+        three = frozenset([store_id1, store_id2, store_id3])
+
+        id1 = random_file_id()
+        id2 = random_file_id()
+        id3 = random_file_id()
+        doc1 = {
+            '_id': id1,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'stored': {
+                store_id1: {'copies': 0},
+            },
+        }
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'stored': {
+                store_id1: {'copies': 0},
+                store_id4: {'copies': 1},
+            },
+        }
+        doc3 = {
+            '_id': id3,
+            'type': 'dmedia/file',
+            'origin': 'user',
+            'stored': {
+                store_id1: {'copies': 1},
+                store_id2: {'copies': 1},
+            },
+        }
+
+        # Test when no files are in the library:
+        self.assertEqual(list(ms.iter_actionable_fragile(empty)), [])
+        self.assertEqual(list(ms.iter_actionable_fragile(one)), [])
+        self.assertEqual(list(ms.iter_actionable_fragile(two)), [])
+        self.assertEqual(list(ms.iter_actionable_fragile(three)), [])
+
+        # All 3 docs should be included:
+        db.save_many([doc1, doc2, doc3])
+        self.assertEqual(list(ms.iter_actionable_fragile(three)), [
+            (doc1, set([store_id1])),
+            (doc2, set([store_id1, store_id4])),
+            (doc3, set([store_id1, store_id2])),
+        ])
+
+        # If only store_id1, store_id2 are connected, doc3 shouldn't be
+        # actionable:
+        self.assertEqual(list(ms.iter_actionable_fragile(two)), [
+            (doc1, set([store_id1])),
+            (doc2, set([store_id1, store_id4])),
+        ])
+
+        # All files have a copy in store_id1, so nothing should be returned:
+        self.assertEqual(list(ms.iter_actionable_fragile(one)), [])
+
+        # If doc2 was only stored on a non-connected store:
+        doc1['stored'] = {
+            store_id4: {'copies': 1},
+        }
+        db.save(doc1)
+        self.assertEqual(list(ms.iter_actionable_fragile(one)), [
+            (doc1, set([store_id4]))
+        ])
+
+        # If doc2 has sufficent durablity, it shouldn't be included, even though
+        # there is a free drive where a copy could be created:
+        doc2['stored'] = {
+            store_id1: {'copies': 1},
+            store_id2: {'copies': 1},
+            store_id4: {'copies': 1},
+        }
+        db.save(doc2)
+        self.assertEqual(list(ms.iter_actionable_fragile(three)), [
+            (doc1, set([store_id4])),
+            (doc3, set([store_id1, store_id2])),
+        ])
+

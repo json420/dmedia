@@ -30,6 +30,7 @@ import time
 
 from microfiber import Database
 from usercouch.misc import TempCouch
+from dbase32.rfc3548 import random_id
 
 from dmedia.tests.base import TempDir, random_file_id
 from dmedia.tests.couch import CouchCase
@@ -183,3 +184,14 @@ class TestLazyAccess(TestCase):
                 )
             else:
                 self.assertIsNone(doc)
+
+
+class TestDownloads(TestCase):
+    def test_init(self):
+        env = random_id()
+        ssl_config = random_id()
+        downloads = background.Downloads(env, ssl_config)
+        self.assertIs(downloads.env, env)
+        self.assertIs(downloads.ssl_config, ssl_config)
+        self.assertIsInstance(downloads.queue, multiprocessing.queues.Queue)
+        self.assertIsNone(downloads.process)

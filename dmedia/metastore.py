@@ -29,17 +29,41 @@ The idea with the MetaStore is to wrap both the file and metadata operations
 together with a high-level API.  A good example is copying a file from one
 FileStore to another, which involves a fairly complicated metadata update:
 
-    1) As we verify as we read, upon a successful read we update the
+    1. As we verify as we read, upon a successful read we update the
        verification timestamp for the source FileStore; if the file is corrupt
        or missing, we likewise update the document accordingly
 
-    2) We also need to update doc['stored'] with each new FileStore this file is
+    2. We also need to update doc['stored'] with each new FileStore this file is
        now in
+
+
+Types of background tasks:
+
+    Pure metadata
+        These tasks operate across the entire library metadata, regardless of
+        what FileStore (drives) are connected to the local machine.
+
+        Currently this includes the schema check and the various downgrade
+        behaviors.
+
+    All connected FileStore
+        These tasks must consider all FileStore (drives) connected to the local
+        machine, plus metadata across the entire library.
+
+        Currently this includes the copy increasing and copy decreasing
+        behaviors.
+
+    Single connected FileStore
+        These tasks consider only the metadata for files that are (assumed) to
+        be stored in a single FileStore (drive) connected to the local machine.
+
+        Currently this includes the scan, relink, and verify behaviors.
 """
 
 import time
 import os
 import logging
+from http.client import ResponseNotReady
 
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
@@ -73,7 +97,7 @@ class TimeDelta:
         return time.perf_counter() - self.start
 
     def log(self, msg, *args):
-        log.info('[%.3f] ' + msg, self.delta, *args)
+        log.info('%.3fs to ' + msg, self.delta, *args)
 
 
 def get_dict(d, key):
@@ -339,9 +363,15 @@ class MetaStore:
     def get_peers(self):
         try:
             doc = self.db.get('_local/peers')
-            return get_dict(doc, 'peers')
+            self._peers = get_dict(doc, 'peers')
         except NotFound:
-            return {}
+            self._peers = {}
+        return self._peers
+
+    def iter_stores(self):
+        result = self.db.view('file', 'stored', reduce=True, group=True)
+        for row in result['rows']:
+            yield row['key']
 
     def schema_check(self):
         """
@@ -400,7 +430,7 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict in downgrade_by %r', view)
                 count -= len(e.conflicts)
-        t.log('downgraded %d files by %s', count, view)
+        t.log('downgrade %d files by %s', count, view)
         return count
 
     def downgrade_by_store_atime(self, curtime=None):
@@ -410,9 +440,7 @@ class MetaStore:
         threshold = curtime - DOWNGRADE_BY_STORE_ATIME
         t = TimeDelta()
         result = {}
-        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
-        for row in rows:
-            store_id = row['key']
+        for store_id in self.iter_stores():
             try:
                 doc = self.db.get(store_id)
                 atime = doc.get('atime')
@@ -423,12 +451,11 @@ class MetaStore:
                 log.warning('doc NotFound for %s, forcing downgrade', store_id)
             result[store_id] = self.downgrade_store(store_id)
         total = sum(result.values())
-        t.log('downgraded %d total copies in %d stores', total, len(result))
+        t.log('downgrade %d total copies in %d stores', total, len(result))
         return result
 
     def downgrade_store(self, store_id):
         t = TimeDelta()
-        log.info('Downgrading store %s', store_id)
         count = 0
         while True:
             rows = self.db.view('file', 'nonzero',
@@ -448,7 +475,7 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict downgrading %s', store_id)
                 count -= len(e.conflicts)
-        t.log('downgraded %d copies in %s', count, store_id)
+        t.log('downgrade %d copies in %s', count, store_id)
         return count
 
     def downgrade_all(self):
@@ -459,16 +486,14 @@ class MetaStore:
         """
         t = TimeDelta()
         count = 0
-        rows = self.db.view('file', 'stored', reduce=True, group=True)['rows']
-        for row in rows:
-            store_id = row['key']
+        stores = tuple(self.iter_stores())
+        for store_id in stores:
             count += self.downgrade_store(store_id)
-        t.log('downgraded %d total copies in %d stores', count, len(rows))
+        t.log('downgrade %d total copies in %d stores', count, len(stores))
         return count
 
     def purge_store(self, store_id):
         t = TimeDelta()
-        log.info('Purging store %s', store_id)
         count = 0
         while True:
             rows = self.db.view('file', 'stored',
@@ -487,7 +512,21 @@ class MetaStore:
             except BulkConflict:
                 log.exception('Conflict purging %s', store_id)
                 count -= len(e.conflicts)
-        t.log('Purged %d copies from %s', count, store_id)
+        t.log('purge %d copies from %s', count, store_id)
+        return count
+
+    def purge_all(self):
+        """
+        Purge every file in every store.
+
+        Note: this is only really useful for testing.
+        """
+        t = TimeDelta()
+        count = 0
+        stores = tuple(self.iter_stores())
+        for store_id in stores:
+            count += self.purge_store(store_id)
+        t.log('purge %d total copies in %d stores', count, len(stores))
         return count
 
     def scan(self, fs):
@@ -533,7 +572,6 @@ class MetaStore:
         :param fs: a `FileStore` instance
         """
         t = TimeDelta()
-        log.info('Scanning FileStore %s at %r', fs.id, fs.parentdir)
         rows = self.db.view('file', 'stored', key=fs.id)['rows']
         for ids in id_slice_iter(rows):
             for doc in self.db.get_many(ids):
@@ -559,7 +597,7 @@ class MetaStore:
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
         count = len(rows)
-        t.log('scanned %r files in %r', count, fs)
+        t.log('scan %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
         return count
 
     def relink(self, fs):
@@ -568,7 +606,6 @@ class MetaStore:
         """
         t = TimeDelta()
         count = 0
-        log.info('Relinking FileStore %r at %r', fs.id, fs.parentdir)
         for buf in relink_iter(fs):
             docs = self.db.get_many([st.id for st in buf])
             for (st, doc) in zip(buf, docs):
@@ -585,7 +622,7 @@ class MetaStore:
                 )
                 self.db.save(doc)
                 count += 1
-        t.log('relinked %d files in %r', count, fs)
+        t.log('relink %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
         return count
 
     def remove(self, fs, _id):
@@ -606,7 +643,6 @@ class MetaStore:
         end = [fs.id, int(time.time()) - VERIFY_THRESHOLD]
         count = 0
         t = TimeDelta()
-        log.info('verifying %r', fs)
         while True:
             r = self.db.view('file', 'verified',
                 startkey=start, endkey=end, limit=1
@@ -616,7 +652,7 @@ class MetaStore:
             count += 1
             _id = r['rows'][0]['id']
             self.verify(fs, _id)
-        t.log('verified %s files in %r', count, fs)
+        t.log('verify %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
         return count
 
     def content_md5(self, fs, _id, force=False):
@@ -682,4 +718,47 @@ class MetaStore:
             log.error('%s is corrupt in %s', _id, src.id)
             self.db.update(mark_corrupt, doc, time.time(), src.id)
         return doc
+
+    def iter_fragile(self, monitor=False):
+        """
+        Yield doc for each fragile file.     
+        """
+        result = self.db.view('file', 'fragile', update_seq=True)
+        for row in result['rows']:
+            yield self.db.get(row['id'])
+        if not monitor:
+            return
+        # Now we enter an event-based loop using the _changes feed:
+        kw = {
+            'feed': 'longpoll',
+            'include_docs': True,
+            'filter': 'file/fragile',
+        }
+        last_seq = result['update_seq']
+        log.info('Monitoring _changes feed from update_seq %s', last_seq)
+        while True:
+            try:
+                kw['since'] = last_seq
+                result = self.db.get('_changes', **kw)
+                if result['last_seq'] == last_seq:
+                    continue  # No changes we care about
+                for row in result['results']:
+                    yield row['doc']
+                last_seq = result['last_seq']
+            except ResponseNotReady:
+                pass
+
+    def iter_actionable_fragile(self, connected, monitor=False):
+        """
+        Yield doc for each fragile file that this node might be able to fix.
+
+        To be "actionable", this machine must have at least one currently
+        connected FileStore (drive) that does *not* already contain a copy of
+        the fragile file.       
+        """
+        assert isinstance(connected, frozenset)
+        for doc in self.iter_fragile(monitor):
+            stored = frozenset(get_dict(doc, 'stored'))
+            if (connected - stored):
+                yield (doc, stored)
 
