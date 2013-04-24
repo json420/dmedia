@@ -364,10 +364,10 @@ class Core:
             self._check_filestore(parentdir, store_id)
 
     def start_filestore_checks(self):
-        self.pool.apply_async(downgrade_worker, (self.env,))
         for fs in self.stores:
             self._check_filestore(fs.parentdir, fs.id)
         self.checking_filestores = True
+        self.pool.apply_async(downgrade_worker, (self.env,))
 
     def save_local(self):
         if self.local != self.__local:
