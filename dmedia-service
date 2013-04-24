@@ -226,7 +226,7 @@ class Service(dbus.service.Object):
         log.info('[idle3 at time %.3f]', time.time() - start_time)
         self.core.start_filestore_checks()
         self.core.start_vigilance()
-        GLib.timeout_add(15 * 60 * 1000, self.on_vigilance_restart)
+        GLib.timeout_add(30 * 60 * 1000, self.on_vigilance_restart)
 
     def on_vigilance_restart(self):
         log.info('on_vigilance_restart()')
