@@ -734,18 +734,15 @@ class MetaStore:
             'feed': 'longpoll',
             'include_docs': True,
             'filter': 'file/fragile',
+            'since': result['update_seq'],
         }
-        last_seq = result['update_seq']
-        log.info('Monitoring _changes feed from update_seq %s', last_seq)
         while True:
             try:
-                kw['since'] = last_seq
                 result = self.db.get('_changes', **kw)
-                if result['last_seq'] == last_seq:
-                    continue  # No changes we care about
+                log.info('last_seq: %s', result['last_seq'])
                 for row in result['results']:
                     yield row['doc']
-                last_seq = result['last_seq']
+                kw['since'] = result['last_seq']
             except ResponseNotReady:
                 pass
 

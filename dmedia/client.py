@@ -266,7 +266,7 @@ class HTTPClient(CouchBase):
 
     def has_file(self, _id):
         try:
-            self.request('HEAD', ('files', _id), None)
+            self.request('HEAD', ('files', _id), None).read()
             return True
         except NotFound:
             return False

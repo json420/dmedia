@@ -293,8 +293,11 @@ class FilesApp:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
-        except Exception as e:
-            log.exception('%s %s', _id, e)
+        except local.FileNotLocal:
+            log.info('Not Found: %s', _id)
+            raise WSGIError('404 Not Found')
+        except Exception:
+            log.exception('%r', environ)
             raise WSGIError('404 Not Found')
 
         if method == 'HEAD':
