@@ -180,6 +180,7 @@ def missing_leaves(ch, tmp_fp):
 
 class Downloader:
     def __init__(self, doc_or_id, ms, fs):
+        self.finished = False
         (self.doc, self.id) = ms.doc_and_id(doc_or_id)
         self.ch = ms.content_hash(self.doc)
         self.tmp_fp = ms.start_download(fs, self.doc)
@@ -197,8 +198,15 @@ class Downloader:
     def download_is_complete(self):
         if len(self.missing) > 0:
             return False
-        self.doc = self.ms.finish_download(self.fs, self.doc, self.tmp_fp)
+        self.finish_download()
         return True
+
+    def finish_download(self):
+        if self.finished:
+            return
+        assert len(self.missing) == 0
+        self.doc = self.ms.finish_download(self.fs, self.doc, self.tmp_fp)
+        self.finished = True
 
     def next_slice(self):
         """
@@ -248,11 +256,20 @@ class Downloader:
             bytes10(total), client.url, bytes10(rate)
         )
 
+        self.finish_download()
+
 
 class HTTPClient(CouchBase):
     """
     Relax while Microfiber does the heavy lifting.
     """
+
+    def has_file(self, _id):
+        try:
+            self.request('HEAD', ('files', _id)).read()
+            return True
+        except NotFound:
+            return False
 
     def get_leaves(self, ch, start=0, stop=None):
         (ch, start, stop) = check_slice(ch, start, stop)

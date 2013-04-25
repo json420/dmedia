@@ -254,27 +254,26 @@ def vigilance_worker(env, ssl_config):
                     ms.copy(src, doc, *dst)
             elif ms.get_peers():
                 peers = ms._peers
-                partial = local_stores.intersection(get_dict(doc, 'partial'))
-                if partial:
-                    fs = local_stores.by_id(partial.pop())
-                else:
-                    fs = local_stores.find_dst_store(size)
-                if fs is None:
-                    log.warning(
-                        'No FileStore with avail space to download %s', _id
-                    )
-                    continue
-                downloader = Downloader(doc, ms, fs)
                 for (machine_id, info) in peers.items():
                     url = info['url']
                     client = get_client(url, ssl_context)
+                    if not client.has_file(_id):
+                        continue
+                    partial = local_stores.intersection(get_dict(doc, 'partial'))
+                    if partial:
+                        fs = local_stores.by_id(partial.pop())
+                    else:
+                        fs = local_stores.find_dst_store(size)
+                    if fs is None:
+                        log.warning(
+                            'No FileStore with avail space to download %s', _id
+                        )
+                        continue
+                    downloader = Downloader(doc, ms, fs)
                     try:
                         downloader.download_from(client)
                     except Exception:
                         log.exception('Error downloading %s from %s', _id, url)
-                    if downloader.download_is_complete():
-                        break
-
     except Exception:
         log.exception('Error in vigilance_worker():')
 

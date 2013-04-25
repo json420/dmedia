@@ -341,6 +341,17 @@ class TestFilesApp(TestCase):
             app(environ, None)
         self.assertEqual(cm.exception.status, '400 No Query For You')
 
+        # HEAD + Range == bad
+        environ = {
+            'REQUEST_METHOD': 'HEAD',
+            'PATH_INFO': '/' + good_id,
+            'QUERY_STRING': '',
+            'HTTP_RANGE': 'bytes=500-1000',
+        }
+        with self.assertRaises(WSGIError) as cm:
+            app(environ, None)
+        self.assertEqual(cm.exception.status, '400 Cannot Range with HEAD')
+
 
 class TestInfoApp(TestCase):
     def test_init(self):

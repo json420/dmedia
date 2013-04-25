@@ -275,7 +275,8 @@ class FilesApp:
         self.local = local.LocalSlave(env)
 
     def __call__(self, environ, start_response):
-        if environ['REQUEST_METHOD'] != 'GET':
+        method = environ['REQUEST_METHOD']
+        if method not in ('GET', 'HEAD'):
             raise WSGIError('405 Method Not Allowed')
         _id = shift_path_info(environ)
         if not isb32(_id):
@@ -286,6 +287,8 @@ class FilesApp:
             raise WSGIError('410 Gone')
         if environ['QUERY_STRING']:
             raise WSGIError('400 No Query For You')
+        if method == 'HEAD' and 'HTTP_RANGE' in environ:
+            raise WSGIError('400 Cannot Range with HEAD')
         try:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
@@ -293,6 +296,10 @@ class FilesApp:
         except Exception as e:
             log.exception('%s %s', _id, e)
             raise WSGIError('404 Not Found')
+
+        if method == 'HEAD':
+            start_response('200 OK', [('Content-Length', st.size)])
+            return []
 
         if 'HTTP_RANGE' in environ:
             (start, stop) = range_to_slice(environ['HTTP_RANGE'], st.size)
