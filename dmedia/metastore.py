@@ -724,6 +724,7 @@ class MetaStore:
         Yield doc for each fragile file.     
         """
         result = self.db.view('file', 'fragile', update_seq=True)
+        log.info('%d rows in file/fragile', len(result['rows']))
         for row in result['rows']:
             yield self.db.get(row['id'])
         if not monitor:

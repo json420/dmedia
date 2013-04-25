@@ -24,6 +24,7 @@ A FileStore-like API that abstract the specific FileStore away.
 """
 
 from random import Random
+import logging
 
 from filestore import check_id, check_root_hash, FileStore
 import microfiber
@@ -31,6 +32,7 @@ import microfiber
 from dmedia.util import get_db
 
 
+log = logging.getLogger()
 MIN_FREE_SPACE = 8 * 1024**3  # 8 GiB min free space
 
 
@@ -213,6 +215,7 @@ class LocalSlave:
             for (parentdir, info) in local['stores'].items():
                 fs = FileStore(parentdir, info['id'], info['copies'])
                 self.stores.add(fs)
+        log.info('local stores: %r', sorted(self.stores.ids))
 
     def get_doc(self, _id):
         check_id(_id)

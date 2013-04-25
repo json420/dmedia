@@ -235,7 +235,10 @@ def vigilance_worker(env, ssl_config):
         connected = frozenset(local_stores.ids)
         log.info('Connected %r', connected)
 
+        i = 0
         for (doc, stored) in ms.iter_actionable_fragile(connected, True):
+            i += 1
+            log.info('LOOP %d', i)
             _id = doc['_id']
             copies = sum(v['copies'] for v in doc['stored'].values())
             if copies >= 3:
