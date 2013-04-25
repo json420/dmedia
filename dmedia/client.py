@@ -183,7 +183,7 @@ class Downloader:
         self.finished = False
         (self.doc, self.id) = ms.doc_and_id(doc_or_id)
         self.ch = ms.content_hash(self.doc)
-        self.tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
+        self.tmp_fp = fs.allocate_partial(self.ch.file_size, self.id)
         self.ms = ms
         self.fs = fs
         if self.tmp_fp.mode != 'xb':

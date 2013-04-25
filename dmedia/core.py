@@ -259,11 +259,7 @@ def vigilance_worker(env, ssl_config):
                     client = get_client(url, ssl_context)
                     if not client.has_file(_id):
                         continue
-                    partial = local_stores.intersection(get_dict(doc, 'partial'))
-                    if partial:
-                        fs = local_stores.by_id(partial.pop())
-                    else:
-                        fs = local_stores.find_dst_store(size)
+                    fs = local_stores.find_dst_store(size)
                     if fs is None:
                         log.warning(
                             'No FileStore with avail space to download %s', _id
