@@ -730,11 +730,15 @@ class MetaStore:
         if not monitor:
             return
         # Now we enter an event-based loop using the _changes feed:
+        if 'update_seq' in result:
+            since = result['update_seq']
+        else:
+            since = self.db.get()['update_seq']
         kw = {
             'feed': 'longpoll',
             'include_docs': True,
             'filter': 'file/fragile',
-            'since': result['update_seq'],
+            'since': since,
         }
         while True:
             try:
