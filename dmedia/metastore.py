@@ -723,30 +723,31 @@ class MetaStore:
         """
         Yield doc for each fragile file.     
         """
-        result = self.db.view('file', 'fragile', update_seq=True)
-        log.info('%d rows in file/fragile', len(result['rows']))
-        for row in result['rows']:
-            yield self.db.get(row['id'])
+        for copies in range(3):
+            r = self.db.view('file', 'fragile', key=copies, update_seq=True)
+            log.info('%d files with copies=%d', len(r['rows']), copies)
+            for row in r['rows']:
+                yield self.db.get(row['id'])
+            update_seq = r.get('update_seq')
         if not monitor:
             return
+
         # Now we enter an event-based loop using the _changes feed:
-        if 'update_seq' in result:
-            since = result['update_seq']
-        else:
-            since = self.db.get()['update_seq']
+        if update_seq is None:
+            update_seq = self.db.get()['update_seq']
         kw = {
             'feed': 'longpoll',
             'include_docs': True,
             'filter': 'file/fragile',
-            'since': since,
+            'since': update_seq,
         }
         while True:
             try:
-                result = self.db.get('_changes', **kw)
-                log.info('last_seq: %s', result['last_seq'])
-                for row in result['results']:
+                r = self.db.get('_changes', **kw)
+                log.info('last_seq: %s', r['last_seq'])
+                for row in r['results']:
                     yield row['doc']
-                kw['since'] = result['last_seq']
+                kw['since'] = r['last_seq']
             except ResponseNotReady:
                 pass
 
