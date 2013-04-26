@@ -239,7 +239,7 @@ def vigilance_worker(env, ssl_config):
             _id = doc['_id']
             copies = sum(v['copies'] for v in doc['stored'].values())
             if copies >= 3:
-                log.warning('%s already has >= copies, skipping', _id)
+                log.warning('%s already has copies >= 3, skipping', _id)
                 continue
             size = doc['bytes']
             local = connected.intersection(stored)  # Any local copies?
