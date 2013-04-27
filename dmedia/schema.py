@@ -254,7 +254,7 @@ from microfiber import encode_attachment, Attachment
 
 
 # schema-compatibility version:
-VER = 0
+VER = 1
 
 # versioned primary database name:
 DB_NAME = 'dmedia-{}'.format(VER)
@@ -263,7 +263,7 @@ DB_NAME = 'dmedia-{}'.format(VER)
 EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
 
 # Pattern to match a project DB name
-PROJECT_DB_PAT = '^dmedia-0-([234567abcdefghijklmnopqrstuvwxyz]{24})$'
+PROJECT_DB_PAT = '^dmedia-1-([3456789abcdefghijklmnopqrstuvwxy]{24})$'
 
 
 # Some private helper functions that don't directly define any schema.
@@ -964,10 +964,10 @@ def check_project(doc):
     For example, a conforming value:
 
     >>> doc = {
-    ...     '_id': 'HB6YSCKAY27KIWUTWKGKCTNI',
+    ...     '_id': 'DMODRYHY4ELVOU7333CUI6TI',
     ...     'type': 'dmedia/project',
     ...     'time': 1234567890,
-    ...     'db_name': 'dmedia-0-hb6ysckay27kiwutwkgkctni',
+    ...     'db_name': 'dmedia-1-dmodryhy4elvou7333cui6ti',
     ...     'title': 'UDS-P',
     ...     'count': 42,
     ...     'bytes': 22020096000,
@@ -1001,8 +1001,8 @@ def project_db_name(_id):
 
     For example:
 
-    >>> project_db_name('HB6YSCKAY27KIWUTWKGKCTNI')
-    'dmedia-0-hb6ysckay27kiwutwkgkctni'
+    >>> project_db_name('DMODRYHY4ELVOU7333CUI6TI')
+    'dmedia-1-dmodryhy4elvou7333cui6ti'
 
     Also see `get_project_id()`.
     """
@@ -1015,13 +1015,13 @@ def get_project_id(db_name):
 
     For example:
 
-    >>> get_project_id('dmedia-0-hb6ysckay27kiwutwkgkctni')
-    'HB6YSCKAY27KIWUTWKGKCTNI'
+    >>> get_project_id('dmedia-1-dmodryhy4elvou7333cui6ti')
+    'DMODRYHY4ELVOU7333CUI6TI'
 
     If *db_name* doesn't match the expected naming convention, ``None`` is
     returned:
 
-    >>> get_project_id('dmedia-hb6ysckay27kiwutwkgkctni') is None
+    >>> get_project_id('dmedia-dmodryhy4elvou7333cui6ti') is None
     True
 
     Also see `project_db_name()`.
