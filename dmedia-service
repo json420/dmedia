@@ -510,7 +510,7 @@ class Service(dbus.service.Object):
         if not self.UpdateProject(project_id):
             self.pending_update = project_id
         self.Snapshot(schema.project_db_name(project_id))
-        self.Snapshot('dmedia-0')
+        self.Snapshot(schema.DB_NAME)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='')
     def SetAutoFormat(self, value):
