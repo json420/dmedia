@@ -544,7 +544,7 @@ class TestFunctions(SampleFilesTestCase):
                 'ctime': 1287520994.68,
                 'meta': {
                     'bar': value2,
-                    'canon_thm': 'MXPCFNUNPDAWHQWC5QNTPP2U5OF2J267QQVALXX6B5TRJKJB',
+                    'canon_thm': 'PW7537TPDOR78CYVL4NIASYTUVTEXJN5RUKYV5N7QNMLNBCT',
                     'aperture': 11.0,
                     'shutter': '1/100',
                     'iso': 100,
@@ -591,7 +591,7 @@ class TestFunctions(SampleFilesTestCase):
                 'ctime': 1287520994.68,
                 'meta': {
                     'bar': value2,
-                    'canon_thm': 'MXPCFNUNPDAWHQWC5QNTPP2U5OF2J267QQVALXX6B5TRJKJB',
+                    'canon_thm': 'PW7537TPDOR78CYVL4NIASYTUVTEXJN5RUKYV5N7QNMLNBCT',
                     'aperture': 11.0,
                     'shutter': '1/100',
                     'iso': 100,

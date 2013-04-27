@@ -44,13 +44,13 @@ example, a dmedia/job document in CouchDB would look something like this:
 
 >>> from dmedia.schema import check_job
 >>> doc = {
-...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+...     '_id': 'H6VVCPDJY7CSFG4V6EEYCPPD',
 ...     'type': 'dmedia/job',
 ...     'time': 1234567890,
 ...     'status': 'waiting',
 ...     'worker': 'novacut-renderer',
 ...     'files': [
-...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR3BKILJOA3CP7QYW',
 ...     ],
 ...     'job': {
 ...         'Dmedia': 'ignores everything in job',
