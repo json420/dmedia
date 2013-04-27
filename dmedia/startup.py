@@ -37,6 +37,10 @@ from .parallel import start_thread
 from .identity import PKI
 
 
+MACHINE = 'machine-1'
+USER = 'user-1'
+
+
 log = logging.getLogger()
 
 
@@ -56,6 +60,8 @@ def save_config(filename, config):
         separators=(',',': '),
         indent=4,
     )
+    #fp.flush()
+    #os.fsync(fp.fileno())
     fp.close()
     os.rename(tmp, filename)
 
@@ -84,8 +90,8 @@ class DmediaCouch(UserCouch):
     def __init__(self, basedir):
         super().__init__(basedir)
         self.pki = PKI(self.paths.ssl)
-        self.machine = self.load_config('machine')
-        self.user = self.load_config('user')
+        self.machine = self.load_config(MACHINE)
+        self.user = self.load_config(USER)
         self.mthread = None
 
     def load_config(self, name):
@@ -105,8 +111,8 @@ class DmediaCouch(UserCouch):
         log.info('... machine_id: %s', machine_id)
         self.pki.create_ca(machine_id)
         doc = create_doc(machine_id, 'dmedia/machine')
-        self.save_config('machine', doc)
-        self.machine = self.load_config('machine')
+        self.save_config(MACHINE, doc)
+        self.machine = self.load_config(MACHINE)
         return machine_id
 
     def create_machine_if_needed(self):
@@ -140,15 +146,15 @@ class DmediaCouch(UserCouch):
         self.pki.create_csr(self.machine['_id'])
         self.pki.issue_cert(self.machine['_id'], user_id)
         doc = create_doc(user_id, 'dmedia/user')
-        self.save_config('user', doc)
-        self.user = self.load_config('user')
+        self.save_config(USER, doc)
+        self.user = self.load_config(USER)
         return user_id
 
     def set_user(self, user_id):
         log.info('... user_id: %s', user_id)
         doc = create_doc(user_id, 'dmedia/user')
-        self.save_config('user', doc)
-        self.user = self.load_config('user')
+        self.save_config(USER, doc)
+        self.user = self.load_config(USER)
 
     def load_pki(self):
         if self.user is None:
