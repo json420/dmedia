@@ -32,8 +32,8 @@ from collections import namedtuple
 from subprocess import check_call, check_output
 import logging
 
-from skein import skein512
-from dbase32.rfc3548 import b32enc, b32dec, random_id
+from _skein import skein512
+from dbase32 import db32enc, db32dec, random_id
 
 
 # Skein personalization strings
@@ -102,14 +102,14 @@ def hash_pubkey(pubkey_data):
     For example:
 
     >>> hash_pubkey(b'The PEM encoded public key')
-    'JTHPOXBZKRMAUGDKXDR74ZRVVSKYUMTHZNQUOSUNTQ2IO4UD'
+    'CMAIHQ4SDKF3N96DQ6KYVSKOOLDRNFMASGJNHLNGMJTBHVN6'
 
     """
     skein = skein512(pubkey_data,
         digest_bits=240,
         pers=PERS_PUBKEY,
     )
-    return b32enc(skein.digest())
+    return db32enc(skein.digest())
 
 
 def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
@@ -135,7 +135,7 @@ def compute_response(secret, challenge, nonce, challenger_hash, responder_hash):
     )
     skein.update(challenger_hash)
     skein.update(responder_hash)
-    return b32enc(skein.digest())
+    return db32enc(skein.digest())
 
 
 def compute_csr_mac(secret, csr_data, remote_hash, local_hash):
@@ -156,7 +156,7 @@ def compute_csr_mac(secret, csr_data, remote_hash, local_hash):
         key=secret,
         key_id=(remote_hash + local_hash),
     )
-    return b32enc(skein.digest())
+    return db32enc(skein.digest())
 
 
 def compute_cert_mac(secret, cert_data, remote_hash, local_hash):
@@ -177,7 +177,7 @@ def compute_cert_mac(secret, cert_data, remote_hash, local_hash):
         key=secret,
         key_id=(remote_hash + local_hash),
     )
-    return b32enc(skein.digest())
+    return db32enc(skein.digest())
 
 
 class ChallengeResponse:
@@ -188,41 +188,41 @@ class ChallengeResponse:
     def __init__(self, _id, peer_id):
         self.id = _id
         self.peer_id = peer_id
-        self.local_hash = b32dec(_id)
-        self.remote_hash = b32dec(peer_id)
+        self.local_hash = db32dec(_id)
+        self.remote_hash = db32dec(peer_id)
         assert len(self.local_hash) == 30
         assert len(self.remote_hash) == 30
 
     def get_secret(self):
         # 40-bit secret (8 characters when base32 encoded)
         self.secret = os.urandom(5)
-        return b32enc(self.secret)
+        return db32enc(self.secret)
 
     def set_secret(self, secret):
         assert len(secret) == 8
-        self.secret = b32dec(secret)
+        self.secret = db32dec(secret)
         assert len(self.secret) == 5
 
     def get_challenge(self):
         self.challenge = os.urandom(20)
-        return b32enc(self.challenge)
+        return db32enc(self.challenge)
 
     def create_response(self, challenge):
         nonce = os.urandom(20)
         response = compute_response(
             self.secret,
-            b32dec(challenge),
+            db32dec(challenge),
             nonce,
             self.remote_hash,
             self.local_hash
         )
-        return (b32enc(nonce), response)
+        return (db32enc(nonce), response)
 
     def check_response(self, nonce, response):
         expected = compute_response(
             self.secret,
             self.challenge,
-            b32dec(nonce),
+            db32dec(nonce),
             self.local_hash,
             self.remote_hash
         )
