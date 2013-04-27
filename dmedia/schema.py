@@ -557,7 +557,7 @@ def _any_id(value, label):
         )
     if not isdb32(value):
         raise ValueError(
-            '{}: ID not subset of B32ALPHABET: {!r}'.format(
+            '{}: ID not subset of DB32ALPHABET: {!r}'.format(
                     label, value)
         )
 
@@ -571,7 +571,7 @@ def _random_id(value, label):
     >>> _random_id('1OTXJHVEXTKNXZHCMHDVF276', "doc['_id']")
     Traceback (most recent call last):
       ...
-    ValueError: doc['_id']: random ID not subset of B32ALPHABET: '1OTXJHVEXTKNXZHCMHDVF276'
+    ValueError: doc['_id']: random ID not subset of DB32ALPHABET: '1OTXJHVEXTKNXZHCMHDVF276'
 
     """
     if not isinstance(value, str):
@@ -585,7 +585,7 @@ def _random_id(value, label):
         )
     if not isdb32(value):
         raise ValueError(
-            '{}: random ID not subset of B32ALPHABET: {!r}'.format(
+            '{}: random ID not subset of DB32ALPHABET: {!r}'.format(
                     label, value)
         )
 
@@ -613,7 +613,7 @@ def _intrinsic_id(value, label):
         )
     if not isdb32(value):
         raise ValueError(
-            '{}: intrinsic ID not subset of B32ALPHABET: {!r}'.format(
+            '{}: intrinsic ID not subset of DB32ALPHABET: {!r}'.format(
                     label, value)
         )
 

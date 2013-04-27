@@ -80,7 +80,7 @@ class TestFunctions(TestCase):
             f(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['_id']: ID not subset of B32ALPHABET: 'MZZG2ZDS0QVSW2TEMVZG643F'"
+            "doc['_id']: ID not subset of DB32ALPHABET: 'MZZG2ZDS0QVSW2TEMVZG643F'"
         )
 
         # Check with bad "_id" length:
