@@ -32,7 +32,7 @@ import socket
 from base64 import b64encode
 from queue import Queue
 
-from dbase32.rfc3548 import b32enc, b32dec, random_id
+from dbase32 import db32enc, db32dec, random_id
 from usercouch.misc import TempCouch
 from filestore import DIGEST_B32LEN, DIGEST_BYTES
 import microfiber
@@ -548,7 +548,7 @@ class TestClientApp(TestCase):
         }
         sr = StartResponse()
         ret = app(environ, sr)
-        data = dumps({'challenge': b32enc(cr.challenge)}).encode('utf-8')
+        data = dumps({'challenge': db32enc(cr.challenge)}).encode('utf-8')
         self.assertEqual(ret, [data])
         self.assertEqual(sr.status, '200 OK')
         self.assertEqual(sr.headers,
@@ -775,7 +775,7 @@ class TestServerAppLive(TestCase):
         self.assertEqual(app.state, 'gave_challenge')
         self.assertIsInstance(obj, dict)
         self.assertEqual(set(obj), set(['challenge']))
-        self.assertEqual(local.challenge, b32dec(obj['challenge']))
+        self.assertEqual(local.challenge, db32dec(obj['challenge']))
         with self.assertRaises(microfiber.BadRequest) as cm:
             client.get('challenge')
         self.assertEqual(

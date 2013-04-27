@@ -30,7 +30,7 @@ import time
 
 from microfiber import Database
 from usercouch.misc import TempCouch
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 
 from dmedia.tests.base import TempDir, random_file_id
 from dmedia.tests.couch import CouchCase

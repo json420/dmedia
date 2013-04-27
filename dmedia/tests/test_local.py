@@ -29,7 +29,7 @@ import time
 
 import filestore
 from filestore import FileStore, DIGEST_B32LEN, DIGEST_BYTES
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 
 from .base import TempDir
 from .couch import CouchCase

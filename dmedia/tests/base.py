@@ -36,7 +36,7 @@ from zipfile import ZipFile
 import filestore
 from filestore import File, Leaf, ContentHash, Batch, Hasher, LEAF_SIZE
 from filestore import scandir
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 
 
 MAX_SIZE = LEAF_SIZE * 3

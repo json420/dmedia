@@ -33,7 +33,7 @@ from copy import deepcopy
 
 from filestore import FileStore, DIGEST_BYTES
 from filestore.misc import TempFileStore
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 import microfiber
 from microfiber import dumps, Conflict
 
