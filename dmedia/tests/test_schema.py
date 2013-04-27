@@ -31,7 +31,7 @@ from copy import deepcopy
 import time
 
 from filestore import TYPE_ERROR, DIGEST_BYTES, ContentHash
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 
 from .base import TempDir
 
@@ -43,7 +43,7 @@ class TestFunctions(TestCase):
         f = schema.check_dmedia
 
         bad = [
-            ('_id', 'MZZG2ZDSOQVSW2TEMVZG643F'),
+            ('_id', 'MYYG3YDSOQVSW3TEMVYG643F'),
             ('type', 'dmedia/foo'),
             ('time', 1234567890),
         ]
@@ -55,7 +55,7 @@ class TestFunctions(TestCase):
         )
 
         good = {
-            '_id': 'MZZG2ZDSOQVSW2TEMVZG643F',
+            '_id': 'MYYG3YDSOQVSW3TEMVYG643F',
             'type': 'dmedia/foo',
             'time': 1234567890,
             'foo': 'bar',
@@ -147,7 +147,7 @@ class TestFunctions(TestCase):
     def test_check_file(self):
         # Test with good doc:
         good = {
-            '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+            '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR3BKILJOA3CP7QYW',
             '_attachments': {
                 'leaf_hashes': {
                     'data': 'v7t381LIyKsBCUYhkGreXx2qKTyyMfMD2eHWWp/L',
@@ -160,7 +160,7 @@ class TestFunctions(TestCase):
             'bytes': 20202333,
             'origin': 'user',
             'stored': {
-                'MZZG2ZDSOQVSW2TEMVZG643F': {
+                'MYYG3YDSOQVSW3TEMVYG643F': {
                     'copies': 2,
                     'mtime': 1234567890,
                 },
@@ -316,110 +316,110 @@ class TestFunctions(TestCase):
 
         # Missing "copies":
         bad = deepcopy(good)
-        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies']
+        del bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['copies']
         with self.assertRaises(ValueError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] does not exist"
+            "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['copies'] does not exist"
         )
 
         # Bad "copies" type:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = 1.5
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['copies'] = 1.5
         with self.assertRaises(TypeError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format(
-                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies']", int, float, 1.5
+                "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['copies']", int, float, 1.5
             )
         )
 
         # Bad "copies" value:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] = -1
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['copies'] = -1
         with self.assertRaises(ValueError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['copies'] must be >= 0; got -1"
+            "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['copies'] must be >= 0; got -1"
         )
 
         # Missing "mtime":
         bad = deepcopy(good)
-        del bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime']
+        del bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['mtime']
         with self.assertRaises(ValueError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] does not exist"
+            "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['mtime'] does not exist"
         )
 
         # Bad "mtime" type:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] = 123.45
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['mtime'] = 123.45
         with self.assertRaises(TypeError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format(
-                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime']", int, float, 123.45
+                "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['mtime']", int, float, 123.45
             )
         )
 
         # Bad "mtime" value:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] = -1
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['mtime'] = -1
         with self.assertRaises(ValueError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['mtime'] must be >= 0; got -1"
+            "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['mtime'] must be >= 0; got -1"
         )
 
         # Bad "verified" type:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] = 1234.5
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['verified'] = 1234.5
         with self.assertRaises(TypeError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format(
-                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified']", int, float, 1234.5
+                "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['verified']", int, float, 1234.5
             )
         )
 
         # Bad "verified" value:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] = -1
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['verified'] = -1
         with self.assertRaises(ValueError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['verified'] must be >= 0; got -1"
+            "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['verified'] must be >= 0; got -1"
         )
 
         # Bad "pinned" type:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] = 1
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['pinned'] = 1
         with self.assertRaises(TypeError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
             TYPE_ERROR.format(
-                "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned']", bool, int, 1
+                "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['pinned']", bool, int, 1
             )
         )
 
         # Bad "pinned" value:
         bad = deepcopy(good)
-        bad['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] = False
+        bad['stored']['MYYG3YDSOQVSW3TEMVYG643F']['pinned'] = False
         with self.assertRaises(ValueError) as cm:
             schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['stored']['MZZG2ZDSOQVSW2TEMVZG643F']['pinned'] must equal True; got False"
+            "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['pinned'] must equal True; got False"
         )
         
         ##################################################
@@ -800,13 +800,13 @@ class TestFunctions(TestCase):
 
     def test_check_job(self):
         good = {
-            '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+            '_id': 'H6VVCPDJY7CSFG4V6EEYCPPD',
             'type': 'dmedia/job',
             'time': 1234567890,
             'status': 'waiting',
             'worker': 'novacut-renderer',
             'files': [
-                'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+                'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR3BKILJOA3CP7QYW',
             ],
             'job': {
                 'Dmedia': 'ignores everything in job',

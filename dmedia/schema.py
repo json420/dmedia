@@ -33,14 +33,14 @@ The goal of this module is to:
 For example:
 
 >>> good = {
-...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     '_id': 'NYXXMYLDOV3F6YTUO5PWM5DX',
 ...     'type': 'dmedia/foo',
 ...     'time': 1234567890,
 ... }
 ...
 >>> check_dmedia(good)  # Returns None
 >>> bad = {
-...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+...     '_id': 'NYXXMYLDOV3F6YTUO5PWM5DX',
 ...     'kind': 'dmedia/foo',  # Changed!
 ...     'time': 1234567890,
 ... }
@@ -247,8 +247,7 @@ import time
 import socket
 import os
 
-from dbase32 import RANDOM_B32LEN
-from dbase32.rfc3548 import isb32, random_id
+from dbase32 import isdb32, random_id, RANDOM_B32LEN
 from filestore import DIGEST_B32LEN, TYPE_ERROR
 from microfiber import encode_attachment, Attachment
 
@@ -556,7 +555,7 @@ def _any_id(value, label):
             '{}: length of ID ({}) not multiple of 8: {!r}'.format(
                     label, len(value), value)
         )
-    if not isb32(value):
+    if not isdb32(value):
         raise ValueError(
             '{}: ID not subset of B32ALPHABET: {!r}'.format(
                     label, value)
@@ -584,7 +583,7 @@ def _random_id(value, label):
             '{}: random ID must be {} characters, got {}: {!r}'.format(
                     label, RANDOM_B32LEN, len(value), value)
         )
-    if not isb32(value):
+    if not isdb32(value):
         raise ValueError(
             '{}: random ID not subset of B32ALPHABET: {!r}'.format(
                     label, value)
@@ -612,7 +611,7 @@ def _intrinsic_id(value, label):
             '{}: intrinsic ID must be {} characters, got {}: {!r}'.format(
                     label, DIGEST_B32LEN, len(value), value)
         )
-    if not isb32(value):
+    if not isdb32(value):
         raise ValueError(
             '{}: intrinsic ID not subset of B32ALPHABET: {!r}'.format(
                     label, value)
@@ -629,7 +628,7 @@ def check_dmedia(doc):
     For example, a conforming value:
 
     >>> doc = {
-    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     '_id': 'NYXXMYLDOV3F6YTUO5PWM5DX',
     ...     'type': 'dmedia/foo',
     ...     'time': 1234567890,
     ... }
@@ -656,7 +655,7 @@ def check_file(doc):
     For example, a conforming value:
 
     >>> doc = {
-    ...     '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...     '_id': 'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR3BKILJOA3CP7QYW',
     ...     '_attachments': {
     ...         'leaf_hashes': {
     ...             'data': 'v7t381LIyKsBCUYhkGreXx2qKTyyMfMD2eHWWp/L',
@@ -794,7 +793,7 @@ def check_store(doc):
     For example, a conforming value:
 
     >>> doc = {
-    ...     '_id': 'NZXXMYLDOV2F6ZTUO5PWM5DX',
+    ...     '_id': 'NYXXMYLDOV3F6YTUO5PWM5DX',
     ...     'type': 'dmedia/store',
     ...     'time': 1234567890,
     ...     'plugin': 'filestore',
@@ -1066,13 +1065,13 @@ def check_job(doc):
     For example, a conforming value:
 
     >>> doc = {
-    ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+    ...     '_id': 'H6VVCPDJY7CSFG4V6EEYCPPD',
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
     ...     'status': 'waiting',
     ...     'worker': 'novacut-renderer',
     ...     'files': [
-    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR3BKILJOA3CP7QYW',
     ...     ],
     ...     'job': {
     ...         'Dmedia': 'ignores everything in job',
@@ -1084,18 +1083,18 @@ def check_job(doc):
     Once a job is running, it will be updated like this:
 
     >>> doc = {
-    ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+    ...     '_id': 'H6VVCPDJY7CSFG4V6EEYCPPD',
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
     ...     'status': 'executing',
     ...     'worker': 'novacut-renderer',
     ...     'files': [
-    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR3BKILJOA3CP7QYW',
     ...     ],
     ...     'job': {
     ...         'Dmedia': 'ignores everything in job',
     ...     },
-    ...     'machine_id': '2VQ27USKA4U776JIEP7WQJEH',
+    ...     'machine_id': '3VQ37USKA4U776JIEP7WQJEH',
     ...     'time_start': 1240000000,
     ... }
     ...
@@ -1104,18 +1103,18 @@ def check_job(doc):
     Finally, when a job in finished, it will be updated like this:
 
     >>> doc = {
-    ...     '_id': 'H6VVCPDJZ7CSFG4V6EEYCPPD',
+    ...     '_id': 'H6VVCPDJY7CSFG4V6EEYCPPD',
     ...     'type': 'dmedia/job',
     ...     'time': 1234567890,
     ...     'status': 'completed',
     ...     'worker': 'novacut-renderer',
     ...     'files': [
-    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR2BKILJOA3CP7QZW',
+    ...         'ROHNRBKS6T4YETP5JHEGQ3OLSBDBWRCKR3BKILJOA3CP7QYW',
     ...     ],
     ...     'job': {
     ...         'Dmedia': 'ignores everything in job',
     ...     },
-    ...     'machine_id': '2VQ27USKA4U776JIEP7WQJEH',
+    ...     'machine_id': '3VQ37USKA4U776JIEP7WQJEH',
     ...     'time_start': 1240000000,
     ...     'time_end': 1240000000,
     ...     'result': {
