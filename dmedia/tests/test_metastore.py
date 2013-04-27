@@ -2232,7 +2232,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
         self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
 
-        # Test when file doc isn't in dmedia-0
+        # Test when file doc isn't in dmedia-1
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.remove(fs1, ch.id)
         with self.assertRaises(microfiber.NotFound) as cm:
@@ -2279,7 +2279,7 @@ class TestMetaStore(CouchCase):
         fs = util.init_filestore(tmp.dir)[0]
         (file, ch) = tmp.random_file()
 
-        # Test when file doc isn't in dmedia-0
+        # Test when file doc isn't in dmedia-1
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.remove(fs, ch.id)
 

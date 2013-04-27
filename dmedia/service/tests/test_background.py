@@ -73,7 +73,7 @@ class TestSnapshots(CouchCase):
 
 class TestLazyAccess(TestCase):
     def test_init(self):
-        db = Database('dmedia-0')
+        db = Database('dmedia-1')
         inst = background.LazyAccess(db)
         self.assertIs(inst.db, db)
         self.assertIsInstance(inst.delay, int)
@@ -89,7 +89,7 @@ class TestLazyAccess(TestCase):
         self.assertIsNone(inst.timeout_id)
 
     def test_access(self):
-        db = Database('dmedia-0')
+        db = Database('dmedia-1')
         inst = background.LazyAccess(db)
 
         # So it's easier to test without requiring a mainloop:
@@ -130,7 +130,7 @@ class TestLazyAccess(TestCase):
 
     def test_flush(self):
         couch = TempCouch()
-        db = Database('dmedia-0', couch.bootstrap())
+        db = Database('dmedia-1', couch.bootstrap())
         db.ensure()
         inst = background.LazyAccess(db)
 

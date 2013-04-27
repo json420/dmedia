@@ -60,7 +60,7 @@ class Avahi:
         self.port = port
         self.ssl_config = ssl_config
         ctx = Context(env)
-        self.db = Database('dmedia-0', ctx=ctx)
+        self.db = Database('dmedia-1', ctx=ctx)
         self.server = Server(ctx=ctx)
         self.replications = {}
         try:
@@ -198,7 +198,7 @@ class Avahi:
 
     def get_names(self):
         for name in self.server.get('_all_dbs'):
-            if name.startswith('dmedia-0') or name.startswith('novacut-0'):
+            if name.startswith('dmedia-1') or name.startswith('novacut-1'):
                 yield name
 
     def replication_worker(self, cancel, start):
