@@ -1005,6 +1005,7 @@ def project_db_name(_id):
 
     Also see `get_project_id()`.
     """
+    assert isdb32(_id)
     return '-'.join(['dmedia', str(VER), _id.lower()])
 
 
@@ -1027,7 +1028,9 @@ def get_project_id(db_name):
     """
     match = re.match(PROJECT_DB_PAT, db_name)
     if match:
-        return match.group(1).upper()
+        _id = match.group(1).upper()
+        assert isdb32(_id)
+        return _id
 
 
 def create_project(title=''):
