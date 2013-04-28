@@ -51,17 +51,26 @@ ms = MetaStore(db)
 
 mdb = db.database('migrate-0-to-1')
 mdb.ensure()
+buf = BufferedSave(mdb)
 
 
-local_stores = ms.get_local_stores()
-for fs in local_stores:
-    if not fs.needs_migration:
-        log.info('FileStore %s at %r does not need migration', fs.id, fs.parentdir)
-        continue
-    migration = Migration(fs)
-    for (v0_id, v1_id, v1_ch) in migration:
-        if v1_ch is not None:
-            doc = create_mapping_doc(v0_id, v1_ch)
-            log.info(v0_id)
-            mdb.save(doc)
+try:
+    local_stores = ms.get_local_stores()
+    for fs in local_stores:
+        if not fs.needs_migration:
+            log.info('FileStore %s at %r does not need migration', fs.id, fs.parentdir)
+            continue
+        migration = Migration(fs)
+        for (v0_id, v1_id, v1_ch) in migration:
+            if v1_ch is not None:
+                doc = create_mapping_doc(v0_id, v1_ch)
+                log.info(v0_id)
+                mdb.save(doc)
+        buf.flush()
+except Exception as e:
+    buf.flush()
+    raise e
+
+
+print(buf.count, buf.conflicts)
 
