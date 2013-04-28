@@ -401,6 +401,7 @@ class Core:
             self.restart_vigilance()
 
     def _add_filestore(self, fs, doc):
+        assert isdb32(fs.id)
         self.stores.add(fs)
         try:
             fs.purge_tmp()
