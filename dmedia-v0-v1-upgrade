@@ -65,7 +65,7 @@ try:
             if v1_ch is not None:
                 doc = create_mapping_doc(v0_id, v1_ch)
                 log.info(v0_id)
-                mdb.save(doc)
+                buf.save(doc)
         buf.flush()
 except Exception as e:
     buf.flush()
