@@ -1,6 +1,6 @@
 "use strict";
 
-var db = new couch.Database('dmedia-0');
+var db = new couch.Database('dmedia-1');
 
 var UI = {
     tabinit: {},

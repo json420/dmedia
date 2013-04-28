@@ -1,0 +1,76 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2013 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+import logging
+
+from filestore import Migration
+from microfiber import Database, dmedia_env, encode_attachment, Attachment
+
+from dmedia.util import get_db
+from dmedia.metastore import MetaStore, BufferedSave
+
+
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger()
+
+
+def create_mapping_doc(v0_id, v1_ch):
+    v1_leaf_hashes = Attachment('application/octet-stream', v1_ch.leaf_hashes)
+    return {
+        '_id': v0_id,
+        '_attachments': {
+            'v1_leaf_hashes': encode_attachment(v1_leaf_hashes),
+        },
+        'bytes': v1_ch.file_size,
+        'v1_id': v1_ch.id,
+    }
+
+
+db = get_db(dmedia_env())
+ms = MetaStore(db)
+
+mdb = db.database('migrate-0-to-1')
+mdb.ensure()
+buf = BufferedSave(mdb)
+
+
+try:
+    local_stores = ms.get_local_stores()
+    for fs in local_stores:
+        if not fs.needs_migration:
+            log.info('FileStore %s at %r does not need migration', fs.id, fs.parentdir)
+            continue
+        migration = Migration(fs)
+        for (v0_id, v1_id, v1_ch) in migration:
+            if v1_ch is not None:
+                doc = create_mapping_doc(v0_id, v1_ch)
+                log.info(v0_id)
+                buf.save(doc)
+        buf.flush()
+except Exception as e:
+    buf.flush()
+    raise e
+
+
+print(buf.count, buf.conflicts)
+

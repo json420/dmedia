@@ -36,7 +36,7 @@ from zipfile import ZipFile
 import filestore
 from filestore import File, Leaf, ContentHash, Batch, Hasher, LEAF_SIZE
 from filestore import scandir
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 
 
 MAX_SIZE = LEAF_SIZE * 3
@@ -68,18 +68,18 @@ class SampleFilesTestCase(TestCase):
     mov = path.join(datadir, 'MVI_5751.MOV')
     thm = path.join(datadir, 'MVI_5751.THM')
     mov_ch = ContentHash(
-        'SM3GS4DUDVXOEU2DTTTWU5HKNRK777IWNSI5UQ4ZWNQGRXAN',
+        '4UHYMLYR8SD7XV8HJ3M9959R83OF4KIAFDBTLLT4YV9ALB5N',
         20202333,
         b64decode(b''.join([
-            b'Ps9ZlZ5RALOGrqUbXJYJDFJaLClkGKkv4gYu2cWn',
-            b'dse+QPUQFn9Q6FBkhhX0hjDGHOyMnFtGdAgRY1Gc',
-            b'XzjjVS002vjsMkVKb4/+E7qmeGfHsBFFbYV127ux'
+            b'uD18L29E3bVC+mxTj3cTRCpsq27DF4stuA5YsCxC',
+            b'mtL4/ynnXHIcvPw5fuwpZJWZUMrY9LhKlc7Slfx6',
+            b'JO6hEEGmxtKmxE0U7Nbi4r+o35Ao80KzPurTXsto',
         ]))
     )
     thm_ch = ContentHash(
-        'MXPCFNUNPDAWHQWC5QNTPP2U5OF2J267QQVALXX6B5TRJKJB',
+        'PW7537TPDOR78CYVL4NIASYTUVTEXJN5RUKYV5N7QNMLNBCT',
         27328,
-        b64decode(b'RwtCvXTjDrah3O23qNkobCGNF6hq7HYIB4TRx2Dh'),   
+        b64decode(b'zz8pyu1XxbfRwkGdkayShOA/hTCPZ85pRkSy+j30'),   
     )
 
     def setUp(self):

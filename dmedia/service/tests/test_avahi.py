@@ -30,6 +30,7 @@ import microfiber
 
 from dmedia.tests.couch import CouchCase
 from dmedia.service import avahi
+from dmedia.util import get_db
 
 
 random = SystemRandom()
@@ -41,7 +42,7 @@ def random_port():
 
 class TestAvahi(CouchCase):
     def test_init(self):
-        db = microfiber.Database('dmedia-0', self.env)
+        db = get_db(self.env)
         self.assertTrue(db.ensure())
         port = random_port()
         ssl_config = 'the SSL config'

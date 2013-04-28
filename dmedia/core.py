@@ -41,7 +41,7 @@ from subprocess import check_call, CalledProcessError
 from copy import deepcopy
 from base64 import b64encode
 
-from dbase32.rfc3548 import isb32
+from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
 
@@ -320,7 +320,7 @@ def decrease_copies(env):
 
 
 def is_file_id(_id):
-    return isb32(_id) and len(_id) == 48
+    return isdb32(_id) and len(_id) == 48
 
 
 def clean_file_id(_id):
@@ -401,6 +401,7 @@ class Core:
             self.restart_vigilance()
 
     def _add_filestore(self, fs, doc):
+        assert isdb32(fs.id)
         self.stores.add(fs)
         try:
             fs.purge_tmp()

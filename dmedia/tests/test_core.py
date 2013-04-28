@@ -34,7 +34,7 @@ from base64 import b64encode
 import multiprocessing
 
 import microfiber
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 import filestore
 
 from dmedia.local import LocalStores

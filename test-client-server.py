@@ -7,7 +7,7 @@ import multiprocessing
 
 import dbus
 from filestore.misc import TempFileStore
-from dbase32.rfc3548 import random_id
+from dbase32 import random_id
 
 import dmedia
 from dmedia.util import get_db

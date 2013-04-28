@@ -89,8 +89,8 @@ class TestDmediaCouch(TestCase):
 
         machine_id = random_id()
         user_id = random_id()
-        json.dump({'_id': machine_id}, open(tmp.join('machine.json'), 'w'))
-        json.dump({'_id': user_id}, open(tmp.join('user.json'), 'w'))
+        json.dump({'_id': machine_id}, open(tmp.join('machine-1.json'), 'w'))
+        json.dump({'_id': user_id}, open(tmp.join('user-1.json'), 'w'))
         inst = startup.DmediaCouch(tmp.dir)
         self.assertEqual(inst.basedir, tmp.dir)
         self.assertIsInstance(inst.pki, PKI)
@@ -140,7 +140,7 @@ class TestDmediaCouch(TestCase):
         self.assertEqual(len(machine_id), 48)
         self.assertIsInstance(inst.machine, dict)
         self.assertEqual(inst.machine['_id'], machine_id)
-        self.assertEqual(inst.load_config('machine'), inst.machine)
+        self.assertEqual(inst.load_config('machine-1'), inst.machine)
 
         with self.assertRaises(Exception) as cm:
             inst.create_machine()
@@ -178,7 +178,7 @@ class TestDmediaCouch(TestCase):
         self.assertEqual(len(user_id), 48)
         self.assertIsInstance(inst.user, dict)
         self.assertEqual(inst.user['_id'], user_id)
-        self.assertEqual(inst.load_config('user'), inst.user)
+        self.assertEqual(inst.load_config('user-1'), inst.user)
 
         with self.assertRaises(Exception) as cm:
             inst.create_user()
