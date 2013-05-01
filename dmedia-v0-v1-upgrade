@@ -24,10 +24,11 @@
 import logging
 
 from filestore import Migration
-from microfiber import Database, dmedia_env, encode_attachment, Attachment
+from microfiber import Database, dmedia_env, encode_attachment, Attachment, NotFound
 
 from dmedia.util import get_db
 from dmedia.metastore import MetaStore, BufferedSave
+from dmedia.migration import migrate_file
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -46,12 +47,13 @@ def create_mapping_doc(v0_id, v1_ch):
     }
 
 
-db = get_db(dmedia_env())
-ms = MetaStore(db)
+src = Database('dmedia-0', dmedia_env())
+dst = src.database('dmedia-1')
+mdb = src.database('migrate-0-to-1')
+ms = MetaStore(dst)
 
-mdb = db.database('migrate-0-to-1')
 mdb.ensure()
-buf = BufferedSave(mdb)
+mdb_buf = BufferedSave(mdb)
 
 
 try:
@@ -65,12 +67,41 @@ try:
             if v1_ch is not None:
                 doc = create_mapping_doc(v0_id, v1_ch)
                 log.info(v0_id)
-                buf.save(doc)
-        buf.flush()
+                mdb_buf.save(doc)
+        mdb_buf.flush()
 except Exception as e:
-    buf.flush()
+    mdb_buf.flush()
     raise e
 
 
-print(buf.count, buf.conflicts)
+print(mdb_buf.count, mdb_buf.conflicts)
 
+
+dst_buf = BufferedSave(dst)
+limit = 25
+skip = 0
+
+while True:
+    rows = src.view('doc', 'type',
+        key='dmedia/file',
+        limit=limit,
+        skip=skip,
+        include_docs=True,
+    )['rows']
+    if not rows:
+        break
+    skip += len(rows)
+    for row in rows:
+        old = row['doc']
+        v0_id = old['_id']
+        try:
+            m = mdb.get(v0_id, attachments=True)
+        except NotFound:
+            print('Not Found', v0_id)
+            continue
+        new = migrate_file(old, m)
+        dst_buf.save(new)
+
+dst_buf.flush()
+
+print(dst_buf.count, dst_buf.conflicts)

@@ -1,0 +1,62 @@
+# dmedia: distributed media library
+# Copyright (C) 2013 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+"""
+Migrate from the V0 to V1 hashing protocol and schema.
+"""
+
+from dbase32 import db32enc, isdb32
+from dbase32.rfc3548 import b32dec, isb32
+
+from .metastore import get_dict, BufferedSave
+
+
+def b32_to_db32(_id):
+    """
+    Re-encode an ID from Base32 to Dbase32.
+
+    >>> b32_to_db32('5Q2VGOCRKWGDCSJOHDMXYFCE')
+    'WJTO9H5KDP965LCHA6FQR857'
+
+    """
+    return db32enc(b32dec(_id))
+
+
+def migrate_file(old, m):
+    assert isb32(old['_id'])
+    assert isdb32(m['v1_id'])
+    assert old['_id'] == m['_id']
+    assert old['bytes'] == m['bytes']
+    return {
+        '_id': m['v1_id'],
+        '_attachments': {
+            'leaf_hashes': m['_attachments']['v1_leaf_hashes']
+        },
+        'type': 'dmedia/file',
+        'time': old['time'],
+        'atime': old['atime'],
+        'bytes': old['bytes'],
+        'origin': old['origin'],
+        'stored': dict(
+            (b32_to_db32(key), value) for (key, value) in old['stored'].items()
+        ),
+    }
+    
