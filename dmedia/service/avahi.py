@@ -198,8 +198,7 @@ class Avahi:
 
     def get_names(self):
         for name in self.server.get('_all_dbs'):
-            if name != 'thumbnails':
-            #if name.startswith('dmedia-1') or name.startswith('novacut-1'):
+            if not name.startswith('_'):
                 yield name
 
     def replication_worker(self, cancel, start):
