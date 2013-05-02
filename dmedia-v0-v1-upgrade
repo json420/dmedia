@@ -51,7 +51,7 @@ mdb = src.database('migrate-0-to-1')
 ms = MetaStore(dst)
 
 # Re-hash V0 to V1 file ID:
-print('Re-hashing files to map V0 ID to V1 ID...')
+print('Re-hashing files to map V0 IDs to V1 IDs...')
 print('(This can take a *long* time, but can be resumed where you left off)')
 mdb.ensure()
 buf = BufferedSave(mdb)
