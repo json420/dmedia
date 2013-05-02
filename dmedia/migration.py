@@ -41,15 +41,15 @@ def b32_to_db32(_id):
     return db32enc(b32dec(_id))
 
 
-def migrate_file(old, m):
+def migrate_file(old, mdoc):
     assert isb32(old['_id'])
-    assert isdb32(m['v1_id'])
-    assert old['_id'] == m['_id']
-    assert old['bytes'] == m['bytes']
+    assert isdb32(mdoc['v1_id'])
+    assert old['_id'] == mdoc['_id']
+    assert old['bytes'] == mdoc['bytes']
     return {
-        '_id': m['v1_id'],
+        '_id': mdoc['v1_id'],
         '_attachments': {
-            'leaf_hashes': m['_attachments']['v1_leaf_hashes']
+            'leaf_hashes': mdoc['_attachments']['v1_leaf_hashes']
         },
         'type': 'dmedia/file',
         'time': old['time'],
@@ -67,5 +67,4 @@ def migrate_store(old):
     del new['_rev']
     new['_id'] = b32_to_db32(old['_id'])
     return new
-    
-    
+ 
