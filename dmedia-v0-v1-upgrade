@@ -28,7 +28,7 @@ from microfiber import Database, dmedia_env, encode_attachment, Attachment, NotF
 
 from dmedia.util import get_db
 from dmedia.metastore import MetaStore, BufferedSave
-from dmedia.migration import migrate_file
+from dmedia.migration import migrate_file, migrate_store
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -78,9 +78,29 @@ print(mdb_buf.count, mdb_buf.conflicts)
 
 
 dst_buf = BufferedSave(dst)
+
+
 limit = 25
 skip = 0
+while True:
+    rows = src.view('doc', 'type',
+        key='dmedia/store',
+        limit=limit,
+        skip=skip,
+        include_docs=True,
+    )['rows']
+    if not rows:
+        break
+    skip += len(rows)
+    for row in rows:
+        old = row['doc']
+        new = migrate_store(old)
+        dst_buf.save(new)
+dst_buf.flush()
 
+
+limit = 25
+skip = 0
 while True:
     rows = src.view('doc', 'type',
         key='dmedia/file',

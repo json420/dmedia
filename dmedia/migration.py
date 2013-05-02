@@ -25,6 +25,7 @@ Migrate from the V0 to V1 hashing protocol and schema.
 
 from dbase32 import db32enc, isdb32
 from dbase32.rfc3548 import b32dec, isb32
+from copy import deepcopy
 
 from .metastore import get_dict, BufferedSave
 
@@ -59,4 +60,12 @@ def migrate_file(old, m):
             (b32_to_db32(key), value) for (key, value) in old['stored'].items()
         ),
     }
+
+
+def migrate_store(old):
+    new = deepcopy(old)
+    del new['_rev']
+    new['_id'] = b32_to_db32(old['_id'])
+    return new
+    
     
