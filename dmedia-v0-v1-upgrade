@@ -51,17 +51,17 @@ mdb = src.database('migrate-0-to-1')
 ms = MetaStore(dst)
 
 # Re-hash V0 to V1 file ID:
-print('Re-hashing files to map V0 IDs to V1 IDs...')
+print('\nRe-hashing files to map V0 IDs to V1 IDs...')
 print('(This can take a *long* time, but can be resumed where you left off)')
 mdb.ensure()
 buf = BufferedSave(mdb)
+local_stores = ms.get_local_stores()
 try:
-    local_stores = ms.get_local_stores()
     for fs in local_stores:
         print(fs)
         if not fs.needs_migration:
             log.info('FileStore %s at %r does not need migration', fs.id, fs.parentdir)
-            print('    {!r} does not need migration'.format(fs))
+            print('    does not need migration')
             continue
         migration = Migration(fs)
         for (v0_id, v1_id, v1_ch) in migration:
@@ -71,11 +71,9 @@ try:
                 buf.save(doc)
         buf.flush()
         print('    {} files; {} conflicts'.format(buf.count, buf.conflicts))
-except Exception as e:
+finally:
     buf.flush()
-    raise e
-print('total: {} files; {} conflicts'.format(buf.count, buf.conflicts))
-print('')
+print('total: {} files; {} conflicts\n'.format(buf.count, buf.conflicts))
 
 
 # Migrate dmedia/store docs:
@@ -86,7 +84,7 @@ for row in src.view('doc', 'type', key='dmedia/store')['rows']:
     new = migrate_store(old)
     buf.save(new)
 buf.flush()
-print('    dmedia/store: {} docs; {} conflicts'.format(buf.count, buf.conflicts))
+print('dmedia/store: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
 
 
 # Migrate dmedia/file:
@@ -115,7 +113,7 @@ while True:
         new = migrate_file(old, m)
         buf.save(new)
 buf.flush()
-print('    dmedia/file: {} docs; {} conflicts'.format(buf.count, buf.conflicts))
+print('dmedia/file: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
 
 
 # Migrate dmedia/project docs:
@@ -126,4 +124,4 @@ for row in src.view('doc', 'type', key='dmedia/project')['rows']:
     new = migrate_project(old)
     buf.save(new)
 buf.flush()
-print('    dmedia/project: {} docs; {} conflicts'.format(buf.count, buf.conflicts))
+print('dmedia/project: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
