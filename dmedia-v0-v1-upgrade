@@ -61,6 +61,7 @@ try:
         print(fs)
         if not fs.needs_migration:
             log.info('FileStore %s at %r does not need migration', fs.id, fs.parentdir)
+            print('    {!r} does not need migration'.format(fs))
             continue
         migration = Migration(fs)
         for (v0_id, v1_id, v1_ch) in migration:
