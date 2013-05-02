@@ -21,18 +21,16 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 
-import logging
-
 from filestore import Migration
-from microfiber import Database, dmedia_env, encode_attachment, Attachment, NotFound
+from microfiber import Database, dmedia_env, encode_attachment, Attachment, NotFound, dumps
 
+import dmedia
 from dmedia.util import get_db
 from dmedia.metastore import MetaStore, BufferedSave
-from dmedia.migration import migrate_file, migrate_store
+from dmedia.migration import migrate_file, migrate_store, migrate_project
 
 
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger()
+log = dmedia.configure_logging()
 
 
 def create_mapping_doc(v0_id, v1_ch):
@@ -59,6 +57,7 @@ mdb_buf = BufferedSave(mdb)
 try:
     local_stores = ms.get_local_stores()
     for fs in local_stores:
+        print(fs)
         if not fs.needs_migration:
             log.info('FileStore %s at %r does not need migration', fs.id, fs.parentdir)
             continue
@@ -77,28 +76,20 @@ except Exception as e:
 print(mdb_buf.count, mdb_buf.conflicts)
 
 
-dst_buf = BufferedSave(dst)
+# Migrate dmedia/store docs:
+print('Migrating dmedia/store docs...')
+buf = BufferedSave(dst)
+for row in src.view('doc', 'type', key='dmedia/store')['rows']:
+    old = src.get(row['id'])
+    new = migrate_store(old)
+    buf.save(new)
+buf.flush()
+print('    dmedia/store: {} docs; {} conflicts'.format(buf.count, buf.conflicts))
 
 
-limit = 25
-skip = 0
-while True:
-    rows = src.view('doc', 'type',
-        key='dmedia/store',
-        limit=limit,
-        skip=skip,
-        include_docs=True,
-    )['rows']
-    if not rows:
-        break
-    skip += len(rows)
-    for row in rows:
-        old = row['doc']
-        new = migrate_store(old)
-        dst_buf.save(new)
-dst_buf.flush()
-
-
+# Migrate dmedia/file:
+print('Migrating dmedia/file docs...')
+buf = BufferedSave(dst)
 limit = 25
 skip = 0
 while True:
@@ -120,8 +111,17 @@ while True:
             print('Not Found', v0_id)
             continue
         new = migrate_file(old, m)
-        dst_buf.save(new)
+        buf.save(new)
+buf.flush()
+print('    dmedia/file: {} docs; {} conflicts'.format(buf.count, buf.conflicts))
 
-dst_buf.flush()
 
-print(dst_buf.count, dst_buf.conflicts)
+# Migrate dmedia/project docs:
+print('Migrating dmedia/project docs...')
+buf = BufferedSave(dst)
+for row in src.view('doc', 'type', key='dmedia/project')['rows']:
+    old = src.get(row['id'], attachments=True)
+    new = migrate_project(old)
+    buf.save(new)
+buf.flush()
+print('    dmedia/project: {} docs; {} conflicts'.format(buf.count, buf.conflicts))

@@ -146,4 +146,55 @@ class TestFunctions(TestCase):
             "time": 1355254766.513135,
             "type": "dmedia/file"
         })
+        for (v0_key, value) in old['stored'].items():
+            v1_key = migration.b32_to_db32(v0_key)
+            self.assertEqual(new['stored'][v1_key], value)
+
+    def test_migrate_store(self):
+        old = {
+            "_id": "THDYBKMJDSE4CYJBBQHBYBXB",
+            "_rev": "25-2d8b18bdc3dcff97a21bb75b56b56654",
+            "atime": 1367035076,
+            "copies": 1,
+            "plugin": "filestore",
+            "time": 1365893138.9566636,
+            "type": "dmedia/store"
+        }
+        new = migration.migrate_store(old)
+        self.assertIsNot(new, old)
+        self.assertEqual(new, {
+            "_id": "MA6R4DFC6L7V5RC44JA4R4Q4",
+            "atime": 1367035076,
+            "copies": 1,
+            "plugin": "filestore",
+            "time": 1365893138.9566636,
+            "type": "dmedia/store"
+        })
+        self.assertEqual(migration.b32_to_db32(old['_id']), new['_id'])
+
+    def test_migrate_project(self):
+        old = {
+            "_id": "VZ76IEM545GVTOVTS4KATSWR",
+            "_rev": "1-cb8a53554a9c21d69b6fed7f5bb1f2ee",
+            "atime": 1359667301.118886,
+            "bytes": 1272543875,
+            "count": 52,
+            "db_name": "dmedia-0-vz76iem545gvtovts4katswr",
+            "time": 1359667301.118886,
+            "title": "Test",
+            "type": "dmedia/project"
+        }
+        new = migration.migrate_project(old)
+        self.assertIsNot(new, old)
+        self.assertEqual(new, {
+            "_id": "OSYXB7FWVW9OMHOMLVD3MLPK",
+            "atime": 1359667301.118886,
+            "bytes": 1272543875,
+            "count": 52,
+            "db_name": "dmedia-1-osyxb7fwvw9omhomlvd3mlpk",
+            "time": 1359667301.118886,
+            "title": "Test",
+            "type": "dmedia/project"
+        })
+        self.assertEqual(migration.b32_to_db32(old['_id']), new['_id'])
 

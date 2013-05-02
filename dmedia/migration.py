@@ -28,6 +28,7 @@ from dbase32.rfc3548 import b32dec, isb32
 from copy import deepcopy
 
 from .metastore import get_dict, BufferedSave
+from . import schema
 
 
 def b32_to_db32(_id):
@@ -46,7 +47,7 @@ def migrate_file(old, mdoc):
     assert isdb32(mdoc['v1_id'])
     assert old['_id'] == mdoc['_id']
     assert old['bytes'] == mdoc['bytes']
-    return {
+    new = {
         '_id': mdoc['v1_id'],
         '_attachments': {
             'leaf_hashes': mdoc['_attachments']['v1_leaf_hashes']
@@ -60,11 +61,23 @@ def migrate_file(old, mdoc):
             (b32_to_db32(key), value) for (key, value) in old['stored'].items()
         ),
     }
+    schema.check_file(new)
+    return new
 
 
 def migrate_store(old):
     new = deepcopy(old)
     del new['_rev']
     new['_id'] = b32_to_db32(old['_id'])
+    schema.check_store(new)
+    return new
+
+
+def migrate_project(old):
+    new = deepcopy(old)
+    del new['_rev']
+    new['_id'] = b32_to_db32(old['_id'])
+    new['db_name'] = schema.project_db_name(new['_id'])
+    schema.check_project(new)
     return new
  
