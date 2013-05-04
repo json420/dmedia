@@ -230,7 +230,6 @@ class Service(dbus.service.Object):
 
     def on_vigilance_restart(self):
         log.info('on_vigilance_restart()')
-        return False
         self.core.start_filestore_checks()
         self.core.restart_vigilance()
         return True

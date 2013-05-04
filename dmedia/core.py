@@ -225,7 +225,6 @@ def vigilance_worker(env, ssl_config):
     """
     try:
         log.info('Entering vigilance_worker()...')
-        return
         db = util.get_db(env)
         ms = MetaStore(db)
         ssl_context = build_ssl_context(ssl_config)
