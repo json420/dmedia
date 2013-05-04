@@ -26,9 +26,13 @@ Migrate from the V0 to V1 hashing protocol and schema.
 from dbase32 import db32enc, isdb32
 from dbase32.rfc3548 import b32dec, isb32
 from copy import deepcopy
+import re
 
 from .metastore import get_dict, BufferedSave
 from . import schema
+
+
+V0_PROJECT_DB = re.compile('^dmedia-0-([234567abcdefghijklmnopqrstuvwxyz]{24})$')
 
 
 def b32_to_db32(_id):
@@ -101,3 +105,12 @@ def migrate_import(old, id_map):
         if f.get('id') in id_map:
             f['id'] = id_map[f['id']]
     return new
+
+
+def iter_v0_project_dbs(server):
+    for name in server.get('_all_dbs'):
+        match = V0_PROJECT_DB.match(name)
+        if match:
+            _id = match.group(1).upper()
+            yield (name, _id)
+

@@ -26,8 +26,12 @@ Unit tests for `dmedia.migration`.
 from unittest import TestCase
 import os
 
+import dbase32
+from dbase32 import rfc3548
 from dbase32 import db32enc
 from dbase32.rfc3548 import b32enc
+from usercouch.misc import CouchTestCase
+from microfiber import Server
 
 from dmedia import migration
 
@@ -1169,3 +1173,35 @@ class TestFunctions(TestCase):
             "time_end": 1361823282.8363862,
             "type": "dmedia/import"
         })
+
+
+class TestCouchFunctions(CouchTestCase):
+    def test_iter_v0_project_dbs(self):
+        server = Server(self.env)
+        v0_dmedia = sorted(rfc3548.random_id() for i in range(20))
+        v1_dmedia = sorted(dbase32.random_id() for i in range(20))
+        v0_novacut = sorted(rfc3548.random_id() for i in range(20))
+        v1_novacut = sorted(dbase32.random_id() for i in range(20))
+        db_names = [
+            'dmedia-0',
+            'dmedia-1',
+            'migrate-0-to-1',
+            'novacut-0',
+            'novacut-1',
+            'thumbnails',
+        ]
+        for _id in v0_dmedia:
+            db_names.append('dmedia-0-' + _id.lower())
+        for _id in v1_dmedia:
+            db_names.append('dmedia-1-' + _id.lower())
+        for _id in v0_novacut:
+            db_names.append('novacut-0-' + _id.lower())
+        for _id in v1_novacut:
+            db_names.append('novacut-1-' + _id.lower())
+        for name in db_names:
+            server.put(None, name)
+        self.assertEqual(
+            list(migration.iter_v0_project_dbs(server)),
+            [('dmedia-0-' + _id.lower(), _id) for _id in v0_dmedia]
+        )
+
