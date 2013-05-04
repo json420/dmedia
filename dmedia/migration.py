@@ -114,3 +114,12 @@ def iter_v0_project_dbs(server):
             _id = match.group(1).upper()
             yield (name, _id)
 
+
+def migrate_project_file(old, v1_id):
+    new = deepcopy(old)
+    del new['_rev']
+    new['_id'] = v1_id
+    new['batch_id'] = b32_to_db32(old['batch_id'])
+    new['import_id'] = b32_to_db32(old['import_id'])
+    return new
+

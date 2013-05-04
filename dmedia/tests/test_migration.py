@@ -1174,6 +1174,88 @@ class TestFunctions(TestCase):
             "type": "dmedia/import"
         })
 
+    def test_migrate_project_file(self):
+        old = {
+           "_id": "22G2ZBWVRNIZBESIIYDTJH5LA7BGLX3MY35LWUFGWFN23ZUI",
+           "_rev": "1-fb16fdc76be4f470bd88b262997778e1",
+           "batch_id": "HJZH6W4TCEFSJ22BN72TLI6Z",
+           "bytes": 22926564,
+           "content_type": "image/x-canon-cr2",
+           "ctime": 1356480728.81,
+           "dir": "/media/jderose/EOS_DIGITAL/DCIM/100EOS5D",
+           "ext": "cr2",
+           "height": 3744,
+           "import_id": "JYJPIJNU2SWVJ56O2RYWW4EY",
+           "machine_id": "IJNVSWT3FR26CMNUR6NQAGP3H72DTO4APDSGFUG7GZO572NK",
+           "media": "image",
+           "meta": {
+               "aperture": 1.2,
+               "camera": "Canon EOS 5D Mark II",
+               "camera_serial": "0820500998",
+               "focal_length": "50.0 mm",
+               "iso": 320,
+               "lens": "Canon EF 50mm f/1.2L",
+               "shutter": "1/100"
+           },
+           "name": "IMG_6003.CR2",
+           "origin": "user",
+           "tags": {
+           },
+           "time": 1356663921.1282482,
+           "type": "dmedia/file",
+           "width": 5616,
+           "_attachments": {
+               "thumbnail": {
+                   "content_type": "image/jpeg",
+                   "revpos": 1,
+                   "digest": "md5-fSvWsFXovkU4m8hYbrfCrg==",
+                   "length": 13940,
+                   "stub": True
+               }
+           }
+        }
+        v1_id = 'PEBQES8UITQBMLIW9ILFJX9WUVI8X6G9NPPOEJJYOKUV3FOQ'
+        new = migration.migrate_project_file(old, v1_id)
+        self.assertIsNot(new, old)
+        self.assertEqual(new, {
+           "_id": v1_id,
+           "batch_id": migration.b32_to_db32(old['batch_id']),
+           "bytes": 22926564,
+           "content_type": "image/x-canon-cr2",
+           "ctime": 1356480728.81,
+           "dir": "/media/jderose/EOS_DIGITAL/DCIM/100EOS5D",
+           "ext": "cr2",
+           "height": 3744,
+           "import_id": migration.b32_to_db32(old['import_id']),
+           "machine_id": "IJNVSWT3FR26CMNUR6NQAGP3H72DTO4APDSGFUG7GZO572NK",
+           "media": "image",
+           "meta": {
+               "aperture": 1.2,
+               "camera": "Canon EOS 5D Mark II",
+               "camera_serial": "0820500998",
+               "focal_length": "50.0 mm",
+               "iso": 320,
+               "lens": "Canon EF 50mm f/1.2L",
+               "shutter": "1/100"
+           },
+           "name": "IMG_6003.CR2",
+           "origin": "user",
+           "tags": {
+           },
+           "time": 1356663921.1282482,
+           "type": "dmedia/file",
+           "width": 5616,
+           "_attachments": {
+               "thumbnail": {
+                   "content_type": "image/jpeg",
+                   "revpos": 1,
+                   "digest": "md5-fSvWsFXovkU4m8hYbrfCrg==",
+                   "length": 13940,
+                   "stub": True
+               }
+           }
+        })
+
 
 class TestCouchFunctions(CouchTestCase):
     def test_iter_v0_project_dbs(self):
