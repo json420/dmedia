@@ -52,6 +52,8 @@ dst = server.database('dmedia-1')
 mdb = server.database('migrate-0-to-1')
 ms = MetaStore(dst)
 
+src.post(None, '_compact')  # Go ahead and clean up
+
 # Re-hash V0 to V1 file ID:
 print('\nRe-hashing files to map V0 IDs to V1 IDs...')
 print('(This can take a *long* time, but can be resumed where you left off)')
@@ -180,8 +182,26 @@ for (v0_name, v0_id) in migration.iter_v0_project_dbs(server):
             _id = row['id']
             if _id.startswith('_'):
                 continue
-            doc = src.get(_id, attachments=True)
-
+            old = src.get(_id, attachments=True)
+            v0_id = old['_id']
+            _type = old.get('type')
+            if _type == 'dmedia/file':
+                try:
+                    m = mdb.get(v0_id)
+                except NotFound:
+                    print('Not Found', v0_id)
+                    continue
+                new = migration.migrate_project_file(old, m['v1_id'])
+                buf.save(new)
+            elif _type == 'dmedia/project':
+                new = migration.migrate_project(old)
+                buf.save(new)
+            elif _type == 'dmedia/import':
+                id_map = dict(iter_id_map(old))
+                new = migration.migrate_import(old, id_map)
+                buf.save(new)
+            else:
+                print('WARNING: unexpected type {!r} for {}'.format(_type, v0_id)) 
     buf.flush()
     print('{}: {} docs; {} conflicts\n'.format(v1_name, buf.count, buf.conflicts))
-    
+
