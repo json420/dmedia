@@ -171,7 +171,7 @@ for (v0_name, v0_id) in migration.iter_v0_project_dbs(server):
     dst = server.database(v1_name)
     dst.ensure()
     buf = BufferedSave(dst)
-    print('{} => {}'.format(v0_name, v1_name))
+    print('\n{} => {}'.format(v0_name, v1_name))
     kw = {'limit': 50, 'skip': 0}
     while True:
         rows = src.get('_all_docs', **kw)['rows']
@@ -203,5 +203,7 @@ for (v0_name, v0_id) in migration.iter_v0_project_dbs(server):
             else:
                 print('WARNING: unexpected type {!r} for {}'.format(_type, v0_id)) 
     buf.flush()
-    print('{}: {} docs; {} conflicts\n'.format(v1_name, buf.count, buf.conflicts))
+    print('{}: {} docs; {} conflicts'.format(v1_name, buf.count, buf.conflicts))
 
+
+print('\nMigration Sucessfull!')
