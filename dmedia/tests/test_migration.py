@@ -198,3 +198,181 @@ class TestFunctions(TestCase):
         })
         self.assertEqual(migration.b32_to_db32(old['_id']), new['_id'])
 
+    def test_migrate_batch(self):
+        old = {
+            "_id": "BH5RGJLRQILM3BPSBWX45HIE",
+            "_rev": "1-c310ed4a024d800d2aa10d19a4f90c95",
+            "copies": 3,
+            "imports": {
+                "EDOVANNPCURG5ZRWD7VDI5LX": {
+                    "basedir": "/media/jderose/EOS_DIGITAL",
+                    "stats": {
+                        "duplicate": {
+                            "bytes": 4485454972,
+                            "count": 135
+                        },
+                        "empty": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "new": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "total": {
+                            "bytes": 4485454972,
+                            "count": 135
+                        }
+                    }
+                },
+                "WSZWZKAXQZVIGAUKHMGCBWCZ": {
+                    "basedir": "/media/jderose/EOS_DIGITAL1",
+                    "stats": {
+                        "duplicate": {
+                            "bytes": 1272543875,
+                            "count": 52
+                        },
+                        "empty": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "new": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "total": {
+                            "bytes": 1272543875,
+                            "count": 52
+                        }
+                    }
+                }
+            },
+            "machine_id": "QRWKVZHH4SLHQAXL5XUT6JJGOVJRHERU7V66LHL6TRWMUJQF",
+            "rate": "35.8 MB/s",
+            "stats": {
+                "duplicate": {
+                    "bytes": 5757998847,
+                    "count": 187
+                },
+                "empty": {
+                    "bytes": 0,
+                    "count": 0
+                },
+                "new": {
+                    "bytes": 0,
+                    "count": 0
+                },
+                "total": {
+                    "bytes": 5757998847,
+                    "count": 187
+                }
+            },
+            "stores": {
+                "/home/jderose/.local/share/dmedia": {
+                    "copies": 1,
+                    "id": "2F6NQJY6FZ2DZKSIWHRXBDPY"
+                },
+                "/media/jderose/dmedia1": {
+                    "copies": 1,
+                    "id": "DLA4NDZRW2LXEPF3RV7YHMON"
+                },
+                "/media/jderose/dmedia2": {
+                    "copies": 1,
+                    "id": "BTVD5CS2HM4OBDLMAC2L7WZM"
+                }
+            },
+            "time": 1361835132.1264558,
+            "time_end": 1361835293.1598194,
+            "type": "dmedia/batch"
+        }
+        new = migration.migrate_batch(old)
+        self.assertIsNot(new, old)
+        self.assertEqual(new, {
+            "_id": "4AWK9CEKJBEFU4IL4PQVWAB7",
+            "copies": 3,
+            "imports": {
+                "76HO3GGI5NK9WSKP6YO6BWEQ": {
+                    "basedir": "/media/jderose/EOS_DIGITAL",
+                    "stats": {
+                        "duplicate": {
+                            "bytes": 4485454972,
+                            "count": 135
+                        },
+                        "empty": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "new": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "total": {
+                            "bytes": 4485454972,
+                            "count": 135
+                        }
+                    }
+                },
+                "PLSPSD3QJSOB93NDAF954P5S": {
+                    "basedir": "/media/jderose/EOS_DIGITAL1",
+                    "stats": {
+                        "duplicate": {
+                            "bytes": 1272543875,
+                            "count": 52
+                        },
+                        "empty": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "new": {
+                            "bytes": 0,
+                            "count": 0
+                        },
+                        "total": {
+                            "bytes": 1272543875,
+                            "count": 52
+                        }
+                    }
+                }
+            },
+            "machine_id": "QRWKVZHH4SLHQAXL5XUT6JJGOVJRHERU7V66LHL6TRWMUJQF",
+            "rate": "35.8 MB/s",
+            "stats": {
+                "duplicate": {
+                    "bytes": 5757998847,
+                    "count": 187
+                },
+                "empty": {
+                    "bytes": 0,
+                    "count": 0
+                },
+                "new": {
+                    "bytes": 0,
+                    "count": 0
+                },
+                "total": {
+                    "bytes": 5757998847,
+                    "count": 187
+                }
+            },
+            "stores": {
+                "/home/jderose/.local/share/dmedia": {
+                    "copies": 1,
+                    "id": "2F6NQJY6FZ2DZKSIWHRXBDPY"
+                },
+                "/media/jderose/dmedia1": {
+                    "copies": 1,
+                    "id": "DLA4NDZRW2LXEPF3RV7YHMON"
+                },
+                "/media/jderose/dmedia2": {
+                    "copies": 1,
+                    "id": "BTVD5CS2HM4OBDLMAC2L7WZM"
+                }
+            },
+            "time": 1361835132.1264558,
+            "time_end": 1361835293.1598194,
+            "type": "dmedia/batch"
+        })
+        for (v0_key, value) in old['imports'].items():
+            v1_key = migration.b32_to_db32(v0_key)
+            self.assertEqual(new['imports'][v1_key], value)
+

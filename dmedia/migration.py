@@ -80,4 +80,14 @@ def migrate_project(old):
     new['db_name'] = schema.project_db_name(new['_id'])
     schema.check_project(new)
     return new
+
+
+def migrate_batch(old):
+    new = deepcopy(old)
+    del new['_rev']
+    new['_id'] = b32_to_db32(old['_id'])
+    new['imports'] = dict(
+        (b32_to_db32(key), value) for (key, value) in old['imports'].items()
+    )
+    return new
  
