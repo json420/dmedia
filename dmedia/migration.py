@@ -98,6 +98,6 @@ def migrate_import(old, id_map):
     new['_id'] = b32_to_db32(old['_id'])
     new['batch_id'] = b32_to_db32(old['batch_id'])
     for f in new['files'].values():
-        if f['id'] in id_map:
+        if f.get('id') in id_map:
             f['id'] = id_map[f['id']]
     return new
