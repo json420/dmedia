@@ -49,6 +49,25 @@ def make_url(ip, port):
     raise Exception('bad PROTO')
 
 
+def iscontinuous(name):
+    if name == 'thumbnails':
+        return False
+    if name.startswith('dmedia-0') or name.startswith('novacut-0'):
+        return False
+    return True
+
+
+def sort_names(names):
+    # First yield all continuously replicated DBs:
+    for name in names:
+        if iscontinuous(name):
+            yield name
+    # Now yield all NON-continuously replicated DBs:
+    for name in names:
+        if not iscontinuous(name):
+            yield name
+
+
 class Avahi:
 
     service = '_dmedia._tcp'
@@ -203,11 +222,10 @@ class Avahi:
 
     def replication_worker(self, cancel, start):
         if cancel:
-            for name in cancel.names:
+            for name in sort_names(cancel.names):
                 self.replicate(name, cancel.env, cancel=True)
         if start:
-            for name in start.names:
-                #time.sleep(0.25)
+            for name in sort_names(start.names):
                 self.replicate(name, start.env)
         log.info('replication_worker() done')
 
@@ -223,12 +241,11 @@ class Avahi:
         corruption.
         """
         kw = {
-            'continuous': True,
             'create_target': True,
             'filter': 'doc/normal',
         }
-        if name.startswith('dmedia-0') or name.startswith('novacut-0'):
-            del kw['continuous']
+        if iscontinuous(name):
+            kw['continuous'] = True
         if cancel:
             kw['cancel'] = True
             log.info('Canceling push of %s to %s', name, env['url'])
