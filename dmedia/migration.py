@@ -90,4 +90,14 @@ def migrate_batch(old):
         (b32_to_db32(key), value) for (key, value) in old['imports'].items()
     )
     return new
- 
+
+
+def migrate_import(old, id_map):
+    new = deepcopy(old)
+    del new['_rev']
+    new['_id'] = b32_to_db32(old['_id'])
+    new['batch_id'] = b32_to_db32(old['batch_id'])
+    for f in new['files'].values():
+        if f['id'] in id_map:
+            f['id'] = id_map[f['id']]
+    return new

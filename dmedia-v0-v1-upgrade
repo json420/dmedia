@@ -27,7 +27,7 @@ from microfiber import Database, dmedia_env, encode_attachment, Attachment, NotF
 import dmedia
 from dmedia.util import get_db
 from dmedia.metastore import MetaStore, BufferedSave
-from dmedia.migration import migrate_file, migrate_store, migrate_project, migrate_batch
+from dmedia.migration import migrate_file, migrate_store, migrate_project, migrate_batch, migrate_import
 
 
 log = dmedia.configure_logging()
@@ -136,3 +136,22 @@ for row in src.view('doc', 'type', key='dmedia/batch')['rows']:
     buf.save(new)
 buf.flush()
 print('dmedia/batch: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
+
+
+def iter_id_map(old):
+    ids = [f.get('id') for f in old['files'].values()]
+    for doc in mdb.get_many(ids):
+        if doc is not None:
+            yield (doc['_id'], doc['v1_id'])
+
+
+# Migrate dmedia/import docs:
+print('Migrating dmedia/import docs...')
+buf = BufferedSave(dst)
+for row in src.view('doc', 'type', key='dmedia/import')['rows']:
+    old = src.get(row['id'], attachments=True)
+    id_map = dict(iter_id_map(old))
+    new = migrate_import(old, id_map)
+    buf.save(new)
+buf.flush()
+print('dmedia/import: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
