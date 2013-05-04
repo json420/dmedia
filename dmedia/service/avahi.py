@@ -223,10 +223,12 @@ class Avahi:
         corruption.
         """
         kw = {
-            'continuous': True,
+            #'continuous': True,
             'create_target': True,
             'filter': 'doc/normal',
         }
+        if name.startswith('dmedia-1') or name.startswith('novacut-1'):
+            kw['continuous'] = True
         if cancel:
             kw['cancel'] = True
             log.info('Canceling push of %s to %s', name, env['url'])
