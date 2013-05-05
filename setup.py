@@ -147,6 +147,7 @@ setup(
         'dmedia-cli',
         'dmedia-migrate',
         'dmedia-extract',
+        'dmedia-v0-v1-upgrade',
     ],
     data_files=[
         ('share/couchdb/apps/dmedia',

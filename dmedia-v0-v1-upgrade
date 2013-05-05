@@ -21,17 +21,17 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 
-import logging
-
 from filestore import Migration
-from microfiber import Database, dmedia_env, encode_attachment, Attachment
+from microfiber import Server, dmedia_env, encode_attachment, Attachment, NotFound, dumps
 
+import dmedia
 from dmedia.util import get_db
 from dmedia.metastore import MetaStore, BufferedSave
+from dmedia import migration
+from dmedia import schema
 
 
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger()
+log = dmedia.configure_logging()
 
 
 def create_mapping_doc(v0_id, v1_ch):
@@ -46,31 +46,164 @@ def create_mapping_doc(v0_id, v1_ch):
     }
 
 
-db = get_db(dmedia_env())
-ms = MetaStore(db)
+server = Server(dmedia_env())
+src = server.database('dmedia-0', dmedia_env())
+dst = server.database('dmedia-1')
+mdb = server.database('migrate-0-to-1')
+ms = MetaStore(dst)
 
-mdb = db.database('migrate-0-to-1')
+src.post(None, '_compact')  # Go ahead and clean up
+
+# Re-hash V0 to V1 file ID:
+print('\nRe-hashing files to map V0 IDs to V1 IDs...')
+print('(This can take a *long* time, but can be resumed where you left off)')
 mdb.ensure()
 buf = BufferedSave(mdb)
-
-
+local_stores = ms.get_local_stores()
 try:
-    local_stores = ms.get_local_stores()
     for fs in local_stores:
+        print(fs)
         if not fs.needs_migration:
             log.info('FileStore %s at %r does not need migration', fs.id, fs.parentdir)
+            print('    does not need migration')
             continue
-        migration = Migration(fs)
-        for (v0_id, v1_id, v1_ch) in migration:
+        mig = Migration(fs)
+        for (v0_id, v1_id, v1_ch) in mig:
             if v1_ch is not None:
                 doc = create_mapping_doc(v0_id, v1_ch)
                 log.info(v0_id)
                 buf.save(doc)
         buf.flush()
-except Exception as e:
+        print('    {} files; {} conflicts'.format(buf.count, buf.conflicts))
+finally:
     buf.flush()
-    raise e
+print('total: {} files; {} conflicts\n'.format(buf.count, buf.conflicts))
 
 
-print(buf.count, buf.conflicts)
+# Migrate dmedia/store docs:
+print('Migrating dmedia/store docs...')
+buf = BufferedSave(dst)
+for row in src.view('doc', 'type', key='dmedia/store')['rows']:
+    old = src.get(row['id'])
+    new = migration.migrate_store(old)
+    buf.save(new)
+buf.flush()
+print('dmedia/store: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
 
+
+# Migrate dmedia/file:
+print('Migrating dmedia/file docs...')
+buf = BufferedSave(dst)
+limit = 25
+skip = 0
+while True:
+    rows = src.view('doc', 'type',
+        key='dmedia/file',
+        limit=limit,
+        skip=skip,
+        include_docs=True,
+    )['rows']
+    if not rows:
+        break
+    skip += len(rows)
+    for row in rows:
+        old = row['doc']
+        v0_id = old['_id']
+        try:
+            m = mdb.get(v0_id, attachments=True)
+        except NotFound:
+            print('Not Found', v0_id)
+            continue
+        new = migration.migrate_file(old, m)
+        buf.save(new)
+buf.flush()
+print('dmedia/file: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
+
+
+# Migrate dmedia/project docs:
+print('Migrating dmedia/project docs...')
+buf = BufferedSave(dst)
+for row in src.view('doc', 'type', key='dmedia/project')['rows']:
+    old = src.get(row['id'], attachments=True)
+    new = migration.migrate_project(old)
+    buf.save(new)
+buf.flush()
+print('dmedia/project: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
+
+
+# Migrate dmedia/batch docs:
+print('Migrating dmedia/batch docs...')
+buf = BufferedSave(dst)
+for row in src.view('doc', 'type', key='dmedia/batch')['rows']:
+    old = src.get(row['id'], attachments=True)
+    new = migration.migrate_batch(old)
+    buf.save(new)
+buf.flush()
+print('dmedia/batch: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
+
+
+def iter_id_map(old):
+    ids = [f.get('id') for f in old['files'].values()]
+    for doc in mdb.get_many(ids):
+        if doc is not None:
+            yield (doc['_id'], doc['v1_id'])
+
+
+# Migrate dmedia/import docs:
+print('Migrating dmedia/import docs...')
+buf = BufferedSave(dst)
+for row in src.view('doc', 'type', key='dmedia/import')['rows']:
+    old = src.get(row['id'], attachments=True)
+    id_map = dict(iter_id_map(old))
+    new = migration.migrate_import(old, id_map)
+    buf.save(new)
+buf.flush()
+print('dmedia/import: {} docs; {} conflicts\n'.format(buf.count, buf.conflicts))
+
+
+# Migrate project databases:
+print('Migrating Dmedia project databases...')
+for (v0_name, v0_id) in migration.iter_v0_project_dbs(server):
+    v1_id = migration.b32_to_db32(v0_id)
+    v1_name = schema.project_db_name(v1_id)
+    src = server.database(v0_name)
+    src.post(None, '_compact')  # Go ahead and clean up
+    dst = server.database(v1_name)
+    dst.ensure()
+    buf = BufferedSave(dst)
+    print('\n{} => {}'.format(v0_name, v1_name))
+    kw = {'limit': 50, 'skip': 0}
+    while True:
+        rows = src.get('_all_docs', **kw)['rows']
+        if not rows:
+            break
+        kw['skip'] += len(rows)
+        for row in rows:
+            _id = row['id']
+            if _id.startswith('_'):
+                continue
+            old = src.get(_id, attachments=True)
+            v0_id = old['_id']
+            _type = old.get('type')
+            if _type == 'dmedia/file':
+                try:
+                    m = mdb.get(v0_id)
+                except NotFound:
+                    print('Not Found', v0_id)
+                    continue
+                new = migration.migrate_project_file(old, m['v1_id'])
+                buf.save(new)
+            elif _type == 'dmedia/project':
+                new = migration.migrate_project(old)
+                buf.save(new)
+            elif _type == 'dmedia/import':
+                id_map = dict(iter_id_map(old))
+                new = migration.migrate_import(old, id_map)
+                buf.save(new)
+            else:
+                print('WARNING: unexpected type {!r} for {}'.format(_type, v0_id)) 
+    buf.flush()
+    print('{}: {} docs; {} conflicts'.format(v1_name, buf.count, buf.conflicts))
+
+
+print('\nMigration Sucessfull!')
