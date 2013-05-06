@@ -370,6 +370,15 @@ class BackgroundManager:
                 break
             GLib.idle_add(self.on_complete, key)
 
+    def check_initial_filestores(self, key):
+        try:
+            self.initial_filestores.remove(key)
+            log.info('initial_filestores: %r', sorted(self.initial_filestores))
+            if len(self.initial_filestores) == 0:
+                self.start_vigilance()   
+        except KeyError:
+            pass 
+
     def on_complete(self, key):
         log.info('Complete: %r', key)
         if key not in self.workers:
@@ -377,8 +386,7 @@ class BackgroundManager:
             return
         process = self.workers.pop(key)
         process.join()
-        if self.workers == {} and key != '__vigilance__':
-            self.start_vigilance()
+        self.check_initial_filestores(key)
 
     def start(self, target, key, *extra):
         assert self.active
@@ -394,9 +402,11 @@ class BackgroundManager:
         assert self.active
         if key not in self.workers:
             return False
+        log.info('Stopping %r', key)
         process = self.workers.pop(key)
         process.terminate()
         process.join()
+        self.check_initial_filestores(key)
         return True
 
     def restart(self, target, key, *extra):
@@ -405,18 +415,34 @@ class BackgroundManager:
 
     def check_filestore(self, fs):
         if self.active:
-            self.restart(check_filestore_worker, fs.parentdir, fs.id)
+            self.start(check_filestore_worker, fs.parentdir, fs.id)
 
     def start_vigilance(self):
         self.start(vigilance_worker, '__vigilance__', self.ssl_config)
         self.start(downgrade_worker, '__downgrade__')
 
-    def shutdown(self):
+    def restart_vigilance(self):
+        if self.active and self.stop('__vigilance__'):
+            log.info('Restarting vigilance...')
+            self.start(vigilance_worker, '__vigilance__', self.ssl_config)
+
+    def start_all(self, filestores):
+        self.activate()
+        self.initial_filestores = set(fs.parentdir for fs in filestores)
+        for fs in filestores:
+            self.check_filestore(fs)
+
+    def restart_all(self, filestores):
+        assert self.active
         self.stop_listener()
         for process in self.workers.values():
             process.terminate()
             process.join()
-            
+        self.workers.clear()
+        self.start_listener()
+        self.initial_filestores = set(fs.id for fs in filestores)
+        for fs in filestores:
+            self.check_filestore(fs)
 
 
 class Core:
@@ -438,13 +464,10 @@ class Core:
         self.__local = deepcopy(self.local)
 
     def start_background_tasks(self):
-        assert self.background.active is False
-        self.background.activate()
-        for fs in self.stores:
-            self.background.check_filestore(fs)
+        self.background.start_all(tuple(self.stores))
 
     def restart_background_tasks(self):
-        assert self.background.active is True
+        self.background.restart_all(tuple(self.stores))
 
     def save_local(self):
         if self.local != self.__local:
@@ -479,8 +502,7 @@ class Core:
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
-        #if self.vigilance is not None:
-        #    self.restart_vigilance()
+        self.background.restart_vigilance()
 
     def _add_filestore(self, fs, doc):
         assert isdb32(fs.id)
@@ -498,6 +520,7 @@ class Core:
 
     def _remove_filestore(self, fs):
         self.stores.remove(fs)
+        self.background.stop(fs.parentdir)
         self._sync_stores()
 
     def _iter_project_dbs(self):

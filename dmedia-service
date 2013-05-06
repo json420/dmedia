@@ -217,7 +217,7 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core.env, port, ssl_config)
         self.avahi.run()
-        GLib.timeout_add(15 * 1000, self.on_idle3)
+        GLib.timeout_add(30 * 1000, self.on_idle3)
 
     def on_idle3(self):
         """
@@ -225,7 +225,7 @@ class Service(dbus.service.Object):
         """
         log.info('[idle3 at time %.3f]', time.time() - start_time)
         self.core.start_background_tasks()
-        GLib.timeout_add(60 * 60 * 1000, self.on_background_restart)
+        GLib.timeout_add(30 * 60 * 1000, self.on_background_restart)
 
     def on_background_restart(self):
         log.info('on_background_restart()')
