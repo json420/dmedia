@@ -220,68 +220,62 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def vigilance_worker(env, ssl_config):
+def vigilance_worker(env, key, ssl_config):
     """
     Run the event-based copy-increasing loop to maintain file durability.
     """
-    try:
-        log.info('Entering vigilance_worker()...')
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        ssl_context = build_ssl_context(ssl_config)
-        local_stores = ms.get_local_stores()
-        if len(local_stores) == 0:
-            log.warning('No connected local stores, cannot increase copies')
-            return
-        connected = frozenset(local_stores.ids)
-        log.info('Connected %r', connected)
+    assert key == '__vigilance__'
+    db = util.get_db(env)
+    ms = MetaStore(db)
+    ssl_context = build_ssl_context(ssl_config)
+    local_stores = ms.get_local_stores()
+    if len(local_stores) == 0:
+        log.warning('No connected local stores, cannot increase copies')
+        return
+    connected = frozenset(local_stores.ids)
+    log.info('Connected %r', connected)
 
-        for (doc, stored) in ms.iter_actionable_fragile(connected, True):
-            _id = doc['_id']
-            copies = sum(v['copies'] for v in doc['stored'].values())
-            if copies >= 3:
-                log.warning('%s already has copies >= 3, skipping', _id)
-                continue
-            size = doc['bytes']
-            local = connected.intersection(stored)  # Any local copies?
-            if local:
-                free = connected - stored
-                src = local_stores.choose_local_store(doc)
-                dst = local_stores.filter_by_avail(free, size, 3 - copies)
-                if dst:
-                    ms.copy(src, doc, *dst)
-            elif ms.get_peers():
-                peers = ms._peers
-                for (machine_id, info) in peers.items():
-                    url = info['url']
-                    client = get_client(url, ssl_context)
-                    if not client.has_file(_id):
-                        continue
-                    fs = local_stores.find_dst_store(size)
-                    if fs is None:
-                        log.warning(
-                            'No FileStore with avail space to download %s', _id
-                        )
-                        continue
-                    downloader = Downloader(doc, ms, fs)
-                    try:
-                        downloader.download_from(client)
-                    except Exception:
-                        log.exception('Error downloading %s from %s', _id, url)
-    except Exception:
-        log.exception('Error in vigilance_worker():')
+    for (doc, stored) in ms.iter_actionable_fragile(connected, True):
+        _id = doc['_id']
+        copies = sum(v['copies'] for v in doc['stored'].values())
+        if copies >= 3:
+            log.warning('%s already has copies >= 3, skipping', _id)
+            continue
+        size = doc['bytes']
+        local = connected.intersection(stored)  # Any local copies?
+        if local:
+            free = connected - stored
+            src = local_stores.choose_local_store(doc)
+            dst = local_stores.filter_by_avail(free, size, 3 - copies)
+            if dst:
+                ms.copy(src, doc, *dst)
+        elif ms.get_peers():
+            peers = ms._peers
+            for (machine_id, info) in peers.items():
+                url = info['url']
+                client = get_client(url, ssl_context)
+                if not client.has_file(_id):
+                    continue
+                fs = local_stores.find_dst_store(size)
+                if fs is None:
+                    log.warning(
+                        'No FileStore with avail space to download %s', _id
+                    )
+                    continue
+                downloader = Downloader(doc, ms, fs)
+                try:
+                    downloader.download_from(client)
+                except Exception:
+                    log.exception('Error downloading %s from %s', _id, url)
 
 
-def downgrade_worker(env):
-    try:
-        log.info('Entering downgrade_worker()...')
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        ms.downgrade_by_store_atime()
-        ms.downgrade_by_never_verified()
-        ms.downgrade_by_last_verified()
-    except Exception:
-        log.exception('Error in downgrade_worker():')
+def downgrade_worker(env, key):
+    assert key == '__downgrade__'
+    db = util.get_db(env)
+    ms = MetaStore(db)
+    ms.downgrade_by_store_atime()
+    ms.downgrade_by_never_verified()
+    ms.downgrade_by_last_verified()
 
 
 def check_filestore_worker(env, parentdir, store_id):
@@ -327,12 +321,11 @@ def clean_file_id(_id):
 
 
 def background_worker(q, env, target, key, *extra):
-    args = (key,) + extra
     try:
-        log.info('%s: %r', target.__name__, args)
-        target(env, *args)
+        log.info('%s: %r', target.__name__, key)
+        target(env, key, *extra)
     except Exception:
-        log.exception('Error: %s: %r', target.__name__, args)
+        log.exception('Error: %s: %r', target.__name__, key)
     finally:
         q.put(key)
 
@@ -344,10 +337,20 @@ class BackgroundManager:
         self.workers = {}
         self.q = None
         self.thread = None
-        self.active = False
+        self.__active = False
+        
+    @property
+    def active(self):
+        return self.__active
+
+    def activate(self):
+        assert self.__active is False
+        self.__active = True
+        self.start_listener()
 
     def start_listener(self):
         assert self.workers == {}
+        assert self.q is None
         assert self.thread is None
         log.info('Starting listener thread...')
         self.q = multiprocessing.Queue()
@@ -369,28 +372,29 @@ class BackgroundManager:
 
     def on_complete(self, key):
         log.info('Complete: %r', key)
-        process = self.workers.pop(key, None)
-        if process is not None:
-            process.join()
-        if not self.workers:
-            self.stop_listener()
+        if key not in self.workers:
+            log.warning('Could not find process for %r', key)
+            return
+        process = self.workers.pop(key)
+        process.join()
+        if self.workers == {} and key != '__vigilance__':
+            self.start_vigilance()
 
     def start(self, target, key, *extra):
+        assert self.active
         if key in self.workers:
+            log.warning('%s is already running', key)
             return False
-        if not self.workers:
-            self.start_listener()
         self.workers[key] = start_process(
             background_worker, self.q, self.env, target, key, *extra
         )
         return True
 
     def stop(self, key):
-        process = self.workers.pop(key, None)
-        if process is None:
+        assert self.active
+        if key not in self.workers:
             return False
-        if not self.workers:
-            self.stop_listener()
+        process = self.workers.pop(key)
         process.terminate()
         process.join()
         return True
@@ -402,6 +406,17 @@ class BackgroundManager:
     def check_filestore(self, fs):
         if self.active:
             self.restart(check_filestore_worker, fs.parentdir, fs.id)
+
+    def start_vigilance(self):
+        self.start(vigilance_worker, '__vigilance__', self.ssl_config)
+        self.start(downgrade_worker, '__downgrade__')
+
+    def shutdown(self):
+        self.stop_listener()
+        for process in self.workers.values():
+            process.terminate()
+            process.join()
+            
 
 
 class Core:
@@ -424,7 +439,7 @@ class Core:
 
     def start_background_tasks(self):
         assert self.background.active is False
-        self.background.active = True
+        self.background.activate()
         for fs in self.stores:
             self.background.check_filestore(fs)
 
