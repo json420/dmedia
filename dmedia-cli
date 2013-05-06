@@ -146,6 +146,10 @@ class PurgeStore(_Method):
     args = ['store_id']
 
 
+class PurgeAll(_Method):
+    'Purge all files in all stores (stress test)'
+
+
 class Resolve(_Method):
     'Resolve Dmedia file ID into a regular file path'
 

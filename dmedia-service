@@ -454,6 +454,11 @@ class Service(dbus.service.Object):
         log.info('Dmedia.PurgeStore(%r)', store_id)
         start_thread(self.core.purge_store, store_id)
 
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def PurgeAll(self):
+        log.info('Dmedia.PurgeAll()')
+        start_thread(self.core.ms.purge_all)
+
     @dbus.service.method(IFACE, in_signature='s', out_signature='(sys)')
     def Resolve(self, file_id):
         (file_id, status, filename) = self.core.resolve(file_id)
