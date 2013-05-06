@@ -100,7 +100,6 @@ class TestCore(CouchCase):
         self.assertIsInstance(inst.server, microfiber.Server)
         self.assertIs(inst.db.ctx, inst.server.ctx)
         self.assertIsInstance(inst.stores, LocalStores)
-        self.assertIsNone(inst.vigilance)
         self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
 
     def test_load_identity(self):

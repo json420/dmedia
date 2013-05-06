@@ -44,6 +44,7 @@ from base64 import b64encode
 from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
+from gi.repository import GLib
 
 import dmedia
 from dmedia.parallel import start_thread, start_process
@@ -284,16 +285,12 @@ def downgrade_worker(env):
 
 
 def check_filestore_worker(env, parentdir, store_id):
-    try:
-        log.info('Checking FileStore %s at %r', store_id, parentdir)
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        fs = util.get_filestore(parentdir, store_id)[0]
-        ms.scan(fs)
-        ms.relink(fs)
-        ms.verify_all(fs)
-    except Exception:
-        log.exception('Error checking FileStore %s at %r', store_id, parentdir)
+    db = util.get_db(env)
+    ms = MetaStore(db)
+    fs = util.get_filestore(parentdir, store_id)[0]
+    ms.scan(fs)
+    ms.relink(fs)
+    ms.verify_all(fs)
 
 
 def decrease_copies(env):
@@ -329,6 +326,84 @@ def clean_file_id(_id):
     return None
 
 
+def background_worker(q, env, target, key, *extra):
+    args = (key,) + extra
+    try:
+        log.info('%s: %r', target.__name__, args)
+        target(env, *args)
+    except Exception:
+        log.exception('Error: %s: %r', target.__name__, args)
+    finally:
+        q.put(key)
+
+
+class BackgroundManager:
+    def __init__(self, env, ssl_config):
+        self.env = env
+        self.ssl_config = ssl_config
+        self.workers = {}
+        self.q = None
+        self.thread = None
+        self.active = False
+
+    def start_listener(self):
+        assert self.workers == {}
+        assert self.thread is None
+        log.info('Starting listener thread...')
+        self.q = multiprocessing.Queue()
+        self.thread = start_thread(self.listener)
+
+    def stop_listener(self):
+        log.info('Stopping listener thread...')
+        self.q.put(None)
+        self.thread.join()
+        self.thread = None
+        self.q = None
+
+    def listener(self):
+        while True:
+            key = self.q.get()
+            if key is None:
+                break
+            GLib.idle_add(self.on_complete, key)
+
+    def on_complete(self, key):
+        log.info('Complete: %r', key)
+        process = self.workers.pop(key, None)
+        if process is not None:
+            process.join()
+        if not self.workers:
+            self.stop_listener()
+
+    def start(self, target, key, *extra):
+        if key in self.workers:
+            return False
+        if not self.workers:
+            self.start_listener()
+        self.workers[key] = start_process(
+            background_worker, self.q, self.env, target, key, *extra
+        )
+        return True
+
+    def stop(self, key):
+        process = self.workers.pop(key, None)
+        if process is None:
+            return False
+        if not self.workers:
+            self.stop_listener()
+        process.terminate()
+        process.join()
+        return True
+
+    def restart(self, target, key, *extra):
+        self.stop(key)
+        return self.start(target, key, *extra)
+
+    def check_filestore(self, fs):
+        if self.active:
+            self.restart(check_filestore_worker, fs.parentdir, fs.id)
+
+
 class Core:
     def __init__(self, env, ssl_config=None):
         self.env = env
@@ -337,8 +412,7 @@ class Core:
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
-        self.pool = multiprocessing.Pool(2, maxtasksperchild=1)
-        self.vigilance = None      
+        self.background = BackgroundManager(env, ssl_config)
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -348,21 +422,14 @@ class Core:
             }
         self.__local = deepcopy(self.local)
 
-        self.checking_filestores = False
-
-    def _check_filestore(self, parentdir, store_id):
-        args = (self.env, parentdir, store_id)
-        self.pool.apply_async(check_filestore_worker, args)
-
-    def check_filestore(self, parentdir, store_id):
-        if self.checking_filestores:
-            self._check_filestore(parentdir, store_id)
-
-    def start_filestore_checks(self):
+    def start_background_tasks(self):
+        assert self.background.active is False
+        self.background.active = True
         for fs in self.stores:
-            self._check_filestore(fs.parentdir, fs.id)
-        self.checking_filestores = True
-        self.pool.apply_async(downgrade_worker, (self.env,))
+            self.background.check_filestore(fs)
+
+    def restart_background_tasks(self):
+        assert self.background.active is True
 
     def save_local(self):
         if self.local != self.__local:
@@ -397,8 +464,8 @@ class Core:
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
-        if self.vigilance is not None:
-            self.restart_vigilance()
+        #if self.vigilance is not None:
+        #    self.restart_vigilance()
 
     def _add_filestore(self, fs, doc):
         assert isdb32(fs.id)
@@ -411,28 +478,12 @@ class Core:
             self.db.save(doc)
         except Conflict:
             pass
-        self.check_filestore(fs.parentdir, fs.id)
+        self.background.check_filestore(fs)
         self._sync_stores()
 
     def _remove_filestore(self, fs):
         self.stores.remove(fs)
         self._sync_stores()
-
-    def start_vigilance(self):
-        if self.vigilance is None:
-            self.vigilance = start_process(
-                vigilance_worker, self.env, self.ssl_config
-            )
-
-    def stop_vigilance(self):
-        if self.vigilance is not None:
-            self.vigilance.terminate()
-            self.vigilance.join()
-            self.vigilance = None
-
-    def restart_vigilance(self):
-        self.stop_vigilance()
-        self.start_vigilance()
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
