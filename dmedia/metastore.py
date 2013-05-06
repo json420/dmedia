@@ -612,15 +612,13 @@ class MetaStore:
                 if doc is None:
                     continue
                 stored = get_dict(doc, 'stored')
-                value = get_dict(stored, fs.id)
-                if value:
+                if fs.id in stored:
                     continue
                 log.info('Relinking %s in %r', st.id, fs)
-                value.update(
-                    mtime=int(st.mtime),
-                    copies=fs.copies,
-                )
-                self.db.save(doc)
+                new = {
+                    fs.id: {'copies': fs.copies, 'mtime': int(st.mtime)}
+                }
+                self.db.update(mark_added, doc, new)
                 count += 1
         t.log('relink %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
         return count
