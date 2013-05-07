@@ -243,9 +243,12 @@ class Avahi:
         kw = {
             'create_target': True,
             'filter': 'doc/normal',
+            'continuous': True,
         }
-        if iscontinuous(name):
-            kw['continuous'] = True
+        if not iscontinuous(name):
+            if cancel:
+                return  # Don't need to cancel non-continuous replication
+            del kw['continuous']
         if cancel:
             kw['cancel'] = True
             log.info('Canceling push of %s to %s', name, env['url'])
