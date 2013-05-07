@@ -614,7 +614,8 @@ class MetaStore:
                 stored = get_dict(doc, 'stored')
                 if fs.id in stored:
                     continue
-                log.info('Relinking %s in %r', st.id, fs)
+                log.info('Relinking %s in FileStore %s at %r',
+                        st.id, fs.id, fs.parentdir)
                 new = {
                     fs.id: {'copies': fs.copies, 'mtime': int(st.mtime)}
                 }

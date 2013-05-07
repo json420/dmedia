@@ -31,7 +31,7 @@ from copy import deepcopy
 import logging
 
 import microfiber
-from filestore import FileStore, DOTNAME
+from filestore import FileStore, DOTNAME, is_v0_files
 
 from . import schema, views
 
@@ -44,6 +44,9 @@ def isfilestore(parentdir):
 
 
 def get_filestore_id(parentdir):
+    files = path.join(parentdir, DOTNAME, 'files')
+    if is_v0_files(files):
+        fs = FileStore(parentdir)
     store = path.join(parentdir, DOTNAME, 'store.json')
     try:
         doc = json.load(open(store, 'r'))

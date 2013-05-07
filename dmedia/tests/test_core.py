@@ -100,7 +100,6 @@ class TestCore(CouchCase):
         self.assertIsInstance(inst.server, microfiber.Server)
         self.assertIs(inst.db.ctx, inst.server.ctx)
         self.assertIsInstance(inst.stores, LocalStores)
-        self.assertIsNone(inst.vigilance)
         self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
 
     def test_load_identity(self):
@@ -194,33 +193,6 @@ class TestCore(CouchCase):
             }
         )
         self.assertTrue(inst.db.get(_id)['_rev'].startswith('1-'))
-
-    def test_start_vigilance(self):
-        inst = core.Core(self.env)
-        self.assertIsNone(inst.vigilance)
-        self.assertIsNone(inst.start_vigilance())
-        self.assertIsInstance(inst.vigilance, multiprocessing.Process)
-
-        # Test stop_vigilance() also:
-        process = inst.vigilance
-        self.assertIsNone(inst.stop_vigilance())
-        self.assertFalse(process.is_alive())
-        self.assertIsNone(inst.vigilance)
-
-    def test_restart_vigilance(self):
-        class Dummy(core.Core):
-            def __init__(self):
-                self.calls = []
-
-            def start_vigilance(self):
-                self.calls.append('start')
-
-            def stop_vigilance(self):
-                self.calls.append('stop')
-                
-        inst = Dummy()
-        self.assertIsNone(inst.restart_vigilance())
-        self.assertEqual(inst.calls, ['stop', 'start'])
 
     def test_create_filestore(self):
         inst = core.Core(self.env)

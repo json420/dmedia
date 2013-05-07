@@ -44,6 +44,7 @@ from base64 import b64encode
 from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
+from gi.repository import GLib
 
 import dmedia
 from dmedia.parallel import start_thread, start_process
@@ -219,81 +220,71 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def vigilance_worker(env, ssl_config):
+def vigilance_worker(env, key, ssl_config):
     """
     Run the event-based copy-increasing loop to maintain file durability.
     """
-    try:
-        log.info('Entering vigilance_worker()...')
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        ssl_context = build_ssl_context(ssl_config)
-        local_stores = ms.get_local_stores()
-        if len(local_stores) == 0:
-            log.warning('No connected local stores, cannot increase copies')
-            return
-        connected = frozenset(local_stores.ids)
-        log.info('Connected %r', connected)
+    assert key == '__vigilance__'
+    db = util.get_db(env)
+    ms = MetaStore(db)
+    ssl_context = build_ssl_context(ssl_config)
+    local_stores = ms.get_local_stores()
+    if len(local_stores) == 0:
+        log.warning('No connected local stores, cannot increase copies')
+        return
+    connected = frozenset(local_stores.ids)
+    log.info('Connected %r', connected)
 
-        for (doc, stored) in ms.iter_actionable_fragile(connected, True):
-            _id = doc['_id']
-            copies = sum(v['copies'] for v in doc['stored'].values())
-            if copies >= 3:
-                log.warning('%s already has copies >= 3, skipping', _id)
-                continue
-            size = doc['bytes']
-            local = connected.intersection(stored)  # Any local copies?
-            if local:
-                free = connected - stored
-                src = local_stores.choose_local_store(doc)
-                dst = local_stores.filter_by_avail(free, size, 3 - copies)
-                if dst:
-                    ms.copy(src, doc, *dst)
-            elif ms.get_peers():
-                peers = ms._peers
-                for (machine_id, info) in peers.items():
-                    url = info['url']
-                    client = get_client(url, ssl_context)
-                    if not client.has_file(_id):
-                        continue
-                    fs = local_stores.find_dst_store(size)
-                    if fs is None:
-                        log.warning(
-                            'No FileStore with avail space to download %s', _id
-                        )
-                        continue
-                    downloader = Downloader(doc, ms, fs)
-                    try:
-                        downloader.download_from(client)
-                    except Exception:
-                        log.exception('Error downloading %s from %s', _id, url)
-    except Exception:
-        log.exception('Error in vigilance_worker():')
+    for (doc, stored) in ms.iter_actionable_fragile(connected, True):
+        _id = doc['_id']
+        copies = sum(v['copies'] for v in doc['stored'].values())
+        if copies >= 3:
+            log.warning('%s already has copies >= 3, skipping', _id)
+            continue
+        size = doc['bytes']
+        local = connected.intersection(stored)  # Any local copies?
+        if local:
+            free = connected - stored
+            src = local_stores.choose_local_store(doc)
+            dst = local_stores.filter_by_avail(free, size, 3 - copies)
+            if dst:
+                ms.copy(src, doc, *dst)
+        elif ms.get_peers():
+            peers = ms._peers
+            for (machine_id, info) in peers.items():
+                url = info['url']
+                client = get_client(url, ssl_context)
+                if not client.has_file(_id):
+                    continue
+                fs = local_stores.find_dst_store(size)
+                if fs is None:
+                    log.warning(
+                        'No FileStore with avail space to download %s', _id
+                    )
+                    continue
+                downloader = Downloader(doc, ms, fs)
+                try:
+                    downloader.download_from(client)
+                except Exception:
+                    log.exception('Error downloading %s from %s', _id, url)
 
 
-def downgrade_worker(env):
-    try:
-        log.info('Entering downgrade_worker()...')
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        ms.downgrade_by_store_atime()
-        ms.downgrade_by_never_verified()
-        ms.downgrade_by_last_verified()
-    except Exception:
-        log.exception('Error in downgrade_worker():')
+def downgrade_worker(env, key):
+    assert key == '__downgrade__'
+    db = util.get_db(env)
+    ms = MetaStore(db)
+    ms.downgrade_by_store_atime()
+    ms.downgrade_by_never_verified()
+    ms.downgrade_by_last_verified()
 
 
 def check_filestore_worker(env, parentdir, store_id):
-    try:
-        log.info('Checking FileStore %s at %r', store_id, parentdir)
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        fs = util.get_filestore(parentdir, store_id)[0]
-        ms.scan(fs)
-        ms.relink(fs)
-        ms.verify_all(fs)
-    except Exception:
-        log.exception('Error checking FileStore %s at %r', store_id, parentdir)
+    db = util.get_db(env)
+    ms = MetaStore(db)
+    fs = util.get_filestore(parentdir, store_id)[0]
+    ms.scan(fs)
+    ms.relink(fs)
+    ms.verify_all(fs)
 
 
 def decrease_copies(env):
@@ -329,6 +320,130 @@ def clean_file_id(_id):
     return None
 
 
+def background_worker(q, env, target, key, *extra):
+    try:
+        log.info('%s: %r', target.__name__, key)
+        target(env, key, *extra)
+    except Exception:
+        log.exception('Error: %s: %r', target.__name__, key)
+    finally:
+        q.put(key)
+
+
+class BackgroundManager:
+    def __init__(self, env, ssl_config):
+        self.env = env
+        self.ssl_config = ssl_config
+        self.workers = {}
+        self.q = None
+        self.thread = None
+        self.__active = False
+        
+    @property
+    def active(self):
+        return self.__active
+
+    def activate(self):
+        assert self.__active is False
+        self.__active = True
+        self.start_listener()
+
+    def start_listener(self):
+        assert self.workers == {}
+        assert self.q is None
+        assert self.thread is None
+        log.info('Starting listener thread...')
+        self.q = multiprocessing.Queue()
+        self.thread = start_thread(self.listener)
+
+    def stop_listener(self):
+        log.info('Stopping listener thread...')
+        self.q.put(None)
+        self.thread.join()
+        self.thread = None
+        self.q = None
+
+    def listener(self):
+        while True:
+            key = self.q.get()
+            if key is None:
+                break
+            GLib.idle_add(self.on_complete, key)
+
+    def check_initial_filestores(self, key):
+        try:
+            self.initial_filestores.remove(key)
+            log.info('initial_filestores: %r', sorted(self.initial_filestores))
+            if len(self.initial_filestores) == 0:
+                self.start_vigilance()   
+        except KeyError:
+            pass 
+
+    def on_complete(self, key):
+        log.info('Complete: %r', key)
+        if key not in self.workers:
+            log.warning('Could not find process for %r', key)
+            return
+        process = self.workers.pop(key)
+        process.join()
+        self.check_initial_filestores(key)
+
+    def start(self, target, key, *extra):
+        assert self.active
+        if key in self.workers:
+            log.warning('%s is already running', key)
+            return False
+        self.workers[key] = start_process(
+            background_worker, self.q, self.env, target, key, *extra
+        )
+        return True
+
+    def stop(self, key):
+        if key not in self.workers:
+            return False
+        log.info('Stopping %r', key)
+        process = self.workers.pop(key)
+        process.terminate()
+        process.join()
+        self.check_initial_filestores(key)
+        return True
+
+    def restart(self, target, key, *extra):
+        self.stop(key)
+        return self.start(target, key, *extra)
+
+    def check_filestore(self, fs):
+        if self.active:
+            self.start(check_filestore_worker, fs.parentdir, fs.id)
+
+    def start_vigilance(self):
+        self.start(vigilance_worker, '__vigilance__', self.ssl_config)
+        self.start(downgrade_worker, '__downgrade__')
+
+    def restart_vigilance(self):
+        if self.active and self.stop('__vigilance__'):
+            log.info('Restarting vigilance...')
+            self.start(vigilance_worker, '__vigilance__', self.ssl_config)
+
+    def start_all(self, filestores):
+        self.activate()
+        self.initial_filestores = set(fs.parentdir for fs in filestores)
+        for fs in filestores:
+            self.check_filestore(fs)
+
+    def restart_all(self, filestores):
+        assert self.active
+        self.stop_listener()
+        for process in self.workers.values():
+            process.terminate()
+            process.join()
+        self.workers.clear()
+        self.start_listener()
+        self.initial_filestores = set(fs.id for fs in filestores)
+        for fs in filestores:
+            self.check_filestore(fs)
+
+
 class Core:
     def __init__(self, env, ssl_config=None):
         self.env = env
@@ -337,8 +452,7 @@ class Core:
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
-        self.pool = multiprocessing.Pool(2, maxtasksperchild=1)
-        self.vigilance = None      
+        self.background = BackgroundManager(env, ssl_config)
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -348,21 +462,11 @@ class Core:
             }
         self.__local = deepcopy(self.local)
 
-        self.checking_filestores = False
+    def start_background_tasks(self):
+        self.background.start_all(tuple(self.stores))
 
-    def _check_filestore(self, parentdir, store_id):
-        args = (self.env, parentdir, store_id)
-        self.pool.apply_async(check_filestore_worker, args)
-
-    def check_filestore(self, parentdir, store_id):
-        if self.checking_filestores:
-            self._check_filestore(parentdir, store_id)
-
-    def start_filestore_checks(self):
-        for fs in self.stores:
-            self._check_filestore(fs.parentdir, fs.id)
-        self.checking_filestores = True
-        self.pool.apply_async(downgrade_worker, (self.env,))
+    def restart_background_tasks(self):
+        self.background.restart_all(tuple(self.stores))
 
     def save_local(self):
         if self.local != self.__local:
@@ -397,8 +501,7 @@ class Core:
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
-        if self.vigilance is not None:
-            self.restart_vigilance()
+        self.background.restart_vigilance()
 
     def _add_filestore(self, fs, doc):
         assert isdb32(fs.id)
@@ -411,28 +514,13 @@ class Core:
             self.db.save(doc)
         except Conflict:
             pass
-        self.check_filestore(fs.parentdir, fs.id)
+        self.background.check_filestore(fs)
         self._sync_stores()
 
     def _remove_filestore(self, fs):
         self.stores.remove(fs)
+        self.background.stop(fs.parentdir)
         self._sync_stores()
-
-    def start_vigilance(self):
-        if self.vigilance is None:
-            self.vigilance = start_process(
-                vigilance_worker, self.env, self.ssl_config
-            )
-
-    def stop_vigilance(self):
-        if self.vigilance is not None:
-            self.vigilance.terminate()
-            self.vigilance.join()
-            self.vigilance = None
-
-    def restart_vigilance(self):
-        self.stop_vigilance()
-        self.start_vigilance()
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
@@ -512,56 +600,6 @@ class Core:
         fs = self.stores.by_parentdir(parentdir)
         self._remove_filestore(fs)
         return fs
-
-    def downgrade_store(self, store_id):
-        """
-        Mark all files in *store_id* as counting for zero copies.
-
-        This method downgrades our confidence in a particular store.  Files are
-        still tracked in this store, but they are all updated to have zero
-        copies worth of durability in this store.  Some scenarios in which you
-        might do this:
-
-            1. It's been too long since a particular HDD has connected, so we
-               play it safe and work from the assumption the HHD wont contain
-               the expected files, or was run over by a bus.
-
-            2. We're about to format a removable drive, so we first downgrade
-               all the files it contains so addition copies can be created if
-               needed, and so other nodes know not to count on these copies.
-
-        Note that this method makes sense for remote cloud stores as well as for
-        local file-stores.
-        """
-        return self.ms.downgrade_store(store_id)
-
-    def purge_store(self, store_id):
-        """
-        Purge all record of files in *store_id*.
-
-        This method completely erases the record of a particular store, at least
-        from the file persecutive.  This store will no longer count in the
-        durability of any files, nor will Dmedia consider this store as a source
-        for any files.
-
-        Specifically, all of these will be deleted if they exist:
-
-            * ``doc['stored'][store_id]``
-            * ``doc['corrupt'][store_id]``
-            * ``doc['partial'][store_id]``
-
-        Some scenarios in which you might want to do this:
-
-            1. The HDD was run over by a bus, the data is gone.  We need to
-               embrace reality, the sooner the better.
-
-            2. We're going to format or otherwise repurpose an HDD.  Ideally, we
-               would have called `Core2.downgrade_store()` first.
-
-        Note that this method makes sense for remote cloud stores as well as for
-        local file-stores
-        """
-        return self.ms.purge_store(store_id)
 
     def stat(self, _id):
         doc = self.db.get(_id)

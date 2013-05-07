@@ -195,7 +195,8 @@ class Service(dbus.service.Object):
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
         VolumeMonitor.connect('mount-added', self.on_mount_added)
-        VolumeMonitor.connect('mount-removed', self.on_mount_removed)
+        VolumeMonitor.connect('mount-pre-unmount', self.on_mount_pre_unmount)
+        #VolumeMonitor.connect('mount-removed', self.on_mount_removed)
         for mount in VolumeMonitor.get_mounts():
             self.on_mount_added(VolumeMonitor, mount)
         self.SnapshotAll()
@@ -224,14 +225,13 @@ class Service(dbus.service.Object):
         Start the background filestore checking tasks.
         """
         log.info('[idle3 at time %.3f]', time.time() - start_time)
-        self.core.start_filestore_checks()
-        self.core.start_vigilance()
-        GLib.timeout_add(60 * 60 * 1000, self.on_vigilance_restart)
+        self.core.start_background_tasks()
+        # Restart the background tasks every hour:
+        GLib.timeout_add(30 * 60 * 1000, self.on_background_restart)
 
-    def on_vigilance_restart(self):
-        log.info('on_vigilance_restart()')
-        self.core.start_filestore_checks()
-        self.core.restart_vigilance()
+    def on_background_restart(self):
+        log.info('on_background_restart()')
+        self.core.restart_background_tasks()
         return True
 
     def shutdown(self):
@@ -268,9 +268,9 @@ class Service(dbus.service.Object):
         except Exception:
             log.exception('Could not connect FileStore %r', parentdir)
 
-    def on_mount_removed(self, vm, mount):
+    def on_mount_pre_unmount(self, vm, mount):
         parentdir = mount.get_root().get_path()
-        log.info('mount_removed: %r', parentdir)
+        log.info('mount_pre_unmount: %r', parentdir)
         try:
             fs = self.core.stores.by_parentdir(parentdir)
             self.core.disconnect_filestore(parentdir, fs.id)
@@ -443,7 +443,7 @@ class Service(dbus.service.Object):
     def DowngradeStore(self, store_id):
         store_id = str(store_id)
         log.info('Dmedia.DowngradeStore(%r)', store_id)
-        start_thread(self.core.downgrade_store, store_id)
+        start_thread(self.core.ms.downgrade_store, store_id)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='')
     def DowngradeAll(self):
@@ -454,7 +454,12 @@ class Service(dbus.service.Object):
     def PurgeStore(self, store_id):
         store_id = str(store_id)
         log.info('Dmedia.PurgeStore(%r)', store_id)
-        start_thread(self.core.purge_store, store_id)
+        start_thread(self.core.ms.purge_store, store_id)
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='')
+    def PurgeAll(self):
+        log.info('Dmedia.PurgeAll()')
+        start_thread(self.core.ms.purge_all)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='(sys)')
     def Resolve(self, file_id):
