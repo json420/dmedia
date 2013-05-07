@@ -601,56 +601,6 @@ class Core:
         self._remove_filestore(fs)
         return fs
 
-    def downgrade_store(self, store_id):
-        """
-        Mark all files in *store_id* as counting for zero copies.
-
-        This method downgrades our confidence in a particular store.  Files are
-        still tracked in this store, but they are all updated to have zero
-        copies worth of durability in this store.  Some scenarios in which you
-        might do this:
-
-            1. It's been too long since a particular HDD has connected, so we
-               play it safe and work from the assumption the HHD wont contain
-               the expected files, or was run over by a bus.
-
-            2. We're about to format a removable drive, so we first downgrade
-               all the files it contains so addition copies can be created if
-               needed, and so other nodes know not to count on these copies.
-
-        Note that this method makes sense for remote cloud stores as well as for
-        local file-stores.
-        """
-        return self.ms.downgrade_store(store_id)
-
-    def purge_store(self, store_id):
-        """
-        Purge all record of files in *store_id*.
-
-        This method completely erases the record of a particular store, at least
-        from the file persecutive.  This store will no longer count in the
-        durability of any files, nor will Dmedia consider this store as a source
-        for any files.
-
-        Specifically, all of these will be deleted if they exist:
-
-            * ``doc['stored'][store_id]``
-            * ``doc['corrupt'][store_id]``
-            * ``doc['partial'][store_id]``
-
-        Some scenarios in which you might want to do this:
-
-            1. The HDD was run over by a bus, the data is gone.  We need to
-               embrace reality, the sooner the better.
-
-            2. We're going to format or otherwise repurpose an HDD.  Ideally, we
-               would have called `Core2.downgrade_store()` first.
-
-        Note that this method makes sense for remote cloud stores as well as for
-        local file-stores
-        """
-        return self.ms.purge_store(store_id)
-
     def stat(self, _id):
         doc = self.db.get(_id)
         fs = self.stores.choose_local_store(doc)
