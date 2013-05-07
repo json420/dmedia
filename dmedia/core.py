@@ -399,7 +399,6 @@ class BackgroundManager:
         return True
 
     def stop(self, key):
-        assert self.active
         if key not in self.workers:
             return False
         log.info('Stopping %r', key)
