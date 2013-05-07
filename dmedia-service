@@ -195,7 +195,8 @@ class Service(dbus.service.Object):
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
         VolumeMonitor.connect('mount-added', self.on_mount_added)
-        VolumeMonitor.connect('mount-removed', self.on_mount_removed)
+        VolumeMonitor.connect('mount-pre-unmount', self.on_mount_pre_unmount)
+        #VolumeMonitor.connect('mount-removed', self.on_mount_removed)
         for mount in VolumeMonitor.get_mounts():
             self.on_mount_added(VolumeMonitor, mount)
         self.SnapshotAll()
@@ -225,6 +226,7 @@ class Service(dbus.service.Object):
         """
         log.info('[idle3 at time %.3f]', time.time() - start_time)
         self.core.start_background_tasks()
+        # Restart the background tasks every hour:
         GLib.timeout_add(30 * 60 * 1000, self.on_background_restart)
 
     def on_background_restart(self):
@@ -266,9 +268,9 @@ class Service(dbus.service.Object):
         except Exception:
             log.exception('Could not connect FileStore %r', parentdir)
 
-    def on_mount_removed(self, vm, mount):
+    def on_mount_pre_unmount(self, vm, mount):
         parentdir = mount.get_root().get_path()
-        log.info('mount_removed: %r', parentdir)
+        log.info('mount_pre_unmount: %r', parentdir)
         try:
             fs = self.core.stores.by_parentdir(parentdir)
             self.core.disconnect_filestore(parentdir, fs.id)
