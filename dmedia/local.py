@@ -215,7 +215,6 @@ class LocalSlave:
             for (parentdir, info) in local['stores'].items():
                 fs = FileStore(parentdir, info['id'], info['copies'])
                 self.stores.add(fs)
-        log.info('local stores: %r', sorted(self.stores.ids))
 
     def get_doc(self, _id):
         check_id(_id)
