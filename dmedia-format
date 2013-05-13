@@ -46,6 +46,8 @@ import argparse
 import re
 import time
 import subprocess
+import tempfile
+import os
 
 
 parser = argparse.ArgumentParser()
@@ -87,8 +89,8 @@ def get_size():
 check_call(['dd',
     'if=/dev/zero',
     'of={}'.format(args.dev),
-    'bs=1M',
-    'count=2',
+    'bs=4M',
+    'count=1',
     'oflag=sync',
 ])
 time.sleep(2)  # Even with oflag=sync, sometimes the device wont be ready
@@ -108,3 +110,12 @@ part_dev = args.dev + '1'
 check_call(['mkfs.ext4', part_dev, '-L', args.label, '-m', '0'])
 print(check_output(parted('print')).decode('utf-8'))
 
+# Mount and change permissions:
+tmpdir = tempfile.mkdtemp(prefix='dmedia.')
+part_dev = '{}{}'.format(args.dev, 1)
+check_call(['mount', part_dev, tmpdir])
+try:
+    check_call(['chmod', '0777', tmpdir])
+finally:
+    check_call(['umount', tmpdir])
+    os.rmdir(tmpdir)
