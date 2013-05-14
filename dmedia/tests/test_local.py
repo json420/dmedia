@@ -28,7 +28,8 @@ from random import Random
 import time
 
 import filestore
-from filestore import FileStore, DIGEST_B32LEN, DIGEST_BYTES
+from filestore import DIGEST_BYTES
+from filestore.misc import TempFileStore
 from dbase32 import random_id
 
 from .base import TempDir
@@ -38,20 +39,6 @@ from dmedia import local, schema, util
 
 
 class TestFunctions(TestCase):
-    def test_get_filestore(self):
-        tmp = TempDir()
-        _id = random_id()
-        doc = {
-            '_id': _id,
-            'parentdir': tmp.dir,
-            'copies': 2,
-        }
-        fs = local.get_filestore(doc)
-        self.assertIsInstance(fs, FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.id, _id)
-        self.assertEqual(fs.copies, 2)
-
     def test_choose_local_store(self):
         fast = tuple(random_id() for i in range(3))
         slow = tuple(random_id() for i in range(3))
@@ -111,86 +98,80 @@ class TestLocalStores(TestCase):
         self.assertEqual(inst.slow, set())
 
     def test_add(self):
-        tmp1 = TempDir()
-        tmp2 = TempDir()
-        id1 = random_id()
-        id2 = random_id()
-        fs1 = FileStore(tmp1.dir, id1)
-        fs2 = FileStore(tmp2.dir, id2)
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
         inst = local.LocalStores()
 
         # Test when fs.id is already present
-        inst.ids[id1] = None
+        inst.ids[fs1.id] = None
         with self.assertRaises(Exception) as cm:
             inst.add(fs1)
         self.assertEqual(
             str(cm.exception),
-            'already have ID {!r}'.format(id1)
+            'already have ID {!r}'.format(fs1.id)
         )
         inst.ids.clear()
 
         # Test when fs.parentdir is already present
-        inst.parentdirs[tmp1.dir] = None
+        inst.parentdirs[fs1.parentdir] = None
         with self.assertRaises(Exception) as cm:
             inst.add(fs1)
         self.assertEqual(
             str(cm.exception),
-            'already have parentdir {!r}'.format(tmp1.dir)
+            'already have parentdir {!r}'.format(fs1.parentdir)
         )
         inst.parentdirs.clear()
 
         # Add when fast=True
         self.assertIsNone(inst.add(fs1))
-        self.assertEqual(set(inst.ids), set([id1]))
-        self.assertIs(inst.ids[id1], fs1)
-        self.assertEqual(set(inst.parentdirs), set([tmp1.dir]))
-        self.assertIs(inst.parentdirs[tmp1.dir], fs1)
-        self.assertEqual(inst.fast, set([id1]))
+        self.assertEqual(set(inst.ids), set([fs1.id]))
+        self.assertIs(inst.ids[fs1.id], fs1)
+        self.assertEqual(set(inst.parentdirs), set([fs1.parentdir]))
+        self.assertIs(inst.parentdirs[fs1.parentdir], fs1)
+        self.assertEqual(inst.fast, set([fs1.id]))
         self.assertEqual(inst.slow, set())
 
         # Add when fast=False
         self.assertIsNone(inst.add(fs2, fast=False))
-        self.assertEqual(set(inst.ids), set([id1, id2]))
-        self.assertIs(inst.ids[id2], fs2)
-        self.assertEqual(set(inst.parentdirs), set([tmp1.dir, tmp2.dir]))
-        self.assertIs(inst.parentdirs[tmp2.dir], fs2)
-        self.assertEqual(inst.fast, set([id1]))
-        self.assertEqual(inst.slow, set([id2]))
+        self.assertEqual(set(inst.ids), set([fs1.id, fs2.id]))
+        self.assertIs(inst.ids[fs2.id], fs2)
+        self.assertEqual(set(inst.parentdirs),
+            set([fs1.parentdir, fs2.parentdir])
+        )
+        self.assertIs(inst.parentdirs[fs2.parentdir], fs2)
+        self.assertEqual(inst.fast, set([fs1.id]))
+        self.assertEqual(inst.slow, set([fs2.id]))
 
     def test_remove(self):
-        tmp1 = TempDir()
-        tmp2 = TempDir()
-        id1 = random_id()
-        id2 = random_id()
-        fs1 = FileStore(tmp1.dir, id1)
-        fs2 = FileStore(tmp2.dir, id2)
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
         inst = local.LocalStores()
 
         # Test when fs.id not present
         with self.assertRaises(KeyError) as cm:
             inst.remove(fs1)
-        self.assertEqual(str(cm.exception), repr(id1))
+        self.assertEqual(str(cm.exception), repr(fs1.id))
 
         # Test when fs.parentdir not present
-        inst.ids[id1] = None
+        inst.ids[fs1.id] = None
         with self.assertRaises(KeyError) as cm:
             inst.remove(fs1)
-        self.assertEqual(str(cm.exception), repr(tmp1.dir))
+        self.assertEqual(str(cm.exception), repr(fs1.parentdir))
         inst.ids.clear()
 
         # Test when it's all good
-        inst.ids[id1] = fs1
-        inst.parentdirs[tmp1.dir] = fs1
-        inst.slow.add(id1)
+        inst.ids[fs1.id] = fs1
+        inst.parentdirs[fs1.parentdir] = fs1
+        inst.slow.add(fs1.id)
 
-        inst.ids[id2] = fs2
-        inst.parentdirs[tmp2.dir] = fs2
-        inst.fast.add(id2)
+        inst.ids[fs2.id] = fs2
+        inst.parentdirs[fs2.parentdir] = fs2
+        inst.fast.add(fs2.id)
 
         self.assertIsNone(inst.remove(fs1))
-        self.assertEqual(inst.ids, {id2: fs2})
-        self.assertEqual(inst.parentdirs, {tmp2.dir: fs2})
-        self.assertEqual(inst.fast, set([id2]))
+        self.assertEqual(inst.ids, {fs2.id: fs2})
+        self.assertEqual(inst.parentdirs, {fs2.parentdir: fs2})
+        self.assertEqual(inst.fast, set([fs2.id]))
         self.assertEqual(inst.slow, set())
 
         self.assertIsNone(inst.remove(fs2))
@@ -200,16 +181,12 @@ class TestLocalStores(TestCase):
         self.assertEqual(inst.slow, set())
 
     def test_local_stores(self):
-        tmp1 = TempDir()
-        tmp2 = TempDir()
-        id1 = random_id()
-        id2 = random_id()
-        fs1 = FileStore(tmp1.dir, id1, 1)
-        fs2 = FileStore(tmp2.dir, id2, 0)
+        fs1 = TempFileStore(copies=1)
+        fs2 = TempFileStore(copies=0)
         inst = local.LocalStores()
 
         self.assertEqual(inst.local_stores(), {})
-        
+
         inst.add(fs1)
         self.assertEqual(inst.local_stores(),
             {
@@ -271,22 +248,4 @@ class TestLocalSlave(CouchCase):
         with self.assertRaises(filestore.RootHashError) as cm:
             inst.content_hash(ch.id)
         self.assertEqual(cm.exception.id, ch.id)
-
-    def test_local_path(self):
-        src = TempDir()
-        (file, ch) = src.random_file()
-        dst1 = TempDir()
-        dst2 = TempDir()
-
-        fs1 = FileStore(dst1.dir)
-        fs2 = FileStore(dst2.dir)
-        assert fs1.import_file(open(file.name, 'rb')) == ch
-        assert fs2.import_file(open(file.name, 'rb')) == ch
-
-        store1 = random_id()
-        store2 = random_id()
-        store3 = random_id()
-
-        inst = local.LocalSlave(self.env)
-
 

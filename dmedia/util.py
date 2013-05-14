@@ -31,7 +31,7 @@ from copy import deepcopy
 import logging
 
 import microfiber
-from filestore import FileStore, DOTNAME
+from filestore import DOTNAME
 
 from . import schema, views
 

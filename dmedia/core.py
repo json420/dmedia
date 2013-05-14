@@ -281,7 +281,7 @@ def downgrade_worker(env, key):
 def check_filestore_worker(env, parentdir, store_id):
     db = util.get_db(env)
     ms = MetaStore(db)
-    fs = util.get_filestore(parentdir, store_id)[0]
+    fs = FileStore(parentdir, store_id)
     ms.scan(fs)
     ms.relink(fs)
     ms.verify_all(fs)
