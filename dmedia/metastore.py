@@ -356,7 +356,7 @@ class MetaStore:
         doc = self.db.get('_local/dmedia')
         local_stores = LocalStores()
         for (parentdir, info) in doc['stores'].items():
-            fs = FileStore(parentdir, info['id'], info['copies'])
+            fs = FileStore(parentdir, info['id'])
             local_stores.add(fs)
         return local_stores
 
