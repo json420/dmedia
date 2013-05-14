@@ -31,7 +31,7 @@ import io
 from random import SystemRandom
 from copy import deepcopy
 
-from filestore import FileStore, DIGEST_BYTES
+from filestore import DIGEST_BYTES
 from filestore.misc import TempFileStore
 from dbase32 import random_id
 import microfiber
@@ -158,11 +158,10 @@ class TestFunctions(TestCase):
         self.assertIs(doc['foo'], ret)
 
     def test_create_stored(self):
-        tmp1 = TempDir()
-        fs1 = util.init_filestore(tmp1.dir, copies=0)[0]
-        tmp2 = TempDir()
-        fs2 = util.init_filestore(tmp2.dir, copies=2)[0]
-        (file, ch) = tmp1.random_file()
+        tmp = TempDir()
+        fs1 = TempFileStore(copies=0)
+        fs2 = TempFileStore(copies=2)
+        (file, ch) = tmp.random_file()
         self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
         self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
 
@@ -1229,8 +1228,7 @@ class TestFunctions(TestCase):
         )
 
     def test_relink_iter(self):
-        tmp = TempDir()
-        fs = FileStore(tmp.dir)
+        fs = TempFileStore()
 
         def create():
             _id = random_id(DIGEST_BYTES)
@@ -2110,7 +2108,7 @@ class TestMetaStore(CouchCase):
     def test_scan(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        fs = TempFileStore(random_id(), 1)
+        fs = TempFileStore()
         db.save({'_id': fs.id, 'type': 'dmedia/store'})
 
         # A few good files
@@ -2189,7 +2187,7 @@ class TestMetaStore(CouchCase):
     def test_relink(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        fs = TempFileStore(random_id(), 1)
+        fs = TempFileStore()
 
         # A few good files
         good = [create_random_file(fs, db) for i in range(8)]
@@ -2223,12 +2221,11 @@ class TestMetaStore(CouchCase):
     def test_remove(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        tmp1 = TempDir()
-        fs1 = util.init_filestore(tmp1.dir)[0]
-        tmp2 = TempDir()
-        fs2 = util.init_filestore(tmp2.dir)[0]
+        tmp = TempDir()
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
 
-        (file, ch) = tmp1.random_file()
+        (file, ch) = tmp.random_file()
         self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
         self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
 
@@ -2276,7 +2273,7 @@ class TestMetaStore(CouchCase):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         tmp = TempDir()
-        fs = util.init_filestore(tmp.dir)[0]
+        fs = TempFileStore()
         (file, ch) = tmp.random_file()
 
         # Test when file doc isn't in dmedia-1
@@ -2308,7 +2305,7 @@ class TestMetaStore(CouchCase):
     def test_verify_all(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        fs = TempFileStore(random_id(), 1)
+        fs = TempFileStore()
 
         # 6 files need verification
         base = int(time.time())
@@ -2353,7 +2350,7 @@ class TestMetaStore(CouchCase):
     def test_content_md5(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        fs = TempFileStore(random_id(), 1)
+        fs = TempFileStore()
 
         _id = random_file_id()
         with self.assertRaises(microfiber.NotFound) as cm:
@@ -2388,8 +2385,8 @@ class TestMetaStore(CouchCase):
     def test_allocate_partial(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        fs1 = TempFileStore(random_id(), 1)
-        fs2 = TempFileStore(random_id(), 1)
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
 
         _id = random_file_id()
         with self.assertRaises(microfiber.NotFound) as cm:
@@ -2449,9 +2446,9 @@ class TestMetaStore(CouchCase):
     def test_copy(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        fs1 = TempFileStore(random_id(), 1)
-        fs2 = TempFileStore(random_id(), 1)
-        fs3 = TempFileStore(random_id(), 1)
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
+        fs3 = TempFileStore()
 
         # doc does not exist:
         _id = random_file_id()
