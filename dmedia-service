@@ -40,7 +40,7 @@ from microfiber import NotFound, dumps
 import dmedia
 from dmedia import schema
 from dmedia.units import bytes10
-from dmedia.util import get_filestore_id
+from dmedia.util import isfilestore
 from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
 from dmedia.core import Core, start_httpd
@@ -259,12 +259,11 @@ class Service(dbus.service.Object):
     def on_mount_added(self, vm, mount):
         parentdir = mount.get_root().get_path()
         log.info('mount_added: %r', parentdir)
-        store_id = get_filestore_id(parentdir)
-        if store_id is None:
+        if not isfilestore(parentdir):
             log.warning('%r is not a filestore, skipping', parentdir)
             return
         try:
-            self.core.connect_filestore(parentdir, store_id)
+            self.core.connect_filestore(parentdir)
         except Exception:
             log.exception('Could not connect FileStore %r', parentdir)
 
@@ -272,8 +271,7 @@ class Service(dbus.service.Object):
         parentdir = mount.get_root().get_path()
         log.info('mount_pre_unmount: %r', parentdir)
         try:
-            fs = self.core.stores.by_parentdir(parentdir)
-            self.core.disconnect_filestore(parentdir, fs.id)
+            self.core.disconnect_filestore(parentdir)
         except KeyError:
             log.warning('%r is not a connected filestore', parentdir)
 

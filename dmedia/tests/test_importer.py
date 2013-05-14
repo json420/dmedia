@@ -212,8 +212,12 @@ class ImportCase(CouchCase):
 
         temps = [TempDir() for i in range(2)]
         (self.dst1, self.dst2) = sorted(temps, key=lambda t: t.dir)
-        self.store1_id = random_id()
-        self.store2_id = random_id()
+
+        fs1 = filestore.FileStore.create(self.dst1.dir, copies=1)
+        fs2 = filestore.FileStore.create(self.dst2.dir, copies=2)
+
+        self.store1_id = fs1.id
+        self.store2_id = fs2.id
         self.stores = {
             self.dst1.dir: {'id': self.store1_id, 'copies': 1},
             self.dst2.dir: {'id': self.store2_id, 'copies': 2},
@@ -797,8 +801,8 @@ class TestImportManager(ImportCase):
             ('batch_finished', (batch_id, stats, 3, importer.notify_stats2(stats)))
         )
 
-        fs1 = filestore.FileStore(self.dst1.dir)
-        fs2 = filestore.FileStore(self.dst2.dir)
+        fs1 = filestore.FileStore(self.dst1.dir, self.store1_id)
+        fs2 = filestore.FileStore(self.dst2.dir, self.store2_id)
         self.assertEqual(set(st.id for st in fs1), ids)
         self.assertEqual(set(st.id for st in fs2), ids)
 

@@ -216,7 +216,7 @@ class ImportWorker(workers.CouchWorker):
         stores = []
         for parentdir in sorted(self.env['stores']):
             info = self.env['stores'][parentdir]
-            fs = FileStore(parentdir, info['id'], info['copies'])
+            fs = FileStore(parentdir, info['id'])
             stores.append(fs)
         return stores
 
