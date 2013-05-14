@@ -37,6 +37,7 @@ import microfiber
 from dbase32 import random_id
 import filestore
 from filestore import FileStore
+from filestore.migration import Migration, b32_to_db32
 
 from dmedia.local import LocalStores
 from dmedia.metastore import MetaStore, get_mtime
@@ -195,6 +196,14 @@ class TestCore(CouchCase):
         )
         self.assertTrue(inst.db.get(_id)['_rev'].startswith('1-'))
 
+        # Test when migration is needed
+        inst = core.Core(self.env)
+        tmp = TempDir()
+        m = Migration(tmp.dir)
+        old = m.build_v0_simulation()
+        fs = inst.load_default_filestore(tmp.dir)
+        self.assertEqual(b32_to_db32(old['_id']), fs.id)
+
     def test_create_filestore(self):
         inst = core.Core(self.env)
 
@@ -303,6 +312,13 @@ class TestCore(CouchCase):
                 }
             }
         )
+
+        # Test when migration is needed
+        tmp = TempDir()
+        m = Migration(tmp.dir)
+        old = m.build_v0_simulation()
+        fs = inst.connect_filestore(tmp.dir)
+        self.assertEqual(b32_to_db32(old['_id']), fs.id)
 
     def test_disconnect_filestore(self):
         inst = core.Core(self.env)
