@@ -583,13 +583,13 @@ class Core:
                 pass
         return self.connect_filestore(parentdir, fs.id)
 
-    def connect_filestore(self, parentdir, store_id):
+    def connect_filestore(self, parentdir, expected_id=None):
         """
-        Put an existing file-store into the local storage pool.
+        Add an existing file-store into the local storage pool.
         """
-        log.info('Connecting FileStore %r at %r', store_id, parentdir)
-        (fs, doc) = util.get_filestore(parentdir, store_id)
-        self._add_filestore(fs, doc)
+        fs = FileStore(parentdir, expected_id)
+        log.info('Connecting %r', fs)
+        self._add_filestore(fs, fs.doc)
         return fs
 
     def disconnect_filestore(self, parentdir, store_id):
