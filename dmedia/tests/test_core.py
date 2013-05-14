@@ -198,9 +198,9 @@ class TestCore(CouchCase):
     def test_create_filestore(self):
         inst = core.Core(self.env)
 
-        # Test when a filestore already exists
+        # Test when a FileStore already exists
         tmp = TempDir()
-        (fs, doc) = util.init_filestore(tmp.dir)
+        fs = FileStore.create(tmp.dir)
         with self.assertRaises(Exception) as cm:
             inst.create_filestore(tmp.dir)
         self.assertEqual(
@@ -208,7 +208,7 @@ class TestCore(CouchCase):
             'Already contains a FileStore: {!r}'.format(tmp.dir)
         )
 
-        # Test when .dmedia doesn't exist
+        # Test when no FileStore yet exists in the parentdir:
         tmp = TempDir()
         fs = inst.create_filestore(tmp.dir)
         self.assertIsInstance(fs, filestore.FileStore)
@@ -228,7 +228,7 @@ class TestCore(CouchCase):
         )
 
         # Make sure we can disconnect a store that was just created
-        inst.disconnect_filestore(fs.parentdir, fs.id)
+        inst.disconnect_filestore(fs.parentdir)
         self.assertEqual(
             inst.db.get('_local/dmedia'),
             {
@@ -308,13 +308,13 @@ class TestCore(CouchCase):
         inst = core.Core(self.env)
 
         tmp1 = TempDir()
-        (fs1, doc1) = util.init_filestore(tmp1.dir)
+        fs1 = FileStore.create(tmp1.dir)
         tmp2 = TempDir()
-        (fs2, doc2) = util.init_filestore(tmp2.dir)
+        fs2 = FileStore.create(tmp2.dir)
 
         # Test when not connected:
         with self.assertRaises(KeyError) as cm:
-            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+            inst.disconnect_filestore(fs1.parentdir)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
 
         # Connect both, then disconnect one by one
@@ -333,7 +333,7 @@ class TestCore(CouchCase):
         )
 
         # Disconnect fs1
-        inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        inst.disconnect_filestore(fs1.parentdir)
         self.assertEqual(
             inst.db.get('_local/dmedia'),
             {
@@ -346,7 +346,7 @@ class TestCore(CouchCase):
         )
 
         # Disconnect fs2
-        inst.disconnect_filestore(fs2.parentdir, fs2.id)
+        inst.disconnect_filestore(fs2.parentdir)
         self.assertEqual(
             inst.db.get('_local/dmedia'),
             {
@@ -358,10 +358,10 @@ class TestCore(CouchCase):
 
         # Again test when not connected:
         with self.assertRaises(KeyError) as cm:
-            inst.disconnect_filestore(fs2.parentdir, fs2.id)
+            inst.disconnect_filestore(fs2.parentdir)
         self.assertEqual(str(cm.exception), repr(fs2.parentdir))
         with self.assertRaises(KeyError) as cm:
-            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+            inst.disconnect_filestore(fs1.parentdir)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
 
     def test_resolve(self):

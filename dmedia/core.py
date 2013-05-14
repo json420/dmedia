@@ -493,9 +493,12 @@ class Core:
         self.save_local()
 
     def load_default_filestore(self, parentdir):
-        (fs, doc) = util.init_filestore(parentdir)
-        log.info('Default FileStore %s at %r', doc['_id'], parentdir)
-        self._add_filestore(fs, doc)
+        if util.isfilestore(parentdir):
+            fs = FileStore(parentdir)
+        else:
+            fs = FileStore.create(parentdir)
+        log.info('Default: %r', fs)
+        self._add_filestore(fs)
         return fs
 
     def _sync_stores(self):
@@ -503,7 +506,8 @@ class Core:
         self.save_local()
         self.background.restart_vigilance()
 
-    def _add_filestore(self, fs, doc):
+    def _add_filestore(self, fs):
+        log.info('Adding %r', fs)
         assert isdb32(fs.id)
         self.stores.add(fs)
         try:
@@ -511,13 +515,14 @@ class Core:
         except Exception:
             log.exception('Error calling FileStore.purge_tmp():')
         try:
-            self.db.save(doc)
+            self.db.save(fs.doc)
         except Conflict:
             pass
         self.background.check_filestore(fs)
         self._sync_stores()
 
     def _remove_filestore(self, fs):
+        log.info('Removing %r', fs)
         self.stores.remove(fs)
         self.background.stop(fs.parentdir)
         self._sync_stores()
@@ -575,28 +580,22 @@ class Core:
                 'Already contains a FileStore: {!r}'.format(parentdir)
             )
         log.info('Creating a new FileStore in %r', parentdir)
-        (fs, doc) = util.init_filestore(parentdir)
-        if path.ismount(parentdir) and (parentdir.startswith('/media/') or parentdir.startswith('/run/media/')):
-            try:
-                os.chmod(parentdir, 0o777)
-            except Exception as e:
-                pass
-        return self.connect_filestore(parentdir, fs.id)
+        fs = FileStore.create(parentdir)
+        self._add_filestore(fs)
+        return fs
 
     def connect_filestore(self, parentdir, expected_id=None):
         """
         Add an existing file-store into the local storage pool.
         """
         fs = FileStore(parentdir, expected_id)
-        log.info('Connecting %r', fs)
-        self._add_filestore(fs, fs.doc)
+        self._add_filestore(fs)
         return fs
 
-    def disconnect_filestore(self, parentdir, store_id):
+    def disconnect_filestore(self, parentdir):
         """
         Remove an existing file-store from the local storage pool.
         """
-        log.info('Disconnecting FileStore %r at %r', store_id, parentdir)
         fs = self.stores.by_parentdir(parentdir)
         self._remove_filestore(fs)
         return fs
