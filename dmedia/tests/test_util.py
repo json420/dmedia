@@ -40,10 +40,6 @@ from dmedia import schema
 from dmedia import util
 
 
-tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
-script = path.join(tree, 'init-filestore')
-
-
 doc_type = """
 function(doc) {
     emit(doc.type, null);
