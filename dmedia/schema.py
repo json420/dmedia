@@ -247,7 +247,7 @@ import time
 import socket
 import os
 
-from dbase32 import isdb32, random_id, RANDOM_B32LEN
+from dbase32 import isdb32, random_id, log_id, RANDOM_B32LEN
 from filestore import DIGEST_B32LEN, TYPE_ERROR
 from microfiber import encode_attachment, Attachment
 
@@ -257,6 +257,9 @@ VER = 1
 
 # versioned primary database name:
 DB_NAME = 'dmedia-{}'.format(VER)
+
+# versioned event log database name:
+LOG_DB_NAME = 'log-{}'.format(VER)
 
 # Pattern that doc['ext'] must match for dmedia/file
 EXT_PAT = '^[a-z0-9]+(\.[a-z0-9]+)?$'
@@ -834,6 +837,22 @@ def create_log(timestamp, ch, file, **kw):
         'mtime': file.mtime,
     }
     doc.update(kw)
+    return doc
+
+
+def log_file_import(timestamp, file_id, file, **kw):
+    doc = {
+        '_id': log_id(timestamp),
+        'time': timestamp,
+        'type': 'dmedia/file/import',
+        'file_id': file_id,
+        'bytes': file.size,
+        'mtime': file.mtime,
+        'dir': os.path.dirname(file.name),
+        'name': os.path.basename(file.name),
+    }
+    for (key, value) in kw.items():
+        doc.setdefault(key, value)
     return doc
 
 

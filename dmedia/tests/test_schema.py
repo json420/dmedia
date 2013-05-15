@@ -38,6 +38,18 @@ from .base import TempDir
 from dmedia import schema
 
 
+class TestConstants(TestCase):
+    def test_VER(self):
+        self.assertIsInstance(schema.VER, int)
+        self.assertEqual(schema.VER, 1)
+
+    def test_DB_NAME(self):
+        self.assertEqual(schema.DB_NAME, 'dmedia-1')
+
+    def test_LOG_DB_NAME(self):
+        self.assertEqual(schema.LOG_DB_NAME, 'log-1')
+
+
 class TestFunctions(TestCase):
     def test_check_dmedia(self):
         f = schema.check_dmedia

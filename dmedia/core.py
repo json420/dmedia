@@ -450,6 +450,8 @@ class Core:
         self.env = env
         self.ssl_config = ssl_config
         self.db = util.get_db(env, init=True)
+        self.log_db = self.db.database(schema.LOG_DB_NAME)
+        self.log_db.ensure()
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()

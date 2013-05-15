@@ -169,6 +169,8 @@ class ImportWorker(workers.CouchWorker):
         self.id = None
         self.doc = None
         self.extract = self.env.get('extract', True)
+        self.log_db = self.db.database(schema.LOG_DB_NAME)
+        self.log_db.ensure()
         self.project = get_project_db(self.env['project_id'], self.env)
         self.project.ensure()
         self.extraction_queue = Queue(10)
@@ -250,8 +252,8 @@ class ImportWorker(workers.CouchWorker):
         common = {
             'import_id': self.id,
             'batch_id': self.env.get('batch_id'),
-            'machine_id': self.env.get('machine_id'),
             'project_id': self.env.get('project_id'),
+            'machine_id': self.env.get('machine_id'),
         }
         for (file, ch) in batch_import_iter(self.batch, *filestores,
             callback=self.progress_callback
@@ -262,18 +264,20 @@ class ImportWorker(workers.CouchWorker):
                 continue
             timestamp = time.time()
             self.extraction_queue.put((timestamp, file, ch))
-            log_doc = schema.create_log(timestamp, ch, file, **common)
+            self.log_db.save(
+                schema.log_file_import(timestamp, ch.id, file, **common)
+            )
             stored = create_stored(ch.id, *filestores)
             try:
                 doc = self.db.get(ch.id)
                 doc['origin'] = 'user'
                 doc['atime'] = int(timestamp)
                 merge_stored(doc['stored'], stored)
-                self.db.save_many([log_doc, doc])
+                self.db.save(doc)
                 yield ('duplicate', file, ch)
             except NotFound:
                 doc = schema.create_file(timestamp, ch, stored)
-                self.db.save_many([log_doc, doc])
+                self.db.save(doc)
                 yield ('new', file, ch)
 
     def progress_callback(self, count, size):

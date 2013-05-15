@@ -224,8 +224,9 @@ class ImportCase(CouchCase):
         }
         self.db = get_db(self.env)
         self.db.ensure()
+        self.project_id = random_id()
         self.env['extract'] = False
-        self.env['project_id'] = random_id()
+        self.env['project_id'] = self.project_id
 
     def tearDown(self):
         super().tearDown()
@@ -343,12 +344,11 @@ class TestImportWorker(ImportCase):
         self.assertEqual(item['args'], (self.src.dir, inst.id, stats))
 
         # Check all the dmedia/file docs:
+        file_ids = []
         for (file, ch) in result:
+            file_ids.append(ch.id)
             doc = self.db.get(ch.id)
             schema.check_file(doc)
-            #self.assertEqual(doc['import']['import_id'], inst.id)
-            #self.assertEqual(doc['import']['batch_id'], self.batch_id)
-            #self.assertEqual(doc['ctime'], file.mtime)
             self.assertEqual(doc['bytes'], ch.file_size)
             (content_type, leaf_hashes) = self.db.get_att(ch.id, 'leaf_hashes')
             self.assertEqual(content_type, 'application/octet-stream')
@@ -366,6 +366,26 @@ class TestImportWorker(ImportCase):
                 
                 }
             )
+
+        # Check the log docs:
+        log_ids = [r['id'] for r in inst.log_db.get('_all_docs')['rows']]
+        log_docs = inst.log_db.get_many(log_ids)
+        self.assertEqual(len(log_docs), len(result))
+        self.assertEqual(
+            set(log['file_id'] for log in log_docs),
+            set(file_ids)
+        )
+        for log in log_docs:
+            self.assertTrue(log['_rev'].startswith('1-'))
+            self.assertEqual(log['type'], 'dmedia/file/import')
+            self.assertEqual(log['import_id'], inst.id)
+            self.assertEqual(log['batch_id'], self.batch_id)
+            self.assertEqual(log['project_id'], self.project_id)
+            self.assertEqual(log['machine_id'], self.machine_id)
+
+            # Make sure the timestamp matches in the dmedia/file doc:
+            doc = self.db.get(log['file_id'])
+            self.assertEqual(log['time'], doc['time'])
 
 
 class TestImportManager(ImportCase):
