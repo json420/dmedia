@@ -24,6 +24,8 @@ Display file sizes according to Ubuntu Units Policy.
 """
 
 import math
+from gettext import gettext as _
+from gettext import ngettext
 
 
 BYTES10 = (
@@ -81,3 +83,11 @@ def minsec(seconds):
     
     """
     return '{:d}:{:02d}'.format(seconds // 60, seconds % 60)
+
+
+def count_and_size(count, size):
+    return ngettext(
+        '{count} file, {size}',
+        '{count} files, {size}',
+        count
+    ).format(count=count, size=bytes10(size))
