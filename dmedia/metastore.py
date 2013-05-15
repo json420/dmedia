@@ -357,7 +357,10 @@ class MetaStore:
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
     def get_local_stores(self):
-        doc = self.db.get('_local/dmedia')
+        try:
+            doc = self.db.get('_local/dmedia')
+        except NotFound:
+            doc = {'stores': {}}
         local_stores = LocalStores()
         for (parentdir, info) in doc['stores'].items():
             fs = FileStore(parentdir, info['id'])
@@ -654,7 +657,7 @@ class MetaStore:
             count += 1
             _id = r['rows'][0]['id']
             self.verify(fs, _id)
-        t.log('verify %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
+        t.log('verify %r files in %r', count, fs)
         return count
 
     def content_md5(self, fs, _id, force=False):
@@ -708,7 +711,7 @@ class MetaStore:
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
             ch = src.copy(_id, *dst)
-            log.info('Copied %s from %r to %r', _id, src, dst)
+            log.info('Copied %s\n  from %r\n  to %r', _id, src, list(dst))
             new = create_stored(_id, src, *dst)
             self.db.update(mark_copied, doc, time.time(), src.id, new)
         except FileNotFound:
@@ -797,7 +800,10 @@ class MetaStore:
                 (c, s) = self.reclaim(fs, threshold)
                 count += c
                 size += s
-            t.log('reclaim %s in %d filestores', count_and_size(count, size), len(filestores))
+            n = len(filestores)
+            t.log('reclaim %s in %d filestores', count_and_size(count, size), n)
+            return (count, size, n)
         except Exception:
             log.exception('error in MetaStore.reclaim_all():')
+            raise
 

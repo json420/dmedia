@@ -2644,3 +2644,17 @@ class TestMetaStore(CouchCase):
             (doc3, set([store_id1, store_id2])),
         ])
 
+    def test_reclaim(self):
+        # FIXME: Till we have a nice way of mocking FileStore.statvfs(), this is
+        # a lame test that covers gross function without doing anything real:
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore()
+        self.assertEqual(ms.reclaim(fs), (0, 0))
+
+    def test_reclaim_all(self):
+        # FIXME: Till we have a nice way of mocking FileStore.statvfs(), this is
+        # a lame test that covers gross function without doing anything real:
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        self.assertEqual(ms.reclaim_all(), (0, 0, 0))
