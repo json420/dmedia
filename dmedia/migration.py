@@ -46,6 +46,40 @@ def b32_to_db32(_id):
     return db32enc(b32dec(_id))
 
 
+def migrate_log_id(b32_id, timestamp):
+    """
+    Stable migration of random Base32 ID to `dbase32.log_id()` style ID.
+
+    For example:
+
+    >>> migrate_log_id('ZRE2ISZBQDGQHSB3TAXSYG46', 1366942833.7158074)
+    'D8VXBVC4J69JAL4UM3QLR9VX'
+
+    Note the trailing bytes in *b32_id* are preserved:
+
+    >>> b32_to_db32('ZRE2ISZBQDGQHSB3TAXSYG46')
+    'SK7TBLS4J69JAL4UM3QLR9VX'
+
+    """
+    data = b32dec(b32_id)
+    assert len(data) == 15
+    assert isinstance(timestamp, (int, float))
+    ts = int(timestamp)
+    buf = bytearray()
+
+    # First 4 bytes are from the timestamp:
+    buf.append((ts >> 24) & 255)
+    buf.append((ts >> 16) & 255)
+    buf.append((ts >>  8) & 255)
+    buf.append(ts & 255)
+
+    # Then add the trailing 11 bytes from the decoded b32_id:
+    buf.extend(data[4:])
+    assert len(buf) == 15
+
+    return db32enc(bytes(buf))
+
+
 def migrate_file(old, mdoc):
     assert isb32(old['_id'])
     assert isdb32(mdoc['v1_id'])
@@ -104,6 +138,22 @@ def migrate_import(old, id_map):
     for f in new['files'].values():
         if f.get('id') in id_map:
             f['id'] = id_map[f['id']]
+    return new
+
+
+def migrate_log(old, mdoc):
+    assert old['type'] == 'dmedia/log'
+    assert old['file_id'] == mdoc['_id']
+    new = deepcopy(old)
+    del new['_rev']
+    new['_id'] = migrate_log_id(old['_id'], old['time'])
+    new['file_id'] = mdoc['v1_id']
+    new.pop('machine_id', None)  # We aren't trying to map machine/user IDs
+    for key in ('batch_id', 'import_id'):
+        new[key] = b32_to_db32(old[key])
+
+    # V1 schema will put all log docs into log-1 DB:
+    new['type'] = 'dmedia/file/import'
     return new
 
 

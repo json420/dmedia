@@ -1174,6 +1174,42 @@ class TestFunctions(TestCase):
             "type": "dmedia/import"
         })
 
+    def test_migrate_log(self):
+        old = {
+           "_id": "ZRE2ISZBQDGQHSB3TAXSYG46",
+           "_rev": "1-064b88773ccec534609d3c348440ad11",
+           "batch_id": "3BYGSBKAN4UAFWKUH5QLFSF3",
+           "bytes": 4108506,
+           "dir": "/home/jderose/Pictures",
+           "file_id": "ZRE2QKYESOXDO4BHTKUDGBWCQOTI5WFMHLDGR3G6TLKTHO47",
+           "import_id": "SAN2XW3OHCFDTPUEE3MSU5LZ",
+           "machine_id": "X6I6OU3ZJ3JJ4YU5JJU3UBLQQLVBQURY7OUQ4T3PM6DXTBMQ",
+           "mtime": 1363403038,
+           "name": "IMG_6306.JPG",
+           "project_id": "6OKZCWZE76TVNMAY4PA4H2GU",
+           "time": 1366942833.7158074,
+           "type": "dmedia/log"
+        }
+        mdoc = {
+            '_id': 'ZRE2QKYESOXDO4BHTKUDGBWCQOTI5WFMHLDGR3G6TLKTHO47',
+            'v1_id': 'UCN49FVK5MG3SI44H4GMXVJ8NYD3IK8KVW6XA9NY46EWYKYV',
+        }
+        new = migration.migrate_log(old, mdoc)
+        self.assertIsNot(new, old)
+        self.assertEqual(new, {
+           "_id": "D8VXBVC4J69JAL4UM3QLR9VX",
+           "batch_id": "U4R9L4D3GVN38PDNAWJE8L8U",
+           "bytes": 4108506,
+           "dir": "/home/jderose/Pictures",
+           "file_id": "UCN49FVK5MG3SI44H4GMXVJ8NYD3IK8KVW6XA9NY46EWYKYV",
+           "import_id": "L3GTQPUHA586MIN77UFLNWES",
+           "mtime": 1363403038,
+           "name": "IMG_6306.JPG",
+           "project_id": "6OKZCWZE76TVNMAY4PA4H2GU",
+           "time": 1366942833.7158074,
+           "type": "dmedia/file/import"
+        })
+
     def test_migrate_project_file(self):
         old = {
            "_id": "22G2ZBWVRNIZBESIIYDTJH5LA7BGLX3MY35LWUFGWFN23ZUI",
