@@ -54,10 +54,6 @@ class NotLocalStore(Exception):
         super().__init__(store_id)
 
 
-def get_filestore(doc):
-    return FileStore(doc['parentdir'], doc['_id'], doc.get('copies', 0))
-
-
 def choose_local_store(doc, fast, slow):
     """
     Load balance across multiple local hard disks.
@@ -213,7 +209,7 @@ class LocalSlave:
             self.last_rev = local['_rev']
             self.stores = LocalStores()
             for (parentdir, info) in local['stores'].items():
-                fs = FileStore(parentdir, info['id'], info['copies'])
+                fs = FileStore(parentdir, info['id'])
                 self.stores.add(fs)
 
     def get_doc(self, _id):

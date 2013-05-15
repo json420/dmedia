@@ -26,6 +26,7 @@ Code that is portable should go in dmedia/*.py (the dmedia core).
 """
 
 import logging
+import json
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
@@ -40,6 +41,11 @@ BUS = 'org.freedesktop.Dmedia'
 def get_proxy(bus=BUS):
     session = dbus.SessionBus()
     return session.get_object(bus, '/')
+
+
+def get_env(bus=BUS):
+    Dmedia = get_proxy(BUS)
+    return json.loads(Dmedia.GetEnv())
 
 
 def init_if_needed():

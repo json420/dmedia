@@ -31,7 +31,7 @@ from copy import deepcopy
 import logging
 
 import microfiber
-from filestore import FileStore, DOTNAME, is_v0_files
+from filestore import DOTNAME
 
 from . import schema, views
 
@@ -41,45 +41,6 @@ log = logging.getLogger()
 
 def isfilestore(parentdir):
     return path.isdir(path.join(parentdir, DOTNAME))
-
-
-def get_filestore_id(parentdir):
-    files = path.join(parentdir, DOTNAME, 'files')
-    if is_v0_files(files):
-        fs = FileStore(parentdir)
-    store = path.join(parentdir, DOTNAME, 'store.json')
-    try:
-        doc = json.load(open(store, 'r'))
-        return doc['_id']
-    except Exception:
-        pass
-
-
-def get_filestore(parentdir, store_id, copies=None):
-    store = path.join(parentdir, DOTNAME, 'store.json')
-    doc = json.load(open(store, 'r'))
-    if doc['_id'] != store_id:
-        raise Exception(
-            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
-        )
-    if copies is not None:
-        doc['copies'] = copies
-    fs = FileStore(parentdir, doc['_id'], doc['copies'])
-    return (fs, doc)
-
-
-def init_filestore(parentdir, copies=1):
-    fs = FileStore(parentdir)
-    store = path.join(fs.basedir, 'store.json')
-    try:
-        doc = json.load(open(store, 'r'))
-    except Exception:
-        doc = schema.create_filestore(copies)
-        json.dump(doc, open(store, 'w'), sort_keys=True, indent=4)
-        os.chmod(store, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
-    fs.id = doc['_id']
-    fs.copies = doc['copies']
-    return (fs, doc)
 
 
 def get_designs(db):

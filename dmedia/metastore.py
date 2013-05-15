@@ -68,6 +68,7 @@ from http.client import ResponseNotReady
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
 
+from .units import count_and_size, bytes10
 from .constants import TYPE_ERROR
 from .local import LocalStores
 
@@ -80,6 +81,9 @@ DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
 VERIFY_THRESHOLD = WEEK
 DOWNGRADE_BY_STORE_ATIME = WEEK
 DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
+
+GiB = 1024**3
+RECLAIM_BYTES = 16 * GiB
 
 
 class MTimeMismatch(Exception):
@@ -356,7 +360,7 @@ class MetaStore:
         doc = self.db.get('_local/dmedia')
         local_stores = LocalStores()
         for (parentdir, info) in doc['stores'].items():
-            fs = FileStore(parentdir, info['id'], info['copies'])
+            fs = FileStore(parentdir, info['id'])
             local_stores.add(fs)
         return local_stores
 
@@ -597,7 +601,7 @@ class MetaStore:
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
         count = len(rows)
-        t.log('scan %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
+        t.log('scan %r files in %r', count, fs)
         return count
 
     def relink(self, fs):
@@ -629,7 +633,6 @@ class MetaStore:
         mark_removed(doc, fs.id)
         self.db.save(doc)
         fs.remove(_id)
-        log.info('Removed %s from %s', _id, fs.id)
         return doc
 
     def verify(self, fs, _id, return_fp=False):
@@ -763,4 +766,32 @@ class MetaStore:
             stored = frozenset(get_dict(doc, 'stored'))
             if (connected - stored):
                 yield (doc, stored)
+
+    def reclaim(self, fs, threshold=RECLAIM_BYTES):
+        count = 0
+        size = 0
+        t = TimeDelta()
+        while True:
+            if fs.statvfs().avail > threshold:
+                break
+            kw = {
+                'startkey': [fs.id, None],
+                'endkey': [fs.id, int(time.time())],
+                'limit': 1,
+            }
+            rows = self.db.view('file', 'reclaimable', **kw)['rows']
+            if not rows:
+                break
+            doc = self.remove(fs, rows[0]['id'])
+            count += 1
+            size += doc['bytes']
+        if count > 0:
+            t.log('reclaim %s in %r', count_and_size(count, size), fs)
+        return (count, size)
+
+    def reclaim_all(self, threshold=RECLAIM_BYTES):
+        local_stores = self.get_local_stores()
+        for fs in local_stores.sort_by_avail(reverse=False):
+            self.reclaim(fs, threshold)
+
 

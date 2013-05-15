@@ -24,9 +24,10 @@
 Unit tests for external filestore, dmedia style.
 """
 
-from .base import SampleFilesTestCase, TempDir
+from .base import SampleFilesTestCase
 
 import filestore
+from filestore.misc import TempFileStore
 
 
 class TestFunctions(SampleFilesTestCase):
@@ -40,16 +41,15 @@ class TestFunctions(SampleFilesTestCase):
 
 class TestFileStore(SampleFilesTestCase):
     def test_import_file(self):
-        tmp = TempDir()
-        store = filestore.FileStore(tmp.dir)
+        fs = TempFileStore()
 
         src_fp = open(self.mov, 'rb')
-        self.assertEqual(store.import_file(src_fp), self.mov_ch)
-        st = store.stat(self.mov_ch.id)
+        self.assertEqual(fs.import_file(src_fp), self.mov_ch)
+        st = fs.stat(self.mov_ch.id)
         self.assertEqual(st.size, self.mov_ch.file_size)
 
         src_fp = open(self.thm, 'rb')
-        self.assertEqual(store.import_file(src_fp), self.thm_ch)
-        st = store.stat(self.thm_ch.id)
+        self.assertEqual(fs.import_file(src_fp), self.thm_ch)
+        st = fs.stat(self.thm_ch.id)
         self.assertEqual(st.size, self.thm_ch.file_size)
         

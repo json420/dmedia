@@ -40,8 +40,11 @@ from dmedia import schema
 from dmedia import util
 
 
-tree = path.dirname(path.dirname(path.abspath(dmedia.__file__)))
-script = path.join(tree, 'init-filestore')
+doc_type = """
+function(doc) {
+    emit(doc.type, null);
+}
+"""
 
 
 class TestFunctions(TestCase):
@@ -51,96 +54,8 @@ class TestFunctions(TestCase):
         tmp.makedirs('.dmedia')
         self.assertTrue(util.isfilestore(tmp.dir))
 
-    def test_get_filestore_id(self):
-        tmp = TempDir()
-        doc = schema.create_filestore(1)
-        _id = doc['_id']
 
-        # Test when .dmedia/ doesn't exist
-        self.assertIsNone(util.get_filestore_id(tmp.dir))
-
-        # Test when .dmedia/ exists, but store.json doesn't:
-        tmp.makedirs('.dmedia')
-        self.assertIsNone(util.get_filestore_id(tmp.dir))
-
-        # Test when .dmedia/store.json exists
-        store = tmp.join('.dmedia', 'store.json')
-        json.dump(doc, open(store, 'w'))
-        self.assertEqual(util.get_filestore_id(tmp.dir), _id)
-
-        # Test with bad JSON
-        open(store, 'wb').write(b'bad JSON, no cookie for you')
-        self.assertIsNone(util.get_filestore_id(tmp.dir))
-
-        # Test with non-dict
-        json.dump('hello', open(store, 'w'))
-        self.assertIsNone(util.get_filestore_id(tmp.dir))
-
-    def test_get_filestore(self):
-        tmp = TempDir()
-        doc = schema.create_filestore(1)
-
-        # Test when .dmedia/ doesn't exist
-        with self.assertRaises(IOError) as cm:
-            util.get_filestore(tmp.dir, doc['_id'])
-
-        # Test when .dmedia/ exists, but store.json doesn't:
-        tmp.makedirs('.dmedia')
-        with self.assertRaises(IOError) as cm:
-            util.get_filestore(tmp.dir, doc['_id'])
-
-        # Test when .dmedia/store.json exists
-        store = tmp.join('.dmedia', 'store.json')
-        json.dump(doc, open(store, 'w'))
-
-        (fs, doc2) = util.get_filestore(tmp.dir, doc['_id'])
-        self.assertIsInstance(fs, filestore.FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.id, doc['_id'])
-        self.assertEqual(fs.copies, 1)
-        self.assertEqual(doc2, doc)
-
-        # Test when you override copies
-        (fs, doc2) = util.get_filestore(tmp.dir, doc['_id'], copies=2)
-        self.assertIsInstance(fs, filestore.FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.id, doc['_id'])
-        self.assertEqual(fs.copies, 2)
-        self.assertEqual(doc2['copies'], 2)
-
-        # Test when store_id doesn't match
-        store_id = random_id()
-        with self.assertRaises(Exception) as cm:
-            util.get_filestore(tmp.dir, store_id)
-        self.assertEqual(
-            str(cm.exception),
-            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
-        )
-
-    def test_init_filestore_script(self):
-        if not path.isfile(script):
-            self.skipTest('no file {!r}'.format(script))
-        tmp = TempDir()
-
-        # Try without arguments
-        with self.assertRaises(CalledProcessError) as cm:
-            check_call([script])
-        self.assertFalse(util.isfilestore(tmp.dir))
-
-        # Try it with correct arguments
-        check_call([script, tmp.dir])
-        self.assertTrue(util.isfilestore(tmp.dir))
-
-
- 
-doc_type = """
-function(doc) {
-    emit(doc.type, null);
-}
-"""
-
-
-class TestDBFunctions(CouchCase):
+class TestCouchFunctions(CouchCase):
     def test_get_designs(self):
         db = Database('hello', self.env)
         db.put(None)

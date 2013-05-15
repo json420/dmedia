@@ -44,6 +44,7 @@ from base64 import b64encode
 from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
+from filestore.migration import Migration
 from gi.repository import GLib
 
 import dmedia
@@ -281,7 +282,7 @@ def downgrade_worker(env, key):
 def check_filestore_worker(env, parentdir, store_id):
     db = util.get_db(env)
     ms = MetaStore(db)
-    fs = util.get_filestore(parentdir, store_id)[0]
+    fs = FileStore(parentdir, store_id)
     ms.scan(fs)
     ms.relink(fs)
     ms.verify_all(fs)
@@ -493,9 +494,15 @@ class Core:
         self.save_local()
 
     def load_default_filestore(self, parentdir):
-        (fs, doc) = util.init_filestore(parentdir)
-        log.info('Default FileStore %s at %r', doc['_id'], parentdir)
-        self._add_filestore(fs, doc)
+        if util.isfilestore(parentdir):
+            m = Migration(parentdir)
+            if m.needs_migration():
+                log.warning('FileStore in %r needs migration', parentdir)
+            fs = FileStore(parentdir)
+        else:
+            fs = FileStore.create(parentdir)
+        log.info('Default: %r', fs)
+        self._add_filestore(fs)
         return fs
 
     def _sync_stores(self):
@@ -503,7 +510,9 @@ class Core:
         self.save_local()
         self.background.restart_vigilance()
 
-    def _add_filestore(self, fs, doc):
+    def _add_filestore(self, fs):
+        log.info('Adding %r', fs)
+        fs.check_layout()
         assert isdb32(fs.id)
         self.stores.add(fs)
         try:
@@ -511,13 +520,14 @@ class Core:
         except Exception:
             log.exception('Error calling FileStore.purge_tmp():')
         try:
-            self.db.save(doc)
+            self.db.save(fs.doc)
         except Conflict:
             pass
         self.background.check_filestore(fs)
         self._sync_stores()
 
     def _remove_filestore(self, fs):
+        log.info('Removing %r', fs)
         self.stores.remove(fs)
         self.background.stop(fs.parentdir)
         self._sync_stores()
@@ -575,28 +585,25 @@ class Core:
                 'Already contains a FileStore: {!r}'.format(parentdir)
             )
         log.info('Creating a new FileStore in %r', parentdir)
-        (fs, doc) = util.init_filestore(parentdir)
-        if path.ismount(parentdir) and (parentdir.startswith('/media/') or parentdir.startswith('/run/media/')):
-            try:
-                os.chmod(parentdir, 0o777)
-            except Exception as e:
-                pass
-        return self.connect_filestore(parentdir, fs.id)
-
-    def connect_filestore(self, parentdir, store_id):
-        """
-        Put an existing file-store into the local storage pool.
-        """
-        log.info('Connecting FileStore %r at %r', store_id, parentdir)
-        (fs, doc) = util.get_filestore(parentdir, store_id)
-        self._add_filestore(fs, doc)
+        fs = FileStore.create(parentdir)
+        self._add_filestore(fs)
         return fs
 
-    def disconnect_filestore(self, parentdir, store_id):
+    def connect_filestore(self, parentdir, expected_id=None):
+        """
+        Add an existing file-store into the local storage pool.
+        """
+        m = Migration(parentdir)
+        if m.needs_migration():
+            log.warning('FileStore in %r needs migration', parentdir)
+        fs = FileStore(parentdir, expected_id)
+        self._add_filestore(fs)
+        return fs
+
+    def disconnect_filestore(self, parentdir):
         """
         Remove an existing file-store from the local storage pool.
         """
-        log.info('Disconnecting FileStore %r at %r', store_id, parentdir)
         fs = self.stores.by_parentdir(parentdir)
         self._remove_filestore(fs)
         return fs

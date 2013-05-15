@@ -36,6 +36,8 @@ import multiprocessing
 import microfiber
 from dbase32 import random_id
 import filestore
+from filestore import FileStore
+from filestore.migration import Migration, b32_to_db32
 
 from dmedia.local import LocalStores
 from dmedia.metastore import MetaStore, get_mtime
@@ -194,12 +196,20 @@ class TestCore(CouchCase):
         )
         self.assertTrue(inst.db.get(_id)['_rev'].startswith('1-'))
 
+        # Test when migration is needed
+        inst = core.Core(self.env)
+        tmp = TempDir()
+        m = Migration(tmp.dir)
+        old = m.build_v0_simulation()
+        fs = inst.load_default_filestore(tmp.dir)
+        self.assertEqual(b32_to_db32(old['_id']), fs.id)
+
     def test_create_filestore(self):
         inst = core.Core(self.env)
 
-        # Test when a filestore already exists
+        # Test when a FileStore already exists
         tmp = TempDir()
-        (fs, doc) = util.init_filestore(tmp.dir)
+        fs = FileStore.create(tmp.dir)
         with self.assertRaises(Exception) as cm:
             inst.create_filestore(tmp.dir)
         self.assertEqual(
@@ -207,7 +217,7 @@ class TestCore(CouchCase):
             'Already contains a FileStore: {!r}'.format(tmp.dir)
         )
 
-        # Test when .dmedia doesn't exist
+        # Test when no FileStore yet exists in the parentdir:
         tmp = TempDir()
         fs = inst.create_filestore(tmp.dir)
         self.assertIsInstance(fs, filestore.FileStore)
@@ -227,7 +237,7 @@ class TestCore(CouchCase):
         )
 
         # Make sure we can disconnect a store that was just created
-        inst.disconnect_filestore(fs.parentdir, fs.id)
+        inst.disconnect_filestore(fs.parentdir)
         self.assertEqual(
             inst.db.get('_local/dmedia'),
             {
@@ -238,72 +248,59 @@ class TestCore(CouchCase):
         )
 
     def test_connect_filestore(self):
-        inst = core.Core(self.env)
         tmp = TempDir()
-        doc = create_filestore(1)
+        basedir = tmp.join(filestore.DOTNAME)
+        inst = core.Core(self.env)
 
         # Test when .dmedia/ doesn't exist
-        with self.assertRaises(IOError) as cm:
-            inst.connect_filestore(tmp.dir, doc['_id'])
+        with self.assertRaises(FileNotFoundError) as cm:
+            inst.connect_filestore(tmp.dir, random_id())
+        self.assertEqual(cm.exception.filename, basedir)
 
-        # Test when .dmedia/ exists, but store.json doesn't:
-        tmp.makedirs('.dmedia')
-        with self.assertRaises(IOError) as cm:
-            inst.connect_filestore(tmp.dir, doc['_id'])
-
-        # Test when .dmedia/store.json exists
-        store = tmp.join('.dmedia', 'store.json')
-        json.dump(doc, open(store, 'w'))
-
-        fs = inst.connect_filestore(tmp.dir, doc['_id'])
-        self.assertIsInstance(fs, filestore.FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.id, doc['_id'])
-        self.assertEqual(fs.copies, 1)
-        self.assertIs(inst.stores.by_id(fs.id), fs)
-        self.assertIs(inst.stores.by_parentdir(fs.parentdir), fs)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {
-                    fs.parentdir: {'id': fs.id, 'copies': fs.copies},
-                }
-            }
-        )
-
-        # Test when store_id doesn't match
-        store_id = random_id()
-        with self.assertRaises(Exception) as cm:
-            inst.connect_filestore(tmp.dir, store_id)
-        self.assertEqual(
-            str(cm.exception),
-            'expected store_id {!r}; got {!r}'.format(store_id, doc['_id'])
-        )
+        # Test when FileStore has been initialized:
+        fs = FileStore.create(tmp.dir)
+        fs_a = inst.connect_filestore(tmp.dir)
+        self.assertIsInstance(fs_a, FileStore)
+        self.assertEqual(fs_a.parentdir, tmp.dir)
+        self.assertEqual(fs_a.id, fs.id)
+        _rev = fs_a.doc.pop('_rev')
+        self.assertTrue(_rev.startswith('1-'))
+        self.assertEqual(fs_a.doc, fs.doc)
 
         # Test when store is already connected:
         with self.assertRaises(Exception) as cm:
-            inst.connect_filestore(tmp.dir, doc['_id'])
+            inst.connect_filestore(tmp.dir)
         self.assertEqual(
             str(cm.exception),
-            'already have ID {!r}'.format(doc['_id'])
+            'already have ID {!r}'.format(fs.id)
         )
+
+        # Test when expected_id is provided and does *not* match:
+        bad_id = random_id()
+        with self.assertRaises(ValueError) as cm:
+            inst.connect_filestore(tmp.dir, expected_id=bad_id)
+        self.assertEqual(str(cm.exception),
+            "doc['_id']: expected {!r}; got {!r}".format(bad_id, fs.id)
+        )
+
+        # Test when expected_id is provided and matches:
+        inst = core.Core(self.env)
+        fs_b = inst.connect_filestore(tmp.dir, expected_id=fs.id)
+        self.assertIsInstance(fs_b, FileStore)
+        self.assertEqual(fs_b.parentdir, tmp.dir)
+        self.assertEqual(fs_b.id, fs.id)
+        self.assertEqual(fs_b.doc, fs.doc)
 
         # Connect another store
         tmp2 = TempDir()
-        doc2 = create_filestore(0)
-        tmp2.makedirs('.dmedia')
-        store2 = tmp2.join('.dmedia', 'store.json')
-        json.dump(doc2, open(store2, 'w'))
-
-        fs2 = inst.connect_filestore(tmp2.dir, doc2['_id'])
-        self.assertIsInstance(fs2, filestore.FileStore)
-        self.assertEqual(fs2.parentdir, tmp2.dir)
-        self.assertEqual(fs2.id, doc2['_id'])
-        self.assertEqual(fs2.copies, 0)
-        self.assertIs(inst.stores.by_id(fs2.id), fs2)
-        self.assertIs(inst.stores.by_parentdir(fs2.parentdir), fs2)
+        fs2 = FileStore.create(tmp2.dir)
+        fs2_a = inst.connect_filestore(tmp2.dir)
+        self.assertIsInstance(fs2_a, FileStore)
+        self.assertEqual(fs2_a.parentdir, tmp2.dir)
+        self.assertEqual(fs2_a.id, fs2.id)
+        self.assertEqual(fs2_a.copies, 1)
+        self.assertIs(inst.stores.by_id(fs2.id), fs2_a)
+        self.assertIs(inst.stores.by_parentdir(fs2.parentdir), fs2_a)
         self.assertEqual(
             inst.db.get('_local/dmedia'),
             {
@@ -311,22 +308,29 @@ class TestCore(CouchCase):
                 '_rev': '0-2',
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': 1},
-                    fs2.parentdir: {'id': fs2.id, 'copies': 0},
+                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
                 }
             }
         )
+
+        # Test when migration is needed
+        tmp = TempDir()
+        m = Migration(tmp.dir)
+        old = m.build_v0_simulation()
+        fs = inst.connect_filestore(tmp.dir)
+        self.assertEqual(b32_to_db32(old['_id']), fs.id)
 
     def test_disconnect_filestore(self):
         inst = core.Core(self.env)
 
         tmp1 = TempDir()
-        (fs1, doc1) = util.init_filestore(tmp1.dir)
+        fs1 = FileStore.create(tmp1.dir)
         tmp2 = TempDir()
-        (fs2, doc2) = util.init_filestore(tmp2.dir)
+        fs2 = FileStore.create(tmp2.dir)
 
         # Test when not connected:
         with self.assertRaises(KeyError) as cm:
-            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+            inst.disconnect_filestore(fs1.parentdir)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
 
         # Connect both, then disconnect one by one
@@ -345,7 +349,7 @@ class TestCore(CouchCase):
         )
 
         # Disconnect fs1
-        inst.disconnect_filestore(fs1.parentdir, fs1.id)
+        inst.disconnect_filestore(fs1.parentdir)
         self.assertEqual(
             inst.db.get('_local/dmedia'),
             {
@@ -358,7 +362,7 @@ class TestCore(CouchCase):
         )
 
         # Disconnect fs2
-        inst.disconnect_filestore(fs2.parentdir, fs2.id)
+        inst.disconnect_filestore(fs2.parentdir)
         self.assertEqual(
             inst.db.get('_local/dmedia'),
             {
@@ -370,10 +374,10 @@ class TestCore(CouchCase):
 
         # Again test when not connected:
         with self.assertRaises(KeyError) as cm:
-            inst.disconnect_filestore(fs2.parentdir, fs2.id)
+            inst.disconnect_filestore(fs2.parentdir)
         self.assertEqual(str(cm.exception), repr(fs2.parentdir))
         with self.assertRaises(KeyError) as cm:
-            inst.disconnect_filestore(fs1.parentdir, fs1.id)
+            inst.disconnect_filestore(fs1.parentdir)
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
 
     def test_resolve(self):
