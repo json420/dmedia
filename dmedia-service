@@ -219,6 +219,7 @@ class Service(dbus.service.Object):
         self.avahi = Avahi(self.core.env, port, ssl_config)
         self.avahi.run()
         GLib.timeout_add(30 * 1000, self.on_idle3)
+        GLib.timeout_add(120 * 1000, self.core.reclaim_if_possible)
 
     def on_idle3(self):
         """

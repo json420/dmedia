@@ -625,7 +625,7 @@ class MetaStore:
                 }
                 self.db.update(mark_added, doc, new)
                 count += 1
-        t.log('relink %r files in FileStore %s at %r', count, fs.id, fs.parentdir)
+        t.log('relink %d files in %r', count, fs)
         return count
 
     def remove(self, fs, _id):
@@ -708,16 +708,14 @@ class MetaStore:
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
             ch = src.copy(_id, *dst)
-            log.info('Copied %s from %s to %s', _id, src.id, 
-                ', '.join(d.id for d in dst)
-            )
+            log.info('Copied %s from %r to %r', _id, src, dst)
             new = create_stored(_id, src, *dst)
             self.db.update(mark_copied, doc, time.time(), src.id, new)
         except FileNotFound:
-            log.warning('%s is not in %s', _id, src.id)
+            log.warning('%s is not in %r', _id, src)
             self.db.update(mark_removed, doc, src.id)
         except CorruptFile:
-            log.error('%s is corrupt in %s', _id, src.id)
+            log.error('%s is corrupt in %r', _id, src)
             self.db.update(mark_corrupt, doc, time.time(), src.id)
         return doc
 
@@ -790,8 +788,16 @@ class MetaStore:
         return (count, size)
 
     def reclaim_all(self, threshold=RECLAIM_BYTES):
-        local_stores = self.get_local_stores()
-        for fs in local_stores.sort_by_avail(reverse=False):
-            self.reclaim(fs, threshold)
-
+        try:
+            count = 0
+            size = 0
+            t = TimeDelta()
+            filestores = self.get_local_stores().sort_by_avail(reverse=False)
+            for fs in filestores:
+                (c, s) = self.reclaim(fs, threshold)
+                count += c
+                size += s
+            t.log('reclaim %s in %d filestores', count_and_size(count, size), len(filestores))
+        except Exception:
+            log.exception('error in MetaStore.reclaim_all():')
 

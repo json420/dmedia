@@ -696,3 +696,6 @@ class Core:
             'file_path': fs.path(ch.id),
         }
 
+    def reclaim_if_possible(self):
+        start_thread(self.ms.reclaim_all)
+        return True
