@@ -1062,7 +1062,7 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        # Test when copies is missing:
+        # Test when copies is missing in something reclaimable:
         doc['stored'] = {
             stores[0]: {'copies': 3},
             stores[1]: {},
@@ -1070,7 +1070,47 @@ class TestFileDesign(DesignTestCase):
         db.save(doc)
         self.assertEqual(
             db.view('file', 'reclaimable'),
-            {'rows': [], 'offset': 0, 'total_rows': 0},
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': [stores[1], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test when copies is a junk value in something reclaimable:
+        doc['stored'] = {
+            stores[0]: {'copies': 3},
+            stores[2]: {'copies': ['hello', 'world']},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': [stores[2], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test when copies is negative in something reclaimable:
+        doc['stored'] = {
+            stores[2]: {'copies': 3},
+            stores[3]: {'copies': -1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': [stores[3], atime], 'id': _id, 'value': None},
+                ],
+            },
         )
 
         # Again test when copies is missing

@@ -163,16 +163,18 @@ function(doc) {
 file_reclaimable = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var copies = 0;
-        var key;
+        var total = 0;
+        var key, value, copies;
         for (key in doc.stored) {
-            copies += doc.stored[key].copies;
+            value = doc.stored[key];
+            copies = (typeof value.copies == 'number') ? value.copies : 0;
+            total += Math.max(0, copies);
         }
-        if (copies >= 3) {
-            var value;
+        if (total >= 3) {
             for (key in doc.stored) {
                 value = doc.stored[key];
-                if (!value.pinned && (copies - value.copies >= 3)) {
+                copies = (typeof value.copies == 'number') ? value.copies : 0;
+                if (total - copies >= 3 && !value.pinned) {
                     emit([key, doc.atime], null);
                 }
             }
