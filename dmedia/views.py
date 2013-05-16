@@ -198,6 +198,8 @@ function(doc) {
 }
 """
 
+# Drives downgrading: files with a numeric `verified` than have not already
+# been downgraded, ordered by verified:
 file_last_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -212,6 +214,7 @@ function(doc) {
 }
 """
 
+# Files that have never been verified, ordered by [store_id, mtime]:
 file_store_mtime = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -227,6 +230,7 @@ function(doc) {
 }
 """
 
+# All files (currently), ordered by [store_id, verified]:
 file_store_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
