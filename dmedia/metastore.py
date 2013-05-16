@@ -649,7 +649,7 @@ class MetaStore:
         count = 0
         t = TimeDelta()
         while True:
-            r = self.db.view('file', 'verified',
+            r = self.db.view('file', 'store-verified',
                 startkey=start, endkey=end, limit=1
             )
             if not r['rows']:

@@ -224,7 +224,7 @@ function(doc) {
 }
 """
 
-file_verified = """
+file_store_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key, value, verified;
@@ -257,7 +257,7 @@ file_design = {
         'never-verified': {'map': file_never_verified},
         'last-verified': {'map': file_last_verified},
         'store-mtime': {'map': file_store_mtime},
-        'verified': {'map': file_verified},
+        'store-verified': {'map': file_store_verified},
         'origin': {'map': file_origin, 'reduce': _stats},
     },
     'filters': {

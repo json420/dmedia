@@ -315,9 +315,12 @@ class TestDocDesign(DesignTestCase):
         """
         Verify our assumptions about CouchDB view sort order.
 
-        Lesson: it's *very* important that view functions like file/verified
-        test the timestamp with ``"(typeof timestamp == 'number')"`` and
-        replace all non-numeric timestamps with 0 or null.
+        Lesson: it's *very* important that views like "file/last-verified" test
+        the timestamp with::
+
+            (typeof timestamp == 'number')
+
+        and then replace all non-numeric timestamps with null.
 
         The reason is strings, objects, and arrays will always sort higher than
         any number.  So when doing something like downgrading by the last
@@ -1739,13 +1742,13 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-    def test_verified(self):
+    def test_store_verified(self):
         db = Database('foo', self.env)
         db.put(None)
-        design = self.build_view('verified')
+        design = self.build_view('store-verified')
         db.save(design)
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1757,7 +1760,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1765,7 +1768,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'] = {}
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1777,7 +1780,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc2)
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1792,7 +1795,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc2)
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1809,7 +1812,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1824,7 +1827,7 @@ class TestFileDesign(DesignTestCase):
         doc2['stored'][store_id]['verified'] = '17'
         db.save(doc2)
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1838,7 +1841,7 @@ class TestFileDesign(DesignTestCase):
         doc2['stored'][store_id]['verified'] = 3469
         db.save_many([doc1, doc2])
         self.assertEqual(
-            db.view('file', 'verified'),
+            db.view('file', 'store-verified'),
             {
                 'offset': 0,
                 'total_rows': 2,
