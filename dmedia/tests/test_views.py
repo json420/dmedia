@@ -1820,6 +1820,35 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
+        # Test with non-numeric 'verified':
+        doc2['stored'][store_id]['verified'] = '17'
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': [store_id, None], 'id': id2, 'value': None},
+                    {'key': [store_id, 1234567890], 'id': id1, 'value': None},
+                ]
+            },
+        )
+        doc1['stored'][store_id]['verified'] = ['holly', 'crap']
+        doc2['stored'][store_id]['verified'] = 3469
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'verified'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': [store_id, None], 'id': id1, 'value': None},
+                    {'key': [store_id, 3469], 'id': id2, 'value': None},
+                ]
+            },
+        )
+
     def test_origin(self):
         db = Database('foo', self.env)
         db.put(None)

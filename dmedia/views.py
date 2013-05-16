@@ -227,9 +227,11 @@ function(doc) {
 file_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        var key;
+        var key, value, verified;
         for (key in doc.stored) {
-            emit([key, doc.stored[key].verified], null);
+            value = doc.stored[key];
+            verified = (typeof value.verified == 'number') ? value.verified : null;
+            emit([key, verified], null);
         }
     }
 }
