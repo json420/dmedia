@@ -44,6 +44,13 @@ function(doc) {
 }
 """
 
+# For confirming assumptions about CouchDB view sort order:
+doc_key = """
+function(doc) {
+    emit(doc.key, null);
+}
+"""
+
 filter_doc_normal = """
 function(doc, req) {
     return doc._id[0] != '_';
@@ -64,6 +71,7 @@ doc_design = {
     'views': {
         'type': {'map': doc_type, 'reduce': _count},
         'time': {'map': doc_time},
+        'key': {'map': doc_key},
     },
     'filters': {
         'normal': filter_doc_normal,
@@ -201,6 +209,21 @@ function(doc) {
 }
 """
 
+file_store_mtime = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key, value, mtime;
+        for (key in doc.stored) {
+            value = doc.stored[key];
+            if (typeof value.verified != 'number') {
+                mtime = (typeof value.mtime == 'number') ? value.mtime : null;
+                emit([key, mtime], null);
+            }
+        }
+    }
+}
+"""
+
 file_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -231,6 +254,7 @@ file_design = {
         'reclaimable': {'map': file_reclaimable},
         'never-verified': {'map': file_never_verified},
         'last-verified': {'map': file_last_verified},
+        'store-mtime': {'map': file_store_mtime},
         'verified': {'map': file_verified},
         'origin': {'map': file_origin, 'reduce': _stats},
     },
