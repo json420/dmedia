@@ -1027,14 +1027,14 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-    def test_reclaimable(self):
+    def test_store_reclaimable(self):
         db = Database('foo', self.env)
         db.put(None)
-        design = self.build_view('reclaimable')
+        design = self.build_view('store-reclaimable')
         db.save(design)
 
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1050,7 +1050,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1058,7 +1058,7 @@ class TestFileDesign(DesignTestCase):
         doc['stored'] = {}
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1069,7 +1069,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 1,
@@ -1086,7 +1086,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 1,
@@ -1103,7 +1103,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 1,
@@ -1122,7 +1122,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1137,7 +1137,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1149,7 +1149,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 3,
@@ -1169,7 +1169,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 2,
@@ -1188,7 +1188,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1201,7 +1201,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 4,
@@ -1221,7 +1221,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 1,
@@ -1239,7 +1239,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
                 'total_rows': 2,
@@ -1254,7 +1254,7 @@ class TestFileDesign(DesignTestCase):
         doc['type'] = 'dmedia/file2'
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1263,7 +1263,7 @@ class TestFileDesign(DesignTestCase):
         doc['origin'] = 'render'
         db.save(doc)
         self.assertEqual(
-            db.view('file', 'reclaimable'),
+            db.view('file', 'store-reclaimable'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 

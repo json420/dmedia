@@ -160,29 +160,6 @@ function(doc) {
 }
 """
 
-file_reclaimable = """
-function(doc) {
-    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var total = 0;
-        var key, value, copies;
-        for (key in doc.stored) {
-            value = doc.stored[key];
-            copies = (typeof value.copies == 'number') ? value.copies : 0;
-            total += Math.max(0, copies);
-        }
-        if (total >= 3) {
-            for (key in doc.stored) {
-                value = doc.stored[key];
-                copies = (typeof value.copies == 'number') ? value.copies : 0;
-                if (total - copies >= 3 && !value.pinned) {
-                    emit([key, doc.atime], null);
-                }
-            }
-        }
-    }
-}
-"""
-
 # Drives downgrading: files that have never been verified and are not already
 # downgraded, ordered by mtime:
 file_never_verified = """
@@ -246,6 +223,30 @@ function(doc) {
 }
 """
 
+# Files that can be reclaimed, ordered by [store_id, atime]:
+file_store_reclaimable = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var total = 0;
+        var key, value, copies;
+        for (key in doc.stored) {
+            value = doc.stored[key];
+            copies = (typeof value.copies == 'number') ? value.copies : 0;
+            total += Math.max(0, copies);
+        }
+        if (total >= 3) {
+            for (key in doc.stored) {
+                value = doc.stored[key];
+                copies = (typeof value.copies == 'number') ? value.copies : 0;
+                if (total - copies >= 3 && !value.pinned) {
+                    emit([key, doc.atime], null);
+                }
+            }
+        }
+    }
+}
+"""
+
 file_origin = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
@@ -262,11 +263,11 @@ file_design = {
         'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
         'fragile': {'map': file_fragile},
-        'reclaimable': {'map': file_reclaimable},
         'never-verified': {'map': file_never_verified},
         'last-verified': {'map': file_last_verified},
         'store-mtime': {'map': file_store_mtime},
         'store-verified': {'map': file_store_verified},
+        'store-reclaimable': {'map': file_store_reclaimable},
         'origin': {'map': file_origin, 'reduce': _stats},
     },
     'filters': {

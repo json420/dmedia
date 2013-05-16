@@ -773,19 +773,19 @@ class MetaStore:
         size = 0
         t = TimeDelta()
         while True:
-            if fs.statvfs().avail > threshold:
-                break
             kw = {
                 'startkey': [fs.id, None],
                 'endkey': [fs.id, int(time.time())],
                 'limit': 1,
             }
-            rows = self.db.view('file', 'reclaimable', **kw)['rows']
+            rows = self.db.view('file', 'store-reclaimable', **kw)['rows']
             if not rows:
                 break
             doc = self.remove(fs, rows[0]['id'])
             count += 1
             size += doc['bytes']
+            if fs.statvfs().avail > threshold:
+                break
         if count > 0:
             t.log('reclaim %s in %r', count_and_size(count, size), fs)
         return (count, size)
@@ -797,6 +797,8 @@ class MetaStore:
             t = TimeDelta()
             filestores = self.get_local_stores().sort_by_avail(reverse=False)
             for fs in filestores:
+                if fs.statvfs().avail > threshold:
+                    break
                 (c, s) = self.reclaim(fs, threshold)
                 count += c
                 size += s
