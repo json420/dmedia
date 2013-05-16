@@ -1040,7 +1040,7 @@ class TestFileDesign(DesignTestCase):
 
         # Make sure things are well behaved even when doc['stored'] is missed:
         _id = random_id(DIGEST_BYTES)
-        atime = time.time()
+        atime = int(time.time())
         stores = sorted(random_id() for i in range(4))
         doc = {
             '_id': _id,
@@ -1214,6 +1214,25 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
+        # Two of these can be reclaimed (just not at once):
+        doc['stored'] = {
+            stores[0]: {'copies': 1},
+            stores[1]: {'copies': 2},
+            stores[2]: {'copies': 1},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'store-reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 2,
+                'rows': [
+                    {'key': [stores[0], atime], 'id': _id, 'value': None},
+                    {'key': [stores[2], atime], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
         # One of these can be reclaimed:
         doc['stored'] = {
             stores[0]: {'copies': 3},
@@ -1231,21 +1250,42 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Two of these can be reclaimed (just not at once):
-        doc['stored'] = {
-            stores[0]: {'copies': 1},
-            stores[1]: {'copies': 2},
-            stores[2]: {'copies': 1},
-        }
+        # Test that non-numeric atime values get replaced with None
+        doc['atime'] = '1234567890'
         db.save(doc)
         self.assertEqual(
             db.view('file', 'store-reclaimable'),
             {
                 'offset': 0, 
-                'total_rows': 2,
+                'total_rows': 1,
                 'rows': [
-                    {'key': [stores[0], atime], 'id': _id, 'value': None},
-                    {'key': [stores[2], atime], 'id': _id, 'value': None},
+                    {'key': [stores[1], None], 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['atime'] = ['what', 'tangled', 'web']
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'store-reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': [stores[1], None], 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # But negative atimes values should be passed through:
+        doc['atime'] = -1234567890
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'store-reclaimable'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': [stores[1], -1234567890], 'id': _id, 'value': None},
                 ],
             },
         )

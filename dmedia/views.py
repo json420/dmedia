@@ -227,6 +227,7 @@ function(doc) {
 file_store_reclaimable = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var atime = (typeof doc.atime == 'number') ? doc.atime : null;
         var total = 0;
         var key, value, copies;
         for (key in doc.stored) {
@@ -239,7 +240,7 @@ function(doc) {
                 value = doc.stored[key];
                 copies = (typeof value.copies == 'number') ? value.copies : 0;
                 if (total - copies >= 3 && !value.pinned) {
-                    emit([key, doc.atime], null);
+                    emit([key, atime], null);
                 }
             }
         }
