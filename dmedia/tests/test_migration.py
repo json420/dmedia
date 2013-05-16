@@ -58,7 +58,7 @@ class TestFunctions(TestCase):
             },
             "_id": "224ZY4WMNXNKJPIN6U5HMWIMJIGJM2HMA5IOCI3QGDIW2LDT",
             "_rev": "10-7b9067b74908026080ed4c46e63a01ff",
-            "atime": 1355388946,
+            "atime": 1355388946.1776,
             "bytes": 25272864,
             "origin": "user",
             "stored": {
@@ -153,6 +153,12 @@ class TestFunctions(TestCase):
         for (v0_key, value) in old['stored'].items():
             v1_key = migration.b32_to_db32(v0_key)
             self.assertEqual(new['stored'][v1_key], value)
+
+        # Test with missing atime
+        del old['atime']
+        new = migration.migrate_file(old, mdoc)
+        self.assertIsNot(new, old)
+        self.assertEqual(new['atime'], 1355254766)
 
     def test_migrate_store(self):
         old = {

@@ -92,7 +92,7 @@ def migrate_file(old, mdoc):
         },
         'type': 'dmedia/file',
         'time': old['time'],
-        'atime': old['atime'],
+        'atime': int(old.get('atime', old['time'])),
         'bytes': old['bytes'],
         'origin': old['origin'],
         'stored': dict(
