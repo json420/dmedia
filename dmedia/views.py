@@ -181,14 +181,17 @@ function(doc) {
 }
 """
 
+# Drives downgrading: files that have never been verified and are not already
+# downgraded, ordered by mtime:
 file_never_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        var key, value;
+        var key, value, mtime;
         for (key in doc.stored) {
             value = doc.stored[key];
             if (typeof value.verified != 'number' && value.copies !== 0) {
-                emit(value.mtime, key);
+                mtime = (typeof value.mtime == 'number') ? value.mtime : null;
+                emit(mtime, key);
             }
         }
     }

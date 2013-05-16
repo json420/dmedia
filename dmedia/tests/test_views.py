@@ -1350,6 +1350,23 @@ class TestFileDesign(DesignTestCase):
             }
         )
 
+        # Make sure non-numeric mtime can't mess up sort order:
+        doc2['stored'][store_id1]['mtime'] = '1005'
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'never-verified'),
+            {
+                'offset': 0,
+                'total_rows': 4,
+                'rows': [
+                    {'key': None, 'id': id2, 'value': store_id1},
+                    {'key': 1001, 'id': id1, 'value': store_id1},
+                    {'key': 1003, 'id': id1, 'value': store_id2},
+                    {'key': 1004, 'id': id2, 'value': store_id2},
+                ]
+            }
+        )
+
         # Make sure verified can't be a number
         doc1['stored'][store_id1]['verified'] = 123
         doc2['stored'][store_id1]['verified'] = 456
