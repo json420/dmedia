@@ -25,10 +25,9 @@ from filestore.migration import Migration
 from microfiber import Server, encode_attachment, Attachment, NotFound, dumps
 
 import dmedia
-from dmedia.util import get_db
+from dmedia.util import get_db, init_views
 from dmedia.metastore import MetaStore, BufferedSave
-from dmedia import migration
-from dmedia import schema
+from dmedia import migration, schema, views
 from dmedia.service import get_env
 
 
@@ -202,6 +201,7 @@ for (v0_name, v0_id) in migration.iter_v0_project_dbs(server):
     src.post(None, '_compact')  # Go ahead and clean up
     dst = server.database(v1_name)
     dst.ensure()
+    init_views(dst, views.project)
     buf = BufferedSave(dst)
     print('\n{} => {}'.format(v0_name, v1_name))
     kw = {'limit': 50, 'skip': 0}
