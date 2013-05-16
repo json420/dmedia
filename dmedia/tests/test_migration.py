@@ -208,6 +208,22 @@ class TestFunctions(TestCase):
         })
         self.assertEqual(migration.b32_to_db32(old['_id']), new['_id'])
 
+        # When old['count'], old['bytes'] is missing:
+        del old['count']
+        del old['bytes']
+        new = migration.migrate_project(old)
+        self.assertIsNot(new, old)
+        self.assertEqual(new, {
+            "_id": "OSYXB7FWVW9OMHOMLVD3MLPK",
+            "atime": 1359667301.118886,
+            "bytes": 0,
+            "count": 0,
+            "db_name": "dmedia-1-osyxb7fwvw9omhomlvd3mlpk",
+            "time": 1359667301.118886,
+            "title": "Test",
+            "type": "dmedia/project"
+        })
+
     def test_migrate_batch(self):
         old = {
             "_id": "BH5RGJLRQILM3BPSBWX45HIE",

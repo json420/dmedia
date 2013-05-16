@@ -116,6 +116,8 @@ def migrate_project(old):
     del new['_rev']
     new['_id'] = b32_to_db32(old['_id'])
     new['db_name'] = schema.project_db_name(new['_id'])
+    new.setdefault('count', 0)
+    new.setdefault('bytes', 0)
     schema.check_project(new)
     return new
 

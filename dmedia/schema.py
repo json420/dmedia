@@ -1008,7 +1008,7 @@ def check_project(doc):
     _check(doc, ['count'], int,
         (_at_least, 0),
     )
-    _check(doc, ['count'], int,
+    _check(doc, ['bytes'], int,
         (_at_least, 0),
     )
 
