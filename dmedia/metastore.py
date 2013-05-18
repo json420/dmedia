@@ -91,17 +91,24 @@ class MTimeMismatch(Exception):
 
 
 class TimeDelta:
-    __slots__ = ('start',)
+    __slots__ = ('start', 'end')
 
     def __init__(self):
         self.start = time.perf_counter()
+        self.end = None
 
     @property
     def delta(self):
-        return time.perf_counter() - self.start
+        if self.end is None:
+            self.end = time.perf_counter()
+        return self.end - self.start
 
     def log(self, msg, *args):
         log.info('%.3fs to ' + msg, self.delta, *args)
+
+    def rate(self, size):
+        rate = int(size / self.delta)
+        return '{}/s'.format(bytes10(rate))
 
 
 def get_dict(d, key):
@@ -621,8 +628,7 @@ class MetaStore:
                 stored = get_dict(doc, 'stored')
                 if fs.id in stored:
                     continue
-                log.info('Relinking %s in FileStore %s at %r',
-                        st.id, fs.id, fs.parentdir)
+                log.info('Relinking %s in %r', st.id, fs)
                 new = {
                     fs.id: {'copies': fs.copies, 'mtime': int(st.mtime)}
                 }
@@ -647,6 +653,7 @@ class MetaStore:
         start = [fs.id, None]
         end = [fs.id, int(time.time()) - VERIFY_THRESHOLD]
         count = 0
+        size = 0
         t = TimeDelta()
         while True:
             r = self.db.view('file', 'store-verified',
@@ -654,10 +661,10 @@ class MetaStore:
             )
             if not r['rows']:
                 break
-            count += 1
             _id = r['rows'][0]['id']
-            self.verify(fs, _id)
-        t.log('verify %r files in %r', count, fs)
+            size += self.verify(fs, _id).file_size
+            count += 1
+        t.log('verify %s in %r [%s]', count_and_size(count, size), fs, t.rate(size))
         return count
 
     def content_md5(self, fs, _id, force=False):
