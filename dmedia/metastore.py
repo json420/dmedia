@@ -78,9 +78,11 @@ log = logging.getLogger()
 DAY = 24 * 60 * 60
 WEEK = 7 * DAY
 DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
+VERIFY_BY_MTIME = DOWNGRADE_BY_NEVER_VERIFIED // 4
 VERIFY_THRESHOLD = WEEK
 DOWNGRADE_BY_STORE_ATIME = WEEK
 DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
+VERIFY_BY_VERIFIED = DOWNGRADE_BY_LAST_VERIFIED // 2
 
 GiB = 1024**3
 RECLAIM_BYTES = 16 * GiB
@@ -663,26 +665,48 @@ class MetaStore:
         fs.remove(_id)
         return doc
 
-    def verify(self, fs, _id, return_fp=False):
-        doc = self.db.get(_id)
+    def verify(self, fs, doc_or_id, return_fp=False):
+        (doc, _id) = self.doc_and_id(doc_or_id)
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
 
-    def verify_all(self, fs):
-        start = [fs.id, None]
-        end = [fs.id, int(time.time()) - VERIFY_THRESHOLD]
+    def verify_all(self, fs, curtime=None):
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
         count = 0
         size = 0
+
         t = TimeDelta()
+
+        # First verify files with no 'verified' timestamp, whose 'mtime' is older
+        # than 6 hours:
+        kw = {
+            'startkey': [fs.id, None],
+            'endkey': [fs.id, curtime - VERIFY_BY_MTIME],
+            'limit': 1,
+            'include_docs': True,
+        }
         while True:
-            r = self.db.view('file', 'store-verified',
-                startkey=start, endkey=end, limit=1
-            )
-            if not r['rows']:
+            rows = self.db.view('file', 'store-mtime', **kw)['rows']
+            if not rows:
                 break
-            _id = r['rows'][0]['id']
-            size += self.verify(fs, _id).file_size
+            doc = rows[0]['doc']
+            self.verify(fs, doc)
             count += 1
+            size += doc['bytes']
+
+        # Now verify files whose 'verified' timestamp is older than 2 weeks:            
+        kw['endkey'] = [fs.id, curtime - VERIFY_BY_VERIFIED]
+        while True:
+            rows = self.db.view('file', 'store-verified', **kw)['rows']
+            if not rows:
+                break
+            doc = rows[0]['doc']
+            self.verify(fs, doc)
+            count += 1
+            size += doc['bytes']
+
         t.log('verify %s in %r [%s]', count_and_size(count, size), fs, t.rate(size))
         return count
 

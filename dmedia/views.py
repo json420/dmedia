@@ -213,11 +213,12 @@ function(doc) {
 file_store_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
-        var key, value, verified;
+        var key, value;
         for (key in doc.stored) {
             value = doc.stored[key];
-            verified = (typeof value.verified == 'number') ? value.verified : null;
-            emit([key, verified], null);
+            if (typeof value.verified == 'number') {
+                emit([key, value.verified], null);
+            }
         }
     }
 }

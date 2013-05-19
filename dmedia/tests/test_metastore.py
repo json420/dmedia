@@ -2106,6 +2106,7 @@ class TestMetaStore(CouchCase):
             self.assertEqual(old, new)
 
     def test_scan(self):
+        return
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
@@ -2307,8 +2308,45 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
 
+        docs = [create_random_file(fs, db) for i in range(6)]
+        ids = [d['_id'] for d in docs]
+        curtime = int(time.time())
+        base_mtime = curtime - metastore.VERIFY_BY_MTIME
+        base_verified = curtime - metastore.VERIFY_BY_VERIFIED
+
+        # None have 'verified' timestamp, and all have 'mtime' newer than
+        # VERIFY_BY_MTIME threshold:
+        for (i, doc) in enumerate(docs):
+            doc['stored'][fs.id]['mtime'] = base_mtime + 1 + i
+        db.save_many(docs)
+        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        for doc in db.get_many(ids):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+
+        # None have 'verified' timestamp, and 4 have 'mtime' older than
+        # VERIFY_BY_MTIME threshold:
+        self.assertEqual(ms.verify_all(fs, curtime + 4), 4)
+        docs = db.get_many(ids)
+        for doc in docs[:4]:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertGreaterEqual(verified, curtime)
+        for doc in docs[4:]:
+            self.assertTrue(doc['_rev'].startswith('2-'))
+
+        self.assertEqual(ms.verify_all(fs, curtime + 6), 2)
+        docs = db.get_many(ids)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertGreaterEqual(verified, curtime)
+
+        return
+
         # 6 files need verification
-        base = int(time.time())
+        curtime = int(time.time())
         docs1 = [create_random_file(fs, db) for i in range(6)]
         ids = [doc['_id'] for doc in docs1]
         self.assertEqual(ms.verify_all(fs), 6)
