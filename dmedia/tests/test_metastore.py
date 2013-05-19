@@ -2109,13 +2109,13 @@ class TestMetaStore(CouchCase):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
-        db.save({'_id': fs.id, 'type': 'dmedia/store'})
+        db.save(fs.doc)
 
         # A few good files
-        good = [create_random_file(fs, db) for i in range(10)]
+        good = [create_random_file(fs, db) for i in range(40)]
 
         # A few files with bad mtime
-        bad_mtime = [create_random_file(fs, db) for i in range(8)]
+        bad_mtime = [create_random_file(fs, db) for i in range(20)]
         for doc in bad_mtime:
             value = doc['stored'][fs.id]
             value['mtime'] -= 100
@@ -2124,17 +2124,17 @@ class TestMetaStore(CouchCase):
             db.save(doc)
 
         # A few files with bad size
-        bad_size = [create_random_file(fs, db) for i in range(4)]
+        bad_size = [create_random_file(fs, db) for i in range(20)]
         for doc in bad_size:
             doc['bytes'] += 1776
             db.save(doc)
 
         # A few missing files
-        missing = [create_random_file(fs, db) for i in range(4)]
+        missing = [create_random_file(fs, db) for i in range(20)]
         for doc in missing:
             fs.remove(doc['_id'])
 
-        self.assertEqual(ms.scan(fs), 26)
+        self.assertEqual(ms.scan(fs), 100)
 
         for doc in good:
             self.assertEqual(db.get(doc['_id']), doc)

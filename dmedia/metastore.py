@@ -586,22 +586,42 @@ class MetaStore:
         :param fs: a `FileStore` instance
         """
         t = TimeDelta()
-        rows = self.db.view('file', 'stored', key=fs.id)['rows']
-        for ids in id_slice_iter(rows):
-            for doc in self.db.get_many(ids):
+        count = 0
+        kw = {
+            'key': fs.id,
+            'include_docs': True,
+            'limit': 50,
+            'skip': 0,
+        }
+        while True:
+            rows = self.db.view('file', 'stored', **kw)['rows']
+            if not rows:
+                break
+            kw['skip'] += len(rows)
+            count += len(rows)
+            for row in rows:
+                doc = row['doc']
                 _id = doc['_id']
-                with ScanContext(self.db, fs, doc):
+                try:
                     st = fs.stat(_id)
-                    if st.size != doc.get('bytes'):
+                    stored = get_dict(doc, 'stored')
+                    value = get_dict(stored, fs.id)
+                    if doc.get('bytes') != st.size:
+                        log.error('%s has wrong size in %r', _id, fs)
                         src_fp = open(st.name, 'rb')
-                        raise fs.move_to_corrupt(src_fp, _id,
+                        fs.move_to_corrupt(src_fp, _id,
                             file_size=doc['bytes'],
                             bad_file_size=st.size,
                         )
-                    stored = get_dict(doc, 'stored')
-                    s = get_dict(stored, fs.id)
-                    if s['mtime'] != int(st.mtime):
-                        raise MTimeMismatch()
+                        kw['skip'] -= 1
+                        self.db.update(mark_corrupt, doc, time.time(), fs.id)
+                    elif value.get('mtime') != int(st.mtime):
+                        log.warning('%s has wrong mtime %r', _id, fs)
+                        self.db.update(mark_mismatched, doc, fs.id, int(st.mtime))
+                except FileNotFound:
+                    log.warning('%s is not in %r', _id, fs)
+                    kw['skip'] -= 1
+                    self.db.update(mark_removed, doc, fs.id)
         # Update the atime for the dmedia/store doc
         try:
             doc = self.db.get(fs.id)
@@ -610,7 +630,6 @@ class MetaStore:
             self.db.save(doc)
         except NotFound:
             log.warning('No doc for FileStore %s', fs.id)
-        count = len(rows)
         t.log('scan %r files in %r', count, fs)
         return count
 
