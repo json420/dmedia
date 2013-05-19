@@ -2106,7 +2106,6 @@ class TestMetaStore(CouchCase):
             self.assertEqual(old, new)
 
     def test_scan(self):
-        return
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
@@ -2311,20 +2310,17 @@ class TestMetaStore(CouchCase):
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
         curtime = int(time.time())
-        base_mtime = curtime - metastore.VERIFY_BY_MTIME
-        base_verified = curtime - metastore.VERIFY_BY_VERIFIED
+        base_mtime = curtime - metastore.VERIFY_BY_MTIME + 1
+        base_verified = curtime - metastore.VERIFY_BY_VERIFIED + 1
 
-        # None have 'verified' timestamp, and all have 'mtime' newer than
         # VERIFY_BY_MTIME threshold:
         for (i, doc) in enumerate(docs):
-            doc['stored'][fs.id]['mtime'] = base_mtime + 1 + i
+            doc['stored'][fs.id]['mtime'] = base_mtime + i
         db.save_many(docs)
         self.assertEqual(ms.verify_all(fs, curtime), 0)
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('2-'))
 
-        # None have 'verified' timestamp, and 4 have 'mtime' older than
-        # VERIFY_BY_MTIME threshold:
         self.assertEqual(ms.verify_all(fs, curtime + 4), 4)
         docs = db.get_many(ids)
         for doc in docs[:4]:
@@ -2343,47 +2339,57 @@ class TestMetaStore(CouchCase):
             self.assertIsInstance(verified, int)
             self.assertGreaterEqual(verified, curtime)
 
-        return
+        self.assertEqual(ms.verify_all(fs, curtime + 6), 0)
+        for doc in db.get_many(ids):
+            self.assertTrue(doc['_rev'].startswith('3-'))
 
-        # 6 files need verification
-        curtime = int(time.time())
-        docs1 = [create_random_file(fs, db) for i in range(6)]
-        ids = [doc['_id'] for doc in docs1]
-        self.assertEqual(ms.verify_all(fs), 6)
-        self.assertEqual(ms.verify_all(fs), 0)
-        docs2 = db.get_many(ids)
-        for (old, new) in zip(docs1, docs2):
-            schema.check_file(new)
-            self.assertTrue(new['_rev'].startswith('2-'))
-            verified = new['stored'][fs.id]['verified']
+        # VERIFY_BY_VERIFIED threshold:
+        for (i, doc) in enumerate(docs):
+            doc['stored'][fs.id]['verified'] = base_verified + i
+        db.save_many(docs)
+        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        for doc in db.get_many(ids):
+            self.assertTrue(doc['_rev'].startswith('4-'))
+
+        self.assertEqual(ms.verify_all(fs, curtime + 2), 2)
+        docs = db.get_many(ids)
+        for doc in docs[:2]:
+            self.assertTrue(doc['_rev'].startswith('5-'))
+            verified = doc['stored'][fs.id]['verified']
             self.assertIsInstance(verified, int)
-            self.assertLess(verified, time.time())
-            self.assertEqual(new['stored'],
-                {
-                    fs.id: {
-                        'copies': 1,
-                        'mtime': old['stored'][fs.id]['mtime'],
-                        'verified': verified,
-                    },
-                }
-            )
+            self.assertGreaterEqual(verified, curtime)
+        for doc in docs[2:]:
+            self.assertTrue(doc['_rev'].startswith('4-'))
 
-        # Only 4 need checked
-        again = docs2[:4]
-        assert len(again) == 4
-        for doc in again:
-            doc['stored'][fs.id]['verified'] -= (metastore.VERIFY_THRESHOLD + 1)
-            db.save(doc)
-        self.assertEqual(ms.verify_all(fs), 4)
-        self.assertEqual(ms.verify_all(fs), 0)
-        again = set(doc['_id'] for doc in again)
-        docs3 = db.get_many(ids)
-        for doc in docs3:
-            rev = doc['_rev']
-            if doc['_id'] in again:
-                self.assertTrue(rev.startswith('4-'))
+        self.assertEqual(ms.verify_all(fs, curtime + 6), 4)
+        docs = db.get_many(ids)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('5-'))
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertGreaterEqual(verified, curtime)
+
+        self.assertEqual(ms.verify_all(fs, curtime + 6), 0)
+        for doc in db.get_many(ids):
+            self.assertTrue(doc['_rev'].startswith('5-'))
+
+        # Both thresholds:
+        for (i, doc) in enumerate(docs):
+            if i % 2 == 0:
+                doc['stored'][fs.id]['verified'] = base_verified + (i // 2)
             else:
-                self.assertTrue(rev.startswith('2-'))
+                del doc['stored'][fs.id]['verified']
+                doc['stored'][fs.id]['mtime'] = base_mtime + (i // 2)
+        db.save_many(docs)
+        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        for doc in db.get_many(ids):
+            self.assertTrue(doc['_rev'].startswith('6-'))
+        self.assertEqual(ms.verify_all(fs, curtime + 1), 2)
+        self.assertEqual(ms.verify_all(fs, curtime + 2), 2)
+        self.assertEqual(ms.verify_all(fs, curtime + 3), 2)
+        self.assertEqual(ms.verify_all(fs, curtime + 100), 0)
+        for doc in db.get_many(ids):
+            self.assertTrue(doc['_rev'].startswith('7-'))
 
     def test_content_md5(self):
         db = util.get_db(self.env, True)
