@@ -1881,33 +1881,15 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-        # Test sort order within the same store: None < 0
-        store_id = random_id()
-        doc1['stored'] = {
-            store_id: {},
-        }
-        db.save(doc1)
-        doc2['stored'] = {
-            store_id: {'verified': 0},
-        }
-        db.save(doc2)
-        self.assertEqual(
-            db.view('file', 'store-verified'),
-            {
-                'offset': 0,
-                'total_rows': 2,
-                'rows': [
-                    {'key': [store_id, None], 'id': id1, 'value': None},
-                    {'key': [store_id, 0], 'id': id2, 'value': None},
-                ]
-            },
-        )
-
         # Test sort order within the same store: 0 < 1234567890
+        store_id = random_id()
         doc1['stored'] = {
             store_id: {'verified': 1234567890},
         }
-        db.save(doc1)
+        doc2['stored'] = {
+            store_id: {'verified': 0},
+        }
+        db.save_many([doc1, doc2])
         self.assertEqual(
             db.view('file', 'store-verified'),
             {
@@ -1927,9 +1909,8 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'store-verified'),
             {
                 'offset': 0,
-                'total_rows': 2,
+                'total_rows': 1,
                 'rows': [
-                    {'key': [store_id, None], 'id': id2, 'value': None},
                     {'key': [store_id, 1234567890], 'id': id1, 'value': None},
                 ]
             },
@@ -1941,9 +1922,8 @@ class TestFileDesign(DesignTestCase):
             db.view('file', 'store-verified'),
             {
                 'offset': 0,
-                'total_rows': 2,
+                'total_rows': 1,
                 'rows': [
-                    {'key': [store_id, None], 'id': id1, 'value': None},
                     {'key': [store_id, 3469], 'id': id2, 'value': None},
                 ]
             },
