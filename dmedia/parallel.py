@@ -28,9 +28,14 @@ import multiprocessing
 from queue import Queue
 
 
-def start_thread(target, *args, **kw):
+def create_thread(target, *args, **kw):
     thread = threading.Thread(target=target, args=args, kwargs=kw)
     thread.daemon = True
+    return thread
+
+
+def start_thread(target, *args, **kw):
+    thread = create_thread(target, *args, **kw)
     thread.start()
     return thread
 

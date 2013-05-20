@@ -32,6 +32,7 @@ import time
 from copy import deepcopy
 from base64 import b64encode
 import multiprocessing
+from collections import OrderedDict
 
 import microfiber
 from dbase32 import random_id
@@ -91,6 +92,74 @@ class TestCouchFunctions(CouchCase):
             list(core.projects_iter(server)),
             [(project_db_name(_id), _id) for _id in sorted(ids)]
         )
+
+
+class TestBackground(TestCase):
+    def test_init(self):
+        bkrnd = core.Background()
+        self.assertIs(bkrnd.running, False)
+        self.assertIsNone(bkrnd.task)
+        self.assertIsInstance(bkrnd.pending, OrderedDict)
+        self.assertEqual(bkrnd.pending, OrderedDict())
+
+    def test_append(self):
+        bkrnd = core.Background()
+
+        bkrnd.append('a', 'aye', 0)
+        self.assertEqual(bkrnd.pending, OrderedDict([
+            ('a', ('aye', 0)),
+        ]))
+        self.assertEqual(list(bkrnd.pending), ['a'])
+
+        bkrnd.append('b', 'bee', 0)
+        self.assertEqual(bkrnd.pending, OrderedDict([
+            ('a', ('aye', 0)),
+            ('b', ('bee', 0)),
+        ]))
+        self.assertEqual(list(bkrnd.pending), ['a', 'b'])
+
+        bkrnd.append('c', 'see', 0)
+        self.assertEqual(bkrnd.pending, OrderedDict([
+            ('a', ('aye', 0)),
+            ('b', ('bee', 0)),
+            ('c', ('see', 0)),
+        ]))
+        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c'])
+
+        bkrnd.append('a', 'aye', 1)
+        self.assertEqual(bkrnd.pending, OrderedDict([
+            ('a', ('aye', 1)),
+            ('b', ('bee', 0)),
+            ('c', ('see', 0)),
+        ]))
+        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c'])
+
+        bkrnd.append('d', 'dee', 0)
+        self.assertEqual(bkrnd.pending, OrderedDict([
+            ('a', ('aye', 1)),
+            ('b', ('bee', 0)),
+            ('c', ('see', 0)),
+            ('d', ('dee', 0)),
+        ]))
+        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c', 'd'])
+
+        bkrnd.append('c', 'see', 1)
+        self.assertEqual(bkrnd.pending, OrderedDict([
+            ('a', ('aye', 1)),
+            ('b', ('bee', 0)),
+            ('c', ('see', 1)),
+            ('d', ('dee', 0)),
+        ]))
+        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c', 'd'])
+
+        bkrnd.append('a', 'aye', 2)
+        self.assertEqual(bkrnd.pending, OrderedDict([
+            ('a', ('aye', 2)),
+            ('b', ('bee', 0)),
+            ('c', ('see', 1)),
+            ('d', ('dee', 0)),
+        ]))
+        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c', 'd'])
 
 
 class TestCore(CouchCase):

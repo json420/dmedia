@@ -40,6 +40,7 @@ from queue import Queue
 from subprocess import check_call, CalledProcessError
 from copy import deepcopy
 from base64 import b64encode
+from collections import namedtuple, OrderedDict
 
 from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
@@ -288,27 +289,24 @@ def check_filestore_worker(env, parentdir, store_id):
     ms.verify_all(fs)
 
 
-def decrease_copies(env):
+def scan_relink_worker(env, parentdir, store_id):
+    try:
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        fs = FileStore(parentdir, store_id)
+        ms.scan(fs)
+        ms.relink(fs)
+    except Exception:
+        log.exception('Error in scan_relink_worker():')
+
+
+def _worker(env, parentdir, store_id):
     db = util.get_db(env)
-    slave = LocalSlave(db.env)
     ms = MetaStore(db)
-    slave.update_stores()
-    for fs in slave.stores.sort_by_avail(reverse=False):
-        total = 0
-        while True:
-            kw = {
-                'startkey': [fs.id, None],
-                'endkey': [fs.id, int(time.time())],
-                'limit': 1,
-            }
-            rows = db.view('file', 'reclaimable', **kw)['rows']
-            if not rows:
-                break
-            row = rows[0]
-            _id = row['id']
-            ms.remove(fs, _id)
-            total += 1
-        log.info('Deleted %s total copies in %s', total, fs.id)
+    fs = FileStore(parentdir, store_id)
+    ms.scan(fs)
+    ms.relink(fs)
+    ms.verify_all(fs)
 
 
 def is_file_id(_id):
@@ -443,6 +441,57 @@ class BackgroundManager:
         self.initial_filestores = set(fs.id for fs in filestores)
         for fs in filestores:
             self.check_filestore(fs)
+
+
+Task = namedtuple('Task', 'process thread')
+
+
+class Background:
+    __slots__ = ('running', 'task', 'pending')
+
+    def __init__(self):
+        self.running = False
+        self.task = None
+        self.pending = OrderedDict()
+
+    def joiner(self):
+        task = self.task
+        task.process.join()
+        GLib.idle_add(self.on_join, task)
+
+    def on_join(self, task):
+        assert task is self.task
+        assert not task.process.is_alive()
+        task.thread.join()
+        self.task = None
+        self.start_next()
+
+    def start_next(self):
+        if not self.running:
+            return False
+        if self.task is not None:
+            return False
+        if not self.pending:
+            return False
+        (key, value) = self.popitem()
+        (target, *args) = value
+        process = start_process(target, *args)
+        self.task = Task(process, create_thread(self.joiner))
+        self.task.thread.start()
+        return True
+
+    def start(self):
+        assert self.running is False
+        self.running = True
+        self.start_next()
+
+    def append(self, key, target, *args):
+        value = (target,) + args
+        self.pending[key] = value
+
+    def popitem(self):
+        key = list(self.pending)[0]
+        return (key, self.pending.pop(key))
 
 
 class Core:
