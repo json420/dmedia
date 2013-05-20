@@ -538,11 +538,26 @@ class MetaStore:
         Note: this is only really useful for testing.
         """
         t = TimeDelta()
-        count = 0
-        stores = tuple(self.iter_stores())
-        for store_id in stores:
-            count += self.purge_store(store_id)
-        t.log('purge %d total copies in %d stores', count, len(stores))
+        kw = {
+            'key': 'dmedia/file',
+            'include_docs': True,
+            'limit': 50,
+            'skip': 0,
+        }
+        while True:
+            rows = self.db.view('doc', 'type', **kw)['rows']
+            if not rows:
+                break
+            kw['skip'] += len(rows)
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                doc['stored'] = {}    
+            try:
+                self.db.save_many(docs)
+            except BulkConflict:
+                log.exception('MetaStore.purge_all():')
+        count = kw['skip']
+        t.log('fully purge %d files', count)
         return count
 
     def scan(self, fs):
@@ -592,7 +607,7 @@ class MetaStore:
         kw = {
             'key': fs.id,
             'include_docs': True,
-            'limit': 50,
+            'limit': 25,
             'skip': 0,
         }
         while True:

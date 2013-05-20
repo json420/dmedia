@@ -2105,6 +2105,78 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
+    def test_purge_all(self):    
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        
+        # Test when empty:
+        self.assertEqual(ms.purge_all(), 0)
+
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+        docs = []
+
+        # In 3 stores:
+        for i in range(20):
+            doc = {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {'copies': 1, 'mtime': 1234567890},
+                    store_id2: {'copies': 1, 'mtime': 1234567890},
+                    store_id1: {'copies': 1, 'mtime': 1234567890},
+                },
+            }
+            docs.append(doc)
+
+        # In 2 stores:
+        for i in range(20):
+            doc = {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {'copies': 1, 'mtime': 1234567890},
+                    store_id2: {'copies': 1, 'mtime': 1234567890},
+                },
+            }
+            docs.append(doc)
+
+        # In 1 store:
+        for i in range(20):
+            doc = {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'stored': {
+                    store_id1: {'copies': 1, 'mtime': 1234567890},
+                },
+            }
+            docs.append(doc)
+
+        # doc['stored'] is empty:
+        for i in range(20):
+            doc = {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'stored': {},
+            }
+            docs.append(doc)
+
+        # doc['stored'] is missing:
+        for i in range(20):
+            doc = {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+            }
+            docs.append(doc)
+
+        ids = [d['_id'] for d in docs]
+        db.save_many(docs)
+        self.assertEqual(ms.purge_all(), 100)
+        for doc in db.get_many(ids):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+
     def test_scan(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
@@ -2112,10 +2184,10 @@ class TestMetaStore(CouchCase):
         db.save(fs.doc)
 
         # A few good files
-        good = [create_random_file(fs, db) for i in range(40)]
+        good = [create_random_file(fs, db) for i in range(20)]
 
         # A few files with bad mtime
-        bad_mtime = [create_random_file(fs, db) for i in range(20)]
+        bad_mtime = [create_random_file(fs, db) for i in range(10)]
         for doc in bad_mtime:
             value = doc['stored'][fs.id]
             value['mtime'] -= 100
@@ -2124,17 +2196,17 @@ class TestMetaStore(CouchCase):
             db.save(doc)
 
         # A few files with bad size
-        bad_size = [create_random_file(fs, db) for i in range(20)]
+        bad_size = [create_random_file(fs, db) for i in range(10)]
         for doc in bad_size:
             doc['bytes'] += 1776
             db.save(doc)
 
         # A few missing files
-        missing = [create_random_file(fs, db) for i in range(20)]
+        missing = [create_random_file(fs, db) for i in range(10)]
         for doc in missing:
             fs.remove(doc['_id'])
 
-        self.assertEqual(ms.scan(fs), 100)
+        self.assertEqual(ms.scan(fs), 50)
 
         for doc in good:
             self.assertEqual(db.get(doc['_id']), doc)
