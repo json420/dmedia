@@ -79,12 +79,12 @@ class TestFunctions(TestCase):
                 },
                 "THDYBKMJDSE4CYJBBQHBYBXB": {
                     "copies": 1,
-                    "mtime": 1365893318,
+                    "mtime": 1365893318.3469,  # Float
                     "verified": 1366945534
                 },
                 "ZCEHW55N7AHIMTG7VRVAOVUC": {
                     "copies": 0,
-                    "mtime": 1366861750
+                    # Missing mtime
                 }
             },
             "time": 1355254766.513135,
@@ -139,7 +139,7 @@ class TestFunctions(TestCase):
                 },
                 "S57APWWGY3ABFM9YOKO3HON5": {
                     "copies": 0,
-                    "mtime": 1366861750
+                    "mtime": 0
                 },
                 "T8XGJCRX8ST6SDLBPAKQ46IR": {
                     "copies": 1,
