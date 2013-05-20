@@ -277,35 +277,6 @@ class VerifyContext:
         return True
 
 
-class ScanContext:
-    __slots__ = ('db', 'fs', 'doc')
-
-    def __init__(self, db, fs, doc):
-        self.db = db
-        self.fs = fs
-        self.doc = doc
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        if exc_type is None:
-            return
-        if issubclass(exc_type, FileNotFound):
-            log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(mark_removed, self.doc, self.fs.id)
-        elif issubclass(exc_type, CorruptFile):
-            log.warning('%s has wrong size in %r', self.doc['_id'], self.fs)
-            self.db.update(mark_corrupt, self.doc, time.time(), self.fs.id)
-        elif issubclass(exc_type, MTimeMismatch):
-            log.warning('%s has wrong mtime in %r', self.doc['_id'], self.fs)
-            mtime = get_mtime(self.fs, self.doc['_id'])
-            self.db.update(mark_mismatched, self.doc, self.fs.id, mtime)
-        else:
-            return False
-        return True
-
-
 def relink_iter(fs, count=25):
     buf = []
     for st in fs:
