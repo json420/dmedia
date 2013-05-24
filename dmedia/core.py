@@ -483,15 +483,6 @@ class Core:
         self.local['user_id'] = user['_id']
         self.save_local()
 
-    def load_default_filestore(self, parentdir):
-        if util.isfilestore(parentdir):
-            fs = util.migrate_if_needed(parentdir)
-        else:
-            fs = FileStore.create(parentdir)
-        log.info('Default: %r', fs)
-        self._add_filestore(fs)
-        return fs
-
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()

@@ -220,60 +220,6 @@ class TestCore(CouchCase):
             }
         )
 
-    def test_load_default_filestore(self):
-        # Test when FileStore doesn't yet exist
-        inst = core.Core(self.env)
-        tmp = TempDir()
-        fs = inst.load_default_filestore(tmp.dir)
-        self.assertIsInstance(fs, filestore.FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.copies, 1)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {
-                    tmp.dir: {
-                        'id': fs.id,
-                        'copies': 1,
-                    }
-                },
-            }
-        )
-        self.assertTrue(inst.db.get(fs.id)['_rev'].startswith('1-'))
-
-        # Test when FileStore already exists
-        _id = fs.id
-        inst = core.Core(self.env)
-        fs = inst.load_default_filestore(tmp.dir)
-        self.assertIsInstance(fs, filestore.FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.copies, 1)
-        self.assertEqual(fs.id, _id)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {
-                    tmp.dir: {
-                        'id': _id,
-                        'copies': 1,
-                    }
-                },
-            }
-        )
-        self.assertTrue(inst.db.get(_id)['_rev'].startswith('1-'))
-
-        # Test when migration is needed
-        inst = core.Core(self.env)
-        tmp = TempDir()
-        m = Migration(tmp.dir)
-        old = m.build_v0_simulation()
-        fs = inst.load_default_filestore(tmp.dir)
-        self.assertEqual(b32_to_db32(old['_id']), fs.id)
-
     def test_create_filestore(self):
         inst = core.Core(self.env)
 

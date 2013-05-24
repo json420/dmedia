@@ -175,7 +175,10 @@ class Service(dbus.service.Object):
             bytes10(d['disk_size']),
         )
         self.core.load_identity(self.couch.machine, self.couch.user)
-        self.core.load_default_filestore(self.couch.basedir)
+        if isfilestore(self.couch.basedir):
+            self.core.connect_filestore(self.couch.basedir)
+        else:
+            self.core.create_filestore(self.couch.basedir)
         self.env_s = dumps(self.core.env, pretty=True)
         self.snapshots = Snapshots(
                 self.core.env,
