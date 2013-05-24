@@ -216,8 +216,7 @@ class TestCore(CouchCase):
 
         self.assertEqual(set(machine), set(['_id', '_rev']))
         self.assertTrue(machine['_rev'].startswith('1-'))
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
+        self.assertEqual(inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
                 '_rev': '0-1',
@@ -225,6 +224,60 @@ class TestCore(CouchCase):
                 'peers': {},
                 'machine_id': machine_id,
                 'user_id': user_id,
+            }
+        )
+
+    def test_add_peer(self):
+        inst = core.Core(self.env)
+        id1 = random_id(30)
+        info1 = {
+            'host': 'jderose-Gazelle-Professional',
+            'url': 'https://192.168.1.139:41326/',
+            'user': 'jderose',
+            'version': '13.05.0'
+        }
+        id2 = random_id(30)
+        info2 = {'url': 'https://192.168.1.77:9872/'}
+
+        # id1 is not yet a peer:
+        self.assertIsNone(inst.add_peer(id1, info1))
+        self.assertEqual(inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-1',
+                'stores': {},
+                'peers': {
+                    id1: info1,
+                },
+            }
+        )
+
+        # id2 is not yet a peer:
+        self.assertIsNone(inst.add_peer(id2, info2))
+        self.assertEqual(inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'stores': {},
+                'peers': {
+                    id1: info1,
+                    id2: info2,
+                },
+            }
+        )
+
+        # id1 is already a peer, make sure info is replaced
+        new1 = {'url': random_id()}
+        self.assertIsNone(inst.add_peer(id1, new1))
+        self.assertEqual(inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'stores': {},
+                'peers': {
+                    id1: new1,
+                    id2: info2,
+                },
             }
         )
 

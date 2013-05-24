@@ -484,6 +484,14 @@ class Core:
         self.local['user_id'] = user['_id']
         self.save_local()
 
+    def add_peer(self, peer_id, info):
+        assert isdb32(peer_id) and len(peer_id) == 48
+        assert isinstance(info, dict)
+        assert isinstance(info['url'], str)
+        self.local['peers'][peer_id] = info
+        self.save_local()
+        self.restart_vigilance()
+
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
