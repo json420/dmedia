@@ -447,8 +447,14 @@ class Core:
             self.local = {
                 '_id': LOCAL_ID,
                 'stores': {},
+                'peers': {},
             }
         self.__local = deepcopy(self.local)
+
+    def save_local(self):
+        if self.local != self.__local:
+            self.db.save(self.local)
+            self.__local = deepcopy(self.local)
 
     def start_background_tasks(self):
         self.task_manager.start_tasks()
@@ -458,11 +464,6 @@ class Core:
 
     def restart_vigilance(self):
         self.task_manager.restart_vigilance()
-
-    def save_local(self):
-        if self.local != self.__local:
-            self.db.save(self.local)
-            self.__local = deepcopy(self.local)
 
     def set_auto_format(self, value):
         if value not in ('true', 'false'):

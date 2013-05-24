@@ -172,7 +172,13 @@ class TestCore(CouchCase):
         self.assertIsInstance(inst.server, microfiber.Server)
         self.assertIs(inst.db.ctx, inst.server.ctx)
         self.assertIsInstance(inst.stores, LocalStores)
-        self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                'stores': {},
+                'peers': {},
+            }
+        )
 
     def test_load_identity(self):
         machine_id = random_id(30)
@@ -193,6 +199,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-1',
                 'stores': {},
+                'peers': {},
                 'machine_id': machine_id,
                 'user_id': user_id,
             }
@@ -215,6 +222,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-1',
                 'stores': {},
+                'peers': {},
                 'machine_id': machine_id,
                 'user_id': user_id,
             }
@@ -248,7 +256,8 @@ class TestCore(CouchCase):
                 '_rev': '0-1',
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': fs.copies},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -260,6 +269,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-2',
                 'stores': {},
+                'peers': {},
             }
         )
 
@@ -325,7 +335,8 @@ class TestCore(CouchCase):
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': 1},
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -360,7 +371,8 @@ class TestCore(CouchCase):
                 'stores': {
                     fs1.parentdir: {'id': fs1.id, 'copies': 1},
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -373,7 +385,8 @@ class TestCore(CouchCase):
                 '_rev': '0-3',
                 'stores': {
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -385,6 +398,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-4',
                 'stores': {},
+                'peers': {},
             }
         )
 
