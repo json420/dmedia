@@ -227,8 +227,8 @@ class Service(dbus.service.Object):
         """
         log.info('[idle3 at time %.3f]', time.time() - start_time)
         self.core.start_background_tasks()
-        # Restart the background tasks every hour:
-        GLib.timeout_add(30 * 60 * 1000, self.on_background_restart)
+        # Restart the background tasks every 15 minutes:
+        GLib.timeout_add(15 * 60 * 1000, self.on_background_restart)
 
     def on_background_restart(self):
         log.info('on_background_restart()')

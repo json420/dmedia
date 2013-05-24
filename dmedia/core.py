@@ -48,7 +48,7 @@ from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFoun
 from gi.repository import GLib
 
 import dmedia
-from dmedia.parallel import start_thread, start_process
+from dmedia.parallel import create_thread, start_thread, start_process
 from dmedia.server import run_server
 from dmedia import util, schema, views
 from dmedia.client import Downloader, get_client, build_ssl_context
@@ -221,11 +221,10 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def vigilance_worker(env, key, ssl_config):
+def _vigilance_worker(env, ssl_config):
     """
     Run the event-based copy-increasing loop to maintain file durability.
     """
-    assert key == '__vigilance__'
     db = util.get_db(env)
     ms = MetaStore(db)
     ssl_context = build_ssl_context(ssl_config)
@@ -270,22 +269,22 @@ def vigilance_worker(env, key, ssl_config):
                     log.exception('Error downloading %s from %s', _id, url)
 
 
-def downgrade_worker(env, key):
-    assert key == '__downgrade__'
-    db = util.get_db(env)
-    ms = MetaStore(db)
-    ms.downgrade_by_store_atime()
-    ms.downgrade_by_never_verified()
-    ms.downgrade_by_last_verified()
+def vigilance_worker(env, ssl_config):
+    try:
+        _vigilance_worker(env, ssl_config)
+    except Exception:
+        log.exception('Error in vigilance_worker():')
 
 
-def check_filestore_worker(env, parentdir, store_id):
-    db = util.get_db(env)
-    ms = MetaStore(db)
-    fs = FileStore(parentdir, store_id)
-    ms.scan(fs)
-    ms.relink(fs)
-    ms.verify_all(fs)
+def downgrade_worker(env):
+    try:
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        ms.downgrade_by_store_atime()
+        ms.downgrade_by_never_verified()
+        ms.downgrade_by_last_verified()
+    except Exception:
+        log.exception('Error in downgrade_worker():')
 
 
 def scan_relink_worker(env, parentdir, store_id):
@@ -299,13 +298,14 @@ def scan_relink_worker(env, parentdir, store_id):
         log.exception('Error in scan_relink_worker():')
 
 
-def _worker(env, parentdir, store_id):
-    db = util.get_db(env)
-    ms = MetaStore(db)
-    fs = FileStore(parentdir, store_id)
-    ms.scan(fs)
-    ms.relink(fs)
-    ms.verify_all(fs)
+def verify_worker(env, parentdir, store_id):
+    try:
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        fs = FileStore(parentdir, store_id)
+        ms.verify_all(fs)
+    except Exception:
+        log.exception('Error in verify_worker():')
 
 
 def is_file_id(_id):
@@ -318,131 +318,7 @@ def clean_file_id(_id):
     return None
 
 
-def background_worker(q, env, target, key, *extra):
-    try:
-        log.info('%s: %r', target.__name__, key)
-        target(env, key, *extra)
-    except Exception:
-        log.exception('Error: %s: %r', target.__name__, key)
-    finally:
-        q.put(key)
-
-
-class BackgroundManager:
-    def __init__(self, env, ssl_config):
-        self.env = env
-        self.ssl_config = ssl_config
-        self.workers = {}
-        self.q = None
-        self.thread = None
-        self.__active = False
-        
-    @property
-    def active(self):
-        return self.__active
-
-    def activate(self):
-        assert self.__active is False
-        self.__active = True
-        self.start_listener()
-
-    def start_listener(self):
-        assert self.workers == {}
-        assert self.q is None
-        assert self.thread is None
-        log.info('Starting listener thread...')
-        self.q = multiprocessing.Queue()
-        self.thread = start_thread(self.listener)
-
-    def stop_listener(self):
-        log.info('Stopping listener thread...')
-        self.q.put(None)
-        self.thread.join()
-        self.thread = None
-        self.q = None
-
-    def listener(self):
-        while True:
-            key = self.q.get()
-            if key is None:
-                break
-            GLib.idle_add(self.on_complete, key)
-
-    def check_initial_filestores(self, key):
-        try:
-            self.initial_filestores.remove(key)
-            log.info('initial_filestores: %r', sorted(self.initial_filestores))
-            if len(self.initial_filestores) == 0:
-                self.start_vigilance()   
-        except KeyError:
-            pass 
-
-    def on_complete(self, key):
-        log.info('Complete: %r', key)
-        if key not in self.workers:
-            log.warning('Could not find process for %r', key)
-            return
-        process = self.workers.pop(key)
-        process.join()
-        self.check_initial_filestores(key)
-
-    def start(self, target, key, *extra):
-        assert self.active
-        if key in self.workers:
-            log.warning('%s is already running', key)
-            return False
-        self.workers[key] = start_process(
-            background_worker, self.q, self.env, target, key, *extra
-        )
-        return True
-
-    def stop(self, key):
-        if key not in self.workers:
-            return False
-        log.info('Stopping %r', key)
-        process = self.workers.pop(key)
-        process.terminate()
-        process.join()
-        self.check_initial_filestores(key)
-        return True
-
-    def restart(self, target, key, *extra):
-        self.stop(key)
-        return self.start(target, key, *extra)
-
-    def check_filestore(self, fs):
-        if self.active:
-            self.start(check_filestore_worker, fs.parentdir, fs.id)
-
-    def start_vigilance(self):
-        self.start(vigilance_worker, '__vigilance__', self.ssl_config)
-        self.start(downgrade_worker, '__downgrade__')
-
-    def restart_vigilance(self):
-        if self.active and self.stop('__vigilance__'):
-            log.info('Restarting vigilance...')
-            self.start(vigilance_worker, '__vigilance__', self.ssl_config)
-
-    def start_all(self, filestores):
-        self.activate()
-        self.initial_filestores = set(fs.parentdir for fs in filestores)
-        for fs in filestores:
-            self.check_filestore(fs)
-
-    def restart_all(self, filestores):
-        assert self.active
-        self.stop_listener()
-        for process in self.workers.values():
-            process.terminate()
-            process.join()
-        self.workers.clear()
-        self.start_listener()
-        self.initial_filestores = set(fs.id for fs in filestores)
-        for fs in filestores:
-            self.check_filestore(fs)
-
-
-Task = namedtuple('Task', 'process thread')
+Task = namedtuple('Task', 'key process thread')
 
 
 class Background:
@@ -463,6 +339,7 @@ class Background:
         assert not task.process.is_alive()
         task.thread.join()
         self.task = None
+        log.info('Finished: %r', task.key)
         self.start_next()
 
     def start_next(self):
@@ -473,9 +350,11 @@ class Background:
         if not self.pending:
             return False
         (key, value) = self.popitem()
+        log.info('Starting: %r', key)
         (target, *args) = value
         process = start_process(target, *args)
-        self.task = Task(process, create_thread(self.joiner))
+        thread = create_thread(self.joiner)
+        self.task = Task(key, process, thread)
         self.task.thread.start()
         return True
 
@@ -487,10 +366,17 @@ class Background:
     def append(self, key, target, *args):
         value = (target,) + args
         self.pending[key] = value
+        return self.start_next()
 
     def popitem(self):
         key = list(self.pending)[0]
         return (key, self.pending.pop(key))
+
+    def pop(self, key):
+        if self.task is not None and self.task.key == key:
+            self.task.process.terminate()
+        else:
+            self.pending.pop(key, None)
 
 
 class Core:
@@ -503,7 +389,9 @@ class Core:
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
-        self.background = BackgroundManager(env, ssl_config)
+        self.background1 = Background()
+        self.background2 = Background()
+        self.vigilance = None
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
@@ -514,10 +402,42 @@ class Core:
         self.__local = deepcopy(self.local)
 
     def start_background_tasks(self):
-        self.background.start_all(tuple(self.stores))
+        self.background1.append('downgrade', downgrade_worker, self.env)
+        self.background1.start()
+        self.background2.start()
+        self.start_vigilance()
+
+    def _append_fs_tasks(self, fs):
+        args = (self.env, fs.parentdir, fs.id)
+        key = ('scan_relink', fs.parentdir)
+        self.background1.append(key, scan_relink_worker, *args)
+        key = ('verify', fs.parentdir)
+        self.background2.append(key, verify_worker, *args)
 
     def restart_background_tasks(self):
-        self.background.restart_all(tuple(self.stores))
+        for fs in self.stores:
+            self._append_fs_tasks(fs)
+        self.background1.append('downgrade', downgrade_worker, self.env)
+
+    def start_vigilance(self):
+        if self.vigilance is not None:
+            return False
+        log.info('Starting vigilance_worker()...')
+        self.vigilance = start_process(vigilance_worker, self.env, self.ssl_config)
+        return True
+
+    def stop_vigilance(self):
+        if self.vigilance is None:
+            return False
+        log.info('Terminating vigilance_worker()...')
+        self.vigilance.terminate()
+        self.vigilance.join()
+        self.vigilance = None
+        return True
+
+    def restart_vigilance(self):
+        if self.stop_vigilance():
+            self.start_vigilance()
 
     def save_local(self):
         if self.local != self.__local:
@@ -555,7 +475,7 @@ class Core:
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()
-        self.background.restart_vigilance()
+        self.restart_vigilance()
 
     def _add_filestore(self, fs):
         log.info('Adding %r', fs)
@@ -570,13 +490,14 @@ class Core:
             self.db.save(fs.doc)
         except Conflict:
             pass
-        self.background.check_filestore(fs)
+        self._append_fs_tasks(fs)
         self._sync_stores()
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
         self.stores.remove(fs)
-        self.background.stop(fs.parentdir)
+        self.background1.pop(('scan_relink', fs.parentdir))
+        self.background2.pop(('verify', fs.parentdir))
         self._sync_stores()
 
     def _iter_project_dbs(self):

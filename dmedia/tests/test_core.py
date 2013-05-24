@@ -160,6 +160,7 @@ class TestBackground(TestCase):
             ('d', ('dee', 0)),
         ]))
         self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c', 'd'])
+        self.assertEqual(bkrnd.popitem(), ('a', ('aye', 2)))
 
 
 class TestCore(CouchCase):
