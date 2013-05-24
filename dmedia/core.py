@@ -321,7 +321,7 @@ def clean_file_id(_id):
 Task = namedtuple('Task', 'key process thread')
 
 
-class Background:
+class TaskQueue:
     __slots__ = ('running', 'task', 'pending')
 
     def __init__(self):
@@ -379,45 +379,35 @@ class Background:
             self.pending.pop(key, None)
 
 
-class Core:
-    def __init__(self, env, ssl_config=None):
+class TaskManager:
+    def __init__(self, env, ssl_config):
         self.env = env
         self.ssl_config = ssl_config
-        self.db = util.get_db(env, init=True)
-        self.log_db = self.db.database(schema.LOG_DB_NAME)
-        self.log_db.ensure()
-        self.server = self.db.server()
-        self.ms = MetaStore(self.db)
-        self.stores = LocalStores()
-        self.background1 = Background()
-        self.background2 = Background()
+        self.queue1 = TaskQueue()
+        self.queue2 = TaskQueue()
         self.vigilance = None
-        try:
-            self.local = self.db.get(LOCAL_ID)
-        except NotFound:
-            self.local = {
-                '_id': LOCAL_ID,
-                'stores': {},
-            }
-        self.__local = deepcopy(self.local)
 
-    def start_background_tasks(self):
-        self.background1.append('downgrade', downgrade_worker, self.env)
-        self.background1.start()
-        self.background2.start()
-        self.start_vigilance()
-
-    def _append_fs_tasks(self, fs):
+    def queue_filestore_tasks(self, fs):
         args = (self.env, fs.parentdir, fs.id)
         key = ('scan_relink', fs.parentdir)
-        self.background1.append(key, scan_relink_worker, *args)
+        self.queue1.append(key, scan_relink_worker, *args)
         key = ('verify', fs.parentdir)
-        self.background2.append(key, verify_worker, *args)
+        self.queue2.append(key, verify_worker, *args)
 
-    def restart_background_tasks(self):
-        for fs in self.stores:
-            self._append_fs_tasks(fs)
-        self.background1.append('downgrade', downgrade_worker, self.env)
+    def stop_filestore_tasks(self, fs): 
+        self.queue1.pop(('scan_relink', fs.parentdir))
+        self.queue2.pop(('verify', fs.parentdir))
+    
+    def requeue_filestore_tasks(self, filestores):
+        self.queue1.append('downgrade', downgrade_worker, self.env)
+        for fs in filestores:
+            self.queue_filestore_tasks(fs)
+
+    def start_tasks(self):
+        self.queue1.append('downgrade', downgrade_worker, self.env)
+        self.queue1.start()
+        self.queue2.start()
+        self.start_vigilance()
 
     def start_vigilance(self):
         if self.vigilance is not None:
@@ -438,6 +428,36 @@ class Core:
     def restart_vigilance(self):
         if self.stop_vigilance():
             self.start_vigilance()
+
+
+class Core:
+    def __init__(self, env, ssl_config=None):
+        self.env = env
+        self.ssl_config = ssl_config
+        self.db = util.get_db(env, init=True)
+        self.log_db = self.db.database(schema.LOG_DB_NAME)
+        self.log_db.ensure()
+        self.server = self.db.server()
+        self.ms = MetaStore(self.db)
+        self.stores = LocalStores()
+        self.task_manager = TaskManager(env, ssl_config)
+        try:
+            self.local = self.db.get(LOCAL_ID)
+        except NotFound:
+            self.local = {
+                '_id': LOCAL_ID,
+                'stores': {},
+            }
+        self.__local = deepcopy(self.local)
+
+    def start_background_tasks(self):
+        self.task_manager.start_tasks()
+
+    def restart_background_tasks(self):
+        self.task_manager.requeue_filestore_tasks(tuple(self.stores))
+
+    def restart_vigilance(self):
+        self.task_manager.restart_vigilance()
 
     def save_local(self):
         if self.local != self.__local:
@@ -490,14 +510,13 @@ class Core:
             self.db.save(fs.doc)
         except Conflict:
             pass
-        self._append_fs_tasks(fs)
+        self.task_manager.queue_filestore_tasks(fs)
         self._sync_stores()
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
         self.stores.remove(fs)
-        self.background1.pop(('scan_relink', fs.parentdir))
-        self.background2.pop(('verify', fs.parentdir))
+        self.task_manager.stop_filestore_tasks(fs)
         self._sync_stores()
 
     def _iter_project_dbs(self):

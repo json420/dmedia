@@ -94,73 +94,73 @@ class TestCouchFunctions(CouchCase):
         )
 
 
-class TestBackground(TestCase):
+class TestTaskQueue(TestCase):
     def test_init(self):
-        bkrnd = core.Background()
-        self.assertIs(bkrnd.running, False)
-        self.assertIsNone(bkrnd.task)
-        self.assertIsInstance(bkrnd.pending, OrderedDict)
-        self.assertEqual(bkrnd.pending, OrderedDict())
+        tq = core.TaskQueue()
+        self.assertIs(tq.running, False)
+        self.assertIsNone(tq.task)
+        self.assertIsInstance(tq.pending, OrderedDict)
+        self.assertEqual(tq.pending, OrderedDict())
 
     def test_append(self):
-        bkrnd = core.Background()
+        tq = core.TaskQueue()
 
-        bkrnd.append('a', 'aye', 0)
-        self.assertEqual(bkrnd.pending, OrderedDict([
+        tq.append('a', 'aye', 0)
+        self.assertEqual(tq.pending, OrderedDict([
             ('a', ('aye', 0)),
         ]))
-        self.assertEqual(list(bkrnd.pending), ['a'])
+        self.assertEqual(list(tq.pending), ['a'])
 
-        bkrnd.append('b', 'bee', 0)
-        self.assertEqual(bkrnd.pending, OrderedDict([
+        tq.append('b', 'bee', 0)
+        self.assertEqual(tq.pending, OrderedDict([
             ('a', ('aye', 0)),
             ('b', ('bee', 0)),
         ]))
-        self.assertEqual(list(bkrnd.pending), ['a', 'b'])
+        self.assertEqual(list(tq.pending), ['a', 'b'])
 
-        bkrnd.append('c', 'see', 0)
-        self.assertEqual(bkrnd.pending, OrderedDict([
+        tq.append('c', 'see', 0)
+        self.assertEqual(tq.pending, OrderedDict([
             ('a', ('aye', 0)),
             ('b', ('bee', 0)),
             ('c', ('see', 0)),
         ]))
-        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c'])
+        self.assertEqual(list(tq.pending), ['a', 'b', 'c'])
 
-        bkrnd.append('a', 'aye', 1)
-        self.assertEqual(bkrnd.pending, OrderedDict([
+        tq.append('a', 'aye', 1)
+        self.assertEqual(tq.pending, OrderedDict([
             ('a', ('aye', 1)),
             ('b', ('bee', 0)),
             ('c', ('see', 0)),
         ]))
-        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c'])
+        self.assertEqual(list(tq.pending), ['a', 'b', 'c'])
 
-        bkrnd.append('d', 'dee', 0)
-        self.assertEqual(bkrnd.pending, OrderedDict([
+        tq.append('d', 'dee', 0)
+        self.assertEqual(tq.pending, OrderedDict([
             ('a', ('aye', 1)),
             ('b', ('bee', 0)),
             ('c', ('see', 0)),
             ('d', ('dee', 0)),
         ]))
-        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c', 'd'])
+        self.assertEqual(list(tq.pending), ['a', 'b', 'c', 'd'])
 
-        bkrnd.append('c', 'see', 1)
-        self.assertEqual(bkrnd.pending, OrderedDict([
+        tq.append('c', 'see', 1)
+        self.assertEqual(tq.pending, OrderedDict([
             ('a', ('aye', 1)),
             ('b', ('bee', 0)),
             ('c', ('see', 1)),
             ('d', ('dee', 0)),
         ]))
-        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c', 'd'])
+        self.assertEqual(list(tq.pending), ['a', 'b', 'c', 'd'])
 
-        bkrnd.append('a', 'aye', 2)
-        self.assertEqual(bkrnd.pending, OrderedDict([
+        tq.append('a', 'aye', 2)
+        self.assertEqual(tq.pending, OrderedDict([
             ('a', ('aye', 2)),
             ('b', ('bee', 0)),
             ('c', ('see', 1)),
             ('d', ('dee', 0)),
         ]))
-        self.assertEqual(list(bkrnd.pending), ['a', 'b', 'c', 'd'])
-        self.assertEqual(bkrnd.popitem(), ('a', ('aye', 2)))
+        self.assertEqual(list(tq.pending), ['a', 'b', 'c', 'd'])
+        self.assertEqual(tq.popitem(), ('a', ('aye', 2)))
 
 
 class TestCore(CouchCase):
