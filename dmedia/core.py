@@ -45,7 +45,6 @@ from collections import namedtuple, OrderedDict
 from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
-from filestore.migration import Migration
 from gi.repository import GLib
 
 import dmedia
@@ -546,10 +545,7 @@ class Core:
 
     def load_default_filestore(self, parentdir):
         if util.isfilestore(parentdir):
-            m = Migration(parentdir)
-            if m.needs_migration():
-                log.warning('FileStore in %r needs migration', parentdir)
-            fs = FileStore(parentdir)
+            fs = util.migrate_if_needed(parentdir)
         else:
             fs = FileStore.create(parentdir)
         log.info('Default: %r', fs)
@@ -644,10 +640,7 @@ class Core:
         """
         Add an existing file-store into the local storage pool.
         """
-        m = Migration(parentdir)
-        if m.needs_migration():
-            log.warning('FileStore in %r needs migration', parentdir)
-        fs = FileStore(parentdir, expected_id)
+        fs = util.migrate_if_needed(parentdir, expected_id)
         self._add_filestore(fs)
         return fs
 

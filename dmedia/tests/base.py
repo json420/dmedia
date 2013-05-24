@@ -198,6 +198,11 @@ class TempDir(object):
 
     def join(self, *parts):
         return path.join(self.dir, *parts)
+    
+    def mkdir(self, *parts):
+        d = self.join(*parts)
+        os.mkdir(d)
+        return d
 
     def makedirs(self, *parts):
         d = self.join(*parts)

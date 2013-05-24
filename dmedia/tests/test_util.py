@@ -29,6 +29,8 @@ from unittest import TestCase
 import json
 
 import filestore
+from filestore.misc import TempFileStore
+from filestore.migration import Migration, b32_to_db32
 import microfiber
 from microfiber import random_id, Database, NotFound
 
@@ -51,8 +53,36 @@ class TestFunctions(TestCase):
     def test_isfilestore(self):
         tmp = TempDir()
         self.assertFalse(util.isfilestore(tmp.dir))
-        tmp.makedirs('.dmedia')
+        tmp.mkdir('.dmedia')
         self.assertTrue(util.isfilestore(tmp.dir))
+
+    def test_is_v1_filestore(self):
+        tmp = TempDir()
+        self.assertFalse(util.is_v1_filestore(tmp.dir))
+        tmp.mkdir('.dmedia')
+        self.assertFalse(util.is_v1_filestore(tmp.dir))
+        tmp.touch('.dmedia', 'store.json')
+        self.assertFalse(util.is_v1_filestore(tmp.dir))
+        tmp.touch('.dmedia', 'filestore.json')
+        self.assertTrue(util.is_v1_filestore(tmp.dir))
+
+    def test_migrate_if_needed(self):
+        v1 = TempFileStore()
+        fs = util.migrate_if_needed(v1.parentdir)
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, v1.parentdir)
+        self.assertEqual(fs.id, v1.id)
+        self.assertEqual(fs.doc, v1.doc)
+        del v1
+        del fs
+
+        tmp = TempDir()
+        m = Migration(tmp.dir)
+        old = m.build_v0_simulation()
+        fs = util.migrate_if_needed(tmp.dir)
+        self.assertIsInstance(fs, filestore.FileStore)
+        self.assertEqual(fs.parentdir, tmp.dir)
+        self.assertEqual(fs.id, b32_to_db32(old['_id']))
 
 
 class TestCouchFunctions(CouchCase):
