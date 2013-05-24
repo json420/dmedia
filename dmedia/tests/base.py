@@ -39,7 +39,7 @@ from filestore import scandir
 from dbase32 import random_id
 
 
-MAX_SIZE = LEAF_SIZE * 3
+MAX_SIZE = LEAF_SIZE * 2
 datadir = path.join(path.dirname(path.abspath(__file__)), 'data')
 random = SystemRandom()
 
