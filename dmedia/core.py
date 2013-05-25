@@ -456,6 +456,10 @@ class Core:
             self.db.save(self.local)
             self.__local = deepcopy(self.local)
 
+    def reset_local(self):
+        self.local['stores'] = {}
+        self.local['peers'] = {}
+
     def start_background_tasks(self):
         self.task_manager.start_tasks()
 

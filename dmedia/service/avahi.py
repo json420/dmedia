@@ -28,10 +28,11 @@ import json
 import time
 from collections import namedtuple
 
-from microfiber import dumps, NotFound, Context, Server, Database
+from microfiber import dumps, build_ssl_context
 import dbus
 from gi.repository import GLib
 
+from dmedia.client import get_client
 from dmedia.parallel import start_thread
 from dmedia import util, views
 
@@ -69,27 +70,18 @@ def sort_names(names):
 
 
 class Avahi:
-
     service = '_dmedia._tcp'
+    group = None
 
-    def __init__(self, env, port, ssl_config):
-        self.group = None
-        self.machine_id = env['machine_id']
-        self.user_id = env['user_id']
+    def __init__(self, core, port):
+        assert isinstance(port, int)
+        self.core = core
         self.port = port
-        self.ssl_config = ssl_config
-        ctx = Context(env)
-        self.db = Database('dmedia-1', ctx=ctx)
-        self.server = Server(ctx=ctx)
+        self.machine_id = core.env['machine_id']
+        self.user_id = core.env['user_id']
+        self.server = core.server
+        self.ssl_context = build_ssl_context(core.ssl_config)
         self.replications = {}
-        try:
-            self.peers = self.db.get(PEERS_ID)
-            if self.peers.get('peers') != {}:
-                self.peers['peers'] = {}
-                self.db.save(self.peers)
-        except NotFound:
-            self.peers = {'_id': PEERS_ID, 'peers': {}}
-            self.db.save(self.peers)
 
     def __del__(self):
         self.free()
@@ -166,8 +158,7 @@ class Avahi:
 
     def info_thread(self, key, url):
         try:
-            env = {'url': url, 'ssl': self.ssl_config}
-            client = Server(env)
+            client = get_client(url, self.ssl_context)
             info = client.get()
             assert info.pop('user_id') == self.user_id
             assert info.pop('machine_id') == key
@@ -178,17 +169,12 @@ class Avahi:
             log.exception('Avahi: could not get info for %s', url)
 
     def add_peer(self, key, info):
-        self.peers['peers'][key] = info
-        self.db.save(self.peers)
+        self.core.add_peer(key, info)
         self.add_replication_peer(key, info['url'])
 
     def remove_peer(self, key):
-        try:
-            del self.peers['peers'][key]
-            self.db.save(self.peers)
-        except KeyError:
-            pass
-        self.remove_replication_peer(key)
+        if self.core.remove_peer(key):
+            self.remove_replication_peer(key)
 
     def add_replication_peer(self, key, url):
         env = {'url': url + 'couch/'}
