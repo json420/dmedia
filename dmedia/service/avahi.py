@@ -51,7 +51,7 @@ def make_url(ip, port):
 
 
 def iscontinuous(name):
-    if name == 'thumbnails':
+    if name in ('thumbnails', 'thumbnails-1'):
         return False
     if name.startswith('dmedia-0') or name.startswith('novacut-0'):
         return False

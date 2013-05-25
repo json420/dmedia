@@ -70,10 +70,19 @@ def start_httpd(couch_env, ssl_config):
     return (process, env)
 
 
+NO_DUMP = (
+    'thumbnails',
+    'thumbnails-1',
+    'migrate-0-to-1',
+)
+
 def db_dump_iter(server):
     assert isinstance(server, Server)
     for name in server.get('_all_dbs'):
-        if name.startswith('_') or name == 'thumbnails':
+        if name == 'thumbnails':
+            log.info('Deleting old thumbails DB...')
+            server.delete(name)  # Replaced with thumbnails-1
+        if name.startswith('_') or name in NO_DUMP:
             continue
         yield name
 
