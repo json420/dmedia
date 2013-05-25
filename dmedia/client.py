@@ -332,7 +332,7 @@ def download_one(ms, ssl_context, _id, tmpfs=None):
         return
 
     # We can't do anything if no peers are available:
-    peers = ms.get_peers()
+    peers = ms.get_local_peers()
     if not peers:
         log.warning('No peers on local network, cannot download %s', _id)
         return

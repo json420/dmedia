@@ -162,10 +162,10 @@ class Service(dbus.service.Object):
         mainloop.run()
 
     def start_core(self):
-        start = time.time()
+        start = time.monotonic()
         env = self.couch.auto_bootstrap()
         log.info('%r', self.couch._welcome)
-        log.info('Starting CouchDB took %.3f', time.time() - start)
+        log.info('Starting CouchDB took %.3f', time.monotonic() - start)
         self.core = Core(env, self.couch.get_ssl_config())
         d = self.core.db.get()
         log.info('doc_count: %s, update_seq: %s, data_size: %s, disk_size: %s',
@@ -174,8 +174,12 @@ class Service(dbus.service.Object):
             bytes10(d['data_size']),
             bytes10(d['disk_size']),
         )
+        self.core.reset_local()
         self.core.load_identity(self.couch.machine, self.couch.user)
-        self.core.load_default_filestore(self.couch.basedir)
+        if isfilestore(self.couch.basedir):
+            self.core.connect_filestore(self.couch.basedir)
+        else:
+            self.core.create_filestore(self.couch.basedir)
         self.env_s = dumps(self.core.env, pretty=True)
         self.snapshots = Snapshots(
                 self.core.env,
@@ -213,10 +217,9 @@ class Service(dbus.service.Object):
         Start HTTPD, Avahi, replication.
         """
         log.info('[idle2 at time %.3f]', time.time() - start_time)
-        ssl_config = self.couch.get_ssl_config()
-        (self.httpd, env) = start_httpd(self.core.env, ssl_config)
+        (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
         port = env['port']
-        self.avahi = Avahi(self.core.env, port, ssl_config)
+        self.avahi = Avahi(self.core, port)
         self.avahi.run()
         GLib.timeout_add(30 * 1000, self.on_idle3)
         GLib.timeout_add(120 * 1000, self.core.reclaim_if_possible)
@@ -227,7 +230,7 @@ class Service(dbus.service.Object):
         """
         log.info('[idle3 at time %.3f]', time.time() - start_time)
         self.core.start_background_tasks()
-        # Restart the background tasks every 15 minutes:
+        # Re-queue downgrade, scan, relink, and verify tasks every 15 minutes:
         GLib.timeout_add(15 * 60 * 1000, self.on_background_restart)
 
     def on_background_restart(self):
@@ -423,13 +426,9 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Peers(self):
         """
-        Return the _local/peers doc.
+        Return peers currently known on local network.
         """
-        try:
-            doc = self.core.db.get('_local/peers')
-            return dumps(doc['peers'], pretty=True)
-        except NotFound:
-            return '{}'
+        return dumps(self.core.local['peers'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def CreateFileStore(self, parentdir):

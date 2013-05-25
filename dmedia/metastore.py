@@ -336,23 +336,30 @@ class MetaStore:
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
-    def get_local_stores(self):
+    def get_local_dmedia(self):
+        """
+        Return the /dmedia-0/_local/dmedia doc.
+
+        To make unit testing easier, it returns ``{}`` when the doc doesn't
+        exist.
+        """
         try:
-            doc = self.db.get('_local/dmedia')
+            return self.db.get('_local/dmedia')
         except NotFound:
-            doc = {'stores': {}}
+            return {}
+
+    def get_local_stores(self):
+        doc = self.get_local_dmedia()
+        stores = get_dict(doc, 'stores')
         local_stores = LocalStores()
-        for (parentdir, info) in doc['stores'].items():
+        for (parentdir, info) in stores.items():
             fs = FileStore(parentdir, info['id'])
             local_stores.add(fs)
         return local_stores
 
-    def get_peers(self):
-        try:
-            doc = self.db.get('_local/peers')
-            self._peers = get_dict(doc, 'peers')
-        except NotFound:
-            self._peers = {}
+    def get_local_peers(self):
+        doc = self.get_local_dmedia()
+        self._peers = get_dict(doc, 'peers')
         return self._peers
 
     def iter_stores(self):

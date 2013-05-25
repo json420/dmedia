@@ -172,7 +172,13 @@ class TestCore(CouchCase):
         self.assertIsInstance(inst.server, microfiber.Server)
         self.assertIs(inst.db.ctx, inst.server.ctx)
         self.assertIsInstance(inst.stores, LocalStores)
-        self.assertEqual(inst.local, {'_id': '_local/dmedia', 'stores': {}})
+        self.assertEqual(inst.local,
+            {
+                '_id': '_local/dmedia',
+                'stores': {},
+                'peers': {},
+            }
+        )
 
     def test_load_identity(self):
         machine_id = random_id(30)
@@ -193,6 +199,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-1',
                 'stores': {},
+                'peers': {},
                 'machine_id': machine_id,
                 'user_id': user_id,
             }
@@ -209,70 +216,131 @@ class TestCore(CouchCase):
 
         self.assertEqual(set(machine), set(['_id', '_rev']))
         self.assertTrue(machine['_rev'].startswith('1-'))
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
+        self.assertEqual(inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
                 '_rev': '0-1',
                 'stores': {},
+                'peers': {},
                 'machine_id': machine_id,
                 'user_id': user_id,
             }
         )
 
-    def test_load_default_filestore(self):
-        # Test when FileStore doesn't yet exist
+    def test_add_peer(self):
         inst = core.Core(self.env)
-        tmp = TempDir()
-        fs = inst.load_default_filestore(tmp.dir)
-        self.assertIsInstance(fs, filestore.FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.copies, 1)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
+        id1 = random_id(30)
+        info1 = {
+            'host': 'jderose-Gazelle-Professional',
+            'url': 'https://192.168.1.139:41326/',
+            'user': 'jderose',
+            'version': '13.05.0'
+        }
+        id2 = random_id(30)
+        info2 = {'url': 'https://192.168.1.77:9872/'}
+
+        # id1 is not yet a peer:
+        self.assertIsNone(inst.add_peer(id1, info1))
+        self.assertEqual(inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
                 '_rev': '0-1',
-                'stores': {
-                    tmp.dir: {
-                        'id': fs.id,
-                        'copies': 1,
-                    }
+                'stores': {},
+                'peers': {
+                    id1: info1,
                 },
             }
         )
-        self.assertTrue(inst.db.get(fs.id)['_rev'].startswith('1-'))
 
-        # Test when FileStore already exists
-        _id = fs.id
-        inst = core.Core(self.env)
-        fs = inst.load_default_filestore(tmp.dir)
-        self.assertIsInstance(fs, filestore.FileStore)
-        self.assertEqual(fs.parentdir, tmp.dir)
-        self.assertEqual(fs.copies, 1)
-        self.assertEqual(fs.id, _id)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
+        # id2 is not yet a peer:
+        self.assertIsNone(inst.add_peer(id2, info2))
+        self.assertEqual(inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {
-                    tmp.dir: {
-                        'id': _id,
-                        'copies': 1,
-                    }
+                '_rev': '0-2',
+                'stores': {},
+                'peers': {
+                    id1: info1,
+                    id2: info2,
                 },
             }
         )
-        self.assertTrue(inst.db.get(_id)['_rev'].startswith('1-'))
 
-        # Test when migration is needed
+        # id1 is already a peer, make sure info is replaced
+        new1 = {'url': random_id()}
+        self.assertIsNone(inst.add_peer(id1, new1))
+        self.assertEqual(inst.db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'stores': {},
+                'peers': {
+                    id1: new1,
+                    id2: info2,
+                },
+            }
+        )
+
+    def test_remove_peer(self):
+        id1 = random_id(30)
+        id2 = random_id(30)
+        info1 = {'url': random_id()}
+        info2 = {'url': random_id()}
+
+        db = microfiber.Database('dmedia-1', self.env)
+        db.ensure()
+        local = {
+            '_id': '_local/dmedia',
+            'stores': {},
+            'peers': {
+                id1: info1,
+                id2: info2,
+            },
+        }
+        db.save(local)
         inst = core.Core(self.env)
-        tmp = TempDir()
-        m = Migration(tmp.dir)
-        old = m.build_v0_simulation()
-        fs = inst.load_default_filestore(tmp.dir)
-        self.assertEqual(b32_to_db32(old['_id']), fs.id)
+
+        # Test with a peer_id that doesn't exist:
+        nope = random_id(30)
+        self.assertIs(inst.remove_peer(nope), False)
+        self.assertEqual(db.get('_local/dmedia'), local)
+
+        # id1 is present
+        self.assertIs(inst.remove_peer(id1), True)
+        self.assertEqual(db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'stores': {},
+                'peers': {
+                    id2: info2,
+                },
+            }
+        )
+
+        # id1 is missing
+        self.assertIs(inst.remove_peer(id1), False)
+        self.assertEqual(db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'stores': {},
+                'peers': {
+                    id2: info2,
+                },
+            }
+        )
+
+        # id2 is present
+        self.assertIs(inst.remove_peer(id2), True)
+        self.assertEqual(db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'stores': {},
+                'peers': {},
+            }
+        )
 
     def test_create_filestore(self):
         inst = core.Core(self.env)
@@ -302,7 +370,8 @@ class TestCore(CouchCase):
                 '_rev': '0-1',
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': fs.copies},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -314,6 +383,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-2',
                 'stores': {},
+                'peers': {},
             }
         )
 
@@ -379,7 +449,8 @@ class TestCore(CouchCase):
                 'stores': {
                     fs.parentdir: {'id': fs.id, 'copies': 1},
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -414,7 +485,8 @@ class TestCore(CouchCase):
                 'stores': {
                     fs1.parentdir: {'id': fs1.id, 'copies': 1},
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -427,7 +499,8 @@ class TestCore(CouchCase):
                 '_rev': '0-3',
                 'stores': {
                     fs2.parentdir: {'id': fs2.id, 'copies': 1},
-                }
+                },
+                'peers': {},
             }
         )
 
@@ -439,6 +512,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-4',
                 'stores': {},
+                'peers': {},
             }
         )
 

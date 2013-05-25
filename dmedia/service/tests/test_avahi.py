@@ -25,12 +25,15 @@ Unit tests for `dmedia.service.avahi`.
 
 from random import SystemRandom
 from copy import deepcopy
+import ssl
 
 import microfiber
+from dbase32 import random_id
 
 from dmedia.tests.couch import CouchCase
+from dmedia.identity import TempPKI
+from dmedia.core import Core
 from dmedia.service import avahi
-from dmedia.util import get_db
 
 
 random = SystemRandom()
@@ -42,48 +45,18 @@ def random_port():
 
 class TestAvahi(CouchCase):
     def test_init(self):
-        db = get_db(self.env)
-        self.assertTrue(db.ensure())
+        pki = TempPKI(client_pki=True)
+        ssl_config = pki.get_client_config()
+        core = Core(self.env, ssl_config)
         port = random_port()
-        ssl_config = 'the SSL config'
-        inst = avahi.Avahi(self.env, port, ssl_config)
-        self.assertIsNone(inst.group)
-        self.assertIs(inst.machine_id, self.machine_id)
-        self.assertIs(inst.user_id, self.user_id)
-        self.assertIs(inst.port, port)
-        self.assertIs(inst.ssl_config, ssl_config)
-        self.assertIsInstance(inst.db, microfiber.Database)
-        self.assertIsInstance(inst.server, microfiber.Server)
-        self.assertIs(inst.db.ctx, inst.server.ctx)
+        inst = avahi.Avahi(core, port)
+        self.assertIs(inst.core, core)
+        self.assertEqual(inst.port, port)
+        self.assertEqual(inst.machine_id, self.machine_id)
+        self.assertEqual(inst.user_id, self.user_id)
+        self.assertIs(inst.server, core.server)
+        self.assertIsInstance(inst.ssl_context, ssl.SSLContext)
         self.assertEqual(inst.replications, {})
-        self.assertEqual(inst.peers,
-            {
-                '_id': '_local/peers',
-                '_rev': '0-1',
-                'peers': {},
-            }
-        )
-        self.assertEqual(db.get('_local/peers'), inst.peers)
-
-        peers = deepcopy(inst.peers)
-        peers['peers'] = {'foo': 'bar'}
-        db.save(peers)
-        inst = avahi.Avahi(self.env, port, ssl_config)
-        self.assertEqual(inst.peers,
-            {
-                '_id': '_local/peers',
-                '_rev': '0-3',
-                'peers': {},
-            }
-        )
-        inst = avahi.Avahi(self.env, port, ssl_config)
-        self.assertEqual(inst.peers,
-            {
-                '_id': '_local/peers',
-                '_rev': '0-3',
-                'peers': {},
-            }
-        )
 
         inst.__del__()
 

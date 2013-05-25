@@ -1413,6 +1413,46 @@ class TestMetaStore(CouchCase):
         self.assertIs(ms.db, db)
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
 
+    def test_get_local_dmedia(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        local_id = '_local/dmedia'
+
+        # _local/dmedia NotFound:
+        self.assertEqual(ms.get_local_dmedia(), {})
+        with self.assertRaises(microfiber.NotFound) as cm:
+            db.get(local_id)
+
+        # _local/dmedia exists:
+        doc = {'_id': local_id, 'marker': random_id()}
+        db.save(doc)
+        self.assertEqual(ms.get_local_dmedia(), doc)
+
+    def test_get_local_peers(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        local_id = '_local/dmedia'
+
+        # _local/dmedia NotFound:
+        self.assertEqual(ms.get_local_peers(), {})
+        self.assertEqual(ms._peers, {})
+        with self.assertRaises(microfiber.NotFound) as cm:
+            db.get(local_id)
+
+        # _local/dmedia exists, but is missing doc['peers']:
+        doc = {'_id': local_id}
+        db.save(doc)
+        self.assertEqual(ms.get_local_peers(), {})
+
+        # has doc['peers']:
+        peers = {
+            random_id(30): {'url': random_id()},
+            random_id(30): {'url': random_id()},
+        }
+        doc['peers'] = peers
+        db.save(doc)
+        self.assertEqual(ms.get_local_peers(), peers)
+
     def test_schema_check(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
