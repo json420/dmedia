@@ -72,6 +72,7 @@ try:
             continue
         for (v0_id, v1_id, v1_ch) in mig:
             if v1_ch is not None:
+                print(v0_id)
                 doc = create_mapping_doc(v0_id, v1_ch)
                 log.info(v0_id)
                 buf.save(doc)

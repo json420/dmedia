@@ -183,7 +183,7 @@ class Service(dbus.service.Object):
         self.lazy_access = LazyAccess(self.core.db)
         self.downloads = Downloads(self.core.env, self.couch.get_ssl_config())
         log.info('Finished core startup in %.3f', time.monotonic() - start)
-        GLib.timeout_add(250, self.on_idle1)
+        GLib.timeout_add(300, self.on_idle1)
 
     def on_idle1(self):
         """
