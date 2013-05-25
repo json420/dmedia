@@ -205,10 +205,40 @@ class Service(dbus.service.Object):
             self.peer = Browser(self, self.couch)
         VolumeMonitor.connect('mount-added', self.on_mount_added)
         VolumeMonitor.connect('mount-pre-unmount', self.on_mount_pre_unmount)
-        #VolumeMonitor.connect('mount-removed', self.on_mount_removed)
+        VolumeMonitor.connect('mount-removed', self.on_mount_removed)
         for mount in VolumeMonitor.get_mounts():
             self.on_mount_added(VolumeMonitor, mount)
         self.SnapshotAll()
+
+    def on_mount_added(self, vm, mount):
+        parentdir = mount.get_root().get_path()
+        log.info('mount-added: %r', parentdir)
+        GLib.idle_add(self._add_mount, parentdir)
+
+    def _add_mount(self, parentdir):
+        if not isfilestore(parentdir):
+            log.warning('%r is not a filestore, skipping', parentdir)
+            return
+        try:
+            self.core.connect_filestore(parentdir)
+        except Exception:
+            log.exception('Could not connect FileStore %r', parentdir)
+
+    def on_mount_pre_unmount(self, vm, mount):
+        parentdir = mount.get_root().get_path()
+        log.info('mount-pre-unmount: %r', parentdir)
+        GLib.idle_add(self._remove_mount, parentdir)
+
+    def on_mount_removed(self, vm, mount):
+        parentdir = mount.get_root().get_path()
+        log.info('mount-remove: %r', parentdir)
+        GLib.idle_add(self._remove_mount, parentdir)
+
+    def _remove_mount(self, parentdir):
+        try:
+            self.core.disconnect_filestore(parentdir)
+        except KeyError:
+            log.warning('%r is not a connected filestore', parentdir)
 
     def init_views(self):
         """
@@ -264,31 +294,6 @@ class Service(dbus.service.Object):
                 self.lazy_access.flush()
             self.couch.kill()
             self.couch = None
-
-    def on_mount_added(self, vm, mount):
-        parentdir = mount.get_root().get_path()
-        GLib.idle_add(self._on_mount_added, parentdir)
-
-    def _on_mount_added(self, parentdir):
-        log.info('mount_added: %r', parentdir)
-        if not isfilestore(parentdir):
-            log.warning('%r is not a filestore, skipping', parentdir)
-            return
-        try:
-            self.core.connect_filestore(parentdir)
-        except Exception:
-            log.exception('Could not connect FileStore %r', parentdir)
-
-    def on_mount_pre_unmount(self, vm, mount):
-        parentdir = mount.get_root().get_path()
-        GLib.idle_add(self._on_mount_pre_unmount, parentdir)
-
-    def _on_mount_pre_unmount(self, parentdir):
-        log.info('mount_pre_unmount: %r', parentdir)
-        try:
-            self.core.disconnect_filestore(parentdir)
-        except KeyError:
-            log.warning('%r is not a connected filestore', parentdir)
 
     ###########################################
     # Signals and Methods for Peering Protocol:
