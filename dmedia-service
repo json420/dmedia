@@ -426,13 +426,9 @@ class Service(dbus.service.Object):
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Peers(self):
         """
-        Return the _local/peers doc.
+        Return peers currently known on local network.
         """
-        try:
-            doc = self.core.db.get('_local/peers')
-            return dumps(doc['peers'], pretty=True)
-        except NotFound:
-            return '{}'
+        return dumps(self.core.local['peers'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def CreateFileStore(self, parentdir):
