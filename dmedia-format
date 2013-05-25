@@ -112,6 +112,10 @@ def get_info(part_dev):
     return dict(line.split('=') for line in text.splitlines())
 
 
+# If any partitions are mounted, dd will still ruin them below.  This will
+# fail before that if any partitions on this disk are mounted:
+check_call(['blockdev', '--rereadpt', args.dev])
+
 # Wipe out old partition table:
 check_call(['dd',
     'if=/dev/zero',
