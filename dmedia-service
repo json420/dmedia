@@ -262,6 +262,9 @@ class Service(dbus.service.Object):
 
     def on_mount_added(self, vm, mount):
         parentdir = mount.get_root().get_path()
+        GLib.idle_add(self._on_mount_added, parentdir)
+
+    def _on_mount_added(self, parentdir):
         log.info('mount_added: %r', parentdir)
         if not isfilestore(parentdir):
             log.warning('%r is not a filestore, skipping', parentdir)
@@ -273,6 +276,9 @@ class Service(dbus.service.Object):
 
     def on_mount_pre_unmount(self, vm, mount):
         parentdir = mount.get_root().get_path()
+        GLib.idle_add(self._on_mount_pre_unmount, parentdir)
+
+    def _on_mount_pre_unmount(self, parentdir):
         log.info('mount_pre_unmount: %r', parentdir)
         try:
             self.core.disconnect_filestore(parentdir)
