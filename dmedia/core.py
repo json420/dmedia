@@ -391,6 +391,7 @@ class TaskQueue:
 
     def pop(self, key):
         if self.task is not None and self.task.key == key:
+            log.info('Terminating %r', key)
             self.task.process.terminate()
         else:
             self.pending.pop(key, None)
