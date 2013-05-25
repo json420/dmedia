@@ -478,10 +478,20 @@ class Core:
     def restart_vigilance(self):
         self.task_manager.restart_vigilance()
 
-    def set_auto_format(self, value):
-        if value not in ('true', 'false'):
-            raise Exception('bad auto_format value: {!r}'.format(value))
-        self.local['auto_format'] = json.loads(value)
+    def get_auto_format(self):
+        return self.local.get('auto_format')
+
+    def set_auto_format(self, flag):
+        assert type(flag) is bool
+        self.local['auto_format'] = flag
+        self.save_local()
+
+    def get_skip_internal(self):
+        return self.local.get('skip_internal')
+
+    def set_skip_internal(self, flag):
+        assert type(flag) is bool
+        self.local['skip_internal'] = flag
         self.save_local()
 
     def load_identity(self, machine, user):

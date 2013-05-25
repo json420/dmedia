@@ -26,7 +26,8 @@ Dmedia DBus service on org.freedesktop.Dmedia.
 """
 
 import time
-start_time = time.time()
+start_time = time.monotonic()
+
 
 import optparse
 import logging
@@ -39,7 +40,7 @@ from microfiber import NotFound, dumps
 
 import dmedia
 from dmedia import schema
-from dmedia.units import bytes10
+from dmedia.units import bytes10, minsec
 from dmedia.util import isfilestore
 from dmedia.parallel import start_thread
 from dmedia.startup import DmediaCouch
@@ -82,6 +83,7 @@ class Service(dbus.service.Object):
 
         # Now go for it:
         dmedia.configure_logging()
+        log.info('Started at monotonic clock time: %s', minsec(int(start_time)))
         self.first_snapshot = True
         self.update_thread = None
         self.pending_update = None
@@ -176,10 +178,13 @@ class Service(dbus.service.Object):
         )
         self.core.reset_local()
         self.core.load_identity(self.couch.machine, self.couch.user)
-        if isfilestore(self.couch.basedir):
-            self.core.connect_filestore(self.couch.basedir)
+        if self.core.get_skip_internal():
+            log.info('Skipping internal FileStore in %r', self.couch.basedir)
         else:
-            self.core.create_filestore(self.couch.basedir)
+            if isfilestore(self.couch.basedir):
+                self.core.connect_filestore(self.couch.basedir)
+            else:
+                self.core.create_filestore(self.couch.basedir)
         self.env_s = dumps(self.core.env, pretty=True)
         self.snapshots = Snapshots(
                 self.core.env,
@@ -188,14 +193,14 @@ class Service(dbus.service.Object):
         )
         self.lazy_access = LazyAccess(self.core.db)
         self.downloads = Downloads(self.core.env, self.couch.get_ssl_config())
-        log.info('Finished core startup in %.3f', time.time() - start)
+        log.info('Finished core startup in %.3f', time.monotonic() - start)
         GLib.timeout_add(350, self.on_idle1)
 
     def on_idle1(self):
         """
         VolumeMontior, peering browser, and SnapshotAll.
         """
-        log.info('[idle1 at time %.3f]', time.time() - start_time)
+        log.info('[idle1 at time %.3f]', time.monotonic() - start_time)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
         VolumeMonitor.connect('mount-added', self.on_mount_added)
@@ -216,7 +221,7 @@ class Service(dbus.service.Object):
         """
         Start HTTPD, Avahi, replication.
         """
-        log.info('[idle2 at time %.3f]', time.time() - start_time)
+        log.info('[idle2 at time %.3f]', time.monotonic() - start_time)
         (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
         port = env['port']
         self.avahi = Avahi(self.core, port)
@@ -228,7 +233,7 @@ class Service(dbus.service.Object):
         """
         Start the background filestore checking tasks.
         """
-        log.info('[idle3 at time %.3f]', time.time() - start_time)
+        log.info('[idle3 at time %.3f]', time.monotonic() - start_time)
         self.core.start_background_tasks()
         # Re-queue downgrade, scan, relink, and verify tasks every 15 minutes:
         GLib.timeout_add(15 * 60 * 1000, self.on_background_restart)
@@ -412,7 +417,7 @@ class Service(dbus.service.Object):
         """
         log.info('Service.Kill()')
         mainloop.quit()
-        return int(time.time() - start_time)
+        return int(time.monotonic() - start_time)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
@@ -521,11 +526,29 @@ class Service(dbus.service.Object):
         self.Snapshot(schema.project_db_name(project_id))
         self.Snapshot(schema.DB_NAME)
 
-    @dbus.service.method(IFACE, in_signature='s', out_signature='')
-    def SetAutoFormat(self, value):
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def AutoFormat(self, value):
         value = str(value)
-        log.info('Dmedia.SetAutoFormat(%r)', value)
-        self.core.set_auto_format(value)
+        log.info('Dmedia.AutoFormat(%r)', value)
+        if value == '':
+            return dumps(self.core.get_auto_format())
+        flag = {'true': True, 'false': False}.get(value)
+        if flag is None:
+            return "Error: value must be 'true' or 'false'"
+        self.core.set_auto_format(flag)
+        return dumps(flag)
+
+    @dbus.service.method(IFACE, in_signature='s', out_signature='s')
+    def SkipInternal(self, value):
+        value = str(value)
+        log.info('Dmedia.SkipInternal(%r)', value)
+        if value == '':
+            return dumps(self.core.get_skip_internal())
+        flag = {'true': True, 'false': False}.get(value)
+        if flag is None:
+            return "Error: value must be 'true' or 'false'"
+        self.core.set_skip_internal(flag)
+        return dumps(flag)   
 
 
 parser = optparse.OptionParser(
