@@ -492,6 +492,15 @@ class Core:
         self.save_local()
         self.restart_vigilance()
 
+    def remove_peer(self, peer_id):
+        try:
+            del self.local['peers'][peer_id]
+            self.save_local()
+            self.restart_vigilance()
+            return True
+        except KeyError:
+            return False
+
     def _sync_stores(self):
         self.local['stores'] = self.stores.local_stores()
         self.save_local()

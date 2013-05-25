@@ -281,6 +281,67 @@ class TestCore(CouchCase):
             }
         )
 
+    def test_remove_peer(self):
+        id1 = random_id(30)
+        id2 = random_id(30)
+        info1 = {'url': random_id()}
+        info2 = {'url': random_id()}
+
+        db = microfiber.Database('dmedia-1', self.env)
+        db.ensure()
+        local = {
+            '_id': '_local/dmedia',
+            'stores': {},
+            'peers': {
+                id1: info1,
+                id2: info2,
+            },
+        }
+        db.save(local)
+        inst = core.Core(self.env)
+
+        # Test with a peer_id that doesn't exist:
+        nope = random_id(30)
+        self.assertIs(inst.remove_peer(nope), False)
+        self.assertEqual(db.get('_local/dmedia'), local)
+
+        # id1 is present
+        self.assertIs(inst.remove_peer(id1), True)
+        self.assertEqual(db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'stores': {},
+                'peers': {
+                    id2: info2,
+                },
+            }
+        )
+
+        # id1 is missing
+        self.assertIs(inst.remove_peer(id1), False)
+        self.assertEqual(db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-2',
+                'stores': {},
+                'peers': {
+                    id2: info2,
+                },
+            }
+        )
+
+        # id2 is present
+        self.assertIs(inst.remove_peer(id2), True)
+        self.assertEqual(db.get('_local/dmedia'),
+            {
+                '_id': '_local/dmedia',
+                '_rev': '0-3',
+                'stores': {},
+                'peers': {},
+            }
+        )
+
     def test_create_filestore(self):
         inst = core.Core(self.env)
 
