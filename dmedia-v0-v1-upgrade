@@ -233,8 +233,12 @@ for (v0_name, v0_id) in migration.iter_v0_project_dbs(server):
                 id_map = dict(iter_id_map(old))
                 new = migration.migrate_import(old, id_map)
                 buf.save(new)
+            elif _type == 'dmedia/tag':
+                new = migration.migrate_tag(old)
+                buf.save(new)
             else:
-                print('WARNING: unexpected type {!r} for {}'.format(_type, v0_id)) 
+                print('WARNING: unexpected type {!r} for {}'.format(_type, v0_id))
+                print(dumps(old, True))
     buf.flush()
     print('{}: {} docs; {} conflicts'.format(v1_name, buf.count, buf.conflicts))
 

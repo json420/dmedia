@@ -176,5 +176,19 @@ def migrate_project_file(old, v1_id):
     for key in ('batch_id', 'import_id'):
         if key in old:
             new[key] = b32_to_db32(old[key])
+    if isinstance(old.get('tags'), dict):
+        new['tags'] = dict(
+            (b32_to_db32(key), value)
+            for (key, value) in old['tags'].items()
+        )
+    return new
+
+
+def migrate_tag(old):
+    assert old['type'] == 'dmedia/tag'
+    new = deepcopy(old)
+    new['_id'] = b32_to_db32(old['_id'])
+    del new['_rev']
+    new.pop('ver', None)
     return new
 

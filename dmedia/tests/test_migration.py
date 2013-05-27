@@ -1258,8 +1258,12 @@ class TestFunctions(TestCase):
            "name": "IMG_6003.CR2",
            "origin": "user",
            "tags": {
-           },
-           "time": 1356663921.1282482,
+                "Q6ZG5INDLJE4XCH7UAGJASWG": {
+                    "key": "golf",
+                    "value": "golf"
+                },
+            },
+            "time": 1356663921.1282482,
            "type": "dmedia/file",
            "width": 5616,
            "_attachments": {
@@ -1299,7 +1303,11 @@ class TestFunctions(TestCase):
            "name": "IMG_6003.CR2",
            "origin": "user",
            "tags": {
-           },
+                "JXS9WBG6EC7VQ5AYN39C3LP9": {
+                    "key": "golf",
+                    "value": "golf"
+                },
+            },
            "time": 1356663921.1282482,
            "type": "dmedia/file",
            "width": 5616,
@@ -1341,7 +1349,11 @@ class TestFunctions(TestCase):
            "name": "IMG_6003.CR2",
            "origin": "user",
            "tags": {
-           },
+                "JXS9WBG6EC7VQ5AYN39C3LP9": {
+                    "key": "golf",
+                    "value": "golf"
+                },
+            },
            "time": 1356663921.1282482,
            "type": "dmedia/file",
            "width": 5616,
@@ -1354,6 +1366,26 @@ class TestFunctions(TestCase):
                    "stub": True
                }
            }
+        })
+
+    def test_migrate_tag(self):
+        old = {
+            "_id": "Q6ZG5INDLJE4XCH7UAGJASWG",
+            "_rev": "1-1727c91f18585ac8a4c9db33a3c6a47e",
+            "key": "golf",
+            "time": 1356009652.889,
+            "type": "dmedia/tag",
+            "value": "golf",
+            "ver": 0
+        }
+        new = migration.migrate_tag(old)
+        self.assertIsNot(new, old)
+        self.assertEqual(new, {
+            "_id": "JXS9WBG6EC7VQ5AYN39C3LP9",
+            "key": "golf",
+            "time": 1356009652.889,
+            "type": "dmedia/tag",
+            "value": "golf",
         })
 
 
