@@ -96,11 +96,15 @@ def migrate_file(old, mdoc):
         'bytes': old['bytes'],
         'origin': old['origin'],
         'stored': dict(
-            (b32_to_db32(key), value) for (key, value) in old['stored'].items()
+            (b32_to_db32(key), value)
+            for (key, value) in old['stored'].items()
         ),
     }
     for value in new['stored'].values():
         value['mtime'] = int(value.get('mtime', 0))
+        verified = value.pop('verified', None)
+        if isinstance(verified, (int, float)):
+            value['verified'] = int(verified)
     schema.check_file(new)
     return new
 

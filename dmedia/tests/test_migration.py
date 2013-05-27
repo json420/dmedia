@@ -70,7 +70,7 @@ class TestFunctions(TestCase):
                 "BTVD5CS2HM4OBDLMAC2L7WZM": {
                     "copies": 1,
                     "mtime": 1365931098,
-                    "verified": 1366680068
+                    "verified": 1366680068.987
                 },
                 "DLA4NDZRW2LXEPF3RV7YHMON": {
                     "copies": 1,
