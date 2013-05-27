@@ -185,6 +185,10 @@ def mark_added(doc, new):
     merge_stored(old, new)
 
 
+def mark_deleted(doc):
+    doc['_deleted'] = True
+
+
 def mark_downloading(doc, timestamp, fs_id):
     """
     Add download in progress entry in doc['partial'].
@@ -506,6 +510,11 @@ class MetaStore:
             except BulkConflict:
                 log.exception('Conflict purging %s', store_id)
                 count -= len(e.conflicts)
+        try:
+            doc = self.db.get(store_id)
+            self.db.update(mark_deleted, doc)
+        except NotFound:
+            pass
         t.log('purge %d copies from %s', count, store_id)
         return count
 
@@ -516,6 +525,26 @@ class MetaStore:
         Note: this is only really useful for testing.
         """
         t = TimeDelta()
+
+        # Delete all dmedia/store docs:
+        kw = {
+            'key': 'dmedia/store',
+            'include_docs': True,
+            'limit': 50,
+        }
+        while True:
+            rows = self.db.view('doc', 'type', **kw)['rows']
+            if not rows:
+                break
+            docs = [r['doc'] for r in rows]
+            for doc in docs:
+                doc['_deleted'] = True
+            try:
+                self.db.save_many(docs)
+            except BulkConflict:
+                log.exception('MetaStore.purge_all():')
+
+        # Clear doc['stored'] for all dmedia/file docs:
         kw = {
             'key': 'dmedia/file',
             'include_docs': True,
@@ -535,6 +564,7 @@ class MetaStore:
             except BulkConflict:
                 log.exception('MetaStore.purge_all():')
         count = kw['skip']
+
         t.log('fully purge %d files', count)
         return count
 
@@ -731,6 +761,7 @@ class MetaStore:
         return tmp_fp
 
     def finish_download(self, fs, doc, tmp_fp):
+        log.info('Finishing download of %s in %r', doc['_id'], fs)
         fs.move_to_canonical(tmp_fp, doc['_id'])
         new = create_stored(doc['_id'], fs)
         return self.db.update(mark_downloaded, doc, fs.id, new)

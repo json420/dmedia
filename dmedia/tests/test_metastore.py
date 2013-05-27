@@ -2045,10 +2045,14 @@ class TestMetaStore(CouchCase):
         store_id1 = random_id()
         store_id2 = random_id()
         store_id3 = random_id()
+        store1 = {'_id': store_id1, 'type': 'dmedia/store'}
+        store2 = {'_id': store_id2, 'type': 'dmedia/store'}
+        store3 = {'_id': store_id3, 'type': 'dmedia/store'}
 
         # Test when empty:
         self.assertEqual(ms.purge_store(store_id1), 0)
 
+        db.save_many([store1, store2, store3])
         ids = [random_file_id() for i in range(189)]
         docs = []
         for _id in ids:
@@ -2070,9 +2074,21 @@ class TestMetaStore(CouchCase):
         db.save_many(docs)
 
         # Make sure purging an unrelated store causes no change:
+        self.assertEqual(ms.purge_store(random_id()), 0)
+        for (old, new) in zip(docs, db.get_many(ids)):
+            self.assertEqual(old, new)
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [store1, store2, store3]
+        )
+
+        # Purge the 3rd store, make sure dmedia/store doc is deleted even though
+        # no files exist in the store:
         self.assertEqual(ms.purge_store(store_id3), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [store1, store2, None]
+        )
 
         # Purge the first store:
         self.assertEqual(ms.purge_store(store_id1), 189)
@@ -2091,6 +2107,9 @@ class TestMetaStore(CouchCase):
                     },
                 }
             )
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [None, store2, None]
+        )
 
         # Purge the 2nd store:
         self.assertEqual(ms.purge_store(store_id2), 189)
@@ -2104,6 +2123,9 @@ class TestMetaStore(CouchCase):
                     'stored': {},
                 }
             )
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [None, None, None]
+        )
 
         # Make sure purging both again causes no change:
         docs = db.get_many(ids)
@@ -2111,6 +2133,9 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.purge_store(store_id2), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [None, None, None]
+        )
 
         # Test when some already have been purged:
         sample = random.sample(ids, 23)
@@ -2137,6 +2162,9 @@ class TestMetaStore(CouchCase):
                     'stored': {},
                 }
             )
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [None, None, None]
+        )
 
         # Again, make sure purging both again causes no change:
         docs = db.get_many(ids)
@@ -2144,6 +2172,9 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.purge_store(store_id2), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [None, None, None]
+        )
 
     def test_purge_all(self):    
         db = util.get_db(self.env, True)
@@ -2155,6 +2186,11 @@ class TestMetaStore(CouchCase):
         store_id1 = random_id()
         store_id2 = random_id()
         store_id3 = random_id()
+        stores = [
+            {'_id': _id, 'type': 'dmedia/store'}
+            for _id in (store_id1, store_id2, store_id3)
+        ]
+        db.save_many(stores)
         docs = []
 
         # In 3 stores:
@@ -2213,6 +2249,9 @@ class TestMetaStore(CouchCase):
         ids = [d['_id'] for d in docs]
         db.save_many(docs)
         self.assertEqual(ms.purge_all(), 100)
+        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
+            [None, None, None]
+        )
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('2-'))
             self.assertEqual(doc['stored'], {})
