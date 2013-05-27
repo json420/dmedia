@@ -251,4 +251,4 @@ for (v0_name, v0_id) in migration.iter_v0_project_dbs(server):
     print('{}: {} docs; {} conflicts'.format(v1_name, buf.count, buf.conflicts))
 
 
-print('\nV0 => V1 Upgrade Sucessfull!')
+print('\nDmedia V0 => V1 Upgrade Sucessfull!')
