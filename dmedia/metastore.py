@@ -66,7 +66,7 @@ import logging
 from http.client import ResponseNotReady
 
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter
+from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter, dumps
 
 from .units import count_and_size, bytes10
 from .constants import TYPE_ERROR
@@ -512,6 +512,7 @@ class MetaStore:
                 count -= len(e.conflicts)
         try:
             doc = self.db.get(store_id)
+            log.info('Deleting: %s', dumps(doc, True))
             self.db.update(mark_deleted, doc)
         except NotFound:
             pass
