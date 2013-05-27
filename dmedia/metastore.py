@@ -790,7 +790,7 @@ class MetaStore:
         while True:
             try:
                 r = self.db.get('_changes', **kw)
-                log.info('last_seq: %s', r['last_seq'])
+                #log.info('last_seq: %s', r['last_seq'])
                 for row in r['results']:
                     yield row['doc']
                 kw['since'] = r['last_seq']
@@ -846,7 +846,8 @@ class MetaStore:
                 count += c
                 size += s
             n = len(filestores)
-            t.log('reclaim %s in %d filestores', count_and_size(count, size), n)
+            if count > 0:
+                t.log('reclaim %s in %d filestores', count_and_size(count, size), n)
             return (count, size, n)
         except Exception:
             log.exception('error in MetaStore.reclaim_all():')
