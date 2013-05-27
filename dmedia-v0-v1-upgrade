@@ -71,11 +71,19 @@ try:
             print('    does not need upgrade')
             continue
         for (v0_id, v1_id, v1_ch) in mig:
-            if v1_ch is not None:
+            if v1_ch is None:
+                try:
+                    mdoc = mdb.get(v0_id)
+                    continue
+                except NotFound:
+                    pass
+                v1_ch = fs.verify(v1_id)
+                print('*', v0_id)
+            else:
                 print(v0_id)
-                doc = create_mapping_doc(v0_id, v1_ch)
-                log.info(v0_id)
-                buf.save(doc)
+            mdoc = create_mapping_doc(v0_id, v1_ch)
+            log.info(v0_id)
+            buf.save(mdoc)
         buf.flush()
         print('    {} files; {} conflicts'.format(buf.count, buf.conflicts))
 finally:
