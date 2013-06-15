@@ -240,7 +240,7 @@ class Service(dbus.service.Object):
         log.info('---- idle4 at time %.3f ----', start_delta())
         self.core.start_background_tasks()
         # Re-queue downgrade, scan, relink, and verify tasks every 15 minutes:
-        GLib.timeout_add(15 * 60 * 1000, self.on_background_restart)
+        GLib.timeout_add(20 * 60 * 1000, self.on_background_restart)
 
     def on_background_restart(self):
         log.info('on_background_restart()')
