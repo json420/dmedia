@@ -625,8 +625,6 @@ class TestSSLFunctions(TestCase):
         self.assertEqual(identity.ssl_verify(cert1_file, ca1_file), cert1_file)
         with self.assertRaises(identity.VerificationError) as cm:
             identity.ssl_verify(ca1_file, cert1_file)
-        with self.assertRaises(identity.VerificationError) as cm:
-            identity.ssl_verify(cert1_file, cert1_file)
 
         ca2 = pki.create_key()
         pki.create_ca(ca2)
@@ -639,15 +637,9 @@ class TestSSLFunctions(TestCase):
         self.assertEqual(identity.ssl_verify(cert2_file, ca2_file), cert2_file)
         with self.assertRaises(identity.VerificationError) as cm:
             identity.ssl_verify(ca2_file, cert2_file)
-        with self.assertRaises(identity.VerificationError) as cm:
-            identity.ssl_verify(cert2_file, cert2_file)
 
         with self.assertRaises(identity.VerificationError) as cm:
             identity.ssl_verify(ca2_file, ca1_file)
-        with self.assertRaises(identity.VerificationError) as cm:
-            identity.ssl_verify(cert2_file, ca1_file)    
-        with self.assertRaises(identity.VerificationError) as cm:
-            identity.ssl_verify(cert2_file, cert1_file)
 
 
 class TestPKI(TestCase):
