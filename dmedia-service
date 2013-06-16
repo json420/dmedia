@@ -250,6 +250,9 @@ class Service(dbus.service.Object):
     def on_mount_added(self, vm, mount):
         parentdir = mount.get_root().get_path()
         log.info('mount-added: %r', parentdir)
+        if parentdir is None:
+            log.warning('parentdir is None, skipping possible blank optical media')
+            return
         GLib.idle_add(self._add_mount, parentdir)
 
     def _add_mount(self, parentdir):
