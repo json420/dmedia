@@ -267,11 +267,17 @@ class Service(dbus.service.Object):
     def on_mount_pre_unmount(self, vm, mount):
         parentdir = mount.get_root().get_path()
         log.info('mount-pre-unmount: %r', parentdir)
+        if parentdir is None:
+            log.warning('parentdir is None, skipping possible blank optical media')
+            return
         GLib.idle_add(self._remove_mount, parentdir)
 
     def on_mount_removed(self, vm, mount):
         parentdir = mount.get_root().get_path()
         log.info('mount-remove: %r', parentdir)
+        if parentdir is None:
+            log.warning('parentdir is None, skipping possible blank optical media')
+            return
         GLib.idle_add(self._remove_mount, parentdir)
 
     def _remove_mount(self, parentdir):
