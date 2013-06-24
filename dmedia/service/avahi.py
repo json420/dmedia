@@ -34,7 +34,7 @@ from gi.repository import GLib
 
 from dmedia.client import get_client
 from dmedia.parallel import start_thread
-from dmedia import util, views
+from dmedia import util, views, schema
 
 log = logging.getLogger()
 Peer = namedtuple('Peer', 'env names')
@@ -198,8 +198,18 @@ class Avahi:
                 log.info('New databases: %r', sorted(new))
                 tmp = Peer(peer.env, tuple(new))
                 peer.names.extend(new)
+                start_thread(self.init_project_views, new)
                 start_thread(self.replication_worker, None, tmp)
         return True  # Repeat timeout call
+
+    def init_project_views(self, new):
+        try:
+            for name in new:
+                if schema.get_project_id(name):
+                    db = self.server.database(name)            
+                    util.init_project_views(db)
+        except Exception:
+            log.execption('Error in Avahi.init_project_views()')
 
     def get_names(self):
         for name in self.server.get('_all_dbs'):

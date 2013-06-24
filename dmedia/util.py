@@ -100,6 +100,10 @@ def init_views(db, designs):
     return result
 
 
+def init_project_views(db):  
+    init_views(db, views.project)
+
+
 def get_db(env, init=False):
     db = microfiber.Database(schema.DB_NAME, env)
     if init:
@@ -112,7 +116,7 @@ def get_project_db(_id, env, init=False):
     db = microfiber.Database(schema.project_db_name(_id), env)
     if init:
         db.ensure()
-        init_views(db, views.project)
+        init_project_views(db)
     return db
     
 
