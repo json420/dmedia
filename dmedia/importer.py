@@ -355,9 +355,9 @@ class ImportManager(workers.CouchManager):
 
     def last_worker_finished(self):
         assert self._workers == {}
-        t = TimeDelta()
-        os.sync()
-        t.log('called os.sync()')
+        #t = TimeDelta()
+        #os.sync()
+        #t.log('called os.sync()')
         self.doc['time_end'] = time.time()
         self.doc['rate'] = get_rate(self.doc)
         log.info('Combined batch import rate: %s', self.doc['rate'])

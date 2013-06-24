@@ -1,0 +1,49 @@
+[  304.901433] sd 6:0:0:0: [sdb] 31260096 512-byte logical blocks: (16.0 GB/14.9 GiB)
+[  304.902830] sd 6:0:0:0: [sdb] No Caching mode page present
+[  304.902839] sd 6:0:0:0: [sdb] Assuming drive cache: write through
+[  304.904763] sd 6:0:0:0: [sdb] No Caching mode page present
+[  304.904768] sd 6:0:0:0: [sdb] Assuming drive cache: write through
+[  304.905496]  sdb: sdb1
+[  479.690446] INFO: task dmedia-gtk:2637 blocked for more than 120 seconds.
+[  479.690448] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  479.690450] dmedia-gtk      D ffff88023fad3f40     0  2637      1 0x00000000
+[  479.690452]  ffff8802134ddd38 0000000000000086 ffff880232b245c0 ffff8802134ddfd8
+[  479.690455]  ffff8802134ddfd8 ffff8802134ddfd8 ffff8802341645c0 ffff880232b245c0
+[  479.690457]  7fffffffffffffff ffff8802134dde88 ffff8802134dde90 ffff880232b245c0
+[  479.690459] Call Trace:
+[  479.690465]  [<ffffffff816ca8a9>] schedule+0x29/0x70
+[  479.690468]  [<ffffffff816c8d1c>] schedule_timeout+0x1ec/0x2b0
+[  479.690471]  [<ffffffff81092808>] ? __enqueue_entity+0x78/0x80
+[  479.690473]  [<ffffffff81096d62>] ? enqueue_entity+0x382/0x9a0
+[  479.690477]  [<ffffffff81044b49>] ? default_spin_lock_flags+0x9/0x10
+[  479.690479]  [<ffffffff816ca6d7>] wait_for_common+0xd7/0x180
+[  479.690482]  [<ffffffff8108f280>] ? try_to_wake_up+0x2a0/0x2a0
+[  479.690484]  [<ffffffff816ca87d>] wait_for_completion+0x1d/0x20
+[  479.690488]  [<ffffffff811be3f1>] sync_inodes_sb+0xa1/0x1d0
+[  479.690490]  [<ffffffff811c3b20>] ? fdatawrite_one_bdev+0x20/0x20
+[  479.690492]  [<ffffffff811c3b39>] sync_inodes_one_sb+0x19/0x20
+[  479.690495]  [<ffffffff811978ba>] iterate_supers+0xfa/0x100
+[  479.690497]  [<ffffffff811c3cf5>] sys_sync+0x35/0x90
+[  479.690500]  [<ffffffff816d405d>] system_call_fastpath+0x1a/0x1f
+[  599.506769] INFO: task dmedia-gtk:2637 blocked for more than 120 seconds.
+[  599.506772] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  599.506773] dmedia-gtk      D ffff88023fad3f40     0  2637      1 0x00000000
+[  599.506776]  ffff8802134ddd38 0000000000000086 ffff880232b245c0 ffff8802134ddfd8
+[  599.506778]  ffff8802134ddfd8 ffff8802134ddfd8 ffff8802341645c0 ffff880232b245c0
+[  599.506780]  7fffffffffffffff ffff8802134dde88 ffff8802134dde90 ffff880232b245c0
+[  599.506782] Call Trace:
+[  599.506788]  [<ffffffff816ca8a9>] schedule+0x29/0x70
+[  599.506791]  [<ffffffff816c8d1c>] schedule_timeout+0x1ec/0x2b0
+[  599.506794]  [<ffffffff81092808>] ? __enqueue_entity+0x78/0x80
+[  599.506796]  [<ffffffff81096d62>] ? enqueue_entity+0x382/0x9a0
+[  599.506800]  [<ffffffff81044b49>] ? default_spin_lock_flags+0x9/0x10
+[  599.506802]  [<ffffffff816ca6d7>] wait_for_common+0xd7/0x180
+[  599.506805]  [<ffffffff8108f280>] ? try_to_wake_up+0x2a0/0x2a0
+[  599.506808]  [<ffffffff816ca87d>] wait_for_completion+0x1d/0x20
+[  599.506811]  [<ffffffff811be3f1>] sync_inodes_sb+0xa1/0x1d0
+[  599.506813]  [<ffffffff811c3b20>] ? fdatawrite_one_bdev+0x20/0x20
+[  599.506815]  [<ffffffff811c3b39>] sync_inodes_one_sb+0x19/0x20
+[  599.506818]  [<ffffffff811978ba>] iterate_supers+0xfa/0x100
+[  599.506820]  [<ffffffff811c3cf5>] sys_sync+0x35/0x90
+[  599.506823]  [<ffffffff816d405d>] system_call_fastpath+0x1a/0x1f
+[  644.634778] sdb: detected capacity change from 16005169152 to 0
