@@ -115,6 +115,9 @@ class Importer:
     def on_mount_added(self, vm, mount):
         basedir = mount.get_root().get_path()
         log.info('mount_added: %r', basedir)
+        if basedir is None:
+            log.warning('basedir is None, skipping possible blank optical media')
+            return
         if isfilestore(basedir):
             log.warning('%r is a filestore, skipping')
             return
@@ -134,6 +137,9 @@ class Importer:
     def on_mount_removed(self, vm, mount):
         basedir = mount.get_root().get_path()
         log.info('mount_removed: %r', basedir)
+        if basedir is None:
+            log.warning('basedir is None, skipping possible blank optical media')
+            return
         if self.mounts.pop(basedir, None) and len(self.mounts) == 0:
             log.info('emitting batch_finalized to UI')
             self.hub.send('batch_finalized',
