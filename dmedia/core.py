@@ -320,8 +320,11 @@ def verify_worker(env, parentdir, store_id):
         db = util.get_db(env)
         ms = MetaStore(db)
         fs = FileStore(parentdir, store_id)
-        ms.verify_downgraded(fs)
-        ms.verify_all(fs)
+        curtime = int(time.time())
+        log.info('Verifying files in %r as of %d...', fs, curtime)
+        ms.verify_by_downgraded(fs)
+        ms.verify_by_mtime(fs, curtime)
+        ms.verify_by_verified(fs, curtime)
     except Exception:
         log.exception('Error in verify_worker():')
 
