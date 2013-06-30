@@ -694,6 +694,27 @@ class MetaStore:
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
 
+    def verify_downgraded(self, fs):
+        count = 0
+        size = 0
+        t = TimeDelta()
+        kw = {
+            'key': fs.id,
+            'limit': 1,
+            'include_docs': True,
+        }
+        while True:
+            rows = self.db.view('file', 'store-downgraded', **kw)['rows']
+            if not rows:
+                break
+            doc = rows[0]['doc']
+            self.verify(fs, doc)
+            count += 1
+            size += doc['bytes']
+        t.log('verify (by downgraded) %s\n  in %r [%s]',
+                count_and_size(count, size), fs, t.rate(size))
+        return (count, size)
+
     def verify_all(self, fs, curtime=None):
         if curtime is None:
             curtime = int(time.time())
