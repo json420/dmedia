@@ -193,6 +193,21 @@ function(doc) {
 }
 """
 
+# Files that are in a downgraded state, ordered by store_id:
+file_store_downgraded = """
+function(doc) {
+    if (doc.type == 'dmedia/file') {
+        var key, value;
+        for (key in doc.stored) {
+            value = doc.stored[key];
+            if (typeof value.verified != 'number' && value.copies === 0) {
+                emit(key, null);
+            }
+        }
+    }
+}
+"""
+
 # Files that have never been verified, ordered by [store_id, mtime]:
 file_store_mtime = """
 function(doc) {
@@ -267,6 +282,7 @@ file_design = {
         'fragile': {'map': file_fragile},
         'never-verified': {'map': file_never_verified},
         'last-verified': {'map': file_last_verified},
+        'store-downgraded': {'map': file_store_downgraded},
         'store-mtime': {'map': file_store_mtime},
         'store-verified': {'map': file_store_verified},
         'store-reclaimable': {'map': file_store_reclaimable},
