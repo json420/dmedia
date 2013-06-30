@@ -2362,7 +2362,7 @@ class TestMetaStore(CouchCase):
             self.assertEqual(doc['stored'],
                 {
                     fs.id: {
-                        'copies': 1,
+                        'copies': 0,
                         'mtime': get_mtime(fs, _id),
                     },
                 }

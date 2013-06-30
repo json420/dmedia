@@ -675,7 +675,7 @@ class MetaStore:
                     continue
                 log.info('Relinking %s in %r', st.id, fs)
                 new = {
-                    fs.id: {'copies': fs.copies, 'mtime': int(st.mtime)}
+                    fs.id: {'copies': 0, 'mtime': int(st.mtime)}
                 }
                 self.db.update(mark_added, doc, new)
                 count += 1
