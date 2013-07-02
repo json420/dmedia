@@ -2018,6 +2018,21 @@ class TestFileDesign(DesignTestCase):
             }
         )
 
+        # Make rows are filtered with copies !== 0:
+        doc2['stored'][store_id2]['copies'] = 0
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'store-mtime'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': [store_id1, None], 'id': id2, 'value': None},
+                    {'key': [store_id2, 1003], 'id': id1, 'value': None},
+                ]
+            }
+        )
+
         # Make sure doc.type is being checked
         doc1['type'] = 'dmedia/foo'
         doc2['type'] = 'dmedia/bar'

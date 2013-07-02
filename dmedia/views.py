@@ -215,7 +215,7 @@ function(doc) {
         var key, value, mtime;
         for (key in doc.stored) {
             value = doc.stored[key];
-            if (typeof value.verified != 'number') {
+            if (typeof value.verified != 'number' && value.copies !== 0) {
                 mtime = (typeof value.mtime == 'number') ? value.mtime : null;
                 emit([key, mtime], null);
             }
@@ -224,7 +224,7 @@ function(doc) {
 }
 """
 
-# All files (currently), ordered by [store_id, verified]:
+# Files that have previously been verified, ordered by [store_id, verified]:
 file_store_verified = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
