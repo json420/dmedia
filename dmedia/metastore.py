@@ -778,41 +778,16 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        count = 0
-        size = 0
-
+        log.info('Verifying files in %r as of %d...', fs, curtime)
         t = TimeDelta()
-
-        # First verify files with no 'verified' timestamp, whose 'mtime' is older
-        # than 6 hours:
-        kw = {
-            'startkey': [fs.id, None],
-            'endkey': [fs.id, curtime - VERIFY_BY_MTIME],
-            'limit': 1,
-            'include_docs': True,
-        }
-        while True:
-            rows = self.db.view('file', 'store-mtime', **kw)['rows']
-            if not rows:
-                break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
-
-        # Now verify files whose 'verified' timestamp is older than 2 weeks:            
-        kw['endkey'] = [fs.id, curtime - VERIFY_BY_VERIFIED]
-        while True:
-            rows = self.db.view('file', 'store-verified', **kw)['rows']
-            if not rows:
-                break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
-
-        t.log('verify %s in %r [%s]', count_and_size(count, size), fs, t.rate(size))
-        return count
+        (c1, s1) = self.verify_by_downgraded(fs)
+        (c2, s2) = self.verify_by_mtime(fs, curtime)
+        (c3, s3) = self.verify_by_verified(fs, curtime)
+        count = c1 + c2 + c3
+        size = s1 + s2 + s3
+        t.log('verify %s in %r [%s]',
+                count_and_size(count, size), fs, t.rate(size))
+        return (count, size)
 
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)

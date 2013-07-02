@@ -2683,6 +2683,9 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
 
+        # Test when empty:
+        self.assertEqual(ms.verify_all(fs), (0, 0))
+
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
         curtime = int(time.time())
@@ -2693,11 +2696,13 @@ class TestMetaStore(CouchCase):
         for (i, doc) in enumerate(docs):
             doc['stored'][fs.id]['mtime'] = base_mtime + i
         db.save_many(docs)
-        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        self.assertEqual(ms.verify_all(fs, curtime), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('2-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 4), 4)
+        self.assertEqual(ms.verify_all(fs, curtime + 4),
+            (4, sum(d['bytes'] for d in docs[:4]))
+        )
         docs = db.get_many(ids)
         for doc in docs[:4]:
             self.assertTrue(doc['_rev'].startswith('3-'))
@@ -2707,7 +2712,9 @@ class TestMetaStore(CouchCase):
         for doc in docs[4:]:
             self.assertTrue(doc['_rev'].startswith('2-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 2)
+        self.assertEqual(ms.verify_all(fs, curtime + 6),
+            (2, sum(d['bytes'] for d in docs[4:]))
+        )
         docs = db.get_many(ids)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('3-'))
@@ -2715,7 +2722,7 @@ class TestMetaStore(CouchCase):
             self.assertIsInstance(verified, int)
             self.assertGreaterEqual(verified, curtime)
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 0)
+        self.assertEqual(ms.verify_all(fs, curtime + 6), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('3-'))
 
@@ -2723,11 +2730,13 @@ class TestMetaStore(CouchCase):
         for (i, doc) in enumerate(docs):
             doc['stored'][fs.id]['verified'] = base_verified + i
         db.save_many(docs)
-        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        self.assertEqual(ms.verify_all(fs, curtime), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('4-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 2), 2)
+        self.assertEqual(ms.verify_all(fs, curtime + 2),
+            (2, sum(d['bytes'] for d in docs[:2]))
+        )
         docs = db.get_many(ids)
         for doc in docs[:2]:
             self.assertTrue(doc['_rev'].startswith('5-'))
@@ -2737,7 +2746,9 @@ class TestMetaStore(CouchCase):
         for doc in docs[2:]:
             self.assertTrue(doc['_rev'].startswith('4-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 4)
+        self.assertEqual(ms.verify_all(fs, curtime + 6),
+            (4, sum(d['bytes'] for d in docs[2:]))
+        )
         docs = db.get_many(ids)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('5-'))
@@ -2745,7 +2756,7 @@ class TestMetaStore(CouchCase):
             self.assertIsInstance(verified, int)
             self.assertGreaterEqual(verified, curtime)
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 0)
+        self.assertEqual(ms.verify_all(fs, curtime + 6), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('5-'))
 
@@ -2757,15 +2768,46 @@ class TestMetaStore(CouchCase):
                 del doc['stored'][fs.id]['verified']
                 doc['stored'][fs.id]['mtime'] = base_mtime + (i // 2)
         db.save_many(docs)
-        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        self.assertEqual(ms.verify_all(fs, curtime), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('6-'))
-        self.assertEqual(ms.verify_all(fs, curtime + 1), 2)
-        self.assertEqual(ms.verify_all(fs, curtime + 2), 2)
-        self.assertEqual(ms.verify_all(fs, curtime + 3), 2)
-        self.assertEqual(ms.verify_all(fs, curtime + 100), 0)
-        for doc in db.get_many(ids):
+        self.assertEqual(ms.verify_all(fs, curtime + 1),
+            (2, docs[0]['bytes'] + docs[1]['bytes'])
+        )
+        self.assertEqual(ms.verify_all(fs, curtime + 2),
+            (2, docs[2]['bytes'] + docs[3]['bytes'])
+        )
+        self.assertEqual(ms.verify_all(fs, curtime + 3),
+            (2, docs[4]['bytes'] + docs[5]['bytes'])
+        )
+        self.assertEqual(ms.verify_all(fs, curtime + 100), (0, 0))
+        docs = db.get_many(ids)
+        for doc in docs:
             self.assertTrue(doc['_rev'].startswith('7-'))
+
+        # All downgraded files should be verified, no matter the timestamps:
+        curtime = int(time.time())
+        for doc in docs:
+            doc['stored'][fs.id]['mtime'] = curtime
+            doc['stored'][fs.id]['copies'] = 0
+            del doc['stored'][fs.id]['verified']
+        db.save_many(docs)
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_all(fs),
+            (6, sum(d['bytes'] for d in docs))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('9-'))
+            copies = doc['stored'][fs.id]['copies']
+            self.assertIsInstance(copies, int)
+            self.assertEqual(copies, 1)
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertTrue(start_time <= verified <= end_time)
+        self.assertEqual(ms.verify_all(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
 
     def test_content_md5(self):
         db = util.get_db(self.env, True)
