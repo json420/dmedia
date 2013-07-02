@@ -2453,6 +2453,77 @@ class TestMetaStore(CouchCase):
             }
         )
 
+    def test_verify_by_downgraded(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore()
+
+        # Test when empty:
+        self.assertEqual(ms.verify_by_downgraded(fs), (0, 0))
+
+        # Test when no files are downgraded:
+        docs = [create_random_file(fs, db) for i in range(3)]
+        ids = [d['_id'] for d in docs]
+        self.assertEqual(ms.verify_by_downgraded(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            doc['stored'][fs.id]['copies'] = 0  # For next test
+
+        # Test when all files are downgraded
+        db.save_many(docs)
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_downgraded(fs),
+            (3, sum(d['bytes'] for d in docs))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('3-'), doc['_rev'])
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime', 'verified'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            self.assertTrue(
+                start_time <= doc['stored'][fs.id]['verified'] <= end_time
+            ) 
+            doc['stored'][fs.id]['copies'] = 0  # For next test
+
+        # Test that a numeric 'verified' excludes files with {'copies': 0}:
+        db.save_many(docs)
+        self.assertEqual(ms.verify_by_downgraded(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+
+        # Test when just one doc needs to be verified:
+        (doc1, doc2, doc3) = docs
+        doc2['stored'][fs.id]['verified'] = '1776'
+        self.assertTrue(doc2['_rev'].startswith('4-'), doc2['_rev'])
+        db.save(doc2)
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_downgraded(fs), (1, doc2['bytes']))
+        end_time = int(time.time())
+        self.assertEqual(db.get(doc1['_id']), doc1)
+        self.assertEqual(db.get(doc3['_id']), doc3)
+        doc2 = db.get(doc2['_id'])
+        self.assertTrue(doc2['_rev'].startswith('6-'), doc2['_rev'])
+        self.assertEqual(set(doc2['stored']), set([fs.id]))
+        self.assertEqual(
+            set(doc2['stored'][fs.id]),
+            set(['copies', 'mtime', 'verified'])
+        )
+        self.assertEqual(doc2['stored'][fs.id]['copies'], 1)
+        self.assertTrue(
+            start_time <= doc2['stored'][fs.id]['verified'] <= end_time
+        )
+
     def test_verify_all(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
