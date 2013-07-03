@@ -2362,7 +2362,7 @@ class TestMetaStore(CouchCase):
             self.assertEqual(doc['stored'],
                 {
                     fs.id: {
-                        'copies': 1,
+                        'copies': 0,
                         'mtime': get_mtime(fs, _id),
                     },
                 }
@@ -2453,10 +2453,238 @@ class TestMetaStore(CouchCase):
             }
         )
 
+    def test_verify_by_downgraded(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore()
+
+        # Test when empty:
+        self.assertEqual(ms.verify_by_downgraded(fs), (0, 0))
+
+        # Test when no files are downgraded:
+        docs = [create_random_file(fs, db) for i in range(3)]
+        ids = [d['_id'] for d in docs]
+        self.assertEqual(ms.verify_by_downgraded(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            doc['stored'][fs.id]['copies'] = 0  # For next test
+
+        # Test when all files are downgraded
+        db.save_many(docs)
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_downgraded(fs),
+            (3, sum(d['bytes'] for d in docs))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('3-'), doc['_rev'])
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime', 'verified'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            self.assertTrue(
+                start_time <= doc['stored'][fs.id]['verified'] <= end_time
+            ) 
+            doc['stored'][fs.id]['copies'] = 0  # For next test
+
+        # Test that a numeric 'verified' excludes files with {'copies': 0}:
+        db.save_many(docs)
+        self.assertEqual(ms.verify_by_downgraded(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+
+        # Test when just one doc needs to be verified:
+        (doc1, doc2, doc3) = docs
+        doc2['stored'][fs.id]['verified'] = '1776'
+        self.assertTrue(doc2['_rev'].startswith('4-'), doc2['_rev'])
+        db.save(doc2)
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_downgraded(fs), (1, doc2['bytes']))
+        end_time = int(time.time())
+        self.assertEqual(db.get(doc1['_id']), doc1)
+        self.assertEqual(db.get(doc3['_id']), doc3)
+        doc2 = db.get(doc2['_id'])
+        self.assertTrue(doc2['_rev'].startswith('6-'), doc2['_rev'])
+        self.assertEqual(set(doc2['stored']), set([fs.id]))
+        self.assertEqual(
+            set(doc2['stored'][fs.id]),
+            set(['copies', 'mtime', 'verified'])
+        )
+        self.assertEqual(doc2['stored'][fs.id]['copies'], 1)
+        self.assertTrue(
+            start_time <= doc2['stored'][fs.id]['verified'] <= end_time
+        )
+
+    def test_verify_by_mtime(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore()
+
+        # Test when empty:
+        self.assertEqual(ms.verify_by_mtime(fs), (0, 0))
+
+        # Test when no files need to be verified:
+        docs = [create_random_file(fs, db) for i in range(6)]
+        ids = [d['_id'] for d in docs]
+        self.assertEqual(ms.verify_by_mtime(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+
+        # Again test when no files need to be verified, but to the second: 
+        curtime = int(time.time())
+        base = curtime - metastore.VERIFY_BY_MTIME + 1
+        for (i, doc) in enumerate(docs):
+            doc['stored'][fs.id]['mtime'] = base + i
+        db.save_many(docs)
+        self.assertEqual(ms.verify_by_mtime(fs, curtime), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+
+        # Test when the first 4 files need to be verified:
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_mtime(fs, curtime + 4),
+            (4, sum(d['bytes'] for d in docs[:4]))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs[:4]:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime', 'verified'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertTrue(start_time <= verified <= end_time)
+        for doc in docs[4:]:
+            self.assertTrue(doc['_rev'].startswith('2-'))
+
+        # Test when the last 2 files need to be verified:
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_mtime(fs, curtime + 6),
+            (2, sum(d['bytes'] for d in docs[4:]))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs[:4]:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+        for doc in docs[4:]:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime', 'verified'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertTrue(start_time <= verified <= end_time)
+
+        # None should need to be verified now:
+        self.assertEqual(ms.verify_by_mtime(fs, curtime + 7), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+ 
+    def test_verify_by_verified(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        fs = TempFileStore()
+
+        # Test when empty:
+        self.assertEqual(ms.verify_by_verified(fs), (0, 0))
+
+        # Test when no files need to be verified:
+        docs = [create_random_file(fs, db) for i in range(6)]
+        ids = [d['_id'] for d in docs]
+        self.assertEqual(ms.verify_by_verified(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+
+        # Again test when no files need to be verified, but to the second: 
+        curtime = int(time.time())
+        base = curtime - metastore.VERIFY_BY_VERIFIED + 1
+        for (i, doc) in enumerate(docs):
+            doc['stored'][fs.id]['verified'] = base + i
+        db.save_many(docs)
+        self.assertEqual(ms.verify_by_verified(fs, curtime), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+
+        # Test when the first 4 files need to be verified:
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_verified(fs, curtime + 4),
+            (4, sum(d['bytes'] for d in docs[:4]))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs[:4]:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime', 'verified'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertTrue(start_time <= verified <= end_time)
+        for doc in docs[4:]:
+            self.assertTrue(doc['_rev'].startswith('2-'))
+
+        # Test when the last 2 files need to be verified:
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_by_verified(fs, curtime + 6),
+            (2, sum(d['bytes'] for d in docs[4:]))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs[:4]:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+        for doc in docs[4:]:
+            self.assertTrue(doc['_rev'].startswith('3-'))
+            self.assertEqual(set(doc['stored']), set([fs.id]))
+            self.assertEqual(
+                set(doc['stored'][fs.id]),
+                set(['copies', 'mtime', 'verified'])
+            )
+            self.assertEqual(doc['stored'][fs.id]['copies'], 1)
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertTrue(start_time <= verified <= end_time)
+
+        # None should need to be verified now:
+        self.assertEqual(ms.verify_by_verified(fs, curtime + 7), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
+
     def test_verify_all(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
+
+        # Test when empty:
+        self.assertEqual(ms.verify_all(fs), (0, 0))
 
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
@@ -2468,11 +2696,13 @@ class TestMetaStore(CouchCase):
         for (i, doc) in enumerate(docs):
             doc['stored'][fs.id]['mtime'] = base_mtime + i
         db.save_many(docs)
-        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        self.assertEqual(ms.verify_all(fs, curtime), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('2-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 4), 4)
+        self.assertEqual(ms.verify_all(fs, curtime + 4),
+            (4, sum(d['bytes'] for d in docs[:4]))
+        )
         docs = db.get_many(ids)
         for doc in docs[:4]:
             self.assertTrue(doc['_rev'].startswith('3-'))
@@ -2482,7 +2712,9 @@ class TestMetaStore(CouchCase):
         for doc in docs[4:]:
             self.assertTrue(doc['_rev'].startswith('2-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 2)
+        self.assertEqual(ms.verify_all(fs, curtime + 6),
+            (2, sum(d['bytes'] for d in docs[4:]))
+        )
         docs = db.get_many(ids)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('3-'))
@@ -2490,7 +2722,7 @@ class TestMetaStore(CouchCase):
             self.assertIsInstance(verified, int)
             self.assertGreaterEqual(verified, curtime)
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 0)
+        self.assertEqual(ms.verify_all(fs, curtime + 6), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('3-'))
 
@@ -2498,11 +2730,13 @@ class TestMetaStore(CouchCase):
         for (i, doc) in enumerate(docs):
             doc['stored'][fs.id]['verified'] = base_verified + i
         db.save_many(docs)
-        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        self.assertEqual(ms.verify_all(fs, curtime), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('4-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 2), 2)
+        self.assertEqual(ms.verify_all(fs, curtime + 2),
+            (2, sum(d['bytes'] for d in docs[:2]))
+        )
         docs = db.get_many(ids)
         for doc in docs[:2]:
             self.assertTrue(doc['_rev'].startswith('5-'))
@@ -2512,7 +2746,9 @@ class TestMetaStore(CouchCase):
         for doc in docs[2:]:
             self.assertTrue(doc['_rev'].startswith('4-'))
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 4)
+        self.assertEqual(ms.verify_all(fs, curtime + 6),
+            (4, sum(d['bytes'] for d in docs[2:]))
+        )
         docs = db.get_many(ids)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('5-'))
@@ -2520,7 +2756,7 @@ class TestMetaStore(CouchCase):
             self.assertIsInstance(verified, int)
             self.assertGreaterEqual(verified, curtime)
 
-        self.assertEqual(ms.verify_all(fs, curtime + 6), 0)
+        self.assertEqual(ms.verify_all(fs, curtime + 6), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('5-'))
 
@@ -2532,15 +2768,46 @@ class TestMetaStore(CouchCase):
                 del doc['stored'][fs.id]['verified']
                 doc['stored'][fs.id]['mtime'] = base_mtime + (i // 2)
         db.save_many(docs)
-        self.assertEqual(ms.verify_all(fs, curtime), 0)
+        self.assertEqual(ms.verify_all(fs, curtime), (0, 0))
         for doc in db.get_many(ids):
             self.assertTrue(doc['_rev'].startswith('6-'))
-        self.assertEqual(ms.verify_all(fs, curtime + 1), 2)
-        self.assertEqual(ms.verify_all(fs, curtime + 2), 2)
-        self.assertEqual(ms.verify_all(fs, curtime + 3), 2)
-        self.assertEqual(ms.verify_all(fs, curtime + 100), 0)
-        for doc in db.get_many(ids):
+        self.assertEqual(ms.verify_all(fs, curtime + 1),
+            (2, docs[0]['bytes'] + docs[1]['bytes'])
+        )
+        self.assertEqual(ms.verify_all(fs, curtime + 2),
+            (2, docs[2]['bytes'] + docs[3]['bytes'])
+        )
+        self.assertEqual(ms.verify_all(fs, curtime + 3),
+            (2, docs[4]['bytes'] + docs[5]['bytes'])
+        )
+        self.assertEqual(ms.verify_all(fs, curtime + 100), (0, 0))
+        docs = db.get_many(ids)
+        for doc in docs:
             self.assertTrue(doc['_rev'].startswith('7-'))
+
+        # All downgraded files should be verified, no matter the timestamps:
+        curtime = int(time.time())
+        for doc in docs:
+            doc['stored'][fs.id]['mtime'] = curtime
+            doc['stored'][fs.id]['copies'] = 0
+            del doc['stored'][fs.id]['verified']
+        db.save_many(docs)
+        start_time = int(time.time())
+        self.assertEqual(ms.verify_all(fs),
+            (6, sum(d['bytes'] for d in docs))
+        )
+        end_time = int(time.time())
+        docs = db.get_many(ids)
+        for doc in docs:
+            self.assertTrue(doc['_rev'].startswith('9-'))
+            copies = doc['stored'][fs.id]['copies']
+            self.assertIsInstance(copies, int)
+            self.assertEqual(copies, 1)
+            verified = doc['stored'][fs.id]['verified']
+            self.assertIsInstance(verified, int)
+            self.assertTrue(start_time <= verified <= end_time)
+        self.assertEqual(ms.verify_all(fs), (0, 0))
+        self.assertEqual(db.get_many(ids), docs)
 
     def test_content_md5(self):
         db = util.get_db(self.env, True)

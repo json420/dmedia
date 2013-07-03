@@ -78,7 +78,7 @@ log = logging.getLogger()
 DAY = 24 * 60 * 60
 WEEK = 7 * DAY
 DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
-VERIFY_BY_MTIME = DOWNGRADE_BY_NEVER_VERIFIED // 4
+VERIFY_BY_MTIME = DOWNGRADE_BY_NEVER_VERIFIED // 8
 VERIFY_THRESHOLD = WEEK
 DOWNGRADE_BY_STORE_ATIME = WEEK
 DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
@@ -675,7 +675,7 @@ class MetaStore:
                     continue
                 log.info('Relinking %s in %r', st.id, fs)
                 new = {
-                    fs.id: {'copies': fs.copies, 'mtime': int(st.mtime)}
+                    fs.id: {'copies': 0, 'mtime': int(st.mtime)}
                 }
                 self.db.update(mark_added, doc, new)
                 count += 1
@@ -694,17 +694,40 @@ class MetaStore:
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
 
-    def verify_all(self, fs, curtime=None):
+    def verify_by_downgraded(self, fs):
+        """
+        Verify all downgraded files in FileStore *fs*.
+        """
+        count = 0
+        size = 0
+        t = TimeDelta()
+        kw = {
+            'key': fs.id,
+            'limit': 1,
+            'include_docs': True,
+        }
+        while True:
+            rows = self.db.view('file', 'store-downgraded', **kw)['rows']
+            if not rows:
+                break
+            doc = rows[0]['doc']
+            self.verify(fs, doc)
+            count += 1
+            size += doc['bytes']
+        t.log('verify (by downgraded) %s in %r [%s]',
+                count_and_size(count, size), fs, t.rate(size))
+        return (count, size)
+
+    def verify_by_mtime(self, fs, curtime=None):
+        """
+        Verify files never verified whose "mtime" is older than 6 hours.
+        """
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
         count = 0
         size = 0
-
         t = TimeDelta()
-
-        # First verify files with no 'verified' timestamp, whose 'mtime' is older
-        # than 6 hours:
         kw = {
             'startkey': [fs.id, None],
             'endkey': [fs.id, curtime - VERIFY_BY_MTIME],
@@ -719,9 +742,26 @@ class MetaStore:
             self.verify(fs, doc)
             count += 1
             size += doc['bytes']
+        t.log('verify (by mtime) %s in %r [%s]',
+                count_and_size(count, size), fs, t.rate(size))
+        return (count, size)
 
-        # Now verify files whose 'verified' timestamp is older than 2 weeks:            
-        kw['endkey'] = [fs.id, curtime - VERIFY_BY_VERIFIED]
+    def verify_by_verified(self, fs, curtime=None):
+        """
+        Verify files whose "verified" timestamp is older than 2 weeks.
+        """
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
+        count = 0
+        size = 0
+        t = TimeDelta()
+        kw = {
+            'startkey': [fs.id, None],
+            'endkey': [fs.id, curtime - VERIFY_BY_VERIFIED],
+            'limit': 1,
+            'include_docs': True,
+        }
         while True:
             rows = self.db.view('file', 'store-verified', **kw)['rows']
             if not rows:
@@ -730,9 +770,24 @@ class MetaStore:
             self.verify(fs, doc)
             count += 1
             size += doc['bytes']
+        t.log('verify (by verified) %s in %r [%s]',
+                count_and_size(count, size), fs, t.rate(size))
+        return (count, size)
 
-        t.log('verify %s in %r [%s]', count_and_size(count, size), fs, t.rate(size))
-        return count
+    def verify_all(self, fs, curtime=None):
+        if curtime is None:
+            curtime = int(time.time())
+        assert isinstance(curtime, int) and curtime >= 0
+        log.info('Verifying files in %r as of %d...', fs, curtime)
+        t = TimeDelta()
+        (c1, s1) = self.verify_by_downgraded(fs)
+        (c2, s2) = self.verify_by_mtime(fs, curtime)
+        (c3, s3) = self.verify_by_verified(fs, curtime)
+        count = c1 + c2 + c3
+        size = s1 + s2 + s3
+        t.log('verify %s in %r [%s]',
+                count_and_size(count, size), fs, t.rate(size))
+        return (count, size)
 
     def content_md5(self, fs, _id, force=False):
         doc = self.db.get(_id)

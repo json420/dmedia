@@ -1604,6 +1604,194 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
+    def test_store_downgraded(self):
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('store-downgraded')
+        db.save(design)
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+        
+        (id1, id2) = sorted(random_file_id() for i in range(2))
+        (store_id1, store_id2, store_id3) = sorted(random_id() for i in range(3))
+
+        # Make sure things are well behaved even when doc['stored'] is missed:
+        doc1 = {
+            '_id': id1,
+            'type': 'dmedia/file',
+        }
+        doc2 = {
+            '_id': id2,
+            'type': 'dmedia/file',
+        }
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # And when doc['stored'] is empty:
+        doc1['stored'] = {}
+        doc2['stored'] = {}
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Test when across 3 stores:
+        doc1['stored'] = {
+            store_id1: {
+                'copies': 0,
+                'mtime': 1001,
+            },
+            store_id2: {
+                'copies': 0,
+                'mtime': 1002,
+            },
+        }
+        doc2['stored'] = {
+            store_id1: {
+                'copies': 0,
+                'mtime': 1003,
+            },
+            store_id3: {
+                'copies': 0,
+                'mtime': 1004,
+            },
+        }
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {
+                'offset': 0,
+                'total_rows': 4,
+                'rows': [
+                    {'key': store_id1, 'id': id1, 'value': None},
+                    {'key': store_id1, 'id': id2, 'value': None},
+                    {'key': store_id2, 'id': id1, 'value': None},
+                    {'key': store_id3, 'id': id2, 'value': None},
+                ]
+            }
+        )
+
+        # Filter down to just what's in store_id1:
+        self.assertEqual(
+            db.view('file', 'store-downgraded', key=store_id1),
+            {
+                'offset': 0,
+                'total_rows': 4,
+                'rows': [
+                    {'key': store_id1, 'id': id1, 'value': None},
+                    {'key': store_id1, 'id': id2, 'value': None},
+                ]
+            }
+        )
+
+        # Filter down to just what's in store_id2:
+        self.assertEqual(
+            db.view('file', 'store-downgraded', key=store_id2),
+            {
+                'offset': 2,
+                'total_rows': 4,
+                'rows': [
+                    {'key': store_id2, 'id': id1, 'value': None},
+                ]
+            }
+        )
+
+        # Filter down to just what's in store_id3:
+        self.assertEqual(
+            db.view('file', 'store-downgraded', key=store_id3),
+            {
+                'offset': 3,
+                'total_rows': 4,
+                'rows': [
+                    {'key': store_id3, 'id': id2, 'value': None},
+                ]
+            }
+        )
+
+        # Make sure it's filtering with (typeof verified != 'number'):
+        doc1['stored'][store_id1]['verified'] = 1234567890
+        doc1['stored'][store_id2]['verified'] = 17
+        doc2['stored'][store_id1]['verified'] = 18
+        doc2['stored'][store_id3]['verified'] = 19
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # As above, now make sure a numeric 'verified' excludes rows:
+        doc1['stored'][store_id1]['verified'] = '17'
+        doc1['stored'][store_id2]['verified'] = True
+        doc2['stored'][store_id1]['verified'] = {'hello': 'world'}
+        doc2['stored'][store_id3]['verified'] = ['hello', 'naughty', 'nurse']
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {
+                'offset': 0,
+                'total_rows': 4,
+                'rows': [
+                    {'key': store_id1, 'id': id1, 'value': None},
+                    {'key': store_id1, 'id': id2, 'value': None},
+                    {'key': store_id2, 'id': id1, 'value': None},
+                    {'key': store_id3, 'id': id2, 'value': None},
+                ]
+            }
+        )
+
+        # Make sure it's filtering with (copies === 0):
+        doc1['stored'][store_id1]['copies'] = '0'
+        doc1['stored'][store_id2]['copies'] = False
+        doc2['stored'][store_id1]['copies'] = 1
+        doc2['stored'][store_id3]['copies'] = -1
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Change a few back to {'copies': 0}
+        doc1['stored'][store_id1]['copies'] = 0
+        doc2['stored'][store_id3]['copies'] = 0
+        db.save_many([doc1, doc2])
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': store_id1, 'id': id1, 'value': None},
+                    {'key': store_id3, 'id': id2, 'value': None},
+                ]
+            }
+        )
+
+        # Make sure doc.type is being checked
+        doc1['type'] = 'dmedia/foo'
+        db.save(doc1)
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'key': store_id3, 'id': id2, 'value': None},
+                ]
+            }
+        )
+        doc2['type'] = 'dmedia/bar'
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'store-downgraded'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
     def test_store_mtime(self):
         db = Database('foo', self.env)
         db.put(None)
@@ -1825,6 +2013,21 @@ class TestFileDesign(DesignTestCase):
                 'rows': [
                     {'key': [store_id1, None], 'id': id2, 'value': None},
                     {'key': [store_id2, None], 'id': id2, 'value': None},
+                    {'key': [store_id2, 1003], 'id': id1, 'value': None},
+                ]
+            }
+        )
+
+        # Make rows are filtered with copies !== 0:
+        doc2['stored'][store_id2]['copies'] = 0
+        db.save(doc2)
+        self.assertEqual(
+            db.view('file', 'store-mtime'),
+            {
+                'offset': 0,
+                'total_rows': 2,
+                'rows': [
+                    {'key': [store_id1, None], 'id': id2, 'value': None},
                     {'key': [store_id2, 1003], 'id': id1, 'value': None},
                 ]
             }
