@@ -841,7 +841,7 @@ class MetaStore:
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
             ch = src.copy(_id, *dst)
-            log.info('Copied %s\n  from %r\n  to %r', _id, src, list(dst))
+            log.info('Copied %s from %r to %r', _id, src, list(dst))
             new = create_stored(_id, src, *dst)
             self.db.update(mark_copied, doc, time.time(), src.id, new)
         except FileNotFound:
