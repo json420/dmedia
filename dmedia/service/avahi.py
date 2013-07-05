@@ -51,8 +51,6 @@ def make_url(ip, port):
 
 
 def iscontinuous(name):
-    if name in ('thumbnails', 'thumbnails-1'):
-        return False
     if name.startswith('dmedia-0') or name.startswith('novacut-0'):
         return False
     return True
@@ -213,6 +211,8 @@ class Avahi:
 
     def get_names(self):
         for name in self.server.get('_all_dbs'):
+            if name in ('thumbnails', 'thumbnails-1'):
+                continue
             if not name.startswith('_'):
                 yield name
 
