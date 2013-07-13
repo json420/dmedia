@@ -865,6 +865,7 @@ class MetaStore:
             random.shuffle(rows)
             log.info('%d files with copies=%d', len(rows), copies)
             for row in rows:
+                log.info(row['id'])
                 yield self.db.get(row['id'])
         if not monitor:
             return
