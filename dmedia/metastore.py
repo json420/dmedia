@@ -64,6 +64,7 @@ import time
 import os
 import logging
 from http.client import ResponseNotReady
+from random import SystemRandom
 
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter, dumps
@@ -74,6 +75,7 @@ from .local import LocalStores
 
 
 log = logging.getLogger()
+random = SystemRandom()
 
 DAY = 24 * 60 * 60
 WEEK = 7 * DAY
@@ -858,10 +860,12 @@ class MetaStore:
         """
         for copies in range(3):
             r = self.db.view('file', 'fragile', key=copies, update_seq=True)
-            log.info('%d files with copies=%d', len(r['rows']), copies)
-            for row in r['rows']:
-                yield self.db.get(row['id'])
             update_seq = r.get('update_seq')
+            rows = r['rows']
+            random.shuffle(rows)
+            log.info('%d files with copies=%d', len(rows), copies)
+            for row in rows:
+                yield self.db.get(row['id'])
         if not monitor:
             return
 
