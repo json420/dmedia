@@ -64,6 +64,7 @@ import time
 import os
 import logging
 from http.client import ResponseNotReady
+from random import SystemRandom
 
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter, dumps
@@ -74,6 +75,7 @@ from .local import LocalStores
 
 
 log = logging.getLogger()
+random = SystemRandom()
 
 DAY = 24 * 60 * 60
 WEEK = 7 * DAY
@@ -857,11 +859,14 @@ class MetaStore:
         Yield doc for each fragile file.     
         """
         for copies in range(3):
-            r = self.db.view('file', 'fragile', key=copies, update_seq=True)
-            log.info('%d files with copies=%d', len(r['rows']), copies)
-            for row in r['rows']:
-                yield self.db.get(row['id'])
-            update_seq = r.get('update_seq')
+            result = self.db.view('file', 'fragile', key=copies, update_seq=True)
+            update_seq = result.get('update_seq')
+            ids = [row['id'] for row in result['rows']]
+            del result  # result might be quite large, free some memory
+            random.shuffle(ids)
+            log.info('%d files with copies=%d', len(ids), copies)
+            for _id in ids:
+                yield self.db.get(_id)
         if not monitor:
             return
 
@@ -876,11 +881,10 @@ class MetaStore:
         }
         while True:
             try:
-                r = self.db.get('_changes', **kw)
-                #log.info('last_seq: %s', r['last_seq'])
-                for row in r['results']:
+                result = self.db.get('_changes', **kw)
+                for row in result['results']:
                     yield row['doc']
-                kw['since'] = r['last_seq']
+                kw['since'] = result['last_seq']
             except ResponseNotReady:
                 pass
 
