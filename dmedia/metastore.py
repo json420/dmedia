@@ -861,11 +861,12 @@ class MetaStore:
         for copies in range(3):
             r = self.db.view('file', 'fragile', key=copies, update_seq=True)
             update_seq = r.get('update_seq')
-            rows = r['rows']
-            random.shuffle(rows)
-            log.info('%d files with copies=%d', len(rows), copies)
-            for row in rows:
-                yield self.db.get(row['id'])
+            ids = [row['id'] for row in r['rows']]
+            del r  # r might be quite large, free some memory
+            random.shuffle(ids)
+            log.info('%d files with copies=%d', len(ids), copies)
+            for _id in ids:
+                yield self.db.get(_id)
         if not monitor:
             return
 
