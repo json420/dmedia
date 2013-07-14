@@ -859,10 +859,10 @@ class MetaStore:
         Yield doc for each fragile file.     
         """
         for copies in range(3):
-            r = self.db.view('file', 'fragile', key=copies, update_seq=True)
-            update_seq = r.get('update_seq')
-            ids = [row['id'] for row in r['rows']]
-            del r  # r might be quite large, free some memory
+            result = self.db.view('file', 'fragile', key=copies, update_seq=True)
+            update_seq = result.get('update_seq')
+            ids = [row['id'] for row in result['rows']]
+            del result  # result might be quite large, free some memory
             random.shuffle(ids)
             log.info('%d files with copies=%d', len(ids), copies)
             for _id in ids:
@@ -881,11 +881,10 @@ class MetaStore:
         }
         while True:
             try:
-                r = self.db.get('_changes', **kw)
-                #log.info('last_seq: %s', r['last_seq'])
-                for row in r['results']:
+                result = self.db.get('_changes', **kw)
+                for row in result['results']:
                     yield row['doc']
-                kw['since'] = r['last_seq']
+                kw['since'] = result['last_seq']
             except ResponseNotReady:
                 pass
 
