@@ -34,10 +34,13 @@ def get_drive_info(name):
     device = udev_client.query_by_sysfs_path(sysfs_path)
     if device is None:
         raise Exception('No such drive: {!r}'.format(name))
-    sector_size = device.get_sysfs_attr_as_uint64('queue/hw_sector_size')
+    physical = device.get_sysfs_attr_as_uint64('queue/physical_block_size')
+    logical = device.get_sysfs_attr_as_uint64('queue/logical_block_size')
     sectors = device.get_sysfs_attr_as_uint64('size')
     return {
-        'bytes': sectors * sector_size,
+        'block_physical': physical,
+        'block_logical': logical,
+        'bytes': sectors * logical,
         'model': device.get_property('ID_MODEL'),
         'revision': device.get_property('ID_REVISION'),
         'serial': device.get_property('ID_SERIAL_SHORT'),
