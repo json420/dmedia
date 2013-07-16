@@ -32,6 +32,8 @@ udev_client = GUdev.Client.new(['block'])
 def get_drive_info(name):
     sysfs_path = '/sys/block/{}'.format(name)
     device = udev_client.query_by_sysfs_path(sysfs_path)
+    if device is None:
+        raise Exception('No such drive: {!r}'.format(name))
     sector_size = device.get_sysfs_attr_as_uint64('queue/hw_sector_size')
     sectors = device.get_sysfs_attr_as_uint64('size')
     return {
@@ -40,5 +42,5 @@ def get_drive_info(name):
         'revision': device.get_property('ID_REVISION'),
         'serial': device.get_property('ID_SERIAL_SHORT'),
         'wwn': device.get_property('ID_WWN_WITH_EXTENSION'),
-        'removeable': bool(device.get_sysfs_attr_as_int('removeable')),
+        'removable': bool(device.get_sysfs_attr_as_int('removable')),
     }
