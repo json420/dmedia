@@ -112,9 +112,10 @@ def get_drive_info(device):
     }
 
 
-def get_blkid_info(dev):
-    text = check_output(['blkid', '-o', 'export', dev]).decode('utf-8')
-    return dict(line.split('=') for line in text.splitlines())
+def unfuck_enc(string):
+    if string is None:
+        return
+    return string.replace('\\x20', ' ').strip()
 
 
 def get_partition_info(device):
@@ -125,19 +126,19 @@ def get_partition_info(device):
     part_start_sector = device.get_sysfs_attr_as_uint64('start')
     drive_bytes = drive_sectors * logical
     part_bytes = part_sectors * logical
-    blkid_info = get_blkid_info(device.get_device_file())
     return {
         'drive_block_physical': physical,
         'drive_block_logical': logical,
         'drive_bytes': drive_bytes,
         'drive_size': bytes10(drive_bytes),
-        'drive_model': device.get_property('ID_MODEL'),
+        'drive_model': unfuck_enc(device.get_property('ID_MODEL_ENC')),
         'drive_model_id': device.get_property('ID_MODEL_ID'),
         'drive_revision': device.get_property('ID_REVISION'),
         'drive_serial': device.get_property('ID_SERIAL_SHORT'),
         'drive_wwn': device.get_property('ID_WWN_WITH_EXTENSION'),
-        'drive_vendor': device.get_property('ID_VENDOR'),
-        'drive_removable': bool(device.get_sysfs_attr_as_int('removable')),
+        'drive_vendor': unfuck_enc(device.get_property('ID_VENDOR_ENC')),
+        'drive_removable': bool(device.get_sysfs_attr_as_int('../removable')),
+        'drive_bus': device.get_property('ID_BUS'),
 
         'partition_scheme': device.get_property('ID_PART_ENTRY_SCHEME'),
         'partition_number': device.get_property_as_int('ID_PART_ENTRY_NUMBER'),
@@ -145,13 +146,9 @@ def get_partition_info(device):
         'partition_size': bytes10(part_bytes),
         'partition_start_bytes': part_start_sector * logical,
 
-        # udev replaces spaces in LABEL with understore, so use blkid directly:
-        # 'filesystem_type': device.get_property('ID_FS_TYPE'),
-        # 'filesystem_uuid': device.get_property('ID_FS_UUID'),
-        # 'filesystem_label': device.get_property('ID_FS_LABEL'),
-        'filesystem_type': blkid_info.get('TYPE'),
-        'filesystem_uuid': blkid_info.get('UUID'),
-        'filesystem_label': blkid_info.get('LABEL'),
+        'filesystem_type': device.get_property('ID_FS_TYPE'),
+        'filesystem_uuid': device.get_property('ID_FS_UUID'),
+        'filesystem_label': unfuck_enc(device.get_property('ID_FS_LABEL_ENC')),
     }
 
 
