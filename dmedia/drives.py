@@ -86,6 +86,12 @@ def uuid_to_db32(uuid_hex):
     return db32enc(uuid_bytes[:15])
 
 
+def unfuck(string):
+    if string is None:
+        return
+    return string.replace('\\x20', ' ').strip()
+
+
 def get_device(dev):
     device = udev_client.query_by_device_file(dev)
     if device is None:
@@ -113,12 +119,6 @@ def get_drive_info(device):
     }
 
 
-def unfuck_enc(string):
-    if string is None:
-        return
-    return string.replace('\\x20', ' ').strip()
-
-
 def get_partition_info(device):
     physical = device.get_sysfs_attr_as_uint64('../queue/physical_block_size')
     logical = device.get_sysfs_attr_as_uint64('../queue/logical_block_size')
@@ -134,12 +134,12 @@ def get_partition_info(device):
         'drive_discard_alignment': device.get_sysfs_attr_as_int('../discard_alignment'),
         'drive_bytes': drive_bytes,
         'drive_size': bytes10(drive_bytes),
-        'drive_model': unfuck_enc(device.get_property('ID_MODEL_ENC')),
+        'drive_model': unfuck(device.get_property('ID_MODEL_ENC')),
         'drive_model_id': device.get_property('ID_MODEL_ID'),
         'drive_revision': device.get_property('ID_REVISION'),
         'drive_serial': device.get_property('ID_SERIAL_SHORT'),
         'drive_wwn': device.get_property('ID_WWN_WITH_EXTENSION'),
-        'drive_vendor': unfuck_enc(device.get_property('ID_VENDOR_ENC')),
+        'drive_vendor': unfuck(device.get_property('ID_VENDOR_ENC')),
         'drive_removable': bool(device.get_sysfs_attr_as_int('../removable')),
         'drive_bus': device.get_property('ID_BUS'),
 
@@ -151,11 +151,11 @@ def get_partition_info(device):
 
         'filesystem_type': device.get_property('ID_FS_TYPE'),
         'filesystem_uuid': device.get_property('ID_FS_UUID'),
-        'filesystem_label': unfuck_enc(device.get_property('ID_FS_LABEL_ENC')),
+        'filesystem_label': unfuck(device.get_property('ID_FS_LABEL_ENC')),
     }
 
 
-def parse_disk_size(text):
+def parse_drive_size(text):
     regex = re.compile('Disk /dev/\w+: (\d+)MiB')
     for line in text.splitlines():
         match = regex.match(line)
@@ -175,7 +175,8 @@ def parse_sector_size(text):
 
 class Drive:
     def __init__(self, dev):
-        assert dev.startswith('/dev/sd') or dev.startswith('/dev/vd')
+        if not VALID_DRIVE.match(dev):
+            raise ValueError('Invalid drive device file: {!r}'.format(dev))
         self.dev = dev
 
     def get_partition(self, index):
@@ -219,7 +220,7 @@ class Drive:
 
         self.index = 0
         text = self.print_MiB()
-        self.size_MiB = parse_disk_size(text)
+        self.size_MiB = parse_drive_size(text)
         (self.logical, self.physical) = parse_sector_size(text)
         self.sectors_per_MiB = MiB // self.logical
         self.start_MiB = 1
