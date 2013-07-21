@@ -41,6 +41,7 @@ udev_client = GUdev.Client.new(['block'])
 MiB = 1024**2
 
 VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
+VALID_PARTITION = re.compile('^/dev/[sv]d[a-z][1-9]$')
 
 
 def db32_to_uuid(store_id):
@@ -129,6 +130,8 @@ def get_partition_info(device):
     return {
         'drive_block_physical': physical,
         'drive_block_logical': logical,
+        'drive_alignment_offset': device.get_sysfs_attr_as_int('../alignment_offset'),
+        'drive_discard_alignment': device.get_sysfs_attr_as_int('../discard_alignment'),
         'drive_bytes': drive_bytes,
         'drive_size': bytes10(drive_bytes),
         'drive_model': unfuck_enc(device.get_property('ID_MODEL_ENC')),
@@ -267,7 +270,8 @@ class Drive:
 
 class Partition:
     def __init__(self, dev):
-        assert dev.startswith('/dev/sd') or dev.startswith('/dev/vd')
+        if not VALID_PARTITION.match(dev):
+            raise ValueError('Invalid partition device file: {!r}'.format(dev))
         self.dev = dev
 
     def get_info(self):
