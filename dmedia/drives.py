@@ -40,6 +40,8 @@ from .units import bytes10
 udev_client = GUdev.Client.new(['block'])
 MiB = 1024**2
 
+VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
+
 
 def db32_to_uuid(store_id):
     """
@@ -209,7 +211,7 @@ class Drive:
         return check_output(cmd).decode('utf-8')
 
     def init_partition_table(self):
-        self.rereadpt()
+        self.rereadpt()  # Make sure existing partitions aren't mounted
         self.zero()
         time.sleep(2)
         self.rereadpt()
@@ -227,8 +229,6 @@ class Drive:
         assert self.physical in (512, 4096)
         assert self.logical <= self.physical
         assert self.sectors_per_MiB in (2048, 256)
-
-        print(self.print_MiB())
 
     @property
     def remaining_MiB(self):
