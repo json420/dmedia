@@ -24,14 +24,21 @@ Get drive and partition info using udev.
 """
 
 from uuid import UUID
+from subprocess import check_call, check_output
+import re
+import time
+import tempfile
+import os
 
 from gi.repository import GUdev
+from filestore import FileStore
 from dbase32 import db32dec, db32enc
 
 from .units import bytes10
 
 
 udev_client = GUdev.Client.new(['block'])
+MiB = 1024**2
 
 
 def db32_to_uuid(store_id):
@@ -103,6 +110,11 @@ def get_drive_info(device):
     }
 
 
+def get_blkid_info(dev):
+    text = check_output(['blkid', '-o', 'export', dev]).decode('utf-8')
+    return dict(line.split('=') for line in text.splitlines())
+
+
 def get_partition_info(device):
     physical = device.get_sysfs_attr_as_uint64('../queue/physical_block_size')
     logical = device.get_sysfs_attr_as_uint64('../queue/logical_block_size')
@@ -111,6 +123,7 @@ def get_partition_info(device):
     part_start_sector = device.get_sysfs_attr_as_uint64('start')
     drive_bytes = drive_sectors * logical
     part_bytes = part_sectors * logical
+    blkid_info = get_blkid_info(device.get_device_file())
     return {
         'drive_block_physical': physical,
         'drive_block_logical': logical,
@@ -130,8 +143,156 @@ def get_partition_info(device):
         'partition_size': bytes10(part_bytes),
         'partition_start_bytes': part_start_sector * logical,
 
-        'filesystem_type': device.get_property('ID_FS_TYPE'),
-        'filesystem_uuid': device.get_property('ID_FS_UUID'),
-        'filesystem_label': device.get_property('ID_FS_LABEL'),
+        # udev replaces spaces in LABEL with understore, so use blkid directly:
+        # 'filesystem_type': device.get_property('ID_FS_TYPE'),
+        # 'filesystem_uuid': device.get_property('ID_FS_UUID'),
+        # 'filesystem_label': device.get_property('ID_FS_LABEL'),
+        'filesystem_type': blkid_info['TYPE'],
+        'filesystem_uuid': blkid_info['UUID'],
+        'filesystem_label': blkid_info['LABEL'],
     }
 
+
+def parse_disk_size(text):
+    regex = re.compile('Disk /dev/\w+: (\d+)MiB')
+    for line in text.splitlines():
+        match = regex.match(line)
+        if match:
+            return int(match.group(1))
+    raise ValueError('Could not find disk size with unit=MiB')
+
+
+def parse_sector_size(text):
+    regex = re.compile('Sector size \(logical/physical\): (\d+)B/(\d+)B')
+    for line in text.splitlines():
+        match = regex.match(line)
+        if match:
+            return tuple(int(match.group(i)) for i in [1, 2])
+    raise ValueError('Could not find sector size')
+
+
+class Drive:
+    def __init__(self, dev):
+        assert dev.startswith('/dev/sd') or dev.startswith('/dev/vd')
+        self.dev = dev
+
+    def get_partition(self, index):
+        assert isinstance(index, int)
+        assert index >= 1
+        return Partition('{}{}'.format(self.dev, index))
+
+    def rereadpt(self):
+        check_call(['blockdev', '--rereadpt', self.dev])
+
+    def zero(self):
+        check_call(['dd',
+            'if=/dev/zero',
+            'of={}'.format(self.dev),
+            'bs=4M',
+            'count=1',
+            'oflag=sync',
+        ])
+
+    def parted(self, *args):
+        """
+        Helper for building parted commands with the shared initial args.
+        """
+        cmd = ['parted', '-s', self.dev]
+        cmd.extend(args)
+        return cmd
+
+    def mklabel(self):
+        check_call(self.parted('mklabel', 'gpt'))
+
+    def print_MiB(self):
+        cmd = self.parted('unit', 'MiB', 'print')
+        return check_output(cmd).decode('utf-8')
+
+    def init_partition_table(self):
+        self.rereadpt()
+        self.zero()
+        time.sleep(2)
+        self.rereadpt()
+        self.mklabel()
+
+        self.index = 0
+        text = self.print_MiB()
+        self.size_MiB = parse_disk_size(text)
+        (self.logical, self.physical) = parse_sector_size(text)
+        self.sectors_per_MiB = MiB // self.logical
+        self.start_MiB = 1
+        self.stop_MiB = self.size_MiB - 1
+
+        assert self.logical in (512, 4096)
+        assert self.physical in (512, 4096)
+        assert self.logical <= self.physical
+        assert self.sectors_per_MiB in (2048, 256)
+
+        print(self.print_MiB())
+
+    @property
+    def remaining_MiB(self):
+        return self.stop_MiB - self.start_MiB
+
+    def mkpart(self, start_MiB, stop_MiB):
+        assert isinstance(start_MiB, int)
+        assert isinstance(stop_MiB, int)
+        assert 1 <= start_MiB < stop_MiB <= self.stop_MiB
+
+        assert self.sectors_per_MiB in (2048, 256)
+        start = start_MiB * self.sectors_per_MiB
+        end = stop_MiB * self.sectors_per_MiB - 1
+        assert start % 2 == 0  # start should always be an even sector number
+        assert end % 2 == 1  # end should always be an odd sector number
+
+        cmd = self.parted(
+            'unit', 's', 'mkpart', 'primary', 'ext2', str(start), str(end)
+        )
+        check_call(cmd)
+
+    def add_partition(self, size_MiB):
+        assert isinstance(size_MiB, int)
+        assert 1 <= size_MiB <= self.remaining_MiB
+        start_MiB = self.start_MiB
+        self.start_MiB += size_MiB
+        self.mkpart(start_MiB, self.start_MiB)
+        self.index += 1
+        return self.get_partition(self.index)
+
+    def provision(self, label, store_id):
+        self.init_partition_table()
+        partition = self.add_partition(self.remaining_MiB)
+        partition.mkfs_ext4(label, store_id)
+        doc = partition.create_filestore(store_id)
+        return doc
+
+
+class Partition:
+    def __init__(self, dev):
+        assert dev.startswith('/dev/sd') or dev.startswith('/dev/vd')
+        self.dev = dev
+
+    def get_info(self):
+        return get_partition_info(get_device(self.dev))
+
+    def mkfs_ext4(self, label, store_id):
+        cmd = ['mkfs.ext4', self.dev,
+            '-L', label,
+            '-U', db32_to_uuid(store_id),
+            '-m', '0',  # 0% reserved blocks
+        ]
+        check_call(cmd)
+
+    def create_filestore(self, store_id, copies=1):
+        kw = self.get_info()
+        tmpdir = tempfile.mkdtemp(prefix='dmedia.')
+        check_call(['mount', self.dev, tmpdir])
+        fs = None
+        try:
+            fs = FileStore.create(tmpdir, store_id, 1, **kw)
+            check_call(['chmod', '0777', tmpdir])
+            return fs.doc
+        finally:
+            del fs
+            check_call(['umount', tmpdir])
+            os.rmdir(tmpdir)
