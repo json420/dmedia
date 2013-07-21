@@ -286,8 +286,8 @@ class Partition:
     def create_filestore(self, store_id, copies=1):
         kw = self.get_info()
         tmpdir = tempfile.mkdtemp(prefix='dmedia.')
-        check_call(['mount', self.dev, tmpdir])
         fs = None
+        check_call(['mount', self.dev, tmpdir])
         try:
             fs = FileStore.create(tmpdir, store_id, 1, **kw)
             check_call(['chmod', '0777', tmpdir])
