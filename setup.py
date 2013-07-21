@@ -148,6 +148,7 @@ setup(
         'dmedia-migrate',
         'dmedia-extract',
         'dmedia-v0-v1-upgrade',
+        'dmedia-provision-drive',
     ],
     data_files=[
         ('share/couchdb/apps/dmedia',

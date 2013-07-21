@@ -1,0 +1,92 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2013 Novacut Inc
+#
+# This file is part of `dmedia`.
+#
+# `dmedia` is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+"""
+Helper script to format an entire drive for Dmedia storage.
+
+Some opinionated decisions:
+
+    1. We always use a GPT partition table, even when this disk is 2TB or under
+
+    2. Partition starts at 1 MiB, as per current best practice
+
+    3. We format as ext4 with 0% reserved blocks
+
+This script is *not* intended for formatting the system disk contained the OS,
+a situation where the default 5% reserved blocks makes sense.  This is for
+secondary drives (possibly removable) where it's best for Dmedia to have access
+to all the space.
+
+Dmedia will try to always keep a certain amount of space free on the drives it
+manages.  However, in a pinch, it's nice for Dmedia to be able to use every drop
+of space in order to maintain sufficient file durability.
+"""
+
+import argparse
+import os
+
+from filestore import _dumps
+from dbase32 import random_id, isdb32
+
+from dmedia.drives import Drive, VALID_DRIVE
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('dev',
+    help='Drive device file, eg. "/dev/sdb"'
+)
+parser.add_argument('label',
+    help='File system label, eg. "My Drive"',
+)
+parser.add_argument('--id',
+    help='Use provided ID instead of generating a new random ID'
+)
+args = parser.parse_args()
+
+
+if not VALID_DRIVE.match(args.dev):
+    raise SystemExit(
+        'Error: DEV is not a valid drive device file: {}'.format(args.dev)
+    )
+
+if not args.label:
+    raise SystemExit('Error: LABEL cannot be empty')
+if len(args.label) > 16:
+    raise SystemExit(
+        'Error: LABEL can be at most 16 characters: {}'.format(args.label)
+    )
+
+if args.id is None:
+    args.id = random_id()
+if len(args.id) != 24:
+    raise SystemExit('Error: ID is not 24 characters long: {}'.format(args.id))
+if not isdb32(args.id):
+    raise SystemExit('Error: not a valid Dbase32 ID: {}'.format(args.id))
+
+
+if os.getuid() != 0:
+    raise SystemExit('Error: must be run as root')
+drive = Drive(args.dev)
+doc = drive.provision(args.label, args.id)
+print(_dumps(doc))
+
