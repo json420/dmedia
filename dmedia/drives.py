@@ -149,9 +149,9 @@ def get_partition_info(device):
         # 'filesystem_type': device.get_property('ID_FS_TYPE'),
         # 'filesystem_uuid': device.get_property('ID_FS_UUID'),
         # 'filesystem_label': device.get_property('ID_FS_LABEL'),
-        'filesystem_type': blkid_info['TYPE'],
-        'filesystem_uuid': blkid_info['UUID'],
-        'filesystem_label': blkid_info['LABEL'],
+        'filesystem_type': blkid_info.get('TYPE'),
+        'filesystem_uuid': blkid_info.get('UUID'),
+        'filesystem_label': blkid_info.get('LABEL'),
     }
 
 
