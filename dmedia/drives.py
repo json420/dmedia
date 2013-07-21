@@ -191,15 +191,15 @@ class Drive:
         """
         Helper for building parted commands with the shared initial args.
         """
-        cmd = ['parted', '-s', self.dev]
+        cmd = ['parted', '-s', self.dev, 'unit', 'MiB']
         cmd.extend(args)
         return cmd
 
     def mklabel(self):
         check_call(self.parted('mklabel', 'gpt'))
 
-    def print_MiB(self):
-        cmd = self.parted('unit', 'MiB', 'print')
+    def print(self):
+        cmd = self.parted('print')
         return check_output(cmd).decode('utf-8')
 
     def init_partition_table(self):
@@ -209,39 +209,37 @@ class Drive:
         self.rereadpt()
         self.mklabel()
 
-        text = self.print_MiB()
+        text = self.print()
         print(text)
-        self.size_MiB = parse_drive_size(text)
+        self.size = parse_drive_size(text)
         self.index = 0
-        self.start_MiB = 1
-        self.stop_MiB = self.size_MiB - 1
-        assert self.start_MiB < self.stop_MiB
+        self.start = 1
+        self.stop = self.size - 1
+        assert self.start < self.stop
 
     @property
-    def remaining_MiB(self):
-        return self.stop_MiB - self.start_MiB
+    def remaining(self):
+        return self.stop - self.start
 
-    def mkpart(self, start_MiB, stop_MiB):
-        assert isinstance(start_MiB, int)
-        assert isinstance(stop_MiB, int)
-        assert 1 <= start_MiB < stop_MiB <= self.stop_MiB
-        cmd = self.parted('unit', 'MiB', 'mkpart', 'primary', 'ext2',
-            str(start_MiB), str(stop_MiB)
-        )
+    def mkpart(self, start, stop):
+        assert isinstance(start, int)
+        assert isinstance(stop, int)
+        assert 1 <= start < stop <= self.stop
+        cmd = self.parted('mkpart', 'primary', 'ext2', str(start), str(stop))
         check_call(cmd)
 
-    def add_partition(self, size_MiB):
-        assert isinstance(size_MiB, int)
-        assert 1 <= size_MiB <= self.remaining_MiB
-        start_MiB = self.start_MiB
-        self.start_MiB += size_MiB
-        self.mkpart(start_MiB, self.start_MiB)
+    def add_partition(self, size):
+        assert isinstance(size, int)
+        assert 1 <= size <= self.remaining
+        start = self.start
+        self.start += size
+        self.mkpart(start, self.start)
         self.index += 1
         return self.get_partition(self.index)
 
     def provision(self, label, store_id):
         self.init_partition_table()
-        partition = self.add_partition(self.remaining_MiB)
+        partition = self.add_partition(self.remaining)
         partition.mkfs_ext4(label, store_id)
         time.sleep(2)
         doc = partition.create_filestore(store_id)
