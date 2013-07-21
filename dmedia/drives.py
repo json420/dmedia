@@ -274,3 +274,4 @@ class Partition:
             del fs
             check_call(['umount', tmpdir])
             os.rmdir(tmpdir)
+

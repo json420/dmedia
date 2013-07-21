@@ -91,6 +91,23 @@ class TestDrive(TestCase):
             "Invalid drive device file: '/dev/sdaa'"
         )
 
+    def test_get_partition(self):
+        inst = drives.Drive('/dev/sdb')
+        part = inst.get_partition(1)
+        self.assertIsInstance(part, drives.Partition)
+        self.assertEqual(part.dev, '/dev/sdb1')
+        part = inst.get_partition(2)
+        self.assertIsInstance(part, drives.Partition)
+        self.assertEqual(part.dev, '/dev/sdb2')
+
+        inst = drives.Drive('/dev/vdz')
+        part = inst.get_partition(8)
+        self.assertIsInstance(part, drives.Partition)
+        self.assertEqual(part.dev, '/dev/vdz8')
+        part = inst.get_partition(9)
+        self.assertIsInstance(part, drives.Partition)
+        self.assertEqual(part.dev, '/dev/vdz9')
+
 
 class TestPartition(TestCase):
     def test_init(self):
@@ -100,9 +117,16 @@ class TestPartition(TestCase):
         for dev in ('/dev/vda1', '/dev/vda9', '/dev/vdz1', '/dev/vdz9'):
             part = drives.Partition(dev)
             self.assertIs(part.dev, dev)
+
         with self.assertRaises(ValueError) as cm:
             drives.Partition('/dev/sda11')
         self.assertEqual(str(cm.exception),
             "Invalid partition device file: '/dev/sda11'"
+        )
+
+        with self.assertRaises(ValueError) as cm:
+            drives.Partition('/dev/sda0')
+        self.assertEqual(str(cm.exception),
+            "Invalid partition device file: '/dev/sda0'"
         )
 
