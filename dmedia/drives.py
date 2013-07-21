@@ -164,15 +164,6 @@ def parse_drive_size(text):
     raise ValueError('Could not find disk size with unit=MiB')
 
 
-def parse_sector_size(text):
-    regex = re.compile('Sector size \(logical/physical\): (\d+)B/(\d+)B')
-    for line in text.splitlines():
-        match = regex.match(line)
-        if match:
-            return tuple(int(match.group(i)) for i in [1, 2])
-    raise ValueError('Could not find sector size')
-
-
 class Drive:
     def __init__(self, dev):
         if not VALID_DRIVE.match(dev):
@@ -218,18 +209,13 @@ class Drive:
         self.rereadpt()
         self.mklabel()
 
-        self.index = 0
         text = self.print_MiB()
+        print(text)
         self.size_MiB = parse_drive_size(text)
-        (self.logical, self.physical) = parse_sector_size(text)
-        self.sectors_per_MiB = MiB // self.logical
+        self.index = 0
         self.start_MiB = 1
         self.stop_MiB = self.size_MiB - 1
-
-        assert self.logical in (512, 4096)
-        assert self.physical in (512, 4096)
-        assert self.logical <= self.physical
-        assert self.sectors_per_MiB in (2048, 256)
+        assert self.start_MiB < self.stop_MiB
 
     @property
     def remaining_MiB(self):
@@ -239,15 +225,8 @@ class Drive:
         assert isinstance(start_MiB, int)
         assert isinstance(stop_MiB, int)
         assert 1 <= start_MiB < stop_MiB <= self.stop_MiB
-
-        assert self.sectors_per_MiB in (2048, 256)
-        start = start_MiB * self.sectors_per_MiB
-        end = stop_MiB * self.sectors_per_MiB - 1
-        assert start % 2 == 0  # start should always be an even sector number
-        assert end % 2 == 1  # end should always be an odd sector number
-
-        cmd = self.parted(
-            'unit', 's', 'mkpart', 'primary', 'ext2', str(start), str(end)
+        cmd = self.parted('unit', 'MiB', 'mkpart', 'primary', 'ext2',
+            str(start_MiB), str(stop_MiB)
         )
         check_call(cmd)
 
