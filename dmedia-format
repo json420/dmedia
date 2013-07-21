@@ -144,12 +144,13 @@ check_call(['mkfs.ext4', part_dev, '-m', '0', '-L', args.label, '-U', uuid])
 
 # Get the UUID and Label:
 part_dev = '{}{}'.format(args.dev, 1)
-#info = get_info(part_dev)
-#kw = {
-#    'uuid': info['UUID'],
-#    'label': info['LABEL'],
-#}
+info = get_info(part_dev)
 kw = get_partition_info(get_device(part_dev))
+kw.update({
+    'filesystem_label': info['LABEL'],
+    'filesystem_uuid': info['UUID'],
+    'filesystem_type': info['TYPE'],
+})
 
 # Mount and change permissions:
 tmpdir = tempfile.mkdtemp(prefix='dmedia.')
