@@ -260,6 +260,7 @@ class Drive:
         self.init_partition_table()
         partition = self.add_partition(self.remaining_MiB)
         partition.mkfs_ext4(label, store_id)
+        time.sleep(2)
         doc = partition.create_filestore(store_id)
         return doc
 
