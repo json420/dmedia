@@ -38,8 +38,6 @@ from .units import bytes10
 
 
 udev_client = GUdev.Client.new(['block'])
-MiB = 1024**2
-
 VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
 VALID_PARTITION = re.compile('^/dev/[sv]d[a-z][1-9]$')
 
