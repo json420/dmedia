@@ -308,10 +308,19 @@ function(doc) {
 }
 """
 
+store_drive_serial = """
+function(doc) {
+    if (doc.type == 'dmedia/store') {
+        emit(doc.drive_serial, null);
+    }
+}
+"""
+
 store_design = {
     '_id': '_design/store',
     'views': {
         'atime': {'map': store_atime},
+        'drive_serial': {'map': store_drive_serial},
     },
 }
 
