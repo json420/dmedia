@@ -23,12 +23,57 @@
 Get drive and partition info using udev.
 """
 
+from uuid import UUID
+
 from gi.repository import GUdev
+from dbase32 import db32dec, db32enc
 
 from .units import bytes10
 
 
 udev_client = GUdev.Client.new(['block'])
+
+
+def db32_to_uuid(store_id):
+    """
+    Convert a 120-bit Dbase32 encoded ID into a 128-bit UUID.
+
+    This is used to create a stable mapping between Dmedia FileStore IDs and
+    ext4 UUIDs.
+
+    For example:
+
+    >>> db32_to_uuid('333333333333333333333333')
+    '00000000-0000-0000-0000-000000000044'
+    >>> db32_to_uuid('YYYYYYYYYYYYYYYYYYYYYYYY')
+    'ffffffff-ffff-ffff-ffff-ffffffffff44'
+
+    """
+    assert len(store_id) == 24
+    uuid_bytes = db32dec(store_id) + b'D'
+    assert len(uuid_bytes) == 16
+    return str(UUID(bytes=uuid_bytes))
+
+
+def uuid_to_db32(uuid_hex):
+    """
+    Convert a 128-bit UUID into a 120-bit Dbase32 encoded ID.
+
+    This is used to create a stable mapping between Dmedia FileStore IDs and
+    ext4 UUIDs.
+
+    For example:
+
+    >>> uuid_to_db32('00000000-0000-0000-0000-000000000044')
+    '333333333333333333333333'
+
+    >>> uuid_to_db32('ffffffff-ffff-ffff-ffff-ffffffffff44')
+    'YYYYYYYYYYYYYYYYYYYYYYYY'
+
+    """
+    uuid_bytes = UUID(hex=uuid_hex).bytes
+    assert len(uuid_bytes) == 16
+    return db32enc(uuid_bytes[:15])
 
 
 def get_device(dev):
