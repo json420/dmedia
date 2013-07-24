@@ -239,12 +239,17 @@ class Service(dbus.service.Object):
         """
         log.info('---- idle4 at time %.3f ----', start_delta())
         self.core.start_background_tasks()
-        # Re-queue downgrade, scan, relink, and verify tasks every 15 minutes:
-        GLib.timeout_add(20 * 60 * 1000, self.on_background_restart)
+        GLib.timeout_add(11 * 60 * 1000, self.on_requeue_filestore_tasks)
+        GLib.timeout_add(29 * 60 * 1000, self.on_restart_vigilance)
 
-    def on_background_restart(self):
-        log.info('on_background_restart()')
-        self.core.restart_background_tasks()
+    def on_requeue_filestore_tasks(self):
+        log.info('** on_requeue_filestore_tasks()')
+        self.core.requeue_filestore_tasks()
+        return True
+
+    def on_restart_vigilance(self):
+        log.info('** on_restart_vigilance()')
+        self.core.restart_vigilance()
         return True
 
     def on_mount_added(self, vm, mount):

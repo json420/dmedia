@@ -417,9 +417,9 @@ class TaskManager:
         self.queue2.pop(('verify', fs.parentdir))
 
     def requeue_filestore_tasks(self, filestores):
-        self.queue1.append('downgrade', downgrade_worker, self.env)
         for fs in filestores:
             self.queue_filestore_tasks(fs)
+        self.queue1.append('downgrade', downgrade_worker, self.env)
 
     def start_tasks(self):
         self.queue1.append('downgrade', downgrade_worker, self.env)
@@ -481,9 +481,8 @@ class Core:
     def start_background_tasks(self):
         self.task_manager.start_tasks()
 
-    def restart_background_tasks(self):
+    def requeue_filestore_tasks(self):
         self.task_manager.requeue_filestore_tasks(tuple(self.stores))
-        self.task_manager.restart_vigilance()
 
     def restart_vigilance(self):
         self.task_manager.restart_vigilance()
