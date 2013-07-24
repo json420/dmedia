@@ -13,6 +13,7 @@ except NotFound:
     pass
 dst.put(None)
 
+nope = 0
 buf = BufferedSave(dst, 100)
 skip = 0
 while True:
@@ -22,10 +23,15 @@ while True:
     skip += len(rows)
     for row in rows:
         _id = row['id']
-        print(_id)
+        #print(_id)
         doc = src.get(_id, attachments=True)
-        del doc['_rev']
-        buf.save(doc)
+        if doc.get('type') == 'dmedia/file':
+            del doc['_rev']
+            buf.save(doc)
+        else:
+            print(_id, doc.get('type'))
+            nope += 1
 buf.flush()
 
 print('{} total, {} conflicts'.format(buf.count, buf.conflicts))
+print('nope', nope)
