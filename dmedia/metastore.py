@@ -671,6 +671,7 @@ class MetaStore:
             docs = self.db.get_many([st.id for st in buf])
             for (st, doc) in zip(buf, docs):
                 if doc is None:
+                    log.warning('Orphan %r in %r', st.id, fs)
                     continue
                 stored = get_dict(doc, 'stored')
                 if fs.id in stored:
@@ -716,8 +717,9 @@ class MetaStore:
             self.verify(fs, doc)
             count += 1
             size += doc['bytes']
-        t.log('verify (by downgraded) %s in %r [%s]',
-                count_and_size(count, size), fs, t.rate(size))
+        if count:
+            t.log('verify (by downgraded) %s in %r [%s]',
+                    count_and_size(count, size), fs, t.rate(size))
         return (count, size)
 
     def verify_by_mtime(self, fs, curtime=None):
@@ -744,8 +746,9 @@ class MetaStore:
             self.verify(fs, doc)
             count += 1
             size += doc['bytes']
-        t.log('verify (by mtime) %s in %r [%s]',
-                count_and_size(count, size), fs, t.rate(size))
+        if count:
+            t.log('verify (by mtime) %s in %r [%s]',
+                    count_and_size(count, size), fs, t.rate(size))
         return (count, size)
 
     def verify_by_verified(self, fs, curtime=None):
@@ -772,8 +775,9 @@ class MetaStore:
             self.verify(fs, doc)
             count += 1
             size += doc['bytes']
-        t.log('verify (by verified) %s in %r [%s]',
-                count_and_size(count, size), fs, t.rate(size))
+        if count:
+            t.log('verify (by verified) %s in %r [%s]',
+                    count_and_size(count, size), fs, t.rate(size))
         return (count, size)
 
     def verify_all(self, fs, curtime=None):
