@@ -126,16 +126,17 @@ function(doc) {
 file_rank = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
-        var rank = 0;
+        var locations = 0;
+        var durability = 0;
         var key, copies;
         for (key in doc.stored) {
             copies = doc.stored[key].copies;
-            rank += 1;
+            locations += 1;
             if (typeof copies == 'number' && copies > 0) {
-                rank += copies;
+                durability += copies;
             }
         }
-        emit(rank, null);
+        emit(Math.min(3, locations) + durability, null);
     }
 }
 """
