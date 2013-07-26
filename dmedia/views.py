@@ -123,6 +123,23 @@ function(doc) {
 }
 """
 
+file_rank = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        var rank = 0;
+        var key, copies;
+        for (key in doc.stored) {
+            copies = doc.stored[key].copies;
+            rank += 1;
+            if (typeof copies == 'number' && copies > 0) {
+                rank += copies;
+            }
+        }
+        emit(rank, null);
+    }
+}
+"""
+
 file_fragile = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -279,6 +296,7 @@ file_design = {
         'stored': {'map': file_stored, 'reduce': _stats},
         'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
+        'rank': {'map': file_rank},
         'fragile': {'map': file_fragile},
         'never-verified': {'map': file_never_verified},
         'last-verified': {'map': file_last_verified},
