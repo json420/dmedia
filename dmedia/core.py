@@ -448,6 +448,12 @@ class TaskManager:
             self.start_vigilance()
 
 
+def mark_machine_start(doc, atime):
+    doc['atime'] = atime
+    doc['stores'] = {}
+    doc['peers'] = {}
+
+
 class Core:
     def __init__(self, env, ssl_config=None):
         self.env = env
@@ -503,7 +509,10 @@ class Core:
         self.local['skip_internal'] = flag
         self.save_local()
 
-    def load_identity(self, machine, user):
+    def load_identity(self, machine, user, timestamp=None):
+        if timestamp is None:
+            timestamp = int(time.time())
+        assert isinstance(timestamp, int) and timestamp > 0
         try:
             self.db.save_many([machine, user])
         except BulkConflict:
@@ -515,6 +524,8 @@ class Core:
         self.local['machine_id'] = machine['_id']
         self.local['user_id'] = user['_id']
         self.save_local()
+        self.machine = self.db.get(machine['_id'])
+        self.db.update(mark_machine_start, self.machine, timestamp)
 
     def add_peer(self, peer_id, info):
         assert isdb32(peer_id) and len(peer_id) == 48

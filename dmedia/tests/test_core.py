@@ -181,14 +181,24 @@ class TestCore(CouchCase):
         )
 
     def test_load_identity(self):
+        timestamp = int(time.time())
         machine_id = random_id(30)
         user_id = random_id(30)
         inst = core.Core(self.env)
-        inst.load_identity({'_id': machine_id}, {'_id': user_id})
+        self.assertIsNone(
+            inst.load_identity({'_id': machine_id}, {'_id': user_id}, timestamp)
+        )
 
         machine = inst.db.get(machine_id)
-        self.assertEqual(set(machine), set(['_id', '_rev']))
-        self.assertTrue(machine['_rev'].startswith('1-'))
+        self.assertTrue(machine['_rev'].startswith('2-'))
+        self.assertEqual(machine, {
+            '_id': machine_id,
+            '_rev': machine['_rev'],
+            'atime': timestamp,
+            'stores': {},
+            'peers': {},
+        })
+
         user = inst.db.get(user_id)
         self.assertEqual(set(user), set(['_id', '_rev']))
         self.assertTrue(user['_rev'].startswith('1-'))
@@ -205,17 +215,33 @@ class TestCore(CouchCase):
             }
         )
         self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
-
         self.assertEqual(self.env['machine_id'], machine_id)
         self.assertEqual(self.env['user_id'], user_id)
 
+        # Now try when machine and user docs already exist:
+        machine['atime'] = timestamp - 12345
+        machine['stores'] = 'foo'
+        machine['peers'] = 'bar'
+        inst.db.save(machine)
         inst = core.Core(self.env)
-        inst.load_identity({'_id': machine_id}, {'_id': user_id})
-        self.assertTrue(inst.db.get(machine_id)['_rev'].startswith('1-'))
-        self.assertTrue(inst.db.get(user_id)['_rev'].startswith('1-'))
+        self.assertIsNone(
+            inst.load_identity({'_id': machine_id}, {'_id': user_id}, timestamp)
+        )
 
-        self.assertEqual(set(machine), set(['_id', '_rev']))
-        self.assertTrue(machine['_rev'].startswith('1-'))
+        machine = inst.db.get(machine_id)
+        self.assertTrue(machine['_rev'].startswith('4-'))
+        self.assertEqual(machine, {
+            '_id': machine_id,
+            '_rev': machine['_rev'],
+            'atime': timestamp,
+            'stores': {},
+            'peers': {},
+        })
+
+        user = inst.db.get(user_id)
+        self.assertEqual(set(user), set(['_id', '_rev']))
+        self.assertTrue(user['_rev'].startswith('1-'))
+
         self.assertEqual(inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',
