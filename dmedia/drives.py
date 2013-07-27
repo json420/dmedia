@@ -31,7 +31,7 @@ import tempfile
 import os
 
 from gi.repository import GUdev
-from filestore import FileStore
+from filestore import FileStore, _dumps
 from dbase32 import db32dec, db32enc
 
 from .units import bytes10
@@ -275,3 +275,31 @@ class Partition:
             check_call(['umount', tmpdir])
             os.rmdir(tmpdir)
 
+
+class Devices:
+    def __init__(self):
+        self.client = GUdev.Client.new(['block'])
+        self.partitions = {}
+
+    def run(self):
+        self.client.connect('uevent', self.on_uevent)
+        for device in self.client.query_by_subsystem('block'):
+            self.on_uevent(None, 'add', device)
+
+    def on_uevent(self, client, action, device):
+        _type = device.get_devtype()
+        dev = device.get_device_file()
+        if _type == 'partition':
+            print(action, _type, dev)
+            if action == 'add':
+                self.add_partition(device)
+            elif action == 'remove':
+                self.remove_partition(device)
+
+    def add_partition(self, device):
+        dev = device.get_device_file()
+        print('add_partition({!r})'.format(dev))
+
+    def remove_partition(self, device):
+        dev = device.get_device_file()
+        print('add_partition({!r})'.format(dev))
