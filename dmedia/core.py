@@ -552,9 +552,7 @@ class Core:
         self.local['machine_id'] = machine['_id']
         self.local['user_id'] = user['_id']
         self.save_local()
-        self.machine = self.db.update(
-            mark_machine_start, self.db.get(machine['_id']), timestamp
-        )
+        self.machine = self.db.update(mark_machine_start, machine, timestamp)
 
     def add_peer(self, peer_id, info):
         assert isdb32(peer_id) and len(peer_id) == 48
