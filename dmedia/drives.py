@@ -332,3 +332,14 @@ def get_homedir_info(homedir):
         if mountdir == '/':
             return {}
         mountdir = path.dirname(mountdir)
+
+
+def get_mountdir_info(mountdir):
+    mounts = parse_mounts()
+    if mountdir in mounts:
+        try:
+            device = get_device(mounts[mountdir])
+            return get_partition_info(device)
+        except NoSuchDevice:
+            pass
+    return {}
