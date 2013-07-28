@@ -454,6 +454,32 @@ def mark_machine_start(doc, atime):
     doc['peers'] = {}
 
 
+def mark_add_filestore(doc, atime, fs_id, info):
+    assert isinstance(info, dict)
+    doc['atime'] = atime
+    stores = get_dict(doc, 'stores')
+    stores[fs_id] = info
+
+
+def mark_remove_filestore(doc, atime, fs_id):
+    doc['atime'] = atime
+    stores = get_dict(doc, 'stores')
+    stores.pop(fs_id, None)
+
+
+def mark_add_peer(doc, atime, peer_id, info):
+    assert isinstance(info, dict)
+    doc['atime'] = atime
+    peers = get_dict(doc, 'peers')
+    peers[peer_id] = info
+
+
+def mark_remove_peer(doc, atime, peer_id):
+    doc['atime'] = atime
+    peers = get_dict(doc, 'peers')
+    peers.pop(peer_id, None)
+
+
 class Core:
     def __init__(self, env, ssl_config=None):
         self.env = env
@@ -474,6 +500,8 @@ class Core:
                 'peers': {},
             }
         self.__local = deepcopy(self.local)
+        self.machine = None
+        self.user = None
 
     def save_local(self):
         if self.local != self.__local:
@@ -533,9 +561,15 @@ class Core:
         assert isinstance(info['url'], str)
         self.local['peers'][peer_id] = info
         self.save_local()
+        if self.machine:
+            atime = int(time.time())
+            self.db.update(mark_add_peer, self.machine, atime, peer_id, info)
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
+        if self.machine:
+            atime = int(time.time())
+            self.db.update(mark_remove_peer, self.machine, atime, peer_id)
         try:
             del self.local['peers'][peer_id]
             self.save_local()
@@ -564,12 +598,19 @@ class Core:
             pass
         self.task_manager.queue_filestore_tasks(fs)
         self._sync_stores()
+        if self.machine:
+            atime = int(time.time())
+            info = {'parentdir': fs.parentdir}
+            self.db.update(mark_add_filestore, self.machine, atime, fs.id, info)
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
         self.stores.remove(fs)
         self.task_manager.stop_filestore_tasks(fs)
         self._sync_stores()
+        if self.machine:
+            atime = int(time.time())
+            self.db.update(mark_remove_filestore, self.machine, atime, fs.id)
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):

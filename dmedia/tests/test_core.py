@@ -38,6 +38,7 @@ import microfiber
 from dbase32 import random_id
 import filestore
 from filestore import FileStore
+from filestore.misc import TempFileStore
 from filestore.migration import Migration, b32_to_db32
 
 from dmedia.local import LocalStores
@@ -92,6 +93,107 @@ class TestCouchFunctions(CouchCase):
             list(core.projects_iter(server)),
             [(project_db_name(_id), _id) for _id in sorted(ids)]
         )
+
+    def test_mark_machine_start(self):
+        doc = {}
+        atime = int(time.time())
+        self.assertIsNone(core.mark_machine_start(doc, atime))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {},
+            'peers': {},
+        })
+
+    def test_mark_add_filestore(self):
+        doc = {}
+        atime = int(time.time())
+        fs = TempFileStore()
+        info = {'parentdir': fs.parentdir}
+        self.assertIsNone(core.mark_add_filestore(doc, atime, fs.id, info))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {
+                fs.id: {'parentdir': fs.parentdir},
+            }
+        })
+
+    def test_mark_remove_filestore(self):
+        doc = {}
+        atime = int(time.time())
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
+        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs1.id))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {},
+        })
+
+        doc = {
+            'atime': atime - 123456,
+            'stores': {
+                fs1.id: {'parentdir': fs1.parentdir},
+                fs2.id: {'parentdir': fs2.parentdir},
+            },
+        }
+        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs1.id))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {
+                fs2.id: {'parentdir': fs2.parentdir},
+            },
+        })
+        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs2.id))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {},
+        })
+
+    def test_mark_add_peer(self):
+        doc = {}
+        atime = int(time.time())
+        peer_id = random_id(30)
+        url = random_id()
+        info = {'url': url}
+        self.assertIsNone(core.mark_add_peer(doc, atime, peer_id, info))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {
+                peer_id: {'url': url},
+            },
+        })
+
+    def test_mark_remove_peer(self):
+        doc = {}
+        atime = int(time.time())
+        peer_id1 = random_id(30)
+        url1 = random_id()
+        peer_id2 = random_id(30)
+        url2 = random_id()
+        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id1))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {},
+        })
+
+        doc = {
+            'atime': atime - 23456,
+            'peers': {
+                peer_id1: {'url': url1},
+                peer_id2: {'url': url2},
+            },
+        }
+        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id1))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {
+                peer_id2: {'url': url2},
+            },
+        })
+        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id2))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {},
+        })
 
 
 class TestTaskQueue(TestCase):
@@ -179,6 +281,8 @@ class TestCore(CouchCase):
                 'peers': {},
             }
         )
+        self.assertIsNone(inst.machine)
+        self.assertIsNone(inst.user)
 
     def test_load_identity(self):
         timestamp = int(time.time())
