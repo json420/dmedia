@@ -29,6 +29,7 @@ import re
 import time
 import tempfile
 import os
+from os import path
 
 from gi.repository import GUdev
 from filestore import FileStore, _dumps
@@ -303,3 +304,24 @@ class Devices:
     def remove_partition(self, device):
         dev = device.get_device_file()
         print('add_partition({!r})'.format(dev))
+
+
+def parse_mounts(procdir='/proc'):
+    text = open(path.join(procdir, 'mounts'), 'r').read()
+    mounts = {}
+    for line in text.splitlines():
+        (dev, mount, type_, options, dump, pass_) = line.split()
+        mounts[mount] = dev
+    return mounts
+
+
+def get_homedir_info(homedir):
+    mounts = parse_mounts()
+    mountdir = homedir
+    while True:
+        if mountdir in mounts:
+            device = get_device(mounts[mountdir])
+            return get_partition_info(device)
+        if mountdir == '/':
+            break
+        mountdir = path.dirname(mountdir)
