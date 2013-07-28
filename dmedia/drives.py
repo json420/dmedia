@@ -315,7 +315,7 @@ def parse_mounts(procdir='/proc'):
     mounts = {}
     for line in text.splitlines():
         (dev, mount, type_, options, dump, pass_) = line.split()
-        mounts[mount] = dev
+        mounts[mount.replace('\\040', ' ')] = dev
     return mounts
 
 
