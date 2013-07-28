@@ -91,10 +91,14 @@ def unfuck(string):
     return string.replace('\\x20', ' ').strip()
 
 
+class NoSuchDevice(Exception):
+    pass
+
+
 def get_device(dev):
     device = udev_client.query_by_device_file(dev)
     if device is None:
-        raise Exception('No such device: {!r}'.format(dev))  
+        raise NoSuchDevice('No such device: {!r}'.format(dev))  
     return device
 
 
@@ -320,8 +324,11 @@ def get_homedir_info(homedir):
     mountdir = homedir
     while True:
         if mountdir in mounts:
-            device = get_device(mounts[mountdir])
-            return get_partition_info(device)
+            try:
+                device = get_device(mounts[mountdir])
+                return get_partition_info(device)
+            except NoSuchDevice:
+                pass
         if mountdir == '/':
-            break
+            return {}
         mountdir = path.dirname(mountdir)
