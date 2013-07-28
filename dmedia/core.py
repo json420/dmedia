@@ -663,7 +663,7 @@ class Core:
     def update_project(self, project_id):
         update_project(self.db, project_id)     
 
-    def create_filestore(self, parentdir):
+    def create_filestore(self, parentdir, store_id=None, copies=1, **kw):
         """
         Create a new file-store in *parentdir*.
         """
@@ -672,7 +672,7 @@ class Core:
                 'Already contains a FileStore: {!r}'.format(parentdir)
             )
         log.info('Creating a new FileStore in %r', parentdir)
-        fs = FileStore.create(parentdir)
+        fs = FileStore.create(parentdir, store_id, copies, **kw)
         self._add_filestore(fs)
         return fs
 
