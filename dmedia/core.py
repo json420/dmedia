@@ -552,8 +552,9 @@ class Core:
         self.local['machine_id'] = machine['_id']
         self.local['user_id'] = user['_id']
         self.save_local()
-        self.machine = self.db.get(machine['_id'])
-        self.db.update(mark_machine_start, self.machine, timestamp)
+        self.machine = self.db.update(
+            mark_machine_start, self.db.get(machine['_id']), timestamp
+        )
 
     def add_peer(self, peer_id, info):
         assert isdb32(peer_id) and len(peer_id) == 48
@@ -563,13 +564,17 @@ class Core:
         self.save_local()
         if self.machine:
             atime = int(time.time())
-            self.db.update(mark_add_peer, self.machine, atime, peer_id, info)
+            self.machine = self.db.update(
+                mark_add_peer, self.machine, atime, peer_id, info
+            )
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
         if self.machine:
             atime = int(time.time())
-            self.db.update(mark_remove_peer, self.machine, atime, peer_id)
+            self.machine = self.db.update(
+                mark_remove_peer, self.machine, atime, peer_id
+            )
         try:
             del self.local['peers'][peer_id]
             self.save_local()
@@ -601,7 +606,9 @@ class Core:
         if self.machine:
             atime = int(time.time())
             info = {'parentdir': fs.parentdir}
-            self.db.update(mark_add_filestore, self.machine, atime, fs.id, info)
+            self.machine = self.db.update(
+                mark_add_filestore, self.machine, atime, fs.id, info
+            )
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
@@ -610,7 +617,9 @@ class Core:
         self._sync_stores()
         if self.machine:
             atime = int(time.time())
-            self.db.update(mark_remove_filestore, self.machine, atime, fs.id)
+            self.machine = self.db.update(
+                mark_remove_filestore, self.machine, atime, fs.id
+            )
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
