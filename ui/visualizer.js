@@ -1,6 +1,13 @@
 "use strict";
 
 
+function $unparent(id) {
+    var child = $(id);
+    if (child && child.parentNode) {
+        child.parentNode.removeChild(child);
+    }
+    return child;
+}
 
 
 var UI = {
@@ -178,7 +185,6 @@ Widget.prototype = {
 
 var MachineWidget = function(changes, doc) {
     Widget.call(this, changes, doc);
-    this._url = null;
 }
 MachineWidget.prototype = {
     build: function(doc_id) {
@@ -192,7 +198,34 @@ MachineWidget.prototype = {
 
     update: function(doc) {
         this.text.textContent = doc.hostname;
+        this.drives.innerHTML = null;
+        var store_id;
+        for (store_id in doc.stores) {
+            var child = $unparent(store_id);
+            if (! child) {
+                child = $el('div', {'class': 'drive', 'id': store_id});
+            }
+            var drive_doc = this.changes.get(store_id);
+            child.textContent = [drive_doc.drive_size, drive_doc.drive_model].join(' ');
+            this.drives.appendChild(child);
+        }
     },
 }
 MachineWidget.prototype.__proto__ = Widget.prototype;
+
+
+var DriveWidget = function(changes, doc) {
+    Widget.call(this, changes, doc);
+}
+DriveWidget.prototype = {
+    build: function(doc_id) {
+        var element = $el('div', {'class': 'drive', 'id': doc_id});
+        return element;
+    },
+
+    update: function(doc) {
+        this.element.textContent = doc.drive_model;
+    },
+}
+DriveWidget.prototype.__proto__ = Widget.prototype;
 

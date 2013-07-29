@@ -1,11 +1,21 @@
 .machine {
-    background-color: #ddd;
-    border: 1px solid #333;
+    background-color: #eee;
+    border: 1px solid #555;
     position: fixed;
     padding: 5px;
+    margin: 5px;
 }
 
 .machine .text {
     font-weight: bold;
+    padding: 5px;
+    margin: 5px 0;
+}
+
+.drive {
+    background-color: #ccc;
+    border: 1px solid #333;
+    padding: 5px;
+    margin: 5px 0;
 }
 
