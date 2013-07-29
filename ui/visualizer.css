@@ -1,4 +1,9 @@
+#machines {
+
+}
+
 .machine {
+    vertical-align: top;
     background-color: #eee;
     border: 1px solid #555;
     display: inline-block;

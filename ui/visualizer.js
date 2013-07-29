@@ -14,6 +14,8 @@ var UI = {
     on_load: function() {
         console.log('on_load()');
         UI.db = new couch.Database('dmedia-1');
+        UI.machines = $('machines');
+        UI.machine_id = UI.db.get_sync('_local/dmedia').machine_id;
         UI.viz = new Visualizer(UI.db);
     },
 }
@@ -23,7 +25,6 @@ window.addEventListener('load', UI.on_load);
 
 function Visualizer(db) {
     this.db = db;
-    this.machine_id = db.get_sync('_local/dmedia').machine_id;
     this.changes = new Changes(db,
         this.on_load.bind(this),
         this.on_add.bind(this)
@@ -33,15 +34,14 @@ function Visualizer(db) {
 Visualizer.prototype = {
     on_load: function(doc) {
         console.log(['on_load', doc.type, doc._id].join(' '));
-        if (doc._id == this.machine_id) {
-            var widget = new MachineWidget(this.changes, doc, true);
-            document.body.appendChild(widget.element);
+        if (doc._id == UI.machine_id) {
+            var widget = new MachineWidget(this.changes, doc);
+            $prepend(widget.element, UI.machines);
         }
     },
 
     on_add: function(doc) {
-        //console.log(['on_add', doc.type, doc._id].join(' '));
-        //console.log(JSON.stringify(doc));
+        console.log(['on_add', doc.type, doc._id].join(' '));
     },
 }
 
@@ -177,6 +177,7 @@ Widget.prototype = {
     },
 
     destroy: function() {
+        console.log('destroy: ' + this.element.id);
         if (this.element.parentNode) {
             this.element.parentNode.removeChild(this.element);
         }
@@ -191,11 +192,33 @@ Widget.prototype = {
 }
 
 
-var MachineWidget = function(changes, doc, master) {
+var MachineWidget = function(changes, doc) {
     Widget.call(this, changes, doc);
-    this.master = master;
 }
 MachineWidget.prototype = {
+    destroy: function() {
+        console.log('destroy machine: ' + this.element.id);
+        var deleted = [];
+        var child = this.drives.children[0];
+        while (child) {
+            deleted.push(child.id);
+            child = child.nextSibling;
+        }
+        deleted.forEach(function(doc_id) {
+            console.log('deleting drive: ' + doc_id);
+            this.changes.notify_delete(doc_id);
+        }, this);
+
+        delete this.drives;
+        delete this.text;
+        if (this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+        delete this.element;
+        delete this.changes;
+        delete this.doc;
+    },
+
     build: function(doc_id) {
         var element = $el('div', {'class': 'machine', 'id': doc_id});
         this.text = $el('div', {'class': 'text'});
@@ -206,6 +229,7 @@ MachineWidget.prototype = {
     },
 
     update: function(doc) {
+        console.log(JSON.stringify(doc));
         this.text.textContent = doc.hostname;
 
         var store_id, peer_id, child, child_doc, widget;
@@ -231,23 +255,24 @@ MachineWidget.prototype = {
             this.changes.notify_delete(doc_id);
         }, this);
 
-        if (!this.master) {
+        if (doc._id != UI.machine_id) {
             return;
         }
 
         for (peer_id in doc.peers) {
+            console.log(peer_id);
             child = $(peer_id);
             if (!child) {
                 child_doc = this.changes.get(peer_id);
                 widget = new MachineWidget(this.changes, child_doc);
                 child = widget.element;
-                document.body.appendChild(child);
+                UI.machines.appendChild(child);
             }
         }
         var deleted = [];
-        child = document.body.children[0];
+        child = UI.machines.children[0];
         while (child) {
-            if (!doc.peers[child.id] && child.id != this.doc._id) {
+            if (!doc.peers[child.id] && child.id != UI.machine_id) {
                 deleted.push(child.id);
                 console.log('deleting peer: ' + child.id);
             }
