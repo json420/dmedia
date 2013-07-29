@@ -245,8 +245,8 @@ MachineWidget.prototype = {
 
     build: function(doc_id) {
         var element = $el('div', {'class': 'machine', 'id': doc_id});
-        this.text = $el('div', {'class': 'text'});
-        element.appendChild(this.text);
+        //this.text = $el('div', {'class': 'text'});
+        //element.appendChild(this.text);
         this.drives = $el('div', {'class': 'drives'});
         element.appendChild(this.drives);
         return element;
@@ -254,9 +254,28 @@ MachineWidget.prototype = {
 
     update: function(doc) {
         console.log(JSON.stringify(doc));
-        this.text.textContent = doc.hostname;
+        //this.text.textContent = doc.hostname;
+        this.element.dataset.title = doc.hostname;
 
-        var store_id, peer_id, child, child_doc, widget;
+        var store_id, index, peer_id, child, child_doc, widget;
+        var count = Object.keys(doc.stores).length;
+        
+        index = 0;
+        var cx = 96/2;
+        var cy = 96/2;
+        
+        var multiplier = 
+            count <= 8 ? 1.9 :
+            count == 9 ? 2.1 :
+            count == 10? 2.3 :
+            count == 11? 2.6 :
+            count == 12? 2.9 :
+            3.1;
+        
+        var r = cx * multiplier;
+        cx -= 64/2;
+        cy -= 64/2;        
+        
         for (store_id in doc.stores) {
             child = $(store_id);
             if (!child) {
@@ -264,7 +283,28 @@ MachineWidget.prototype = {
                 widget = new DriveWidget(this.changes, child_doc);
                 child = widget.element;
                 this.drives.appendChild(child);
+                
+                ////////////////////////////
+                
+                var angle = index / count * Math.PI*2;
+                
+                child.style.left = Number(cx + (Math.sin(angle) * r)) + "px";
+                child.style.top = Number(cy + (Math.cos(angle) * r)) + "px";
+                
+                ////////////////////////////
+                
             }
+            else{
+                ////////////////////////////
+                
+                var angle = index / count * Math.PI*2;
+                
+                child.style.left = Number(cx + (Math.sin(angle) * r)) + "px";
+                child.style.top = Number(cy + (Math.cos(angle) * r)) + "px";
+                
+                ////////////////////////////
+            }
+            index++;
         }
         var deleted = [];
         child = this.drives.children[0];
@@ -316,14 +356,32 @@ var DriveWidget = function(changes, doc) {
 DriveWidget.prototype = {
     build: function(doc_id) {
         var element = $el('div', {'class': 'drive', 'id': doc_id});
-        this.text = $el('div', {'class': 'text'});
-        element.appendChild(this.text);
+        //this.text = $el('div', {'class': 'text'});
+        //element.appendChild(this.text);
         return element;
         return element;
     },
 
     update: function(doc) {
-        this.text.textContent = [doc.drive_size, doc.drive_model].join(', ');
+        //this.text.textContent = [doc.drive_size, doc.drive_model].join(', ');
+        this.element.dataset.title = [doc.drive_size, doc.drive_model].join(', ');
+    },
+    
+    get x() {
+        var val = this.element.style.getPropertyValue("left");
+        val = val ? Number(val.replace("px", "")) : 0
+        return val;
+    },
+    set x(val) {
+        this.element.style.left = Number(val) + "px";
+    },
+    get y() {
+        var val = this.element.style.getPropertyValue("top");
+        val = val ? Number(val.replace("px", "")) : 0
+        return val;
+    },
+    set y(val) {
+        this.element.style.top = Number(val) + "px";
     },
 }
 DriveWidget.prototype.__proto__ = Widget.prototype;

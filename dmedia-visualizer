@@ -86,7 +86,7 @@ class App(BaseApp):
 
     def post_page_init(self, page):
         self.doc_i = 0
-        GLib.timeout_add(1000, self.on_timeout)
+        GLib.timeout_add(2000, self.on_timeout)
 
     def on_timeout(self):
         print('on_timeout', self.doc_i)
