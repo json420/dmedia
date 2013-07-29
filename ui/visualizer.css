@@ -1,0 +1,11 @@
+.machine {
+    background-color: #ddd;
+    border: 1px solid #333;
+    position: fixed;
+    padding: 5px;
+}
+
+.machine .text {
+    font-weight: bold;
+}
+
