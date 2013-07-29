@@ -78,7 +78,7 @@ Visualizer.prototype = {
                     var em = $("em").clientHeight;
                     img.style.top = em * index * 0.2 + em + "px";
                     img.style.left = em * index * 0.4 + (em/4) + "px";
-                    
+                    console.log(doc);
                     /////////////////////////////////////
                     //  This bit here, is what I think needs doing to make it animate.
                     //  I think.
