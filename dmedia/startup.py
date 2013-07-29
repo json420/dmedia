@@ -111,6 +111,7 @@ class DmediaCouch(UserCouch):
         log.info('... machine_id: %s', machine_id)
         self.pki.create_ca(machine_id)
         doc = create_doc(machine_id, 'dmedia/machine')
+        doc['hostname'] = socket.gethostname()
         self.save_config(MACHINE, doc)
         self.machine = self.load_config(MACHINE)
         return machine_id

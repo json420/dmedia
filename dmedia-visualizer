@@ -1,0 +1,47 @@
+#!/usr/bin/python3
+
+# dmedia: distributed media library
+# Copyright (C) 2013 Novacut Inc
+# 
+# This file is part of `dmedia`.
+# 
+# `dmedia` is free software: you can redistribute it and/or modify it under the
+# terms of the GNU Affero General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+# 
+# `dmedia` is distributed in the hope that it will be useful, but WITHOUT ANY
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+# A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more
+# details.
+# 
+# You should have received a copy of the GNU Affero General Public License along
+# with `dmedia`.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Authors:
+#   Jason Gerard DeRose <jderose@novacut.com>
+
+"""
+Visualize the active data safety features in Dmedia.
+"""
+
+from userwebkit import BaseApp
+
+import dmedia
+from dmedia import schema
+
+
+class App(BaseApp):
+    name = 'dmedia'
+    dbname = schema.DB_NAME
+    version = dmedia.__version__
+    title = 'Dmedia Visualizer'
+    page = 'visualizer.html'
+    proxy_bus = dmedia.BUS
+
+    def dmedia_resolver(self, _id):
+        return self.proxy.Resolve(_id)
+
+
+app = App()
+app.run()

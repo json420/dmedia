@@ -38,6 +38,7 @@ import microfiber
 from dbase32 import random_id
 import filestore
 from filestore import FileStore
+from filestore.misc import TempFileStore
 from filestore.migration import Migration, b32_to_db32
 
 from dmedia.local import LocalStores
@@ -92,6 +93,107 @@ class TestCouchFunctions(CouchCase):
             list(core.projects_iter(server)),
             [(project_db_name(_id), _id) for _id in sorted(ids)]
         )
+
+    def test_mark_machine_start(self):
+        doc = {}
+        atime = int(time.time())
+        self.assertIsNone(core.mark_machine_start(doc, atime))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {},
+            'peers': {},
+        })
+
+    def test_mark_add_filestore(self):
+        doc = {}
+        atime = int(time.time())
+        fs = TempFileStore()
+        info = {'parentdir': fs.parentdir}
+        self.assertIsNone(core.mark_add_filestore(doc, atime, fs.id, info))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {
+                fs.id: {'parentdir': fs.parentdir},
+            }
+        })
+
+    def test_mark_remove_filestore(self):
+        doc = {}
+        atime = int(time.time())
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
+        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs1.id))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {},
+        })
+
+        doc = {
+            'atime': atime - 123456,
+            'stores': {
+                fs1.id: {'parentdir': fs1.parentdir},
+                fs2.id: {'parentdir': fs2.parentdir},
+            },
+        }
+        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs1.id))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {
+                fs2.id: {'parentdir': fs2.parentdir},
+            },
+        })
+        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs2.id))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {},
+        })
+
+    def test_mark_add_peer(self):
+        doc = {}
+        atime = int(time.time())
+        peer_id = random_id(30)
+        url = random_id()
+        info = {'url': url}
+        self.assertIsNone(core.mark_add_peer(doc, atime, peer_id, info))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {
+                peer_id: {'url': url},
+            },
+        })
+
+    def test_mark_remove_peer(self):
+        doc = {}
+        atime = int(time.time())
+        peer_id1 = random_id(30)
+        url1 = random_id()
+        peer_id2 = random_id(30)
+        url2 = random_id()
+        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id1))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {},
+        })
+
+        doc = {
+            'atime': atime - 23456,
+            'peers': {
+                peer_id1: {'url': url1},
+                peer_id2: {'url': url2},
+            },
+        }
+        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id1))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {
+                peer_id2: {'url': url2},
+            },
+        })
+        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id2))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'peers': {},
+        })
 
 
 class TestTaskQueue(TestCase):
@@ -179,16 +281,28 @@ class TestCore(CouchCase):
                 'peers': {},
             }
         )
+        self.assertIsNone(inst.machine)
+        self.assertIsNone(inst.user)
 
     def test_load_identity(self):
+        timestamp = int(time.time())
         machine_id = random_id(30)
         user_id = random_id(30)
         inst = core.Core(self.env)
-        inst.load_identity({'_id': machine_id}, {'_id': user_id})
+        self.assertIsNone(
+            inst.load_identity({'_id': machine_id}, {'_id': user_id}, timestamp)
+        )
 
         machine = inst.db.get(machine_id)
-        self.assertEqual(set(machine), set(['_id', '_rev']))
-        self.assertTrue(machine['_rev'].startswith('1-'))
+        self.assertTrue(machine['_rev'].startswith('2-'))
+        self.assertEqual(machine, {
+            '_id': machine_id,
+            '_rev': machine['_rev'],
+            'atime': timestamp,
+            'stores': {},
+            'peers': {},
+        })
+
         user = inst.db.get(user_id)
         self.assertEqual(set(user), set(['_id', '_rev']))
         self.assertTrue(user['_rev'].startswith('1-'))
@@ -205,17 +319,33 @@ class TestCore(CouchCase):
             }
         )
         self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
-
         self.assertEqual(self.env['machine_id'], machine_id)
         self.assertEqual(self.env['user_id'], user_id)
 
+        # Now try when machine and user docs already exist:
+        machine['atime'] = timestamp - 12345
+        machine['stores'] = 'foo'
+        machine['peers'] = 'bar'
+        inst.db.save(machine)
         inst = core.Core(self.env)
-        inst.load_identity({'_id': machine_id}, {'_id': user_id})
-        self.assertTrue(inst.db.get(machine_id)['_rev'].startswith('1-'))
-        self.assertTrue(inst.db.get(user_id)['_rev'].startswith('1-'))
+        self.assertIsNone(
+            inst.load_identity({'_id': machine_id}, {'_id': user_id}, timestamp)
+        )
 
-        self.assertEqual(set(machine), set(['_id', '_rev']))
-        self.assertTrue(machine['_rev'].startswith('1-'))
+        machine = inst.db.get(machine_id)
+        self.assertTrue(machine['_rev'].startswith('4-'))
+        self.assertEqual(machine, {
+            '_id': machine_id,
+            '_rev': machine['_rev'],
+            'atime': timestamp,
+            'stores': {},
+            'peers': {},
+        })
+
+        user = inst.db.get(user_id)
+        self.assertEqual(set(user), set(['_id', '_rev']))
+        self.assertTrue(user['_rev'].startswith('1-'))
+
         self.assertEqual(inst.db.get('_local/dmedia'),
             {
                 '_id': '_local/dmedia',

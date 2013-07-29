@@ -29,9 +29,10 @@ import re
 import time
 import tempfile
 import os
+from os import path
 
 from gi.repository import GUdev
-from filestore import FileStore
+from filestore import FileStore, _dumps
 from dbase32 import db32dec, db32enc
 
 from .units import bytes10
@@ -90,10 +91,14 @@ def unfuck(string):
     return string.replace('\\x20', ' ').strip()
 
 
+class NoSuchDevice(Exception):
+    pass
+
+
 def get_device(dev):
     device = udev_client.query_by_device_file(dev)
     if device is None:
-        raise Exception('No such device: {!r}'.format(dev))  
+        raise NoSuchDevice('No such device: {!r}'.format(dev))  
     return device
 
 
@@ -275,3 +280,81 @@ class Partition:
             check_call(['umount', tmpdir])
             os.rmdir(tmpdir)
 
+
+class Devices:
+    def __init__(self):
+        self.client = GUdev.Client.new(['block'])
+        self.partitions = {}
+
+    def run(self):
+        self.client.connect('uevent', self.on_uevent)
+        for device in self.client.query_by_subsystem('block'):
+            self.on_uevent(None, 'add', device)
+
+    def on_uevent(self, client, action, device):
+        _type = device.get_devtype()
+        dev = device.get_device_file()
+        if _type == 'partition':
+            print(action, _type, dev)
+            if action == 'add':
+                self.add_partition(device)
+            elif action == 'remove':
+                self.remove_partition(device)
+
+    def add_partition(self, device):
+        dev = device.get_device_file()
+        print('add_partition({!r})'.format(dev))
+
+    def remove_partition(self, device):
+        dev = device.get_device_file()
+        print('add_partition({!r})'.format(dev))
+
+
+def parse_mounts(procdir='/proc'):
+    text = open(path.join(procdir, 'mounts'), 'r').read()
+    mounts = {}
+    for line in text.splitlines():
+        (dev, mount, type_, options, dump, pass_) = line.split()
+        mounts[mount.replace('\\040', ' ')] = dev
+    return mounts
+
+
+def get_homedir_info(homedir):
+    mounts = parse_mounts()
+    mountdir = homedir
+    while True:
+        if mountdir in mounts:
+            try:
+                device = get_device(mounts[mountdir])
+                return get_partition_info(device)
+            except NoSuchDevice:
+                pass
+        if mountdir == '/':
+            return {}
+        mountdir = path.dirname(mountdir)
+
+
+def get_parentdir_info(parentdir):
+    mounts = parse_mounts()
+    mountdir = parentdir
+    while True:
+        if mountdir in mounts:
+            try:
+                device = get_device(mounts[mountdir])
+                return get_partition_info(device)
+            except NoSuchDevice:
+                pass
+        if mountdir == '/':
+            return {}
+        mountdir = path.dirname(mountdir)
+
+
+def get_mountdir_info(mountdir):
+    mounts = parse_mounts()
+    if mountdir in mounts:
+        try:
+            device = get_device(mounts[mountdir])
+            return get_partition_info(device)
+        except NoSuchDevice:
+            pass
+    return {}
