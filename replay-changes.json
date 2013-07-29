@@ -1,0 +1,725 @@
+[
+    {
+        "_id": "AYIS7EF3ORAE8JH36G7TGC7CLWDR5ME88439858FO74OWL6K",
+        "atime": 1375118370,
+        "bytes": 84338453,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118370
+            }
+        },
+        "time": 1375118370.2924316,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "HBORAEJ5RHKYCRYY8U5NI4HXT6CINPDMUBPDVK9PBXWP7CMT",
+        "atime": 1375118371,
+        "bytes": 65195301,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118371
+            }
+        },
+        "time": 1375118371.9087658,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "O6QK3SRPVA6X65A9MXO89M8PSGRQBE9XS9TODQNHBC7PXJK3",
+        "atime": 1375118374,
+        "bytes": 95897265,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118374
+            }
+        },
+        "time": 1375118374.2652907,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "MYHCQQ5HKCR84JS5XIWRHYQX8U5I3BWY8N7DRKBDCVMWG7ED",
+        "atime": 1375118377,
+        "bytes": 110161541,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118377
+            }
+        },
+        "time": 1375118377.0483963,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "6F6V38GV4PHXHEW4JNX3E6OSHXYKBQTIUMTCD8TUHOJKNNRU",
+        "atime": 1375118379,
+        "bytes": 83905765,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118379
+            }
+        },
+        "time": 1375118379.1477816,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "CLA9KLLD74U7O7OVHGP3X46FA3RAQFJGYESETLQUFBOM5BB9",
+        "atime": 1375118380,
+        "bytes": 53850365,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118380
+            }
+        },
+        "time": 1375118380.4503767,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "O5PIE4AQQ3I3OQNVYO8PS6KNE4K85Q4P4TTYUPJNBFMG8BCU",
+        "atime": 1375118383,
+        "bytes": 107569833,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118383
+            }
+        },
+        "time": 1375118383.153935,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "KEQCEKT4DRUPG8YTS4X4WBF5LYEVY8JJKRA6NFJJ94LLPA8L",
+        "atime": 1375118385,
+        "bytes": 82749701,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118385
+            }
+        },
+        "time": 1375118385.2176657,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "M3F4MG3E6JH5JGCKVFJKC3L9GJAN3IOPBIUF6TA3B7ARKUDN",
+        "atime": 1375118387,
+        "bytes": 44188757,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118387
+            }
+        },
+        "time": 1375118387.1055908,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "3WHRX4BS6RQ46IE63IR89URSE8SNIMAA5K7NJ7CBASTYCM88",
+        "atime": 1375118391,
+        "bytes": 153602961,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118391
+            }
+        },
+        "time": 1375118391.2243204,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "756SL3THINEJBDGQBASBY6J8SU8RTI6HWJ7OONK9GQWDA9VV",
+        "atime": 1375118394,
+        "bytes": 112384397,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118394
+            }
+        },
+        "time": 1375118394.0398798,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "ADAVQ4OEJINCXJTQP87FVQV44O9DEXIXJJYJR6TKK6COC7UC",
+        "atime": 1375118395,
+        "bytes": 42973409,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118395
+            }
+        },
+        "time": 1375118395.1368222,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "9JBKGK8FSDED56SW98R57A8EDRYGJQYELJ56Y5BO9CC6RERW",
+        "atime": 1375118413,
+        "hostname": "jgd-gazp7",
+        "peers": {
+            "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X": {
+                "host": "jderose-Gazelle-Professional",
+                "url": "https://192.168.20.139:57811/",
+                "user": "jderose",
+                "version": "13.08.0"
+            }
+        },
+        "stores": {
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "parentdir": "/home/jderose/.local/share/dmedia"
+            }
+        },
+        "time": 1375117749.1255403,
+        "type": "dmedia/machine"
+    },
+    {
+        "_id": "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X",
+        "atime": 1375118413,
+        "hostname": "jderose-Gazelle-Professional",
+        "peers": {
+            "9JBKGK8FSDED56SW98R57A8EDRYGJQYELJ56Y5BO9CC6RERW": {
+                "host": "jgd-gazp7",
+                "url": "https://192.168.20.108:59812/",
+                "user": "jderose",
+                "version": "13.08.0"
+            }
+        },
+        "stores": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "parentdir": "/home/jderose/.local/share/dmedia"
+            }
+        },
+        "time": 1375117808.272138,
+        "type": "dmedia/machine"
+    },
+    {
+        "_id": "6F6V38GV4PHXHEW4JNX3E6OSHXYKBQTIUMTCD8TUHOJKNNRU",
+        "atime": 1375118379,
+        "bytes": 83905765,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118379
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118419
+            }
+        },
+        "time": 1375118379.1477816,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "O5PIE4AQQ3I3OQNVYO8PS6KNE4K85Q4P4TTYUPJNBFMG8BCU",
+        "atime": 1375118383,
+        "bytes": 107569833,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118383
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118420
+            }
+        },
+        "time": 1375118383.153935,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "KEQCEKT4DRUPG8YTS4X4WBF5LYEVY8JJKRA6NFJJ94LLPA8L",
+        "atime": 1375118385,
+        "bytes": 82749701,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118385
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118420
+            }
+        },
+        "time": 1375118385.2176657,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "MYHCQQ5HKCR84JS5XIWRHYQX8U5I3BWY8N7DRKBDCVMWG7ED",
+        "atime": 1375118377,
+        "bytes": 110161541,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118377
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118421
+            }
+        },
+        "time": 1375118377.0483963,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "AYIS7EF3ORAE8JH36G7TGC7CLWDR5ME88439858FO74OWL6K",
+        "atime": 1375118370,
+        "bytes": 84338453,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118370
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118422
+            }
+        },
+        "time": 1375118370.2924316,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "3WHRX4BS6RQ46IE63IR89URSE8SNIMAA5K7NJ7CBASTYCM88",
+        "atime": 1375118391,
+        "bytes": 153602961,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118391
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118424
+            }
+        },
+        "time": 1375118391.2243204,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "O6QK3SRPVA6X65A9MXO89M8PSGRQBE9XS9TODQNHBC7PXJK3",
+        "atime": 1375118374,
+        "bytes": 95897265,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118374
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118425
+            }
+        },
+        "time": 1375118374.2652907,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "756SL3THINEJBDGQBASBY6J8SU8RTI6HWJ7OONK9GQWDA9VV",
+        "atime": 1375118394,
+        "bytes": 112384397,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118394
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118432
+            }
+        },
+        "time": 1375118394.0398798,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "M3F4MG3E6JH5JGCKVFJKC3L9GJAN3IOPBIUF6TA3B7ARKUDN",
+        "atime": 1375118387,
+        "bytes": 44188757,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118387
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118434
+            }
+        },
+        "time": 1375118387.1055908,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "HBORAEJ5RHKYCRYY8U5NI4HXT6CINPDMUBPDVK9PBXWP7CMT",
+        "atime": 1375118371,
+        "bytes": 65195301,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118371
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118434
+            }
+        },
+        "time": 1375118371.9087658,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "CLA9KLLD74U7O7OVHGP3X46FA3RAQFJGYESETLQUFBOM5BB9",
+        "atime": 1375118380,
+        "bytes": 53850365,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118380
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118437
+            }
+        },
+        "time": 1375118380.4503767,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "ADAVQ4OEJINCXJTQP87FVQV44O9DEXIXJJYJR6TKK6COC7UC",
+        "atime": 1375118395,
+        "bytes": 42973409,
+        "origin": "user",
+        "stored": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118395
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118438
+            }
+        },
+        "time": 1375118395.1368222,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "9JBKGK8FSDED56SW98R57A8EDRYGJQYELJ56Y5BO9CC6RERW",
+        "atime": 1375118447,
+        "hostname": "jgd-gazp7",
+        "peers": {
+            "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X": {
+                "host": "jderose-Gazelle-Professional",
+                "url": "https://192.168.20.139:57811/",
+                "user": "jderose",
+                "version": "13.08.0"
+            }
+        },
+        "stores": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "parentdir": "/media/jderose/Removable-1"
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "parentdir": "/home/jderose/.local/share/dmedia"
+            }
+        },
+        "time": 1375117749.1255403,
+        "type": "dmedia/machine"
+    },
+    {
+        "_id": "6F6V38GV4PHXHEW4JNX3E6OSHXYKBQTIUMTCD8TUHOJKNNRU",
+        "atime": 1375118379,
+        "bytes": 83905765,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118447
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118379
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118419,
+                "verified": 1375118447
+            }
+        },
+        "time": 1375118379.1477816,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "M3F4MG3E6JH5JGCKVFJKC3L9GJAN3IOPBIUF6TA3B7ARKUDN",
+        "atime": 1375118387,
+        "bytes": 44188757,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118448
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118387
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118434,
+                "verified": 1375118448
+            }
+        },
+        "time": 1375118387.1055908,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "O5PIE4AQQ3I3OQNVYO8PS6KNE4K85Q4P4TTYUPJNBFMG8BCU",
+        "atime": 1375118383,
+        "bytes": 107569833,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118448
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118383
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118420,
+                "verified": 1375118448
+            }
+        },
+        "time": 1375118383.153935,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "MYHCQQ5HKCR84JS5XIWRHYQX8U5I3BWY8N7DRKBDCVMWG7ED",
+        "atime": 1375118377,
+        "bytes": 110161541,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118448
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118377
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118421,
+                "verified": 1375118448
+            }
+        },
+        "time": 1375118377.0483963,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "O6QK3SRPVA6X65A9MXO89M8PSGRQBE9XS9TODQNHBC7PXJK3",
+        "atime": 1375118374,
+        "bytes": 95897265,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118448
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118374
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118425,
+                "verified": 1375118448
+            }
+        },
+        "time": 1375118374.2652907,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "HBORAEJ5RHKYCRYY8U5NI4HXT6CINPDMUBPDVK9PBXWP7CMT",
+        "atime": 1375118371,
+        "bytes": 65195301,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118449
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118371
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118434,
+                "verified": 1375118449
+            }
+        },
+        "time": 1375118371.9087658,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "AYIS7EF3ORAE8JH36G7TGC7CLWDR5ME88439858FO74OWL6K",
+        "atime": 1375118370,
+        "bytes": 84338453,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118450
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118370
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118422,
+                "verified": 1375118451
+            }
+        },
+        "time": 1375118370.2924316,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "3WHRX4BS6RQ46IE63IR89URSE8SNIMAA5K7NJ7CBASTYCM88",
+        "atime": 1375118391,
+        "bytes": 153602961,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118452
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118391
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118424,
+                "verified": 1375118453
+            }
+        },
+        "time": 1375118391.2243204,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "CLA9KLLD74U7O7OVHGP3X46FA3RAQFJGYESETLQUFBOM5BB9",
+        "atime": 1375118380,
+        "bytes": 53850365,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118453
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118380
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118437,
+                "verified": 1375118453
+            }
+        },
+        "time": 1375118380.4503767,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "ADAVQ4OEJINCXJTQP87FVQV44O9DEXIXJJYJR6TKK6COC7UC",
+        "atime": 1375118395,
+        "bytes": 42973409,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118453
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118395
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118438,
+                "verified": 1375118453
+            }
+        },
+        "time": 1375118395.1368222,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "KEQCEKT4DRUPG8YTS4X4WBF5LYEVY8JJKRA6NFJJ94LLPA8L",
+        "atime": 1375118385,
+        "bytes": 82749701,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118454
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118385
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118420,
+                "verified": 1375118454
+            }
+        },
+        "time": 1375118385.2176657,
+        "type": "dmedia/file"
+    },
+    {
+        "_id": "756SL3THINEJBDGQBASBY6J8SU8RTI6HWJ7OONK9GQWDA9VV",
+        "atime": 1375118394,
+        "bytes": 112384397,
+        "origin": "user",
+        "stored": {
+            "AXKI3AAJK9AN3HC7DDHTNBVC": {
+                "copies": 1,
+                "mtime": 1375118456
+            },
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "copies": 1,
+                "mtime": 1375118394
+            },
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "copies": 1,
+                "mtime": 1375118432,
+                "verified": 1375118456
+            }
+        },
+        "time": 1375118394.0398798,
+        "type": "dmedia/file"
+    }
+]

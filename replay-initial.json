@@ -1,0 +1,130 @@
+[
+    {
+        "_id": "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X",
+        "atime": 1375118065,
+        "hostname": "jderose-Gazelle-Professional",
+        "peers": {},
+        "stores": {
+            "JRXDKWYKG6N9CA9TM8V6TKEL": {
+                "parentdir": "/home/jderose/.local/share/dmedia"
+            }
+        },
+        "time": 1375117808.272138,
+        "type": "dmedia/machine"
+    },
+    {
+        "_id": "7UEQT7X7PLO7HJVX8TSEL3FEXY975JC8NJMAPXK5WXIIT355",
+        "time": 1375117926.8131757,
+        "type": "dmedia/user"
+    },
+    {
+        "_id": "9JBKGK8FSDED56SW98R57A8EDRYGJQYELJ56Y5BO9CC6RERW",
+        "atime": 1375118021,
+        "hostname": "jgd-gazp7",
+        "peers": {
+            "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X": {
+                "host": "jderose-Gazelle-Professional",
+                "url": "https://192.168.20.139:57811/",
+                "user": "jderose",
+                "version": "13.08.0"
+            }
+        },
+        "stores": {
+            "TQSW66TUSKNUQYV4WAJXAUU4": {
+                "parentdir": "/home/jderose/.local/share/dmedia"
+            }
+        },
+        "time": 1375117749.1255403,
+        "type": "dmedia/machine"
+    },
+    {
+        "_id": "AXKI3AAJK9AN3HC7DDHTNBVC",
+        "atime": 1375117967,
+        "copies": 1,
+        "drive_alignment_offset": 0,
+        "drive_block_logical": 512,
+        "drive_block_physical": 512,
+        "drive_bus": "usb",
+        "drive_bytes": 500107862016,
+        "drive_discard_alignment": 0,
+        "drive_model": "HD-PATU3",
+        "drive_model_id": "021c",
+        "drive_removable": false,
+        "drive_revision": "0000",
+        "drive_serial": "000000040000EF27",
+        "drive_size": "500 GB",
+        "drive_vendor": "BUFFALO",
+        "drive_wwn": null,
+        "filesystem_label": "Removable-1",
+        "filesystem_type": "ext4",
+        "filesystem_uuid": "3fa2f01c-f089-8f40-3924-529daa238944",
+        "partition_bytes": 500105740288,
+        "partition_number": 1,
+        "partition_scheme": "gpt",
+        "partition_size": "500 GB",
+        "partition_start_bytes": 1048576,
+        "plugin": "filestore",
+        "time": 1375117794.771001,
+        "type": "dmedia/store"
+    },
+    {
+        "_id": "JRXDKWYKG6N9CA9TM8V6TKEL",
+        "atime": 1375117934,
+        "copies": 1,
+        "drive_alignment_offset": 0,
+        "drive_block_logical": 512,
+        "drive_block_physical": 512,
+        "drive_bus": "ata",
+        "drive_bytes": 128035676160,
+        "drive_discard_alignment": 0,
+        "drive_model": "M4-CT128M4SSD2",
+        "drive_model_id": null,
+        "drive_removable": false,
+        "drive_revision": "040H",
+        "drive_serial": "00000000130409279DBD",
+        "drive_size": "128 GB",
+        "drive_vendor": null,
+        "drive_wwn": "0x500a075109279dbd",
+        "filesystem_label": null,
+        "filesystem_type": "ext4",
+        "filesystem_uuid": "c2975d9e-7759-42b0-a550-8a34f8a6964f",
+        "partition_bytes": 128034275328,
+        "partition_number": 1,
+        "partition_scheme": "dos",
+        "partition_size": "128 GB",
+        "partition_start_bytes": 1048576,
+        "plugin": "filestore",
+        "time": 1375117928.0024319,
+        "type": "dmedia/store"
+    },
+    {
+        "_id": "TQSW66TUSKNUQYV4WAJXAUU4",
+        "atime": 1375117967,
+        "copies": 1,
+        "drive_alignment_offset": 0,
+        "drive_block_logical": 512,
+        "drive_block_physical": 512,
+        "drive_bus": "ata",
+        "drive_bytes": 40020664320,
+        "drive_discard_alignment": 0,
+        "drive_model": "INTEL SSDSA2M040G2GC",
+        "drive_model_id": null,
+        "drive_removable": false,
+        "drive_revision": "2CV102DH",
+        "drive_serial": "CVGB022000ME040NGN",
+        "drive_size": "40 GB",
+        "drive_vendor": null,
+        "drive_wwn": "0x500151795934f683",
+        "filesystem_label": null,
+        "filesystem_type": "ext4",
+        "filesystem_uuid": "62267e0b-c8ce-435e-93ba-31738cccfa96",
+        "partition_bytes": 35722887168,
+        "partition_number": 2,
+        "partition_scheme": "gpt",
+        "partition_size": "35.7 GB",
+        "partition_start_bytes": 2097152,
+        "plugin": "filestore",
+        "time": 1375117960.5917532,
+        "type": "dmedia/store"
+    }
+]

@@ -25,15 +25,49 @@
 Visualize the active data safety features in Dmedia.
 """
 
+import os
+from os import path
+import json
+
+from microfiber import Database, dmedia_env, NotFound, dumps
 from userwebkit import BaseApp
+from gi.repository import GLib
 
 import dmedia
-from dmedia import schema
+from dmedia import schema, views
+
+TREE = path.dirname(path.abspath(__file__))
+
+def load_data(name):
+    filename = path.join(TREE, name)
+    return json.load(open(filename, 'r'))
+    
+
+DB_NAME = 'visualizer-1'
+
+db = Database(DB_NAME, dmedia_env())
+try:
+    db.delete()
+except NotFound:
+    pass
+db.put(None)
+
+initial = load_data('replay-initial.json')
+initial.append(views.viz_design)
+initial.append({
+    '_id': '_local/dmedia',
+    'machine_id': '4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X',
+})
+db.save_many(initial)
+
+changes = load_data('replay-changes.json')
+print(len(changes))
+
 
 
 class App(BaseApp):
     name = 'dmedia'
-    dbname = schema.DB_NAME
+    dbname = DB_NAME  #schema.DB_NAME
     version = dmedia.__version__
     title = 'Dmedia Visualizer'
     page = 'visualizer.html'
@@ -41,6 +75,24 @@ class App(BaseApp):
 
     def dmedia_resolver(self, _id):
         return self.proxy.Resolve(_id)
+
+    def post_page_init(self, page):
+        self.doc_i = 0
+        GLib.timeout_add(1000, self.on_timeout)
+
+    def on_timeout(self):
+        print('on_timeout', self.doc_i)
+        new = changes[self.doc_i]
+        try:
+            old = db.get(new['_id'])
+            new['_rev'] = old['_rev']
+        except NotFound:
+            pass
+        db.save(new)
+        self.doc_i += 1
+        if self.doc_i >= len(changes):
+            return False
+        return True
 
 
 app = App()

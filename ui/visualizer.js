@@ -13,7 +13,7 @@ function $unparent(id) {
 var UI = {
     on_load: function() {
         console.log('on_load()');
-        UI.db = new couch.Database('dmedia-1');
+        UI.db = new couch.Database('visualizer-1');
         UI.machines = $('machines');
         UI.machine_id = UI.db.get_sync('_local/dmedia').machine_id;
         UI.viz = new Visualizer(UI.db);
