@@ -9,6 +9,16 @@ function $unparent(id) {
     return child;
 }
 
+function getOffset(el){
+    var x = 0;
+    var y = 0;
+    while (el && !isNaN(el.offsetLeft) && !isNaN(el.offsetTop)){
+        x += el.offsetLeft - el.scrollLeft;
+        y += el.offsetTop - el.scrollTop;
+        el = el.offsetParent;
+    }
+    return {top: y, left: x};
+}
 
 var UI = {
     on_load: function() {
@@ -63,6 +73,33 @@ Visualizer.prototype = {
                 if (!img) {
                     img = $el('img', {'class': 'file', 'id': img_id, 'src': url});
                     drive.appendChild(img);
+                    
+                    var index = drive.getElementsByClassName("file").length - 1;
+                    var em = $("em").clientHeight;
+                    img.style.top = em * index * 0.2 + em + "px";
+                    img.style.left = em * index * 0.4 + (em/4) + "px";
+                    
+                    /////////////////////////////////////
+                    //  This bit here, is what I think needs doing to make it animate.
+                    //  I think.
+                    //  
+                    //  var origin = $(whereItCameFrom);
+                    //  var el = $(newElement);
+                    //  
+                    //  var a = getOffset(origin);
+                    //  var b = getOffset(el);
+                    //  
+                    //  el.style.marginLeft = b.left - a.left + "px";
+                    //  el.style.marginTop = b.top - a.top + "px";
+                    //  
+                    //  
+                    //  // set this bit on a small timeout delay?
+                    //  el.classList.add("animate");
+                    //  
+                    //  el.style.marginLeft = 0px;
+                    //  el.style.marginTop = 0px;
+                    //  
+                    /////////////////////////////////////
                 }
             }  
         }
@@ -261,8 +298,8 @@ MachineWidget.prototype = {
         var count = Object.keys(doc.stores).length;
         
         index = 0;
-        var cx = 96/2;
-        var cy = 96/2;
+        var cx = 6 * $("em").clientWidth/2;
+        var cy = 6 * $("em").clientWidth/2;
         
         var multiplier = 
             count <= 8 ? 1.9 :
@@ -273,8 +310,8 @@ MachineWidget.prototype = {
             3.1;
         
         var r = cx * multiplier;
-        cx -= 64/2;
-        cy -= 64/2;        
+        cx -= 4 * $("em").clientWidth/2;
+        cy -= 4 * $("em").clientWidth/2;        
         
         for (store_id in doc.stores) {
             child = $(store_id);
@@ -365,23 +402,6 @@ DriveWidget.prototype = {
     update: function(doc) {
         //this.text.textContent = [doc.drive_size, doc.drive_model].join(', ');
         this.element.dataset.title = [doc.drive_size, doc.drive_model].join(', ');
-    },
-    
-    get x() {
-        var val = this.element.style.getPropertyValue("left");
-        val = val ? Number(val.replace("px", "")) : 0
-        return val;
-    },
-    set x(val) {
-        this.element.style.left = Number(val) + "px";
-    },
-    get y() {
-        var val = this.element.style.getPropertyValue("top");
-        val = val ? Number(val.replace("px", "")) : 0
-        return val;
-    },
-    set y(val) {
-        this.element.style.top = Number(val) + "px";
     },
 }
 DriveWidget.prototype.__proto__ = Widget.prototype;
