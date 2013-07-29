@@ -62,16 +62,6 @@ video{
     background-color: #222;
 }
 
-.project .delete{
-    margin-left:-12px;
-    float:right;
-    opacity:0.7;
-}
-
-.project:hover .delete{
-    opacity:1;
-}
-
 .project > div {
     display: inline-block;
     vertical-align: top;
