@@ -61,7 +61,15 @@ initial.append({
 db.save_many(initial)
 
 changes = load_data('replay-changes.json')
-print(len(changes))
+
+
+thumbs = db.database('visualizer-1-thumbnails')
+try:
+    thumbs.delete()
+except NotFound:
+    pass
+thumbs.put(None)
+thumbs.save_many(load_data('replay-thumbnails.json'))
 
 
 

@@ -24,3 +24,20 @@
     margin: 10px 0;
 }
 
+.file {
+    width: 160px;
+    height: 90px;
+}
+
+.file {
+    /* top right bottom left */
+    margin: -10px 10px 10px -150px;
+    width: 160px;
+    height: 90px;
+}
+
+.file:nth-child(2) {
+    /* top right bottom left */
+    margin: 10px 10px 10px 10px;
+}
+

@@ -14,9 +14,14 @@ var UI = {
     on_load: function() {
         console.log('on_load()');
         UI.db = new couch.Database('visualizer-1');
+        UI.thumbs = new couch.Database('visualizer-1-thumbnails');
         UI.machines = $('machines');
         UI.machine_id = UI.db.get_sync('_local/dmedia').machine_id;
         UI.viz = new Visualizer(UI.db);
+    },
+
+    att_url: function(doc_or_id, name) {
+        return UI.thumbs.att_url(doc_or_id, name);
     },
 }
 
@@ -42,6 +47,25 @@ Visualizer.prototype = {
 
     on_add: function(doc) {
         console.log(['on_add', doc.type, doc._id].join(' '));
+        if (doc.type == 'dmedia/file') {
+            this.add_file_copy(doc);
+        }
+    },
+
+    add_file_copy: function(doc) {
+        var url = UI.att_url(doc._id);
+        var store_id, drive, img_id, img;
+        for (store_id in doc.stored) {
+            drive = $(store_id);
+            if (drive) {
+                img_id = [store_id, doc._id].join('_');
+                img = $(img_id);
+                if (!img) {
+                    img = $el('img', {'class': 'file', 'id': img_id, 'src': url});
+                    drive.appendChild(img);
+                }
+            }  
+        }
     },
 }
 
@@ -292,11 +316,14 @@ var DriveWidget = function(changes, doc) {
 DriveWidget.prototype = {
     build: function(doc_id) {
         var element = $el('div', {'class': 'drive', 'id': doc_id});
+        this.text = $el('div', {'class': 'text'});
+        element.appendChild(this.text);
+        return element;
         return element;
     },
 
     update: function(doc) {
-        this.element.textContent = [doc.drive_size, doc.drive_model].join(', ');
+        this.text.textContent = [doc.drive_size, doc.drive_model].join(', ');
     },
 }
 DriveWidget.prototype.__proto__ = Widget.prototype;
