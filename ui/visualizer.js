@@ -33,9 +33,14 @@ function Visualizer(db) {
 Visualizer.prototype = {
     on_load: function(doc) {
         console.log(['on_load', doc.type, doc._id].join(' '));
-        if (doc._id == this.machine_id) {
+        if (doc.type == 'dmedia/machine') {
             var widget = new MachineWidget(this.changes, doc);
-            document.body.appendChild(widget.element);
+            if (doc._id == this.machine_id) {
+                $prepend(widget.element, document.body);
+            }
+            else {
+                document.body.appendChild(widget.element);
+            }
         }
     },
 
@@ -206,7 +211,7 @@ MachineWidget.prototype = {
                 child = $el('div', {'class': 'drive', 'id': store_id});
             }
             var drive_doc = this.changes.get(store_id);
-            child.textContent = [drive_doc.drive_size, drive_doc.drive_model].join(' ');
+            child.textContent = [drive_doc.drive_size, drive_doc.drive_model].join(', ');
             this.drives.appendChild(child);
         }
     },
