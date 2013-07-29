@@ -144,9 +144,9 @@ class Service(dbus.service.Object):
     @dbus.service.signal(IFACE, signature='b')
     def SnapshotAllComplete(self, success):
         log.info('@Dmedia.SnapshotAllComplete(%r)', success)
-        if self.first_snapshot:
-            self.first_snapshot = False
-            GLib.idle_add(self.on_idle3)
+        #if self.first_snapshot:
+        #    self.first_snapshot = False
+        #    GLib.idle_add(self.on_idle3)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='b')
     def Snapshot(self, name):
@@ -221,7 +221,8 @@ class Service(dbus.service.Object):
         start_thread(self.core.init_project_views)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
-        self.SnapshotAll()  # Calls on_idle3() below when finished
+        GLib.timeout_add(750, self.on_idle3)
+        #self.SnapshotAll()  # Calls on_idle3() below when finished
 
     def on_idle3(self):
         """
@@ -232,7 +233,7 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core, port)
         self.avahi.run()
-        GLib.timeout_add(30 * 1000, self.on_idle4)
+        GLib.timeout_add(5000, self.on_idle4)
         GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
 
     def on_idle4(self):
