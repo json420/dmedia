@@ -33,19 +33,14 @@ function Visualizer(db) {
 Visualizer.prototype = {
     on_load: function(doc) {
         console.log(['on_load', doc.type, doc._id].join(' '));
-        if (doc.type == 'dmedia/machine') {
-            var widget = new MachineWidget(this.changes, doc);
-            if (doc._id == this.machine_id) {
-                $prepend(widget.element, document.body);
-            }
-            else {
-                document.body.appendChild(widget.element);
-            }
+        if (doc._id == this.machine_id) {
+            var widget = new MachineWidget(this.changes, doc, true);
+            document.body.appendChild(widget.element);
         }
     },
 
     on_add: function(doc) {
-        console.log(['on_add', doc.type, doc._id].join(' '));
+        //console.log(['on_add', doc.type, doc._id].join(' '));
         //console.log(JSON.stringify(doc));
     },
 }
@@ -81,8 +76,17 @@ Changes.prototype = {
             });
             if (doc._deleted) {
                 delete this.ids[doc._id];
+                delete this.docs[doc._id];
             }
         }
+    },
+
+    notify_delete: function(doc_id) {
+        var doc = {
+            '_id': doc_id,
+            '_deleted': true,
+        }
+        this.notify(doc);
     },
 
     start: function() {
@@ -118,7 +122,6 @@ Changes.prototype = {
     },
 
     on_changes: function(req) {
-        console.log('on_changes');
         // Get all the docs into this.docs before calling any callbacks:
         var result = req.read();
         var new_docs = [];
@@ -188,8 +191,9 @@ Widget.prototype = {
 }
 
 
-var MachineWidget = function(changes, doc) {
+var MachineWidget = function(changes, doc, master) {
     Widget.call(this, changes, doc);
+    this.master = master;
 }
 MachineWidget.prototype = {
     build: function(doc_id) {
@@ -203,17 +207,55 @@ MachineWidget.prototype = {
 
     update: function(doc) {
         this.text.textContent = doc.hostname;
-        this.drives.innerHTML = null;
-        var store_id;
+
+        var store_id, peer_id, child, child_doc, widget;
         for (store_id in doc.stores) {
-            var child = $unparent(store_id);
-            if (! child) {
-                child = $el('div', {'class': 'drive', 'id': store_id});
+            child = $(store_id);
+            if (!child) {
+                child_doc = this.changes.get(store_id);
+                widget = new DriveWidget(this.changes, child_doc);
+                child = widget.element;
+                this.drives.appendChild(child);
             }
-            var drive_doc = this.changes.get(store_id);
-            child.textContent = [drive_doc.drive_size, drive_doc.drive_model].join(', ');
-            this.drives.appendChild(child);
         }
+        var deleted = [];
+        child = this.drives.children[0];
+        while (child) {
+            if (!doc.stores[child.id]) {
+                deleted.push(child.id);
+                console.log('deleting drive: ' + child.id);
+            }
+            child = child.nextSibling;
+        }
+        deleted.forEach(function(doc_id) {
+            this.changes.notify_delete(doc_id);
+        }, this);
+
+        if (!this.master) {
+            return;
+        }
+
+        for (peer_id in doc.peers) {
+            child = $(peer_id);
+            if (!child) {
+                child_doc = this.changes.get(peer_id);
+                widget = new MachineWidget(this.changes, child_doc);
+                child = widget.element;
+                document.body.appendChild(child);
+            }
+        }
+        var deleted = [];
+        child = document.body.children[0];
+        while (child) {
+            if (!doc.peers[child.id] && child.id != this.doc._id) {
+                deleted.push(child.id);
+                console.log('deleting peer: ' + child.id);
+            }
+            child = child.nextSibling;
+        }
+        deleted.forEach(function(doc_id) {
+            this.changes.notify_delete(doc_id);
+        }, this);
     },
 }
 MachineWidget.prototype.__proto__ = Widget.prototype;
@@ -229,7 +271,7 @@ DriveWidget.prototype = {
     },
 
     update: function(doc) {
-        this.element.textContent = doc.drive_model;
+        this.element.textContent = [doc.drive_size, doc.drive_model].join(', ');
     },
 }
 DriveWidget.prototype.__proto__ = Widget.prototype;
