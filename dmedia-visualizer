@@ -80,6 +80,7 @@ class App(BaseApp):
     title = 'Dmedia Visualizer'
     page = 'visualizer.html'
     proxy_bus = dmedia.BUS
+    maximize = True
 
     def dmedia_resolver(self, _id):
         return self.proxy.Resolve(_id)

@@ -170,10 +170,10 @@
     {
         "_id": "9JBKGK8FSDED56SW98R57A8EDRYGJQYELJ56Y5BO9CC6RERW",
         "atime": 1375118413,
-        "hostname": "jgd-gazp7",
+        "hostname": "gazp9",
         "peers": {
             "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X": {
-                "host": "jderose-Gazelle-Professional",
+                "host": "gazp7",
                 "url": "https://192.168.20.139:57811/",
                 "user": "jderose",
                 "version": "13.08.0"
@@ -190,10 +190,10 @@
     {
         "_id": "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X",
         "atime": 1375118413,
-        "hostname": "jderose-Gazelle-Professional",
+        "hostname": "gazp7",
         "peers": {
             "9JBKGK8FSDED56SW98R57A8EDRYGJQYELJ56Y5BO9CC6RERW": {
-                "host": "jgd-gazp7",
+                "host": "gazp9",
                 "url": "https://192.168.20.108:59812/",
                 "user": "jderose",
                 "version": "13.08.0"
@@ -426,10 +426,10 @@
     {
         "_id": "9JBKGK8FSDED56SW98R57A8EDRYGJQYELJ56Y5BO9CC6RERW",
         "atime": 1375118447,
-        "hostname": "jgd-gazp7",
+        "hostname": "gazp9",
         "peers": {
             "4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X": {
-                "host": "jderose-Gazelle-Professional",
+                "host": "gazp7",
                 "url": "https://192.168.20.139:57811/",
                 "user": "jderose",
                 "version": "13.08.0"

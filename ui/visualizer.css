@@ -41,7 +41,7 @@ body{
     background:rgba(0,0,0,0.5);
     display:inline-block;
     position:absolute;
-    font-size:0.75em;
+    font-size:0.5em;
     padding:0.5em;
     width:5em;
     left:50%;
@@ -89,11 +89,11 @@ body{
     background:rgba(0,0,0,0.9);
     display:inline-block;
     position:absolute;
-    font-size:0.4em;
+    font-size:0.325em;
     padding:0.5em;
-    width:12em;
+    width:16em;
     left:50%;
-    margin-left:-6.5em;
+    margin-left:-7.5em;
     top:0em;
     z-index:100;
     text-align:center;
@@ -112,8 +112,8 @@ body{
 .file{
     display:inline-block;
     position:absolute;
-    width:3em;
-    height:1.6875em;
+    width:192px;
+    height:108px;
     background:#ddd;
     background-position:center;
     background-size:cover;
