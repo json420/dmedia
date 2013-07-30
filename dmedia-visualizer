@@ -45,25 +45,25 @@ def load_data(name):
 
 DB_NAME = 'visualizer-1'
 
-db = Database(DB_NAME, dmedia_env())
-try:
-    db.delete()
-except NotFound:
-    pass
-db.put(None)
+#db = Database(DB_NAME, dmedia_env())
+#try:
+#    db.delete()
+#except NotFound:
+#    pass
+#db.put(None)
 
-initial = load_data('replay-initial.json')
-initial.append(views.viz_design)
-initial.append({
-    '_id': '_local/dmedia',
-    'machine_id': '4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X',
-})
-db.save_many(initial)
+#initial = load_data('replay-initial.json')
+#initial.append(views.viz_design)
+#initial.append({
+#    '_id': '_local/dmedia',
+#    'machine_id': '4HQQ3DTX336WNAK5HKJ36OKEEURKJBWUS9WXXNV8ERYEAI9X',
+#})
+#db.save_many(initial)
 
-changes = load_data('replay-changes.json')
+#changes = load_data('replay-changes.json')
 
 
-thumbs = db.database('visualizer-1-thumbnails')
+thumbs = Database('thumbnails', dmedia_env())
 try:
     thumbs.delete()
 except NotFound:
@@ -75,7 +75,7 @@ thumbs.save_many(load_data('replay-thumbnails.json'))
 
 class App(BaseApp):
     name = 'dmedia'
-    dbname = DB_NAME  #schema.DB_NAME
+    dbname = schema.DB_NAME
     version = dmedia.__version__
     title = 'Dmedia Visualizer'
     page = 'visualizer.html'
@@ -87,7 +87,7 @@ class App(BaseApp):
 
     def post_page_init(self, page):
         self.doc_i = 0
-        GLib.timeout_add(500, self.on_timeout)
+        #GLib.timeout_add(500, self.on_timeout)
 
     def on_timeout(self):
         print('on_timeout', self.doc_i)
