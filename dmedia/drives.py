@@ -143,6 +143,7 @@ def get_partition_info(device):
         'drive_serial': device.get_property('ID_SERIAL_SHORT'),
         'drive_wwn': device.get_property('ID_WWN_WITH_EXTENSION'),
         'drive_vendor': unfuck(device.get_property('ID_VENDOR_ENC')),
+        'drive_vendor_id': device.get_property('ID_VENDOR_ID'),
         'drive_removable': bool(device.get_sysfs_attr_as_int('../removable')),
         'drive_bus': device.get_property('ID_BUS'),
 

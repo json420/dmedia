@@ -1,15 +1,13 @@
-from dmedia.drives import parse_mounts, get_device, get_partition_info, get_homedir_info, get_mountdir_info
-from filestore import _dumps
-import os
+import json
 
-mounts = parse_mounts()
-#print(_dumps(mounts))
+from dmedia.drives import get_parentdir_info
+from dmedia.service import get_proxy
 
-#print(_dumps(get_partition_info(get_device(mounts['/']))))
 
-home = os.environ['HOME']
-#print(home)
+Dmedia = get_proxy()
+for (parentdir, extra) in json.loads(Dmedia.Stores()).items():
+    info = get_parentdir_info(parentdir)
+    print()
+    print(parentdir)
+    print(json.dumps(info, sort_keys=True, indent=4))
 
-print(_dumps(get_homedir_info(home)))
-
-print(_dumps(get_mountdir_info('/media/jderose/NovacutSilver')))
