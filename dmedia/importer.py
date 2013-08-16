@@ -287,7 +287,7 @@ class ImportWorker(workers.CouchWorker):
         )
 
     def extractor(self):
-        need_thumbnail = False
+        need_thumbnail = True
         common = {
             'import_id': self.id,
             'batch_id': self.env.get('batch_id'),
@@ -306,8 +306,8 @@ class ImportWorker(workers.CouchWorker):
                     ext = normalize_ext(file.name)
                     if ext:
                         doc['ext'] = ext
-                    #extract(file.name, doc)
-                    #merge_thumbnail(file.name, doc)
+                    extract(file.name, doc)
+                    merge_thumbnail(file.name, doc)
                     doc.update(common)
                     self.project.save(doc)
                 if need_thumbnail and has_attachment(doc, 'thumbnail'):

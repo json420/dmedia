@@ -102,7 +102,7 @@ class Importer:
     def on_batch_finished(self, hub, batch_id, stats, copies, msg):
         log.info('batch_finished: %s', batch_id)
         log.info('Calling Dmedia.SnapshotProject(%r)...', self.project_id)
-        self.proxy.SnapshotProject(self.project_id)
+        #self.proxy.SnapshotProject(self.project_id)
         self.blocking = True
         self.batch_id = batch_id
         self.copies = copies
