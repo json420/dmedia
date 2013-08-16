@@ -30,8 +30,10 @@ import json
 import socket
 from base64 import b64encode
 import logging
+from hashlib import md5
 
 from usercouch import UserCouch
+from dbase32 import db32dec
 
 from .parallel import start_thread
 from .identity import PKI
@@ -84,6 +86,20 @@ def create_doc(_id, doc_type):
         'type': doc_type,
         'time': time.time(),
     }
+    
+    
+def machine_to_uuid(machine_id):
+    """
+    Stable transformation of Dmedia machine ID into a CouchDB replication UUID.
+
+    For example:
+
+    >>> machine_to_uuid('YXW3HD6ETR6D9V9PU7V3MUMP3NSPVECR363DF36WD3VVHU8Q')
+    '118270071dd61dcc7a94cadf34813c4e'
+
+    """
+    assert len(machine_id) == 48
+    return md5(db32dec(machine_id)).hexdigest()
 
 
 class DmediaCouch(UserCouch):
@@ -134,7 +150,7 @@ class DmediaCouch(UserCouch):
         self.mthread = None
         assert self.machine is not None
         return True
-        
+
     def create_user(self):
         if self.machine is None:
             raise Exception('must create machine first')
@@ -174,6 +190,7 @@ class DmediaCouch(UserCouch):
 
     def get_bootstrap_config(self):
         return {
+            'uuid': machine_to_uuid(self.machine['_id']),
             'username': 'admin',
             'replicator': self.get_ssl_config(),
         }
