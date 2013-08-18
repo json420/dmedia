@@ -40,6 +40,7 @@ import filestore
 from filestore import FileStore
 from filestore.misc import TempFileStore
 from filestore.migration import Migration, b32_to_db32
+from usercouch.misc import CouchTestCase
 
 from dmedia.local import LocalStores
 from dmedia.metastore import MetaStore, get_mtime
@@ -147,6 +148,39 @@ class TestCouchFunctions(CouchCase):
             'atime': atime,
             'stores': {},
         })
+
+    def test_mark_connected_stores(self):
+        atime = int(time.time())
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
+
+        doc = {}
+        stores = {
+            fs1.id: {'parentdir': fs1.parentdir}
+        }
+        self.assertIsNone(core.mark_connected_stores(doc, atime, stores))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {
+                fs1.id: {'parentdir': fs1.parentdir}
+            },
+        })
+        self.assertIs(doc['stores'], stores)
+
+        doc = {
+            'atime': atime - 123456,
+            'stores': {
+                fs1.id: {'parentdir': fs1.parentdir},
+                fs2.id: {'parentdir': fs2.parentdir},
+            },
+        }
+        stores = {}
+        self.assertIsNone(core.mark_connected_stores(doc, atime, stores))
+        self.assertEqual(doc, {
+            'atime': atime,
+            'stores': {},
+        })
+        self.assertIs(doc['stores'], stores)
 
     def test_mark_add_peer(self):
         doc = {}
@@ -265,14 +299,21 @@ class TestTaskQueue(TestCase):
         self.assertEqual(tq.popitem(), ('a', ('aye', 2)))
 
 
-class TestCore2(CouchCase):
+class TestCore(CouchTestCase):
+    def create(self):
+        self.machine_id = random_id(30)
+        self.user_id = random_id(30)
+        self.machine = {'_id': self.machine_id}
+        self.user = {'_id': self.user_id}
+        return core.Core(self.env, self.machine, self.user)
+
     def test_init(self):
         machine_id = random_id(30)
         user_id = random_id(30)
         machine = {'_id': machine_id}
         user = {'_id': user_id}
 
-        inst = core.Core2(self.env, machine, user)
+        inst = core.Core(self.env, machine, user)
         self.assertIs(inst.env, self.env)
         self.assertEqual(inst.env['machine_id'], machine_id)
         self.assertEqual(inst.env['user_id'], user_id)
@@ -291,8 +332,6 @@ class TestCore2(CouchCase):
             '_rev': '0-1',
             'machine_id': machine_id,
             'user_id': user_id,
-            'stores': {},
-            'peers': {},
         })
         self.assertIs(inst.machine, machine)
         self.assertEqual(inst.db.get(machine_id), machine)
@@ -301,27 +340,8 @@ class TestCore2(CouchCase):
         self.assertIs(inst.user, user)
         self.assertEqual(inst.db.get(user_id), user)
 
-
-class TestCore(CouchCase):
-    def test_init(self):
-        inst = core.Core(self.env)
-        self.assertIs(inst.env, self.env)
-        self.assertIsInstance(inst.db, microfiber.Database)
-        self.assertEqual(inst.db.name, DB_NAME)
-        self.assertIsInstance(inst.server, microfiber.Server)
-        self.assertIs(inst.db.ctx, inst.server.ctx)
-        self.assertIsInstance(inst.stores, LocalStores)
-        self.assertEqual(inst.local,
-            {
-                '_id': '_local/dmedia',
-                'stores': {},
-                'peers': {},
-            }
-        )
-        self.assertIsNone(inst.machine)
-        self.assertIsNone(inst.user)
-
     def test_load_identity(self):
+        self.skipTest('fixme')
         timestamp = int(time.time())
         machine_id = random_id(30)
         user_id = random_id(30)
@@ -395,7 +415,7 @@ class TestCore(CouchCase):
         )
 
     def test_add_peer(self):
-        inst = core.Core(self.env)
+        inst = self.create()
         id1 = random_id(30)
         info1 = {
             'host': 'jderose-Gazelle-Professional',
@@ -408,109 +428,63 @@ class TestCore(CouchCase):
 
         # id1 is not yet a peer:
         self.assertIsNone(inst.add_peer(id1, info1))
-        self.assertEqual(inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {},
-                'peers': {
-                    id1: info1,
-                },
-            }
-        )
+        self.assertEqual(inst.machine['peers'], {id1: info1})
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
 
         # id2 is not yet a peer:
         self.assertIsNone(inst.add_peer(id2, info2))
-        self.assertEqual(inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'stores': {},
-                'peers': {
-                    id1: info1,
-                    id2: info2,
-                },
-            }
-        )
+        self.assertEqual(inst.machine['peers'], {id1: info1, id2: info2})
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
 
         # id1 is already a peer, make sure info is replaced
         new1 = {'url': random_id()}
         self.assertIsNone(inst.add_peer(id1, new1))
-        self.assertEqual(inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'stores': {},
-                'peers': {
-                    id1: new1,
-                    id2: info2,
-                },
-            }
-        )
+        self.assertEqual(inst.machine['peers'], {id1: new1, id2: info2})
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
 
     def test_remove_peer(self):
+        inst = self.create()
         id1 = random_id(30)
         id2 = random_id(30)
         info1 = {'url': random_id()}
         info2 = {'url': random_id()}
-
-        db = microfiber.Database('dmedia-1', self.env)
-        db.ensure()
-        local = {
-            '_id': '_local/dmedia',
-            'stores': {},
-            'peers': {
-                id1: info1,
-                id2: info2,
-            },
-        }
-        db.save(local)
-        inst = core.Core(self.env)
+        inst.machine['peers'] = {id1: info1, id2: info2}
+        inst.db.save(inst.machine)
+        self.assertEqual(inst.machine['_rev'][:2], '2-')
 
         # Test with a peer_id that doesn't exist:
         nope = random_id(30)
         self.assertIs(inst.remove_peer(nope), False)
-        self.assertEqual(db.get('_local/dmedia'), local)
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        self.assertEqual(inst.machine['peers'], {id1: info1, id2: info2})
+        self.assertEqual(inst.machine['_rev'][:2], '2-')
 
         # id1 is present
         self.assertIs(inst.remove_peer(id1), True)
-        self.assertEqual(db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'stores': {},
-                'peers': {
-                    id2: info2,
-                },
-            }
-        )
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        self.assertEqual(inst.machine['peers'], {id2: info2})
+        self.assertEqual(inst.machine['_rev'][:2], '3-')
 
         # id1 is missing
         self.assertIs(inst.remove_peer(id1), False)
-        self.assertEqual(db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'stores': {},
-                'peers': {
-                    id2: info2,
-                },
-            }
-        )
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        self.assertEqual(inst.machine['peers'], {id2: info2})
+        self.assertEqual(inst.machine['_rev'][:2], '3-')
 
         # id2 is present
         self.assertIs(inst.remove_peer(id2), True)
-        self.assertEqual(db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'stores': {},
-                'peers': {},
-            }
-        )
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        self.assertEqual(inst.machine['peers'], {})
+        self.assertEqual(inst.machine['_rev'][:2], '4-')
+
+        # id2 is missing
+        self.assertIs(inst.remove_peer(id2), False)
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        self.assertEqual(inst.machine['peers'], {})
+        self.assertEqual(inst.machine['_rev'][:2], '4-')
 
     def test_create_filestore(self):
-        inst = core.Core(self.env)
+        inst = self.create()
 
         # Test when a FileStore already exists
         tmp = TempDir()
@@ -530,29 +504,17 @@ class TestCore(CouchCase):
         self.assertEqual(fs.copies, 1)
         self.assertIs(inst.stores.by_id(fs.id), fs)
         self.assertIs(inst.stores.by_parentdir(fs.parentdir), fs)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {
-                    fs.id: {'parentdir': fs.parentdir, 'copies': fs.copies},
-                },
-                'peers': {},
-            }
-        )
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        self.assertEqual(inst.machine['stores'], {
+            fs.id: {'parentdir': fs.parentdir, 'copies': 1},
+        })
+        self.assertEqual(inst.machine['_rev'][:2], '2-')
 
         # Make sure we can disconnect a store that was just created
         inst.disconnect_filestore(fs.parentdir)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'stores': {},
-                'peers': {},
-            }
-        )
+        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        self.assertEqual(inst.machine['stores'], {})
+        self.assertEqual(inst.machine['_rev'][:2], '3-')
 
     def test_connect_filestore(self):
         tmp = TempDir()
@@ -692,7 +654,7 @@ class TestCore(CouchCase):
         self.assertEqual(str(cm.exception), repr(fs1.parentdir))
 
     def test_resolve(self):
-        inst = core.Core(self.env)
+        inst = self.create()
 
         bad_id1 = random_id(25)  # Wrong length
         self.assertEqual(inst.resolve(bad_id1),
@@ -742,7 +704,7 @@ class TestCore(CouchCase):
         )
 
     def test_resolve_many(self):
-        inst = core.Core(self.env)
+        inst = self.create()
         tmp = TempDir()
         fs = inst.create_filestore(tmp.dir)
 

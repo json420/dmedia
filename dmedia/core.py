@@ -467,6 +467,11 @@ def mark_remove_filestore(doc, atime, fs_id):
     stores.pop(fs_id, None)
 
 
+def mark_connected_stores(doc, atime, stores):
+    assert isinstance(stores, dict)
+    doc['atime'] = atime
+    doc['stores'] = stores
+
 def mark_add_peer(doc, atime, peer_id, info):
     assert isinstance(info, dict)
     doc['atime'] = atime
@@ -480,7 +485,7 @@ def mark_remove_peer(doc, atime, peer_id):
     peers.pop(peer_id, None)
 
 
-class Core2:
+class Core:
     def __init__(self, env, machine, user, ssl_config=None):
         env.update({
             'machine_id': machine['_id'],
@@ -501,47 +506,17 @@ class Core2:
         self.local.update({
             'machine_id': machine['_id'],
             'user_id': user['_id'],
-            'stores': {},
-            'peers': {},
         })
         self.machine.update({
             'stores': {},
             'peers': {},
         })
         self.db.save_many([self.local, self.machine, self.user])
-
-
-class Core:
-    def __init__(self, env, ssl_config=None):
-        self.env = env
-        self.ssl_config = ssl_config
-        self.db = util.get_db(env, init=True)
-        self.log_db = self.db.database(schema.LOG_DB_NAME)
-        self.log_db.ensure()
-        self.server = self.db.server()
-        self.ms = MetaStore(self.db)
-        self.stores = LocalStores()
-        self.task_manager = TaskManager(env, ssl_config)
-        try:
-            self.local = self.db.get(LOCAL_ID)
-        except NotFound:
-            self.local = {
-                '_id': LOCAL_ID,
-                'stores': {},
-                'peers': {},
-            }
-        self.__local = deepcopy(self.local)
-        self.machine = None
-        self.user = None
+        log.info('machine_id = %s', machine['_id'])
+        log.info('user_id = %s', user['_id'])
 
     def save_local(self):
-        if self.local != self.__local:
-            self.db.save(self.local)
-            self.__local = deepcopy(self.local)
-
-    def reset_local(self):
-        self.local['stores'] = {}
-        self.local['peers'] = {}
+        self.db.save(self.local)
 
     def start_background_tasks(self):
         self.task_manager.start_tasks()
@@ -568,53 +543,29 @@ class Core:
         self.local['skip_internal'] = flag
         self.save_local()
 
-    def load_identity(self, machine, user, timestamp=None):
-        if timestamp is None:
-            timestamp = int(time.time())
-        assert isinstance(timestamp, int) and timestamp > 0
-        try:
-            self.db.save_many([machine, user])
-        except BulkConflict:
-            pass
-        log.info('machine_id = %s', machine['_id'])
-        log.info('user_id = %s', user['_id'])
-        self.env['machine_id'] = machine['_id']
-        self.env['user_id'] = user['_id']
-        self.local['machine_id'] = machine['_id']
-        self.local['user_id'] = user['_id']
-        self.save_local()
-        self.machine = self.db.update(mark_machine_start, machine, timestamp)
-
     def add_peer(self, peer_id, info):
         assert isdb32(peer_id) and len(peer_id) == 48
         assert isinstance(info, dict)
         assert isinstance(info['url'], str)
-        self.local['peers'][peer_id] = info
-        self.save_local()
-        if self.machine:
-            atime = int(time.time())
-            self.machine = self.db.update(
-                mark_add_peer, self.machine, atime, peer_id, info
-            )
+        self.machine = self.db.update(
+            mark_add_peer, self.machine, int(time.time()), peer_id, info
+        )
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
-        if self.machine:
-            atime = int(time.time())
-            self.machine = self.db.update(
-                mark_remove_peer, self.machine, atime, peer_id
-            )
-        try:
-            del self.local['peers'][peer_id]
-            self.save_local()
-            self.restart_vigilance()
-            return True
-        except KeyError:
+        if peer_id not in self.machine['peers']:
             return False
+        self.machine = self.db.update(
+            mark_remove_peer, self.machine, int(time.time()), peer_id
+        )
+        self.restart_vigilance()
+        return True
 
     def _sync_stores(self):
-        self.local['stores'] = self.stores.local_stores()
-        self.save_local()
+        stores = self.stores.local_stores()
+        self.machine = self.db.update(
+            mark_connected_stores, self.machine, int(time.time()), stores
+        )
         self.restart_vigilance()
 
     def _add_filestore(self, fs):
@@ -632,23 +583,12 @@ class Core:
             pass
         self.task_manager.queue_filestore_tasks(fs)
         self._sync_stores()
-        if self.machine:
-            atime = int(time.time())
-            info = {'parentdir': fs.parentdir}
-            self.machine = self.db.update(
-                mark_add_filestore, self.machine, atime, fs.id, info
-            )
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
         self.stores.remove(fs)
         self.task_manager.stop_filestore_tasks(fs)
         self._sync_stores()
-        if self.machine:
-            atime = int(time.time())
-            self.machine = self.db.update(
-                mark_remove_filestore, self.machine, atime, fs.id
-            )
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
