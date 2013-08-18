@@ -191,11 +191,10 @@ class LocalStores:
             return fs
 
     def local_stores(self):
-        stores = {}
-        for fs in self.ids.values():
-            stores[fs.parentdir] = {'id': fs.id, 'copies': fs.copies}
-        return stores
-        
+        return dict(
+            (fs.id, {'parentdir': fs.parentdir, 'copies': fs.copies})
+            for fs in self.ids.values()
+        )
 
 
 class LocalSlave:

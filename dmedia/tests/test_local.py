@@ -190,18 +190,17 @@ class TestLocalStores(TestCase):
         inst.add(fs1)
         self.assertEqual(inst.local_stores(),
             {
-                fs1.parentdir: {'id': fs1.id, 'copies': 1},
+                fs1.id: {'parentdir': fs1.parentdir, 'copies': 1},
             }
         )
-        
+
         inst.add(fs2)
         self.assertEqual(inst.local_stores(),
             {
-                fs1.parentdir: {'id': fs1.id, 'copies': 1},
-                fs2.parentdir: {'id': fs2.id, 'copies': 0},  
+                fs1.id: {'parentdir': fs1.parentdir, 'copies': 1},
+                fs2.id: {'parentdir': fs2.parentdir, 'copies': 0},
             }
         )
-        
 
 
 class TestLocalSlave(CouchCase):
