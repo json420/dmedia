@@ -265,6 +265,43 @@ class TestTaskQueue(TestCase):
         self.assertEqual(tq.popitem(), ('a', ('aye', 2)))
 
 
+class TestCore2(CouchCase):
+    def test_init(self):
+        machine_id = random_id(30)
+        user_id = random_id(30)
+        machine = {'_id': machine_id}
+        user = {'_id': user_id}
+
+        inst = core.Core2(self.env, machine, user)
+        self.assertIs(inst.env, self.env)
+        self.assertEqual(inst.env['machine_id'], machine_id)
+        self.assertEqual(inst.env['user_id'], user_id)
+        self.assertIsInstance(inst.db, microfiber.Database)
+        self.assertEqual(inst.db.name, 'dmedia-1')
+        self.assertIsInstance(inst.log_db, microfiber.Database)
+        self.assertEqual(inst.log_db.name, 'log-1')
+        self.assertIsInstance(inst.server, microfiber.Server)
+        self.assertIsInstance(inst.ms, MetaStore)
+        self.assertIs(inst.ms.db, inst.db)
+        self.assertIsInstance(inst.stores, LocalStores)
+        self.assertIsInstance(inst.task_manager, core.TaskManager)
+
+        self.assertEqual(inst.db.get('_local/dmedia'), {
+            '_id': '_local/dmedia',
+            '_rev': '0-1',
+            'machine_id': machine_id,
+            'user_id': user_id,
+            'stores': {},
+            'peers': {},
+        })
+        self.assertIs(inst.machine, machine)
+        self.assertEqual(inst.db.get(machine_id), machine)
+        self.assertEqual(inst.machine['stores'], {})
+        self.assertEqual(inst.machine['peers'], {})
+        self.assertIs(inst.user, user)
+        self.assertEqual(inst.db.get(user_id), user)
+
+
 class TestCore(CouchCase):
     def test_init(self):
         inst = core.Core(self.env)
@@ -499,7 +536,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-1',
                 'stores': {
-                    fs.parentdir: {'id': fs.id, 'copies': fs.copies},
+                    fs.id: {'parentdir': fs.parentdir, 'copies': fs.copies},
                 },
                 'peers': {},
             }
@@ -577,8 +614,8 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-2',
                 'stores': {
-                    fs.parentdir: {'id': fs.id, 'copies': 1},
-                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                    fs.id: {'parentdir': fs.parentdir, 'copies': 1},
+                    fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
                 },
                 'peers': {},
             }
@@ -613,8 +650,8 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-2',
                 'stores': {
-                    fs1.parentdir: {'id': fs1.id, 'copies': 1},
-                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                    fs1.id: {'parentdir': fs1.parentdir, 'copies': 1},
+                    fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
                 },
                 'peers': {},
             }
@@ -628,7 +665,7 @@ class TestCore(CouchCase):
                 '_id': '_local/dmedia',
                 '_rev': '0-3',
                 'stores': {
-                    fs2.parentdir: {'id': fs2.id, 'copies': 1},
+                    fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
                 },
                 'peers': {},
             }

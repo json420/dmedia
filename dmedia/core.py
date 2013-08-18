@@ -480,6 +480,37 @@ def mark_remove_peer(doc, atime, peer_id):
     peers.pop(peer_id, None)
 
 
+class Core2:
+    def __init__(self, env, machine, user, ssl_config=None):
+        env.update({
+            'machine_id': machine['_id'],
+            'user_id': user['_id'],
+        })
+        self.env = env
+        self.db = util.get_db(env, init=True)
+        self.log_db = self.db.database(schema.LOG_DB_NAME)
+        self.log_db.ensure()
+        self.server = self.db.server()
+        self.ms = MetaStore(self.db)
+        self.stores = LocalStores()
+        self.task_manager = TaskManager(env, ssl_config)
+
+        (self.local, self.machine, self.user) = self.db.get_defaults(
+                [{'_id': LOCAL_ID}, machine, user]
+        )
+        self.local.update({
+            'machine_id': machine['_id'],
+            'user_id': user['_id'],
+            'stores': {},
+            'peers': {},
+        })
+        self.machine.update({
+            'stores': {},
+            'peers': {},
+        })
+        self.db.save_many([self.local, self.machine, self.user])
+
+
 class Core:
     def __init__(self, env, ssl_config=None):
         self.env = env
