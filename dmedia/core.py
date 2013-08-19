@@ -510,6 +510,8 @@ class Core:
             'machine_id': machine['_id'],
             'user_id': user['_id'],
         })
+        self.local.pop('stores', None)
+        self.local.pop('peers', None)
         self.machine.update({
             'stores': {},
             'peers': {},

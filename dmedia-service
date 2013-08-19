@@ -460,14 +460,14 @@ class Service(dbus.service.Object):
         """
         Return currently connected filestores
         """
-        return dumps(self.core.local['stores'], pretty=True)
+        return dumps(self.core.machine['stores'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Peers(self):
         """
         Return peers currently known on local network.
         """
-        return dumps(self.core.local['peers'], pretty=True)
+        return dumps(self.core.machine['peers'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def CreateFileStore(self, parentdir):
