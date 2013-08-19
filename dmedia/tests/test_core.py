@@ -326,7 +326,7 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertIsInstance(inst.task_manager, core.TaskManager)
-
+        self.assertIsNone(inst.ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',
             '_rev': '0-1',
@@ -340,7 +340,33 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.user, user)
         self.assertEqual(inst.db.get(user_id), user)
 
-        inst = core.Core(self.env, machine, user)
+        ssl_config = random_id()
+        inst = core.Core(self.env, machine, user, ssl_config)
+        self.assertIs(inst.env, self.env)
+        self.assertEqual(inst.env['machine_id'], machine_id)
+        self.assertEqual(inst.env['user_id'], user_id)
+        self.assertIsInstance(inst.db, microfiber.Database)
+        self.assertEqual(inst.db.name, 'dmedia-1')
+        self.assertIsInstance(inst.log_db, microfiber.Database)
+        self.assertEqual(inst.log_db.name, 'log-1')
+        self.assertIsInstance(inst.server, microfiber.Server)
+        self.assertIsInstance(inst.ms, MetaStore)
+        self.assertIs(inst.ms.db, inst.db)
+        self.assertIsInstance(inst.stores, LocalStores)
+        self.assertIsInstance(inst.task_manager, core.TaskManager)
+        self.assertIs(inst.ssl_config, ssl_config)
+        self.assertEqual(inst.db.get('_local/dmedia'), {
+            '_id': '_local/dmedia',
+            '_rev': '0-2',
+            'machine_id': machine_id,
+            'user_id': user_id,
+        })
+        self.assertIsNot(inst.machine, machine)
+        self.assertEqual(inst.db.get(machine_id), inst.machine)
+        self.assertEqual(inst.machine['stores'], {})
+        self.assertEqual(inst.machine['peers'], {})
+        self.assertIsNot(inst.user, user)
+        self.assertEqual(inst.db.get(user_id), inst.user)
 
     def test_load_identity(self):
         self.skipTest('fixme')

@@ -499,6 +499,7 @@ class Core:
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.task_manager = TaskManager(env, ssl_config)
+        self.ssl_config = ssl_config
 
         try:
             self.local = self.db.get(LOCAL_ID)

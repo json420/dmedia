@@ -172,9 +172,11 @@ class Service(dbus.service.Object):
         env = self.couch.auto_bootstrap()
         log.info('%r', self.couch._welcome)
         log.info('Starting CouchDB took %.3f', time.monotonic() - start)
-        self.core = Core(env, self.couch.get_ssl_config())
-        self.core.reset_local()
-        self.core.load_identity(self.couch.machine, self.couch.user)
+        self.core = Core(env,
+            self.couch.machine,
+            self.couch.user,
+            self.couch.get_ssl_config()
+        )
         self.env_s = dumps(self.core.env, pretty=True)
         self.snapshots = Snapshots(
                 self.core.env,
