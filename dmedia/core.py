@@ -500,18 +500,17 @@ class Core:
         self.stores = LocalStores()
         self.task_manager = TaskManager(env, ssl_config)
         self.ssl_config = ssl_config
-
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
             self.local = {'_id': LOCAL_ID}
-        (self.machine, self.user) = self.db.get_defaults([machine, user])
         self.local.update({
             'machine_id': machine['_id'],
             'user_id': user['_id'],
         })
         self.local.pop('stores', None)
         self.local.pop('peers', None)
+        (self.machine, self.user) = self.db.get_defaults([machine, user])
         self.machine.update({
             'stores': {},
             'peers': {},
