@@ -340,6 +340,8 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.user, user)
         self.assertEqual(inst.db.get(user_id), user)
 
+        inst = core.Core(self.env, machine, user)
+
     def test_load_identity(self):
         self.skipTest('fixme')
         timestamp = int(time.time())
@@ -519,7 +521,7 @@ class TestCore(CouchTestCase):
     def test_connect_filestore(self):
         tmp = TempDir()
         basedir = tmp.join(filestore.DOTNAME)
-        inst = core.Core(self.env)
+        inst = self.create()
 
         # Test when .dmedia/ doesn't exist
         with self.assertRaises(FileNotFoundError) as cm:
@@ -553,7 +555,7 @@ class TestCore(CouchTestCase):
         )
 
         # Test when expected_id is provided and matches:
-        inst = core.Core(self.env)
+        inst = self.create()
         fs_b = inst.connect_filestore(tmp.dir, expected_id=fs.id)
         self.assertIsInstance(fs_b, FileStore)
         self.assertEqual(fs_b.parentdir, tmp.dir)
@@ -570,18 +572,15 @@ class TestCore(CouchTestCase):
         self.assertEqual(fs2_a.copies, 1)
         self.assertIs(inst.stores.by_id(fs2.id), fs2_a)
         self.assertIs(inst.stores.by_parentdir(fs2.parentdir), fs2_a)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
+
+        self.assertEqual(inst.machine, inst.db.get(self.machine_id))
+        self.assertEqual(inst.machine['stores'], 
             {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'stores': {
-                    fs.id: {'parentdir': fs.parentdir, 'copies': 1},
-                    fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
-                },
-                'peers': {},
-            }
+                fs.id: {'parentdir': fs.parentdir, 'copies': 1},
+                fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
+            },
         )
+        self.assertEqual(inst.machine['_rev'][:2], '3-')
 
         # Test when migration is needed
         tmp = TempDir()
@@ -591,12 +590,9 @@ class TestCore(CouchTestCase):
         self.assertEqual(b32_to_db32(old['_id']), fs.id)
 
     def test_disconnect_filestore(self):
-        inst = core.Core(self.env)
-
-        tmp1 = TempDir()
-        fs1 = FileStore.create(tmp1.dir)
-        tmp2 = TempDir()
-        fs2 = FileStore.create(tmp2.dir)
+        inst = self.create()
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
 
         # Test when not connected:
         with self.assertRaises(KeyError) as cm:
@@ -606,44 +602,30 @@ class TestCore(CouchTestCase):
         # Connect both, then disconnect one by one
         inst.connect_filestore(fs1.parentdir, fs1.id)
         inst.connect_filestore(fs2.parentdir, fs2.id)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
+        self.assertEqual(inst.machine, inst.db.get(self.machine_id))
+        self.assertEqual(inst.machine['stores'], 
             {
-                '_id': '_local/dmedia',
-                '_rev': '0-2',
-                'stores': {
-                    fs1.id: {'parentdir': fs1.parentdir, 'copies': 1},
-                    fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
-                },
-                'peers': {},
-            }
+                fs1.id: {'parentdir': fs1.parentdir, 'copies': 1},
+                fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
+            },
         )
+        self.assertEqual(inst.machine['_rev'][:2], '3-')
 
         # Disconnect fs1
         inst.disconnect_filestore(fs1.parentdir)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
+        self.assertEqual(inst.machine, inst.db.get(self.machine_id))
+        self.assertEqual(inst.machine['stores'], 
             {
-                '_id': '_local/dmedia',
-                '_rev': '0-3',
-                'stores': {
-                    fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
-                },
-                'peers': {},
-            }
+                fs2.id: {'parentdir': fs2.parentdir, 'copies': 1},
+            },
         )
+        self.assertEqual(inst.machine['_rev'][:2], '4-')
 
         # Disconnect fs2
         inst.disconnect_filestore(fs2.parentdir)
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-4',
-                'stores': {},
-                'peers': {},
-            }
-        )
+        self.assertEqual(inst.machine, inst.db.get(self.machine_id))
+        self.assertEqual(inst.machine['stores'], {})
+        self.assertEqual(inst.machine['_rev'][:2], '5-')
 
         # Again test when not connected:
         with self.assertRaises(KeyError) as cm:
@@ -764,7 +746,7 @@ class TestCore(CouchTestCase):
         )
 
     def test_allocate_tmp(self):
-        inst = core.Core(self.env)
+        inst = self.create()
 
         with self.assertRaises(Exception) as cm:        
             inst.allocate_tmp()
@@ -777,7 +759,7 @@ class TestCore(CouchTestCase):
         self.assertEqual(path.getsize(name), 0)
 
     def test_hash_and_move(self):
-        inst = core.Core(self.env)
+        inst = self.create()
         tmp = TempDir()
         fs = inst.create_filestore(tmp.dir)
         tmp_fp = fs.allocate_tmp()
