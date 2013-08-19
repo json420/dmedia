@@ -335,10 +335,12 @@ class TestCore(CouchTestCase):
         })
         self.assertIs(inst.machine, machine)
         self.assertEqual(inst.db.get(machine_id), machine)
+        self.assertEqual(inst.machine['_rev'][:2], '1-')
         self.assertEqual(inst.machine['stores'], {})
         self.assertEqual(inst.machine['peers'], {})
         self.assertIs(inst.user, user)
         self.assertEqual(inst.db.get(user_id), user)
+        self.assertEqual(inst.user['_rev'][:2], '1-')
 
         ssl_config = random_id()
         inst = core.Core(self.env, machine, user, ssl_config)
@@ -363,84 +365,12 @@ class TestCore(CouchTestCase):
         })
         self.assertIsNot(inst.machine, machine)
         self.assertEqual(inst.db.get(machine_id), inst.machine)
+        self.assertEqual(inst.machine['_rev'][:2], '2-')
         self.assertEqual(inst.machine['stores'], {})
         self.assertEqual(inst.machine['peers'], {})
         self.assertIsNot(inst.user, user)
         self.assertEqual(inst.db.get(user_id), inst.user)
-
-    def test_load_identity(self):
-        self.skipTest('fixme')
-        timestamp = int(time.time())
-        machine_id = random_id(30)
-        user_id = random_id(30)
-        inst = core.Core(self.env)
-        self.assertIsNone(
-            inst.load_identity({'_id': machine_id}, {'_id': user_id}, timestamp)
-        )
-
-        machine = inst.db.get(machine_id)
-        self.assertTrue(machine['_rev'].startswith('2-'))
-        self.assertEqual(machine, {
-            '_id': machine_id,
-            '_rev': machine['_rev'],
-            'atime': timestamp,
-            'stores': {},
-            'peers': {},
-        })
-
-        user = inst.db.get(user_id)
-        self.assertEqual(set(user), set(['_id', '_rev']))
-        self.assertTrue(user['_rev'].startswith('1-'))
-
-        self.assertEqual(
-            inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {},
-                'peers': {},
-                'machine_id': machine_id,
-                'user_id': user_id,
-            }
-        )
-        self.assertEqual(inst.local, inst.db.get('_local/dmedia'))
-        self.assertEqual(self.env['machine_id'], machine_id)
-        self.assertEqual(self.env['user_id'], user_id)
-
-        # Now try when machine and user docs already exist:
-        machine['atime'] = timestamp - 12345
-        machine['stores'] = 'foo'
-        machine['peers'] = 'bar'
-        inst.db.save(machine)
-        inst = core.Core(self.env)
-        self.assertIsNone(
-            inst.load_identity({'_id': machine_id}, {'_id': user_id}, timestamp)
-        )
-
-        machine = inst.db.get(machine_id)
-        self.assertTrue(machine['_rev'].startswith('4-'))
-        self.assertEqual(machine, {
-            '_id': machine_id,
-            '_rev': machine['_rev'],
-            'atime': timestamp,
-            'stores': {},
-            'peers': {},
-        })
-
-        user = inst.db.get(user_id)
-        self.assertEqual(set(user), set(['_id', '_rev']))
-        self.assertTrue(user['_rev'].startswith('1-'))
-
-        self.assertEqual(inst.db.get('_local/dmedia'),
-            {
-                '_id': '_local/dmedia',
-                '_rev': '0-1',
-                'stores': {},
-                'peers': {},
-                'machine_id': machine_id,
-                'user_id': user_id,
-            }
-        )
+        self.assertEqual(inst.user['_rev'][:2], '2-')
 
     def test_add_peer(self):
         inst = self.create()
