@@ -219,8 +219,8 @@ class ImportCase(CouchCase):
         self.store1_id = fs1.id
         self.store2_id = fs2.id
         self.stores = {
-            self.dst1.dir: {'id': self.store1_id, 'copies': 1},
-            self.dst2.dir: {'id': self.store2_id, 'copies': 2},
+            fs1.id: {'parentdir': fs1.parentdir, 'copies': 1},
+            fs2.id: {'parentdir': fs2.parentdir, 'copies': 2},
         }
         self.db = get_db(self.env)
         self.db.ensure()

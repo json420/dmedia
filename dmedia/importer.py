@@ -216,9 +216,9 @@ class ImportWorker(workers.CouchWorker):
         # FIXME: Should pick up to 2 filestores based size of import and
         # available space on the filestores.
         stores = []
-        for parentdir in sorted(self.env['stores']):
-            info = self.env['stores'][parentdir]
-            fs = FileStore(parentdir, info['id'])
+        for _id in sorted(self.env['stores']):
+            info = self.env['stores'][_id]
+            fs = FileStore(info['parentdir'], _id)
             stores.append(fs)
         return stores
 
