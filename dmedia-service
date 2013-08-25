@@ -172,9 +172,11 @@ class Service(dbus.service.Object):
         env = self.couch.auto_bootstrap()
         log.info('%r', self.couch._welcome)
         log.info('Starting CouchDB took %.3f', time.monotonic() - start)
-        self.core = Core(env, self.couch.get_ssl_config())
-        self.core.reset_local()
-        self.core.load_identity(self.couch.machine, self.couch.user)
+        self.core = Core(env,
+            self.couch.machine,
+            self.couch.user,
+            self.couch.get_ssl_config()
+        )
         self.env_s = dumps(self.core.env, pretty=True)
         self.snapshots = Snapshots(
                 self.core.env,
@@ -233,8 +235,8 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core, port)
         self.avahi.run()
-        GLib.timeout_add(5000, self.on_idle4)
-        GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(9000, self.on_idle4)
+        GLib.timeout_add(45 * 1000, self.core.reclaim_if_possible)
 
     def on_idle4(self):
         """
@@ -458,14 +460,14 @@ class Service(dbus.service.Object):
         """
         Return currently connected filestores
         """
-        return dumps(self.core.local['stores'], pretty=True)
+        return dumps(self.core.machine['stores'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Peers(self):
         """
         Return peers currently known on local network.
         """
-        return dumps(self.core.local['peers'], pretty=True)
+        return dumps(self.core.machine['peers'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def CreateFileStore(self, parentdir):
@@ -550,7 +552,7 @@ class Service(dbus.service.Object):
         if not self.UpdateProject(project_id):
             self.pending_update = project_id
         self.Snapshot(schema.project_db_name(project_id))
-        self.Snapshot(schema.DB_NAME)
+        #self.Snapshot(schema.DB_NAME)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AutoFormat(self, value):

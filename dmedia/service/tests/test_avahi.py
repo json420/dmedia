@@ -47,13 +47,15 @@ class TestAvahi(CouchCase):
     def test_init(self):
         pki = TempPKI(client_pki=True)
         ssl_config = pki.get_client_config()
-        core = Core(self.env, ssl_config)
+        machine = {'_id': random_id(30)}
+        user = {'_id': random_id(30)}
+        core = Core(self.env, machine, user, ssl_config)
         port = random_port()
         inst = avahi.Avahi(core, port)
         self.assertIs(inst.core, core)
         self.assertEqual(inst.port, port)
-        self.assertEqual(inst.machine_id, self.machine_id)
-        self.assertEqual(inst.user_id, self.user_id)
+        self.assertEqual(inst.machine_id, machine['_id'])
+        self.assertEqual(inst.user_id, user['_id'])
         self.assertIs(inst.server, core.server)
         self.assertIsInstance(inst.ssl_context, ssl.SSLContext)
         self.assertEqual(inst.replications, {})

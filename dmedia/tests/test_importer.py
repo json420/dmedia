@@ -32,13 +32,14 @@ import os
 from os import path
 
 import filestore
+from filestore.misc import TempFileStore
+from usercouch.misc import CouchTestCase
 from microfiber import random_id, Database
 
-from .couch import CouchCase
 from .base import TempDir, DummyQueue, MagicLanternTestCase2
 
 from dmedia.util import get_db
-from dmedia.metastore import get_mtime
+from dmedia.metastore import MetaStore, get_mtime
 from dmedia import importer, schema
 
 
@@ -202,42 +203,40 @@ class TestFunctions(TestCase):
         )
 
 
-class ImportCase(CouchCase):
-
+class ImportCase(CouchTestCase):
     def setUp(self):
         super().setUp()
         self.q = DummyQueue()
-
         self.src = TempDir()
 
-        temps = [TempDir() for i in range(2)]
-        (self.dst1, self.dst2) = sorted(temps, key=lambda t: t.dir)
-
-        fs1 = filestore.FileStore.create(self.dst1.dir, copies=1)
-        fs2 = filestore.FileStore.create(self.dst2.dir, copies=2)
-
-        self.store1_id = fs1.id
-        self.store2_id = fs2.id
+        filestores = [TempFileStore(copies=1), TempFileStore(copies=2)]
+        (self.fs1, self.fs2) = sorted(filestores, key=lambda fs: fs.id)
         self.stores = {
-            self.dst1.dir: {'id': self.store1_id, 'copies': 1},
-            self.dst2.dir: {'id': self.store2_id, 'copies': 2},
+            self.fs1.id: {'parentdir': self.fs1.parentdir, 'copies': 1},
+            self.fs2.id: {'parentdir': self.fs2.parentdir, 'copies': 2},
         }
-        self.db = get_db(self.env)
-        self.db.ensure()
+
+        self.machine_id = random_id(30)
+        self.env['machine_id'] = self.machine_id
+        machine = {
+            '_id': self.machine_id,
+            'stores': self.stores,
+        }
+        self.db = get_db(self.env, True)
+        self.db.save(machine)
+
         self.project_id = random_id()
-        self.env['extract'] = False
         self.env['project_id'] = self.project_id
 
     def tearDown(self):
         super().tearDown()
-        self.q = None
-        self.src = None
-        self.dst1 = None
-        self.dst2 = None
+        del self.q
+        del self.src
+        del self.fs1
+        del self.fs2
 
 
 class TestImportWorker(ImportCase):
-
     def setUp(self):
         super().setUp()
         self.batch_id = random_id()
@@ -301,15 +300,15 @@ class TestImportWorker(ImportCase):
         self.assertEqual(len(stores), 2)
         fs1 = stores[0]
         self.assertIsInstance(fs1, filestore.FileStore)
-        self.assertEquals(fs1.parentdir, self.dst1.dir)
-        self.assertEquals(fs1.id, self.store1_id)
-        self.assertEquals(fs1.copies, 1)
+        self.assertEquals(fs1.parentdir, self.fs1.parentdir)
+        self.assertEquals(fs1.id, self.fs1.id)
+        self.assertEquals(fs1.copies, self.fs1.copies)
 
         fs2 = stores[1]
         self.assertIsInstance(fs2, filestore.FileStore)
-        self.assertEquals(fs2.parentdir, self.dst2.dir)
-        self.assertEquals(fs2.id, self.store2_id)
-        self.assertEquals(fs2.copies, 2)
+        self.assertEquals(fs2.parentdir, self.fs2.parentdir)
+        self.assertEquals(fs2.id, self.fs2.id)
+        self.assertEquals(fs2.copies, self.fs2.copies)
 
         # import_all()
         for (file, ch) in result:
@@ -355,13 +354,13 @@ class TestImportWorker(ImportCase):
             self.assertEqual(leaf_hashes, ch.leaf_hashes)
             self.assertEqual(doc['stored'],
                 {
-                    self.store1_id: {
-                        'copies': 1,
-                        'mtime': get_mtime(fs1, ch.id),
+                    self.fs1.id: {
+                        'copies': self.fs1.copies,
+                        'mtime': get_mtime(self.fs1, ch.id),
                     },
-                    self.store2_id: {
-                        'copies': 2,
-                        'mtime': get_mtime(fs2, ch.id),
+                    self.fs2.id: {
+                        'copies': self.fs2.copies,
+                        'mtime': get_mtime(self.fs2, ch.id),
                     }
                 
                 }
@@ -395,12 +394,22 @@ class TestImportManager(ImportCase):
         super().setUp()
         local = {
             '_id': '_local/dmedia',
-            'stores': self.stores,
+            'machine_id': self.machine_id,
         }
         self.db.save(local)
 
     def new(self, callback=None):
         return self.klass(self.env, callback)
+
+    def test_init(self):
+        callback = DummyCallback()
+        inst = importer.ImportManager(self.env, callback)
+        self.assertIsNone(inst.doc)
+        self.assertIsNone(inst._error)
+        self.assertEqual(inst._progress, {})
+        self.assertIsInstance(inst.ms, MetaStore)
+        self.assertIs(inst.ms.db, inst.db)
+        self.assertEqual(inst.db.name, 'dmedia-1')
 
     def test_first_worker_starting(self):
         callback = DummyCallback()
@@ -821,10 +830,8 @@ class TestImportManager(ImportCase):
             ('batch_finished', (batch_id, stats, 3, importer.notify_stats2(stats)))
         )
 
-        fs1 = filestore.FileStore(self.dst1.dir, self.store1_id)
-        fs2 = filestore.FileStore(self.dst2.dir, self.store2_id)
-        self.assertEqual(set(st.id for st in fs1), ids)
-        self.assertEqual(set(st.id for st in fs2), ids)
+        self.assertEqual(set(st.id for st in self.fs1), ids)
+        self.assertEqual(set(st.id for st in self.fs2), ids)
 
         # Check all the dmedia/file docs:
         for (file, ch) in result:
@@ -842,13 +849,13 @@ class TestImportManager(ImportCase):
             self.assertEqual(leaf_hashes, ch.leaf_hashes)
             self.assertEqual(doc['stored'],
                 {
-                    self.store1_id: {
-                        'copies': 1,
-                        'mtime': get_mtime(fs1, ch.id),
+                    self.fs1.id: {
+                        'copies': self.fs1.copies,
+                        'mtime': get_mtime(self.fs1, ch.id),
                     },
-                    self.store2_id: {
-                        'copies': 2,
-                        'mtime': get_mtime(fs2, ch.id),
+                    self.fs2.id: {
+                        'copies': self.fs2.copies,
+                        'mtime': get_mtime(self.fs2, ch.id),
                     }
                 
                 }
@@ -858,8 +865,8 @@ class TestImportManager(ImportCase):
         for (file, ch) in result:
             if ch is None:
                 continue
-            self.assertEqual(fs1.verify(ch.id), ch)
-            self.assertEqual(fs2.verify(ch.id), ch)
+            self.assertEqual(self.fs1.verify(ch.id), ch)
+            self.assertEqual(self.fs2.verify(ch.id), ch)
 
         ##################################################################
         # Okay, now run the whole thing again when they're all duplicates:
@@ -910,10 +917,8 @@ class TestImportManager(ImportCase):
             ('batch_finished', (batch_id, stats, 3, importer.notify_stats2(stats)))
         )
 
-        fs1 = filestore.FileStore(self.dst1.dir)
-        fs2 = filestore.FileStore(self.dst2.dir)
-        self.assertEqual(set(st.id for st in fs1), ids)
-        self.assertEqual(set(st.id for st in fs2), ids)
+        self.assertEqual(set(st.id for st in self.fs1), ids)
+        self.assertEqual(set(st.id for st in self.fs2), ids)
 
         # Check all the dmedia/file docs:
         for (file, ch) in result:
@@ -931,13 +936,13 @@ class TestImportManager(ImportCase):
             self.assertEqual(leaf_hashes, ch.leaf_hashes)
             self.assertEqual(doc['stored'],
                 {
-                    self.store1_id: {
-                        'copies': 1,
-                        'mtime': get_mtime(fs1, ch.id),
+                    self.fs1.id: {
+                        'copies': self.fs1.copies,
+                        'mtime': get_mtime(self.fs1, ch.id),
                     },
-                    self.store2_id: {
-                        'copies': 2,
-                        'mtime': get_mtime(fs2, ch.id),
+                    self.fs2.id: {
+                        'copies': self.fs2.copies,
+                        'mtime': get_mtime(self.fs2, ch.id),
                     }
                 
                 }
@@ -947,8 +952,8 @@ class TestImportManager(ImportCase):
         for (file, ch) in result:
             if ch is None:
                 continue
-            self.assertEqual(fs1.verify(ch.id), ch)
-            self.assertEqual(fs2.verify(ch.id), ch)
+            self.assertEqual(self.fs1.verify(ch.id), ch)
+            self.assertEqual(self.fs2.verify(ch.id), ch)
             
             
 MAGIC_LANTERN = (

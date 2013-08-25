@@ -354,17 +354,26 @@ class MetaStore:
         except NotFound:
             return {}
 
+    def get_machine(self):
+        machine_id = self.get_local_dmedia().get('machine_id')
+        if machine_id is None:
+            return {}
+        try:
+            return self.db.get(machine_id)
+        except NotFound:
+            return {}
+
     def get_local_stores(self):
-        doc = self.get_local_dmedia()
+        doc = self.get_machine()
         stores = get_dict(doc, 'stores')
         local_stores = LocalStores()
-        for (parentdir, info) in stores.items():
-            fs = FileStore(parentdir, info['id'])
+        for (_id, info) in stores.items():
+            fs = FileStore(info['parentdir'], _id)
             local_stores.add(fs)
         return local_stores
 
     def get_local_peers(self):
-        doc = self.get_local_dmedia()
+        doc = self.get_machine()
         self._peers = get_dict(doc, 'peers')
         return self._peers
 

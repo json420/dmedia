@@ -191,25 +191,25 @@ class LocalStores:
             return fs
 
     def local_stores(self):
-        stores = {}
-        for fs in self.ids.values():
-            stores[fs.parentdir] = {'id': fs.id, 'copies': fs.copies}
-        return stores
-        
+        return dict(
+            (fs.id, {'parentdir': fs.parentdir, 'copies': fs.copies})
+            for fs in self.ids.values()
+        )
 
 
 class LocalSlave:
     def __init__(self, env):
         self.db = get_db(env)
+        self.machine_id = env['machine_id']
         self.last_rev = None
 
     def update_stores(self):
-        local = self.db.get('_local/dmedia')
-        if local['_rev'] != self.last_rev:
-            self.last_rev = local['_rev']
+        machine = self.db.get(self.machine_id)
+        if machine['_rev'] != self.last_rev:
+            self.last_rev = machine['_rev']
             self.stores = LocalStores()
-            for (parentdir, info) in local['stores'].items():
-                fs = FileStore(parentdir, info['id'])
+            for (_id, info) in machine['stores'].items():
+                fs = FileStore(info['parentdir'], _id)
                 self.stores.add(fs)
 
     def get_doc(self, _id):
