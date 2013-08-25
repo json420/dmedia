@@ -27,6 +27,7 @@ from unittest import TestCase
 from random import Random
 import time
 
+import microfiber
 import filestore
 from filestore import DIGEST_BYTES
 from filestore.misc import TempFileStore
@@ -207,6 +208,57 @@ class TestLocalSlave(CouchCase):
     def setUp(self):
         super().setUp()
         util.get_db(self.env, True)
+
+    def test_init(self):
+        inst = local.LocalSlave(self.env)
+        self.assertIsInstance(inst.db, microfiber.Database)
+        self.assertEqual(inst.machine_id, self.machine_id)
+        self.assertIsNone(inst.last_rev)
+
+    def test_update_stores(self):
+        inst = local.LocalSlave(self.env)
+        machine = {
+            '_id': self.machine_id,
+            'stores': {},
+        }
+        inst.db.save(machine)
+
+        # No stores
+        self.assertIsNone(inst.update_stores())
+        self.assertEqual(inst.last_rev, machine['_rev'])
+        self.assertIsInstance(inst.stores, local.LocalStores)
+        self.assertEqual(inst.stores.local_stores(), {})
+
+        # One store
+        fs1 = TempFileStore()
+        machine['stores'] = {
+            fs1.id: {'parentdir': fs1.parentdir, 'copies': fs1.copies},
+        }
+        inst.db.save(machine)
+        self.assertIsNone(inst.update_stores())
+        self.assertEqual(inst.last_rev, machine['_rev'])
+        self.assertIsInstance(inst.stores, local.LocalStores)
+        self.assertEqual(inst.stores.local_stores(), machine['stores'])
+
+        # Two stores
+        fs2 = TempFileStore()
+        machine['stores'] = {
+            fs1.id: {'parentdir': fs1.parentdir, 'copies': fs1.copies},
+            fs2.id: {'parentdir': fs2.parentdir, 'copies': fs2.copies},
+        }
+        inst.db.save(machine)
+        self.assertIsNone(inst.update_stores())
+        self.assertEqual(inst.last_rev, machine['_rev'])
+        self.assertIsInstance(inst.stores, local.LocalStores)
+        self.assertEqual(inst.stores.local_stores(), machine['stores'])
+
+        # Make sure LocalStores doesn't needlessly get rebuilt
+        old = inst.stores
+        rev = inst.last_rev
+        self.assertIsNone(inst.update_stores())
+        self.assertIs(inst.stores, old)
+        self.assertIs(inst.last_rev, rev)
+        self.assertEqual(inst.stores.local_stores(), machine['stores'])
 
     def test_get_doc(self):
         inst = local.LocalSlave(self.env)
