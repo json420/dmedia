@@ -394,7 +394,7 @@ class TestImportManager(ImportCase):
         super().setUp()
         local = {
             '_id': '_local/dmedia',
-            'stores': self.stores,
+            'machine_id': self.machine_id,
         }
         self.db.save(local)
 

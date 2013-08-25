@@ -341,7 +341,8 @@ class ImportManager(workers.CouchManager):
         assert self.doc is None
         assert self._workers == {}
         self._reset()
-        stores = self.db.get('_local/dmedia')['stores']
+        self.machine = self.ms.get_machine()
+        stores = self.machine['stores']
         assert isinstance(stores, dict)
         if not stores:
             raise ValueError('No FileStores to import into!')
