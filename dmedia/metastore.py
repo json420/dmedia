@@ -373,7 +373,7 @@ class MetaStore:
         return local_stores
 
     def get_local_peers(self):
-        doc = self.get_local_dmedia()
+        doc = self.get_machine()
         self._peers = get_dict(doc, 'peers')
         return self._peers
 

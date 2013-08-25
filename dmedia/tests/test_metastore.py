@@ -1432,6 +1432,7 @@ class TestMetaStore(CouchCase):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
         local_id = '_local/dmedia'
+        machine_id = random_id()
 
         # _local/dmedia NotFound:
         self.assertEqual(ms.get_local_peers(), {})
@@ -1439,18 +1440,28 @@ class TestMetaStore(CouchCase):
         with self.assertRaises(microfiber.NotFound) as cm:
             db.get(local_id)
 
-        # _local/dmedia exists, but is missing doc['peers']:
-        doc = {'_id': local_id}
-        db.save(doc)
+        # _local/dmedia exists, but is missing 'machine_id':
+        local = {'_id': local_id}
+        db.save(local)
         self.assertEqual(ms.get_local_peers(), {})
 
-        # has doc['peers']:
+        # _local/dmedia has 'machine_id', but machine doc is missing:
+        local['machine_id'] = machine_id
+        db.save(local)
+        self.assertEqual(ms.get_local_peers(), {})
+
+        # machine exists, but is missing 'peers':
+        machine = {'_id': machine_id}
+        db.save(machine)
+        self.assertEqual(ms.get_local_peers(), {})
+
+        # machine has 'peers':
         peers = {
             random_id(30): {'url': random_id()},
             random_id(30): {'url': random_id()},
         }
-        doc['peers'] = peers
-        db.save(doc)
+        machine['peers'] = peers
+        db.save(machine)
         self.assertEqual(ms.get_local_peers(), peers)
 
     def test_schema_check(self):
