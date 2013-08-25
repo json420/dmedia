@@ -43,7 +43,7 @@ from dmedia.parallel import start_thread
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-from dmedia.metastore import create_stored, merge_stored, TimeDelta
+from dmedia.metastore import MetaStore, create_stored, merge_stored, TimeDelta
 from dmedia.extractor import extract, merge_thumbnail
 
 
@@ -325,6 +325,7 @@ class ImportManager(workers.CouchManager):
         self._reset()
         if not workers.isregistered(ImportWorker):
             workers.register(ImportWorker)
+        self.ms = MetaStore(self.db)
 
     def _reset(self):
         self._error = None
