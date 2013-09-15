@@ -1900,6 +1900,132 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get(store_id3), doc3)
         self.assertEqual(db.get(store_id4), doc4)
 
+    def test_purge_by_store_atime(self):
+        class PassThrough(metastore.MetaStore):
+            def purge_store(self, store_id):
+                self._calls.append(store_id)
+                return super().purge_store(store_id)
+
+        db = util.get_db(self.env, True)
+        ms = PassThrough(db)
+        curtime = int(time.time())
+        base = curtime - metastore.PURGE_BY_STORE_ATIME
+
+        # Test when empty:
+        ms._calls = []
+        self.assertEqual(ms.purge_by_store_atime(), {})
+        self.assertEqual(ms.purge_by_store_atime(curtime), {})
+        self.assertEqual(ms._calls, [])
+
+        # One store that's missing its doc:
+        store_id1 = random_id()
+        ids1 = tuple(random_id() for i in range(17))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id1: {'copies': 1}},
+            }
+            for _id in ids1
+        ]
+        db.save_many(docs)
+
+        # Another store with an atime old enough to trigger a purge:
+        store_id2 = random_id()
+        doc2 = {'_id': store_id2, 'atime': base}
+        db.save(doc2)
+        ids2 = tuple(random_id() for i in range(18))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id2: {'copies': 1}},
+            }
+            for _id in ids2
+        ]
+        db.save_many(docs)
+
+        # A store with an atime new enough to be okay:
+        store_id3 = random_id()
+        doc3 = {'_id': store_id3, 'atime': base + 1}
+        db.save(doc3)
+        ids3 = tuple(random_id() for i in range(19))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id3: {'copies': 1}},
+            }
+            for _id in ids3
+        ]
+        db.save_many(docs)
+
+        # And finally a store missing its doc['atime']:
+        store_id4 = random_id()
+        doc4 = {'_id': store_id4}
+        db.save(doc4)
+        ids4 = tuple(random_id() for i in range(20))
+        docs = [
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_id4: {'copies': 1}},
+            }
+            for _id in ids4
+        ]
+        db.save_many(docs)
+
+        # Test at curtime:
+        self.assertEqual(ms.purge_by_store_atime(curtime),
+            {store_id1: 17, store_id2: 18, store_id4: 20}
+        )
+        self.assertEqual(ms._calls,
+            sorted([store_id1, store_id2, store_id4])
+        )
+        for doc in db.get_many(ids1):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids2):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids3):
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(doc['stored'], {store_id3: {'copies': 1}})
+        for doc in db.get_many(ids4):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+
+        # Store docs 2 & 4 should have been deleted, 3 should be unchanged:
+        self.assertEqual(
+            db.get_many([store_id1, store_id2, store_id3, store_id4]),
+            [None, None, doc3, None],
+        )
+
+        # Test at curtime + 1:
+        ms._calls = []
+        self.assertEqual(ms.purge_by_store_atime(curtime + 1), {store_id3: 19})
+        self.assertEqual(ms._calls,
+            sorted([store_id3])
+        )
+        for doc in db.get_many(ids1):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids2):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids3):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids4):
+            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertEqual(doc['stored'], {})
+
+        # Store doc 3 should now also be deleted:
+        self.assertEqual(
+            db.get_many([store_id1, store_id2, store_id3, store_id4]),
+            [None, None, None, None],
+        )
+
     def test_downgrade_store(self):    
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
