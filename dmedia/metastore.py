@@ -486,6 +486,30 @@ class MetaStore:
         t.log('purge %d total copies in %d stores', total, len(result))
         return result
 
+    def purge_or_downgrade_by_store_atime(self, curtime):
+        assert isinstance(curtime, int) and curtime >= 0
+        purge_threshold = curtime - PURGE_BY_STORE_ATIME
+        downgrade_threshold = curtime - DOWNGRADE_BY_STORE_ATIME
+        assert purge_threshold < downgrade_threshold
+        purged = {}
+        downgraded = {}
+        for store_id in self.iter_stores():
+            try:
+                doc = self.db.get(store_id)
+                atime = doc.get('atime')
+                if not isinstance(atime, int):
+                    atime = 0
+            except NotFound:
+                log.warning('doc NotFound for store %s', store_id)
+                atime = 0
+            if atime <= purge_threshold:
+                purged[store_id] = self.purge_store(store_id)
+            elif atime <= downgrade_threshold:
+                downgraded[store_id] = self.downgrade_store(store_id)
+            else:
+                log.info('store %s okay at atime %s', store_id, atime)
+        return (purged, downgraded)
+
     def downgrade_store(self, store_id):
         t = TimeDelta()
         count = 0
