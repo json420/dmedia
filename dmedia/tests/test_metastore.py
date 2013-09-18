@@ -1794,7 +1794,9 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.downgrade_by_store_atime(curtime), {})
         self.assertEqual(ms._calls, [])
 
-        # One store that's missing its doc:
+        # One store that's missing its doc, which should by ignored by
+        # MetaStore.downgrade_by_store_atime() but then handled by
+        # MetaStore.purge_by_store_atime():
         store_id1 = random_id()
         ids1 = tuple(random_id() for i in range(17))
         docs = [
@@ -1854,14 +1856,12 @@ class TestMetaStore(CouchCase):
 
         # Test at curtime:
         self.assertEqual(ms.downgrade_by_store_atime(curtime),
-            {store_id1: 17, store_id2: 18, store_id4: 20}
+            {store_id2: 18, store_id4: 20}
         )
-        self.assertEqual(ms._calls,
-            sorted([store_id1, store_id2, store_id4])
-        )
+        self.assertEqual(ms._calls, sorted([store_id2, store_id4]))
         for doc in db.get_many(ids1):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id1: {'copies': 0}})
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(doc['stored'], {store_id1: {'copies': 1}})
         for doc in db.get_many(ids2):
             self.assertTrue(doc['_rev'].startswith('2-'))
             self.assertEqual(doc['stored'], {store_id2: {'copies': 0}})
@@ -1875,14 +1875,12 @@ class TestMetaStore(CouchCase):
         # Test at curtime + 1:
         ms._calls = []
         self.assertEqual(ms.downgrade_by_store_atime(curtime + 1),
-            {store_id1: 0, store_id2: 0, store_id3: 19, store_id4: 0}
+            {store_id2: 0, store_id3: 19, store_id4: 0}
         )
-        self.assertEqual(ms._calls,
-            sorted([store_id1, store_id2, store_id3, store_id4])
-        )
+        self.assertEqual(ms._calls, sorted([store_id2, store_id3, store_id4]))
         for doc in db.get_many(ids1):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id1: {'copies': 0}})
+            self.assertTrue(doc['_rev'].startswith('1-'))
+            self.assertEqual(doc['stored'], {store_id1: {'copies': 1}})
         for doc in db.get_many(ids2):
             self.assertTrue(doc['_rev'].startswith('2-'))
             self.assertEqual(doc['stored'], {store_id2: {'copies': 0}})
