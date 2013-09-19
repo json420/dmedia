@@ -295,14 +295,13 @@ def vigilance_worker(env, ssl_config):
 
 def downgrade_worker(env):
     try:
-        curtime = int(time.time())
-        log.info('downgrading/purging as of timestamp %d', curtime)
         db = util.get_db(env)
         ms = MetaStore(db)
+        curtime = int(time.time())
+        log.info('downgrading/purging as of timestamp %d', curtime)
         ms.downgrade_by_never_verified(curtime)
         ms.downgrade_by_last_verified(curtime)
-        ms.downgrade_by_store_atime(curtime)
-        ms.purge_by_store_atime(curtime)
+        ms.purge_or_downgrade_by_store_atime(curtime)
     except Exception:
         log.exception('Error in downgrade_worker():')
 

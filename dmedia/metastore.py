@@ -508,6 +508,8 @@ class MetaStore:
                 downgraded[store_id] = self.downgrade_store(store_id)
             else:
                 log.info('store %s okay at atime %s', store_id, atime)
+        log.info('purged %d copies in %d stores', sum(purged.values()), len(purged))
+        log.info('downgraded %d copies in %d stores', sum(downgraded.values()), len(downgraded))
         return (purged, downgraded)
 
     def downgrade_store(self, store_id):
