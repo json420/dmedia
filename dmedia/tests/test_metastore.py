@@ -1984,6 +1984,7 @@ class TestMetaStore(CouchCase):
             for _id in ids4
         )
 
+        # Save docs
         db.save_many(docs)
         self.assertEqual(db.get_many(store_ids),
             [None, doc1, doc2, doc3, doc4]
@@ -2025,14 +2026,13 @@ class TestMetaStore(CouchCase):
         ms._calls = []
         self.assertEqual(ms.purge_or_downgrade_by_store_atime(curtime + 1), {
             store_ids[2]: ('purge', 19),
+            store_ids[3]: ('downgrade', 0),
             store_ids[4]: ('downgrade', 21),
         })
-        return
         self.assertEqual(ms._calls, [
-            ('purge', store_ids[0]),
-            ('purge', store_ids[1]),
-            ('downgrade', store_ids[2]),
+            ('purge', store_ids[2]),
             ('downgrade', store_ids[3]),
+            ('downgrade', store_ids[4]),
         ])
         for doc in db.get_many(ids0):
             self.assertEqual(doc['_rev'][:2], '2-')
@@ -2041,41 +2041,16 @@ class TestMetaStore(CouchCase):
             self.assertEqual(doc['_rev'][:2], '2-')
             self.assertEqual(doc['stored'], {})
         for doc in db.get_many(ids2):
-            self.assertEqual(doc['_rev'][:2], '2-')
-            self.assertEqual(doc['stored'], {store_ids[2]: {'copies': 0}})
+            self.assertEqual(doc['_rev'][:2], '3-')
+            self.assertEqual(doc['stored'], {})
         for doc in db.get_many(ids3):
             self.assertEqual(doc['_rev'][:2], '2-')
             self.assertEqual(doc['stored'], {store_ids[3]: {'copies': 0}})
         for doc in db.get_many(ids4):
-            self.assertEqual(doc['_rev'][:2], '1-')
-            self.assertEqual(doc['stored'], {store_ids[4]: {'copies': 1}})
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {store_ids[4]: {'copies': 0}})
         self.assertEqual(db.get_many(store_ids),
-            [None, None, doc2, doc3, doc4]
-        )
-        
-        
-        return
-        self.assertEqual(ms.purge_by_store_atime(curtime + 1), {store_id3: 19})
-        self.assertEqual(ms._calls,
-            sorted([store_id3])
-        )
-        for doc in db.get_many(ids1):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {})
-        for doc in db.get_many(ids2):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {})
-        for doc in db.get_many(ids3):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {})
-        for doc in db.get_many(ids4):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {})
-
-        # Store doc 3 should now also be deleted:
-        self.assertEqual(
-            db.get_many([store_id1, store_id2, store_id3, store_id4]),
-            [None, None, None, None],
+            [None, None, None, doc3, doc4]
         )
 
     def test_downgrade_store(self):    
