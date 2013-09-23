@@ -443,49 +443,6 @@ class MetaStore:
         t.log('downgrade %d files by %s', count, view)
         return count
 
-    def downgrade_by_store_atime(self, curtime=None):
-        if curtime is None:
-            curtime = int(time.time())
-        assert isinstance(curtime, int) and curtime >= 0
-        threshold = curtime - DOWNGRADE_BY_STORE_ATIME
-        t = TimeDelta()
-        result = {}
-        for store_id in self.iter_stores():
-            try:
-                doc = self.db.get(store_id)
-            except NotFound:
-                log.warning('doc NotFound for %s, skipping', store_id)
-                continue
-            atime = doc.get('atime')
-            if isinstance(atime, int) and atime > threshold:
-                log.info('Store %s okay at atime %s', store_id, atime)
-            else:
-                result[store_id] = self.downgrade_store(store_id)
-        total = sum(result.values())
-        t.log('downgrade %d total copies in %d stores', total, len(result))
-        return result
-
-    def purge_by_store_atime(self, curtime=None):
-        if curtime is None:
-            curtime = int(time.time())
-        assert isinstance(curtime, int) and curtime >= 0
-        threshold = curtime - PURGE_BY_STORE_ATIME
-        t = TimeDelta()
-        result = {}
-        for store_id in self.iter_stores():
-            try:
-                doc = self.db.get(store_id)
-                atime = doc.get('atime')
-                if isinstance(atime, int) and atime > threshold:
-                    log.info('Purge: store %s okay at atime %s', store_id, atime)
-                    continue
-            except NotFound:
-                log.warning('doc NotFound for %s, forcing purge', store_id)
-            result[store_id] = self.purge_store(store_id)
-        total = sum(result.values())
-        t.log('purge %d total copies in %d stores', total, len(result))
-        return result
-
     def purge_or_downgrade_by_store_atime(self, curtime):
         assert isinstance(curtime, int) and curtime >= 0
         purge_threshold = curtime - PURGE_BY_STORE_ATIME
