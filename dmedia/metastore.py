@@ -82,7 +82,8 @@ WEEK = 7 * DAY
 DOWNGRADE_BY_NEVER_VERIFIED = 2 * DAY
 VERIFY_BY_MTIME = DOWNGRADE_BY_NEVER_VERIFIED // 8
 VERIFY_THRESHOLD = WEEK
-DOWNGRADE_BY_STORE_ATIME = WEEK
+DOWNGRADE_BY_STORE_ATIME = 4 * DAY
+PURGE_BY_STORE_ATIME = 2 * DOWNGRADE_BY_STORE_ATIME
 DOWNGRADE_BY_LAST_VERIFIED = 2 * WEEK
 VERIFY_BY_VERIFIED = DOWNGRADE_BY_LAST_VERIFIED // 2
 
@@ -442,25 +443,27 @@ class MetaStore:
         t.log('downgrade %d files by %s', count, view)
         return count
 
-    def downgrade_by_store_atime(self, curtime=None):
-        if curtime is None:
-            curtime = int(time.time())
+    def purge_or_downgrade_by_store_atime(self, curtime):
         assert isinstance(curtime, int) and curtime >= 0
-        threshold = curtime - DOWNGRADE_BY_STORE_ATIME
-        t = TimeDelta()
+        purge_threshold = curtime - PURGE_BY_STORE_ATIME
+        downgrade_threshold = curtime - DOWNGRADE_BY_STORE_ATIME
+        assert purge_threshold < downgrade_threshold
         result = {}
         for store_id in self.iter_stores():
             try:
                 doc = self.db.get(store_id)
                 atime = doc.get('atime')
-                if isinstance(atime, int) and atime > threshold:
-                    log.info('Store %s okay at atime %s', store_id, atime)
-                    continue
+                if not isinstance(atime, int):
+                    atime = 0
             except NotFound:
-                log.warning('doc NotFound for %s, forcing downgrade', store_id)
-            result[store_id] = self.downgrade_store(store_id)
-        total = sum(result.values())
-        t.log('downgrade %d total copies in %d stores', total, len(result))
+                log.warning('doc NotFound for store %s', store_id)
+                atime = 0
+            if atime <= purge_threshold:
+                result[store_id] = ('purge', self.purge_store(store_id))
+            elif atime <= downgrade_threshold:
+                result[store_id] = ('downgrade', self.downgrade_store(store_id))
+            else:
+                log.info('store %s okay at atime %s', store_id, atime)
         return result
 
     def downgrade_store(self, store_id):

@@ -113,6 +113,19 @@ class DummyDatabase:
         doc[key] = value
 
 
+class TestConstants(TestCase):
+    def test_DOWNGRADE_BY_STORE_ATIME(self):
+        self.assertIsInstance(metastore.DOWNGRADE_BY_STORE_ATIME, int)
+        self.assertGreaterEqual(metastore.DOWNGRADE_BY_STORE_ATIME, metastore.DAY)
+        self.assertEqual(metastore.DOWNGRADE_BY_STORE_ATIME % metastore.DAY, 0)
+
+    def test_PURGE_BY_STORE_ATIME(self):
+        self.assertIsInstance(metastore.PURGE_BY_STORE_ATIME, int)
+        self.assertGreaterEqual(metastore.PURGE_BY_STORE_ATIME, metastore.DAY)
+        self.assertEqual(metastore.PURGE_BY_STORE_ATIME % metastore.DAY, 0)
+        self.assertGreater(metastore.PURGE_BY_STORE_ATIME, metastore.DOWNGRADE_BY_STORE_ATIME)
+
+
 class TestFunctions(TestCase):
     def test_get_dict(self):
         # Bad `d` type:
@@ -1777,128 +1790,203 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
-    def test_downgrade_by_store_atime(self):
+    def test_purge_or_downgrade_by_store_atime(self):
         class PassThrough(metastore.MetaStore):
+            def purge_store(self, store_id):
+                self._calls.append(('purge', store_id))
+                return super().purge_store(store_id)
+
             def downgrade_store(self, store_id):
-                self._calls.append(store_id)
+                self._calls.append(('downgrade', store_id))
                 return super().downgrade_store(store_id)
 
         db = util.get_db(self.env, True)
         ms = PassThrough(db)
         curtime = int(time.time())
-        base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
+        purge_base = curtime - metastore.PURGE_BY_STORE_ATIME
+        downgrade_base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
+        docs = []
+        store_ids = sorted(random_id() for i in range(7))
 
         # Test when empty:
         ms._calls = []
-        self.assertEqual(ms.downgrade_by_store_atime(), {})
-        self.assertEqual(ms.downgrade_by_store_atime(curtime), {})
+        self.assertEqual(ms.purge_or_downgrade_by_store_atime(curtime), {})
         self.assertEqual(ms._calls, [])
 
-        # One store that's missing its doc:
-        store_id1 = random_id()
-        ids1 = tuple(random_id() for i in range(17))
-        docs = [
+        # purge: missing dmedia/store doc
+        ids0 = tuple(random_file_id() for i in range(17))
+        docs.extend(
             {
                 '_id': _id,
                 'type': 'dmedia/file',
-                'stored': {store_id1: {'copies': 1}},
+                'stored': {store_ids[0]: {'copies': 1}},
+            }
+            for _id in ids0
+        )
+
+        # purge at curtime
+        doc1 = {'_id': store_ids[1], 'atime': purge_base}
+        docs.append(doc1)
+        ids1 = tuple(random_file_id() for i in range(18))
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_ids[1]: {'copies': 1}},
             }
             for _id in ids1
-        ]
-        db.save_many(docs)
+        )
 
-        # Another store with an atime old enough to trigger a downgrade:
-        store_id2 = random_id()
-        doc2 = {'_id': store_id2, 'atime': base}
-        db.save(doc2)
-        ids2 = tuple(random_id() for i in range(18))
-        docs = [
+        # downgrade at curtime, purge at curtime + 1
+        doc2 = {'_id': store_ids[2], 'atime': purge_base + 1}
+        docs.append(doc2)
+        ids2 = tuple(random_file_id() for i in range(19))
+        docs.extend(
             {
                 '_id': _id,
                 'type': 'dmedia/file',
-                'stored': {store_id2: {'copies': 1}},
+                'stored': {store_ids[2]: {'copies': 1}},
             }
             for _id in ids2
-        ]
-        db.save_many(docs)
+        )
 
-        # A store with an atime new enough to be okay:
-        store_id3 = random_id()
-        doc3 = {'_id': store_id3, 'atime': base + 1}
-        db.save(doc3)
-        ids3 = tuple(random_id() for i in range(19))
-        docs = [
+        # downgrade at curtime
+        doc3 = {'_id': store_ids[3], 'atime': downgrade_base}
+        docs.append(doc3)
+        ids3 = tuple(random_file_id() for i in range(20))
+        docs.extend(
             {
                 '_id': _id,
                 'type': 'dmedia/file',
-                'stored': {store_id3: {'copies': 1}},
+                'stored': {store_ids[3]: {'copies': 1}},
             }
             for _id in ids3
-        ]
-        db.save_many(docs)
+        )
 
-        # And finally a store missing its doc['atime']:
-        store_id4 = random_id()
-        doc4 = {'_id': store_id4}
-        db.save(doc4)
-        ids4 = tuple(random_id() for i in range(20))
-        docs = [
+        # downgrade at curtime + 1
+        doc4 = {'_id': store_ids[4], 'atime': downgrade_base + 1}
+        docs.append(doc4)
+        ids4 = tuple(random_file_id() for i in range(21))
+        docs.extend(
             {
                 '_id': _id,
                 'type': 'dmedia/file',
-                'stored': {store_id4: {'copies': 1}},
+                'stored': {store_ids[4]: {'copies': 1}},
             }
             for _id in ids4
-        ]
+        )
+
+        # purge: missing atime
+        doc5 = {'_id': store_ids[5]}
+        docs.append(doc5)
+        ids5= tuple(random_file_id() for i in range(22))
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_ids[5]: {'copies': 1}},
+            }
+            for _id in ids5
+        )
+
+        # purge: atime not an int
+        doc6 = {'_id': store_ids[6], 'atime': 'hello'}
+        docs.append(doc6)
+        ids6= tuple(random_file_id() for i in range(23))
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_ids[6]: {'copies': 1}},
+            }
+            for _id in ids6
+        )
+
+        # Randomize order, save docs:
+        random.shuffle(docs)
         db.save_many(docs)
+        self.assertEqual(db.get_many(store_ids),
+            [None, doc1, doc2, doc3, doc4, doc5, doc6]
+        )
 
         # Test at curtime:
-        self.assertEqual(ms.downgrade_by_store_atime(curtime),
-            {store_id1: 17, store_id2: 18, store_id4: 20}
-        )
-        self.assertEqual(ms._calls,
-            sorted([store_id1, store_id2, store_id4])
-        )
+        self.assertEqual(ms.purge_or_downgrade_by_store_atime(curtime), {
+            store_ids[0]: ('purge', 17),
+            store_ids[1]: ('purge', 18),
+            store_ids[2]: ('downgrade', 19),
+            store_ids[3]: ('downgrade', 20),
+            store_ids[5]: ('purge', 22),
+            store_ids[6]: ('purge', 23),
+        })
+        self.assertEqual(ms._calls, [
+            ('purge', store_ids[0]),
+            ('purge', store_ids[1]),
+            ('downgrade', store_ids[2]),
+            ('downgrade', store_ids[3]),
+            ('purge', store_ids[5]),
+            ('purge', store_ids[6]),
+        ])
+        for doc in db.get_many(ids0):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
         for doc in db.get_many(ids1):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id1: {'copies': 0}})
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
         for doc in db.get_many(ids2):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id2: {'copies': 0}})
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {store_ids[2]: {'copies': 0}})
         for doc in db.get_many(ids3):
-            self.assertTrue(doc['_rev'].startswith('1-'))
-            self.assertEqual(doc['stored'], {store_id3: {'copies': 1}})
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {store_ids[3]: {'copies': 0}})
         for doc in db.get_many(ids4):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id4: {'copies': 0}})
+            self.assertEqual(doc['_rev'][:2], '1-')
+            self.assertEqual(doc['stored'], {store_ids[4]: {'copies': 1}})
+        for doc in db.get_many(ids5):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids6):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
+        self.assertEqual(db.get_many(store_ids),
+            [None, None, doc2, doc3, doc4, None, None]
+        )
 
         # Test at curtime + 1:
         ms._calls = []
-        self.assertEqual(ms.downgrade_by_store_atime(curtime + 1),
-            {store_id1: 0, store_id2: 0, store_id3: 19, store_id4: 0}
-        )
-        self.assertEqual(ms._calls,
-            sorted([store_id1, store_id2, store_id3, store_id4])
-        )
+        self.assertEqual(ms.purge_or_downgrade_by_store_atime(curtime + 1), {
+            store_ids[2]: ('purge', 19),
+            store_ids[3]: ('downgrade', 0),
+            store_ids[4]: ('downgrade', 21),
+        })
+        self.assertEqual(ms._calls, [
+            ('purge', store_ids[2]),
+            ('downgrade', store_ids[3]),
+            ('downgrade', store_ids[4]),
+        ])
+        for doc in db.get_many(ids0):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
         for doc in db.get_many(ids1):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id1: {'copies': 0}})
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
         for doc in db.get_many(ids2):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id2: {'copies': 0}})
+            self.assertEqual(doc['_rev'][:2], '3-')
+            self.assertEqual(doc['stored'], {})
         for doc in db.get_many(ids3):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id3: {'copies': 0}})
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {store_ids[3]: {'copies': 0}})
         for doc in db.get_many(ids4):
-            self.assertTrue(doc['_rev'].startswith('2-'))
-            self.assertEqual(doc['stored'], {store_id4: {'copies': 0}})
-
-        # Make sure the dmedia/store docs aren't modified:
-        with self.assertRaises(microfiber.NotFound) as cm:
-            db.get(store_id1)
-        self.assertEqual(db.get(store_id2), doc2)
-        self.assertEqual(db.get(store_id3), doc3)
-        self.assertEqual(db.get(store_id4), doc4)
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {store_ids[4]: {'copies': 0}})
+        for doc in db.get_many(ids5):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids6):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
+        self.assertEqual(db.get_many(store_ids),
+            [None, None, None, doc3, doc4, None, None]
+        )
 
     def test_downgrade_store(self):    
         db = util.get_db(self.env, True)
