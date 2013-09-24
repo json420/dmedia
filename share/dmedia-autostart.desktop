@@ -2,7 +2,7 @@
 Name=Dmedia
 Exec=dmedia-cli Version
 Type=Application
-X-GNOME-Autostart-Delay=45
+X-GNOME-Autostart-Delay=17
 Icon=dmedia
 NoDisplay=true
 X-Ubuntu-Gettext-Domain=dmedia

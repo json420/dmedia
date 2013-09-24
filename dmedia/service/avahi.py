@@ -227,18 +227,17 @@ class Avahi:
 
     def replicate(self, name, env, cancel=False):
         """
-        Start or cancel push replication of database *name* to peer at *url*.
+        Start or cancel push replication of database *name* to peer *env*.
 
-        Security note: we only do push replication because pull replication
-        would allow unauthorized peers to write to our databases via their
-        changes feed.  For both push and pull, there is currently no privacy
-        whatsoever... everything is in cleartext and uses oauth 1.0a. But push
-        replication is the only way to at least prevent malicious data
-        corruption.
+        Security note: the replicator should be configured to only connect to
+        peers whose machine certificate is signed by the user CA, and the Dmedia
+        HTTP server should be configured to only accept connections from clients
+        whose client certificate (aka machine certificate) is likewise signed
+        by the user CA.
         """
         kw = {
             'create_target': True,
-            'filter': 'doc/normal',
+            #'filter': 'doc/normal',
             'continuous': True,
         }
         if not iscontinuous(name):
@@ -250,8 +249,8 @@ class Avahi:
             log.info('Canceling push of %s to %s', name, env['url'])
         else:
             log.info('Starting push of %s to %s', name, env['url'])
-            db = self.server.database(name)
-            util.update_design_doc(db, views.doc_design)
+            #db = self.server.database(name)
+            #util.update_design_doc(db, views.doc_design)
         try:
             self.server.push(name, name, env, **kw)
         except Exception as e:

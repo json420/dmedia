@@ -680,6 +680,37 @@ job_design = {
 }
 
 
+# For visualization demo:
+viz_all = """
+function(doc) {
+    var types = ['dmedia/machine', 'dmedia/store'];
+    if (types.indexOf(doc.type) >= 0) {
+        emit(doc.type, null);
+    }
+}
+"""
+
+filter_viz_all = """
+function(doc) {
+    var types = ['dmedia/machine', 'dmedia/store', 'dmedia/file'];
+    if (types.indexOf(doc.type) >= 0) {
+        return true;
+    }
+    return false;
+}
+"""
+
+viz_design = {
+    '_id': '_design/viz',
+    'views': {
+        'all': {'map': viz_all},
+    },
+    'filters': {
+        'all': filter_viz_all,
+    },
+}
+
+
 
 core = (
     doc_design,
@@ -687,6 +718,7 @@ core = (
     store_design,
     project_design,
     job_design,
+    viz_design,
 )
 
 

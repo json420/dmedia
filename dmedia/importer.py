@@ -43,7 +43,7 @@ from dmedia.parallel import start_thread
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-from dmedia.metastore import create_stored, merge_stored, TimeDelta
+from dmedia.metastore import MetaStore, create_stored, merge_stored, TimeDelta
 from dmedia.extractor import extract, merge_thumbnail
 
 
@@ -216,9 +216,9 @@ class ImportWorker(workers.CouchWorker):
         # FIXME: Should pick up to 2 filestores based size of import and
         # available space on the filestores.
         stores = []
-        for parentdir in sorted(self.env['stores']):
-            info = self.env['stores'][parentdir]
-            fs = FileStore(parentdir, info['id'])
+        for _id in sorted(self.env['stores']):
+            info = self.env['stores'][_id]
+            fs = FileStore(info['parentdir'], _id)
             stores.append(fs)
         return stores
 
@@ -325,6 +325,7 @@ class ImportManager(workers.CouchManager):
         self._reset()
         if not workers.isregistered(ImportWorker):
             workers.register(ImportWorker)
+        self.ms = MetaStore(self.db)
 
     def _reset(self):
         self._error = None
@@ -340,7 +341,8 @@ class ImportManager(workers.CouchManager):
         assert self.doc is None
         assert self._workers == {}
         self._reset()
-        stores = self.db.get('_local/dmedia')['stores']
+        self.machine = self.ms.get_machine()
+        stores = self.machine['stores']
         assert isinstance(stores, dict)
         if not stores:
             raise ValueError('No FileStores to import into!')

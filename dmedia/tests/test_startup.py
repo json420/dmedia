@@ -29,9 +29,11 @@ from os import path
 import json
 from copy import deepcopy
 import time
+from hashlib import md5
 
 import usercouch
-from microfiber import random_id, Server
+from dbase32 import random_id, db32enc
+from microfiber import Server
 
 from .base import TempDir
 from dmedia.identity import PKI
@@ -67,6 +69,25 @@ class TestFunctions(TestCase):
         self.assertTrue(path.isfile(filename))
         self.assertFalse(path.exists(filename + '.tmp'))
         self.assertEqual(json.load(open(filename, 'r')), config)
+
+    def test_machine_to_uuid(self):
+        for i in range(100):
+            data = os.urandom(30)
+            machine_id = db32enc(data)
+            md5sum = md5(data).hexdigest()
+            self.assertEqual(startup.machine_to_uuid(machine_id), md5sum)
+        self.assertEqual(startup.machine_to_uuid('3' * 48), 
+            '862dec5c27142824a394bc6464928f48'
+        )
+        self.assertEqual(startup.machine_to_uuid('9' * 48), 
+            '89bed3d7d4d7ee93f8130407dadf1b9c'
+        )
+        self.assertEqual(startup.machine_to_uuid('A' * 48), 
+            'ed4f855c76217b409fcb12d378efd460'
+        )
+        self.assertEqual(startup.machine_to_uuid('Y' * 48), 
+            '9e489c7c597142c7c3ac1201c95b54e1'
+        )
 
 
 class TestDmediaCouch(TestCase):
@@ -211,6 +232,7 @@ class TestDmediaCouch(TestCase):
             inst.get_bootstrap_config(),
             {
                 'username': 'admin',
+                'uuid': startup.machine_to_uuid(machine_id),
                 'replicator': {
                     'check_hostname': False,
                     'max_depth': 1,

@@ -1,0 +1,140 @@
+*{
+    margin:0px;
+    padding:0px;
+    font-size:48px; /* 48 */
+    line-height:1em;
+}
+
+body{
+    background:#333;
+    color:#eee;
+    font-family:Lato, sans-serif;
+    -webkit-user-select:none;
+}
+
+#em{
+    display:inline-block;
+    width:1em;
+    height:1em;
+    visibility:hidden;
+}
+
+#machines {
+
+}
+
+.machine{
+    background:#444;
+    display:inline-block;
+    width:6em;
+    height:6em;
+    border-radius:50%;
+    box-shadow:inset 0px 0.5px 0px 1px rgba(255,255,255,0.1), 0px 1px 15px -1px rgba(0,0,0,0.1), inset 0px 1px 15px -1px rgba(255,255,255,0.3);
+    text-align:center;
+    cursor:default;
+    position:relative;
+    margin:6em;
+}
+
+.machine[data-title]:after{
+    content:attr(data-title);
+    background:rgba(0,0,0,0.5);
+    display:inline-block;
+    position:absolute;
+    font-size:0.5em;
+    padding:0.5em;
+    width:5em;
+    left:50%;
+    margin-left:-3em;
+    top:40%;
+    margin-top:-1.5em;
+    border-radius:0.2em;
+    text-align:center;
+}
+
+.machine.importing{
+    -webkit-animation: import 1s infinite ease-in-out;
+}
+
+.machine.importing:before{
+    content:"IMPORTING";
+    position:absolute;
+    font-size:0.5em;
+    top:1em;
+    left:50%;
+    width:5em;
+    margin-left:-2.5em;
+    
+}
+
+.machine.copying{
+    -webkit-animation: copy 1s 1 ease-in-out;
+}
+
+.drive{
+    background:#444;
+    display:inline-block;
+    width:4em;
+    height:4em;
+    border-radius:50%;
+    box-shadow:inset 0px 0.5px 0px 1px rgba(255,255,255,0.1), 0px 1px 15px -1px rgba(0,0,0,0.1), inset 0px 1px 15px -1px rgba(255,255,255,0.3);
+    position:absolute;
+    -webkit-user-select:none;
+    cursor:default;
+    -webkit-transition: box-shadow 100ms ease-in-out;
+}
+
+.drive[data-title]:after{
+    content:attr(data-title);
+    background:rgba(0,0,0,0.9);
+    display:inline-block;
+    position:absolute;
+    font-size:0.325em;
+    padding:0.5em;
+    width:16em;
+    left:50%;
+    margin-left:-7.5em;
+    top:0em;
+    z-index:100;
+    text-align:center;
+    border-radius:0.2em;
+    /*box-shadow:0px 0px 0px 1px rgba(255,255,255,0.1);*/
+    line-height:1.25em;
+    pointer-events:none;
+}
+
+
+.drive:hover, .drive.b{
+    box-shadow:inset 0px 0.5px 0px 1px rgba(128,128,255,0.5), 0px 1px 15px -1px rgba(0,0,0,0.1), inset 0px 2px 20px -1px rgba(128,128,255,0.8);
+    -webkit-transition: box-shadow 0s ease-in-out;
+}
+
+.file{
+    display:inline-block;
+    position:absolute;
+    width:192px;
+    height:108px;
+    background:#ddd;
+    background-position:center;
+    background-size:cover;
+    border-radius:1px;
+    box-shadow:0px 0px 0px 2px #ddd, 0px 1px 0px 2px rgba(0,0,0,0.6);
+    -webkit-animation: fade-in 250ms ease-in;
+}
+
+.file.animate{
+    -webkit-transition: margin 1s ease-out;
+}
+
+@-webkit-keyframes fade-in{
+    0%{
+        opacity:0;
+    }
+    10%{
+        opacity:0;
+    }
+    100%{
+        opacity:1;
+    }
+}
+

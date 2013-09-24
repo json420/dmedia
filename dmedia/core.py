@@ -297,9 +297,11 @@ def downgrade_worker(env):
     try:
         db = util.get_db(env)
         ms = MetaStore(db)
-        ms.downgrade_by_store_atime()
-        ms.downgrade_by_never_verified()
-        ms.downgrade_by_last_verified()
+        curtime = int(time.time())
+        log.info('downgrading/purging as of timestamp %d', curtime)
+        ms.downgrade_by_never_verified(curtime)
+        ms.downgrade_by_last_verified(curtime)
+        ms.purge_or_downgrade_by_store_atime(curtime)
     except Exception:
         log.exception('Error in downgrade_worker():')
 
@@ -448,10 +450,50 @@ class TaskManager:
             self.start_vigilance()
 
 
+def mark_machine_start(doc, atime):
+    doc['atime'] = atime
+    doc['stores'] = {}
+    doc['peers'] = {}
+
+
+def mark_add_filestore(doc, atime, fs_id, info):
+    assert isinstance(info, dict)
+    doc['atime'] = atime
+    stores = get_dict(doc, 'stores')
+    stores[fs_id] = info
+
+
+def mark_remove_filestore(doc, atime, fs_id):
+    doc['atime'] = atime
+    stores = get_dict(doc, 'stores')
+    stores.pop(fs_id, None)
+
+
+def mark_connected_stores(doc, atime, stores):
+    assert isinstance(stores, dict)
+    doc['atime'] = atime
+    doc['stores'] = stores
+
+def mark_add_peer(doc, atime, peer_id, info):
+    assert isinstance(info, dict)
+    doc['atime'] = atime
+    peers = get_dict(doc, 'peers')
+    peers[peer_id] = info
+
+
+def mark_remove_peer(doc, atime, peer_id):
+    doc['atime'] = atime
+    peers = get_dict(doc, 'peers')
+    peers.pop(peer_id, None)
+
+
 class Core:
-    def __init__(self, env, ssl_config=None):
+    def __init__(self, env, machine, user, ssl_config=None):
+        env.update({
+            'machine_id': machine['_id'],
+            'user_id': user['_id'],
+        })
         self.env = env
-        self.ssl_config = ssl_config
         self.db = util.get_db(env, init=True)
         self.log_db = self.db.database(schema.LOG_DB_NAME)
         self.log_db.ensure()
@@ -459,24 +501,28 @@ class Core:
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.task_manager = TaskManager(env, ssl_config)
+        self.ssl_config = ssl_config
         try:
             self.local = self.db.get(LOCAL_ID)
         except NotFound:
-            self.local = {
-                '_id': LOCAL_ID,
-                'stores': {},
-                'peers': {},
-            }
-        self.__local = deepcopy(self.local)
+            self.local = {'_id': LOCAL_ID}
+        self.local.update({
+            'machine_id': machine['_id'],
+            'user_id': user['_id'],
+        })
+        self.local.pop('stores', None)
+        self.local.pop('peers', None)
+        (self.machine, self.user) = self.db.get_defaults([machine, user])
+        self.machine.update({
+            'stores': {},
+            'peers': {},
+        })
+        self.db.save_many([self.local, self.machine, self.user])
+        log.info('machine_id = %s', machine['_id'])
+        log.info('user_id = %s', user['_id'])
 
     def save_local(self):
-        if self.local != self.__local:
-            self.db.save(self.local)
-            self.__local = deepcopy(self.local)
-
-    def reset_local(self):
-        self.local['stores'] = {}
-        self.local['peers'] = {}
+        self.db.save(self.local)
 
     def start_background_tasks(self):
         self.task_manager.start_tasks()
@@ -503,39 +549,29 @@ class Core:
         self.local['skip_internal'] = flag
         self.save_local()
 
-    def load_identity(self, machine, user):
-        try:
-            self.db.save_many([machine, user])
-        except BulkConflict:
-            pass
-        log.info('machine_id = %s', machine['_id'])
-        log.info('user_id = %s', user['_id'])
-        self.env['machine_id'] = machine['_id']
-        self.env['user_id'] = user['_id']
-        self.local['machine_id'] = machine['_id']
-        self.local['user_id'] = user['_id']
-        self.save_local()
-
     def add_peer(self, peer_id, info):
         assert isdb32(peer_id) and len(peer_id) == 48
         assert isinstance(info, dict)
         assert isinstance(info['url'], str)
-        self.local['peers'][peer_id] = info
-        self.save_local()
+        self.machine = self.db.update(
+            mark_add_peer, self.machine, int(time.time()), peer_id, info
+        )
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
-        try:
-            del self.local['peers'][peer_id]
-            self.save_local()
-            self.restart_vigilance()
-            return True
-        except KeyError:
+        if peer_id not in self.machine['peers']:
             return False
+        self.machine = self.db.update(
+            mark_remove_peer, self.machine, int(time.time()), peer_id
+        )
+        self.restart_vigilance()
+        return True
 
     def _sync_stores(self):
-        self.local['stores'] = self.stores.local_stores()
-        self.save_local()
+        stores = self.stores.local_stores()
+        self.machine = self.db.update(
+            mark_connected_stores, self.machine, int(time.time()), stores
+        )
         self.restart_vigilance()
 
     def _add_filestore(self, fs):
@@ -604,7 +640,7 @@ class Core:
     def update_project(self, project_id):
         update_project(self.db, project_id)     
 
-    def create_filestore(self, parentdir):
+    def create_filestore(self, parentdir, store_id=None, copies=1, **kw):
         """
         Create a new file-store in *parentdir*.
         """
@@ -613,7 +649,7 @@ class Core:
                 'Already contains a FileStore: {!r}'.format(parentdir)
             )
         log.info('Creating a new FileStore in %r', parentdir)
-        fs = FileStore.create(parentdir)
+        fs = FileStore.create(parentdir, store_id, copies, **kw)
         self._add_filestore(fs)
         return fs
 

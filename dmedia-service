@@ -51,6 +51,7 @@ from dmedia.core import Core, start_httpd
 from dmedia.service.background import Snapshots, LazyAccess, Downloads
 from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, Publisher
+from dmedia.drives import get_parentdir_info
 
 
 BUS = dmedia.BUS
@@ -143,9 +144,9 @@ class Service(dbus.service.Object):
     @dbus.service.signal(IFACE, signature='b')
     def SnapshotAllComplete(self, success):
         log.info('@Dmedia.SnapshotAllComplete(%r)', success)
-        if self.first_snapshot:
-            self.first_snapshot = False
-            GLib.idle_add(self.on_idle3)
+        #if self.first_snapshot:
+        #    self.first_snapshot = False
+        #    GLib.idle_add(self.on_idle3)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='b')
     def Snapshot(self, name):
@@ -171,9 +172,11 @@ class Service(dbus.service.Object):
         env = self.couch.auto_bootstrap()
         log.info('%r', self.couch._welcome)
         log.info('Starting CouchDB took %.3f', time.monotonic() - start)
-        self.core = Core(env, self.couch.get_ssl_config())
-        self.core.reset_local()
-        self.core.load_identity(self.couch.machine, self.couch.user)
+        self.core = Core(env,
+            self.couch.machine,
+            self.couch.user,
+            self.couch.get_ssl_config()
+        )
         self.env_s = dumps(self.core.env, pretty=True)
         self.snapshots = Snapshots(
                 self.core.env,
@@ -203,7 +206,8 @@ class Service(dbus.service.Object):
             if isfilestore(self.couch.basedir):
                 self.core.connect_filestore(self.couch.basedir)
             else:
-                self.core.create_filestore(self.couch.basedir)
+                info = get_parentdir_info(self.couch.basedir)
+                self.core.create_filestore(self.couch.basedir, **info)
         VolumeMonitor.connect('mount-added', self.on_mount_added)
         VolumeMonitor.connect('mount-pre-unmount', self.on_mount_pre_unmount)
         VolumeMonitor.connect('mount-removed', self.on_mount_removed)
@@ -219,7 +223,8 @@ class Service(dbus.service.Object):
         start_thread(self.core.init_project_views)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
-        self.SnapshotAll()  # Calls on_idle3() below when finished
+        GLib.timeout_add(750, self.on_idle3)
+        #self.SnapshotAll()  # Calls on_idle3() below when finished
 
     def on_idle3(self):
         """
@@ -230,8 +235,8 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core, port)
         self.avahi.run()
-        GLib.timeout_add(30 * 1000, self.on_idle4)
-        GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(9000, self.on_idle4)
+        GLib.timeout_add(45 * 1000, self.core.reclaim_if_possible)
 
     def on_idle4(self):
         """
@@ -455,14 +460,14 @@ class Service(dbus.service.Object):
         """
         Return currently connected filestores
         """
-        return dumps(self.core.local['stores'], pretty=True)
+        return dumps(self.core.machine['stores'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Peers(self):
         """
         Return peers currently known on local network.
         """
-        return dumps(self.core.local['peers'], pretty=True)
+        return dumps(self.core.machine['peers'], pretty=True)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def CreateFileStore(self, parentdir):
@@ -547,7 +552,7 @@ class Service(dbus.service.Object):
         if not self.UpdateProject(project_id):
             self.pending_update = project_id
         self.Snapshot(schema.project_db_name(project_id))
-        self.Snapshot(schema.DB_NAME)
+        #self.Snapshot(schema.DB_NAME)
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='s')
     def AutoFormat(self, value):

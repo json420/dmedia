@@ -290,6 +290,7 @@ class TestFilesApp(TestCase):
         env = {
             'basic': {'username': 'admin', 'password': password},
             'url': microfiber.HTTP_IPv4_URL,
+            'machine_id': random_id(30),
         }
         app = server.FilesApp(env)
         self.assertIsInstance(app.local, local.LocalSlave)
@@ -300,6 +301,7 @@ class TestFilesApp(TestCase):
         env = {
             'basic': {'username': 'admin', 'password': password},
             'url': microfiber.HTTP_IPv4_URL,
+            'machine_id': random_id(30),
         }
         app = server.FilesApp(env)
 
