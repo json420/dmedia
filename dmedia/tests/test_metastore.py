@@ -113,6 +113,19 @@ class DummyDatabase:
         doc[key] = value
 
 
+class TestConstants(TestCase):
+    def test_DOWNGRADE_BY_STORE_ATIME(self):
+        self.assertIsInstance(metastore.DOWNGRADE_BY_STORE_ATIME, int)
+        self.assertGreaterEqual(metastore.DOWNGRADE_BY_STORE_ATIME, metastore.DAY)
+        self.assertEqual(metastore.DOWNGRADE_BY_STORE_ATIME % metastore.DAY, 0)
+
+    def test_PURGE_BY_STORE_ATIME(self):
+        self.assertIsInstance(metastore.PURGE_BY_STORE_ATIME, int)
+        self.assertGreaterEqual(metastore.PURGE_BY_STORE_ATIME, metastore.DAY)
+        self.assertEqual(metastore.PURGE_BY_STORE_ATIME % metastore.DAY, 0)
+        self.assertGreater(metastore.PURGE_BY_STORE_ATIME, metastore.DOWNGRADE_BY_STORE_ATIME)
+
+
 class TestFunctions(TestCase):
     def test_get_dict(self):
         # Bad `d` type:
