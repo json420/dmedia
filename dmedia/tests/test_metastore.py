@@ -1889,7 +1889,8 @@ class TestMetaStore(CouchCase):
             for _id in ids6
         )
 
-        # Save docs
+        # Randomize order, save docs:
+        random.shuffle(docs)
         db.save_many(docs)
         self.assertEqual(db.get_many(store_ids),
             [None, doc1, doc2, doc3, doc4, doc5, doc6]
