@@ -1793,7 +1793,7 @@ class TestMetaStore(CouchCase):
         purge_base = curtime - metastore.PURGE_BY_STORE_ATIME
         downgrade_base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
         docs = []
-        store_ids = sorted(random_id() for i in range(6))
+        store_ids = sorted(random_id() for i in range(7))
 
         # Test when empty:
         ms._calls = []
@@ -1876,10 +1876,23 @@ class TestMetaStore(CouchCase):
             for _id in ids5
         )
 
+        # purge: atime not an int
+        doc6 = {'_id': store_ids[6], 'atime': 'hello'}
+        docs.append(doc6)
+        ids6= tuple(random_file_id() for i in range(23))
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'stored': {store_ids[6]: {'copies': 1}},
+            }
+            for _id in ids6
+        )
+
         # Save docs
         db.save_many(docs)
         self.assertEqual(db.get_many(store_ids),
-            [None, doc1, doc2, doc3, doc4, doc5]
+            [None, doc1, doc2, doc3, doc4, doc5, doc6]
         )
 
         # Test at curtime:
@@ -1889,6 +1902,7 @@ class TestMetaStore(CouchCase):
             store_ids[2]: ('downgrade', 19),
             store_ids[3]: ('downgrade', 20),
             store_ids[5]: ('purge', 22),
+            store_ids[6]: ('purge', 23),
         })
         self.assertEqual(ms._calls, [
             ('purge', store_ids[0]),
@@ -1896,6 +1910,7 @@ class TestMetaStore(CouchCase):
             ('downgrade', store_ids[2]),
             ('downgrade', store_ids[3]),
             ('purge', store_ids[5]),
+            ('purge', store_ids[6]),
         ])
         for doc in db.get_many(ids0):
             self.assertEqual(doc['_rev'][:2], '2-')
@@ -1915,8 +1930,11 @@ class TestMetaStore(CouchCase):
         for doc in db.get_many(ids5):
             self.assertEqual(doc['_rev'][:2], '2-')
             self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids6):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
         self.assertEqual(db.get_many(store_ids),
-            [None, None, doc2, doc3, doc4, None]
+            [None, None, doc2, doc3, doc4, None, None]
         )
 
         # Test at curtime + 1:
@@ -1949,8 +1967,11 @@ class TestMetaStore(CouchCase):
         for doc in db.get_many(ids5):
             self.assertEqual(doc['_rev'][:2], '2-')
             self.assertEqual(doc['stored'], {})
+        for doc in db.get_many(ids6):
+            self.assertEqual(doc['_rev'][:2], '2-')
+            self.assertEqual(doc['stored'], {})
         self.assertEqual(db.get_many(store_ids),
-            [None, None, None, doc3, doc4, None]
+            [None, None, None, doc3, doc4, None, None]
         )
 
     def test_downgrade_store(self):    
