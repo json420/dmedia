@@ -130,13 +130,14 @@ function(doc) {
         var durability = 0;
         var key, copies;
         for (key in doc.stored) {
-            copies = doc.stored[key].copies;
             locations += 1;
+            copies = doc.stored[key].copies;
             if (typeof copies == 'number' && copies > 0) {
                 durability += copies;
             }
         }
-        emit(Math.min(3, locations) + durability, null);
+        var rank = Math.min(3, locations) + Math.min(3, durability);
+        emit(rank, null);
     }
 }
 """

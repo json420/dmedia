@@ -884,6 +884,121 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 1},
         )
 
+    def test_rank(self):
+        ####################################################################
+        # 1st, test sort order and other properties on a collection of docs:
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('rank')
+        db.save(design)
+
+        # Test when empty
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Create rank=(0 through 6) test data:
+        ids = tuple(random_file_id() for i in range(7))
+        stores = tuple(random_id() for i in range(3))
+        docs = [
+            {
+                '_id': ids[0],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {},
+            },
+            {
+                '_id': ids[1],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[2],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                },
+            },
+            {
+                '_id': ids[3],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[4],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                },
+            },
+            {
+                '_id': ids[5],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[6],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 1},
+                },
+            },
+        ]
+        db.save_many(docs)
+
+        # Test sorting, overall properties:
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 7,
+                'rows': [
+                    {'key': 0, 'id': ids[0], 'value': None},
+                    {'key': 1, 'id': ids[1], 'value': None},
+                    {'key': 2, 'id': ids[2], 'value': None},
+                    {'key': 3, 'id': ids[3], 'value': None},
+                    {'key': 4, 'id': ids[4], 'value': None},
+                    {'key': 5, 'id': ids[5], 'value': None},
+                    {'key': 6, 'id': ids[6], 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'rank', descending=True),
+            {
+                'offset': 0, 
+                'total_rows': 7,
+                'rows': [
+                    {'key': 6, 'id': ids[6], 'value': None},
+                    {'key': 5, 'id': ids[5], 'value': None},
+                    {'key': 4, 'id': ids[4], 'value': None},
+                    {'key': 3, 'id': ids[3], 'value': None},
+                    {'key': 2, 'id': ids[2], 'value': None},
+                    {'key': 1, 'id': ids[1], 'value': None},
+                    {'key': 0, 'id': ids[0], 'value': None},
+                ],
+            },
+        )
+
     def test_fragile(self):
         db = Database('foo', self.env)
         db.put(None)
