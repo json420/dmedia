@@ -1114,7 +1114,7 @@ class TestFileDesign(DesignTestCase):
                 ],
             },
         )
-        
+
         # Test with locations=2, durability=0:
         doc['stored'] = {
             random_id(): {'copies': 1},
