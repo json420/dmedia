@@ -1098,7 +1098,24 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Test with locations=2, durability=1:
+        # Test with locations=2, durability=0:
+        doc['stored'] = {
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 2, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        
+        # Test with locations=2, durability=0:
         doc['stored'] = {
             random_id(): {'copies': 1},
             random_id(): {'copies': 0},
