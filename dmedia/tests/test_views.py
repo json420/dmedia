@@ -999,6 +999,145 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
+        ###################################################
+        # 2nd, drill down on the minutia with a single doc:
+        db = Database('bar', self.env)
+        db.put(None)
+        design = self.build_view('rank')
+        db.save(design)
+
+        # Test when empty
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # rank should be 0 when doc['stored'] is missing, empty, or wrong type:
+        _id = random_file_id()
+        store_id = random_id()
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+            'origin': 'user',
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with one location, broken doc['stored'][STORE_id]:
+        doc['stored'] = {random_id(): 'blah blah broken'}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with locations=1, durability=2:
+        doc['stored'] = {random_id(): {'copies': 2}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with locations=2, durability=1:
+        doc['stored'] = {
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test that locations is clamped at 3:
+        doc['stored'] = {
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test that durability is clamped at 3:
+        doc['stored'] = {random_id(): {'copies': 17}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 4, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Make sure doc['type'] is checked:
+        doc['type'] = 'dmedia/guile'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Make sure doc['orign'] is checked:
+        doc['type'] = 'dmedia/file'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 4, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['origin'] = 'render'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
     def test_fragile(self):
         db = Database('foo', self.env)
         db.put(None)
