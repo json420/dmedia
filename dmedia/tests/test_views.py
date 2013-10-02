@@ -1046,6 +1046,44 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
+        # Test with one location, broken doc['stored'][STORE_id]['copies']:
+        doc['stored'] = {random_id(): {'copies': '2'}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = {random_id(): {'copies': 'foo bar'}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = {random_id(): {'copies': -3}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
         # Test with locations=1, durability=2:
         doc['stored'] = {random_id(): {'copies': 2}}
         db.save(doc)
