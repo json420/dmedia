@@ -3116,6 +3116,86 @@ class TestMetaStore(CouchCase):
         fs2.verify(_id)
         fs3.verify(_id)
 
+    def test_iter_fragile(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # Test when no files are in the library:
+        self.assertEqual(list(ms.iter_fragile()), [])
+
+        # Create rank=(0 through 6) test data:
+        ids = tuple(random_file_id() for i in range(7))
+        stores = tuple(random_id() for i in range(3))
+        docs = [
+            {
+                '_id': ids[0],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {},
+            },
+            {
+                '_id': ids[1],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[2],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                },
+            },
+            {
+                '_id': ids[3],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[4],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                },
+            },
+            {
+                '_id': ids[5],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[6],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 1},
+                },
+            },
+        ]
+        db.save_many(docs)
+
+        # We should get docs[0:6]:
+        self.assertEqual(list(ms.iter_fragile()), docs[0:-1])
+
+        # Docs should not be changed:
+        self.assertEqual(db.get_many(ids), docs)
+
     def test_iter_actionable_fragile(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
