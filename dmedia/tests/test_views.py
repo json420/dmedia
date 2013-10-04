@@ -1115,7 +1115,7 @@ class TestFileDesign(DesignTestCase):
             },
         )
 
-        # Test with locations=2, durability=0:
+        # Test with locations=2, durability=1:
         doc['stored'] = {
             random_id(): {'copies': 1},
             random_id(): {'copies': 0},
