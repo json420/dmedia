@@ -126,6 +126,10 @@ function(doc) {
 file_rank = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (typeof doc.stored != 'object' || isArray(doc.stored)) {
+            emit(0, null);
+            return;
+        }
         var locations = 0;
         var durability = 0;
         var key, copies;

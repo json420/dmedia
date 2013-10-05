@@ -1031,6 +1031,66 @@ class TestFileDesign(DesignTestCase):
                 ],
             },
         )
+        doc['stored'] = {}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = ['hello', 'world']
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = 'helloworld'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = None
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = 17
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
 
         # Test with one location, broken doc['stored'][STORE_id]:
         doc['stored'] = {random_id(): 'blah blah broken'}
