@@ -884,6 +884,375 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 1},
         )
 
+    def test_rank(self):
+        ####################################################################
+        # 1st, test sort order and other properties on a collection of docs:
+        db = Database('foo', self.env)
+        db.put(None)
+        design = self.build_view('rank')
+        db.save(design)
+
+        # Test when empty
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Create rank=(0 through 6) test data:
+        ids = tuple(random_file_id() for i in range(7))
+        stores = tuple(random_id() for i in range(3))
+        docs = [
+            {
+                '_id': ids[0],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {},
+            },
+            {
+                '_id': ids[1],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[2],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                },
+            },
+            {
+                '_id': ids[3],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[4],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                },
+            },
+            {
+                '_id': ids[5],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 0},
+                },
+            },
+            {
+                '_id': ids[6],
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 1},
+                },
+            },
+        ]
+        db.save_many(docs)
+
+        # Test sorting, overall properties:
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 7,
+                'rows': [
+                    {'key': 0, 'id': ids[0], 'value': None},
+                    {'key': 1, 'id': ids[1], 'value': None},
+                    {'key': 2, 'id': ids[2], 'value': None},
+                    {'key': 3, 'id': ids[3], 'value': None},
+                    {'key': 4, 'id': ids[4], 'value': None},
+                    {'key': 5, 'id': ids[5], 'value': None},
+                    {'key': 6, 'id': ids[6], 'value': None},
+                ],
+            },
+        )
+        self.assertEqual(
+            db.view('file', 'rank', descending=True),
+            {
+                'offset': 0, 
+                'total_rows': 7,
+                'rows': [
+                    {'key': 6, 'id': ids[6], 'value': None},
+                    {'key': 5, 'id': ids[5], 'value': None},
+                    {'key': 4, 'id': ids[4], 'value': None},
+                    {'key': 3, 'id': ids[3], 'value': None},
+                    {'key': 2, 'id': ids[2], 'value': None},
+                    {'key': 1, 'id': ids[1], 'value': None},
+                    {'key': 0, 'id': ids[0], 'value': None},
+                ],
+            },
+        )
+
+        ###################################################
+        # 2nd, drill down on the minutia with a single doc:
+        db = Database('bar', self.env)
+        db.put(None)
+        design = self.build_view('rank')
+        db.save(design)
+
+        # Test when empty
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # rank should be 0 when doc['stored'] is missing, empty, or wrong type:
+        _id = random_file_id()
+        store_id = random_id()
+        doc = {
+            '_id': _id,
+            'type': 'dmedia/file',
+            'origin': 'user',
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = {}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = ['hello', 'world']
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = 'helloworld'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = None
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = 17
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 0, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with one location, broken doc['stored'][STORE_id]:
+        doc['stored'] = {random_id(): 'blah blah broken'}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with one location, broken doc['stored'][STORE_id]['copies']:
+        doc['stored'] = {random_id(): {'copies': '2'}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = {random_id(): {'copies': 'foo bar'}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['stored'] = {random_id(): {'copies': -3}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 1, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with locations=1, durability=2:
+        doc['stored'] = {random_id(): {'copies': 2}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with locations=2, durability=0:
+        doc['stored'] = {
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 2, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test with locations=2, durability=1:
+        doc['stored'] = {
+            random_id(): {'copies': 1},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test that locations is clamped at 3:
+        doc['stored'] = {
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+            random_id(): {'copies': 0},
+        }
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 3, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Test that durability is clamped at 3:
+        doc['stored'] = {random_id(): {'copies': 17}}
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 4, 'id': _id, 'value': None},
+                ],
+            },
+        )
+
+        # Make sure doc['type'] is checked:
+        doc['type'] = 'dmedia/guile'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Make sure doc['orign'] is checked:
+        doc['type'] = 'dmedia/file'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 1,
+                'rows': [
+                    {'key': 4, 'id': _id, 'value': None},
+                ],
+            },
+        )
+        doc['origin'] = 'render'
+        db.save(doc)
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
     def test_fragile(self):
         db = Database('foo', self.env)
         db.put(None)

@@ -123,6 +123,29 @@ function(doc) {
 }
 """
 
+file_rank = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (typeof doc.stored != 'object' || isArray(doc.stored)) {
+            emit(0, null);
+            return;
+        }
+        var locations = 0;
+        var durability = 0;
+        var key, copies;
+        for (key in doc.stored) {
+            locations += 1;
+            copies = doc.stored[key].copies;
+            if (typeof copies == 'number' && copies > 0) {
+                durability += copies;
+            }
+        }
+        var rank = Math.min(3, locations) + Math.min(3, durability);
+        emit(rank, null);
+    }
+}
+"""
+
 file_fragile = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -279,6 +302,7 @@ file_design = {
         'stored': {'map': file_stored, 'reduce': _stats},
         'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
+        'rank': {'map': file_rank},
         'fragile': {'map': file_fragile},
         'never-verified': {'map': file_never_verified},
         'last-verified': {'map': file_last_verified},

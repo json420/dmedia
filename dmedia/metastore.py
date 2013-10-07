@@ -874,13 +874,13 @@ class MetaStore:
         """
         Yield doc for each fragile file.     
         """
-        for copies in range(3):
-            result = self.db.view('file', 'fragile', key=copies, update_seq=True)
+        for rank in range(6):
+            result = self.db.view('file', 'rank', key=rank, update_seq=True)
             update_seq = result.get('update_seq')
             ids = [row['id'] for row in result['rows']]
             del result  # result might be quite large, free some memory
             random.shuffle(ids)
-            log.info('%d files with copies=%d', len(ids), copies)
+            log.info('vigilance: %d files at rank=%d', len(ids), rank)
             for _id in ids:
                 yield self.db.get(_id)
         if not monitor:
