@@ -1,35 +1,9 @@
 Road to Production Ready
 ========================
 
-  * Dmedia must do runtime schema and consistency checks - basically, this
-    means reworking MetaStore.check_schema() to do something useful and modern;
-    it should periodically check the schema of all docs, and for all dmedia/file
-    docs, it should also check the cryptographic relationship between the file
-    ID, file size, and file leaf hashes; failures should be logging via standard
-    Python logging, and saved in 'log-1'
 
-  * MetaStore must save data-safety related events in 'log-1', which will make
-    it easy to do runtime checks, postmortem analysis, and give outside test
-    harnesses a library-wide view of these critical events; three types of
-    events come to mind:
-
-    1. When a store is downgraded (store atime too old)
-
-    2. When a store is purged (store atime too old or store doc is missing)
-
-    3. When a corrupt file is found
-
-  * MetaStore must automatically downgrade a store when a corrupt file is
-    detected; we also need a flag in the dmedia/store doc so that Dmedia wont
-    create new copies there, even though existing copies will still be tracked;
-    the same flag will be used to show the user which drives are failing
-
-  * Dmedia must immediately purge the corresponding store when a drive is
-    connected but is missing the FileStore we expect to find (based on either
-    the drive serial or partition UUID); although Dmedia will otherwise do this
-    base on the drive atime (downgrade after 3 days, purge after 8 days), this
-    is an easy scenario where we can adjust Dmedia's metadata immediately rather
-    than waiting
+Needed Features
+----------------
 
   * Dmedia must clearly convey to user when they *should* panic, which currently
     include four scenarios:
@@ -68,3 +42,42 @@ Road to Production Ready
        tell the user that Dmedia is working, to hint to the user that they might
        want to wait long before, say, shutting down their laptop or
        disconnected a drive
+
+  * Dmedia must do runtime schema and consistency checks - basically, this
+    means reworking MetaStore.check_schema() to do something useful and modern;
+    it should periodically check the schema of all docs, and for all dmedia/file
+    docs, it should also check the cryptographic relationship between the file
+    ID, file size, and leaf hashes; failures must be logging via standard Python
+    logging, and saved in 'log-1'
+
+  * MetaStore must save data-safety related events in 'log-1', which will make
+    it easy to do runtime checks, postmortem analysis, and give outside test
+    harnesses a library-wide view of these critical events; three types of
+    events come to mind:
+
+    1. When a store is downgraded (store atime is too old)
+
+    2. When a store is purged (store atime is too old or store doc is missing)
+
+    3. When a corrupt file is found
+
+  * MetaStore must automatically downgrade a store when a corrupt file is found;
+    we also need a flag in the dmedia/store doc so that Dmedia wont create new
+    copies there, even though existing copies will still be tracked
+
+  * Dmedia must immediately purge the corresponding store when a drive is
+    connected but is missing the FileStore we expect to find (based on either
+    the drive serial or partition UUID); although Dmedia will otherwise do this
+    based on the drive atime (downgrade after 3 days, purge after 8 days), this
+    is an easy scenario where we can adjust Dmedia's metadata immediately rather
+    than waiting; this is also a quite plausible scenario, for example, the user
+    is using a removable drive between two computers, one running an OS that
+    can't read ext4, which then prompts the user to format it
+
+
+Integration Test Harness
+------------------------
+
+
+
+
