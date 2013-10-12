@@ -1664,7 +1664,6 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
 
         # Test when empty
-        self.assertEqual(ms.downgrade_by_mtime(), 0)
         curtime = int(time.time())
         self.assertEqual(ms.downgrade_by_mtime(curtime), 0)
 
@@ -1765,7 +1764,6 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
 
         # Test when empty
-        self.assertEqual(ms.downgrade_by_verified(), 0)
         curtime = int(time.time())
         self.assertEqual(ms.downgrade_by_verified(curtime), 0)
 

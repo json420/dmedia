@@ -399,21 +399,16 @@ class MetaStore:
         log.info('converted mtime from `float` to `int` for %d docs', buf.count)
         return buf.count
 
-    def downgrade_by_mtime(self, curtime=None):
-        if curtime is None:
-            curtime = int(time.time())
-        assert isinstance(curtime, int) and curtime >= 0
-        endkey = curtime - DOWNGRADE_BY_MTIME
-        return self._downgrade_by_view(endkey, 'never-verified')
+    def downgrade_by_mtime(self, curtime):
+        return self._downgrade_by_view(curtime, DOWNGRADE_BY_MTIME, 'never-verified')
 
-    def downgrade_by_verified(self, curtime=None):
-        if curtime is None:
-            curtime = int(time.time())
-        assert isinstance(curtime, int) and curtime >= 0
-        endkey = curtime - DOWNGRADE_BY_VERIFIED
-        return self._downgrade_by_view(endkey, 'last-verified')
+    def downgrade_by_verified(self, curtime):
+        return self._downgrade_by_view(curtime, DOWNGRADE_BY_VERIFIED, 'last-verified')
 
-    def _downgrade_by_view(self, endkey, view):
+    def _downgrade_by_view(self, curtime, threshold, view):
+        assert isinstance(curtime, int) and curtime >= 0
+        assert isinstance(threshold, int) and threshold >= 0
+        endkey = curtime - threshold
         t = TimeDelta()
         count = 0
         while True:
