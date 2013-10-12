@@ -404,16 +404,16 @@ class MetaStore:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
         endkey = curtime - DOWNGRADE_BY_MTIME
-        return self._downgrade_by_verified(endkey, 'never-verified')
+        return self._downgrade_by_view(endkey, 'never-verified')
 
     def downgrade_by_last_verified(self, curtime=None):
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
         endkey = curtime - DOWNGRADE_BY_VERIFIED
-        return self._downgrade_by_verified(endkey, 'last-verified')
+        return self._downgrade_by_view(endkey, 'last-verified')
 
-    def _downgrade_by_verified(self, endkey, view):
+    def _downgrade_by_view(self, endkey, view):
         t = TimeDelta()
         count = 0
         while True:
