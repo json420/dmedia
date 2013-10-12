@@ -477,6 +477,7 @@ class MetaStore:
     def _downgrade_by_view(self, curtime, threshold, view):
         assert isinstance(curtime, int) and curtime >= 0
         assert isinstance(threshold, int) and threshold >= 0
+        assert view in ('downgrade-by-mtime', 'downgrade-by-verified')
         endkey = curtime - threshold
         t = TimeDelta()
         count = 0
@@ -499,9 +500,10 @@ class MetaStore:
             try:
                 self.db.save_many(docs)
             except BulkConflict as e:
-                log.exception('Conflict in downgrade_by %r', view)
+                log.exception('Conflict in %r', view)
                 count -= len(e.conflicts)
-        t.log('downgrade %d files by %s', count, view)
+        if count > 0:
+            t.log('%s %d files', view, count)
         return count
 
     def purge_or_downgrade_by_store_atime(self, curtime):
