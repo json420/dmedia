@@ -412,14 +412,14 @@ class MetaStore:
 
             3. The copy 'mtime' is older than `DOWNGRADE_BY_MTIME`
 
-        When a new copy is created (for example, immediately after ingest), it
-        will initially be in a non-downgraded state (copies >= 1) and will have
-        never been verified (it has no 'verified' timestamp).
+        When a new copy is created (for example, via new ingest), the copy will
+        be in a normal, non-downgraded state (copies >= 1), but the copy wont
+        have been verified yet (it wont have a 'verified' timestamp).
 
         So that verification doesn't annoyingly nip-at-the-heals of the copy
         increasing behaviors, there is a grace period of `VERIFY_BY_MTIME`
-        seconds before these new copies will be verified.  This is a short
-        interval (currently 3 hours).
+        seconds before this new copy will be verified.  This is a short interval
+        (currently 3 hours).
 
         When `MetaStore.verify_by_mtime()` is periodically called for each
         connected `FileStore`, it will verify any copies whose 'mtime' is older
@@ -454,8 +454,8 @@ class MetaStore:
 
         After a copy has been verified, there is a grace period of
         `VERIFY_BY_VERIFIED` seconds before it could be verified again.  This is
-        to prevent an endless cycle of re-verification constantly running at
-        peak read throughput.  This is a long interval (currently 6 days).
+        to prevent an endless cycle of verification constantly running at peak
+        read throughput.  This is a long interval (currently 6 days).
 
         When `MetaStore.verify_by_verified()` is periodically called for each
         connected `FileStore`, it will verify any copies whose 'verified' is
@@ -477,6 +477,7 @@ class MetaStore:
     def _downgrade_by_view(self, curtime, threshold, view):
         assert isinstance(curtime, int) and curtime >= 0
         assert isinstance(threshold, int) and threshold >= 0
+        assert threshold in (DOWNGRADE_BY_MTIME, DOWNGRADE_BY_VERIFIED)
         assert view in ('downgrade-by-mtime', 'downgrade-by-verified')
         endkey = curtime - threshold
         t = TimeDelta()
