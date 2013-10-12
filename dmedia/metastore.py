@@ -79,12 +79,12 @@ random = SystemRandom()
 
 DAY = 86400  # Seconds in a day
 
-DOWNGRADE_BY_NEVER_VERIFIED = DAY
+DOWNGRADE_BY_MTIME = DAY
 DOWNGRADE_BY_STORE_ATIME = 3 * DAY
 PURGE_BY_STORE_ATIME = 7 * DAY
 DOWNGRADE_BY_LAST_VERIFIED = 12 * DAY
 
-VERIFY_BY_MTIME = DOWNGRADE_BY_NEVER_VERIFIED // 8
+VERIFY_BY_MTIME = DOWNGRADE_BY_MTIME // 8
 VERIFY_BY_VERIFIED = DOWNGRADE_BY_LAST_VERIFIED // 2
 
 GiB = 1024**3
@@ -403,7 +403,7 @@ class MetaStore:
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
-        endkey = curtime - DOWNGRADE_BY_NEVER_VERIFIED
+        endkey = curtime - DOWNGRADE_BY_MTIME
         return self._downgrade_by_verified(endkey, 'never-verified')
 
     def downgrade_by_last_verified(self, curtime=None):

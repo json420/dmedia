@@ -134,7 +134,7 @@ class TestConstants(TestCase):
         """
         order = (
             metastore.VERIFY_BY_MTIME,
-            metastore.DOWNGRADE_BY_NEVER_VERIFIED,
+            metastore.DOWNGRADE_BY_MTIME,
             metastore.DOWNGRADE_BY_STORE_ATIME,
             metastore.VERIFY_BY_VERIFIED,
             metastore.PURGE_BY_STORE_ATIME,
@@ -157,14 +157,14 @@ class TestConstants(TestCase):
         self.assertGreaterEqual(value, metastore.DAY)
         self.assertEqual(value % metastore.DAY, 0)
 
-    def test_DOWNGRADE_BY_NEVER_VERIFIED(self):
-        self.check_day_multiple(metastore.DOWNGRADE_BY_NEVER_VERIFIED)
+    def test_DOWNGRADE_BY_MTIME(self):
+        self.check_day_multiple(metastore.DOWNGRADE_BY_MTIME)
 
     def test_DOWNGRADE_BY_STORE_ATIME(self):
         self.check_day_multiple(metastore.DOWNGRADE_BY_STORE_ATIME)
         self.assertGreater(
             metastore.DOWNGRADE_BY_STORE_ATIME // metastore.DAY,
-            metastore.DOWNGRADE_BY_NEVER_VERIFIED // metastore.DAY
+            metastore.DOWNGRADE_BY_MTIME // metastore.DAY
         )
 
     def test_PURGE_BY_STORE_ATIME(self):
@@ -183,7 +183,7 @@ class TestConstants(TestCase):
 
     def test_VERIFY_BY_MTIME(self):
         self.assertIsInstance(metastore.VERIFY_BY_MTIME, int)
-        parent = metastore.DOWNGRADE_BY_NEVER_VERIFIED
+        parent = metastore.DOWNGRADE_BY_MTIME
         self.assertTrue(
             parent // 24 <= metastore.VERIFY_BY_MTIME <= parent // 2
         ) 
@@ -1669,7 +1669,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.downgrade_by_never_verified(curtime), 0)
 
         # Populate
-        base = curtime - metastore.DOWNGRADE_BY_NEVER_VERIFIED
+        base = curtime - metastore.DOWNGRADE_BY_MTIME
         store_id1 = random_id()
         store_id2 = random_id()
         docs = []
