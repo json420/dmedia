@@ -126,7 +126,7 @@ class TestConstants(TestCase):
 
         And this should always be true:
 
-        >>> metastore.VERIFY_BY_VERIFIED < metastore.DOWNGRADE_BY_VERIFIED
+        >>> metastore.VERIFY_BY_MTIME < metastore.DOWNGRADE_BY_MTIME
         True
 
         This test ensures that we don't accidentally break these relationships
