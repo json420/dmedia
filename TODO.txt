@@ -45,9 +45,9 @@ Needed Features
 
   * Dmedia must do runtime schema and consistency checks - basically, this
     means reworking MetaStore.check_schema() to do something useful and modern;
-    it should periodically check the schema of all docs, and for all dmedia/file
-    docs, it should also check the cryptographic relationship between the file
-    ID, file size, and leaf hashes; failures must be logging via standard Python
+    it must periodically check the schema of all docs, and for all dmedia/file
+    docs, it must also check the cryptographic relationship between the file ID,
+    file size, and leaf hashes; failures must be logged via standard Python
     logging, and saved in 'log-1'
 
   * MetaStore must save data-safety related events in 'log-1', which will make
