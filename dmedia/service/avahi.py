@@ -237,7 +237,7 @@ class Avahi:
         """
         kw = {
             'create_target': True,
-            #'filter': 'doc/normal',
+            'filter': 'doc/normal',
             'continuous': True,
         }
         if not iscontinuous(name):
@@ -249,8 +249,8 @@ class Avahi:
             log.info('Canceling push of %s to %s', name, env['url'])
         else:
             log.info('Starting push of %s to %s', name, env['url'])
-            #db = self.server.database(name)
-            #util.update_design_doc(db, views.doc_design)
+            db = self.server.database(name)
+            util.update_design_doc(db, views.doc_design)
         try:
             self.server.push(name, name, env, **kw)
         except Exception as e:
