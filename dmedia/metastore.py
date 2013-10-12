@@ -435,7 +435,9 @@ class MetaStore:
 
         Also see `MetaStore.downgrade_by_verified()`.
         """
-        return self._downgrade_by_view(curtime, DOWNGRADE_BY_MTIME, 'never-verified')
+        return self._downgrade_by_view(
+            curtime, DOWNGRADE_BY_MTIME, 'downgrade-by-mtime'
+        )
 
     def downgrade_by_verified(self, curtime):
         """

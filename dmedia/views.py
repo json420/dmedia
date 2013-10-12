@@ -185,7 +185,7 @@ function(doc) {
 
 # Drives downgrading: files that have never been verified and are not already
 # downgraded, ordered by mtime:
-file_never_verified = """
+file_downgrade_by_mtime = """
 function(doc) {
     if (doc.type == 'dmedia/file') {
         var key, value, mtime;
@@ -304,7 +304,7 @@ file_design = {
         'copies': {'map': file_copies},
         'rank': {'map': file_rank},
         'fragile': {'map': file_fragile},
-        'never-verified': {'map': file_never_verified},
+        'downgrade-by-mtime': {'map': file_downgrade_by_mtime},
         'last-verified': {'map': file_last_verified},
         'store-downgraded': {'map': file_store_downgraded},
         'store-mtime': {'map': file_store_mtime},
