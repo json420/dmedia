@@ -40,7 +40,7 @@ Needed Features
        copies, we'll convey this to the user with a persistent indicator; there
        is no user action needed because of this alone, this is more a way to
        tell the user that Dmedia is working, to hint to the user that they might
-       want to wait long before, say, shutting down their laptop or
+       want to wait longer before, say, shutting down their laptop or
        disconnected a drive
 
   * Dmedia must do runtime schema and consistency checks - basically, this
