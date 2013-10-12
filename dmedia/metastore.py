@@ -91,9 +91,6 @@ GiB = 1024**3
 RECLAIM_BYTES = 64 * GiB
 
 
-class MTimeMismatch(Exception):
-    pass
-
 
 class TimeDelta:
     __slots__ = ('start', 'end')
