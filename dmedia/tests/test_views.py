@@ -315,7 +315,7 @@ class TestDocDesign(DesignTestCase):
         """
         Verify our assumptions about CouchDB view sort order.
 
-        Lesson: it's *very* important that views like "file/last-verified" test
+        Lesson: it's *very* important that views like "file/downgrade-by-verified" test
         the timestamp with::
 
             (typeof timestamp == 'number')
@@ -1676,13 +1676,13 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-    def test_never_verified(self):
+    def test_downgrade_by_mtime(self):
         db = Database('foo', self.env)
         db.put(None)
-        design = self.build_view('never-verified')
+        design = self.build_view('downgrade-by-mtime')
         db.save(design)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1694,7 +1694,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1702,7 +1702,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'] = {}
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1721,7 +1721,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1736,7 +1736,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'][store_id1]['copies'] = 0
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {
                 'offset': 0,
                 'total_rows': 1,
@@ -1748,7 +1748,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'][store_id2]['copies'] = 0
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1770,7 +1770,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc2)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1786,7 +1786,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'][store_id2]['copies'] = False
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {
                 'offset': 0,
                 'total_rows': 4,
@@ -1803,7 +1803,7 @@ class TestFileDesign(DesignTestCase):
         doc2['stored'][store_id1]['mtime'] = '1005'
         db.save(doc2)
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {
                 'offset': 0,
                 'total_rows': 4,
@@ -1821,7 +1821,7 @@ class TestFileDesign(DesignTestCase):
         doc2['stored'][store_id1]['verified'] = 456
         db.save_many([doc1, doc2])
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1837,17 +1837,17 @@ class TestFileDesign(DesignTestCase):
         doc2['type'] = 'dmedia/bar'
         db.save_many([doc1, doc2])
         self.assertEqual(
-            db.view('file', 'never-verified'),
+            db.view('file', 'downgrade-by-mtime'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
-    def test_last_verified(self):
+    def test_downgrade_by_verified(self):
         db = Database('foo', self.env)
         db.put(None)
-        design = self.build_view('last-verified')
+        design = self.build_view('downgrade-by-verified')
         db.save(design)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1859,7 +1859,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1867,7 +1867,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'] = {}
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1886,7 +1886,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1901,7 +1901,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'][store_id1]['copies'] = 0
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {
                 'offset': 0,
                 'total_rows': 1,
@@ -1913,7 +1913,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'][store_id2]['copies'] = 0
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
@@ -1935,7 +1935,7 @@ class TestFileDesign(DesignTestCase):
         }
         db.save(doc2)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {
                 'offset': 0,
                 'total_rows': 2,
@@ -1951,7 +1951,7 @@ class TestFileDesign(DesignTestCase):
         doc1['stored'][store_id2]['copies'] = False
         db.save(doc1)
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {
                 'offset': 0,
                 'total_rows': 4,
@@ -1969,7 +1969,7 @@ class TestFileDesign(DesignTestCase):
         doc2['type'] = 'dmedia/bar'
         db.save_many([doc1, doc2])
         self.assertEqual(
-            db.view('file', 'last-verified'),
+            db.view('file', 'downgrade-by-verified'),
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 

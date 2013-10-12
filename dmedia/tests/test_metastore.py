@@ -114,16 +114,87 @@ class DummyDatabase:
 
 
 class TestConstants(TestCase):
+    def test_order_of_time_constants(self):
+        """
+        Test the relative magnitude of the time constants.
+
+        The exact values will continue to be tuned, but there is import logic
+        in the inequalities.  For example, this should always be true:
+
+        >>> metastore.DOWNGRADE_BY_STORE_ATIME < metastore.PURGE_BY_STORE_ATIME
+        True
+
+        And this should always be true:
+
+        >>> metastore.VERIFY_BY_MTIME < metastore.DOWNGRADE_BY_MTIME
+        True
+
+        This test ensures that we don't accidentally break these relationships
+        as we tune the values.
+        """
+        order = (
+            metastore.VERIFY_BY_MTIME,
+            metastore.DOWNGRADE_BY_MTIME,
+            metastore.DOWNGRADE_BY_STORE_ATIME,
+            metastore.VERIFY_BY_VERIFIED,
+            metastore.PURGE_BY_STORE_ATIME,
+            metastore.DOWNGRADE_BY_VERIFIED,
+        )
+        for value in order:
+            self.assertIsInstance(value, int)
+            self.assertGreater(value, 0)
+        self.assertEqual(tuple(sorted(order)), order)
+
+    def test_DAY(self):
+        self.assertIsInstance(metastore.DAY, int)
+        self.assertEqual(metastore.DAY, 60 * 60 * 24)
+
+    def check_day_multiple(self, value):
+        """
+        Check that *value* is a multiple of `metastore.DAY` seconds.
+        """
+        self.assertIsInstance(value, int)
+        self.assertGreaterEqual(value, metastore.DAY)
+        self.assertEqual(value % metastore.DAY, 0)
+
+    def test_DOWNGRADE_BY_MTIME(self):
+        self.check_day_multiple(metastore.DOWNGRADE_BY_MTIME)
+
     def test_DOWNGRADE_BY_STORE_ATIME(self):
-        self.assertIsInstance(metastore.DOWNGRADE_BY_STORE_ATIME, int)
-        self.assertGreaterEqual(metastore.DOWNGRADE_BY_STORE_ATIME, metastore.DAY)
-        self.assertEqual(metastore.DOWNGRADE_BY_STORE_ATIME % metastore.DAY, 0)
+        self.check_day_multiple(metastore.DOWNGRADE_BY_STORE_ATIME)
+        self.assertGreater(
+            metastore.DOWNGRADE_BY_STORE_ATIME // metastore.DAY,
+            metastore.DOWNGRADE_BY_MTIME // metastore.DAY
+        )
 
     def test_PURGE_BY_STORE_ATIME(self):
-        self.assertIsInstance(metastore.PURGE_BY_STORE_ATIME, int)
-        self.assertGreaterEqual(metastore.PURGE_BY_STORE_ATIME, metastore.DAY)
-        self.assertEqual(metastore.PURGE_BY_STORE_ATIME % metastore.DAY, 0)
-        self.assertGreater(metastore.PURGE_BY_STORE_ATIME, metastore.DOWNGRADE_BY_STORE_ATIME)
+        self.check_day_multiple(metastore.PURGE_BY_STORE_ATIME)
+        self.assertGreater(
+            metastore.PURGE_BY_STORE_ATIME // metastore.DAY,
+            metastore.DOWNGRADE_BY_STORE_ATIME // metastore.DAY
+        )
+
+    def test_DOWNGRADE_BY_VERIFIED(self):
+        self.check_day_multiple(metastore.DOWNGRADE_BY_VERIFIED)
+        self.assertGreater(
+            metastore.DOWNGRADE_BY_VERIFIED // metastore.DAY,
+            metastore.PURGE_BY_STORE_ATIME // metastore.DAY
+        )
+
+    def test_VERIFY_BY_MTIME(self):
+        self.assertIsInstance(metastore.VERIFY_BY_MTIME, int)
+        parent = metastore.DOWNGRADE_BY_MTIME
+        self.assertTrue(
+            parent // 24 <= metastore.VERIFY_BY_MTIME <= parent // 2
+        ) 
+
+    def test_VERIFY_BY_VERIFIED(self):
+        self.assertIsInstance(metastore.VERIFY_BY_VERIFIED, int)
+        parent = metastore.DOWNGRADE_BY_VERIFIED
+        self.assertTrue(
+            parent // 4 <= metastore.VERIFY_BY_VERIFIED <= parent // 2
+        )
+        self.assertGreater(metastore.VERIFY_BY_VERIFIED, metastore.VERIFY_BY_MTIME) 
 
 
 class TestFunctions(TestCase):
@@ -1588,17 +1659,16 @@ class TestMetaStore(CouchCase):
         # Once more with feeling:
         self.assertEqual(ms.schema_check(), 0)
 
-    def test_downgrade_by_never_verified(self):
+    def test_downgrade_by_mtime(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
         # Test when empty
-        self.assertEqual(ms.downgrade_by_never_verified(), 0)
         curtime = int(time.time())
-        self.assertEqual(ms.downgrade_by_never_verified(curtime), 0)
+        self.assertEqual(ms.downgrade_by_mtime(curtime), 0)
 
         # Populate
-        base = curtime - metastore.DOWNGRADE_BY_NEVER_VERIFIED
+        base = curtime - metastore.DOWNGRADE_BY_MTIME
         store_id1 = random_id()
         store_id2 = random_id()
         docs = []
@@ -1623,12 +1693,12 @@ class TestMetaStore(CouchCase):
         ids = [doc['_id'] for doc in docs]
 
         # Test when none should be downgraded
-        self.assertEqual(ms.downgrade_by_never_verified(curtime - 1), 0)
+        self.assertEqual(ms.downgrade_by_mtime(curtime - 1), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
         # Test when they all should be downgraded
-        self.assertEqual(ms.downgrade_by_never_verified(curtime + 19), 10)
+        self.assertEqual(ms.downgrade_by_mtime(curtime + 19), 10)
         for (i, doc) in enumerate(db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -1652,7 +1722,7 @@ class TestMetaStore(CouchCase):
 
         # Test when they're all already downgraded
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade_by_never_verified(curtime + 19), 0)
+        self.assertEqual(ms.downgrade_by_mtime(curtime + 19), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
@@ -1661,7 +1731,7 @@ class TestMetaStore(CouchCase):
             doc['stored'][store_id1]['copies'] = 1
             doc['stored'][store_id2]['copies'] = 1
         db.save_many(docs)
-        self.assertEqual(ms.downgrade_by_never_verified(curtime + 9), 10)
+        self.assertEqual(ms.downgrade_by_mtime(curtime + 9), 10)
         for (i, doc) in enumerate(db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('4-'))
@@ -1685,21 +1755,20 @@ class TestMetaStore(CouchCase):
 
         # Again, test when they're all already downgraded
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade_by_never_verified(curtime + 9), 0)
+        self.assertEqual(ms.downgrade_by_mtime(curtime + 9), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
-    def test_downgrade_by_last_verified(self):
+    def test_downgrade_by_verified(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
         # Test when empty
-        self.assertEqual(ms.downgrade_by_last_verified(), 0)
         curtime = int(time.time())
-        self.assertEqual(ms.downgrade_by_last_verified(curtime), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime), 0)
 
         # Populate
-        base = curtime - metastore.DOWNGRADE_BY_LAST_VERIFIED
+        base = curtime - metastore.DOWNGRADE_BY_VERIFIED
         store_id1 = random_id()
         store_id2 = random_id()
         docs = []
@@ -1724,12 +1793,12 @@ class TestMetaStore(CouchCase):
         ids = [doc['_id'] for doc in docs]
 
         # Test when none should be downgraded
-        self.assertEqual(ms.downgrade_by_last_verified(curtime - 1), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime - 1), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
         # Test when they all should be downgraded
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 19), 10)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 19), 10)
         for (i, doc) in enumerate(db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -1753,7 +1822,7 @@ class TestMetaStore(CouchCase):
 
         # Test when they're all already downgraded
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 19), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 19), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
@@ -1762,7 +1831,7 @@ class TestMetaStore(CouchCase):
             doc['stored'][store_id1]['copies'] = 1
             doc['stored'][store_id2]['copies'] = 1
         db.save_many(docs)
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 10)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 9), 10)
         for (i, doc) in enumerate(db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('4-'))
@@ -1786,7 +1855,7 @@ class TestMetaStore(CouchCase):
 
         # Again, test when they're all already downgraded
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 9), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
@@ -2362,29 +2431,33 @@ class TestMetaStore(CouchCase):
         db.save(fs.doc)
 
         # A few good files
-        good = [create_random_file(fs, db) for i in range(20)]
+        good = [create_random_file(fs, db) for i in range(45)]
 
         # A few files with bad mtime
-        bad_mtime = [create_random_file(fs, db) for i in range(10)]
+        bad_mtime = [create_random_file(fs, db) for i in range(20)]
         for doc in bad_mtime:
             value = doc['stored'][fs.id]
             value['mtime'] -= 100
             value['verified'] = 1234567890
             value['pinned'] = True
-            db.save(doc)
+        db.save_many(bad_mtime)
 
         # A few files with bad size
-        bad_size = [create_random_file(fs, db) for i in range(10)]
+        bad_size = [create_random_file(fs, db) for i in range(30)]
         for doc in bad_size:
             doc['bytes'] += 1776
-            db.save(doc)
+        db.save_many(bad_size)
 
         # A few missing files
-        missing = [create_random_file(fs, db) for i in range(10)]
+        missing = [create_random_file(fs, db) for i in range(15)]
         for doc in missing:
             fs.remove(doc['_id'])
 
-        self.assertEqual(ms.scan(fs), 50)
+        # Note that MetaStore.scan() gets 50 docs at a time, so we need to test
+        # roughly 100 docs to make sure the skip value is correctly adjusted
+        # when files with the wrong size get marked as corrupt, moving them
+        # out of the file/stored view:
+        self.assertEqual(ms.scan(fs), 110)
 
         for doc in good:
             self.assertEqual(db.get(doc['_id']), doc)
