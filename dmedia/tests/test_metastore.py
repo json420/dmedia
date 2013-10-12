@@ -2431,29 +2431,33 @@ class TestMetaStore(CouchCase):
         db.save(fs.doc)
 
         # A few good files
-        good = [create_random_file(fs, db) for i in range(20)]
+        good = [create_random_file(fs, db) for i in range(45)]
 
         # A few files with bad mtime
-        bad_mtime = [create_random_file(fs, db) for i in range(10)]
+        bad_mtime = [create_random_file(fs, db) for i in range(20)]
         for doc in bad_mtime:
             value = doc['stored'][fs.id]
             value['mtime'] -= 100
             value['verified'] = 1234567890
             value['pinned'] = True
-            db.save(doc)
+        db.save_many(bad_mtime)
 
         # A few files with bad size
-        bad_size = [create_random_file(fs, db) for i in range(10)]
+        bad_size = [create_random_file(fs, db) for i in range(30)]
         for doc in bad_size:
             doc['bytes'] += 1776
-            db.save(doc)
+        db.save_many(bad_size)
 
         # A few missing files
-        missing = [create_random_file(fs, db) for i in range(10)]
+        missing = [create_random_file(fs, db) for i in range(15)]
         for doc in missing:
             fs.remove(doc['_id'])
 
-        self.assertEqual(ms.scan(fs), 50)
+        # Note that MetaStore.scan() gets 50 docs at a time, so we need to test
+        # roughly 100 docs to make sure the skip value is correctly adjusted
+        # when files with the wrong size get marked as corrupt, moving them
+        # out of the file/stored view:
+        self.assertEqual(ms.scan(fs), 110)
 
         for doc in good:
             self.assertEqual(db.get(doc['_id']), doc)

@@ -694,7 +694,7 @@ class MetaStore:
         kw = {
             'key': fs.id,
             'include_docs': True,
-            'limit': 25,
+            'limit': 50,
             'skip': 0,
         }
         while True:
