@@ -470,7 +470,9 @@ class MetaStore:
 
         Also see `MetaStore.downgrade_by_mtime()`.
         """
-        return self._downgrade_by_view(curtime, DOWNGRADE_BY_VERIFIED, 'last-verified')
+        return self._downgrade_by_view(
+            curtime, DOWNGRADE_BY_VERIFIED, 'downgrade-by-verified'
+        )
 
     def _downgrade_by_view(self, curtime, threshold, view):
         assert isinstance(curtime, int) and curtime >= 0
