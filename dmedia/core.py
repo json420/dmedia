@@ -299,7 +299,7 @@ def downgrade_worker(env):
         ms = MetaStore(db)
         curtime = int(time.time())
         log.info('downgrading/purging as of timestamp %d', curtime)
-        ms.downgrade_by_never_verified(curtime)
+        ms.downgrade_by_mtime(curtime)
         ms.downgrade_by_last_verified(curtime)
         ms.purge_or_downgrade_by_store_atime(curtime)
     except Exception:

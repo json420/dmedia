@@ -399,7 +399,7 @@ class MetaStore:
         log.info('converted mtime from `float` to `int` for %d docs', buf.count)
         return buf.count
 
-    def downgrade_by_never_verified(self, curtime=None):
+    def downgrade_by_mtime(self, curtime=None):
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
