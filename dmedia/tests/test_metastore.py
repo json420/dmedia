@@ -126,7 +126,7 @@ class TestConstants(TestCase):
 
         And this should always be true:
 
-        >>> metastore.VERIFY_BY_VERIFIED < metastore.DOWNGRADE_BY_LAST_VERIFIED
+        >>> metastore.VERIFY_BY_VERIFIED < metastore.DOWNGRADE_BY_VERIFIED
         True
 
         This test ensures that we don't accidentally break these relationships
@@ -138,7 +138,7 @@ class TestConstants(TestCase):
             metastore.DOWNGRADE_BY_STORE_ATIME,
             metastore.VERIFY_BY_VERIFIED,
             metastore.PURGE_BY_STORE_ATIME,
-            metastore.DOWNGRADE_BY_LAST_VERIFIED,
+            metastore.DOWNGRADE_BY_VERIFIED,
         )
         for value in order:
             self.assertIsInstance(value, int)
@@ -174,10 +174,10 @@ class TestConstants(TestCase):
             metastore.DOWNGRADE_BY_STORE_ATIME // metastore.DAY
         )
 
-    def test_DOWNGRADE_BY_LAST_VERIFIED(self):
-        self.check_day_multiple(metastore.DOWNGRADE_BY_LAST_VERIFIED)
+    def test_DOWNGRADE_BY_VERIFIED(self):
+        self.check_day_multiple(metastore.DOWNGRADE_BY_VERIFIED)
         self.assertGreater(
-            metastore.DOWNGRADE_BY_LAST_VERIFIED // metastore.DAY,
+            metastore.DOWNGRADE_BY_VERIFIED // metastore.DAY,
             metastore.PURGE_BY_STORE_ATIME // metastore.DAY
         )
 
@@ -190,7 +190,7 @@ class TestConstants(TestCase):
 
     def test_VERIFY_BY_VERIFIED(self):
         self.assertIsInstance(metastore.VERIFY_BY_VERIFIED, int)
-        parent = metastore.DOWNGRADE_BY_LAST_VERIFIED
+        parent = metastore.DOWNGRADE_BY_VERIFIED
         self.assertTrue(
             parent // 4 <= metastore.VERIFY_BY_VERIFIED <= parent // 2
         )
@@ -1770,7 +1770,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.downgrade_by_last_verified(curtime), 0)
 
         # Populate
-        base = curtime - metastore.DOWNGRADE_BY_LAST_VERIFIED
+        base = curtime - metastore.DOWNGRADE_BY_VERIFIED
         store_id1 = random_id()
         store_id2 = random_id()
         docs = []
