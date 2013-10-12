@@ -453,7 +453,7 @@ class MetaStore:
             3. The copy 'verified' is older than `DOWNGRADE_BY_VERIFIED`
 
         After a copy has been verified, there is a grace period of
-        `VERIFY_BY_VERIFIED` seconds before it could be verified again.  This is
+        `VERIFY_BY_VERIFIED` seconds before it will be verified again.  This is
         to prevent an endless cycle of verification constantly running at peak
         read throughput.  This is a long interval (currently 6 days).
 
