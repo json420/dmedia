@@ -77,7 +77,7 @@ from .local import LocalStores
 log = logging.getLogger()
 random = SystemRandom()
 
-DAY = 24 * 60 * 60  # Seconds in a day
+DAY = 86400  # Seconds in a day
 
 DOWNGRADE_BY_NEVER_VERIFIED = DAY
 DOWNGRADE_BY_STORE_ATIME = 3 * DAY

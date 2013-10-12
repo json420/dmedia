@@ -114,16 +114,87 @@ class DummyDatabase:
 
 
 class TestConstants(TestCase):
+    def test_order_of_time_constants(self):
+        """
+        Test the relative magnitude of the time constants.
+
+        The exact values will continue to be tuned, but there is import logic
+        in the inequalities.  For example, this should always be true:
+
+        >>> metastore.DOWNGRADE_BY_STORE_ATIME < metastore.PURGE_BY_STORE_ATIME
+        True
+
+        And this should always be true:
+
+        >>> metastore.VERIFY_BY_VERIFIED < metastore.DOWNGRADE_BY_LAST_VERIFIED
+        True
+
+        This test ensures that we don't accidentally break these relationships
+        as we tune the values.
+        """
+        order = (
+            metastore.VERIFY_BY_MTIME,
+            metastore.DOWNGRADE_BY_NEVER_VERIFIED,
+            metastore.DOWNGRADE_BY_STORE_ATIME,
+            metastore.VERIFY_BY_VERIFIED,
+            metastore.PURGE_BY_STORE_ATIME,
+            metastore.DOWNGRADE_BY_LAST_VERIFIED,
+        )
+        for value in order:
+            self.assertIsInstance(value, int)
+            self.assertGreater(value, 0)
+        self.assertEqual(tuple(sorted(order)), order)
+
+    def test_DAY(self):
+        self.assertIsInstance(metastore.DAY, int)
+        self.assertEqual(metastore.DAY, 60 * 60 * 24)
+
+    def check_day_multiple(self, value):
+        """
+        Check that *value* is a multiple of `metastore.DAY` seconds.
+        """
+        self.assertIsInstance(value, int)
+        self.assertGreaterEqual(value, metastore.DAY)
+        self.assertEqual(value % metastore.DAY, 0)
+
+    def test_DOWNGRADE_BY_NEVER_VERIFIED(self):
+        self.check_day_multiple(metastore.DOWNGRADE_BY_NEVER_VERIFIED)
+
     def test_DOWNGRADE_BY_STORE_ATIME(self):
-        self.assertIsInstance(metastore.DOWNGRADE_BY_STORE_ATIME, int)
-        self.assertGreaterEqual(metastore.DOWNGRADE_BY_STORE_ATIME, metastore.DAY)
-        self.assertEqual(metastore.DOWNGRADE_BY_STORE_ATIME % metastore.DAY, 0)
+        self.check_day_multiple(metastore.DOWNGRADE_BY_STORE_ATIME)
+        self.assertGreater(
+            metastore.DOWNGRADE_BY_STORE_ATIME // metastore.DAY,
+            metastore.DOWNGRADE_BY_NEVER_VERIFIED // metastore.DAY
+        )
 
     def test_PURGE_BY_STORE_ATIME(self):
-        self.assertIsInstance(metastore.PURGE_BY_STORE_ATIME, int)
-        self.assertGreaterEqual(metastore.PURGE_BY_STORE_ATIME, metastore.DAY)
-        self.assertEqual(metastore.PURGE_BY_STORE_ATIME % metastore.DAY, 0)
-        self.assertGreater(metastore.PURGE_BY_STORE_ATIME, metastore.DOWNGRADE_BY_STORE_ATIME)
+        self.check_day_multiple(metastore.PURGE_BY_STORE_ATIME)
+        self.assertGreater(
+            metastore.PURGE_BY_STORE_ATIME // metastore.DAY,
+            metastore.DOWNGRADE_BY_STORE_ATIME // metastore.DAY
+        )
+
+    def test_DOWNGRADE_BY_LAST_VERIFIED(self):
+        self.check_day_multiple(metastore.DOWNGRADE_BY_LAST_VERIFIED)
+        self.assertGreater(
+            metastore.DOWNGRADE_BY_LAST_VERIFIED // metastore.DAY,
+            metastore.PURGE_BY_STORE_ATIME // metastore.DAY
+        )
+
+    def test_VERIFY_BY_MTIME(self):
+        self.assertIsInstance(metastore.VERIFY_BY_MTIME, int)
+        parent = metastore.DOWNGRADE_BY_NEVER_VERIFIED
+        self.assertTrue(
+            parent // 24 <= metastore.VERIFY_BY_MTIME <= parent // 2
+        ) 
+
+    def test_VERIFY_BY_VERIFIED(self):
+        self.assertIsInstance(metastore.VERIFY_BY_VERIFIED, int)
+        parent = metastore.DOWNGRADE_BY_LAST_VERIFIED
+        self.assertTrue(
+            parent // 4 <= metastore.VERIFY_BY_VERIFIED <= parent // 2
+        )
+        self.assertGreater(metastore.VERIFY_BY_VERIFIED, metastore.VERIFY_BY_MTIME) 
 
 
 class TestFunctions(TestCase):
