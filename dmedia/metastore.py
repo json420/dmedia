@@ -406,7 +406,7 @@ class MetaStore:
         endkey = curtime - DOWNGRADE_BY_MTIME
         return self._downgrade_by_view(endkey, 'never-verified')
 
-    def downgrade_by_last_verified(self, curtime=None):
+    def downgrade_by_verified(self, curtime=None):
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0

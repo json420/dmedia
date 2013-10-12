@@ -1760,14 +1760,14 @@ class TestMetaStore(CouchCase):
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
-    def test_downgrade_by_last_verified(self):
+    def test_downgrade_by_verified(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
         # Test when empty
-        self.assertEqual(ms.downgrade_by_last_verified(), 0)
+        self.assertEqual(ms.downgrade_by_verified(), 0)
         curtime = int(time.time())
-        self.assertEqual(ms.downgrade_by_last_verified(curtime), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime), 0)
 
         # Populate
         base = curtime - metastore.DOWNGRADE_BY_VERIFIED
@@ -1795,12 +1795,12 @@ class TestMetaStore(CouchCase):
         ids = [doc['_id'] for doc in docs]
 
         # Test when none should be downgraded
-        self.assertEqual(ms.downgrade_by_last_verified(curtime - 1), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime - 1), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
         # Test when they all should be downgraded
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 19), 10)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 19), 10)
         for (i, doc) in enumerate(db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -1824,7 +1824,7 @@ class TestMetaStore(CouchCase):
 
         # Test when they're all already downgraded
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 19), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 19), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
@@ -1833,7 +1833,7 @@ class TestMetaStore(CouchCase):
             doc['stored'][store_id1]['copies'] = 1
             doc['stored'][store_id2]['copies'] = 1
         db.save_many(docs)
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 10)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 9), 10)
         for (i, doc) in enumerate(db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('4-'))
@@ -1857,7 +1857,7 @@ class TestMetaStore(CouchCase):
 
         # Again, test when they're all already downgraded
         docs = db.get_many(ids)
-        self.assertEqual(ms.downgrade_by_last_verified(curtime + 9), 0)
+        self.assertEqual(ms.downgrade_by_verified(curtime + 9), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
 
