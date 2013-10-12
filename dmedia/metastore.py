@@ -400,6 +400,43 @@ class MetaStore:
         return buf.count
 
     def downgrade_by_mtime(self, curtime):
+        """
+        Downgrade unverified copies with mtime older than `DOWNGRADE_BY_MTIME`.
+
+        This method only downgrades copies that meet all these criteria:
+
+            1. The copy has never been verified (ie, it has no 'verified'
+               timestamp)
+
+            2. The copy isn't already downgraded (ie, copies != 0)
+
+            3. The copy has an mtime older than `DOWNGRADE_BY_MTIME`
+
+        When a new copy is created (for example, immediately after ingest), it
+        will initially be in a non-downgraded state (copies >= 1) and will have
+        never been verified (it has no 'verified' timestamp).
+
+        So that verification doesn't annoyingly nip-at-the-heals of the copy
+        increasing behaviors, there is a grace period of `VERIFY_BY_MTIME`
+        seconds before these new copies will be verified.  This is a very short
+        threshold (currently 3 hours).
+
+        When `MetaStore.verify_by_mtime()` is periodically called for each
+        connected `FileStore`, it will verify any copies whose mtime is older
+        than `VERIFY_BY_MTIME`.
+
+        However, if that hasn't happened by the time a copy mtime reaches
+        `DOWNGRADE_BY_MTIME` seconds in age, this method will downgrade it.
+        This is a longer, but still relative short threshold (currently 24
+        hours).
+
+        Unlike `MetaStore.verify_by_mtime()`, this method considers all files in
+        the Dmedia library, not just those in currently connected `FileStore`.
+
+        Like it, this method is called periodically (every 15 minutes or so).
+
+        Also see `MetaStore.downgrade_by_verified()`.
+        """
         return self._downgrade_by_view(curtime, DOWNGRADE_BY_MTIME, 'never-verified')
 
     def downgrade_by_verified(self, curtime):
