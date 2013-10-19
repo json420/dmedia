@@ -188,7 +188,7 @@ sample_thm_exif = {
     'Orientation': 'Horizontal (normal)',
     'OwnerName': '',
     'PictureStyle': 'User Def. 1',
-    'Quality': 'Unknown (-1)',
+    'Quality': 'n/a',
     'RawJpgSize': 'Large',
     'RecordMode': 'Video',
     'RelatedImageHeight': 1080,
@@ -260,6 +260,7 @@ EXIFTOOL_IGNORE = (
     'FilePermissions',
     'FileSize',
     'SourceFile',
+    'FileInodeChangeDate',
 )
 
 
