@@ -322,8 +322,11 @@ class BufferedSave:
 
 
 class MetaStore:
-    def __init__(self, db):
+    def __init__(self, db, log_db=None):
         self.db = db
+        if log_db is None:
+            log_db = db.database('log-1')
+        self.log_db = log_db
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)

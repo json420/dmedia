@@ -1496,6 +1496,15 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
         self.assertIs(ms.db, db)
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
+        self.assertIsInstance(ms.log_db, microfiber.Database)
+        self.assertEqual(ms.log_db.name, 'log-1')
+        self.assertIs(ms.log_db.ctx, ms.db.ctx)
+
+        log_db = db.database('log-1')
+        ms = metastore.MetaStore(db, log_db=log_db)
+        self.assertIs(ms.db, db)
+        self.assertIs(ms.log_db, log_db)
+        self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
 
     def test_get_local_dmedia(self):
         db = util.get_db(self.env, True)
