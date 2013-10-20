@@ -327,6 +327,7 @@ class MetaStore:
         if log_db is None:
             log_db = db.database('log-1')
         self.log_db = log_db
+        self.machine_id = db.env.get('machine_id')
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
@@ -356,11 +357,8 @@ class MetaStore:
             return {}
 
     def get_machine(self):
-        machine_id = self.get_local_dmedia().get('machine_id')
-        if machine_id is None:
-            return {}
         try:
-            return self.db.get(machine_id)
+            return self.db.get(self.machine_id)
         except NotFound:
             return {}
 

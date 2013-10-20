@@ -39,6 +39,7 @@ from microfiber import dumps, Conflict
 
 from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
+from dmedia.local import LocalStores
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored, get_mtime
 from dmedia.constants import TYPE_ERROR
@@ -1499,12 +1500,14 @@ class TestMetaStore(CouchCase):
         self.assertIsInstance(ms.log_db, microfiber.Database)
         self.assertEqual(ms.log_db.name, 'log-1')
         self.assertIs(ms.log_db.ctx, ms.db.ctx)
+        self.assertIs(ms.machine_id, self.env['machine_id'])
 
         log_db = db.database('log-1')
         ms = metastore.MetaStore(db, log_db=log_db)
         self.assertIs(ms.db, db)
         self.assertIs(ms.log_db, log_db)
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
+        self.assertIs(ms.machine_id, self.env['machine_id'])
 
     def test_get_local_dmedia(self):
         db = util.get_db(self.env, True)
@@ -1521,30 +1524,72 @@ class TestMetaStore(CouchCase):
         db.save(doc)
         self.assertEqual(ms.get_local_dmedia(), doc)
 
+    def test_get_machine(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # Machine doc is missing:
+        self.assertEqual(ms.get_machine(), {})
+
+        # Machine doc exists:
+        machine = {'_id': self.env['machine_id']}
+        db.save(machine)
+        self.assertEqual(ms.get_machine(), machine)
+
+        # Machine doc is updated:
+        machine['type'] = 'dmedia/machine'
+        db.save(machine)
+        self.assertEqual(ms.get_machine(), machine)
+
+    def test_get_local_stores(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # machine doc is missing:
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertEqual(ls.local_stores(), {})
+
+        # machine doc exists, but is missing 'stores':
+        machine = {'_id': self.env['machine_id']}
+        db.save(machine)
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertEqual(ls.local_stores(), {})
+
+        # machine has 'stores':
+        fs1 = TempFileStore()
+        stores1 = {
+            fs1.id: {'parentdir': fs1.parentdir, 'copies': fs1.copies},
+        }
+        machine['stores'] = stores1
+        db.save(machine)
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertEqual(ls.local_stores(), stores1)
+
+        # machine['stores'] has changed
+        fs2 = TempFileStore()
+        stores2 = {
+            fs1.id: {'parentdir': fs1.parentdir, 'copies': fs1.copies},
+            fs2.id: {'parentdir': fs2.parentdir, 'copies': fs2.copies},
+        }
+        machine['stores'] = stores2
+        db.save(machine)
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertNotEqual(ls.local_stores(), stores1)
+        self.assertEqual(ls.local_stores(), stores2)
+
     def test_get_local_peers(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        local_id = '_local/dmedia'
-        machine_id = random_id()
 
-        # _local/dmedia NotFound:
-        self.assertEqual(ms.get_local_peers(), {})
-        self.assertEqual(ms._peers, {})
-        with self.assertRaises(microfiber.NotFound) as cm:
-            db.get(local_id)
-
-        # _local/dmedia exists, but is missing 'machine_id':
-        local = {'_id': local_id}
-        db.save(local)
+        # machine doc is missing:
         self.assertEqual(ms.get_local_peers(), {})
 
-        # _local/dmedia has 'machine_id', but machine doc is missing:
-        local['machine_id'] = machine_id
-        db.save(local)
-        self.assertEqual(ms.get_local_peers(), {})
-
-        # machine exists, but is missing 'peers':
-        machine = {'_id': machine_id}
+        # machine doc exists, but is missing 'peers':
+        machine = {'_id': self.env['machine_id']}
         db.save(machine)
         self.assertEqual(ms.get_local_peers(), {})
 
