@@ -31,7 +31,7 @@ import io
 from random import SystemRandom
 from copy import deepcopy
 
-from filestore import DIGEST_BYTES
+import filestore
 from filestore.misc import TempFileStore
 from dbase32 import random_id
 import microfiber
@@ -1316,7 +1316,7 @@ class TestFunctions(TestCase):
         fs = TempFileStore()
 
         def create():
-            _id = random_id(DIGEST_BYTES)
+            _id = random_file_id()
             data = b'N' * random.randint(1, 1776)
             open(fs.path(_id), 'wb').write(data)
             st = fs.stat(_id)
@@ -1524,6 +1524,34 @@ class TestMetaStore(CouchCase):
         db.save(doc)
         self.assertEqual(ms.doc_and_id(doc), (doc, _id))
         self.assertEqual(ms.doc_and_id(_id), (doc, _id))
+
+    def test_content_hash(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # doc doesn't exist
+        _id = random_file_id()
+        doc = {'_id': _id}
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.content_hash(doc)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.content_hash(_id)
+
+        # doc exists
+        fs = TempFileStore()
+        doc = create_random_file(fs, db)
+        att = db.get_att(doc['_id'], 'leaf_hashes')
+        leaf_hashes = tuple(filestore.iter_leaf_hashes(att.data))
+        ch = ms.content_hash(doc)
+        self.assertIsInstance(ch, filestore.ContentHash)
+        self.assertEqual(ch,
+            filestore.ContentHash(doc['_id'], doc['bytes'], leaf_hashes)
+        )
+        ch = ms.content_hash(doc['_id'])
+        self.assertIsInstance(ch, filestore.ContentHash)
+        self.assertEqual(ch,
+            filestore.ContentHash(doc['_id'], doc['bytes'], leaf_hashes)
+        )
 
     def test_get_machine(self):
         db = util.get_db(self.env, True)
