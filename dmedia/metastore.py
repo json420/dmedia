@@ -762,6 +762,21 @@ class MetaStore:
         with VerifyContext(self.db, fs, doc):
             return fs.verify(_id, return_fp)
 
+    def verify_new(self, fs, doc_or_id):
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        try:
+            ch = fs.verify(_id)
+            value = create_stored_value(_id, fs, time.time())
+            self.db.update(mark_verified, doc, fs.id, value)
+            log.info('Verified %s in %r', _id, fs)
+            return ch
+        except CorruptFile:
+            self.db.update(mark_corrupt, doc, time.time(), fs.id)
+            log.error('%s is corrupt in %r', _id, fs)
+        except FileNotFound:
+            self.db.update(mark_removed, doc, fs.id)
+            log.warning('%s is not in %r', doc['_id'], fs)
+
     def verify_by_downgraded(self, fs):
         """
         Verify all downgraded files in FileStore *fs*.
