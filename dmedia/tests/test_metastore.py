@@ -2762,7 +2762,7 @@ class TestMetaStore(CouchCase):
 
         # Test when file doc isn't in dmedia-1
         with self.assertRaises(microfiber.NotFound) as cm:
-            ms.remove(fs, ch.id)
+            ms.verify(fs, ch.id)
 
         # Test when file and doc are present
         self.assertEqual(fs.import_file(open(file.name, 'rb')), ch)
