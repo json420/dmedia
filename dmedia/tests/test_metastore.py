@@ -1519,11 +1519,21 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.doc_and_id(doc), (doc, _id))
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.doc_and_id(_id)
+        with self.assertRaises(TypeError) as cm:
+            ms.doc_and_id([_id])
+        self.assertEqual(str(cm.exception),
+            'obj must be a doc or _id (a dict or str)'
+        )
 
         # Doc does exist:
         db.save(doc)
         self.assertEqual(ms.doc_and_id(doc), (doc, _id))
         self.assertEqual(ms.doc_and_id(_id), (doc, _id))
+        with self.assertRaises(TypeError) as cm:
+            ms.doc_and_id([_id])
+        self.assertEqual(str(cm.exception),
+            'obj must be a doc or _id (a dict or str)'
+        )
 
     def test_content_hash(self):
         db = util.get_db(self.env, True)
@@ -1536,6 +1546,11 @@ class TestMetaStore(CouchCase):
             ms.content_hash(doc)
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.content_hash(_id)
+        with self.assertRaises(TypeError) as cm:
+            ms.content_hash([_id])
+        self.assertEqual(str(cm.exception),
+            'obj must be a doc or _id (a dict or str)'
+        )
 
         # doc exists
         fs = TempFileStore()
@@ -1551,6 +1566,11 @@ class TestMetaStore(CouchCase):
         self.assertIsInstance(ch, filestore.ContentHash)
         self.assertEqual(ch,
             filestore.ContentHash(doc['_id'], doc['bytes'], leaf_hashes)
+        )
+        with self.assertRaises(TypeError) as cm:
+            ms.content_hash([_id])
+        self.assertEqual(str(cm.exception),
+            'obj must be a doc or _id (a dict or str)'
         )
 
     def test_get_machine(self):
