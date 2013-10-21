@@ -1631,6 +1631,64 @@ class TestMetaStore(CouchCase):
         db.save(machine)
         self.assertEqual(ms.get_local_peers(), peers)
 
+    def test_iter_stores(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        store_ids = sorted(random_id() for i in range(6))
+
+        # Test when empty:
+        self.assertEqual(list(ms.iter_stores()), [])
+
+        # Test with one file, 3 stores:
+        doc1 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[0]: {},
+                store_ids[1]: {},
+                store_ids[2]: {},
+            },
+        }
+        db.save(doc1)
+        self.assertEqual(list(ms.iter_stores()),
+            [store_ids[0], store_ids[1], store_ids[2]]
+        )
+
+        # Add 3 more docs, 3 more stores:
+        doc2 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[3]: {},
+                store_ids[0]: {},
+                store_ids[1]: {},
+            },
+        }
+        doc3 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[4]: {},
+                store_ids[0]: {},
+            },
+        }
+        doc4 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[5]: {},
+            },
+        }
+        db.save_many([doc2, doc3, doc4])
+        self.assertEqual(list(ms.iter_stores()), store_ids)
+
+        # Make sure doc['type'] is checked:
+        del doc1['type']
+        db.save(doc1)
+        self.assertEqual(list(ms.iter_stores()),
+            [store_ids[0], store_ids[1], store_ids[3], store_ids[4], store_ids[5]]
+        )
+
     def test_schema_check(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
