@@ -1509,6 +1509,22 @@ class TestMetaStore(CouchCase):
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
         self.assertIs(ms.machine_id, self.env['machine_id'])
 
+    def test_doc_and_id(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        _id = random_id()
+        doc = {'_id': _id}
+
+        # Doc doesn't exist:
+        self.assertEqual(ms.doc_and_id(doc), (doc, _id))
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.doc_and_id(_id)
+
+        # Doc does exist:
+        db.save(doc)
+        self.assertEqual(ms.doc_and_id(doc), (doc, _id))
+        self.assertEqual(ms.doc_and_id(_id), (doc, _id))
+
     def test_get_machine(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
