@@ -344,18 +344,6 @@ class MetaStore:
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
-    def get_local_dmedia(self):
-        """
-        Return the /dmedia-0/_local/dmedia doc.
-
-        To make unit testing easier, it returns ``{}`` when the doc doesn't
-        exist.
-        """
-        try:
-            return self.db.get('_local/dmedia')
-        except NotFound:
-            return {}
-
     def get_machine(self):
         try:
             return self.db.get(self.machine_id)

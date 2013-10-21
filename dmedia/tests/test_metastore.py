@@ -1509,21 +1509,6 @@ class TestMetaStore(CouchCase):
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
         self.assertIs(ms.machine_id, self.env['machine_id'])
 
-    def test_get_local_dmedia(self):
-        db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
-        local_id = '_local/dmedia'
-
-        # _local/dmedia NotFound:
-        self.assertEqual(ms.get_local_dmedia(), {})
-        with self.assertRaises(microfiber.NotFound) as cm:
-            db.get(local_id)
-
-        # _local/dmedia exists:
-        doc = {'_id': local_id, 'marker': random_id()}
-        db.save(doc)
-        self.assertEqual(ms.get_local_dmedia(), doc)
-
     def test_get_machine(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
