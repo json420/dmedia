@@ -322,8 +322,12 @@ class BufferedSave:
 
 
 class MetaStore:
-    def __init__(self, db):
+    def __init__(self, db, log_db=None):
         self.db = db
+        if log_db is None:
+            log_db = db.database('log-1')
+        self.log_db = log_db
+        self.machine_id = db.env.get('machine_id')
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
@@ -340,24 +344,9 @@ class MetaStore:
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
-    def get_local_dmedia(self):
-        """
-        Return the /dmedia-0/_local/dmedia doc.
-
-        To make unit testing easier, it returns ``{}`` when the doc doesn't
-        exist.
-        """
-        try:
-            return self.db.get('_local/dmedia')
-        except NotFound:
-            return {}
-
     def get_machine(self):
-        machine_id = self.get_local_dmedia().get('machine_id')
-        if machine_id is None:
-            return {}
         try:
-            return self.db.get(machine_id)
+            return self.db.get(self.machine_id)
         except NotFound:
             return {}
 

@@ -31,7 +31,7 @@ import io
 from random import SystemRandom
 from copy import deepcopy
 
-from filestore import DIGEST_BYTES
+import filestore
 from filestore.misc import TempFileStore
 from dbase32 import random_id
 import microfiber
@@ -39,6 +39,7 @@ from microfiber import dumps, Conflict
 
 from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
+from dmedia.local import LocalStores
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored, get_mtime
 from dmedia.constants import TYPE_ERROR
@@ -1315,7 +1316,7 @@ class TestFunctions(TestCase):
         fs = TempFileStore()
 
         def create():
-            _id = random_id(DIGEST_BYTES)
+            _id = random_file_id()
             data = b'N' * random.randint(1, 1776)
             open(fs.path(_id), 'wb').write(data)
             st = fs.stat(_id)
@@ -1496,46 +1497,128 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
         self.assertIs(ms.db, db)
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
+        self.assertIsInstance(ms.log_db, microfiber.Database)
+        self.assertEqual(ms.log_db.name, 'log-1')
+        self.assertIs(ms.log_db.ctx, ms.db.ctx)
+        self.assertIs(ms.machine_id, self.env['machine_id'])
 
-    def test_get_local_dmedia(self):
+        log_db = db.database('log-1')
+        ms = metastore.MetaStore(db, log_db=log_db)
+        self.assertIs(ms.db, db)
+        self.assertIs(ms.log_db, log_db)
+        self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
+        self.assertIs(ms.machine_id, self.env['machine_id'])
+
+    def test_doc_and_id(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        local_id = '_local/dmedia'
+        _id = random_id()
+        doc = {'_id': _id}
 
-        # _local/dmedia NotFound:
-        self.assertEqual(ms.get_local_dmedia(), {})
+        # Doc doesn't exist:
+        self.assertEqual(ms.doc_and_id(doc), (doc, _id))
         with self.assertRaises(microfiber.NotFound) as cm:
-            db.get(local_id)
+            ms.doc_and_id(_id)
 
-        # _local/dmedia exists:
-        doc = {'_id': local_id, 'marker': random_id()}
+        # Doc does exist:
         db.save(doc)
-        self.assertEqual(ms.get_local_dmedia(), doc)
+        self.assertEqual(ms.doc_and_id(doc), (doc, _id))
+        self.assertEqual(ms.doc_and_id(_id), (doc, _id))
+
+    def test_content_hash(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # doc doesn't exist
+        _id = random_file_id()
+        doc = {'_id': _id}
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.content_hash(doc)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.content_hash(_id)
+
+        # doc exists
+        fs = TempFileStore()
+        doc = create_random_file(fs, db)
+        att = db.get_att(doc['_id'], 'leaf_hashes')
+        leaf_hashes = tuple(filestore.iter_leaf_hashes(att.data))
+        ch = ms.content_hash(doc)
+        self.assertIsInstance(ch, filestore.ContentHash)
+        self.assertEqual(ch,
+            filestore.ContentHash(doc['_id'], doc['bytes'], leaf_hashes)
+        )
+        ch = ms.content_hash(doc['_id'])
+        self.assertIsInstance(ch, filestore.ContentHash)
+        self.assertEqual(ch,
+            filestore.ContentHash(doc['_id'], doc['bytes'], leaf_hashes)
+        )
+
+    def test_get_machine(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # Machine doc is missing:
+        self.assertEqual(ms.get_machine(), {})
+
+        # Machine doc exists:
+        machine = {'_id': self.env['machine_id']}
+        db.save(machine)
+        self.assertEqual(ms.get_machine(), machine)
+
+        # Machine doc is updated:
+        machine['type'] = 'dmedia/machine'
+        db.save(machine)
+        self.assertEqual(ms.get_machine(), machine)
+
+    def test_get_local_stores(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # machine doc is missing:
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertEqual(ls.local_stores(), {})
+
+        # machine doc exists, but is missing 'stores':
+        machine = {'_id': self.env['machine_id']}
+        db.save(machine)
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertEqual(ls.local_stores(), {})
+
+        # machine has 'stores':
+        fs1 = TempFileStore()
+        stores1 = {
+            fs1.id: {'parentdir': fs1.parentdir, 'copies': fs1.copies},
+        }
+        machine['stores'] = stores1
+        db.save(machine)
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertEqual(ls.local_stores(), stores1)
+
+        # machine['stores'] has changed
+        fs2 = TempFileStore()
+        stores2 = {
+            fs1.id: {'parentdir': fs1.parentdir, 'copies': fs1.copies},
+            fs2.id: {'parentdir': fs2.parentdir, 'copies': fs2.copies},
+        }
+        machine['stores'] = stores2
+        db.save(machine)
+        ls = ms.get_local_stores()
+        self.assertIsInstance(ls, LocalStores)
+        self.assertNotEqual(ls.local_stores(), stores1)
+        self.assertEqual(ls.local_stores(), stores2)
 
     def test_get_local_peers(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-        local_id = '_local/dmedia'
-        machine_id = random_id()
 
-        # _local/dmedia NotFound:
-        self.assertEqual(ms.get_local_peers(), {})
-        self.assertEqual(ms._peers, {})
-        with self.assertRaises(microfiber.NotFound) as cm:
-            db.get(local_id)
-
-        # _local/dmedia exists, but is missing 'machine_id':
-        local = {'_id': local_id}
-        db.save(local)
+        # machine doc is missing:
         self.assertEqual(ms.get_local_peers(), {})
 
-        # _local/dmedia has 'machine_id', but machine doc is missing:
-        local['machine_id'] = machine_id
-        db.save(local)
-        self.assertEqual(ms.get_local_peers(), {})
-
-        # machine exists, but is missing 'peers':
-        machine = {'_id': machine_id}
+        # machine doc exists, but is missing 'peers':
+        machine = {'_id': self.env['machine_id']}
         db.save(machine)
         self.assertEqual(ms.get_local_peers(), {})
 
@@ -1547,6 +1630,64 @@ class TestMetaStore(CouchCase):
         machine['peers'] = peers
         db.save(machine)
         self.assertEqual(ms.get_local_peers(), peers)
+
+    def test_iter_stores(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        store_ids = sorted(random_id() for i in range(6))
+
+        # Test when empty:
+        self.assertEqual(list(ms.iter_stores()), [])
+
+        # Test with one file, 3 stores:
+        doc1 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[0]: {},
+                store_ids[1]: {},
+                store_ids[2]: {},
+            },
+        }
+        db.save(doc1)
+        self.assertEqual(list(ms.iter_stores()),
+            [store_ids[0], store_ids[1], store_ids[2]]
+        )
+
+        # Add 3 more docs, 3 more stores:
+        doc2 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[3]: {},
+                store_ids[0]: {},
+                store_ids[1]: {},
+            },
+        }
+        doc3 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[4]: {},
+                store_ids[0]: {},
+            },
+        }
+        doc4 = {
+            '_id': random_file_id(),
+            'type': 'dmedia/file',
+            'stored': {
+                store_ids[5]: {},
+            },
+        }
+        db.save_many([doc2, doc3, doc4])
+        self.assertEqual(list(ms.iter_stores()), store_ids)
+
+        # Make sure doc['type'] is checked:
+        del doc1['type']
+        db.save(doc1)
+        self.assertEqual(list(ms.iter_stores()),
+            [store_ids[0], store_ids[1], store_ids[3], store_ids[4], store_ids[5]]
+        )
 
     def test_schema_check(self):
         db = util.get_db(self.env, True)
