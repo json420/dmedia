@@ -757,12 +757,7 @@ class MetaStore:
         fs.remove(_id)
         return doc
 
-    def verify(self, fs, doc_or_id, return_fp=False):
-        (doc, _id) = self.doc_and_id(doc_or_id)
-        with VerifyContext(self.db, fs, doc):
-            return fs.verify(_id, return_fp)
-
-    def verify_new(self, fs, doc_or_id):
+    def verify(self, fs, doc_or_id):
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
             ch = fs.verify(_id)
