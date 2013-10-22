@@ -30,6 +30,7 @@ from os import path
 import io
 from random import SystemRandom
 from copy import deepcopy
+import shutil
 
 import filestore
 from filestore.misc import TempFileStore
@@ -2760,7 +2761,7 @@ class TestMetaStore(CouchCase):
         fs = TempFileStore()
         (file, ch) = tmp.random_file()
 
-        # Test when file doc isn't in dmedia-1
+        # Test when doc is missing:
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.verify(fs, ch.id)
 
@@ -2771,7 +2772,7 @@ class TestMetaStore(CouchCase):
         db.save(doc)
         self.assertEqual(ms.verify(fs, ch.id), ch)
         doc = db.get(ch.id)
-        self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertEqual(doc['_rev'][:2], '2-')
         schema.check_file(doc)
         verified = doc['stored'][fs.id]['verified']
         self.assertIsInstance(verified, int)
@@ -2785,6 +2786,51 @@ class TestMetaStore(CouchCase):
                 },
             }
         )
+
+        # Test when file is missing:
+        canonical = fs.path(ch.id)
+        os.remove(canonical)
+        self.assertIsNone(ms.verify(fs, ch.id))
+        doc = db.get(ch.id)
+        self.assertEqual(doc['_rev'][:2], '3-')
+        schema.check_file(doc)
+        self.assertEqual(doc['stored'], {})
+
+        # Test when file is in FileStore, but not in doc['stored']:
+        shutil.copyfile(file.name, canonical)
+        self.assertEqual(ms.verify(fs, ch.id), ch)
+        doc = db.get(ch.id)
+        self.assertEqual(doc['_rev'][:2], '4-')
+        schema.check_file(doc)
+        verified = doc['stored'][fs.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs, ch.id),
+                    'verified': verified,
+                },
+            }
+        )
+
+        # Test when file is corrupt:
+        fp = open(canonical, 'rb+')
+        fp.write(os.urandom(16))
+        fp.close()
+        start = time.time()
+        self.assertIsNone(ms.verify(fs, ch.id))
+        end = time.time()
+        doc = db.get(ch.id)
+        self.assertEqual(doc['_rev'][:2], '5-')
+        schema.check_file(doc)
+        self.assertEqual(doc['stored'], {})
+        self.assertEqual(set(doc['corrupt']), set([fs.id]))
+        self.assertEqual(set(doc['corrupt'][fs.id]), set(['time']))
+        timestamp = doc['corrupt'][fs.id]['time']
+        self.assertIsInstance(timestamp, float)
+        self.assertTrue(start <= timestamp <= end)
 
     def test_verify_by_downgraded(self):
         db = util.get_db(self.env, True)
