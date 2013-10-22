@@ -2831,6 +2831,8 @@ class TestMetaStore(CouchCase):
         timestamp = doc['corrupt'][fs.id]['time']
         self.assertIsInstance(timestamp, float)
         self.assertTrue(start <= timestamp <= end)
+        self.assertFalse(path.exists(canonical))
+        self.assertTrue(path.isfile(fs.corrupt_path(ch.id)))
 
     def test_verify_by_downgraded(self):
         db = util.get_db(self.env, True)
