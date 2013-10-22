@@ -730,10 +730,10 @@ def check_file(doc):
     if 'partial' in doc:
         for key in doc['partial']:
             _check(doc, ['partial', key], dict)
-            _check(doc, ['partial', store, 'time'], (int, float),
+            _check(doc, ['partial', key, 'time'], (int, float),
                 (_at_least, 0),
             )
-            _check(doc, ['partial', store, 'mtime'], (int, float),
+            _check(doc, ['partial', key, 'mtime'], (int, float),
                 (_at_least, 0),
             )
 
@@ -741,12 +741,12 @@ def check_file(doc):
     if 'corrupt' in doc:
         for key in doc['corrupt']:
             _check(doc, ['corrupt', key], dict)
-            _check(doc, ['corrupt', store, 'time'], (int, float),
+            _check(doc, ['corrupt', key, 'time'], (int, float),
                 (_at_least, 0),
             )
-            _check(doc, ['corrupt', store, 'mtime'], (int, float),
-                (_at_least, 0),
-            )
+            #_check(doc, ['corrupt', key, 'mtime'], (int, float),
+            #    (_at_least, 0),
+            #)
 
     # proxy_of
     if doc['origin'] == 'proxy':

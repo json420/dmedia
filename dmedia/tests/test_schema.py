@@ -457,6 +457,60 @@ class TestFunctions(TestCase):
             "doc['corrupt'] cannot be empty; got {}"
         )
 
+        # Bad corrupt[store_id] value:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: []}
+        with self.assertRaises(TypeError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'][{!r}]: need a {!r}; got a {!r}: []".format(
+                store_id, dict, list
+            )
+        )
+
+        # Missing corrupt[store_id]['time']:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: {}}
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'][{!r}]['time'] does not exist".format(store_id)
+        )
+
+        # Wrong corrupt[store_id]['time'] type:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: {'time': '124567890'}}
+        with self.assertRaises(TypeError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'][{!r}]['time']: need a {!r}; got a {!r}: {!r}".format(
+                store_id, (int, float), str, '124567890'
+            )
+        )
+
+        # Bad corrupt[store_id]['time'] value:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: {'time': -1}}
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'][{!r}]['time'] must be >= 0; got -1".format(store_id)
+        )
+
+        # Good corrupt[store_id]['time'] value:
+        store_id = random_id()
+        nice = deepcopy(good)
+        nice['corrupt'] = {store_id: {'time': time.time()}}
+        self.assertEqual(schema.check_file(nice), None)
+
         # "proxy_of"
         copy = deepcopy(good)
         copy['origin'] = 'proxy'
