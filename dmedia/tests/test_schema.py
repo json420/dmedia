@@ -322,6 +322,21 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['atime'] must be >= 0; got -1"
         )
+
+        # "proxy_of"
+        copy = deepcopy(good)
+        copy['origin'] = 'proxy'
+        bad_id = random_id()
+        copy['proxy_of'] = bad_id
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(copy)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['proxy_of']: intrinsic ID must be 48 characters, got 24: {!r}".format(bad_id)
+        )
+        good_id = random_id(DIGEST_BYTES)
+        copy['proxy_of'] = good_id
+        self.assertIsNone(schema.check_file(copy))
         
         #####################################################
         # Test all manner of things in doc['stored'].values()
@@ -433,19 +448,9 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['pinned'] must equal True; got False"
         )
-        
-        ##################################################
-        # Test doc['partial'], doc['corrupt'], doc['proxy_of']:
 
-        # Empty "partial"
-        bad = deepcopy(good)
-        bad['partial'] = {}
-        with self.assertRaises(ValueError) as cm:
-            schema.check_file(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['partial'] cannot be empty; got {}"
-        )
+        #####################################################
+        # Test all manner of things in doc['corrupt'].values()
 
         # Empty "corrupt"
         bad = deepcopy(good)
@@ -510,21 +515,6 @@ class TestFunctions(TestCase):
         nice = deepcopy(good)
         nice['corrupt'] = {store_id: {'time': time.time()}}
         self.assertEqual(schema.check_file(nice), None)
-
-        # "proxy_of"
-        copy = deepcopy(good)
-        copy['origin'] = 'proxy'
-        bad_id = random_id()
-        copy['proxy_of'] = bad_id
-        with self.assertRaises(ValueError) as cm:
-            schema.check_file(copy)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['proxy_of']: intrinsic ID must be 48 characters, got 24: {!r}".format(bad_id)
-        )
-        good_id = random_id(DIGEST_BYTES)
-        copy['proxy_of'] = good_id
-        self.assertIsNone(schema.check_file(copy))
 
     def test_file_optional(self):
 
