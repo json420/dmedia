@@ -924,7 +924,7 @@ class MetaStore:
         log.info('Finishing download of %s in %r', doc['_id'], fs)
         fs.move_to_canonical(tmp_fp, doc['_id'])
         new = create_stored(doc['_id'], fs)
-        return self.db.update(mark_downloaded, doc, fs.id, new)
+        return self.db.update(mark_added, doc, new)
 
     def verify_and_move(self, fs, tmp_fp, _id):
         doc = self.db.get(_id)
