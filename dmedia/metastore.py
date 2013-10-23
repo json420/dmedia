@@ -332,6 +332,18 @@ class MetaStore:
             #filesystem_uuid=fs.doc.get('filesystem_uuid'),
         )
 
+    def log_store_purge(self, timestamp, store_id, count):
+        return self.log(timestamp, 'dmedia/store/purge',
+            store_id=store_id,
+            count=count,
+        )
+
+    def log_store_downgrade(self, timestamp, store_id, count):
+        return self.log(timestamp, 'dmedia/store/downgrade',
+            store_id=store_id,
+            count=count,
+        )
+
     def doc_and_id(self, obj):
         if isinstance(obj, dict):
             return (obj, obj['_id'])

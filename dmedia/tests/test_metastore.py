@@ -1457,6 +1457,50 @@ class TestMetaStore(CouchCase):
             }
         )
 
+    def test_log_store_purge(self):
+        db = util.get_db(self.env, True)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
+        store_id = random_id()
+        timestamp = time.time()
+        doc = ms.log_store_purge(timestamp, store_id, 3469)
+        self.assertEqual(doc, log_db.get(doc['_id']))
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertEqual(doc,
+            {
+                '_id': doc['_id'],
+                '_rev': doc['_rev'],
+                'time': timestamp,
+                'type': 'dmedia/store/purge',
+                'machine_id': self.env['machine_id'],
+                'store_id': store_id,
+                'count': 3469,
+            }
+        )
+
+    def test_log_store_downgrade(self):
+        db = util.get_db(self.env, True)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
+        store_id = random_id()
+        timestamp = time.time()
+        doc = ms.log_store_downgrade(timestamp, store_id, 3469)
+        self.assertEqual(doc, log_db.get(doc['_id']))
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertEqual(doc,
+            {
+                '_id': doc['_id'],
+                '_rev': doc['_rev'],
+                'time': timestamp,
+                'type': 'dmedia/store/downgrade',
+                'machine_id': self.env['machine_id'],
+                'store_id': store_id,
+                'count': 3469,
+            }
+        )
+
     def test_doc_and_id(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
