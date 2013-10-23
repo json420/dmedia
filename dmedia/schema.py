@@ -726,25 +726,11 @@ def check_file(doc):
             (_equals, True)
         )
 
-    _check_if_exists(doc, ['partial'], dict, _nonempty)
-    if 'partial' in doc:
-        for key in doc['partial']:
-            _check(doc, ['partial', key], dict)
-            _check(doc, ['partial', store, 'time'], (int, float),
-                (_at_least, 0),
-            )
-            _check(doc, ['partial', store, 'mtime'], (int, float),
-                (_at_least, 0),
-            )
-
     _check_if_exists(doc, ['corrupt'], dict, _nonempty)
     if 'corrupt' in doc:
         for key in doc['corrupt']:
             _check(doc, ['corrupt', key], dict)
-            _check(doc, ['corrupt', store, 'time'], (int, float),
-                (_at_least, 0),
-            )
-            _check(doc, ['corrupt', store, 'mtime'], (int, float),
+            _check(doc, ['corrupt', key, 'time'], (int, float),
                 (_at_least, 0),
             )
 

@@ -322,6 +322,21 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['atime'] must be >= 0; got -1"
         )
+
+        # "proxy_of"
+        copy = deepcopy(good)
+        copy['origin'] = 'proxy'
+        bad_id = random_id()
+        copy['proxy_of'] = bad_id
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(copy)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['proxy_of']: intrinsic ID must be 48 characters, got 24: {!r}".format(bad_id)
+        )
+        good_id = random_id(DIGEST_BYTES)
+        copy['proxy_of'] = good_id
+        self.assertIsNone(schema.check_file(copy))
         
         #####################################################
         # Test all manner of things in doc['stored'].values()
@@ -433,19 +448,9 @@ class TestFunctions(TestCase):
             str(cm.exception),
             "doc['stored']['MYYG3YDSOQVSW3TEMVYG643F']['pinned'] must equal True; got False"
         )
-        
-        ##################################################
-        # Test doc['partial'], doc['corrupt'], doc['proxy_of']:
 
-        # Empty "partial"
-        bad = deepcopy(good)
-        bad['partial'] = {}
-        with self.assertRaises(ValueError) as cm:
-            schema.check_file(bad)
-        self.assertEqual(
-            str(cm.exception),
-            "doc['partial'] cannot be empty; got {}"
-        )
+        #####################################################
+        # Test all manner of things in doc['corrupt'].values()
 
         # Empty "corrupt"
         bad = deepcopy(good)
@@ -457,20 +462,59 @@ class TestFunctions(TestCase):
             "doc['corrupt'] cannot be empty; got {}"
         )
 
-        # "proxy_of"
-        copy = deepcopy(good)
-        copy['origin'] = 'proxy'
-        bad_id = random_id()
-        copy['proxy_of'] = bad_id
-        with self.assertRaises(ValueError) as cm:
-            schema.check_file(copy)
+        # Bad corrupt[store_id] value:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: []}
+        with self.assertRaises(TypeError) as cm:
+            schema.check_file(bad)
         self.assertEqual(
             str(cm.exception),
-            "doc['proxy_of']: intrinsic ID must be 48 characters, got 24: {!r}".format(bad_id)
+            "doc['corrupt'][{!r}]: need a {!r}; got a {!r}: []".format(
+                store_id, dict, list
+            )
         )
-        good_id = random_id(DIGEST_BYTES)
-        copy['proxy_of'] = good_id
-        self.assertIsNone(schema.check_file(copy))
+
+        # Missing corrupt[store_id]['time']:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: {}}
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'][{!r}]['time'] does not exist".format(store_id)
+        )
+
+        # Wrong corrupt[store_id]['time'] type:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: {'time': '124567890'}}
+        with self.assertRaises(TypeError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'][{!r}]['time']: need a {!r}; got a {!r}: {!r}".format(
+                store_id, (int, float), str, '124567890'
+            )
+        )
+
+        # Bad corrupt[store_id]['time'] value:
+        store_id = random_id()
+        bad = deepcopy(good)
+        bad['corrupt'] = {store_id: {'time': -1}}
+        with self.assertRaises(ValueError) as cm:
+            schema.check_file(bad)
+        self.assertEqual(
+            str(cm.exception),
+            "doc['corrupt'][{!r}]['time'] must be >= 0; got -1".format(store_id)
+        )
+
+        # Good corrupt[store_id]['time'] value:
+        store_id = random_id()
+        nice = deepcopy(good)
+        nice['corrupt'] = {store_id: {'time': time.time()}}
+        self.assertEqual(schema.check_file(nice), None)
 
     def test_file_optional(self):
 

@@ -66,6 +66,7 @@ import logging
 from http.client import ResponseNotReady
 from random import SystemRandom
 
+from dbase32 import log_id
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter, dumps
 
@@ -189,27 +190,6 @@ def mark_deleted(doc):
     doc['_deleted'] = True
 
 
-def mark_downloading(doc, timestamp, fs_id):
-    """
-    Add download in progress entry in doc['partial'].
-    """
-    partial = get_dict(doc, 'partial')
-    partial[fs_id] = {'time': timestamp}
-
-
-def mark_downloaded(doc, fs_id, new):
-    """
-    Update doc appropriately after a download completes.
-    """
-    assert fs_id in new
-    old = get_dict(doc, 'stored')
-    merge_stored(old, new)
-    partial = get_dict(doc, 'partial')
-    partial.pop(fs_id, None)
-    if not partial:
-        del doc['partial']
-
-
 def mark_removed(doc, *removed):
     stored = get_dict(doc, 'stored')
     for fs_id in removed:
@@ -331,6 +311,38 @@ class MetaStore:
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
+
+    def log(self, timestamp, _type, **kw):
+        doc = kw
+        doc.update({
+            '_id': log_id(timestamp),
+            'time': timestamp,
+            'type': _type,
+            'machine_id': self.machine_id, 
+        })
+        self.log_db.save(doc)
+        return doc
+
+    def log_file_corrupt(self, timestamp, fs, _id):
+        return self.log(timestamp, 'dmedia/file/corrupt',
+            file_id=_id,
+            store_id=fs.id,
+            #drive_model=fs.doc.get('drive_model'),
+            #drive_serial=fs.doc.get('drive_serial'),
+            #filesystem_uuid=fs.doc.get('filesystem_uuid'),
+        )
+
+    def log_store_purge(self, timestamp, store_id, count):
+        return self.log(timestamp, 'dmedia/store/purge',
+            store_id=store_id,
+            count=count,
+        )
+
+    def log_store_downgrade(self, timestamp, store_id, count):
+        return self.log(timestamp, 'dmedia/store/downgrade',
+            store_id=store_id,
+            count=count,
+        )
 
     def doc_and_id(self, obj):
         if isinstance(obj, dict):
@@ -540,7 +552,9 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict downgrading %s', store_id)
                 count -= len(e.conflicts)
-        t.log('downgrade %d copies in %s', count, store_id)
+        if count > 0:
+            t.log('downgrade %d copies in %s', count, store_id)
+            self.log_store_downgrade(time.time(), store_id, count)
         return count
 
     def downgrade_all(self):
@@ -583,7 +597,9 @@ class MetaStore:
             self.db.update(mark_deleted, doc)
         except NotFound:
             pass
-        t.log('purge %d copies from %s', count, store_id)
+        if count > 0:
+            t.log('purge %d copies in %s', count, store_id)
+            self.log_store_purge(time.time(), store_id, count)
         return count
 
     def purge_all(self):
@@ -593,47 +609,11 @@ class MetaStore:
         Note: this is only really useful for testing.
         """
         t = TimeDelta()
-
-        # Delete all dmedia/store docs:
-        kw = {
-            'key': 'dmedia/store',
-            'include_docs': True,
-            'limit': 50,
-        }
-        while True:
-            rows = self.db.view('doc', 'type', **kw)['rows']
-            if not rows:
-                break
-            docs = [r['doc'] for r in rows]
-            for doc in docs:
-                doc['_deleted'] = True
-            try:
-                self.db.save_many(docs)
-            except BulkConflict:
-                log.exception('MetaStore.purge_all():')
-
-        # Clear doc['stored'] for all dmedia/file docs:
-        kw = {
-            'key': 'dmedia/file',
-            'include_docs': True,
-            'limit': 50,
-            'skip': 0,
-        }
-        while True:
-            rows = self.db.view('doc', 'type', **kw)['rows']
-            if not rows:
-                break
-            kw['skip'] += len(rows)
-            docs = [r['doc'] for r in rows]
-            for doc in docs:
-                doc['stored'] = {}    
-            try:
-                self.db.save_many(docs)
-            except BulkConflict:
-                log.exception('MetaStore.purge_all():')
-        count = kw['skip']
-
-        t.log('fully purge %d files', count)
+        count = 0
+        stores = tuple(self.iter_stores())
+        for store_id in stores:
+            count += self.purge_store(store_id)
+        t.log('purge %d total copies in %d stores', count, len(stores))
         return count
 
     def scan(self, fs):
@@ -750,17 +730,52 @@ class MetaStore:
         t.log('relink %d files in %r', count, fs)
         return count
 
-    def remove(self, fs, _id):
-        doc = self.db.get(_id)
-        mark_removed(doc, fs.id)
-        self.db.save(doc)
+    def remove(self, fs, doc_or_id):
+        """
+        Remove a file from `FileStore` *fs*.
+        """
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        doc = self.db.update(mark_removed, doc, fs.id)
         fs.remove(_id)
         return doc
 
-    def verify(self, fs, doc_or_id, return_fp=False):
+    def copy(self, fs, doc_or_id, *dst_fs):
+        """
+        Copy a file from `FileStore` *fs* to one or more *dst_fs*.
+        """
         (doc, _id) = self.doc_and_id(doc_or_id)
-        with VerifyContext(self.db, fs, doc):
-            return fs.verify(_id, return_fp)
+        try:
+            fs.copy(_id, *dst_fs)
+            log.info('Copied %s from %r to %r', _id, fs, list(dst_fs))
+            new = create_stored(_id, fs, *dst_fs)
+            return self.db.update(mark_copied, doc, time.time(), fs.id, new)
+        except FileNotFound:
+            log.warning('%s is not in %r', _id, fs)
+            return self.db.update(mark_removed, doc, fs.id)
+        except CorruptFile:
+            log.error('%s is corrupt in %r', _id, fs)
+            timestamp = time.time()
+            self.log_file_corrupt(timestamp, fs, _id)
+            return self.db.update(mark_corrupt, doc, timestamp, fs.id)
+
+    def verify(self, fs, doc_or_id):
+        """
+        Verify a file in `FileStore` *fs*.
+        """
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        try:
+            fs.verify(_id)
+            log.info('Verified %s in %r', _id, fs)
+            value = create_stored_value(_id, fs, time.time())
+            return self.db.update(mark_verified, doc, fs.id, value)
+        except FileNotFound:
+            log.warning('%s is not in %r', _id, fs)
+            return self.db.update(mark_removed, doc, fs.id)
+        except CorruptFile:
+            log.error('%s is corrupt in %r', _id, fs)
+            timestamp = time.time()
+            self.log_file_corrupt(timestamp, fs, _id)
+            return self.db.update(mark_corrupt, doc, timestamp, fs.id)
 
     def verify_by_downgraded(self, fs):
         """
@@ -872,56 +887,11 @@ class MetaStore:
             doc['content_md5'] = b64
             return b64
 
-    def allocate_partial(self, fs, _id):
-        doc = self.db.get(_id)
-        (content_type, leaf_hashes) = self.db.get_att(_id, 'leaf_hashes')
-        ch = check_root_hash(_id, doc['bytes'], leaf_hashes)
-        tmp_fp = fs.allocate_partial(ch.file_size, ch.id)
-        partial = get_dict(doc, 'partial')
-        partial[fs.id] = {'mtime': os.fstat(tmp_fp.fileno()).st_mtime}
-        self.db.save(doc)
-        return tmp_fp
-
-    def start_download(self, fs, doc):
-        tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
-        self.db.update(mark_downloading, doc, time.time(), fs.id)
-        return tmp_fp
-
     def finish_download(self, fs, doc, tmp_fp):
         log.info('Finishing download of %s in %r', doc['_id'], fs)
         fs.move_to_canonical(tmp_fp, doc['_id'])
         new = create_stored(doc['_id'], fs)
-        return self.db.update(mark_downloaded, doc, fs.id, new)
-
-    def verify_and_move(self, fs, tmp_fp, _id):
-        doc = self.db.get(_id)
-        ch = fs.verify_and_move(tmp_fp, _id)
-        partial = get_dict(doc, 'partial')
-        try:
-            del partial[fs.id]
-        except KeyError:
-            pass
-        if not partial:
-            del doc['partial']
-        new = create_stored(_id, fs)
-        mark_added(doc, new)
-        self.db.save(doc)
-        return ch
-
-    def copy(self, src, doc_or_id, *dst):
-        (doc, _id) = self.doc_and_id(doc_or_id)
-        try:
-            ch = src.copy(_id, *dst)
-            log.info('Copied %s from %r to %r', _id, src, list(dst))
-            new = create_stored(_id, src, *dst)
-            self.db.update(mark_copied, doc, time.time(), src.id, new)
-        except FileNotFound:
-            log.warning('%s is not in %r', _id, src)
-            self.db.update(mark_removed, doc, src.id)
-        except CorruptFile:
-            log.error('%s is corrupt in %r', _id, src)
-            self.db.update(mark_corrupt, doc, time.time(), src.id)
-        return doc
+        return self.db.update(mark_added, doc, new)
 
     def iter_fragile(self, monitor=False):
         """
