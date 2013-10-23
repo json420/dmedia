@@ -3317,6 +3317,171 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.content_md5(fs, _id, force=True), content_md5)
         self.assertTrue(db.get(_id)['_rev'].startswith('3-'))
 
+    def test_finish_download(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        store_id1 = random_id()
+        store_id2 = random_id()
+        fs = TempFileStore()
+        _id = random_file_id()
+        size = 1776
+        data = os.urandom(size)
+        doc = {
+            '_id': _id,
+            'stored': {
+                store_id1: {
+                    'copies': 1,
+                    'mtime': 123,
+                    'verified': 456,
+                },
+                store_id2: {
+                    'copies': 0,
+                    'mtime': 789,
+                },
+            },
+        }
+        db.save(doc)
+
+        # No conflict, fs.id not already in stored:
+        tmp_fp = fs.allocate_partial(size, _id)
+        tmp_fp.write(data)
+        new = ms.finish_download(fs, doc, tmp_fp)
+        self.assertTrue(tmp_fp.closed)
+        self.assertFalse(path.exists(tmp_fp.name))
+        self.assertEqual(fs.open(_id).read(), data)
+        self.assertIs(new, doc)
+        self.assertEqual(new['_rev'][:2], '2-')
+        self.assertEqual(new, {
+            '_id': _id,
+            '_rev': new['_rev'],
+            'stored': {
+                store_id1: {
+                    'copies': 1,
+                    'mtime': 123,
+                    'verified': 456,
+                },
+                store_id2: {
+                    'copies': 0,
+                    'mtime': 789,
+                },
+                fs.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs, _id),
+                },
+            },
+        })
+
+        # No conflict, fs.id is in stored:
+        fs.remove(_id)
+        doc['stored'][fs.id] = {
+            'copies': 2,
+            'mtime': 1234567890,
+            'verified': 1234567891,
+            'pinned': True,
+        }
+        db.save(doc)
+        tmp_fp = fs.allocate_partial(size, _id)
+        tmp_fp.write(data)
+        new = ms.finish_download(fs, doc, tmp_fp)
+        self.assertTrue(tmp_fp.closed)
+        self.assertFalse(path.exists(tmp_fp.name))
+        self.assertEqual(fs.open(_id).read(), data)
+        self.assertIs(new, doc)
+        self.assertEqual(new['_rev'][:2], '4-')
+        self.assertEqual(new, {
+            '_id': _id,
+            '_rev': new['_rev'],
+            'stored': {
+                store_id1: {
+                    'copies': 1,
+                    'mtime': 123,
+                    'verified': 456,
+                },
+                store_id2: {
+                    'copies': 0,
+                    'mtime': 789,
+                },
+                fs.id: {
+                    'copies': fs.copies,
+                    'mtime': get_mtime(fs, _id),
+                    'pinned': True,
+                },
+            },
+        })
+
+        # Conflict, fs.id not already in stored:
+        fs.remove(_id)
+        del doc['stored'][fs.id]
+        db.post(doc)
+        self.assertEqual(doc['_rev'][:2], '4-')
+        tmp_fp = fs.allocate_partial(size, _id)
+        tmp_fp.write(data)
+        new = ms.finish_download(fs, doc, tmp_fp)
+        self.assertTrue(tmp_fp.closed)
+        self.assertFalse(path.exists(tmp_fp.name))
+        self.assertEqual(fs.open(_id).read(), data)
+        self.assertIsNot(new, doc)
+        self.assertEqual(new['_rev'][:2], '6-')
+        self.assertEqual(new, {
+            '_id': _id,
+            '_rev': new['_rev'],
+            'stored': {
+                store_id1: {
+                    'copies': 1,
+                    'mtime': 123,
+                    'verified': 456,
+                },
+                store_id2: {
+                    'copies': 0,
+                    'mtime': 789,
+                },
+                fs.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs, _id),
+                },
+            },
+        })
+
+        # Conflict, fs.id is in stored:
+        doc = new
+        fs.remove(_id)
+        doc['stored'][fs.id] = {
+            'copies': 2,
+            'mtime': 1234567890,
+            'verified': 1234567891,
+            'pinned': True,
+        }
+        db.post(doc)
+        self.assertEqual(doc['_rev'][:2], '6-')
+        tmp_fp = fs.allocate_partial(size, _id)
+        tmp_fp.write(data)
+        new = ms.finish_download(fs, doc, tmp_fp)
+        self.assertTrue(tmp_fp.closed)
+        self.assertFalse(path.exists(tmp_fp.name))
+        self.assertEqual(fs.open(_id).read(), data)
+        self.assertIsNot(new, doc)
+        self.assertEqual(new['_rev'][:2], '8-')
+        self.assertEqual(new, {
+            '_id': _id,
+            '_rev': new['_rev'],
+            'stored': {
+                store_id1: {
+                    'copies': 1,
+                    'mtime': 123,
+                    'verified': 456,
+                },
+                store_id2: {
+                    'copies': 0,
+                    'mtime': 789,
+                },
+                fs.id: {
+                    'copies': fs.copies,
+                    'mtime': get_mtime(fs, _id),
+                    'pinned': True,
+                },
+            },
+        })
+
     def test_iter_fragile(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
