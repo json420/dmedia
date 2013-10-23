@@ -2875,6 +2875,141 @@ class TestMetaStore(CouchCase):
                 },   
             }
         )
+ 
+    def test_copy(self):
+        db = util.get_db(self.env, True)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
+        fs1 = TempFileStore()
+        fs2 = TempFileStore()
+        fs3 = TempFileStore()
+
+        # doc does not exist:
+        _id = random_file_id()
+        with self.assertRaises(microfiber.NotFound) as cm:
+            ms.copy(fs1, _id, fs2)
+
+        # File does not exist
+        doc = {
+            '_id': _id,
+            'stored': {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': int(time.time()),
+                },
+            }
+        }
+        db.save(doc)
+        ret = ms.copy(fs1, _id, fs2, fs3)
+        self.assertEqual(ret, db.get(_id))
+        self.assertEqual(ret,
+            {
+                '_id': _id,
+                '_rev': ret['_rev'],
+                'stored': {},
+            }
+        )
+
+        # File is corrupt
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        filename = fs1.path(_id)
+        os.chmod(filename, 0o600)
+        open(filename, 'ab').write(os.urandom(16))
+        os.chmod(filename, 0o444)
+        ret = ms.copy(fs1, _id, fs2, fs3)
+        timestamp = ret['corrupt'][fs1.id]['time']
+        self.assertEqual(ret, db.get(_id))
+        self.assertEqual(ret,
+            {
+                '_id': _id,
+                '_rev': ret['_rev'],
+                '_attachments': ret['_attachments'],
+                'time': doc['time'],
+                'atime': doc['atime'],
+                'type': 'dmedia/file',
+                'bytes': doc['bytes'],
+                'origin': 'user',
+                'stored': {},
+                'corrupt': {
+                    fs1.id: {'time': timestamp}
+                }
+            }
+        )
+
+        # Now check log doc:
+        rows = log_db.get('_all_docs')['rows']
+        self.assertEqual(len(rows), 1)
+        log = log_db.get(rows[0]['id'])
+        self.assertTrue(isdb32(log['_id']))
+        self.assertEqual(len(log['_id']), 24)
+        self.assertEqual(log['_rev'][:2], '1-')
+        self.assertEqual(log,
+            {
+                '_id': log['_id'],
+                '_rev': log['_rev'],
+                'time': timestamp,
+                'type': 'dmedia/file/corrupt',
+                'machine_id': self.env['machine_id'],
+                'file_id': _id,
+                'store_id': fs1.id,
+                
+            }
+        )
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        ms.copy(fs1, _id, fs2)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        verified = doc['stored'][fs1.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs1, _id),
+                    'verified': verified,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs2, _id),
+                }, 
+            }
+        )
+        fs1.verify(_id)
+        fs2.verify(_id)
+
+        doc = create_random_file(fs1, db)
+        _id = doc['_id']
+        ms.copy(fs1, _id, fs2, fs3)
+        doc = db.get(_id)
+        self.assertTrue(doc['_rev'].startswith('2-'))
+        verified = doc['stored'][fs1.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertLessEqual(verified, int(time.time()))
+        self.assertEqual(doc['stored'],
+            {
+                fs1.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs1, _id),
+                    'verified': verified,
+                },
+                fs2.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs2, _id),
+                },
+                fs3.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs3, _id),
+                },
+            }
+        )
+        fs1.verify(_id)
+        fs2.verify(_id)
+        fs3.verify(_id)
 
     def test_verify(self):
         db = util.get_db(self.env, True)
@@ -3430,141 +3565,6 @@ class TestMetaStore(CouchCase):
             }   
         )
         self.assertNotIn('partial', doc)
-
-    def test_copy(self):
-        db = util.get_db(self.env, True)
-        log_db = db.database('log-1')
-        self.assertTrue(log_db.ensure())
-        ms = metastore.MetaStore(db, log_db)
-        fs1 = TempFileStore()
-        fs2 = TempFileStore()
-        fs3 = TempFileStore()
-
-        # doc does not exist:
-        _id = random_file_id()
-        with self.assertRaises(microfiber.NotFound) as cm:
-            ms.copy(fs1, _id, fs2)
-
-        # File does not exist
-        doc = {
-            '_id': _id,
-            'stored': {
-                fs1.id: {
-                    'copies': 1,
-                    'mtime': int(time.time()),
-                },
-            }
-        }
-        db.save(doc)
-        ret = ms.copy(fs1, _id, fs2, fs3)
-        self.assertEqual(ret, db.get(_id))
-        self.assertEqual(ret,
-            {
-                '_id': _id,
-                '_rev': ret['_rev'],
-                'stored': {},
-            }
-        )
-
-        # File is corrupt
-        doc = create_random_file(fs1, db)
-        _id = doc['_id']
-        filename = fs1.path(_id)
-        os.chmod(filename, 0o600)
-        open(filename, 'ab').write(os.urandom(16))
-        os.chmod(filename, 0o444)
-        ret = ms.copy(fs1, _id, fs2, fs3)
-        timestamp = ret['corrupt'][fs1.id]['time']
-        self.assertEqual(ret, db.get(_id))
-        self.assertEqual(ret,
-            {
-                '_id': _id,
-                '_rev': ret['_rev'],
-                '_attachments': ret['_attachments'],
-                'time': doc['time'],
-                'atime': doc['atime'],
-                'type': 'dmedia/file',
-                'bytes': doc['bytes'],
-                'origin': 'user',
-                'stored': {},
-                'corrupt': {
-                    fs1.id: {'time': timestamp}
-                }
-            }
-        )
-
-        # Now check log doc:
-        rows = log_db.get('_all_docs')['rows']
-        self.assertEqual(len(rows), 1)
-        log = log_db.get(rows[0]['id'])
-        self.assertTrue(isdb32(log['_id']))
-        self.assertEqual(len(log['_id']), 24)
-        self.assertEqual(log['_rev'][:2], '1-')
-        self.assertEqual(log,
-            {
-                '_id': log['_id'],
-                '_rev': log['_rev'],
-                'time': timestamp,
-                'type': 'dmedia/file/corrupt',
-                'machine_id': self.env['machine_id'],
-                'file_id': _id,
-                'store_id': fs1.id,
-                
-            }
-        )
-
-        doc = create_random_file(fs1, db)
-        _id = doc['_id']
-        ms.copy(fs1, _id, fs2)
-        doc = db.get(_id)
-        self.assertTrue(doc['_rev'].startswith('2-'))
-        verified = doc['stored'][fs1.id]['verified']
-        self.assertIsInstance(verified, int)
-        self.assertLessEqual(verified, int(time.time()))
-        self.assertEqual(doc['stored'],
-            {
-                fs1.id: {
-                    'copies': 1,
-                    'mtime': get_mtime(fs1, _id),
-                    'verified': verified,
-                },
-                fs2.id: {
-                    'copies': 1,
-                    'mtime': get_mtime(fs2, _id),
-                }, 
-            }
-        )
-        fs1.verify(_id)
-        fs2.verify(_id)
-
-        doc = create_random_file(fs1, db)
-        _id = doc['_id']
-        ms.copy(fs1, _id, fs2, fs3)
-        doc = db.get(_id)
-        self.assertTrue(doc['_rev'].startswith('2-'))
-        verified = doc['stored'][fs1.id]['verified']
-        self.assertIsInstance(verified, int)
-        self.assertLessEqual(verified, int(time.time()))
-        self.assertEqual(doc['stored'],
-            {
-                fs1.id: {
-                    'copies': 1,
-                    'mtime': get_mtime(fs1, _id),
-                    'verified': verified,
-                },
-                fs2.id: {
-                    'copies': 1,
-                    'mtime': get_mtime(fs2, _id),
-                },
-                fs3.id: {
-                    'copies': 1,
-                    'mtime': get_mtime(fs3, _id),
-                },
-            }
-        )
-        fs1.verify(_id)
-        fs2.verify(_id)
-        fs3.verify(_id)
 
     def test_iter_fragile(self):
         db = util.get_db(self.env, True)

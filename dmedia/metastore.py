@@ -778,6 +778,22 @@ class MetaStore:
         fs.remove(_id)
         return doc
 
+    def copy(self, src, doc_or_id, *dst):
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        try:
+            ch = src.copy(_id, *dst)
+            log.info('Copied %s from %r to %r', _id, src, list(dst))
+            new = create_stored(_id, src, *dst)
+            return self.db.update(mark_copied, doc, time.time(), src.id, new)
+        except FileNotFound:
+            log.warning('%s is not in %r', _id, src)
+            return self.db.update(mark_removed, doc, src.id)
+        except CorruptFile:
+            log.error('%s is corrupt in %r', _id, src)
+            timestamp = time.time()
+            self.log_file_corrupt(timestamp, src, _id)
+            return self.db.update(mark_corrupt, doc, timestamp, src.id)
+
     def verify(self, fs, doc_or_id):
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
@@ -940,22 +956,6 @@ class MetaStore:
         mark_added(doc, new)
         self.db.save(doc)
         return ch
-
-    def copy(self, src, doc_or_id, *dst):
-        (doc, _id) = self.doc_and_id(doc_or_id)
-        try:
-            ch = src.copy(_id, *dst)
-            log.info('Copied %s from %r to %r', _id, src, list(dst))
-            new = create_stored(_id, src, *dst)
-            return self.db.update(mark_copied, doc, time.time(), src.id, new)
-        except FileNotFound:
-            log.warning('%s is not in %r', _id, src)
-            return self.db.update(mark_removed, doc, src.id)
-        except CorruptFile:
-            log.error('%s is corrupt in %r', _id, src)
-            timestamp = time.time()
-            self.log_file_corrupt(timestamp, src, _id)
-            return self.db.update(mark_corrupt, doc, timestamp, src.id)
 
     def iter_fragile(self, monitor=False):
         """
