@@ -771,10 +771,12 @@ class MetaStore:
         t.log('relink %d files in %r', count, fs)
         return count
 
-    def remove(self, fs, _id):
-        doc = self.db.get(_id)
-        mark_removed(doc, fs.id)
-        self.db.save(doc)
+    def remove(self, fs, doc_or_id):
+        """
+        Remove a file from `FileStore` *fs*.
+        """
+        (doc, _id) = self.doc_and_id(doc_or_id)
+        doc = self.db.update(mark_removed, doc, fs.id)
         fs.remove(_id)
         return doc
 
