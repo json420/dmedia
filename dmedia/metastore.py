@@ -778,21 +778,21 @@ class MetaStore:
         fs.remove(_id)
         return doc
 
-    def copy(self, src, doc_or_id, *dst):
+    def copy(self, fs, doc_or_id, *dst_fs):
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
-            src.copy(_id, *dst)
-            log.info('Copied %s from %r to %r', _id, src, list(dst))
-            new = create_stored(_id, src, *dst)
-            return self.db.update(mark_copied, doc, time.time(), src.id, new)
+            fs.copy(_id, *dst_fs)
+            log.info('Copied %s from %r to %r', _id, fs, list(dst_fs))
+            new = create_stored(_id, fs, *dst_fs)
+            return self.db.update(mark_copied, doc, time.time(), fs.id, new)
         except FileNotFound:
-            log.warning('%s is not in %r', _id, src)
-            return self.db.update(mark_removed, doc, src.id)
+            log.warning('%s is not in %r', _id, fs)
+            return self.db.update(mark_removed, doc, fs.id)
         except CorruptFile:
-            log.error('%s is corrupt in %r', _id, src)
+            log.error('%s is corrupt in %r', _id, fs)
             timestamp = time.time()
-            self.log_file_corrupt(timestamp, src, _id)
-            return self.db.update(mark_corrupt, doc, timestamp, src.id)
+            self.log_file_corrupt(timestamp, fs, _id)
+            return self.db.update(mark_corrupt, doc, timestamp, fs.id)
 
     def verify(self, fs, doc_or_id):
         (doc, _id) = self.doc_and_id(doc_or_id)
