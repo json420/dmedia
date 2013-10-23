@@ -584,6 +584,14 @@ class TestFunctions(TestCase):
             }
         )
 
+    def test_mark_deleted(self):
+        doc = {}
+        self.assertIsNone(metastore.mark_deleted(doc))
+        self.assertEqual(doc, {'_deleted': True})
+        doc = {'foo': 'bar', '_deleted': 'whatever'}
+        self.assertIsNone(metastore.mark_deleted(doc))
+        self.assertEqual(doc, {'foo': 'bar', '_deleted': True})
+
     def test_mark_removed(self):
         _id = random_file_id()
         fs1_id = random_id()
