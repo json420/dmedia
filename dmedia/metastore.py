@@ -190,19 +190,6 @@ def mark_deleted(doc):
     doc['_deleted'] = True
 
 
-def mark_downloaded(doc, fs_id, new):
-    """
-    Update doc appropriately after a download completes.
-    """
-    assert fs_id in new
-    old = get_dict(doc, 'stored')
-    merge_stored(old, new)
-    partial = get_dict(doc, 'partial')
-    partial.pop(fs_id, None)
-    if not partial:
-        del doc['partial']
-
-
 def mark_removed(doc, *removed):
     stored = get_dict(doc, 'stored')
     for fs_id in removed:
