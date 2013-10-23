@@ -34,7 +34,7 @@ import shutil
 
 import filestore
 from filestore.misc import TempFileStore
-from dbase32 import random_id
+from dbase32 import random_id, isdb32
 import microfiber
 from microfiber import dumps, Conflict
 
@@ -2854,7 +2854,9 @@ class TestMetaStore(CouchCase):
 
     def test_verify(self):
         db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
+        log_db = db.database('log-1')
+        log_db.ensure()
+        ms = metastore.MetaStore(db, log_db)
         tmp = TempDir()
         fs = TempFileStore()
         (file, ch) = tmp.random_file()
@@ -2914,6 +2916,7 @@ class TestMetaStore(CouchCase):
         )
 
         # Test when file is corrupt:
+        self.assertEqual(log_db.get('_all_docs')['rows'], [])
         fp = open(canonical, 'rb+')
         fp.write(os.urandom(16))
         fp.close()
@@ -2931,6 +2934,26 @@ class TestMetaStore(CouchCase):
         self.assertTrue(start <= timestamp <= end)
         self.assertFalse(path.exists(canonical))
         self.assertTrue(path.isfile(fs.corrupt_path(ch.id)))
+
+        # Now check log doc:
+        rows = log_db.get('_all_docs')['rows']
+        self.assertEqual(len(rows), 1)
+        log = log_db.get(rows[0]['id'])
+        self.assertTrue(isdb32(log['_id']))
+        self.assertEqual(len(log['_id']), 24)
+        self.assertEqual(log['_rev'][:2], '1-')
+        self.assertEqual(log,
+            {
+                '_id': log['_id'],
+                '_rev': log['_rev'],
+                'time': timestamp,
+                'type': 'dmedia/file/corrupt',
+                'machine_id': self.env['machine_id'],
+                'file_id': ch.id,
+                'store_id': fs.id,
+                
+            }
+        )
 
     def test_verify_by_downgraded(self):
         db = util.get_db(self.env, True)

@@ -344,6 +344,15 @@ class MetaStore:
         self.log_db.save(doc)
         return doc
 
+    def log_file_corrupt(self, timestamp, fs, _id):
+        return self.log(timestamp, 'dmedia/file/corrupt',
+            file_id=_id,
+            store_id=fs.id,
+            #drive_model=fs.doc.get('drive_model'),
+            #drive_serial=fs.doc.get('drive_serial'),
+            #filesystem_uuid=fs.doc.get('filesystem_uuid'),
+        )
+
     def doc_and_id(self, obj):
         if isinstance(obj, dict):
             return (obj, obj['_id'])
@@ -778,7 +787,9 @@ class MetaStore:
             log.info('Verified %s in %r', _id, fs)
             return ch
         except CorruptFile:
-            self.db.update(mark_corrupt, doc, time.time(), fs.id)
+            timestamp = time.time()
+            self.log_file_corrupt(timestamp, fs, _id)
+            self.db.update(mark_corrupt, doc, timestamp, fs.id)
             log.error('%s is corrupt in %r', _id, fs)
         except FileNotFound:
             self.db.update(mark_removed, doc, fs.id)
