@@ -3433,7 +3433,9 @@ class TestMetaStore(CouchCase):
 
     def test_copy(self):
         db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
         fs1 = TempFileStore()
         fs2 = TempFileStore()
         fs3 = TempFileStore()
@@ -3472,6 +3474,7 @@ class TestMetaStore(CouchCase):
         open(filename, 'ab').write(os.urandom(16))
         os.chmod(filename, 0o444)
         ret = ms.copy(fs1, _id, fs2, fs3)
+        timestamp = ret['corrupt'][fs1.id]['time']
         self.assertEqual(ret, db.get(_id))
         self.assertEqual(ret,
             {
@@ -3485,8 +3488,28 @@ class TestMetaStore(CouchCase):
                 'origin': 'user',
                 'stored': {},
                 'corrupt': {
-                    fs1.id: {'time': ret['corrupt'][fs1.id]['time']}
+                    fs1.id: {'time': timestamp}
                 }
+            }
+        )
+
+        # Now check log doc:
+        rows = log_db.get('_all_docs')['rows']
+        self.assertEqual(len(rows), 1)
+        log = log_db.get(rows[0]['id'])
+        self.assertTrue(isdb32(log['_id']))
+        self.assertEqual(len(log['_id']), 24)
+        self.assertEqual(log['_rev'][:2], '1-')
+        self.assertEqual(log,
+            {
+                '_id': log['_id'],
+                '_rev': log['_rev'],
+                'time': timestamp,
+                'type': 'dmedia/file/corrupt',
+                'machine_id': self.env['machine_id'],
+                'file_id': _id,
+                'store_id': fs1.id,
+                
             }
         )
 

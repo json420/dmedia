@@ -947,14 +947,15 @@ class MetaStore:
             ch = src.copy(_id, *dst)
             log.info('Copied %s from %r to %r', _id, src, list(dst))
             new = create_stored(_id, src, *dst)
-            self.db.update(mark_copied, doc, time.time(), src.id, new)
+            return self.db.update(mark_copied, doc, time.time(), src.id, new)
         except FileNotFound:
             log.warning('%s is not in %r', _id, src)
-            self.db.update(mark_removed, doc, src.id)
+            return self.db.update(mark_removed, doc, src.id)
         except CorruptFile:
             log.error('%s is corrupt in %r', _id, src)
-            self.db.update(mark_corrupt, doc, time.time(), src.id)
-        return doc
+            timestamp = time.time()
+            self.log_file_corrupt(timestamp, src, _id)
+            return self.db.update(mark_corrupt, doc, timestamp, src.id)
 
     def iter_fragile(self, monitor=False):
         """
