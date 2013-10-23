@@ -781,7 +781,7 @@ class MetaStore:
     def copy(self, src, doc_or_id, *dst):
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
-            ch = src.copy(_id, *dst)
+            src.copy(_id, *dst)
             log.info('Copied %s from %r to %r', _id, src, list(dst))
             new = create_stored(_id, src, *dst)
             return self.db.update(mark_copied, doc, time.time(), src.id, new)
@@ -797,19 +797,18 @@ class MetaStore:
     def verify(self, fs, doc_or_id):
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
-            ch = fs.verify(_id)
-            value = create_stored_value(_id, fs, time.time())
-            self.db.update(mark_verified, doc, fs.id, value)
+            fs.verify(_id)
             log.info('Verified %s in %r', _id, fs)
-            return ch
+            value = create_stored_value(_id, fs, time.time())
+            return self.db.update(mark_verified, doc, fs.id, value)
+        except FileNotFound:
+            log.warning('%s is not in %r', _id, fs)
+            return self.db.update(mark_removed, doc, fs.id)
         except CorruptFile:
+            log.error('%s is corrupt in %r', _id, fs)
             timestamp = time.time()
             self.log_file_corrupt(timestamp, fs, _id)
-            self.db.update(mark_corrupt, doc, timestamp, fs.id)
-            log.error('%s is corrupt in %r', _id, fs)
-        except FileNotFound:
-            self.db.update(mark_removed, doc, fs.id)
-            log.warning('%s is not in %r', doc['_id'], fs)
+            return self.db.update(mark_corrupt, doc, timestamp, fs.id)
 
     def verify_by_downgraded(self, fs):
         """

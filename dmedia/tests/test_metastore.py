@@ -3029,8 +3029,8 @@ class TestMetaStore(CouchCase):
         stored = create_stored(ch.id, fs)
         doc = schema.create_file(time.time(), ch, stored)
         db.save(doc)
-        self.assertEqual(ms.verify(fs, ch.id), ch)
-        doc = db.get(ch.id)
+        doc = ms.verify(fs, ch.id)
+        self.assertEqual(doc, db.get(ch.id))
         self.assertEqual(doc['_rev'][:2], '2-')
         schema.check_file(doc)
         verified = doc['stored'][fs.id]['verified']
@@ -3049,16 +3049,16 @@ class TestMetaStore(CouchCase):
         # Test when file is missing:
         canonical = fs.path(ch.id)
         os.remove(canonical)
-        self.assertIsNone(ms.verify(fs, ch.id))
-        doc = db.get(ch.id)
+        doc = ms.verify(fs, ch.id)
+        self.assertEqual(doc, db.get(ch.id))
         self.assertEqual(doc['_rev'][:2], '3-')
         schema.check_file(doc)
         self.assertEqual(doc['stored'], {})
 
         # Test when file is in FileStore, but not in doc['stored']:
         shutil.copyfile(file.name, canonical)
-        self.assertEqual(ms.verify(fs, ch.id), ch)
-        doc = db.get(ch.id)
+        doc = ms.verify(fs, ch.id)
+        self.assertEqual(doc, db.get(ch.id))
         self.assertEqual(doc['_rev'][:2], '4-')
         schema.check_file(doc)
         verified = doc['stored'][fs.id]['verified']
@@ -3080,9 +3080,9 @@ class TestMetaStore(CouchCase):
         fp.write(os.urandom(16))
         fp.close()
         start = time.time()
-        self.assertIsNone(ms.verify(fs, ch.id))
+        doc = ms.verify(fs, ch.id)
         end = time.time()
-        doc = db.get(ch.id)
+        self.assertEqual(doc, db.get(ch.id))
         self.assertEqual(doc['_rev'][:2], '5-')
         schema.check_file(doc)
         self.assertEqual(doc['stored'], {})
