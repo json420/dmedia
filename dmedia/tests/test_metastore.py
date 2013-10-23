@@ -1510,6 +1510,42 @@ class TestMetaStore(CouchCase):
         self.assertEqual(repr(ms), 'MetaStore({!r})'.format(db))
         self.assertIs(ms.machine_id, self.env['machine_id'])
 
+    def test_log(self):
+        db = util.get_db(self.env, True)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
+
+        ts = time.time()
+        doc = ms.log(ts, 'dmedia/test')
+        self.assertEqual(doc, log_db.get(doc['_id']))
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertEqual(doc,
+            {
+                '_id': doc['_id'],
+                '_rev': doc['_rev'],
+                'time': ts,
+                'type': 'dmedia/test',
+                'machine_id': self.env['machine_id'],
+            }
+        )
+
+        ts = time.time()
+        doc = ms.log(ts, 'dmedia/test2', foo='bar', stuff='junk')
+        self.assertEqual(doc, log_db.get(doc['_id']))
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertEqual(doc,
+            {
+                '_id': doc['_id'],
+                '_rev': doc['_rev'],
+                'time': ts,
+                'type': 'dmedia/test2',
+                'machine_id': self.env['machine_id'],
+                'foo': 'bar',
+                'stuff': 'junk',
+            }
+        )
+
     def test_doc_and_id(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)

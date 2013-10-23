@@ -66,6 +66,7 @@ import logging
 from http.client import ResponseNotReady
 from random import SystemRandom
 
+from dbase32 import log_id
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter, dumps
 
@@ -331,6 +332,17 @@ class MetaStore:
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.db)
+
+    def log(self, timestamp, _type, **kw):
+        doc = kw
+        doc.update({
+            '_id': log_id(timestamp),
+            'time': timestamp,
+            'type': _type,
+            'machine_id': self.machine_id, 
+        })
+        self.log_db.save(doc)
+        return doc
 
     def doc_and_id(self, obj):
         if isinstance(obj, dict):
