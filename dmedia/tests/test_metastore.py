@@ -1546,6 +1546,30 @@ class TestMetaStore(CouchCase):
             }
         )
 
+    def test_log_file_corrupt(self):
+        db = util.get_db(self.env, True)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
+        fs = TempFileStore()
+        _id = random_file_id()
+
+        ts = time.time()
+        doc = ms.log_file_corrupt(ts, fs, _id)
+        self.assertEqual(doc, log_db.get(doc['_id']))
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertEqual(doc,
+            {
+                '_id': doc['_id'],
+                '_rev': doc['_rev'],
+                'time': ts,
+                'type': 'dmedia/file/corrupt',
+                'machine_id': self.env['machine_id'],
+                'file_id': _id,
+                'store_id': fs.id,
+            }
+        )
+
     def test_doc_and_id(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
