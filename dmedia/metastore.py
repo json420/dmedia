@@ -190,14 +190,6 @@ def mark_deleted(doc):
     doc['_deleted'] = True
 
 
-def mark_downloading(doc, timestamp, fs_id):
-    """
-    Add download in progress entry in doc['partial'].
-    """
-    partial = get_dict(doc, 'partial')
-    partial[fs_id] = {'time': timestamp}
-
-
 def mark_downloaded(doc, fs_id, new):
     """
     Update doc appropriately after a download completes.
