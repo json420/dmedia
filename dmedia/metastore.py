@@ -597,7 +597,9 @@ class MetaStore:
             self.db.update(mark_deleted, doc)
         except NotFound:
             pass
-        t.log('purge %d copies from %s', count, store_id)
+        if count > 0:
+            t.log('purge %d copies in %s', count, store_id)
+            self.log_store_purge(time.time(), store_id, count)
         return count
 
     def purge_all(self):

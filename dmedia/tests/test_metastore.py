@@ -2479,7 +2479,9 @@ class TestMetaStore(CouchCase):
 
     def test_purge_store(self):    
         db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
         store_id1 = random_id()
         store_id2 = random_id()
         store_id3 = random_id()
@@ -2518,6 +2520,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [store1, store2, store3]
         )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 0)
 
         # Purge the 3rd store, make sure dmedia/store doc is deleted even though
         # no files exist in the store:
@@ -2527,9 +2530,12 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [store1, store2, None]
         )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 0)
 
         # Purge the first store:
+        start = time.time()
         self.assertEqual(ms.purge_store(store_id1), 189)
+        end = time.time()
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -2548,6 +2554,25 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [None, store2, None]
         )
+        rows = log_db.get('_all_docs', include_docs=True)['rows']
+        self.assertEqual(len(rows), 1)
+        log1 = rows[0]['doc']
+        self.assertTrue(isdb32(log1['_id']))
+        self.assertEqual(len(log1['_id']), 24)
+        self.assertEqual(log1['_rev'][:2], '1-')
+        self.assertIsInstance(log1['time'], float)
+        self.assertTrue(start < log1['time'] < end)
+        self.assertEqual(log1,
+            {
+                '_id': log1['_id'],
+                '_rev': log1['_rev'],
+                'time': log1['time'],
+                'type': 'dmedia/store/purge',
+                'machine_id': self.env['machine_id'],
+                'store_id': store_id1,
+                'count': 189,
+            }
+        )
 
         # Purge the 2nd store:
         self.assertEqual(ms.purge_store(store_id2), 189)
@@ -2564,6 +2589,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [None, None, None]
         )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 2)
 
         # Make sure purging both again causes no change:
         docs = db.get_many(ids)
@@ -2574,6 +2600,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [None, None, None]
         )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 2)
 
         # Test when some already have been purged:
         sample = random.sample(ids, 23)
@@ -2603,6 +2630,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [None, None, None]
         )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 3)
 
         # Again, make sure purging both again causes no change:
         docs = db.get_many(ids)
@@ -2613,6 +2641,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [None, None, None]
         )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 3)
 
     def test_purge_all(self):    
         db = util.get_db(self.env, True)
