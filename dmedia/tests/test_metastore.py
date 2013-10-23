@@ -266,6 +266,50 @@ class TestFunctions(TestCase):
         self.assertIsInstance(mtime, int)
         self.assertEqual(mtime, int(path.getmtime(canonical)))
 
+    def test_create_stored_value(self):
+        timestamp = time.time()
+        tmp = TempDir()
+        (file, ch) = tmp.random_file()
+        fs1 = TempFileStore(copies=0)
+        self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
+        mtime1 = get_mtime(fs1, ch.id)
+        time.sleep(1)
+        fs2 = TempFileStore(copies=2)
+        self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
+        mtime2 = get_mtime(fs2, ch.id)
+
+        self.assertEqual(metastore.create_stored_value(ch.id, fs1),
+            {'copies': 0, 'mtime': mtime1}
+        )
+        self.assertEqual(
+            metastore.create_stored_value(ch.id, fs1, verified=34.69),
+            {'copies': 0, 'mtime': mtime1, 'verified': 34}
+        )
+        self.assertEqual(
+            metastore.create_stored_value(ch.id, fs1, verified=34),
+            {'copies': 0, 'mtime': mtime1, 'verified': 34}
+        )
+        self.assertEqual(
+            metastore.create_stored_value(ch.id, fs1, verified=timestamp),
+            {'copies': 0, 'mtime': mtime1, 'verified': int(timestamp)}
+        )
+
+        self.assertEqual(metastore.create_stored_value(ch.id, fs2),
+            {'copies': 2, 'mtime': mtime2}
+        )
+        self.assertEqual(
+            metastore.create_stored_value(ch.id, fs2, verified=34.69),
+            {'copies': 2, 'mtime': mtime2, 'verified': 34}
+        )
+        self.assertEqual(
+            metastore.create_stored_value(ch.id, fs2, verified=34),
+            {'copies': 2, 'mtime': mtime2, 'verified': 34}
+        )
+        self.assertEqual(
+            metastore.create_stored_value(ch.id, fs2, verified=timestamp),
+            {'copies': 2, 'mtime': mtime2, 'verified': int(timestamp)}
+        )
+
     def test_create_stored(self):
         tmp = TempDir()
         fs1 = TempFileStore(copies=0)
