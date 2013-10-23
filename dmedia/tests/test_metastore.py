@@ -2645,8 +2645,10 @@ class TestMetaStore(CouchCase):
 
     def test_purge_all(self):    
         db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
-        
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
+
         # Test when empty:
         self.assertEqual(ms.purge_all(), 0)
 
@@ -2668,7 +2670,7 @@ class TestMetaStore(CouchCase):
                 'stored': {
                     store_id1: {'copies': 1, 'mtime': 1234567890},
                     store_id2: {'copies': 1, 'mtime': 1234567890},
-                    store_id1: {'copies': 1, 'mtime': 1234567890},
+                    store_id3: {'copies': 1, 'mtime': 1234567890},
                 },
             }
             docs.append(doc)
@@ -2696,32 +2698,16 @@ class TestMetaStore(CouchCase):
             }
             docs.append(doc)
 
-        # doc['stored'] is empty:
-        for i in range(20):
-            doc = {
-                '_id': random_file_id(),
-                'type': 'dmedia/file',
-                'stored': {},
-            }
-            docs.append(doc)
-
-        # doc['stored'] is missing:
-        for i in range(20):
-            doc = {
-                '_id': random_file_id(),
-                'type': 'dmedia/file',
-            }
-            docs.append(doc)
-
         ids = [d['_id'] for d in docs]
         db.save_many(docs)
-        self.assertEqual(ms.purge_all(), 100)
+        self.assertEqual(ms.purge_all(), 120)
         self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
             [None, None, None]
         )
         for doc in db.get_many(ids):
-            self.assertTrue(doc['_rev'].startswith('2-'))
+            self.assertIn(doc['_rev'][:2], ['2-', '3-', '4-'])
             self.assertEqual(doc['stored'], {})
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 3)
 
     def test_scan(self):
         db = util.get_db(self.env, True)
