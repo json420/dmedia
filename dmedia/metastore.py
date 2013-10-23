@@ -779,6 +779,9 @@ class MetaStore:
         return doc
 
     def copy(self, fs, doc_or_id, *dst_fs):
+        """
+        Copy a file from `FileStore` *fs* to one or more *dst_fs*.
+        """
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
             fs.copy(_id, *dst_fs)
@@ -795,6 +798,9 @@ class MetaStore:
             return self.db.update(mark_corrupt, doc, timestamp, fs.id)
 
     def verify(self, fs, doc_or_id):
+        """
+        Verify a file in `FileStore` *fs*.
+        """
         (doc, _id) = self.doc_and_id(doc_or_id)
         try:
             fs.verify(_id)
