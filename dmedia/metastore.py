@@ -913,21 +913,6 @@ class MetaStore:
         new = create_stored(doc['_id'], fs)
         return self.db.update(mark_added, doc, new)
 
-    def verify_and_move(self, fs, tmp_fp, _id):
-        doc = self.db.get(_id)
-        ch = fs.verify_and_move(tmp_fp, _id)
-        partial = get_dict(doc, 'partial')
-        try:
-            del partial[fs.id]
-        except KeyError:
-            pass
-        if not partial:
-            del doc['partial']
-        new = create_stored(_id, fs)
-        mark_added(doc, new)
-        self.db.save(doc)
-        return ch
-
     def iter_fragile(self, monitor=False):
         """
         Yield doc for each fragile file.     
