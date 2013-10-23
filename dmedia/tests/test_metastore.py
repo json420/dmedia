@@ -2085,7 +2085,9 @@ class TestMetaStore(CouchCase):
                 return super().downgrade_store(store_id)
 
         db = util.get_db(self.env, True)
-        ms = PassThrough(db)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = PassThrough(db, log_db)
         curtime = int(time.time())
         purge_base = curtime - metastore.PURGE_BY_STORE_ATIME
         downgrade_base = curtime - metastore.DOWNGRADE_BY_STORE_ATIME
@@ -2274,7 +2276,9 @@ class TestMetaStore(CouchCase):
 
     def test_downgrade_store(self):    
         db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
         store_id1 = random_id()
         store_id2 = random_id()
         store_id3 = random_id()
@@ -2304,9 +2308,12 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.downgrade_store(store_id3), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
+        self.assertEqual(log_db.get('_all_docs')['rows'], [])
 
         # Downgrade the first store:
+        start = time.time()
         self.assertEqual(ms.downgrade_store(store_id1), 189)
+        end = time.time()
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
@@ -2326,9 +2333,30 @@ class TestMetaStore(CouchCase):
                     },
                 }
             )
+        rows = log_db.get('_all_docs', include_docs=True)['rows']
+        self.assertEqual(len(rows), 1)
+        log1 = rows[0]['doc']
+        self.assertTrue(isdb32(log1['_id']))
+        self.assertEqual(len(log1['_id']), 24)
+        self.assertEqual(log1['_rev'][:2], '1-')
+        self.assertIsInstance(log1['time'], float)
+        self.assertTrue(start < log1['time'] < end)
+        self.assertEqual(log1,
+            {
+                '_id': log1['_id'],
+                '_rev': log1['_rev'],
+                'time': log1['time'],
+                'type': 'dmedia/store/downgrade',
+                'machine_id': self.env['machine_id'],
+                'store_id': store_id1,
+                'count': 189,
+            }
+        )
 
         # Downgrade the 2nd store:
+        start = time.time()
         self.assertEqual(ms.downgrade_store(store_id2), 189)
+        end = time.time()
         for (_id, doc) in zip(ids, db.get_many(ids)):
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('3-'))
@@ -2348,6 +2376,29 @@ class TestMetaStore(CouchCase):
                     },
                 }
             )
+        rows = log_db.get('_all_docs', include_docs=True)['rows']
+        self.assertEqual(len(rows), 2)
+        if rows[0]['doc'] == log1:
+            log2 = rows[1]['doc']
+        else:
+            log2 = rows[0]['doc']
+        self.assertNotEqual(log1['_id'], log2['_id'])
+        self.assertTrue(isdb32(log2['_id']))
+        self.assertEqual(len(log2['_id']), 24)
+        self.assertEqual(log2['_rev'][:2], '1-')
+        self.assertIsInstance(log2['time'], float)
+        self.assertTrue(start < log2['time'] < end)
+        self.assertEqual(log2,
+            {
+                '_id': log2['_id'],
+                '_rev': log2['_rev'],
+                'time': log2['time'],
+                'type': 'dmedia/store/downgrade',
+                'machine_id': self.env['machine_id'],
+                'store_id': store_id2,
+                'count': 189,
+            }
+        )
 
         # Make sure downgrading both again causes no change:
         docs = db.get_many(ids)
@@ -2355,6 +2406,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.downgrade_store(store_id2), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 2)
 
         # Test when some already have copies=0:
         sample = random.sample(ids, 23)
@@ -2385,6 +2437,7 @@ class TestMetaStore(CouchCase):
                     },
                 }
             )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 3)
 
         # Test when some have junk values for copies:
         sample2 = list(filter(lambda _id: _id not in sample, ids))
@@ -2414,6 +2467,7 @@ class TestMetaStore(CouchCase):
                     },
                 }
             )
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 4)
 
         # Again, make sure downgrading both again causes no change:
         docs = db.get_many(ids)
@@ -2421,6 +2475,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ms.downgrade_store(store_id2), 0)
         for (old, new) in zip(docs, db.get_many(ids)):
             self.assertEqual(old, new)
+        self.assertEqual(len(log_db.get('_all_docs')['rows']), 4)
 
     def test_purge_store(self):    
         db = util.get_db(self.env, True)

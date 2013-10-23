@@ -552,7 +552,9 @@ class MetaStore:
             except BulkConflict as e:
                 log.exception('Conflict downgrading %s', store_id)
                 count -= len(e.conflicts)
-        t.log('downgrade %d copies in %s', count, store_id)
+        if count > 0:
+            t.log('downgrade %d copies in %s', count, store_id)
+            self.log_store_downgrade(time.time(), store_id, count)
         return count
 
     def downgrade_all(self):
