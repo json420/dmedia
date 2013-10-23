@@ -928,11 +928,6 @@ class MetaStore:
             doc['content_md5'] = b64
             return b64
 
-    def start_download(self, fs, doc):
-        tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
-        self.db.update(mark_downloading, doc, time.time(), fs.id)
-        return tmp_fp
-
     def finish_download(self, fs, doc, tmp_fp):
         log.info('Finishing download of %s in %r', doc['_id'], fs)
         fs.move_to_canonical(tmp_fp, doc['_id'])
