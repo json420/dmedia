@@ -928,16 +928,6 @@ class MetaStore:
             doc['content_md5'] = b64
             return b64
 
-    def allocate_partial(self, fs, _id):
-        doc = self.db.get(_id)
-        (content_type, leaf_hashes) = self.db.get_att(_id, 'leaf_hashes')
-        ch = check_root_hash(_id, doc['bytes'], leaf_hashes)
-        tmp_fp = fs.allocate_partial(ch.file_size, ch.id)
-        partial = get_dict(doc, 'partial')
-        partial[fs.id] = {'mtime': os.fstat(tmp_fp.fileno()).st_mtime}
-        self.db.save(doc)
-        return tmp_fp
-
     def start_download(self, fs, doc):
         tmp_fp = fs.allocate_partial(doc['bytes'], doc['_id'])
         self.db.update(mark_downloading, doc, time.time(), fs.id)
