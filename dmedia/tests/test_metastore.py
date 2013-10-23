@@ -243,6 +243,29 @@ class TestFunctions(TestCase):
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
 
+    def test_get_mtime(self):
+        fs = TempFileStore()
+        _id = random_file_id()
+        canonical = fs.path(_id)
+
+        # file doesn't exist:
+        with self.assertRaises(filestore.FileNotFound) as cm:
+            metastore.get_mtime(fs, _id)
+        self.assertEqual(cm.exception.id, _id)
+        self.assertIs(cm.exception.store, fs)
+        self.assertFalse(path.exists(canonical))
+
+        # file is zero bytes in size:
+        open(canonical, 'wb').close()
+        self.assertTrue(path.isfile(canonical))
+        self.assertEqual(path.getsize(canonical), 0)
+
+        # file exists:
+        open(canonical, 'wb').write(os.urandom(1776))
+        mtime = metastore.get_mtime(fs, _id)
+        self.assertIsInstance(mtime, int)
+        self.assertEqual(mtime, int(path.getmtime(canonical)))
+
     def test_create_stored(self):
         tmp = TempDir()
         fs1 = TempFileStore(copies=0)
