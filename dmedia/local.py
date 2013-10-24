@@ -33,7 +33,7 @@ from dmedia.util import get_db
 
 
 log = logging.getLogger()
-MIN_FREE_SPACE = 8 * 1024**3  # 8 GiB min free space
+MIN_FREE_SPACE = 16 * 1024**3  # 8 GiB min free space
 
 
 class NoSuchFile(Exception):
