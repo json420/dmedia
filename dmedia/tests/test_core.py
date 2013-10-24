@@ -490,9 +490,11 @@ class TestCore(CouchTestCase):
         self.assertIsInstance(fs_a, FileStore)
         self.assertEqual(fs_a.parentdir, tmp.dir)
         self.assertEqual(fs_a.id, fs.id)
-        _rev = fs_a.doc.pop('_rev')
-        self.assertTrue(_rev.startswith('1-'))
         self.assertEqual(fs_a.doc, fs.doc)
+        doc = inst.db.get(fs.id)
+        _rev = doc.pop('_rev')
+        self.assertTrue(_rev.startswith('1-'))
+        self.assertEqual(doc, fs.doc)
 
         # Test when store is already connected:
         with self.assertRaises(Exception) as cm:

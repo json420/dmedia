@@ -584,7 +584,7 @@ class Core:
         except Exception:
             log.exception('Error calling FileStore.purge_tmp():')
         try:
-            self.db.save(fs.doc)
+            self.db.post(fs.doc)
         except Conflict:
             pass
         self.task_manager.queue_filestore_tasks(fs)
