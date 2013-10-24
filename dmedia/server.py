@@ -312,8 +312,8 @@ class FilesApp:
             stop = st.size
             status = '200 OK'
 
-        log.info('Sending bytes %s[%d:%d] to %s:%s', _id, start, stop,
-            environ['REMOTE_ADDR'], environ['REMOTE_PORT']
+        log.info('Sending bytes %s[%d:%d] to %s:%s from %r', _id, start, stop,
+            environ['REMOTE_ADDR'], environ['REMOTE_PORT'], fs
         )
         file_slice = FileSlice(fp, start, stop)
         headers = [('Content-Length', file_slice.content_length)]
