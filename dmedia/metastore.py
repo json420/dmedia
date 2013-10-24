@@ -69,7 +69,8 @@ from copy import deepcopy
 
 from dbase32 import log_id
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound, Conflict, BulkConflict, id_slice_iter, dumps
+from microfiber import NotFound, Conflict, BadRequest, BulkConflict
+from microfiber import id_slice_iter, dumps
 
 from .units import count_and_size, bytes10
 from .constants import TYPE_ERROR
@@ -924,7 +925,17 @@ class MetaStore:
                 for row in result['results']:
                     yield row['doc']
                 kw['since'] = result['last_seq']
-            except ResponseNotReady:
+            # FIXME: Sometimes we get a 400 Bad Request from CouchDB, perhaps
+            # when `since` gets ahead of the `update_seq` as viewed by the
+            # changes feed?  By excepting `BadRequest` here, we prevent the
+            # vigilence process from sometimes crashing once it enters the event
+            # phase.  This seems to happen only during a fairly high DB load
+            # when multiple peers are syncing.
+            #
+            # Note that even without this we're generally still pretty safe as
+            # the vigilence process gets restarted every 29 minutes anyway, in
+            # order to minimize the impact of unexpected crashes or hangs. 
+            except (ResponseNotReady, BadRequest):
                 pass
 
     def iter_actionable_fragile(self, connected, monitor=False):
