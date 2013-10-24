@@ -65,6 +65,7 @@ import os
 import logging
 from http.client import ResponseNotReady
 from random import SystemRandom
+from copy import deepcopy
 
 from dbase32 import log_id
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
@@ -698,11 +699,10 @@ class MetaStore:
         # Update the atime for the dmedia/store doc
         try:
             doc = self.db.get(fs.id)
-            assert doc['type'] == 'dmedia/store'
-            doc['atime'] = int(time.time())
-            self.db.save(doc)
         except NotFound:
-            log.warning('No doc for FileStore %s', fs.id)
+            doc = deepcopy(fs.doc)
+        doc['atime'] = int(time.time())
+        self.db.save(doc)
         t.log('scan %r files in %r', count, fs)
         return count
 
