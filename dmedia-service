@@ -235,8 +235,8 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core, port)
         self.avahi.run()
-        GLib.timeout_add(9000, self.on_idle4)
-        GLib.timeout_add(45 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(30 * 1000, self.on_idle4)
+        GLib.timeout_add(60 * 1000, self.core.reclaim_if_possible)
 
     def on_idle4(self):
         """
@@ -244,7 +244,7 @@ class Service(dbus.service.Object):
         """
         log.info('---- idle4 at time %.3f ----', start_delta())
         self.core.start_background_tasks()
-        GLib.timeout_add(11 * 60 * 1000, self.on_requeue_filestore_tasks)
+        GLib.timeout_add(17 * 60 * 1000, self.on_requeue_filestore_tasks)
         GLib.timeout_add(29 * 60 * 1000, self.on_restart_vigilance)
 
     def on_requeue_filestore_tasks(self):
