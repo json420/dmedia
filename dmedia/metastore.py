@@ -586,7 +586,7 @@ class MetaStore:
                 break
             docs = [r['doc'] for r in rows]
             for doc in docs:
-                del doc['stored'][store_id]
+                get_dict(doc, 'stored').pop(store_id, None)
             count += len(docs)
             try:
                 self.db.save_many(docs)
