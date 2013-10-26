@@ -1454,6 +1454,9 @@ class TestMetaStore(CouchCase):
                 'machine_id': self.env['machine_id'],
                 'file_id': _id,
                 'store_id': fs.id,
+                'drive_model': None,
+                'drive_serial': None,
+                'filesystem_uuid': None,
             }
         )
 
@@ -2955,7 +2958,9 @@ class TestMetaStore(CouchCase):
                 'machine_id': self.env['machine_id'],
                 'file_id': _id,
                 'store_id': fs1.id,
-                
+                'drive_model': None,
+                'drive_serial': None,
+                'filesystem_uuid': None, 
             }
         )
 
@@ -3111,7 +3116,9 @@ class TestMetaStore(CouchCase):
                 'machine_id': self.env['machine_id'],
                 'file_id': ch.id,
                 'store_id': fs.id,
-                
+                'drive_model': None,
+                'drive_serial': None,
+                'filesystem_uuid': None,
             }
         )
 

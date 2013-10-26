@@ -329,9 +329,9 @@ class MetaStore:
         return self.log(timestamp, 'dmedia/file/corrupt',
             file_id=_id,
             store_id=fs.id,
-            #drive_model=fs.doc.get('drive_model'),
-            #drive_serial=fs.doc.get('drive_serial'),
-            #filesystem_uuid=fs.doc.get('filesystem_uuid'),
+            drive_model=fs.doc.get('drive_model'),
+            drive_serial=fs.doc.get('drive_serial'),
+            filesystem_uuid=fs.doc.get('filesystem_uuid'),
         )
 
     def log_store_purge(self, timestamp, store_id, count):
