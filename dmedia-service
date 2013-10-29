@@ -235,8 +235,8 @@ class Service(dbus.service.Object):
         port = env['port']
         self.avahi = Avahi(self.core, port)
         self.avahi.run()
-        GLib.timeout_add(45 * 1000, self.on_idle4)
-        GLib.timeout_add(60 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(60 * 1000, self.on_idle4)
+        GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
 
     def on_idle4(self):
         """

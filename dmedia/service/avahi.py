@@ -41,6 +41,9 @@ Peer = namedtuple('Peer', 'env names')
 PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
 PEERS_ID = '_local/peers'
 
+# Whether to use filtered replication:
+FILTER = False
+
 
 def make_url(ip, port):
     if PROTO == 0:
@@ -218,10 +221,10 @@ class Avahi:
 
     def replication_worker(self, cancel, start):
         if cancel:
-            for name in sort_names(cancel.names):
+            for name in cancel.names:
                 self.replicate(name, cancel.env, cancel=True)
         if start:
-            for name in sort_names(start.names):
+            for name in start.names:
                 self.replicate(name, start.env)
         log.info('replication_worker() done')
 
@@ -235,27 +238,26 @@ class Avahi:
         whose client certificate (aka machine certificate) is likewise signed
         by the user CA.
         """
+        url = env['url']
         kw = {
             'create_target': True,
-            'filter': 'doc/normal',
             'continuous': True,
         }
-        if not iscontinuous(name):
-            if cancel:
-                return  # Don't need to cancel non-continuous replication
-            del kw['continuous']
+        if FILTER:
+            kw['filter'] = 'doc/normal'
         if cancel:
             kw['cancel'] = True
-            log.info('Canceling push of %s to %s', name, env['url'])
+            log.info('Canceling push of %s to %s with %r', name, url, kw)
         else:
-            log.info('Starting push of %s to %s', name, env['url'])
-            db = self.server.database(name)
-            util.update_design_doc(db, views.doc_design)
+            log.info('Starting push of %s to %s with %r', name, url, kw)
+            if FILTER:
+                db = self.server.database(name)
+                util.update_design_doc(db, views.doc_design)
         try:
             self.server.push(name, name, env, **kw)
         except Exception as e:
             if cancel:
-                log.exception('Error canceling push of %s to %s', name, env['url'])
+                log.exception('Canceling push of %s to %s with %r', name, url, kw)
             else:
-                log.exception('Error starting push of %s to %s', name, env['url'])
+                log.exception('Starting push of %s to %s with %r', name, url, kw)
 
