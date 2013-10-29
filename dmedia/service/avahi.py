@@ -226,6 +226,7 @@ class Avahi:
         if start:
             for name in start.names:
                 self.replicate(name, start.env)
+                time.sleep(1)
         log.info('replication_worker() done')
 
     def replicate(self, name, env, cancel=False):
