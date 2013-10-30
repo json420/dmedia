@@ -236,33 +236,6 @@ def mark_mismatched(doc, fs_id, mtime):
     value.pop('verified', None)
 
 
-class VerifyContext:
-    __slots__ = ('db', 'fs', 'doc')
-
-    def __init__(self, db, fs, doc):
-        self.db = db
-        self.fs = fs
-        self.doc = doc
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_tb):
-        if exc_type is None:
-            log.info('Verified %s in %r', self.doc['_id'], self.fs)
-            value = create_stored_value(self.doc['_id'], self.fs, time.time())
-            self.db.update(mark_verified, self.doc, self.fs.id, value)
-        elif issubclass(exc_type, CorruptFile):
-            log.error('%s is corrupt in %r', self.doc['_id'], self.fs)
-            self.db.update(mark_corrupt, self.doc, time.time(), self.fs.id)
-        elif issubclass(exc_type, FileNotFound):
-            log.warning('%s is not in %r', self.doc['_id'], self.fs)
-            self.db.update(mark_removed, self.doc, self.fs.id)
-        else:
-            return False
-        return True
-
-
 def relink_iter(fs, count=25):
     buf = []
     for st in fs:
@@ -876,18 +849,6 @@ class MetaStore:
         t.log('verify %s in %r [%s]',
                 count_and_size(count, size), fs, t.rate(size))
         return (count, size)
-
-    def content_md5(self, fs, _id, force=False):
-        doc = self.db.get(_id)
-        if not force:
-            try:
-                return doc['content_md5']
-            except KeyError:
-                pass    
-        with VerifyContext(self.db, fs, doc):
-            (b16, b64) = fs.content_md5(_id)
-            doc['content_md5'] = b64
-            return b64
 
     def finish_download(self, fs, doc, tmp_fp):
         log.info('Finishing download of %s in %r', doc['_id'], fs)
