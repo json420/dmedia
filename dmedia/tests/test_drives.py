@@ -146,6 +146,13 @@ class TestFunctions(TestCase):
             )
             self.assertEqual(sub, drives.get_drive_info(drive_device))
 
+    def test_parse_mounts(self):
+        mounts = drives.parse_mounts()
+        self.assertIsInstance(mounts, dict)
+        for (key, value) in mounts.items():
+            self.assertIsInstance(key, str)
+            self.assertIsInstance(value, str)
+
 
 class TestDrive(TestCase):
     def test_init(self):
@@ -254,3 +261,8 @@ class TestDevices(TestCase):
             self.assertEqual(drive.get_devtype(), 'partition')
             self.assertTrue(drives.VALID_PARTITION.match(drive.get_device_file()))
 
+    def test_get_info(self):
+        d = drives.Devices()
+        info = d.get_info()
+        self.assertIsInstance(info, dict)
+        self.assertEqual(set(info), set(['drives', 'partitions']))

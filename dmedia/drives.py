@@ -91,17 +91,6 @@ def unfuck(string):
     return string.replace('\\x20', ' ').strip()
 
 
-class NoSuchDevice(Exception):
-    pass
-
-
-def get_device(dev):
-    device = udev_client.query_by_device_file(dev)
-    if device is None:
-        raise NoSuchDevice('No such device: {!r}'.format(dev))  
-    return device
-
-
 def get_drive_info(device):
     physical = device.get_sysfs_attr_as_uint64('queue/physical_block_size')
     logical = device.get_sysfs_attr_as_uint64('queue/logical_block_size')
@@ -172,6 +161,15 @@ def parse_drive_size(text):
         if match:
             return int(match.group(1))
     raise ValueError('Could not find disk size with unit=MiB')
+
+
+def parse_mounts(procdir='/proc'):
+    text = open(path.join(procdir, 'mounts'), 'r').read()
+    mounts = {}
+    for line in text.splitlines():
+        (dev, mount, type_, options, dump, pass_) = line.split()
+        mounts[mount.replace('\\040', ' ')] = dev
+    return mounts
 
 
 class Drive:
@@ -288,15 +286,6 @@ class Partition:
             os.rmdir(tmpdir)
 
 
-def parse_mounts(procdir='/proc'):
-    text = open(path.join(procdir, 'mounts'), 'r').read()
-    mounts = {}
-    for line in text.splitlines():
-        (dev, mount, type_, options, dump, pass_) = line.split()
-        mounts[mount.replace('\\040', ' ')] = dev
-    return mounts
-
-
 def get_parentdir_info(parentdir):
     mounts = parse_mounts()
     mountdir = parentdir
@@ -355,6 +344,36 @@ class Devices:
             if VALID_PARTITION.match(device.get_device_file()):
                 yield device
 
+    def get_parentdir_info(self, parentdir):
+        assert path.abspath(parentdir) == parentdir
+        mounts = parse_mounts()
+        mountdir = parentdir
+        while True:
+            if mountdir in mounts:
+                try:
+                    device = self.get_device(mounts[mountdir])
+                    return get_partition_info(device)
+                except DeviceNotFound:
+                    pass
+            if mountdir == '/':
+                return {}
+            mountdir = path.dirname(mountdir)
+
+    def get_info(self):
+        return {
+            'drives': dict(
+                (drive.get_device_file(), get_drive_info(drive))
+                for drive in self.iter_drives()
+            ),
+            'partitions': dict(
+                (partition.get_device_file(), get_drive_info(partition))
+                for partition in self.iter_partitions()
+            ),
+        }
+
 
 if __name__ == '__main__':
     d = Devices()
+    print(_dumps(d.get_info()))
+    print(_dumps(parse_mounts()))
+    print(_dumps(d.get_parentdir_info('/home/jderose/Videos')))
