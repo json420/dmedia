@@ -27,7 +27,8 @@ from unittest import TestCase
 import uuid
 import os
 
-from dbase32 import db32enc
+from dbase32 import db32enc, random_id
+from gi.repository import GUdev
 
 from dmedia import drives
 
@@ -129,4 +130,51 @@ class TestPartition(TestCase):
         self.assertEqual(str(cm.exception),
             "Invalid partition device file: '/dev/sda0'"
         )
+
+
+class TestDeviceNotFound(TestCase):
+    def test_init(self):
+        dev = '/dev/{}'.format(random_id())
+        inst = drives.DeviceNotFound(dev)
+        self.assertIs(inst.dev, dev)
+        self.assertEqual(str(inst), 'No such device: {!r}'.format(dev))
+
+
+class TestDevices(TestCase):
+    def test_init(self):
+        d = drives.Devices()
+        self.assertIsInstance(d.udev_client, GUdev.Client)
+
+        marker = random_id()
+
+        class Subclass(drives.Devices):
+            def get_udev_client(self):
+                return marker
+
+        d = Subclass()
+        self.assertIs(d.udev_client, marker)
+
+    def test_get_device(self):
+        d = drives.Devices()
+        dev = '/dev/nopenopenope'
+        with self.assertRaises(drives.DeviceNotFound) as cm:
+            d.get_device(dev)
+        self.assertIs(cm.exception.dev, dev)
+        self.assertEqual(str(cm.exception),
+            "No such device: '/dev/nopenopenope'"
+        )
+
+    def test_iter_drives(self):
+        d = drives.Devices()
+        for drive in d.iter_drives():
+            self.assertIsInstance(drive, GUdev.Device)
+            self.assertEqual(drive.get_devtype(), 'disk')
+            self.assertTrue(drives.VALID_DRIVE.match(drive.get_device_file()))
+
+    def test_iter_partitions(self):
+        d = drives.Devices()
+        for drive in d.iter_partitions():
+            self.assertIsInstance(drive, GUdev.Device)
+            self.assertEqual(drive.get_devtype(), 'partition')
+            self.assertTrue(drives.VALID_DRIVE.match(drive.get_device_file()))
 

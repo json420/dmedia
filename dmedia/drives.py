@@ -283,35 +283,6 @@ class Partition:
             os.rmdir(tmpdir)
 
 
-class Devices:
-    def __init__(self):
-        self.client = GUdev.Client.new(['block'])
-        self.partitions = {}
-
-    def run(self):
-        self.client.connect('uevent', self.on_uevent)
-        for device in self.client.query_by_subsystem('block'):
-            self.on_uevent(None, 'add', device)
-
-    def on_uevent(self, client, action, device):
-        _type = device.get_devtype()
-        dev = device.get_device_file()
-        if _type == 'partition':
-            print(action, _type, dev)
-            if action == 'add':
-                self.add_partition(device)
-            elif action == 'remove':
-                self.remove_partition(device)
-
-    def add_partition(self, device):
-        dev = device.get_device_file()
-        print('add_partition({!r})'.format(dev))
-
-    def remove_partition(self, device):
-        dev = device.get_device_file()
-        print('add_partition({!r})'.format(dev))
-
-
 def parse_mounts(procdir='/proc'):
     text = open(path.join(procdir, 'mounts'), 'r').read()
     mounts = {}
@@ -334,3 +305,48 @@ def get_parentdir_info(parentdir):
         if mountdir == '/':
             return {}
         mountdir = path.dirname(mountdir)
+
+
+class DeviceNotFound(Exception):
+    def __init__(self, dev):
+        self.dev = dev
+        super().__init__('No such device: {!r}'.format(dev))
+
+
+class Devices:
+    """
+    Gather block device info using udev.
+    """
+
+    def __init__(self):
+        self.udev_client = self.get_udev_client()
+
+    def get_udev_client(self):
+        """
+        Making this easy to override for mocking purposes.
+        """
+        return GUdev.Client.new(['block'])
+
+    def get_device(self, dev):
+        """
+        Get a device object by its dev path (eg, ``'/dev/sda'``).
+        """
+        device = self.udev_client.query_by_device_file(dev)
+        if device is None:
+            raise DeviceNotFound(dev)
+        return device
+
+    def iter_drives(self):
+        for device in self.udev_client.query_by_subsystem('block'):
+            if device.get_devtype() != 'disk':
+                continue
+            if VALID_DRIVE.match(device.get_device_file()):
+                yield device
+
+    def iter_partitions(self):
+        for device in self.udev_client.query_by_subsystem('block'):
+            if device.get_devtype() != 'partition':
+                continue
+            if VALID_DRIVE.match(device.get_device_file()):
+                yield device
+
