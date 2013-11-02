@@ -321,21 +321,6 @@ def parse_mounts(procdir='/proc'):
     return mounts
 
 
-def get_homedir_info(homedir):
-    mounts = parse_mounts()
-    mountdir = homedir
-    while True:
-        if mountdir in mounts:
-            try:
-                device = get_device(mounts[mountdir])
-                return get_partition_info(device)
-            except NoSuchDevice:
-                pass
-        if mountdir == '/':
-            return {}
-        mountdir = path.dirname(mountdir)
-
-
 def get_parentdir_info(parentdir):
     mounts = parse_mounts()
     mountdir = parentdir
@@ -349,14 +334,3 @@ def get_parentdir_info(parentdir):
         if mountdir == '/':
             return {}
         mountdir = path.dirname(mountdir)
-
-
-def get_mountdir_info(mountdir):
-    mounts = parse_mounts()
-    if mountdir in mounts:
-        try:
-            device = get_device(mounts[mountdir])
-            return get_partition_info(device)
-        except NoSuchDevice:
-            pass
-    return {}
