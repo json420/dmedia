@@ -40,7 +40,7 @@ from .units import bytes10
 
 udev_client = GUdev.Client.new(['block'])
 VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
-VALID_PARTITION = re.compile('^/dev/[sv]d[a-z][1-9]$')
+VALID_PARTITION = re.compile('^(/dev/[sv]d[a-z])([1-9])$')
 
 
 def db32_to_uuid(store_id):
@@ -110,15 +110,20 @@ def get_drive_info(device):
     return {
         'drive_block_physical': physical,
         'drive_block_logical': logical,
+        'drive_alignment_offset': device.get_sysfs_attr_as_int('alignment_offset'),
+        'drive_discard_alignment': device.get_sysfs_attr_as_int('discard_alignment'),
         'drive_bytes': drive_bytes,
         'drive_size': bytes10(drive_bytes),
-        'drive_model': device.get_property('ID_MODEL'),
+        'drive_model': unfuck(device.get_property('ID_MODEL_ENC')),
         'drive_model_id': device.get_property('ID_MODEL_ID'),
         'drive_revision': device.get_property('ID_REVISION'),
         'drive_serial': device.get_property('ID_SERIAL_SHORT'),
         'drive_wwn': device.get_property('ID_WWN_WITH_EXTENSION'),
-        'drive_vendor': device.get_property('ID_VENDOR'),
+        'drive_vendor': unfuck(device.get_property('ID_VENDOR_ENC')),
+        'drive_vendor_id': device.get_property('ID_VENDOR_ID'),
         'drive_removable': bool(device.get_sysfs_attr_as_int('removable')),
+        'drive_bus': device.get_property('ID_BUS'),
+        'drive_rpm': device.get_property('ID_ATA_ROTATION_RATE_RPM'),
     }
 
 
@@ -151,8 +156,8 @@ def get_partition_info(device):
         'partition_scheme': device.get_property('ID_PART_ENTRY_SCHEME'),
         'partition_number': device.get_property_as_int('ID_PART_ENTRY_NUMBER'),
         'partition_bytes': part_bytes,
-        'partition_size': bytes10(part_bytes),
         'partition_start_bytes': part_start_sector * logical,
+        'partition_size': bytes10(part_bytes),
 
         'filesystem_type': device.get_property('ID_FS_TYPE'),
         'filesystem_uuid': device.get_property('ID_FS_UUID'),
@@ -315,7 +320,7 @@ class DeviceNotFound(Exception):
 
 class Devices:
     """
-    Gather block device info using udev.
+    Gather disk and partition info using udev.
     """
 
     def __init__(self):
@@ -347,6 +352,9 @@ class Devices:
         for device in self.udev_client.query_by_subsystem('block'):
             if device.get_devtype() != 'partition':
                 continue
-            if VALID_DRIVE.match(device.get_device_file()):
+            if VALID_PARTITION.match(device.get_device_file()):
                 yield device
 
+
+if __name__ == '__main__':
+    d = Devices()

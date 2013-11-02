@@ -26,6 +26,8 @@ Unit tests for `dmedia.drives`.
 from unittest import TestCase
 import uuid
 import os
+import string
+import re
 
 from dbase32 import db32enc, random_id
 from gi.repository import GUdev
@@ -42,6 +44,61 @@ Partition Table: gpt
 Number  Start    End         Size        File system  Name     Flags
  1      1.00MiB  2861587MiB  2861586MiB  ext4         primary
 """
+
+
+EXPECTED_DRIVE_KEYS = (
+    'drive_block_physical',
+    'drive_block_logical',
+    'drive_alignment_offset',
+    'drive_discard_alignment',
+    'drive_bytes',
+    'drive_size',
+    'drive_model',
+    'drive_model_id',
+    'drive_revision',
+    'drive_serial',
+    'drive_wwn',
+    'drive_vendor',
+    'drive_vendor_id',
+    'drive_removable',
+    'drive_bus',
+    'drive_rpm',
+)
+
+EXPECTED_PARTITION_KEYS = EXPECTED_DRIVE_KEYS + (
+    'partition_scheme',
+    'partition_number',
+    'partition_bytes',
+    'partition_start_bytes',
+    'partition_size',
+    'partition_size',
+    'filesystem_type',
+    'filesystem_uuid',
+    'filesystem_label',
+)
+
+
+class TestConstants(TestCase):
+    def test_VALID_DRIVE(self):
+        self.assertIsInstance(drives.VALID_DRIVE, re._pattern_type)
+        for base in ('/dev/sd', '/dev/vd'):
+            for letter in string.ascii_lowercase:
+                dev = base + letter
+                m = drives.VALID_DRIVE.match(dev)
+                self.assertIsNotNone(m)
+                self.assertEqual(m.group(0), dev)
+
+    def test_VALID_PARTITION(self):
+        self.assertIsInstance(drives.VALID_PARTITION, re._pattern_type)
+        for base in ('/dev/sd', '/dev/vd'):
+            for letter in string.ascii_lowercase:
+                for number in range(1, 10):
+                    dev = '{}{}{:d}'.format(base, letter, number)
+                    m = drives.VALID_PARTITION.match(dev)
+                    self.assertIsNotNone(m)
+                    self.assertEqual(m.group(0), dev)
+                    self.assertEqual(m.group(1), base + letter)
+                    self.assertEqual(m.group(2), str(number))
 
 
 class TestFunctions(TestCase):
@@ -61,7 +118,7 @@ class TestFunctions(TestCase):
                 drives.uuid_to_db32(str(uuid.UUID(bytes=data))),
                 db32enc(data[:15])
             )
-            
+
     def test_unfuck(self):
         self.assertIsNone(drives.unfuck(None))
         fucked = 'WDC\\x20WD30EZRX-00DC0B0\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20'
@@ -69,6 +126,25 @@ class TestFunctions(TestCase):
 
     def test_parse_drive_size(self):
         self.assertEqual(drives.parse_drive_size(PARTED_PRINT), 2861588)
+
+    def test_get_drive_info(self):
+        d = drives.Devices()
+        for device in d.iter_drives():
+            info = drives.get_drive_info(device)
+            self.assertEqual(set(info), set(EXPECTED_DRIVE_KEYS))
+
+    def test_get_partition_info(self):
+        d = drives.Devices()
+        for device in d.iter_partitions():
+            info = drives.get_partition_info(device)
+            self.assertEqual(set(info), set(EXPECTED_PARTITION_KEYS))
+            m = drives.VALID_PARTITION.match(device.get_device_file())
+            self.assertIsNotNone(m)
+            drive_device = d.get_device(m.group(1))
+            sub = dict(
+                (key, info[key]) for key in EXPECTED_DRIVE_KEYS
+            )
+            self.assertEqual(sub, drives.get_drive_info(drive_device))
 
 
 class TestDrive(TestCase):
@@ -176,5 +252,5 @@ class TestDevices(TestCase):
         for drive in d.iter_partitions():
             self.assertIsInstance(drive, GUdev.Device)
             self.assertEqual(drive.get_devtype(), 'partition')
-            self.assertTrue(drives.VALID_DRIVE.match(drive.get_device_file()))
+            self.assertTrue(drives.VALID_PARTITION.match(drive.get_device_file()))
 
