@@ -146,6 +146,7 @@ def get_partition_info(device):
         'drive_vendor_id': device.get_property('ID_VENDOR_ID'),
         'drive_removable': bool(device.get_sysfs_attr_as_int('../removable')),
         'drive_bus': device.get_property('ID_BUS'),
+        'drive_rpm': device.get_property('ID_ATA_ROTATION_RATE_RPM'),
 
         'partition_scheme': device.get_property('ID_PART_ENTRY_SCHEME'),
         'partition_number': device.get_property_as_int('ID_PART_ENTRY_NUMBER'),
