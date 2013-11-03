@@ -305,10 +305,9 @@ class Partition(Mockable):
             '-U', db32_to_uuid(store_id),
             '-m', '0',  # 0% reserved blocks
         ]
-        check_call(cmd)
+        self.check_call(cmd)
 
-    def create_filestore(self, store_id, copies=1):
-        kw = self.get_info()
+    def create_filestore(self, store_id=None, copies=1, **kw):
         tmpdir = tempfile.mkdtemp(prefix='dmedia.')
         fs = None
         check_call(['mount', self.dev, tmpdir])

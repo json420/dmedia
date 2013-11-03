@@ -29,12 +29,15 @@ import os
 import string
 import re
 import subprocess
+from random import SystemRandom
 
 from dbase32 import db32enc, random_id
 from gi.repository import GUdev
 
 from dmedia import drives
 
+
+random = SystemRandom()
 
 PARTED_PRINT = """
 Model: ATA WDC WD30EZRX-00D (scsi)
@@ -76,6 +79,22 @@ EXPECTED_PARTITION_KEYS = EXPECTED_DRIVE_KEYS + (
     'filesystem_uuid',
     'filesystem_label',
 )
+
+
+def random_drive_dev():
+    base = random.choice(['/dev/sd', '/dev/vd'])
+    letter = random.choice(string.ascii_lowercase)
+    dev = '{}{}'.format(base, letter)
+    assert drives.VALID_DRIVE.match(dev)
+    return dev
+
+
+def random_partition_dev():
+    drive_dev = random_drive_dev()
+    number = random.randint(1, 9)
+    dev = '{}{:d}'.format(drive_dev, number)
+    assert drives.VALID_PARTITION.match(dev)
+    return dev
 
 
 class TestConstants(TestCase):
@@ -300,61 +319,67 @@ class TestDrive(TestCase):
                     self.assertIs(part.mocking, True)
 
     def test_rereadpt(self):
-        inst = drives.Drive('/dev/sdc', mocking=True)
+        dev = random_drive_dev()
+        inst = drives.Drive(dev, mocking=True)
         self.assertIsNone(inst.rereadpt())
         self.assertEqual(inst.calls, [
-            ('check_call', ['blockdev', '--rereadpt', '/dev/sdc']),
+            ('check_call', ['blockdev', '--rereadpt', dev]),
         ])
 
     def test_zero(self):
-        inst = drives.Drive('/dev/sdd', mocking=True)
+        dev = random_drive_dev()
+        inst = drives.Drive(dev, mocking=True)
         self.assertIsNone(inst.zero())
         self.assertEqual(inst.calls, [
-            ('check_call', ['dd', 'if=/dev/zero', 'of=/dev/sdd', 'bs=4M', 'count=1', 'oflag=sync']),
+            ('check_call', ['dd', 'if=/dev/zero', 'of={}'.format(dev), 'bs=4M', 'count=1', 'oflag=sync']),
         ])
 
     def test_parted(self):
-        inst = drives.Drive('/dev/sda', mocking=True)
+        dev = random_drive_dev()
+        inst = drives.Drive(dev, mocking=True)
         self.assertEqual(inst.parted(),
-            ['parted', '-s', '/dev/sda', 'unit', 'MiB']
+            ['parted', '-s', dev, 'unit', 'MiB']
         )
         self.assertEqual(inst.calls, [])
         self.assertEqual(inst.parted('print'),
-            ['parted', '-s', '/dev/sda', 'unit', 'MiB', 'print']
+            ['parted', '-s', dev, 'unit', 'MiB', 'print']
         )
         self.assertEqual(inst.calls, [])
         self.assertEqual(inst.parted('mklabel', 'gpt'),
-            ['parted', '-s', '/dev/sda', 'unit', 'MiB', 'mklabel', 'gpt']
+            ['parted', '-s', dev, 'unit', 'MiB', 'mklabel', 'gpt']
         )
         self.assertEqual(inst.calls, [])
 
     def test_mklabel(self):
-        inst = drives.Drive('/dev/sde', mocking=True)
+        dev = random_drive_dev()
+        inst = drives.Drive(dev, mocking=True)
         self.assertIsNone(inst.mklabel())
         self.assertEqual(inst.calls, [
-            ('check_call',  ['parted', '-s', '/dev/sde', 'unit', 'MiB', 'mklabel', 'gpt']),
+            ('check_call',  ['parted', '-s', dev, 'unit', 'MiB', 'mklabel', 'gpt']),
         ])
 
     def test_print(self):
-        inst = drives.Drive('/dev/sdf')
+        dev = random_drive_dev()
+        inst = drives.Drive(dev)
         marker = random_id()
         inst.reset(mocking=True, outputs=[marker.encode('utf-8')])
         self.assertEqual(inst.print(), marker)
         self.assertEqual(inst.calls, [
-            ('check_output',  ['parted', '-s', '/dev/sdf', 'unit', 'MiB', 'print']),
+            ('check_output',  ['parted', '-s', dev, 'unit', 'MiB', 'print']),
         ])
         self.assertEqual(inst.outputs, [])
 
     def test_init_partition_table(self):
-        inst = drives.Drive('/dev/sdg')
+        dev = random_drive_dev()
+        inst = drives.Drive(dev)
         inst.reset(mocking=True, outputs=[PARTED_PRINT.encode('utf-8')])
         self.assertIsNone(inst.init_partition_table())
         self.assertEqual(inst.calls, [
-            ('check_call', ['blockdev', '--rereadpt', '/dev/sdg']),
-            ('check_call', ['dd', 'if=/dev/zero', 'of=/dev/sdg', 'bs=4M', 'count=1', 'oflag=sync']),
-            ('check_call', ['blockdev', '--rereadpt', '/dev/sdg']),
-            ('check_call',  ['parted', '-s', '/dev/sdg', 'unit', 'MiB', 'mklabel', 'gpt']),
-            ('check_output',  ['parted', '-s', '/dev/sdg', 'unit', 'MiB', 'print']),
+            ('check_call', ['blockdev', '--rereadpt', dev]),
+            ('check_call', ['dd', 'if=/dev/zero', 'of={}'.format(dev), 'bs=4M', 'count=1', 'oflag=sync']),
+            ('check_call', ['blockdev', '--rereadpt', dev]),
+            ('check_call',  ['parted', '-s', dev, 'unit', 'MiB', 'mklabel', 'gpt']),
+            ('check_output',  ['parted', '-s', dev, 'unit', 'MiB', 'print']),
         ])
         self.assertEqual(inst.outputs, [])
         self.assertEqual(inst.size, 2861588)
@@ -363,16 +388,18 @@ class TestDrive(TestCase):
         self.assertEqual(inst.stop, 2861587)
 
     def test_mkpart(self):
-        inst = drives.Drive('/dev/sdh', mocking=True)
+        dev = random_drive_dev()
+        inst = drives.Drive(dev, mocking=True)
         inst.start = 1
         inst.stop = 2861587
         self.assertIsNone(inst.mkpart(1, 2861587))
         self.assertEqual(inst.calls, [
-            ('check_call', ['parted', '-s', '/dev/sdh', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '2861587']),
+            ('check_call', ['parted', '-s', dev, 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '2861587']),
         ])
 
     def test_remaining(self):
-        inst = drives.Drive('/dev/sda', mocking=True)
+        dev = random_drive_dev()
+        inst = drives.Drive(dev, mocking=True)
         inst.start = 1
         inst.stop = 2861587
         self.assertEqual(inst.remaining, 2861586)
@@ -383,7 +410,8 @@ class TestDrive(TestCase):
         self.assertEqual(inst.calls, [])
 
     def test_add_partition(self):
-        inst = drives.Drive('/dev/sdi', mocking=True)
+        dev = random_drive_dev()
+        inst = drives.Drive(dev, mocking=True)
         inst.index = 0
         inst.start = 1
         inst.stop = 2861587
@@ -391,35 +419,39 @@ class TestDrive(TestCase):
         part = inst.add_partition(123456)
         self.assertIsInstance(part, drives.Partition)
         self.assertIs(part.mocking, True)
-        self.assertEqual(part.dev, '/dev/sdi1')
+        self.assertEqual(part.dev, '{}{:d}'.format(dev, 1))
         self.assertEqual(part.calls, [])
         self.assertEqual(inst.index, 1)
         self.assertEqual(inst.calls, [
-            ('check_call', ['parted', '-s', '/dev/sdi', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '123457']),
+            ('check_call', ['parted', '-s', dev, 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '123457']),
         ])
         self.assertEqual(inst.remaining, 2738130)
 
         part = inst.add_partition(2738130)
         self.assertIsInstance(part, drives.Partition)
         self.assertIs(part.mocking, True)
-        self.assertEqual(part.dev, '/dev/sdi2')
+        self.assertEqual(part.dev, '{}{:d}'.format(dev, 2))
         self.assertEqual(part.calls, [])
         self.assertEqual(inst.index, 2)
         self.assertEqual(inst.calls, [
-            ('check_call', ['parted', '-s', '/dev/sdi', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '123457']),
-            ('check_call', ['parted', '-s', '/dev/sdi', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '123457', '2861587']),
+            ('check_call', ['parted', '-s', dev, 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '123457']),
+            ('check_call', ['parted', '-s', dev, 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '123457', '2861587']),
         ])
         self.assertEqual(inst.remaining, 0)
 
 
 class TestPartition(TestCase):
     def test_init(self):
-        for dev in ('/dev/sda1', '/dev/sda9', '/dev/sdz1', '/dev/sdz9'):
-            part = drives.Partition(dev)
-            self.assertIs(part.dev, dev)
-        for dev in ('/dev/vda1', '/dev/vda9', '/dev/vdz1', '/dev/vdz9'):
-            part = drives.Partition(dev)
-            self.assertIs(part.dev, dev)
+        for base in ('/dev/sd', '/dev/vd'):
+            for letter in string.ascii_lowercase:
+                for number in range(1, 10):
+                    dev = '{}{}{:d}'.format(base, letter, number)
+                    inst = drives.Partition(dev)
+                    self.assertIs(inst.dev, dev)
+                    self.assertIs(inst.mocking, False)
+                    inst = drives.Partition(dev, mocking=True)
+                    self.assertIs(inst.dev, dev)
+                    self.assertIs(inst.mocking, True)
 
         with self.assertRaises(ValueError) as cm:
             drives.Partition('/dev/sda11')
@@ -432,6 +464,16 @@ class TestPartition(TestCase):
         self.assertEqual(str(cm.exception),
             "Invalid partition device file: '/dev/sda0'"
         )
+
+    def test_mkfs_ext4(self):
+        dev = random_partition_dev()
+        inst = drives.Partition(dev, mocking=True)
+        store_id = random_id()
+        ext4_uuid = drives.db32_to_uuid(store_id)
+        self.assertIsNone(inst.mkfs_ext4('FooBar-2', store_id))
+        self.assertEqual(inst.calls, [
+            ('check_call', ['mkfs.ext4', dev, '-L', 'FooBar-2', '-U', ext4_uuid, '-m', '0']),
+        ])
 
 
 class TestDeviceNotFound(TestCase):
