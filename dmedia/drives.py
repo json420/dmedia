@@ -27,7 +27,6 @@ from uuid import UUID
 import subprocess
 import re
 import time
-import tempfile
 import os
 from os import path
 
@@ -40,6 +39,18 @@ from .units import bytes10
 
 VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
 VALID_PARTITION = re.compile('^(/dev/[sv]d[a-z])([1-9])$')
+
+
+def check_drive_dev(dev):
+    if not VALID_DRIVE.match(dev):
+        raise ValueError('Invalid drive device file: {!r}'.format(dev))
+    return dev
+
+
+def check_partition_dev(dev):
+    if not VALID_PARTITION.match(dev):
+        raise ValueError('Invalid partition device file: {!r}'.format(dev))
+    return dev
 
 
 def db32_to_uuid(store_id):
@@ -212,9 +223,7 @@ class Mockable:
 class Drive(Mockable):
     def __init__(self, dev, mocking=False):
         super().__init__(mocking)
-        if not VALID_DRIVE.match(dev):
-            raise ValueError('Invalid drive device file: {!r}'.format(dev))
-        self.dev = dev
+        self.dev = check_drive_dev(dev)
 
     def get_partition(self, index):
         assert isinstance(index, int)
@@ -251,7 +260,7 @@ class Drive(Mockable):
     def init_partition_table(self):
         self.rereadpt()  # Make sure existing partitions aren't mounted
         self.zero()
-        time.sleep(2)
+        time.sleep(1)
         self.rereadpt()
         self.mklabel()
         self.size = parse_drive_size(self.print())
@@ -284,20 +293,14 @@ class Drive(Mockable):
         self.init_partition_table()
         partition = self.add_partition(self.remaining)
         partition.mkfs_ext4(label, store_id)
-        time.sleep(2)
-        doc = partition.create_filestore(store_id)
-        return doc
+        time.sleep(1)
+        return partition
 
 
 class Partition(Mockable):
     def __init__(self, dev, mocking=False):
         super().__init__(mocking)
-        if not VALID_PARTITION.match(dev):
-            raise ValueError('Invalid partition device file: {!r}'.format(dev))
-        self.dev = dev
-
-    def get_info(self):
-        return get_partition_info(get_device(self.dev))
+        self.dev = check_partition_dev(dev)
 
     def mkfs_ext4(self, label, store_id):
         cmd = ['mkfs.ext4', self.dev,
@@ -306,19 +309,6 @@ class Partition(Mockable):
             '-m', '0',  # 0% reserved blocks
         ]
         self.check_call(cmd)
-
-    def create_filestore(self, store_id=None, copies=1, **kw):
-        tmpdir = tempfile.mkdtemp(prefix='dmedia.')
-        fs = None
-        check_call(['mount', self.dev, tmpdir])
-        try:
-            fs = FileStore.create(tmpdir, store_id, 1, **kw)
-            check_call(['chmod', '0777', tmpdir])
-            return fs.doc
-        finally:
-            del fs
-            check_call(['umount', tmpdir])
-            os.rmdir(tmpdir)
 
     def create_filestore(self, mount, store_id=None, copies=1, **kw):
         fs = None
@@ -330,21 +320,6 @@ class Partition(Mockable):
         finally:
             del fs
             self.check_call(['umount', self.dev])
-
-
-def get_parentdir_info(parentdir):
-    mounts = parse_mounts()
-    mountdir = parentdir
-    while True:
-        if mountdir in mounts:
-            try:
-                device = get_device(mounts[mountdir])
-                return get_partition_info(device)
-            except NoSuchDevice:
-                pass
-        if mountdir == '/':
-            return {}
-        mountdir = path.dirname(mountdir)
 
 
 class DeviceNotFound(Exception):
@@ -375,6 +350,14 @@ class Devices:
         if device is None:
             raise DeviceNotFound(dev)
         return device
+
+    def get_drive_info(self, dev):
+        device = self.get_device(check_drive_dev(dev))
+        return get_drive_info(device)
+
+    def get_partition_info(self, dev):
+        device = self.get_device(check_partition_dev(dev))
+        return get_partition_info(device)
 
     def iter_drives(self):
         for device in self.udev_client.query_by_subsystem('block'):

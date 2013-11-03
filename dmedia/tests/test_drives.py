@@ -558,6 +558,34 @@ class TestDevices(TestCase):
             "No such device: '/dev/nopenopenope'"
         )
 
+    def test_get_drive_info(self):
+        inst = drives.Devices()
+        for device in inst.iter_drives():
+            dev = device.get_device_file()
+            self.assertEqual(
+                inst.get_drive_info(dev),
+                drives.get_drive_info(device),
+            )
+        with self.assertRaises(ValueError) as cm:
+            inst.get_drive_info('/dev/sdaa')
+        self.assertEqual(str(cm.exception),
+            "Invalid drive device file: '/dev/sdaa'"
+        )
+
+    def test_get_partition_info(self):
+        inst = drives.Devices()
+        for device in inst.iter_partitions():
+            dev = device.get_device_file()
+            self.assertEqual(
+                inst.get_partition_info(dev),
+                drives.get_partition_info(device),
+            )
+        with self.assertRaises(ValueError) as cm:
+            inst.get_partition_info('/dev/sda11')
+        self.assertEqual(str(cm.exception),
+            "Invalid partition device file: '/dev/sda11'"
+        )
+
     def test_iter_drives(self):
         d = drives.Devices()
         for drive in d.iter_drives():
