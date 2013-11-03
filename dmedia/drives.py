@@ -320,6 +320,17 @@ class Partition(Mockable):
             check_call(['umount', tmpdir])
             os.rmdir(tmpdir)
 
+    def create_filestore(self, mount, store_id=None, copies=1, **kw):
+        fs = None
+        self.check_call(['mount', self.dev, mount])
+        try:
+            fs = FileStore.create(mount, store_id, copies, **kw)
+            self.check_call(['chmod', '0777', mount])
+            return fs.doc
+        finally:
+            del fs
+            self.check_call(['umount', self.dev])
+
 
 def get_parentdir_info(parentdir):
     mounts = parse_mounts()

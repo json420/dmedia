@@ -31,9 +31,11 @@ import re
 import subprocess
 from random import SystemRandom
 
+from filestore import FileStore
 from dbase32 import db32enc, random_id
 from gi.repository import GUdev
 
+from .base import TempDir
 from dmedia import drives
 
 
@@ -468,11 +470,59 @@ class TestPartition(TestCase):
     def test_mkfs_ext4(self):
         dev = random_partition_dev()
         inst = drives.Partition(dev, mocking=True)
+        label = random_id(5)
         store_id = random_id()
         ext4_uuid = drives.db32_to_uuid(store_id)
-        self.assertIsNone(inst.mkfs_ext4('FooBar-2', store_id))
+        self.assertIsNone(inst.mkfs_ext4(label, store_id))
         self.assertEqual(inst.calls, [
-            ('check_call', ['mkfs.ext4', dev, '-L', 'FooBar-2', '-U', ext4_uuid, '-m', '0']),
+            ('check_call', ['mkfs.ext4', dev, '-L', label, '-U', ext4_uuid, '-m', '0']),
+        ])
+
+    def test_create_filestore(self):
+        dev = random_partition_dev()
+        inst = drives.Partition(dev, mocking=True)
+        tmp = TempDir()
+        store_id = random_id()
+        ext4_uuid = drives.db32_to_uuid(store_id)
+        label = random_id(5)
+        serial = random_id(10)
+        kw = {
+            'drive_serial': serial,
+            'filesystem_type': 'ext4',
+            'filesystem_uuid': ext4_uuid,
+            'filesystem_label': label,
+        }
+        doc = inst.create_filestore(tmp.dir, store_id, 1, **kw)
+        self.assertIsInstance(doc, dict)
+        self.assertEqual(set(doc), set([
+            '_id',
+            'time',
+            'type',
+            'plugin',
+            'copies',
+            'drive_serial',
+            'filesystem_type',
+            'filesystem_uuid',
+            'filesystem_label',
+        ]))
+        self.assertEqual(doc, {
+            '_id': store_id,
+            'time': doc['time'],
+            'type': 'dmedia/store',
+            'plugin': 'filestore',
+            'copies': 1,
+            'drive_serial': serial,
+            'filesystem_type': 'ext4',
+            'filesystem_uuid': ext4_uuid,
+            'filesystem_label': label,
+        })
+        fs = FileStore(tmp.dir, store_id)
+        self.assertEqual(fs.doc, doc)
+        del fs
+        self.assertEqual(inst.calls, [
+            ('check_call', ['mount', dev, tmp.dir]),
+            ('check_call', ['chmod', '0777', tmp.dir]),
+            ('check_call', ['umount', dev]),
         ])
 
 
