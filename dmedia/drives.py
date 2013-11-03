@@ -219,13 +219,13 @@ class Drive(Mockable):
     def get_partition(self, index):
         assert isinstance(index, int)
         assert index >= 1
-        return Partition('{}{}'.format(self.dev, index))
+        return Partition('{}{}'.format(self.dev, index), mocking=self.mocking)
 
     def rereadpt(self):
-        check_call(['blockdev', '--rereadpt', self.dev])
+        self.check_call(['blockdev', '--rereadpt', self.dev])
 
     def zero(self):
-        check_call(['dd',
+        self.check_call(['dd',
             'if=/dev/zero',
             'of={}'.format(self.dev),
             'bs=4M',
@@ -242,11 +242,11 @@ class Drive(Mockable):
         return cmd
 
     def mklabel(self):
-        check_call(self.parted('mklabel', 'gpt'))
+        self.check_call(self.parted('mklabel', 'gpt'))
 
     def print(self):
         cmd = self.parted('print')
-        return check_output(cmd).decode('utf-8')
+        return self.check_output(cmd).decode('utf-8')
 
     def init_partition_table(self):
         self.rereadpt()  # Make sure existing partitions aren't mounted
@@ -292,8 +292,9 @@ class Drive(Mockable):
         return doc
 
 
-class Partition:
-    def __init__(self, dev):
+class Partition(Mockable):
+    def __init__(self, dev, mocking=False):
+        super().__init__(mocking)
         if not VALID_PARTITION.match(dev):
             raise ValueError('Invalid partition device file: {!r}'.format(dev))
         self.dev = dev

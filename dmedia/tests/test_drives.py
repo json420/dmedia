@@ -281,23 +281,69 @@ class TestDrive(TestCase):
             "Invalid drive device file: '/dev/sdaa'"
         )
 
-
     def test_get_partition(self):
-        inst = drives.Drive('/dev/sdb')
-        part = inst.get_partition(1)
-        self.assertIsInstance(part, drives.Partition)
-        self.assertEqual(part.dev, '/dev/sdb1')
-        part = inst.get_partition(2)
-        self.assertIsInstance(part, drives.Partition)
-        self.assertEqual(part.dev, '/dev/sdb2')
+        for base in ('/dev/sd', '/dev/vd'):
+            for letter in string.ascii_lowercase:
+                dev = base + letter
+                for number in range(1, 10):
+                    # mocking=True
+                    inst = drives.Drive(dev)
+                    part = inst.get_partition(number)
+                    self.assertIsInstance(part, drives.Partition)
+                    self.assertEqual(part.dev, '{}{:d}'.format(dev, number))
+                    self.assertIs(part.mocking, False)
+                    # mocking=False
+                    inst = drives.Drive(dev, mocking=True)
+                    part = inst.get_partition(number)
+                    self.assertIsInstance(part, drives.Partition)
+                    self.assertEqual(part.dev, '{}{:d}'.format(dev, number))
+                    self.assertIs(part.mocking, True)
 
-        inst = drives.Drive('/dev/vdz')
-        part = inst.get_partition(8)
-        self.assertIsInstance(part, drives.Partition)
-        self.assertEqual(part.dev, '/dev/vdz8')
-        part = inst.get_partition(9)
-        self.assertIsInstance(part, drives.Partition)
-        self.assertEqual(part.dev, '/dev/vdz9')
+    def test_rereadpt(self):
+        inst = drives.Drive('/dev/sdc', mocking=True)
+        self.assertIsNone(inst.rereadpt())
+        self.assertEqual(inst.calls, [
+            ('check_call', ['blockdev', '--rereadpt', '/dev/sdc']),
+        ])
+
+    def test_zero(self):
+        inst = drives.Drive('/dev/sdd', mocking=True)
+        self.assertIsNone(inst.zero())
+        self.assertEqual(inst.calls, [
+            ('check_call', ['dd', 'if=/dev/zero', 'of=/dev/sdd', 'bs=4M', 'count=1', 'oflag=sync']),
+        ])
+
+    def test_parted(self):
+        inst = drives.Drive('/dev/sda', mocking=True)
+        self.assertEqual(inst.parted(),
+            ['parted', '-s', '/dev/sda', 'unit', 'MiB']
+        )
+        self.assertEqual(inst.calls, [])
+        self.assertEqual(inst.parted('print'),
+            ['parted', '-s', '/dev/sda', 'unit', 'MiB', 'print']
+        )
+        self.assertEqual(inst.calls, [])
+        self.assertEqual(inst.parted('mklabel', 'gpt'),
+            ['parted', '-s', '/dev/sda', 'unit', 'MiB', 'mklabel', 'gpt']
+        )
+        self.assertEqual(inst.calls, [])
+
+    def test_mklabel(self):
+        inst = drives.Drive('/dev/sde', mocking=True)
+        self.assertIsNone(inst.mklabel())
+        self.assertEqual(inst.calls, [
+            ('check_call',  ['parted', '-s', '/dev/sde', 'unit', 'MiB', 'mklabel', 'gpt']),
+        ])
+
+    def test_print(self):
+        inst = drives.Drive('/dev/sdf')
+        marker = random_id()
+        inst.reset(mocking=True, outputs=[marker.encode('utf-8')])
+        self.assertEqual(inst.print(), marker)
+        self.assertEqual(inst.calls, [
+            ('check_output',  ['parted', '-s', '/dev/sdf', 'unit', 'MiB', 'print']),
+        ])
+        self.assertEqual(inst.outputs, [])
 
 
 class TestPartition(TestCase):
