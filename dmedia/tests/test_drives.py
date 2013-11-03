@@ -28,6 +28,7 @@ import uuid
 import os
 import string
 import re
+import subprocess
 
 from dbase32 import db32enc, random_id
 from gi.repository import GUdev
@@ -44,7 +45,6 @@ Partition Table: gpt
 Number  Start    End         Size        File system  Name     Flags
  1      1.00MiB  2861587MiB  2861586MiB  ext4         primary
 """
-
 
 EXPECTED_DRIVE_KEYS = (
     'drive_block_physical',
@@ -154,11 +154,117 @@ class TestFunctions(TestCase):
             self.assertIsInstance(value, str)
 
 
+class TestMockable(TestCase):
+    def test_init(self):
+        m = drives.Mockable()
+        self.assertIs(m.mocking, False)
+        self.assertEqual(m.calls, [])
+        self.assertEqual(m.outputs, [])
+
+        m = drives.Mockable(mocking=True)
+        self.assertIs(m.mocking, True)
+        self.assertEqual(m.calls, [])
+        self.assertEqual(m.outputs, [])
+
+    def test_reset(self):
+        m = drives.Mockable()
+        calls = m.calls
+        outputs = m.outputs
+        self.assertIsNone(m.reset())
+        self.assertIs(m.mocking, False)
+        self.assertIs(m.calls, calls)
+        self.assertEqual(m.calls, [])
+        self.assertIs(m.outputs, outputs)
+        self.assertEqual(m.outputs, [])
+
+        m = drives.Mockable(mocking=True)
+        calls = m.calls
+        outputs = m.outputs
+        m.calls.extend(
+            [('check_call', ['stuff']), ('check_output', ['junk'])]
+        )
+        m.outputs.extend([b'foo', b'bar'])
+        self.assertIsNone(m.reset())
+        self.assertIs(m.mocking, False)
+        self.assertIs(m.calls, calls)
+        self.assertEqual(m.calls, [])
+        self.assertIs(m.outputs, outputs)
+        self.assertEqual(m.outputs, [])
+
+        m = drives.Mockable(mocking=True)
+        calls = m.calls
+        outputs = m.outputs
+        m.calls.extend(
+            [('check_call', ['stuff']), ('check_output', ['junk'])]
+        )
+        m.outputs.extend([b'foo', b'bar'])
+        self.assertIsNone(m.reset(mocking=True, outputs=[b'aye', b'bee']))
+        self.assertIs(m.mocking, True)
+        self.assertIs(m.calls, calls)
+        self.assertEqual(m.calls, [])
+        self.assertIs(m.outputs, outputs)
+        self.assertEqual(m.outputs, [b'aye', b'bee'])
+
+    def test_check_call(self):
+        m = drives.Mockable()
+        self.assertIsNone(m.check_call(['/bin/true']))
+        self.assertEqual(m.calls, [])
+        self.assertEqual(m.outputs, [])
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            m.check_call(['/bin/false'])
+        self.assertEqual(cm.exception.cmd, ['/bin/false'])
+        self.assertEqual(cm.exception.returncode, 1)
+        self.assertEqual(m.calls, [])
+        self.assertEqual(m.outputs, [])
+
+        m = drives.Mockable(mocking=True)
+        self.assertIsNone(m.check_call(['/bin/true']))
+        self.assertEqual(m.calls, [
+            ('check_call', ['/bin/true']),
+        ])
+        self.assertEqual(m.outputs, [])
+        self.assertIsNone(m.check_call(['/bin/false']))
+        self.assertEqual(m.calls, [
+            ('check_call', ['/bin/true']),
+            ('check_call', ['/bin/false']),
+        ])
+        self.assertEqual(m.outputs, [])
+
+    def test_check_output(self):
+        m = drives.Mockable()
+        self.assertEqual(m.check_output(['/bin/echo', 'foobar']), b'foobar\n')
+        self.assertEqual(m.calls, [])
+        self.assertEqual(m.outputs, [])
+        with self.assertRaises(subprocess.CalledProcessError) as cm:
+            m.check_output(['/bin/false', 'stuff'])
+        self.assertEqual(cm.exception.cmd, ['/bin/false', 'stuff'])
+        self.assertEqual(cm.exception.returncode, 1)
+        self.assertEqual(m.calls, [])
+        self.assertEqual(m.outputs, [])
+
+        m.reset(mocking=True, outputs=[b'foo', b'bar'])
+        self.assertEqual(m.check_output(['/bin/echo', 'stuff']), b'foo')
+        self.assertEqual(m.calls, [
+            ('check_output', ['/bin/echo', 'stuff']),
+        ])
+        self.assertEqual(m.outputs, [b'bar'])
+        self.assertEqual(m.check_output(['/bin/false', 'stuff']), b'bar')
+        self.assertEqual(m.calls, [
+            ('check_output', ['/bin/echo', 'stuff']),
+            ('check_output', ['/bin/false', 'stuff']),
+        ])
+        self.assertEqual(m.outputs, [])
+
+
 class TestDrive(TestCase):
     def test_init(self):
         for dev in ('/dev/sda', '/dev/sdz', '/dev/vda', '/dev/vdz'):
             inst = drives.Drive(dev)
             self.assertIs(inst.dev, dev)
+            self.assertIs(inst.mocking, False)
+            inst = drives.Drive(dev, mocking=True)
+            self.assertIs(inst.dev, dev)
+            self.assertIs(inst.mocking, True)
         with self.assertRaises(ValueError) as cm:
             drives.Drive('/dev/sda1')
         self.assertEqual(str(cm.exception),
@@ -174,6 +280,7 @@ class TestDrive(TestCase):
         self.assertEqual(str(cm.exception),
             "Invalid drive device file: '/dev/sdaa'"
         )
+
 
     def test_get_partition(self):
         inst = drives.Drive('/dev/sdb')

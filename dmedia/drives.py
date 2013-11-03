@@ -24,7 +24,7 @@ Get drive and partition info using udev.
 """
 
 from uuid import UUID
-from subprocess import check_call, check_output
+import subprocess
 import re
 import time
 import tempfile
@@ -38,7 +38,6 @@ from dbase32 import db32dec, db32enc
 from .units import bytes10
 
 
-udev_client = GUdev.Client.new(['block'])
 VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
 VALID_PARTITION = re.compile('^(/dev/[sv]d[a-z])([1-9])$')
 
@@ -172,8 +171,47 @@ def parse_mounts(procdir='/proc'):
     return mounts
 
 
-class Drive:
-    def __init__(self, dev):
+class Mockable:
+    """
+    Mock calls to `subprocess.check_call()`, `subprocess.check_output()`.
+    """
+
+    def __init__(self, mocking=False):
+        assert isinstance(mocking, bool)
+        self.mocking = mocking
+        self.calls = []
+        self.outputs = []
+
+    def reset(self, mocking=False, outputs=None):
+        assert isinstance(mocking, bool)
+        self.mocking = mocking
+        self.calls.clear()
+        self.outputs.clear()
+        if outputs:
+            assert mocking is True
+            for value in outputs:
+                assert isinstance(value, bytes)
+                self.outputs.append(value)
+
+    def check_call(self, cmd):
+        assert isinstance(cmd, list)
+        if self.mocking:
+            self.calls.append(('check_call', cmd))
+        else:
+            subprocess.check_call(cmd)
+
+    def check_output(self, cmd):
+        assert isinstance(cmd, list)
+        if self.mocking:
+            self.calls.append(('check_output', cmd))
+            return self.outputs.pop(0)
+        else:
+            return subprocess.check_output(cmd)
+
+
+class Drive(Mockable):
+    def __init__(self, dev, mocking=False):
+        super().__init__(mocking)
         if not VALID_DRIVE.match(dev):
             raise ValueError('Invalid drive device file: {!r}'.format(dev))
         self.dev = dev
