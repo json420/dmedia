@@ -254,25 +254,22 @@ class Drive(Mockable):
         time.sleep(2)
         self.rereadpt()
         self.mklabel()
-
-        text = self.print()
-        print(text)
-        self.size = parse_drive_size(text)
+        self.size = parse_drive_size(self.print())
         self.index = 0
         self.start = 1
         self.stop = self.size - 1
         assert self.start < self.stop
-
-    @property
-    def remaining(self):
-        return self.stop - self.start
 
     def mkpart(self, start, stop):
         assert isinstance(start, int)
         assert isinstance(stop, int)
         assert 1 <= start < stop <= self.stop
         cmd = self.parted('mkpart', 'primary', 'ext2', str(start), str(stop))
-        check_call(cmd)
+        self.check_call(cmd)
+
+    @property
+    def remaining(self):
+        return self.stop - self.start
 
     def add_partition(self, size):
         assert isinstance(size, int)

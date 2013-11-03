@@ -345,6 +345,72 @@ class TestDrive(TestCase):
         ])
         self.assertEqual(inst.outputs, [])
 
+    def test_init_partition_table(self):
+        inst = drives.Drive('/dev/sdg')
+        inst.reset(mocking=True, outputs=[PARTED_PRINT.encode('utf-8')])
+        self.assertIsNone(inst.init_partition_table())
+        self.assertEqual(inst.calls, [
+            ('check_call', ['blockdev', '--rereadpt', '/dev/sdg']),
+            ('check_call', ['dd', 'if=/dev/zero', 'of=/dev/sdg', 'bs=4M', 'count=1', 'oflag=sync']),
+            ('check_call', ['blockdev', '--rereadpt', '/dev/sdg']),
+            ('check_call',  ['parted', '-s', '/dev/sdg', 'unit', 'MiB', 'mklabel', 'gpt']),
+            ('check_output',  ['parted', '-s', '/dev/sdg', 'unit', 'MiB', 'print']),
+        ])
+        self.assertEqual(inst.outputs, [])
+        self.assertEqual(inst.size, 2861588)
+        self.assertEqual(inst.index, 0)
+        self.assertEqual(inst.start, 1)
+        self.assertEqual(inst.stop, 2861587)
+
+    def test_mkpart(self):
+        inst = drives.Drive('/dev/sdh', mocking=True)
+        inst.start = 1
+        inst.stop = 2861587
+        self.assertIsNone(inst.mkpart(1, 2861587))
+        self.assertEqual(inst.calls, [
+            ('check_call', ['parted', '-s', '/dev/sdh', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '2861587']),
+        ])
+
+    def test_remaining(self):
+        inst = drives.Drive('/dev/sda', mocking=True)
+        inst.start = 1
+        inst.stop = 2861587
+        self.assertEqual(inst.remaining, 2861586)
+        inst.start = 12345
+        self.assertEqual(inst.remaining, 2849242)
+        inst.stop = 1861587
+        self.assertEqual(inst.remaining, 1849242)
+        self.assertEqual(inst.calls, [])
+
+    def test_add_partition(self):
+        inst = drives.Drive('/dev/sdi', mocking=True)
+        inst.index = 0
+        inst.start = 1
+        inst.stop = 2861587
+
+        part = inst.add_partition(123456)
+        self.assertIsInstance(part, drives.Partition)
+        self.assertIs(part.mocking, True)
+        self.assertEqual(part.dev, '/dev/sdi1')
+        self.assertEqual(part.calls, [])
+        self.assertEqual(inst.index, 1)
+        self.assertEqual(inst.calls, [
+            ('check_call', ['parted', '-s', '/dev/sdi', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '123457']),
+        ])
+        self.assertEqual(inst.remaining, 2738130)
+
+        part = inst.add_partition(2738130)
+        self.assertIsInstance(part, drives.Partition)
+        self.assertIs(part.mocking, True)
+        self.assertEqual(part.dev, '/dev/sdi2')
+        self.assertEqual(part.calls, [])
+        self.assertEqual(inst.index, 2)
+        self.assertEqual(inst.calls, [
+            ('check_call', ['parted', '-s', '/dev/sdi', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '1', '123457']),
+            ('check_call', ['parted', '-s', '/dev/sdi', 'unit', 'MiB', 'mkpart', 'primary', 'ext2', '123457', '2861587']),
+        ])
+        self.assertEqual(inst.remaining, 0)
+
 
 class TestPartition(TestCase):
     def test_init(self):
