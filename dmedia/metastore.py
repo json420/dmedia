@@ -678,6 +678,7 @@ class MetaStore:
         except NotFound:
             doc = deepcopy(fs.doc)
         doc['atime'] = int(time.time())
+        doc['bytes_avail'] = fs.statvfs().avail
         self.db.save(doc)
         t.log('scan %r files in %r', count, fs)
         return count

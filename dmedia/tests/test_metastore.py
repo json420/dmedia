@@ -2791,6 +2791,7 @@ class TestMetaStore(CouchCase):
 
         doc = db.get(fs.id)
         self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertIn('bytes_avail', doc)
         atime = doc.get('atime')
         self.assertIsInstance(atime, int)
         self.assertLessEqual(atime, int(time.time()))
