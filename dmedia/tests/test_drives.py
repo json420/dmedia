@@ -600,6 +600,13 @@ class TestDevices(TestCase):
             self.assertEqual(drive.get_devtype(), 'partition')
             self.assertTrue(drives.VALID_PARTITION.match(drive.get_device_file()))
 
+    def test_get_parentdir_info(self):
+        inst = drives.Devices()
+        info = inst.get_parentdir_info('/')
+        self.assertIsInstance(info, dict)
+        if info != {}:
+            self.assertEqual(set(info), set(EXPECTED_PARTITION_KEYS))
+
     def test_get_info(self):
         d = drives.Devices()
         info = d.get_info()

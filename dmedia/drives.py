@@ -405,4 +405,4 @@ if __name__ == '__main__':
     d = Devices()
     print(_dumps(d.get_info()))
     print(_dumps(parse_mounts()))
-    print(_dumps(d.get_parentdir_info('/home/jderose/Videos')))
+    print(_dumps(d.get_parentdir_info('/')))
