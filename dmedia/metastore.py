@@ -598,21 +598,21 @@ class MetaStore:
 
         A fundamental design tenet of Dmedia is that it doesn't particularly
         trust its metadata, and instead does frequent reality checks.  This
-        allows Dmedia to work even though removable storage is constantly
-        "offline".  In other distributed file-systems, this is usually called
-        being in a "network-partitioned" state.
+        allows Dmedia to work even though removable storage is often offline,
+        meaning the overall Dmedia library is often in a network-partitioned
+        state even when all the peers in the library might be online.
 
         Dmedia deals with removable storage via a quickly decaying confidence
         in its metadata.  If a removable drive hasn't been connected longer
         than some threshold, Dmedia will update all those copies to count for
         zero durability.
 
-        And whenever a removable drive (on any drive for that matter) is
-        connected, Dmedia immediately checks to see what files are actually on
-        the drive, and whether they have good integrity.
+        Whenever a removable drive (or any drive for that matter) is connected,
+        Dmedia immediately checks to see what files are actually on the drive,
+        and whether they have good integrity.
 
         `MetaStore.scan()` is the most important reality check that Dmedia does
-        because it's fast and can therefor be done quite often. Thousands of
+        because it's fast and can therefor be done frequently. Thousands of
         files can be scanned in a few seconds.
 
         The scan insures that for every file expected in this file-store, the
@@ -625,12 +625,13 @@ class MetaStore:
         the file-store. Then the doc is updated accordingly marking the file as
         being corrupt in this file-store, and the doc is saved.
 
-        If the file doesn't have the expected mtime is this file-store, this
+        If the file doesn't have the expected mtime in this file-store, this
         copy gets downgraded to zero copies worth of durability, and the last
         verification timestamp is deleted, if present.  This will put the file
         first in line for full content-hash verification.  If the verification
-        passes, the durability is raised back to the appropriate number of
-        copies.
+        passes, the durability will be raised back to the appropriate number of
+        copies (although note this is done by `MetaStore.verify_by_downgraded()`,
+        not by this method).
 
         :param fs: a `FileStore` instance
         """
