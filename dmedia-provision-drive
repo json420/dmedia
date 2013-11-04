@@ -70,12 +70,14 @@ if not VALID_DRIVE.match(args.dev):
         'Error: DEV is not a valid drive device file: {}'.format(args.dev)
     )
 
+
 if args.id is None:
     args.id = random_id()
 if len(args.id) != 24:
     raise SystemExit('Error: ID is not 24 characters long: {}'.format(args.id))
 if not isdb32(args.id):
     raise SystemExit('Error: not a valid Dbase32 ID: {}'.format(args.id))
+
 
 if args.label is None:
     args.label = 'Dmedia-{}'.format(args.id[:8])
@@ -85,6 +87,7 @@ if len(args.label) > 16:
     raise SystemExit(
         'Error: LABEL can be at most 16 characters: {}'.format(args.label)
     )
+
 
 if os.getuid() != 0:
     raise SystemExit('Error: must be run as root')
