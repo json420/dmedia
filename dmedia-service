@@ -51,7 +51,7 @@ from dmedia.core import Core, start_httpd
 from dmedia.service.background import Snapshots, LazyAccess, Downloads
 from dmedia.service.avahi import Avahi
 from dmedia.service.peers import Browser, Publisher
-from dmedia.drives import get_parentdir_info
+from dmedia.drives import Devices
 
 
 BUS = dmedia.BUS
@@ -60,6 +60,7 @@ log = logging.getLogger()
 session = dbus.SessionBus()
 mainloop = GLib.MainLoop()
 VolumeMonitor = Gio.VolumeMonitor.get()
+devices = Devices()
 
 
 def on_sighup(signum, frame):
@@ -206,7 +207,7 @@ class Service(dbus.service.Object):
             if isfilestore(self.couch.basedir):
                 self.core.connect_filestore(self.couch.basedir)
             else:
-                info = get_parentdir_info(self.couch.basedir)
+                info = devices.get_parentdir_info(self.couch.basedir)
                 self.core.create_filestore(self.couch.basedir, **info)
         VolumeMonitor.connect('mount-added', self.on_mount_added)
         VolumeMonitor.connect('mount-pre-unmount', self.on_mount_pre_unmount)
