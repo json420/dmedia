@@ -332,6 +332,16 @@ function(doc) {
 }
 """
 
+store_bytes_avail = """
+function(doc) {
+    if (doc.type == 'dmedia/store') {
+        if (typeof doc.bytes_avail == 'number') {
+            emit(doc.bytes_avail, null);
+        }
+    }
+}
+"""
+
 store_drive_serial = """
 function(doc) {
     if (doc.type == 'dmedia/store') {
@@ -344,6 +354,7 @@ store_design = {
     '_id': '_design/store',
     'views': {
         'atime': {'map': store_atime},
+        'bytes_avail': {'map': store_bytes_avail},
         'drive_serial': {'map': store_drive_serial},
     },
 }
