@@ -24,10 +24,9 @@ Get drive and partition info using udev.
 """
 
 from uuid import UUID
-from subprocess import check_call, check_output
+import subprocess
 import re
 import time
-import tempfile
 import os
 from os import path
 
@@ -38,9 +37,20 @@ from dbase32 import db32dec, db32enc
 from .units import bytes10
 
 
-udev_client = GUdev.Client.new(['block'])
 VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
-VALID_PARTITION = re.compile('^/dev/[sv]d[a-z][1-9]$')
+VALID_PARTITION = re.compile('^(/dev/[sv]d[a-z])([1-9])$')
+
+
+def check_drive_dev(dev):
+    if not VALID_DRIVE.match(dev):
+        raise ValueError('Invalid drive device file: {!r}'.format(dev))
+    return dev
+
+
+def check_partition_dev(dev):
+    if not VALID_PARTITION.match(dev):
+        raise ValueError('Invalid partition device file: {!r}'.format(dev))
+    return dev
 
 
 def db32_to_uuid(store_id):
@@ -91,17 +101,6 @@ def unfuck(string):
     return string.replace('\\x20', ' ').strip()
 
 
-class NoSuchDevice(Exception):
-    pass
-
-
-def get_device(dev):
-    device = udev_client.query_by_device_file(dev)
-    if device is None:
-        raise NoSuchDevice('No such device: {!r}'.format(dev))  
-    return device
-
-
 def get_drive_info(device):
     physical = device.get_sysfs_attr_as_uint64('queue/physical_block_size')
     logical = device.get_sysfs_attr_as_uint64('queue/logical_block_size')
@@ -110,15 +109,20 @@ def get_drive_info(device):
     return {
         'drive_block_physical': physical,
         'drive_block_logical': logical,
+        'drive_alignment_offset': device.get_sysfs_attr_as_int('alignment_offset'),
+        'drive_discard_alignment': device.get_sysfs_attr_as_int('discard_alignment'),
         'drive_bytes': drive_bytes,
         'drive_size': bytes10(drive_bytes),
-        'drive_model': device.get_property('ID_MODEL'),
+        'drive_model': unfuck(device.get_property('ID_MODEL_ENC')),
         'drive_model_id': device.get_property('ID_MODEL_ID'),
         'drive_revision': device.get_property('ID_REVISION'),
         'drive_serial': device.get_property('ID_SERIAL_SHORT'),
         'drive_wwn': device.get_property('ID_WWN_WITH_EXTENSION'),
-        'drive_vendor': device.get_property('ID_VENDOR'),
+        'drive_vendor': unfuck(device.get_property('ID_VENDOR_ENC')),
+        'drive_vendor_id': device.get_property('ID_VENDOR_ID'),
         'drive_removable': bool(device.get_sysfs_attr_as_int('removable')),
+        'drive_bus': device.get_property('ID_BUS'),
+        'drive_rpm': device.get_property('ID_ATA_ROTATION_RATE_RPM'),
     }
 
 
@@ -151,8 +155,8 @@ def get_partition_info(device):
         'partition_scheme': device.get_property('ID_PART_ENTRY_SCHEME'),
         'partition_number': device.get_property_as_int('ID_PART_ENTRY_NUMBER'),
         'partition_bytes': part_bytes,
-        'partition_size': bytes10(part_bytes),
         'partition_start_bytes': part_start_sector * logical,
+        'partition_size': bytes10(part_bytes),
 
         'filesystem_type': device.get_property('ID_FS_TYPE'),
         'filesystem_uuid': device.get_property('ID_FS_UUID'),
@@ -169,22 +173,68 @@ def parse_drive_size(text):
     raise ValueError('Could not find disk size with unit=MiB')
 
 
-class Drive:
-    def __init__(self, dev):
-        if not VALID_DRIVE.match(dev):
-            raise ValueError('Invalid drive device file: {!r}'.format(dev))
-        self.dev = dev
+def parse_mounts(procdir='/proc'):
+    text = open(path.join(procdir, 'mounts'), 'r').read()
+    mounts = {}
+    for line in text.splitlines():
+        (dev, mount, type_, options, dump, pass_) = line.split()
+        mounts[mount.replace('\\040', ' ')] = dev
+    return mounts
+
+
+class Mockable:
+    """
+    Mock calls to `subprocess.check_call()`, `subprocess.check_output()`.
+    """
+
+    def __init__(self, mocking=False):
+        assert isinstance(mocking, bool)
+        self.mocking = mocking
+        self.calls = []
+        self.outputs = []
+
+    def reset(self, mocking=False, outputs=None):
+        assert isinstance(mocking, bool)
+        self.mocking = mocking
+        self.calls.clear()
+        self.outputs.clear()
+        if outputs:
+            assert mocking is True
+            for value in outputs:
+                assert isinstance(value, bytes)
+                self.outputs.append(value)
+
+    def check_call(self, cmd):
+        assert isinstance(cmd, list)
+        if self.mocking:
+            self.calls.append(('check_call', cmd))
+        else:
+            subprocess.check_call(cmd)
+
+    def check_output(self, cmd):
+        assert isinstance(cmd, list)
+        if self.mocking:
+            self.calls.append(('check_output', cmd))
+            return self.outputs.pop(0)
+        else:
+            return subprocess.check_output(cmd)
+
+
+class Drive(Mockable):
+    def __init__(self, dev, mocking=False):
+        super().__init__(mocking)
+        self.dev = check_drive_dev(dev)
 
     def get_partition(self, index):
         assert isinstance(index, int)
         assert index >= 1
-        return Partition('{}{}'.format(self.dev, index))
+        return Partition('{}{}'.format(self.dev, index), mocking=self.mocking)
 
     def rereadpt(self):
-        check_call(['blockdev', '--rereadpt', self.dev])
+        self.check_call(['blockdev', '--rereadpt', self.dev])
 
     def zero(self):
-        check_call(['dd',
+        self.check_call(['dd',
             'if=/dev/zero',
             'of={}'.format(self.dev),
             'bs=4M',
@@ -201,37 +251,34 @@ class Drive:
         return cmd
 
     def mklabel(self):
-        check_call(self.parted('mklabel', 'gpt'))
+        self.check_call(self.parted('mklabel', 'gpt'))
 
     def print(self):
         cmd = self.parted('print')
-        return check_output(cmd).decode('utf-8')
+        return self.check_output(cmd).decode('utf-8')
 
     def init_partition_table(self):
         self.rereadpt()  # Make sure existing partitions aren't mounted
         self.zero()
-        time.sleep(2)
+        time.sleep(1)
         self.rereadpt()
         self.mklabel()
-
-        text = self.print()
-        print(text)
-        self.size = parse_drive_size(text)
+        self.size = parse_drive_size(self.print())
         self.index = 0
         self.start = 1
         self.stop = self.size - 1
         assert self.start < self.stop
-
-    @property
-    def remaining(self):
-        return self.stop - self.start
 
     def mkpart(self, start, stop):
         assert isinstance(start, int)
         assert isinstance(stop, int)
         assert 1 <= start < stop <= self.stop
         cmd = self.parted('mkpart', 'primary', 'ext2', str(start), str(stop))
-        check_call(cmd)
+        self.check_call(cmd)
+
+    @property
+    def remaining(self):
+        return self.stop - self.start
 
     def add_partition(self, size):
         assert isinstance(size, int)
@@ -246,19 +293,14 @@ class Drive:
         self.init_partition_table()
         partition = self.add_partition(self.remaining)
         partition.mkfs_ext4(label, store_id)
-        time.sleep(2)
-        doc = partition.create_filestore(store_id)
-        return doc
+        time.sleep(1)
+        return partition
 
 
-class Partition:
-    def __init__(self, dev):
-        if not VALID_PARTITION.match(dev):
-            raise ValueError('Invalid partition device file: {!r}'.format(dev))
-        self.dev = dev
-
-    def get_info(self):
-        return get_partition_info(get_device(self.dev))
+class Partition(Mockable):
+    def __init__(self, dev, mocking=False):
+        super().__init__(mocking)
+        self.dev = check_partition_dev(dev)
 
     def mkfs_ext4(self, label, store_id):
         cmd = ['mkfs.ext4', self.dev,
@@ -266,97 +308,101 @@ class Partition:
             '-U', db32_to_uuid(store_id),
             '-m', '0',  # 0% reserved blocks
         ]
-        check_call(cmd)
+        self.check_call(cmd)
 
-    def create_filestore(self, store_id, copies=1):
-        kw = self.get_info()
-        tmpdir = tempfile.mkdtemp(prefix='dmedia.')
+    def create_filestore(self, mount, store_id=None, copies=1, **kw):
         fs = None
-        check_call(['mount', self.dev, tmpdir])
+        self.check_call(['mount', self.dev, mount])
         try:
-            fs = FileStore.create(tmpdir, store_id, 1, **kw)
-            check_call(['chmod', '0777', tmpdir])
+            fs = FileStore.create(mount, store_id, copies, **kw)
+            self.check_call(['chmod', '0777', mount])
             return fs.doc
         finally:
             del fs
-            check_call(['umount', tmpdir])
-            os.rmdir(tmpdir)
+            self.check_call(['umount', self.dev])
+
+
+class DeviceNotFound(Exception):
+    def __init__(self, dev):
+        self.dev = dev
+        super().__init__('No such device: {!r}'.format(dev))
 
 
 class Devices:
+    """
+    Gather disk and partition info using udev.
+    """
+
     def __init__(self):
-        self.client = GUdev.Client.new(['block'])
-        self.partitions = {}
+        self.udev_client = self.get_udev_client()
 
-    def run(self):
-        self.client.connect('uevent', self.on_uevent)
-        for device in self.client.query_by_subsystem('block'):
-            self.on_uevent(None, 'add', device)
+    def get_udev_client(self):
+        """
+        Making this easy to override for mocking purposes.
+        """
+        return GUdev.Client.new(['block'])
 
-    def on_uevent(self, client, action, device):
-        _type = device.get_devtype()
-        dev = device.get_device_file()
-        if _type == 'partition':
-            print(action, _type, dev)
-            if action == 'add':
-                self.add_partition(device)
-            elif action == 'remove':
-                self.remove_partition(device)
+    def get_device(self, dev):
+        """
+        Get a device object by its dev path (eg, ``'/dev/sda'``).
+        """
+        device = self.udev_client.query_by_device_file(dev)
+        if device is None:
+            raise DeviceNotFound(dev)
+        return device
 
-    def add_partition(self, device):
-        dev = device.get_device_file()
-        print('add_partition({!r})'.format(dev))
+    def get_drive_info(self, dev):
+        device = self.get_device(check_drive_dev(dev))
+        return get_drive_info(device)
 
-    def remove_partition(self, device):
-        dev = device.get_device_file()
-        print('add_partition({!r})'.format(dev))
+    def get_partition_info(self, dev):
+        device = self.get_device(check_partition_dev(dev))
+        return get_partition_info(device)
+
+    def iter_drives(self):
+        for device in self.udev_client.query_by_subsystem('block'):
+            if device.get_devtype() != 'disk':
+                continue
+            if VALID_DRIVE.match(device.get_device_file()):
+                yield device
+
+    def iter_partitions(self):
+        for device in self.udev_client.query_by_subsystem('block'):
+            if device.get_devtype() != 'partition':
+                continue
+            if VALID_PARTITION.match(device.get_device_file()):
+                yield device
+
+    def get_parentdir_info(self, parentdir):
+        assert path.abspath(parentdir) == parentdir
+        mounts = parse_mounts()
+        mountdir = parentdir
+        while True:
+            if mountdir in mounts:
+                try:
+                    device = self.get_device(mounts[mountdir])
+                    return get_partition_info(device)
+                except DeviceNotFound:
+                    pass
+            if mountdir == '/':
+                return {}
+            mountdir = path.dirname(mountdir)
+
+    def get_info(self):
+        return {
+            'drives': dict(
+                (drive.get_device_file(), get_drive_info(drive))
+                for drive in self.iter_drives()
+            ),
+            'partitions': dict(
+                (partition.get_device_file(), get_drive_info(partition))
+                for partition in self.iter_partitions()
+            ),
+        }
 
 
-def parse_mounts(procdir='/proc'):
-    text = open(path.join(procdir, 'mounts'), 'r').read()
-    mounts = {}
-    for line in text.splitlines():
-        (dev, mount, type_, options, dump, pass_) = line.split()
-        mounts[mount.replace('\\040', ' ')] = dev
-    return mounts
-
-
-def get_homedir_info(homedir):
-    mounts = parse_mounts()
-    mountdir = homedir
-    while True:
-        if mountdir in mounts:
-            try:
-                device = get_device(mounts[mountdir])
-                return get_partition_info(device)
-            except NoSuchDevice:
-                pass
-        if mountdir == '/':
-            return {}
-        mountdir = path.dirname(mountdir)
-
-
-def get_parentdir_info(parentdir):
-    mounts = parse_mounts()
-    mountdir = parentdir
-    while True:
-        if mountdir in mounts:
-            try:
-                device = get_device(mounts[mountdir])
-                return get_partition_info(device)
-            except NoSuchDevice:
-                pass
-        if mountdir == '/':
-            return {}
-        mountdir = path.dirname(mountdir)
-
-
-def get_mountdir_info(mountdir):
-    mounts = parse_mounts()
-    if mountdir in mounts:
-        try:
-            device = get_device(mounts[mountdir])
-            return get_partition_info(device)
-        except NoSuchDevice:
-            pass
-    return {}
+if __name__ == '__main__':
+    d = Devices()
+    print(_dumps(d.get_info()))
+    print(_dumps(parse_mounts()))
+    print(_dumps(d.get_parentdir_info('/')))

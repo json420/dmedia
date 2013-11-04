@@ -44,11 +44,12 @@ of space in order to maintain sufficient file durability.
 
 import argparse
 import os
+import tempfile
 
 from filestore import _dumps
 from dbase32 import random_id, isdb32
 
-from dmedia.drives import Drive, VALID_DRIVE
+from dmedia.drives import Drive, Devices, VALID_DRIVE
 
 
 parser = argparse.ArgumentParser()
@@ -90,7 +91,14 @@ if len(args.label) > 16:
 
 if os.getuid() != 0:
     raise SystemExit('Error: must be run as root')
-drive = Drive(args.dev)
-doc = drive.provision(args.label, args.id)
-print(_dumps(doc))
 
+drive = Drive(args.dev)
+partition = drive.provision(args.label, args.id)
+devices = Devices()
+info = devices.get_partition_info(partition.dev)
+tmpdir = tempfile.mkdtemp(prefix='dmedia.')
+try:
+    doc = partition.create_filestore(tmpdir, args.id, 1, **info)
+    print(_dumps(doc))
+finally:
+    os.rmdir(tmpdir)
