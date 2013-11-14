@@ -858,6 +858,31 @@ class MetaStore:
         new = create_stored(doc['_id'], fs)
         return self.db.update(mark_added, doc, new)
 
+    def iter_files_at_rank(self, rank):
+        assert isinstance(rank, int)
+        assert 0 <= rank <= 5
+        LIMIT = 25
+        kw = {
+            'limit': LIMIT,
+            'key': rank,
+        }
+        while True:
+            rows = self.db.view('file', 'rank', **kw)['rows']
+            if not rows:
+                break
+            ids = [r['id'] for r in rows]
+            if rows[0]['id'] == kw.get('startkey_docid'):
+                ids.pop(0)
+            random.shuffle(ids)
+            for _id in ids:
+                try:
+                    yield self.db.get(_id)
+                except NotFound:
+                    log.warning('doc NotFound for %s at rank=%d', _id, rank)
+            if len(rows) < LIMIT:
+                break
+            kw['startkey_docid'] = rows[-1]['id']
+
     def iter_fragile(self, monitor=False):
         """
         Yield doc for each fragile file.     
