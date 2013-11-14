@@ -888,6 +888,29 @@ class MetaStore:
                 break
             kw['startkey_docid'] = rows[-1]['id']
 
+    def wait_for_fragile(self, last_seq):
+        kw = {
+            'feed': 'longpoll',
+            'include_docs': True,
+            'filter': 'file/fragile',
+            'since': last_seq,
+        }
+        while True:
+            try:
+                return self.db.get('_changes', **kw)
+            # FIXME: Sometimes we get a 400 Bad Request from CouchDB, perhaps
+            # when `since` gets ahead of the `update_seq` as viewed by the
+            # changes feed?  By excepting `BadRequest` here, we prevent the
+            # vigilence process from sometimes crashing once it enters the event
+            # phase.  This seems to happen only during a fairly high DB load
+            # when multiple peers are syncing.
+            #
+            # Note that even without this we're generally still pretty safe as
+            # the vigilence process gets restarted every 29 minutes anyway, in
+            # order to minimize the impact of unexpected crashes or hangs. 
+            except (ResponseNotReady, BadRequest):
+                pass
+
     def iter_fragile(self, monitor=False):
         """
         Yield doc for each fragile file.     

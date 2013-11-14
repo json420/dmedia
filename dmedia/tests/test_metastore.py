@@ -3799,6 +3799,43 @@ class TestMetaStore(CouchCase):
         for doc in db.get_many(ids):
             self.assertEqual(doc['_rev'][:2], '2-')
 
+    def test_wait_for_fragile(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        stores = tuple(random_id() for i in range(3))
+        docs = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 1},
+                },
+            }
+            for i in range(4)
+        ]
+        db.save_many(docs)
+        last_seq = db.get()['update_seq']
+        for doc in docs:
+            del doc['stored'][stores[0]]
+            db.save(doc)
+            result = ms.wait_for_fragile(last_seq)
+            self.assertEqual(result, {
+                'last_seq': last_seq + 1,
+                'results': [
+                    {
+                        'changes': [{'rev': doc['_rev']}],
+                        'doc': doc,
+                        'id': doc['_id'],
+                        'seq': last_seq + 1,
+                    }
+                ],
+            })
+            last_seq = result['last_seq']
+
     def test_iter_fragile(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
