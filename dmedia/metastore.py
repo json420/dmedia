@@ -859,8 +859,10 @@ class MetaStore:
         return self.db.update(mark_added, doc, new)
 
     def iter_files_at_rank(self, rank):
-        assert isinstance(rank, int)
-        assert 0 <= rank <= 5
+        if not isinstance(rank, int):
+            raise TypeError(TYPE_ERROR.format('rank', int, type(rank), rank))
+        if not (0 <= rank <= 5):
+            raise ValueError('Need 0 <= rank <= 5; got {}'.format(rank))
         LIMIT = 25
         kw = {
             'limit': LIMIT,
@@ -870,7 +872,7 @@ class MetaStore:
             rows = self.db.view('file', 'rank', **kw)['rows']
             if not rows:
                 break
-            log.info('considering %d files at rank=%d starting at %s',
+            log.info('Considering %d files at rank=%d starting at %s',
                 len(rows), rank, rows[0]['id']
             )
             ids = [r['id'] for r in rows]

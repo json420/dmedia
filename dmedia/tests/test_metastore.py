@@ -3644,6 +3644,169 @@ class TestMetaStore(CouchCase):
             },
         })
 
+    def test_iter_files_at_rank(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        def doc_id(doc):
+            return doc['_id']
+
+        # Bad rank type:
+        with self.assertRaises(TypeError) as cm:
+            list(ms.iter_files_at_rank(1.0))
+        self.assertEqual(str(cm.exception),
+            TYPE_ERROR.format('rank', int, float, 1.0)
+        )
+
+        # Bad rank value:
+        with self.assertRaises(ValueError) as cm:
+            list(ms.iter_files_at_rank(-1))
+        self.assertEqual(str(cm.exception), 'Need 0 <= rank <= 5; got -1')
+        with self.assertRaises(ValueError) as cm:
+            list(ms.iter_files_at_rank(6))
+        self.assertEqual(str(cm.exception), 'Need 0 <= rank <= 5; got 6')
+
+        # Test when no files are in the library:
+        self.assertEqual(list(ms.iter_files_at_rank(0)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(1)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(2)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(3)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(4)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(5)), [])
+
+        # Create rank=(0 through 5) test data:
+        stores = tuple(random_id() for i in range(3))
+        docs_0 = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {},
+            }
+            for i in range(100)
+        ]
+        docs_1 = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 0},
+                },
+            }
+            for i in range(101)
+        ]
+        docs_2 = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                },
+            }
+            for i in range(102)
+        ]
+        docs_3 = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 0},
+                },
+            }
+            for i in range(103)
+        ]
+        docs_4 = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                },
+            }
+            for i in range(104)
+        ]
+        docs_5 = [
+            {
+                '_id': random_file_id(),
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 0},
+                },
+            }
+            for i in range(105)
+        ]
+        docs = []
+        doc_groups = (docs_0, docs_1, docs_2, docs_3, docs_4, docs_5)
+        for docs_n in doc_groups:
+            docs.extend(docs_n)
+            docs_n.sort(key=doc_id)
+        self.assertEqual(len(docs), 615)
+        db.save_many(docs)
+
+        # Test that for each rank, we get the expected docs and no duplicates:
+        self.assertEqual(
+            sorted(ms.iter_files_at_rank(0), key=doc_id), docs_0
+        )
+        self.assertEqual(
+            sorted(ms.iter_files_at_rank(1), key=doc_id), docs_1
+        )
+        self.assertEqual(
+            sorted(ms.iter_files_at_rank(2), key=doc_id), docs_2
+        )
+        self.assertEqual(
+            sorted(ms.iter_files_at_rank(3), key=doc_id), docs_3
+        )
+        self.assertEqual(
+            sorted(ms.iter_files_at_rank(4), key=doc_id), docs_4
+        )
+        self.assertEqual(
+            sorted(ms.iter_files_at_rank(5), key=doc_id), docs_5
+        )
+
+        # Similar to above, except this time we're modifying the docs as they're
+        # yielded so they're bumped up to rank=6 in the file/rank view:
+        self.assertEqual(len(doc_groups), 6)
+        self.assertEqual(db.view('file', 'rank', key=6)['rows'], [])
+        for (n, docs_n) in enumerate(doc_groups):
+            result = []
+            for doc in ms.iter_files_at_rank(n):
+                result.append(doc)
+                new = deepcopy(doc)
+                new['stored'] = {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 1},
+                }
+                db.save(new)
+            self.assertEqual(len(result), 100 + n)
+            self.assertEqual(sorted(result, key=doc_id), docs_n)
+            self.assertEqual(list(ms.iter_files_at_rank(n)), [])
+
+        # Double check that rank 0 through 5 are still returning no docs:
+        self.assertEqual(list(ms.iter_files_at_rank(0)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(1)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(2)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(3)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(4)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(5)), [])
+
+        # And check that all the docs are still at rank=6 and rev=2:
+        ids = sorted(d['_id'] for d in docs)
+        rows = db.view('file', 'rank', key=6)['rows']
+        self.assertEqual(len(rows), 615)
+        self.assertEqual([r['id'] for r in rows], ids)
+        for doc in db.get_many(ids):
+            self.assertEqual(doc['_rev'][:2], '2-')
+
     def test_iter_fragile(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
