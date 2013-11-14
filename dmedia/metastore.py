@@ -870,6 +870,9 @@ class MetaStore:
             rows = self.db.view('file', 'rank', **kw)['rows']
             if not rows:
                 break
+            log.info('considering %d files at rank=%d starting at %s',
+                len(rows), rank, rows[0]['id']
+            )
             ids = [r['id'] for r in rows]
             if rows[0]['id'] == kw.get('startkey_docid'):
                 ids.pop(0)
@@ -888,20 +891,13 @@ class MetaStore:
         Yield doc for each fragile file.     
         """
         for rank in range(6):
-            result = self.db.view('file', 'rank', key=rank, update_seq=True)
-            update_seq = result.get('update_seq')
-            ids = [row['id'] for row in result['rows']]
-            del result  # result might be quite large, free some memory
-            random.shuffle(ids)
-            log.info('vigilance: %d files at rank=%d', len(ids), rank)
-            for _id in ids:
-                yield self.db.get(_id)
+            for doc in self.iter_files_at_rank(rank):
+                yield doc
         if not monitor:
             return
 
         # Now we enter an event-based loop using the _changes feed:
-        if update_seq is None:
-            update_seq = self.db.get()['update_seq']
+        update_seq = self.db.get()['update_seq']
         kw = {
             'feed': 'longpoll',
             'include_docs': True,
