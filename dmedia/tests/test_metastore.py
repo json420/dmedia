@@ -49,6 +49,13 @@ from dmedia.constants import TYPE_ERROR
 random = SystemRandom()
 
 
+def doc_id(doc):
+    """
+    Used as key function for sorted by doc['_id'].
+    """
+    return doc['_id']
+
+
 def create_random_file(fs, db):
     tmp_fp = fs.allocate_tmp()
     ch = write_random(tmp_fp)
@@ -3648,9 +3655,6 @@ class TestMetaStore(CouchCase):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
-        def doc_id(doc):
-            return doc['_id']
-
         # Bad rank type:
         with self.assertRaises(TypeError) as cm:
             list(ms.iter_files_at_rank(1.0))
@@ -3753,24 +3757,11 @@ class TestMetaStore(CouchCase):
         db.save_many(docs)
 
         # Test that for each rank, we get the expected docs and no duplicates:
-        self.assertEqual(
-            sorted(ms.iter_files_at_rank(0), key=doc_id), docs_0
-        )
-        self.assertEqual(
-            sorted(ms.iter_files_at_rank(1), key=doc_id), docs_1
-        )
-        self.assertEqual(
-            sorted(ms.iter_files_at_rank(2), key=doc_id), docs_2
-        )
-        self.assertEqual(
-            sorted(ms.iter_files_at_rank(3), key=doc_id), docs_3
-        )
-        self.assertEqual(
-            sorted(ms.iter_files_at_rank(4), key=doc_id), docs_4
-        )
-        self.assertEqual(
-            sorted(ms.iter_files_at_rank(5), key=doc_id), docs_5
-        )
+        for (n, docs_n) in enumerate(doc_groups):
+            result = list(ms.iter_files_at_rank(n))
+            self.assertEqual(len(result), 100 + n)
+            self.assertNotEqual(result, docs_n)  # Due to random.shuffle()
+            self.assertEqual(sorted(result, key=doc_id), docs_n)
 
         # Similar to above, except this time we're modifying the docs as they're
         # yielded so they're bumped up to rank=6 in the file/rank view:
@@ -3788,6 +3779,7 @@ class TestMetaStore(CouchCase):
                 }
                 db.save(new)
             self.assertEqual(len(result), 100 + n)
+            self.assertNotEqual(result, docs_n)  # Due to random.shuffle()
             self.assertEqual(sorted(result, key=doc_id), docs_n)
             self.assertEqual(list(ms.iter_files_at_rank(n)), [])
 
@@ -3799,7 +3791,7 @@ class TestMetaStore(CouchCase):
         self.assertEqual(list(ms.iter_files_at_rank(4)), [])
         self.assertEqual(list(ms.iter_files_at_rank(5)), [])
 
-        # And check that all the docs are still at rank=6 and rev=2:
+        # And check that all the docs are still at rank=6 and _rev=2:
         ids = sorted(d['_id'] for d in docs)
         rows = db.view('file', 'rank', key=6)['rows']
         self.assertEqual(len(rows), 615)
