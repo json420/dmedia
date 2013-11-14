@@ -1253,6 +1253,155 @@ class TestFileDesign(DesignTestCase):
             {'rows': [], 'offset': 0, 'total_rows': 0},
         )
 
+        ######################################################################
+        # 3rd, test assumptions about how "startkey_docid" and "key" interact:
+        db = Database('baz', self.env)
+        db.put(None)
+        design = self.build_view('rank')
+        db.save(design)
+
+        # Create rank=(0 through 6) test data:
+        ranks = tuple(
+            tuple(random_file_id() for j in range(17 + i))
+            for i in range(7)
+        )
+        sorted_ranks = tuple(
+            tuple(sorted(rank_n)) for rank_n in ranks
+        )
+        flattened = []
+        for (n, rank_n) in enumerate(sorted_ranks):
+            flattened.extend((n, _id) for _id in rank_n)
+        flattened = tuple(flattened)
+        self.assertEqual(len(flattened), 140)
+
+        stores = tuple(random_id() for i in range(3))
+        docs = []
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {},
+            }
+            for _id in ranks[0]
+        )
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 0},
+                },
+            }
+            for _id in ranks[1]
+        )
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                },
+            }
+            for _id in ranks[2]
+        )
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 0},
+                },
+            }
+            for _id in ranks[3]
+        )
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                },
+            }
+            for _id in ranks[4]
+        )
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 0},
+                },
+            }
+            for _id in ranks[5]
+        )
+        docs.extend(
+            {
+                '_id': _id,
+                'type': 'dmedia/file',
+                'origin': 'user',
+                'stored': {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 1},
+                },
+            }
+            for _id in ranks[6]
+        )
+        self.assertEqual(len(docs), 140)
+        db.save_many(docs)
+
+        # Test that sorting is being done by (key, _id):
+        self.assertEqual(
+            db.view('file', 'rank'),
+            {
+                'offset': 0, 
+                'total_rows': 140,
+                'rows': [
+                    {'key': n, 'id': _id, 'value': None}
+                    for (n, _id) in flattened
+                ],
+            },
+        )
+
+        # Test that sorting is being done by _id within a single key, then test
+        # that we can use "startkey_docid" as expected:
+        offset = 0
+        for (n, rank_n) in enumerate(sorted_ranks):
+            self.assertEqual(
+                db.view('file', 'rank', key=n),
+                {
+                    'offset': offset, 
+                    'total_rows': 140,
+                    'rows': [
+                        {'key': n, 'id': _id, 'value': None}
+                        for _id in rank_n
+                    ],
+                },
+            )
+            for i in range(len(rank_n)):
+                self.assertEqual(
+                    db.view('file', 'rank', key=n, startkey_docid=rank_n[i]),
+                    {
+                        'offset': offset + i, 
+                        'total_rows': 140,
+                        'rows': [
+                            {'key': n, 'id': _id, 'value': None}
+                            for _id in rank_n[i:]
+                        ],
+                    },
+                )
+            offset += len(rank_n)
+
     def test_fragile(self):
         db = Database('foo', self.env)
         db.put(None)
