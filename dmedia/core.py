@@ -241,6 +241,7 @@ class Vigilance:
         In order for a fragile file to be actionable, there must be at least one
         reachable store containing the file.
         """
+        assert isinstance(stored, frozenset)
         return bool(self.reachable.intersection(stored))
 
     def has_dst(self, stored):
@@ -251,6 +252,7 @@ class Vigilance:
         locally connected `FileStore` that does not already contain a copy of
         the file.
         """
+        assert isinstance(stored, frozenset)
         return bool(self.connected - stored)
 
 
