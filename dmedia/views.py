@@ -302,7 +302,7 @@ file_design = {
         'stored': {'map': file_stored, 'reduce': _stats},
         'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
-        'rank': {'map': file_rank},
+        'rank': {'map': file_rank, 'reduce': _count},
         'fragile': {'map': file_fragile},
         'downgrade-by-mtime': {'map': file_downgrade_by_mtime},
         'downgrade-by-verified': {'map': file_downgrade_by_verified},
