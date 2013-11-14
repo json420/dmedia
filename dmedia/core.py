@@ -230,6 +230,30 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
+class Vigilance:
+    def has_src(self, stored):
+        """
+        Return `True` if the file currently in *stored* could be retrieved.
+
+        This considers both locally connected stores, plus the stores connected
+        to visible peers on the local network.
+
+        In order for a fragile file to be actionable, there must be at least one
+        reachable store containing the file.
+        """
+        return bool(self.reachable.intersection(stored))
+
+    def has_dst(self, stored):
+        """
+        Return `True` if the file in *stored* isn't already in all local stores.
+
+        In order for a fragile file to be actionable, there must be at least one
+        locally connected `FileStore` that does not already contain a copy of
+        the file.
+        """
+        return bool(self.connected - stored)
+
+
 def _vigilance_worker(env, ssl_config):
     """
     Run the event-based copy-increasing loop to maintain file durability.
