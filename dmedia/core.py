@@ -231,9 +231,9 @@ def update_project(db, project_id):
 
 
 class Vigilance:
-    def has_src(self, stored):
+    def get_src_ids(self, stored):
         """
-        Return `True` if the file currently in *stored* could be retrieved.
+        Return store IDs from which the file in *stored* could be retrieved.
 
         This considers both locally connected stores, plus the stores connected
         to visible peers on the local network.
@@ -242,18 +242,27 @@ class Vigilance:
         reachable store containing the file.
         """
         assert isinstance(stored, frozenset)
-        return bool(self.reachable.intersection(stored))
+        return self.reachable.intersection(stored)
 
-    def has_dst(self, stored):
+    def get_dst_ids(self, stored):
         """
-        Return `True` if the file in *stored* isn't already in all local stores.
+        Return local store IDs into which the file in *stored* could be saved.
 
         In order for a fragile file to be actionable, there must be at least one
         locally connected `FileStore` that does not already contain a copy of
         the file.
         """
         assert isinstance(stored, frozenset)
-        return bool(self.connected - stored)
+        return self.connected - stored
+
+    def increase_copies(self, doc):
+        stored = frozenset(doc['stored'])
+        src_ids = self.get_src_ids(stored)
+        if not src_ids:
+            return 'not reachable'
+        dst_ids = self.get_dst_ids(stored)
+        if not dst_ids:
+            return 'no local stores not already containing a copy'
 
 
 def _vigilance_worker(env, ssl_config):
