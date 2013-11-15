@@ -67,7 +67,7 @@ from http.client import ResponseNotReady
 from random import SystemRandom
 from copy import deepcopy
 
-from dbase32 import log_id
+from dbase32 import log_id, isdb32
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BadRequest, BulkConflict
 from microfiber import id_slice_iter, dumps
@@ -178,21 +178,23 @@ def get_rank(doc):
 
     >>> doc = {
     ...     'stored': {
-    ...         'FOO': {'copies': 1},
-    ...         'BAR': {'copies': -6},
-    ...         'BAZ': 'junk',
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': -6},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': 'junk',
+    ...         'YYYYYYYYYYYYYYYY': 'store_id too short',
+    ...         42: 'the ultimate key to the ultimate value',
     ...     },
     ... }
     >>> get_rank(doc)
     4
 
-    Any needed schema coercion is done in place:
+    Any needed schema coercion is done in-place:
 
     >>> doc == {
     ...     'stored': {
-    ...         'FOO': {'copies': 1},
-    ...         'BAR': {'copies': 0},
-    ...         'BAZ': {'copies': 0},
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': 0},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': {'copies': 0},
     ...     },
     ... }
     True
@@ -205,13 +207,21 @@ def get_rank(doc):
     >>> doc
     {'stored': {}}
 
+    The rank of a file is used to order (prioritize) the copy increasing
+    behavior, which is done from lowest rank to highest rank (from most fragile
+    to least fragile).
+
+    Also see the "file/rank" CouchDB view function in `dmedia.views`.
     """
     stored = get_dict(doc, 'stored')
-    locations = len(stored)
     durability = 0
-    for key in stored:
-        value = get_dict(stored, key)
-        durability += get_int(value, 'copies')
+    for key in tuple(stored):
+        if isinstance(key, str) and len(key) == 24 and isdb32(key):
+            value = get_dict(stored, key)
+            durability += get_int(value, 'copies')
+        else:
+            del stored[key]
+    locations = len(stored)
     return min(3, locations) + min(3, durability)
 
 
