@@ -937,7 +937,7 @@ class MetaStore:
             raise TypeError(TYPE_ERROR.format('rank', int, type(rank), rank))
         if not (0 <= rank <= 5):
             raise ValueError('Need 0 <= rank <= 5; got {}'.format(rank))
-        LIMIT = 50
+        LIMIT = 25
         kw = {
             'limit': LIMIT,
             'key': rank,
