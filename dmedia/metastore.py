@@ -140,6 +140,80 @@ def get_dict(d, key):
     return d[key]
 
 
+def get_int(d, key):
+    """
+    Force value for *key* in *d* to be an ``int`` >= 0.
+
+    For example:
+
+    >>> doc = {'foo': 'BAR'}
+    >>> get_int(doc, 'foo')
+    0
+    >>> doc
+    {'foo': 0}
+
+    """
+    if not isinstance(d, dict):
+        raise TypeError(TYPE_ERROR.format('d', dict, type(d), d))
+    if not isinstance(key, str):
+        raise TypeError(TYPE_ERROR.format('key', str, type(key), key))
+    value = d.get(key)
+    if isinstance(value, int) and value >= 0:
+        return value
+    d[key] = 0
+    return d[key]
+
+
+def get_rank(doc):
+    """
+    Calculate the rank of the file represented by *doc*.
+
+    The rank of a file is the number of copies assumed to exist plus the sum
+    of the assumed durability of those copies::
+
+        rank = len(doc['stored']) + sum(v['copies'] for v in doc['stored'].values())
+
+    However, this function can cope with an arbitrarily broken *doc*, as long as
+    *doc* is at least a ``dict`` instance.  For example:
+
+    >>> doc = {
+    ...     'stored': {
+    ...         'FOO': {'copies': 1},
+    ...         'BAR': {'copies': -6},
+    ...         'BAZ': 'junk',
+    ...     },
+    ... }
+    >>> get_rank(doc)
+    4
+
+    Any needed schema coercion is done in place:
+
+    >>> doc == {
+    ...     'stored': {
+    ...         'FOO': {'copies': 1},
+    ...         'BAR': {'copies': 0},
+    ...         'BAZ': {'copies': 0},
+    ...     },
+    ... }
+    True
+
+    It even works with an empty doc:
+
+    >>> doc = {}
+    >>> get_rank(doc)
+    0
+    >>> doc
+    {'stored': {}}
+
+    """
+    stored = get_dict(doc, 'stored')
+    rank = len(stored)
+    for key in stored:
+        value = get_dict(stored, key)
+        rank += get_int(value, 'copies')
+    return rank
+
+
 def get_mtime(fs, _id):
     return int(fs.stat(_id).mtime)
 
@@ -863,7 +937,7 @@ class MetaStore:
             raise TypeError(TYPE_ERROR.format('rank', int, type(rank), rank))
         if not (0 <= rank <= 5):
             raise ValueError('Need 0 <= rank <= 5; got {}'.format(rank))
-        LIMIT = 25
+        LIMIT = 50
         kw = {
             'limit': LIMIT,
             'key': rank,
@@ -887,6 +961,17 @@ class MetaStore:
             if len(rows) < LIMIT:
                 break
             kw['startkey_docid'] = rows[-1]['id']
+
+    def iter_fragile_files(self):
+        for rank in range(6):
+            for doc in self.iter_files_at_rank(rank):
+                doc_rank = get_rank(doc)
+                if doc_rank <= rank:
+                    yield doc
+                else:
+                    log.info('Now at rank %d > %d, skipping %s',
+                        doc_rank, rank, doc['_id']
+                    )
 
     def wait_for_fragile(self, last_seq):
         kw = {
