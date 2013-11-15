@@ -169,7 +169,7 @@ def get_rank(doc):
     Calculate the rank of the file represented by *doc*.
 
     The rank of a file is the number of copies assumed to exist plus the sum
-    of the assumed durability of those copies::
+    of the assumed durability of those copies, basically::
 
         rank = len(doc['stored']) + sum(v['copies'] for v in doc['stored'].values())
 
@@ -207,11 +207,12 @@ def get_rank(doc):
 
     """
     stored = get_dict(doc, 'stored')
-    rank = len(stored)
+    locations = len(stored)
+    durability = 0
     for key in stored:
         value = get_dict(stored, key)
-        rank += get_int(value, 'copies')
-    return rank
+        durability += get_int(value, 'copies')
+    return min(3, locations) + min(3, durability)
 
 
 def get_mtime(fs, _id):
