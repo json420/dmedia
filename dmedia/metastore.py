@@ -168,8 +168,8 @@ def get_rank(doc):
     """
     Calculate the rank of the file represented by *doc*.
 
-    The rank of a file is the number of copies assumed to exist plus the sum
-    of the assumed durability of those copies, basically::
+    The rank of a file is the number of physical drives its assumed to be stored
+    upon plus the sum of the assumed durability of those copies, basically::
 
         rank = len(doc['stored']) + sum(v['copies'] for v in doc['stored'].values())
 
@@ -947,7 +947,7 @@ class MetaStore:
             raise TypeError(TYPE_ERROR.format('rank', int, type(rank), rank))
         if not (0 <= rank <= 5):
             raise ValueError('Need 0 <= rank <= 5; got {}'.format(rank))
-        LIMIT = 25
+        LIMIT = 50
         kw = {
             'limit': LIMIT,
             'key': rank,
