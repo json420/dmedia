@@ -214,15 +214,14 @@ def get_rank(doc):
     Also see the "file/rank" CouchDB view function in `dmedia.views`.
     """
     stored = get_dict(doc, 'stored')
-    durability = 0
+    copies = 0
     for key in tuple(stored):
         if isinstance(key, str) and len(key) == 24 and isdb32(key):
             value = get_dict(stored, key)
-            durability += get_int(value, 'copies')
+            copies += get_int(value, 'copies')
         else:
             del stored[key]
-    locations = len(stored)
-    return min(3, locations) + min(3, durability)
+    return min(3, len(stored)) + min(3, copies)
 
 
 def get_mtime(fs, _id):
