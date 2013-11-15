@@ -980,7 +980,7 @@ class MetaStore:
                     yield doc
                 else:
                     log.info('Now at rank %d > %d, skipping %s',
-                        doc_rank, rank, doc['_id']
+                        doc_rank, rank, doc.get('_id')
                     )
 
     def wait_for_fragile(self, last_seq):
