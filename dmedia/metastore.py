@@ -1000,9 +1000,8 @@ class MetaStore:
         """
         Yield doc for each fragile file.     
         """
-        for rank in range(6):
-            for doc in self.iter_files_at_rank(rank):
-                yield doc
+        for doc in self.iter_fragile_files():
+            yield doc
         if not monitor:
             return
 
