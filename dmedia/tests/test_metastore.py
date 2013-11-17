@@ -56,6 +56,78 @@ def doc_id(doc):
     return doc['_id']
 
 
+def build_stored_at_rank(rank, store_ids):
+    """
+    Build doc['stored'] for a specific rank.
+
+    For example:
+
+    >>> store_ids = (
+    ...     '333333333333333333333333',
+    ...     'AAAAAAAAAAAAAAAAAAAAAAAA',
+    ...     'YYYYYYYYYYYYYYYYYYYYYYYY',
+    ... )
+    >>> build_stored_at_rank(0, store_ids)
+    {}
+    >>> build_stored_at_rank(1, store_ids)
+    {'333333333333333333333333': {'copies': 0}}
+    >>> build_stored_at_rank(2, store_ids)
+    {'333333333333333333333333': {'copies': 1}}
+
+    """
+    assert isinstance(rank, int)
+    assert 0 <= rank <= 6
+    assert isinstance(store_ids, tuple)
+    assert len(store_ids) == 3
+    for _id in store_ids:
+        assert isinstance(_id, str) and len(_id) == 24 and isdb32(_id)
+    if rank == 0:
+        return {}
+    if rank == 1:
+        return {
+            store_ids[0]: {'copies': 0},
+        }
+    if rank == 2:
+        return {
+            store_ids[0]: {'copies': 1},
+        }
+    if rank == 3:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 0},
+        }
+    if rank == 4:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 1},
+        }
+    if rank == 5:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 1},
+            store_ids[2]: {'copies': 0},
+        }
+    if rank == 6:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 1},
+            store_ids[2]: {'copies': 1},
+        }
+    raise Exception('should not have reached this point')
+
+
+def build_file_at_rank(_id, rank, store_ids):
+    assert isinstance(_id, str) and len(_id) == 48 and isdb32(_id)
+    doc = {
+        '_id': _id,
+        'type': 'dmedia/file',
+        'origin': 'user',
+        'stored': build_stored_at_rank(rank, store_ids),
+    }
+    assert metastore.get_rank(doc) == rank
+    return doc
+
+
 def create_random_file(fs, db):
     tmp_fp = fs.allocate_tmp()
     ch = write_random(tmp_fp)
@@ -249,6 +321,79 @@ class TestFunctions(TestCase):
         self.assertEqual(ret, {'bar': 0, 'baz': 1})
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
+
+    def test_get_int(self):
+        # Bad `d` type:
+        bad = [random_id(), random_id()]
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_int(bad, random_id())
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('d', dict, list, bad)
+        )
+
+        # Bad `key` type:
+        bad = random.randint(0, 1000)
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_int({}, bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('key', str, int, bad)
+        )
+
+        # Empty:
+        doc = {}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Wrong type:
+        doc = {'foo': '17'}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Trickier wrong type:
+        doc = {'foo': 17.0}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Bad Value:
+        doc = {'foo': -17}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Another bad Value:
+        doc = {'foo': -1}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # All good:
+        value = 17
+        doc = {'foo': value}
+        self.assertIs(metastore.get_int(doc, 'foo'), value)
+        self.assertEqual(doc, {'foo': 17})
+        self.assertIs(doc['foo'], value)
+
+        # Also all good:
+        value = 0
+        doc = {'foo': value}
+        self.assertIs(metastore.get_int(doc, 'foo'), value)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], value)
 
     def test_get_mtime(self):
         fs = TempFileStore()
