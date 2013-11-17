@@ -962,7 +962,6 @@ class MetaStore:
             ids = [r['id'] for r in rows]
             if ids[0] == kw.get('startkey_docid'):
                 ids.pop(0)
-            kw['startkey_docid'] = ids[-1]
             random.shuffle(ids)
             for _id in ids:
                 try:
@@ -978,6 +977,7 @@ class MetaStore:
                     log.warning('doc NotFound for %s at rank=%d', _id, rank)
             if len(rows) < LIMIT:
                 break
+            kw['startkey_docid'] = rows[-1]['id']
 
     def iter_fragile_files(self):
         for rank in range(6):
