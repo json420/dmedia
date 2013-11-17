@@ -395,6 +395,50 @@ class TestFunctions(TestCase):
         self.assertEqual(doc, {'foo': 0})
         self.assertIs(doc['foo'], value)
 
+    def test_get_rank(self):
+        file_id = random_file_id()
+        store_ids = tuple(random_id() for i in range(3))
+        for rank in range(7):
+            doc = build_file_at_rank(file_id, rank, store_ids)
+            self.assertEqual(metastore.get_rank(doc), rank)
+
+        # Empty doc
+        doc = {}
+        self.assertEqual(metastore.get_rank(doc), 0)
+        self.assertEqual(doc, {'stored': {}})
+
+        # Empty doc['stored']
+        doc = {'stored': {}}
+        self.assertEqual(metastore.get_rank(doc), 0)
+        self.assertEqual(doc, {'stored': {}})
+
+        # All kinds of broken:
+        store_ids = tuple(random_id() for i in range(6))
+        doc = {
+            'stored': {
+                store_ids[0]: {'copies': 1},
+                store_ids[1]: {'copies': '17'},
+                store_ids[2]: {'copies': -18},
+                store_ids[3]: {},
+                store_ids[4]: 'hello',
+                store_ids[5]: 3,
+                random_id(10): {'copies': 1},
+                ('a' * 24): {'copies': 1},
+                42: {'copies': 1},
+            },
+        }
+        self.assertEqual(metastore.get_rank(doc), 4)
+        self.assertEqual(doc, {
+            'stored': {
+                store_ids[0]: {'copies': 1},
+                store_ids[1]: {'copies': 0},
+                store_ids[2]: {'copies': 0},
+                store_ids[3]: {'copies': 0},
+                store_ids[4]: {'copies': 0},
+                store_ids[5]: {'copies': 0},
+            },
+        })
+
     def test_get_mtime(self):
         fs = TempFileStore()
         _id = random_file_id()
