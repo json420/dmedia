@@ -3989,9 +3989,11 @@ class TestMetaStore(CouchCase):
             self.assertEqual(doc['_rev'][:2], '2-')
 
     def test_iter_files_at_rank_2(self):
+        """
+        Ensure that get_rank() is used to filter out greater than current rank.
+        """
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
-
         for rank in range(6):
             ids = tuple(random_file_id() for i in range(50))
             store_ids = tuple(random_id() for i in range(3))
@@ -3999,39 +4001,46 @@ class TestMetaStore(CouchCase):
             db.save_many(docs)
             dmap = dict((d['_id'], d) for d in docs)
             docs.sort(key=doc_id)
+
+            # Test with no modification:
             result = list(ms.iter_files_at_rank(rank))
             self.assertEqual(len(result), 50)
             self.assertNotEqual(result, docs)  # Due to random.shuffle()
             self.assertEqual(sorted(result, key=doc_id), docs)
 
-            include = set()
+            # Adjust 17 files to rank+1 after the first doc is yielded:
+            include = None
             result = []
             for doc in ms.iter_files_at_rank(rank):
-                if not include:
-                    include.add(doc['_id'])
+                result.append(doc)
+                if include is None:
+                    include = {doc['_id']}
                     remaining = set(ids) - include
-                    self.assertEqual(len(remaining), 49)
                     remove = random.sample(remaining, 17)
                     include.update(remaining - set(remove))
-                    self.assertEqual(include.intersection(remove), set())
                     rdocs = [dmap[_id] for _id in remove]
-                    for doc in rdocs:
-                        doc['stored'] = build_stored_at_rank(rank + 1, store_ids)
-                        self.assertEqual(metastore.get_rank(doc), rank + 1)
-                    db.save_many(rdocs) 
-                result.append(doc)
-            self.assertEqual(len(result), 33)
-            self.assertEqual(len(include), 33)
-            self.assertEqual(set(d['_id'] for d in result), include, rank)
+                    for rdoc in rdocs:
+                        rdoc['stored'] = build_stored_at_rank(rank + 1, store_ids)
+                        self.assertEqual(metastore.get_rank(rdoc), rank + 1)
+                    db.save_many(rdocs)
             expected = [dmap[_id] for _id in include]
             expected.sort(key=doc_id)
             self.assertEqual(len(expected), 33)
+            self.assertEqual(len(result), 33)
             self.assertNotEqual(result, expected)  # Due to random.shuffle()
-            for doc in expected:
-                self.assertEqual(doc['_rev'][:2], '1-')
-            for (a, b) in zip(result, expected):
-                self.assertEqual(a, b)
             self.assertEqual(sorted(result, key=doc_id), expected)
+
+            # Now check rank+1, unless we're at rank=5:
+            if rank < 5:
+                rdocs.sort(key=doc_id)
+                result = list(ms.iter_files_at_rank(rank + 1))
+                self.assertEqual(len(result), 17)
+                self.assertNotEqual(result, rdocs)  # Due to random.shuffle()
+                self.assertEqual(sorted(result, key=doc_id), rdocs)
+                for rdoc in rdocs:
+                    rdoc['_deleted'] = True
+                db.save_many(rdocs)
+                self.assertEqual(list(ms.iter_files_at_rank(rank + 1)), [])
 
     def test_wait_for_fragile(self):
         db = util.get_db(self.env, True)
