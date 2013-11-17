@@ -960,28 +960,29 @@ class MetaStore:
                 len(rows), rank, rows[0]['id']
             )
             ids = [r['id'] for r in rows]
-            if rows[0]['id'] == kw.get('startkey_docid'):
+            if ids[0] == kw.get('startkey_docid'):
                 ids.pop(0)
+            kw['startkey_docid'] = ids[-1]
             random.shuffle(ids)
             for _id in ids:
                 try:
-                    yield self.db.get(_id)
+                    doc = self.db.get(_id)
+                    doc_rank = get_rank(doc)
+                    if doc_rank <= rank:
+                        yield doc
+                    else:
+                        log.info('Now at rank %d > %d, skipping %s',
+                            doc_rank, rank, doc.get('_id')
+                        )
                 except NotFound:
                     log.warning('doc NotFound for %s at rank=%d', _id, rank)
             if len(rows) < LIMIT:
                 break
-            kw['startkey_docid'] = rows[-1]['id']
 
     def iter_fragile_files(self):
         for rank in range(6):
             for doc in self.iter_files_at_rank(rank):
-                doc_rank = get_rank(doc)
-                if doc_rank <= rank:
-                    yield doc
-                else:
-                    log.info('Now at rank %d > %d, skipping %s',
-                        doc_rank, rank, doc.get('_id')
-                    )
+                yield doc
 
     def wait_for_fragile(self, last_seq):
         kw = {
