@@ -4037,10 +4037,49 @@ class TestMetaStore(CouchCase):
                 self.assertEqual(len(result), 17)
                 self.assertNotEqual(result, rdocs)  # Due to random.shuffle()
                 self.assertEqual(sorted(result, key=doc_id), rdocs)
+                # Clean up for rank+1:
                 for rdoc in rdocs:
                     rdoc['_deleted'] = True
                 db.save_many(rdocs)
                 self.assertEqual(list(ms.iter_files_at_rank(rank + 1)), [])
+
+    def test_iter_fragile_files(self):
+        db = util.get_db(self.env, True)
+
+        # Test with a mocked MetaStore.iter_files_at_rank():
+        class Mocked(metastore.MetaStore):
+            def __init__(self, db, log_db=None):
+                super().__init__(db, log_db)
+                self._calls = []
+                self._ranks = tuple(
+                    tuple(random_id() for i in range(25))
+                    for rank in range(6)
+                )
+
+            def iter_files_at_rank(self, rank):
+                assert isinstance(rank, int)
+                assert 0 <= rank <= 5
+                self._calls.append(rank)
+                for _id in self._ranks[rank]:
+                    yield _id
+
+        mocked = Mocked(db)
+        expected = []
+        for ids in mocked._ranks:
+            expected.extend(ids)
+        self.assertEqual(list(mocked.iter_fragile_files()), expected)
+        self.assertEqual(mocked._calls, [0, 1, 2, 3, 4, 5])
+
+        # Now do a live test:
+        ms = metastore.MetaStore(db)
+        self.assertEqual(list(ms.iter_fragile_files()), [])
+        store_ids = tuple(random_id() for i in range(3))
+        docs = [
+            build_file_at_rank(random_file_id(), rank, store_ids)
+            for rank in range(7)
+        ]
+        db.save_many(docs)
+        self.assertEqual(list(ms.iter_fragile_files()), docs[:-1])
 
     def test_wait_for_fragile(self):
         db = util.get_db(self.env, True)
