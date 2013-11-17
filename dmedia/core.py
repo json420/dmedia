@@ -231,38 +231,107 @@ def update_project(db, project_id):
 
 
 class Vigilance:
-    def get_src_ids(self, stored):
+    def up_rank(self, doc):
         """
-        Return store IDs from which the file in *stored* could be retrieved.
+        Implements the rank-increasing decision tree.
 
-        This considers both locally connected stores, plus the stores connected
-        to visible peers on the local network.
+        There are 4 possible actions:
 
-        In order for a fragile file to be actionable, there must be at least one
-        reachable store containing the file.
+            1) Verify a local copy currently in a downgraded state
+
+            2) Copy from a local FileStore to another local FileStore
+
+            3) Download from a remote peer to a local FileStore
+
+            4) Do nothing as no rank-increasing action is possible
+
+        This is a high-level tree based on set operations.  The action taken
+        here may not actually be possible because this method doesn't consider
+        whether there is a local FileStore with enough available space, which
+        when there isn't, actions (2) and (3) wont be possible.
+
+        We use a simple IO cost accounting model: reading a copy costs one unit,
+        and writing copy likewise costs one unit.  For example, consider these
+        three operations:
+
+            ====  ==============================================
+            Cost  Action
+            ====  ==============================================
+            1     Verify a copy (1 read unit)
+            2     Create a copy (1 read unit, 1 write unit)
+            3     Create two copies (1 read unit, 2 write units)
+            ====  ==============================================
+
+        This method will take the least expensive route (in IO cost units) that
+        will increase the file rank by at least 1.
+
+        It's tempting to look for actions with a lower cost to benefit ratio,
+        even when the cost is higher.  For example, consider these actions:
+
+            ====  =====  =====  ========================
+            Cost  +Rank  Ratio  Action
+            ====  =====  =====  ========================
+            1     1      1.00   Verify a downgraded copy
+            2     2      1.00   Create a copy
+            3     4      0.75   Create two copies
+            ====  =====  =====  ========================
+
+        In this sense, it's a better deal to create two new copies (which is the
+        action Dmedia formerly would take).  However, because greater IO
+        resources are consumed, this means it will necessarily delay acting on
+        other equally fragile files (other files at the current rank being
+        processed).
+
+        Dmedia will now take the cheapest route to getting all files at rank=1
+        up to at least rank=2, then getting all files at rank=2 up to at least
+        rank=3, and so on.
+
+        Another interesting "good deal" is creating new copies by reading from
+        a local downgraded copy (because the source file is always verified as
+        its read):
+
+            ====  =====  =====  ========================================
+            Cost  +Rank  Ratio  Action
+            ====  =====  =====  ========================================
+            1     1      1.00   Verify a downgraded copy
+            2     2      1.00   Create a copy
+            2     3      0.66   Create a copy from a downgraded copy
+            3     4      0.75   Create two copies
+            3     5      0.60   Create two copies from a downgraded copy
+            ====  =====  =====  ========================================
+
+        One place where this does make sense is when there is a locally
+        available file at rank=1 (a single physical copy in a downgraded state),
+        and a locally connected FileStore with enough free space to create a new
+        copy.  As a state of having only a single physical copy is so dangerous,
+        it makes sense to bend the rules here.
+
+        However, the same will not be done for a file at rank=3 (two physical
+        copies, one in a downgraded state).  In this case the downgraded copy
+        will simply be verified, using 1 IO unit and increasing the rank to 4.
+
+        Note that we use the same cost for a read whether reading from a local
+        drive or downloading from a peer.  Although downloading is cheaper when
+        looked at only from the perspective of the local node, it has the same
+        cost when considering the total Dmedia library.
+
+        The other peers will likewise be doing their best to address any fragile
+        files.  And furthermore, local network IO is generally a more scare
+        resource (especially over WiFi), so we should only download when its
+        absolutely needed (ie, when no local copy is available).        
         """
-        assert isinstance(stored, frozenset)
-        return self.reachable.intersection(stored)
-
-    def get_dst_ids(self, stored):
-        """
-        Return local store IDs into which the file in *stored* could be saved.
-
-        In order for a fragile file to be actionable, there must be at least one
-        locally connected `FileStore` that does not already contain a copy of
-        the file.
-        """
-        assert isinstance(stored, frozenset)
-        return self.connected - stored
-
-    def increase_copies(self, doc):
         stored = frozenset(doc['stored'])
-        src_ids = self.get_src_ids(stored)
-        if not src_ids:
-            return 'not reachable'
-        dst_ids = self.get_dst_ids(stored)
-        if not dst_ids:
-            return 'no local stores not already containing a copy'
+        local = stored.itersection(self.local)
+        downgraded = local.intersection(get_downgraded(doc))
+        free = local - stored
+        remote = stored.itersection(self.remote)
+        if local:
+            if downgraded:
+                return self.up_rank_by_verifying(doc, downgraded)
+            elif free:
+                return self.up_rank_by_copying(doc, local, free)
+        elif remote:
+            return self.up_rank_by_downloading(doc, remote)
 
 
 def _vigilance_worker(env, ssl_config):
