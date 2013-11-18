@@ -956,12 +956,14 @@ class MetaStore:
             rows = self.db.view('file', 'rank', **kw)['rows']
             if not rows:
                 break
-            log.info('Considering %d files at rank=%d starting at %s',
-                len(rows), rank, rows[0]['id']
-            )
             ids = [r['id'] for r in rows]
             if ids[0] == kw.get('startkey_docid'):
                 ids.pop(0)
+            if not ids:
+                break
+            log.info('Considering %d files at rank=%d starting at %s',
+                len(ids), rank, ids[0]
+            )
             random.shuffle(ids)
             for _id in ids:
                 try:
