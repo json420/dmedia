@@ -392,7 +392,24 @@ class Vigilance:
             return self.ms.copy(src, doc, *dst)
 
     def up_rank_by_downloading(self, doc, remote):
-        return
+        fs = self.stores.find_dst_store(doc['bytes'])
+        if fs is None:
+            log.warning(
+                'No FileStore with avail space to download %s', doc.get('_id')
+            )
+            return
+        downloader = None
+        _id = doc['_id']
+        for store_id in remote:
+            client = self.store_to_client[store_id]
+            if not client.has_file(_id):
+                continue
+            if downloader is None:
+                downloader = Downloader(doc, self.ms, fs)
+            try:
+                downloader.download_from(client)
+            except Exception:
+                log.exception('Error downloading %s from %s', _id, client)
 
 
 def _vigilance_worker(env, ssl_config):
