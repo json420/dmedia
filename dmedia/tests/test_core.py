@@ -359,6 +359,21 @@ class TestVigilanceMocked(TestCase):
         self.assertEqual(mocked._calls, [])
 
 
+class TestVigilance(CouchCase):
+    def test_init(self):
+        db = util.get_db(self.env, True)
+        ms = MetaStore(db)
+        inst = core.Vigilance(ms, None)
+        self.assertIs(inst.ms, ms)
+        self.assertIsInstance(inst.stores, LocalStores)
+        self.assertIsInstance(inst.local, frozenset)
+        self.assertEqual(inst.local, frozenset())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, frozenset())
+        self.assertEqual(inst.clients, {})
+        self.assertEqual(inst.store_to_client, {})
+
+
 class TestTaskQueue(TestCase):
     def test_init(self):
         tq = core.TaskQueue()

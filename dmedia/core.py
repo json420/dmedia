@@ -247,19 +247,16 @@ class Vigilance:
         for fs in self.stores:
             log.info('Vigilance: local store: %r', fs)
         self.local = frozenset(self.stores.ids)
-
         self.clients = {}
         self.store_to_client = {}
         remote = []
         peers = ms.get_local_peers()
         if peers:
             ssl_context = build_ssl_context(ssl_config)
-
             for (peer_id, info) in peers.items():
                 url = info['url']
                 log.info('Vigilance: peer %s at %s', peer_id, url)
                 self.clients[peer_id] = get_client(url, ssl_context)
-
             for doc in ms.db.get_many(list(peers)):
                 if doc is not None:
                     client = self.clients[doc['_id']]
@@ -267,7 +264,6 @@ class Vigilance:
                         if is_store_id(store_id):
                             remote.append(store_id)
                             self.store_to_client[store_id] = client
-
         self.remote = frozenset(remote)
 
     def run(self):
