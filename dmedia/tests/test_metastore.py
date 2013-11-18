@@ -4081,7 +4081,7 @@ class TestMetaStore(CouchCase):
         db.save_many(docs)
         self.assertEqual(list(ms.iter_fragile_files()), docs[:-1])
 
-    def test_wait_for_fragile(self):
+    def test_wait_for_fragile_files(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
@@ -4104,7 +4104,7 @@ class TestMetaStore(CouchCase):
         for doc in docs:
             del doc['stored'][stores[0]]
             db.save(doc)
-            result = ms.wait_for_fragile(last_seq)
+            result = ms.wait_for_fragile_files(last_seq)
             self.assertEqual(result, {
                 'last_seq': last_seq + 1,
                 'results': [

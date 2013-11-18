@@ -286,7 +286,7 @@ class Vigilance:
     def run_event_loop(self, last_seq):
         log.info('Vigilance: starting event loop at %d', last_seq)
         while True:
-            result = self.ms.wait_for_fragile(last_seq)
+            result = self.ms.wait_for_fragile_files(last_seq)
             last_seq = result['last_seq']
             log.info('Vigilance: in event loop as of update_seq %r', last_seq)
             for row in result['results']:

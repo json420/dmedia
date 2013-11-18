@@ -986,7 +986,7 @@ class MetaStore:
             for doc in self.iter_files_at_rank(rank):
                 yield doc
 
-    def wait_for_fragile(self, last_seq):
+    def wait_for_fragile_files(self, last_seq):
         kw = {
             'feed': 'longpoll',
             'include_docs': True,
