@@ -273,12 +273,21 @@ class Vigilance:
     def run(self):
         log.info('Vigilance: processing backlog of fragile files...')
         for doc in self.ms.iter_fragile_files():
-            try:
-                self.up_rank(doc)
-            except Exception:
-                log.exception('Error calling Vigilance.up_rank() for %r', doc)
+            self.wrap_up_rank(doc)
         last_seq = self.ms.db.get()['update_seq']
+
         log.info('Vigilance: processed backlog as of update_seq %r', last_seq)
+        while True:
+            result = self.ms.wait_for_fragile(last_seq)
+            last_seq = result['last_seq']
+            for row in result['results']:
+                self.wrap_up_rank(row['doc'])
+
+    def wrap_up_rank(self, doc):
+        try:
+            return self.up_rank(doc)
+        except Exception:
+            log.exception('Error calling Vigilance.up_rank() for %r', doc)   
 
     def up_rank(self, doc):
         """
