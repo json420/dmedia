@@ -271,11 +271,14 @@ class Vigilance:
         self.remote = frozenset(remote)
 
     def run(self):
-        log.info('Processing backlog of fragile files...')
+        log.info('Vigilance: processing backlog of fragile files...')
         for doc in self.ms.iter_fragile_files():
-            self.up_rank(doc)
-        last_seq = self.db.get()['update_seq']
-        log.info('Done processing backlog as of update_seq %r', last_seq)
+            try:
+                self.up_rank(doc)
+            except Exception:
+                log.exception('Error calling Vigilance.up_rank() for %r', doc)
+        last_seq = self.ms.db.get()['update_seq']
+        log.info('Vigilance: processed backlog as of update_seq %r', last_seq)
 
     def up_rank(self, doc):
         """
