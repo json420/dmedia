@@ -430,69 +430,6 @@ class Vigilance:
                 log.exception('Error downloading %s from %s', _id, client)
 
 
-def _vigilance_worker(env, ssl_config):
-    """
-    Run the event-based copy-increasing loop to maintain file durability.
-    """
-    db = util.get_db(env)
-    ms = MetaStore(db)
-
-    local_stores = ms.get_local_stores()
-    if len(local_stores) == 0:
-        log.warning('No connected local stores, cannot increase copies')
-        return
-    connected = frozenset(local_stores.ids)
-    log.info('Connected %r', connected)
-
-    clients = []
-    peers = ms.get_local_peers()
-    if peers:
-        ssl_context = build_ssl_context(ssl_config)
-        for (peer_id, info) in peers.items():
-            url = info['url']
-            log.info('Peer %s at %s', peer_id, url)
-            clients.append(get_client(url, ssl_context))
-    else:
-        log.info('No known peers on local network')
-
-    for (doc, stored) in ms.iter_actionable_fragile(connected, True):
-        _id = doc['_id']
-        copies = sum(v['copies'] for v in doc['stored'].values())
-        if copies >= 3:
-            log.warning('%s already has copies >= 3, skipping', _id)
-            continue
-        size = doc['bytes']
-        local = connected.intersection(stored)  # Any local copies?
-        if local:
-            free = connected - stored
-            src = local_stores.choose_local_store(doc)
-            dst = local_stores.filter_by_avail(free, size, 3 - copies)
-            if dst:
-                ms.copy(src, doc, *dst)
-        elif clients:
-            fs = local_stores.find_dst_store(size)
-            if fs is None:
-                log.warning(
-                    'No FileStore with avail space to download %s', _id
-                )
-                continue
-            for client in clients:
-                if not client.has_file(_id):
-                    continue
-                downloader = Downloader(doc, ms, fs)
-                try:
-                    downloader.download_from(client)
-                except Exception:
-                    log.exception('Error downloading %s from %s', _id, client)
-
-
-def vigilance_worker(env, ssl_config):
-    try:
-        _vigilance_worker(env, ssl_config)
-    except Exception:
-        log.exception('Error in vigilance_worker():')
-
-
 def vigilance_worker(env, ssl_config):
     try:
         db = util.get_db(env)
