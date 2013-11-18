@@ -230,7 +230,28 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
+def get_downgraded(doc):
+    downgraded = []
+    for (key, value) in doc['stored'].items():
+        copies = value['copies']
+        verified = value.get('verified')
+        if copies == 0 and not isinstance(verified, int):
+            downgraded.append(key)
+    return downgraded
+
+
 class Vigilance:
+    def __init__(self, ms, ssl_config):
+        self.ms = ms
+        self.stores = ms.get_local_stores()
+        self.local = frozenset(self.stores.ids)
+        self.remote = frozenset()
+
+    def run(self):
+        log.info('Processing backlog of fragile files...')
+        for doc in self.ms.iter_fragile_files():
+            self.up_rank(doc)
+
     def up_rank(self, doc):
         """
         Implements the rank-increasing decision tree.
@@ -320,18 +341,33 @@ class Vigilance:
         resource (especially over WiFi), so we should only download when its
         absolutely needed (ie, when no local copy is available).        
         """
-        stored = frozenset(doc['stored'])
-        local = stored.itersection(self.local)
+        stored = set(doc['stored'])
+        local = stored.intersection(self.local)
         downgraded = local.intersection(get_downgraded(doc))
-        free = local - stored
-        remote = stored.itersection(self.remote)
+        free = self.local - stored
+        remote = stored.intersection(self.remote)
         if local:
             if downgraded:
                 return self.up_rank_by_verifying(doc, downgraded)
             elif free:
-                return self.up_rank_by_copying(doc, local, free)
+                return self.up_rank_by_copying(doc, free)
         elif remote:
             return self.up_rank_by_downloading(doc, remote)
+
+    def up_rank_by_verifying(self, doc, downgraded):
+        assert isinstance(downgraded, set)
+        store_id = downgraded.pop()
+        fs = self.stores.by_id(store_id)
+        return self.ms.verify(fs, doc)
+
+    def up_rank_by_copying(self, doc, free):
+        dst = self.stores.filter_by_avail(free, doc['bytes'], 1)
+        if dst:
+            src = self.stores.choose_local_store(doc)
+            return self.ms.copy(src, doc, *dst)
+
+    def up_rank_by_downloading(self, doc, remote):
+        return
 
 
 def _vigilance_worker(env, ssl_config):
@@ -393,6 +429,16 @@ def _vigilance_worker(env, ssl_config):
 def vigilance_worker(env, ssl_config):
     try:
         _vigilance_worker(env, ssl_config)
+    except Exception:
+        log.exception('Error in vigilance_worker():')
+
+
+def vigilance_worker(env, ssl_config):
+    try:
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        vigilance = Vigilance(ms, ssl_config)
+        vigilance.run()
     except Exception:
         log.exception('Error in vigilance_worker():')
 
