@@ -648,7 +648,7 @@ class MetaStore:
             count += len(docs)
             try:
                 self.db.save_many(docs)
-            except BulkConflict:
+            except BulkConflict as e:
                 log.exception('Conflict purging %s', store_id)
                 count -= len(e.conflicts)
         try:
