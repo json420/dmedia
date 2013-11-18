@@ -4080,6 +4080,26 @@ class TestMetaStore(CouchCase):
         ]
         db.save_many(docs)
         self.assertEqual(list(ms.iter_fragile_files()), docs[:-1])
+        for doc in docs:
+            doc['_deleted'] = True
+        db.save_many(docs)
+        self.assertEqual(list(ms.iter_fragile_files()), [])
+
+        # Test pushing up through ranks:
+        docs = [
+            build_file_at_rank(random_file_id(), 0, store_ids)
+            for i in range(100)
+        ]
+        db.save_many(docs)
+        docs.sort(key=doc_id)
+        for rank in range(6):
+            result = list(ms.iter_fragile_files())
+            self.assertEqual(len(result), 100)
+            self.assertNotEqual(result, docs)  # Due to random.shuffle()
+            self.assertEqual(sorted(result, key=doc_id), docs)
+            for doc in docs:
+                doc['stored'] = build_stored_at_rank(rank + 1, store_ids)
+            db.save_many(docs)
 
     def test_wait_for_fragile_files(self):
         db = util.get_db(self.env, True)
