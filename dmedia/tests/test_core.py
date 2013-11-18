@@ -341,7 +341,7 @@ class TestVigilanceMocked(TestCase):
             ['download', doc, set(remote)]
         )
 
-        # Neither avail in local or remote:
+        # Available in neither local nor remote:
         doc = {
             'stored': {
                 random_id(): {'copies': 0},
