@@ -271,12 +271,20 @@ class Vigilance:
         self.remote = frozenset(remote)
 
     def run(self):
-        log.info('Vigilance: processing backlog of fragile files...')
+        self.process_backlog()
+        last_seq = self.process_backlog()  # Once more with feeling
+        log.info('Vigilance: processed backlog as of %r', last_seq)
+        self.run_event_loop(last_seq)
+
+    def process_backlog(self):
+        last_seq = self.ms.db.get()['update_seq']
+        log.info('Vigilance: processing backlog as of %d...', last_seq)
         for doc in self.ms.iter_fragile_files():
             self.wrap_up_rank(doc)
-        last_seq = self.ms.db.get()['update_seq']
+        return self.ms.db.get()['update_seq']
 
-        log.info('Vigilance: processed backlog as of update_seq %r', last_seq)
+    def run_event_loop(self, last_seq):
+        log.info('Vigilance: starting event loop at %d', last_seq)
         while True:
             result = self.ms.wait_for_fragile(last_seq)
             last_seq = result['last_seq']
@@ -407,9 +415,6 @@ class Vigilance:
     def up_rank_by_downloading(self, doc, remote):
         fs = self.stores.find_dst_store(doc['bytes'])
         if fs is None:
-            log.warning(
-                'No FileStore with avail space to download %s', doc.get('_id')
-            )
             return
         downloader = None
         _id = doc['_id']
