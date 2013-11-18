@@ -72,135 +72,6 @@ class TestFunctions(TestCase):
         )
 
 
-class TestVigilanceMocked(TestCase):
-    def test_up_rank(self):
-        class Mocked(core.Vigilance):
-            def __init__(self, local, remote):
-                self.local = frozenset(local)
-                self.remote = frozenset(remote)
-                self._calls = []
-
-            def up_rank_by_verifying(self, doc, downgraded):
-                self._calls.extend(('verify', doc, downgraded))
-                return doc
-
-            def up_rank_by_copying(self, doc, free):
-                self._calls.extend(('copy', doc, free))
-                return doc
-
-            def up_rank_by_downloading(self, doc, remote):
-                self._calls.extend(('download', doc, remote))
-                return doc
-
-        local = tuple(random_id() for i in range(2))
-        remote = tuple(random_id() for i in range(2))
-        mocked = Mocked(local, remote)
-
-        # Verify, one local:
-        doc = {
-            'stored': {
-                local[0]: {'copies': 0},
-            },
-        }
-        self.assertIs(mocked.up_rank(doc), doc)
-        self.assertEqual(mocked._calls,
-            ['verify', doc, {local[0]}]
-        )
-
-        # Verify, two local:
-        doc = {
-            'stored': {
-                local[0]: {'copies': 0},
-                local[1]: {'copies': 1},
-            },
-        }
-        mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
-        self.assertEqual(mocked._calls,
-            ['verify', doc, {local[0]}]
-        )
-
-        # Verify, one local, one remote:
-        doc = {
-            'stored': {
-                local[0]: {'copies': 0},
-                remote[0]: {'copies': 1},
-            },
-        }
-        mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
-        self.assertEqual(mocked._calls,
-            ['verify', doc, {local[0]}]
-        )
-
-        # Copy, one local, one remote:
-        doc = {
-            'stored': {
-                local[0]: {'copies': 1},
-                remote[0]: {'copies': 1},
-            },
-        }
-        mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
-        self.assertEqual(mocked._calls,
-            ['copy', doc, {local[1]}]
-        )
-
-        # Copy, two local, one remote:
-        doc = {
-            'stored': {
-                local[0]: {'copies': 1},
-                local[1]: {'copies': 1},
-                remote[0]: {'copies': 1},
-            },
-        }
-        mocked._calls.clear()
-        self.assertIsNone(mocked.up_rank(doc))
-        self.assertEqual(mocked._calls, [])
-
-        # Download, one remote:
-        doc = {
-            'stored': {
-                remote[0]: {'copies': 0},
-            },
-        }
-        mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
-        self.assertEqual(mocked._calls,
-            ['download', doc, {remote[0]}]
-        )
-
-        # Download, two remote:
-        doc = {
-            'stored': {
-                remote[0]: {'copies': 0},
-                remote[1]: {'copies': 1},
-            },
-        }
-        mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
-        self.assertEqual(mocked._calls,
-            ['download', doc, set(remote)]
-        )
-
-        # Neither avail in local or remote:
-        doc = {
-            'stored': {
-                random_id(): {'copies': 0},
-                random_id(): {'copies': 1},
-            },
-        }
-        mocked._calls.clear()
-        self.assertIsNone(mocked.up_rank(doc))
-        self.assertEqual(mocked._calls, [])
-
-        # Empty doc['stored']:
-        doc = {'stored': {}}
-        mocked._calls.clear()
-        self.assertIsNone(mocked.up_rank(doc))
-        self.assertEqual(mocked._calls, [])
-
-
 class TestCouchFunctions(CouchCase):
     def test_db_dump_iter(self):
         server = microfiber.Server(self.env)
@@ -357,6 +228,135 @@ class TestCouchFunctions(CouchCase):
             'atime': atime,
             'peers': {},
         })
+
+
+class TestVigilanceMocked(TestCase):
+    def test_up_rank(self):
+        class Mocked(core.Vigilance):
+            def __init__(self, local, remote):
+                self.local = frozenset(local)
+                self.remote = frozenset(remote)
+                self._calls = []
+
+            def up_rank_by_verifying(self, doc, downgraded):
+                self._calls.extend(('verify', doc, downgraded))
+                return doc
+
+            def up_rank_by_copying(self, doc, free):
+                self._calls.extend(('copy', doc, free))
+                return doc
+
+            def up_rank_by_downloading(self, doc, remote):
+                self._calls.extend(('download', doc, remote))
+                return doc
+
+        local = tuple(random_id() for i in range(2))
+        remote = tuple(random_id() for i in range(2))
+        mocked = Mocked(local, remote)
+
+        # Verify, one local:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 0},
+            },
+        }
+        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertEqual(mocked._calls,
+            ['verify', doc, {local[0]}]
+        )
+
+        # Verify, two local:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 0},
+                local[1]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertEqual(mocked._calls,
+            ['verify', doc, {local[0]}]
+        )
+
+        # Verify, one local, one remote:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 0},
+                remote[0]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertEqual(mocked._calls,
+            ['verify', doc, {local[0]}]
+        )
+
+        # Copy, one local, one remote:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 1},
+                remote[0]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertEqual(mocked._calls,
+            ['copy', doc, {local[1]}]
+        )
+
+        # Copy, two local, one remote:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 1},
+                local[1]: {'copies': 1},
+                remote[0]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIsNone(mocked.up_rank(doc))
+        self.assertEqual(mocked._calls, [])
+
+        # Download, one remote:
+        doc = {
+            'stored': {
+                remote[0]: {'copies': 0},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertEqual(mocked._calls,
+            ['download', doc, {remote[0]}]
+        )
+
+        # Download, two remote:
+        doc = {
+            'stored': {
+                remote[0]: {'copies': 0},
+                remote[1]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertEqual(mocked._calls,
+            ['download', doc, set(remote)]
+        )
+
+        # Neither avail in local or remote:
+        doc = {
+            'stored': {
+                random_id(): {'copies': 0},
+                random_id(): {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIsNone(mocked.up_rank(doc))
+        self.assertEqual(mocked._calls, [])
+
+        # Empty doc['stored']:
+        doc = {'stored': {}}
+        mocked._calls.clear()
+        self.assertIsNone(mocked.up_rank(doc))
+        self.assertEqual(mocked._calls, [])
 
 
 class TestTaskQueue(TestCase):
