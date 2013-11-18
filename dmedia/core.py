@@ -337,7 +337,7 @@ class Vigilance:
         cost when considering the total Dmedia library.
 
         The other peers will likewise be doing their best to address any fragile
-        files.  And furthermore, local network IO is generally a more scare
+        files.  And furthermore, local network IO is generally a more scarce
         resource (especially over WiFi), so we should only download when its
         absolutely needed (ie, when no local copy is available).        
         """
