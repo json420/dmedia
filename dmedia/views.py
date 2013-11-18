@@ -110,6 +110,10 @@ function(doc) {
 file_copies = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (typeof doc.stored != 'object' || isArray(doc.stored)) {
+            emit(0, null);
+            return;
+        }
         var total = 0;
         var key, copies;
         for (key in doc.stored) {
