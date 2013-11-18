@@ -1045,20 +1045,6 @@ class MetaStore:
             except (ResponseNotReady, BadRequest):
                 pass
 
-    def iter_actionable_fragile(self, connected, monitor=False):
-        """
-        Yield doc for each fragile file that this node might be able to fix.
-
-        To be "actionable", this machine must have at least one currently
-        connected FileStore (drive) that does *not* already contain a copy of
-        the fragile file.       
-        """
-        assert isinstance(connected, frozenset)
-        for doc in self.iter_fragile(monitor):
-            stored = frozenset(get_dict(doc, 'stored'))
-            if (connected - stored):
-                yield (doc, stored)
-
     def reclaim(self, fs, threshold=RECLAIM_BYTES):
         count = 0
         size = 0
