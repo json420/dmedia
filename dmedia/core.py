@@ -244,13 +244,38 @@ class Vigilance:
     def __init__(self, ms, ssl_config):
         self.ms = ms
         self.stores = ms.get_local_stores()
+        for fs in self.stores:
+            log.info('Vigilance: local store: %r', fs)
         self.local = frozenset(self.stores.ids)
-        self.remote = frozenset()
+
+        self.clients = {}
+        self.store_to_client = {}
+        remote = []
+        peers = ms.get_local_peers()
+        if peers:
+            ssl_context = build_ssl_context(ssl_config)
+
+            for (peer_id, info) in peers.items():
+                url = info['url']
+                log.info('Vigilance: peer %s at %s', peer_id, url)
+                self.clients[peer_id] = get_client(url, ssl_context)
+
+            for doc in ms.db.get_many(list(peers)):
+                if doc is not None:
+                    client = self.clients[doc['_id']]
+                    for store_id in get_dict(doc, 'stores'):
+                        if is_store_id(store_id):
+                            remote.append(store_id)
+                            self.store_to_client[store_id] = client
+
+        self.remote = frozenset(remote)
 
     def run(self):
         log.info('Processing backlog of fragile files...')
         for doc in self.ms.iter_fragile_files():
             self.up_rank(doc)
+        last_seq = self.db.get()['update_seq']
+        log.info('Done processing backlog as of update_seq %r', last_seq)
 
     def up_rank(self, doc):
         """
@@ -478,7 +503,11 @@ def verify_worker(env, parentdir, store_id):
 
 
 def is_file_id(_id):
-    return isdb32(_id) and len(_id) == 48
+    return isinstance(_id, str) and len(_id) == 48 and isdb32(_id)
+
+
+def is_store_id(_id):
+    return isinstance(_id, str) and len(_id) == 24 and isdb32(_id)
 
 
 def clean_file_id(_id):
