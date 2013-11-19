@@ -170,7 +170,6 @@ class LocalStores:
         )
 
     def filter_by_avail(self, free, size, copies, threshold):
-        assert isinstance(free, set)
         assert isinstance(size, int) and size > 0
         assert isinstance(copies, int) and 1 <= copies <= 3
         assert isinstance(threshold, int) and threshold > 0
