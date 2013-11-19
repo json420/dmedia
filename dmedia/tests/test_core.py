@@ -242,12 +242,12 @@ class TestVigilanceMocked(TestCase):
                 self._calls.extend(('verify', doc, downgraded))
                 return doc
 
-            def up_rank_by_copying(self, doc, free):
-                self._calls.extend(('copy', doc, free))
+            def up_rank_by_copying(self, doc, free, threshold):
+                self._calls.extend(('copy', doc, free, threshold))
                 return doc
 
-            def up_rank_by_downloading(self, doc, remote):
-                self._calls.extend(('download', doc, remote))
+            def up_rank_by_downloading(self, doc, remote, threshold):
+                self._calls.extend(('download', doc, remote, threshold))
                 return doc
 
         local = tuple(random_id() for i in range(2))
@@ -260,7 +260,7 @@ class TestVigilanceMocked(TestCase):
                 local[0]: {'copies': 0},
             },
         }
-        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertIs(mocked.up_rank(doc, 17), doc)
         self.assertEqual(mocked._calls,
             ['verify', doc, {local[0]}]
         )
@@ -273,7 +273,7 @@ class TestVigilanceMocked(TestCase):
             },
         }
         mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertIs(mocked.up_rank(doc, 17), doc)
         self.assertEqual(mocked._calls,
             ['verify', doc, {local[0]}]
         )
@@ -286,7 +286,7 @@ class TestVigilanceMocked(TestCase):
             },
         }
         mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertIs(mocked.up_rank(doc, 17), doc)
         self.assertEqual(mocked._calls,
             ['verify', doc, {local[0]}]
         )
@@ -299,9 +299,9 @@ class TestVigilanceMocked(TestCase):
             },
         }
         mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertIs(mocked.up_rank(doc, 17), doc)
         self.assertEqual(mocked._calls,
-            ['copy', doc, {local[1]}]
+            ['copy', doc, {local[1]}, 17]
         )
 
         # Copy, two local, one remote:
@@ -313,7 +313,7 @@ class TestVigilanceMocked(TestCase):
             },
         }
         mocked._calls.clear()
-        self.assertIsNone(mocked.up_rank(doc))
+        self.assertIsNone(mocked.up_rank(doc, 17))
         self.assertEqual(mocked._calls, [])
 
         # Download, one remote:
@@ -323,9 +323,9 @@ class TestVigilanceMocked(TestCase):
             },
         }
         mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertIs(mocked.up_rank(doc, 17), doc)
         self.assertEqual(mocked._calls,
-            ['download', doc, {remote[0]}]
+            ['download', doc, {remote[0]}, 17]
         )
 
         # Download, two remote:
@@ -336,9 +336,9 @@ class TestVigilanceMocked(TestCase):
             },
         }
         mocked._calls.clear()
-        self.assertIs(mocked.up_rank(doc), doc)
+        self.assertIs(mocked.up_rank(doc, 17), doc)
         self.assertEqual(mocked._calls,
-            ['download', doc, set(remote)]
+            ['download', doc, set(remote), 17]
         )
 
         # Available in neither local nor remote:
@@ -349,13 +349,13 @@ class TestVigilanceMocked(TestCase):
             },
         }
         mocked._calls.clear()
-        self.assertIsNone(mocked.up_rank(doc))
+        self.assertIsNone(mocked.up_rank(doc, 17))
         self.assertEqual(mocked._calls, [])
 
         # Empty doc['stored']:
         doc = {'stored': {}}
         mocked._calls.clear()
-        self.assertIsNone(mocked.up_rank(doc))
+        self.assertIsNone(mocked.up_rank(doc, 17))
         self.assertEqual(mocked._calls, [])
 
 

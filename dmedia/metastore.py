@@ -90,9 +90,9 @@ DOWNGRADE_BY_VERIFIED = 12 * DAY
 VERIFY_BY_MTIME = DOWNGRADE_BY_MTIME // 8
 VERIFY_BY_VERIFIED = DOWNGRADE_BY_VERIFIED // 2
 
-GiB = 1024**3
-RECLAIM_BYTES = 64 * GiB
-
+GB = 1000**3
+MIN_BYTES_FREE = 16 * GB
+MAX_BYTES_FREE = 64 * GB
 
 
 class TimeDelta:
@@ -1080,7 +1080,7 @@ class MetaStore:
             except NotFound:
                 log.warning('preempt doc NotFound for %s', _id)
 
-    def reclaim(self, fs, threshold=RECLAIM_BYTES):
+    def reclaim(self, fs, threshold=MAX_BYTES_FREE):
         count = 0
         size = 0
         t = TimeDelta()
@@ -1102,7 +1102,7 @@ class MetaStore:
             t.log('reclaim %s in %r', count_and_size(count, size), fs)
         return (count, size)
 
-    def reclaim_all(self, threshold=RECLAIM_BYTES):
+    def reclaim_all(self, threshold=MAX_BYTES_FREE):
         try:
             count = 0
             size = 0

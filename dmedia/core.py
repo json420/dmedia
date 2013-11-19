@@ -53,7 +53,8 @@ from dmedia.server import run_server
 from dmedia import util, schema, views
 from dmedia.client import Downloader, get_client, build_ssl_context
 from dmedia.metastore import MetaStore, create_stored, get_dict
-from dmedia.local import LocalStores, FileNotLocal, MIN_FREE_SPACE
+from dmedia.metastore import MIN_BYTES_FREE, MAX_BYTES_FREE
+from dmedia.local import LocalStores, FileNotLocal
 
 
 log = logging.getLogger()
@@ -279,7 +280,7 @@ class Vigilance:
 
     def process_preempt(self):
         for doc in self.ms.iter_preempt_files():
-            self.wrap_up_rank(doc)
+            self.wrap_up_rank(doc, threshold=MAX_BYTES_FREE)
 
     def run_event_loop(self, last_seq):
         log.info('Vigilance: starting event loop at %d', last_seq)
@@ -289,13 +290,13 @@ class Vigilance:
             for row in result['results']:
                 self.wrap_up_rank(row['doc'])
 
-    def wrap_up_rank(self, doc):
+    def wrap_up_rank(self, doc, threshold=MIN_BYTES_FREE):
         try:
-            return self.up_rank(doc)
+            return self.up_rank(doc, threshold)
         except Exception:
             log.exception('Error calling Vigilance.up_rank() for %r', doc)   
 
-    def up_rank(self, doc):
+    def up_rank(self, doc, threshold):
         """
         Implements the rank-increasing decision tree.
 
@@ -384,6 +385,7 @@ class Vigilance:
         resource (especially over WiFi), so we should only download when its
         absolutely needed (ie, when no local copy is available).        
         """
+        assert isinstance(threshold, int) and threshold > 0
         stored = set(doc['stored'])
         local = stored.intersection(self.local)
         downgraded = local.intersection(get_downgraded(doc))
@@ -393,9 +395,9 @@ class Vigilance:
             if downgraded:
                 return self.up_rank_by_verifying(doc, downgraded)
             elif free:
-                return self.up_rank_by_copying(doc, free)
+                return self.up_rank_by_copying(doc, free, threshold)
         elif remote:
-            return self.up_rank_by_downloading(doc, remote)
+            return self.up_rank_by_downloading(doc, remote, threshold)
 
     def up_rank_by_verifying(self, doc, downgraded):
         assert isinstance(downgraded, set)
@@ -403,14 +405,14 @@ class Vigilance:
         fs = self.stores.by_id(store_id)
         return self.ms.verify(fs, doc)
 
-    def up_rank_by_copying(self, doc, free):
-        dst = self.stores.filter_by_avail(free, doc['bytes'], 1)
+    def up_rank_by_copying(self, doc, free, threshold):
+        dst = self.stores.filter_by_avail(free, doc['bytes'], 1, threshold)
         if dst:
             src = self.stores.choose_local_store(doc)
             return self.ms.copy(src, doc, *dst)
 
-    def up_rank_by_downloading(self, doc, remote):
-        fs = self.stores.find_dst_store(doc['bytes'])
+    def up_rank_by_downloading(self, doc, remote, threshold):
+        fs = self.stores.find_dst_store(doc['bytes'], threshold)
         if fs is None:
             return
         downloader = None
