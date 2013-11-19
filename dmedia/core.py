@@ -249,7 +249,7 @@ class Vigilance:
             log.info('Vigilance: local store: %r', fs)
         self.local = frozenset(self.stores.ids)
         self.clients = {}
-        self.store_to_client = {}
+        self.store_to_peer = {}
         remote = []
         peers = ms.get_local_peers()
         if peers:
@@ -260,11 +260,11 @@ class Vigilance:
                 self.clients[peer_id] = get_client(url, ssl_context)
             for doc in ms.db.get_many(list(peers)):
                 if doc is not None:
-                    client = self.clients[doc['_id']]
                     for store_id in get_dict(doc, 'stores'):
                         if is_store_id(store_id):
                             remote.append(store_id)
-                            self.store_to_client[store_id] = client
+                            self.store_to_peer[store_id] = doc['_id']
+                            assert doc['_id'] in peers
         self.remote = frozenset(remote)
 
     def run(self):
@@ -415,10 +415,13 @@ class Vigilance:
         fs = self.stores.find_dst_store(doc['bytes'], threshold)
         if fs is None:
             return
+        peer_ids = frozenset(
+            self.store_to_peer[store_id] for store_id in remote
+        )
         downloader = None
         _id = doc['_id']
-        for store_id in remote:
-            client = self.store_to_client[store_id]
+        for peer_id in peer_ids:
+            client = self.clients[peer_id]
             if not client.has_file(_id):
                 continue
             if downloader is None:
@@ -427,6 +430,8 @@ class Vigilance:
                 downloader.download_from(client)
             except Exception:
                 log.exception('Error downloading %s from %s', _id, client)
+            if downloader.download_is_complete():
+                return downloader.doc
 
 
 def vigilance_worker(env, ssl_config):

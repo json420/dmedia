@@ -371,7 +371,7 @@ class TestVigilance(CouchCase):
         self.assertIsInstance(inst.remote, frozenset)
         self.assertEqual(inst.remote, frozenset())
         self.assertEqual(inst.clients, {})
-        self.assertEqual(inst.store_to_client, {})
+        self.assertEqual(inst.store_to_peer, {})
 
 
 class TestTaskQueue(TestCase):
