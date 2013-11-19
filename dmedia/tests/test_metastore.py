@@ -4155,9 +4155,9 @@ class TestMetaStore(CouchCase):
         for (i, doc) in enumerate(docs):
             doc['atime'] = base - i
         db.save_many(docs)
-        expected = docs[0:50]
+        expected = docs[0:100]
         result = list(ms.iter_preempt_files())
-        self.assertEqual(len(result), 50)
+        self.assertEqual(len(result), 100)
         self.assertNotEqual(result, expected)  # Due to random.shuffle()
         result.sort(key=lambda d: d['atime'], reverse=True)
         self.assertEqual(result, expected)
