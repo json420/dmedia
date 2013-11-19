@@ -4138,6 +4138,36 @@ class TestMetaStore(CouchCase):
             })
             last_seq = result['last_seq']
 
+    def test_iter_preempt_files(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        # When empty
+        self.assertEqual(list(ms.iter_preempt_files()), [])
+
+        # With live data:
+        store_ids = tuple(random_id() for i in range(3))
+        docs = [
+            build_file_at_rank(random_file_id(), 6, store_ids)
+            for i in range(107)
+        ]
+        base = int(time.time())
+        for (i, doc) in enumerate(docs):
+            doc['atime'] = base - i
+        db.save_many(docs)
+        expected = docs[0:50]
+        result = list(ms.iter_preempt_files())
+        self.assertEqual(len(result), 50)
+        self.assertNotEqual(result, expected)  # Due to random.shuffle()
+        result.sort(key=lambda d: d['atime'], reverse=True)
+        self.assertEqual(result, expected)
+
+        # Make sure files are excluded when durability isn't 3:
+        for doc in docs:
+            doc['stored'] = build_stored_at_rank(5, store_ids)
+        db.save_many(docs)
+        self.assertEqual(list(ms.iter_preempt_files()), [])
+
     def test_reclaim(self):
         # FIXME: Till we have a nice way of mocking FileStore.statvfs(), this is
         # a lame test that covers gross function without doing anything real:

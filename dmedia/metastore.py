@@ -224,6 +224,55 @@ def get_rank(doc):
     return min(3, len(stored)) + min(3, copies)
 
 
+def get_copies(doc):
+    """
+    Calculate the durability of the file represented by *doc*.
+
+    For example:
+
+    >>> doc = {
+    ...     'stored': {
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': -6},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': 'junk',
+    ...         'YYYYYYYYYYYYYYYY': 'store_id too short',
+    ...         42: 'the ultimate key to the ultimate value',
+    ...     },
+    ... }
+    >>> get_copies(doc)
+    1
+
+    Any needed schema coercion is done in-place:
+
+    >>> doc == {
+    ...     'stored': {
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': 0},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': {'copies': 0},
+    ...     },
+    ... }
+    True
+
+    It even works with an empty doc:
+
+    >>> doc = {}
+    >>> get_copies(doc)
+    0
+    >>> doc
+    {'stored': {}}
+
+    """
+    stored = get_dict(doc, 'stored')
+    copies = 0
+    for key in tuple(stored):
+        if isinstance(key, str) and len(key) == 24 and isdb32(key):
+            value = get_dict(stored, key)
+            copies += get_int(value, 'copies')
+        else:
+            del stored[key]
+    return copies
+
+
 def get_mtime(fs, _id):
     return int(fs.stat(_id).mtime)
 
@@ -1008,6 +1057,28 @@ class MetaStore:
             # order to minimize the impact of unexpected crashes or hangs. 
             except (ResponseNotReady, BadRequest):
                 pass
+
+    def iter_preempt_files(self):
+        kw = {
+            'limit': 50,
+            'descending': True,
+        }
+        rows = self.db.view('file', 'preempt', **kw)['rows']
+        if not rows:
+            return
+        ids = [r['id'] for r in rows]
+        log.info('Considering %d files for preemptive copy increasing', len(ids))
+        random.shuffle(ids)
+        for _id in ids:
+            try:
+                doc = self.db.get(_id)
+                copies = get_copies(doc)
+                if copies == 3:
+                    yield doc
+                else:
+                    log.info('Now at copies=%d, skipping %s', copies, _id)
+            except NotFound:
+                log.warning('preempt doc NotFound for %s', _id)
 
     def reclaim(self, fs, threshold=RECLAIM_BYTES):
         count = 0

@@ -267,17 +267,19 @@ class Vigilance:
         self.remote = frozenset(remote)
 
     def run(self):
-        self.process_backlog()
-        last_seq = self.process_backlog()  # Once more with feeling
+        last_seq = self.process_backlog()
         log.info('Vigilance: processed backlog as of %r', last_seq)
+        self.process_preempt()
         self.run_event_loop(last_seq)
 
     def process_backlog(self):
-        last_seq = self.ms.db.get()['update_seq']
-        log.info('Vigilance: processing backlog as of %d...', last_seq)
         for doc in self.ms.iter_fragile_files():
             self.wrap_up_rank(doc)
         return self.ms.db.get()['update_seq']
+
+    def process_preempt(self):
+        for doc in self.ms.iter_preempt_files():
+            self.wrap_up_rank(doc)
 
     def run_event_loop(self, last_seq):
         log.info('Vigilance: starting event loop at %d', last_seq)

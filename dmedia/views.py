@@ -150,6 +150,27 @@ function(doc) {
 }
 """
 
+file_preempt = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (typeof doc.stored != 'object' || isArray(doc.stored)) {
+            return;
+        }
+        var total = 0;
+        var key, copies;
+        for (key in doc.stored) {
+            copies = doc.stored[key].copies;
+            if (typeof copies == 'number' && copies > 0) {
+                total += copies;
+            }
+        }
+        if (total == 3) {
+            emit(doc.atime, null);
+        }
+    }
+}
+"""
+
 file_fragile = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
@@ -307,6 +328,7 @@ file_design = {
         'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
         'rank': {'map': file_rank, 'reduce': _count},
+        'preempt': {'map': file_preempt},
         'fragile': {'map': file_fragile},
         'downgrade-by-mtime': {'map': file_downgrade_by_mtime},
         'downgrade-by-verified': {'map': file_downgrade_by_verified},
