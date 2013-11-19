@@ -174,7 +174,7 @@ class LocalStores:
         assert isinstance(copies, int) and 1 <= copies <= 3
         assert isinstance(threshold, int) and threshold > 0
         stores = []
-        required_avail = size + min_avail
+        required_avail = size + threshold
         for fs in self.sort_by_avail():
             if fs.id in free and fs.statvfs().avail >= required_avail:
                 stores.append(fs)
@@ -182,12 +182,12 @@ class LocalStores:
                     break
         return stores
 
-    def find_dst_store(self, size, min_avail):
+    def find_dst_store(self, size, threshold):
         stores = self.sort_by_avail()
         if not stores:
             return
         fs = stores[0]
-        if fs.statvfs().avail >= size + min_avail:
+        if fs.statvfs().avail >= size + threshold:
             return fs
 
     def local_stores(self):
