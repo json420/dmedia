@@ -371,6 +371,12 @@ class Vigilance:
         copy.  As a state of having only a single physical copy is so dangerous,
         it makes sense to bend the rules here.
 
+        FIXME: Dmedia doesn't yet do this!  Probably the best way to implement
+        this is for the decision tree here to work as it does, but to add some
+        special case handling in Vigilance.up_rank_by_verifying().  Assuming the
+        needed space isn't available on another FileStore, we should still at
+        least verify the copy.
+
         However, the same will not be done for a file at rank=3 (two physical
         copies, one in a downgraded state).  In this case the downgraded copy
         will simply be verified, using 1 IO unit and increasing the rank to 4.
