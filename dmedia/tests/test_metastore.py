@@ -44,6 +44,7 @@ from dmedia.local import LocalStores
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored, get_mtime
 from dmedia.constants import TYPE_ERROR
+from dmedia.units import bytes10
 
 
 random = SystemRandom()
@@ -275,7 +276,28 @@ class TestConstants(TestCase):
         self.assertTrue(
             parent // 4 <= metastore.VERIFY_BY_VERIFIED <= parent // 2
         )
-        self.assertGreater(metastore.VERIFY_BY_VERIFIED, metastore.VERIFY_BY_MTIME) 
+        self.assertGreater(metastore.VERIFY_BY_VERIFIED, metastore.VERIFY_BY_MTIME)
+
+    def test_GB(self):
+        self.assertIsInstance(metastore.GB, int)
+        self.assertEqual(metastore.GB, 10 ** 9)
+        self.assertEqual(metastore.GB, 1000 ** 3)
+        self.assertEqual(bytes10(metastore.GB), '1 GB')
+
+    def test_MIN_BYTES_FREE(self):
+        self.assertIsInstance(metastore.MIN_BYTES_FREE, int)
+        self.assertGreaterEqual(metastore.MIN_BYTES_FREE, metastore.GB)
+        self.assertEqual(metastore.MIN_BYTES_FREE % metastore.GB, 0)
+        self.assertEqual(bytes10(metastore.MIN_BYTES_FREE), '16 GB')
+
+    def test_MAX_BYTES_FREE(self):
+        self.assertIsInstance(metastore.MAX_BYTES_FREE, int)
+        self.assertGreaterEqual(metastore.MAX_BYTES_FREE, metastore.GB)
+        self.assertEqual(metastore.MAX_BYTES_FREE % metastore.GB, 0)
+        self.assertGreaterEqual(metastore.MAX_BYTES_FREE,
+            2 * metastore.MIN_BYTES_FREE
+        )
+        self.assertEqual(bytes10(metastore.MAX_BYTES_FREE), '64 GB')
 
 
 class TestFunctions(TestCase):
