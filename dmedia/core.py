@@ -692,6 +692,10 @@ class Core:
         self.task_manager.requeue_filestore_tasks(tuple(self.stores))
 
     def restart_vigilance(self):
+        # FIXME: Core should also restart Vigilance whenever the FileStore
+        # connected to a peer change.  We should do this by monitoring the
+        # _changes feed for changes to any of the machine docs corresponding to
+        # the currently visible local peers.
         self.task_manager.restart_vigilance()
 
     def get_auto_format(self):
