@@ -230,6 +230,150 @@ class TestCouchFunctions(CouchCase):
         })
 
 
+class TestVigilanceMocked(TestCase):
+    def test_up_rank(self):
+        class Mocked(core.Vigilance):
+            def __init__(self, local, remote):
+                self.local = frozenset(local)
+                self.remote = frozenset(remote)
+                self._calls = []
+
+            def up_rank_by_verifying(self, doc, downgraded):
+                self._calls.extend(('verify', doc, downgraded))
+                return doc
+
+            def up_rank_by_copying(self, doc, free, threshold):
+                self._calls.extend(('copy', doc, free, threshold))
+                return doc
+
+            def up_rank_by_downloading(self, doc, remote, threshold):
+                self._calls.extend(('download', doc, remote, threshold))
+                return doc
+
+        local = tuple(random_id() for i in range(2))
+        remote = tuple(random_id() for i in range(2))
+        mocked = Mocked(local, remote)
+
+        # Verify, one local:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 0},
+            },
+        }
+        self.assertIs(mocked.up_rank(doc, 17), doc)
+        self.assertEqual(mocked._calls,
+            ['verify', doc, {local[0]}]
+        )
+
+        # Verify, two local:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 0},
+                local[1]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc, 17), doc)
+        self.assertEqual(mocked._calls,
+            ['verify', doc, {local[0]}]
+        )
+
+        # Verify, one local, one remote:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 0},
+                remote[0]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc, 17), doc)
+        self.assertEqual(mocked._calls,
+            ['verify', doc, {local[0]}]
+        )
+
+        # Copy, one local, one remote:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 1},
+                remote[0]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc, 17), doc)
+        self.assertEqual(mocked._calls,
+            ['copy', doc, {local[1]}, 17]
+        )
+
+        # Copy, two local, one remote:
+        doc = {
+            'stored': {
+                local[0]: {'copies': 1},
+                local[1]: {'copies': 1},
+                remote[0]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIsNone(mocked.up_rank(doc, 17))
+        self.assertEqual(mocked._calls, [])
+
+        # Download, one remote:
+        doc = {
+            'stored': {
+                remote[0]: {'copies': 0},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc, 17), doc)
+        self.assertEqual(mocked._calls,
+            ['download', doc, {remote[0]}, 17]
+        )
+
+        # Download, two remote:
+        doc = {
+            'stored': {
+                remote[0]: {'copies': 0},
+                remote[1]: {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIs(mocked.up_rank(doc, 17), doc)
+        self.assertEqual(mocked._calls,
+            ['download', doc, set(remote), 17]
+        )
+
+        # Available in neither local nor remote:
+        doc = {
+            'stored': {
+                random_id(): {'copies': 0},
+                random_id(): {'copies': 1},
+            },
+        }
+        mocked._calls.clear()
+        self.assertIsNone(mocked.up_rank(doc, 17))
+        self.assertEqual(mocked._calls, [])
+
+        # Empty doc['stored']:
+        doc = {'stored': {}}
+        mocked._calls.clear()
+        self.assertIsNone(mocked.up_rank(doc, 17))
+        self.assertEqual(mocked._calls, [])
+
+
+class TestVigilance(CouchCase):
+    def test_init(self):
+        db = util.get_db(self.env, True)
+        ms = MetaStore(db)
+        inst = core.Vigilance(ms, None)
+        self.assertIs(inst.ms, ms)
+        self.assertIsInstance(inst.stores, LocalStores)
+        self.assertIsInstance(inst.local, frozenset)
+        self.assertEqual(inst.local, frozenset())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, frozenset())
+        self.assertEqual(inst.clients, {})
+        self.assertEqual(inst.store_to_peer, {})
+
+
 class TestTaskQueue(TestCase):
     def test_init(self):
         tq = core.TaskQueue()

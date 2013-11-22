@@ -67,7 +67,7 @@ from http.client import ResponseNotReady
 from random import SystemRandom
 from copy import deepcopy
 
-from dbase32 import log_id
+from dbase32 import log_id, isdb32
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
 from microfiber import NotFound, Conflict, BadRequest, BulkConflict
 from microfiber import id_slice_iter, dumps
@@ -90,9 +90,9 @@ DOWNGRADE_BY_VERIFIED = 12 * DAY
 VERIFY_BY_MTIME = DOWNGRADE_BY_MTIME // 8
 VERIFY_BY_VERIFIED = DOWNGRADE_BY_VERIFIED // 2
 
-GiB = 1024**3
-RECLAIM_BYTES = 64 * GiB
-
+GB = 1000000000
+MIN_BYTES_FREE = 16 * GB
+MAX_BYTES_FREE = 64 * GB
 
 
 class TimeDelta:
@@ -138,6 +138,139 @@ def get_dict(d, key):
         return value
     d[key] = {}
     return d[key]
+
+
+def get_int(d, key):
+    """
+    Force value for *key* in *d* to be an ``int`` >= 0.
+
+    For example:
+
+    >>> doc = {'foo': 'BAR'}
+    >>> get_int(doc, 'foo')
+    0
+    >>> doc
+    {'foo': 0}
+
+    """
+    if not isinstance(d, dict):
+        raise TypeError(TYPE_ERROR.format('d', dict, type(d), d))
+    if not isinstance(key, str):
+        raise TypeError(TYPE_ERROR.format('key', str, type(key), key))
+    value = d.get(key)
+    if isinstance(value, int) and value >= 0:
+        return value
+    d[key] = 0
+    return d[key]
+
+
+def get_rank(doc):
+    """
+    Calculate the rank of the file represented by *doc*.
+
+    The rank of a file is the number of physical drives its assumed to be stored
+    upon plus the sum of the assumed durability of those copies, basically::
+
+        rank = len(doc['stored']) + sum(v['copies'] for v in doc['stored'].values())
+
+    However, this function can cope with an arbitrarily broken *doc*, as long as
+    *doc* is at least a ``dict`` instance.  For example:
+
+    >>> doc = {
+    ...     'stored': {
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': -6},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': 'junk',
+    ...         'YYYYYYYYYYYYYYYY': 'store_id too short',
+    ...         42: 'the ultimate key to the ultimate value',
+    ...     },
+    ... }
+    >>> get_rank(doc)
+    4
+
+    Any needed schema coercion is done in-place:
+
+    >>> doc == {
+    ...     'stored': {
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': 0},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': {'copies': 0},
+    ...     },
+    ... }
+    True
+
+    It even works with an empty doc:
+
+    >>> doc = {}
+    >>> get_rank(doc)
+    0
+    >>> doc
+    {'stored': {}}
+
+    The rank of a file is used to order (prioritize) the copy increasing
+    behavior, which is done from lowest rank to highest rank (from most fragile
+    to least fragile).
+
+    Also see the "file/rank" CouchDB view function in `dmedia.views`.
+    """
+    stored = get_dict(doc, 'stored')
+    copies = 0
+    for key in tuple(stored):
+        if isinstance(key, str) and len(key) == 24 and isdb32(key):
+            value = get_dict(stored, key)
+            copies += get_int(value, 'copies')
+        else:
+            del stored[key]
+    return min(3, len(stored)) + min(3, copies)
+
+
+def get_copies(doc):
+    """
+    Calculate the durability of the file represented by *doc*.
+
+    For example:
+
+    >>> doc = {
+    ...     'stored': {
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': -6},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': 'junk',
+    ...         'YYYYYYYYYYYYYYYY': 'store_id too short',
+    ...         42: 'the ultimate key to the ultimate value',
+    ...     },
+    ... }
+    >>> get_copies(doc)
+    1
+
+    Any needed schema coercion is done in-place:
+
+    >>> doc == {
+    ...     'stored': {
+    ...         '333333333333333333333333': {'copies': 1},
+    ...         '999999999999999999999999': {'copies': 0},
+    ...         'AAAAAAAAAAAAAAAAAAAAAAAA': {'copies': 0},
+    ...     },
+    ... }
+    True
+
+    It even works with an empty doc:
+
+    >>> doc = {}
+    >>> get_copies(doc)
+    0
+    >>> doc
+    {'stored': {}}
+
+    """
+    stored = get_dict(doc, 'stored')
+    copies = 0
+    for key in tuple(stored):
+        if isinstance(key, str) and len(key) == 24 and isdb32(key):
+            value = get_dict(stored, key)
+            copies += get_int(value, 'copies')
+        else:
+            del stored[key]
+    return copies
 
 
 def get_mtime(fs, _id):
@@ -564,7 +697,7 @@ class MetaStore:
             count += len(docs)
             try:
                 self.db.save_many(docs)
-            except BulkConflict:
+            except BulkConflict as e:
                 log.exception('Conflict purging %s', store_id)
                 count -= len(e.conflicts)
         try:
@@ -598,21 +731,21 @@ class MetaStore:
 
         A fundamental design tenet of Dmedia is that it doesn't particularly
         trust its metadata, and instead does frequent reality checks.  This
-        allows Dmedia to work even though removable storage is constantly
-        "offline".  In other distributed file-systems, this is usually called
-        being in a "network-partitioned" state.
+        allows Dmedia to work even though removable storage is often offline,
+        meaning the overall Dmedia library is often in a network-partitioned
+        state even when all the peers in the library might be online.
 
         Dmedia deals with removable storage via a quickly decaying confidence
         in its metadata.  If a removable drive hasn't been connected longer
         than some threshold, Dmedia will update all those copies to count for
         zero durability.
 
-        And whenever a removable drive (on any drive for that matter) is
-        connected, Dmedia immediately checks to see what files are actually on
-        the drive, and whether they have good integrity.
+        Whenever a removable drive (or any drive for that matter) is connected,
+        Dmedia immediately checks to see what files are actually on the drive,
+        and whether they have good integrity.
 
         `MetaStore.scan()` is the most important reality check that Dmedia does
-        because it's fast and can therefor be done quite often. Thousands of
+        because it's fast and can therefor be done frequently. Thousands of
         files can be scanned in a few seconds.
 
         The scan insures that for every file expected in this file-store, the
@@ -625,12 +758,13 @@ class MetaStore:
         the file-store. Then the doc is updated accordingly marking the file as
         being corrupt in this file-store, and the doc is saved.
 
-        If the file doesn't have the expected mtime is this file-store, this
+        If the file doesn't have the expected mtime in this file-store, this
         copy gets downgraded to zero copies worth of durability, and the last
         verification timestamp is deleted, if present.  This will put the file
         first in line for full content-hash verification.  If the verification
-        passes, the durability is raised back to the appropriate number of
-        copies.
+        passes, the durability will be raised back to the appropriate number of
+        copies (although note this is done by `MetaStore.verify_by_downgraded()`,
+        not by this method).
 
         :param fs: a `FileStore` instance
         """
@@ -677,6 +811,7 @@ class MetaStore:
         except NotFound:
             doc = deepcopy(fs.doc)
         doc['atime'] = int(time.time())
+        doc['bytes_avail'] = fs.statvfs().avail
         self.db.save(doc)
         t.log('scan %r files in %r', count, fs)
         return count
@@ -856,37 +991,60 @@ class MetaStore:
         new = create_stored(doc['_id'], fs)
         return self.db.update(mark_added, doc, new)
 
-    def iter_fragile(self, monitor=False):
-        """
-        Yield doc for each fragile file.     
-        """
-        for rank in range(6):
-            result = self.db.view('file', 'rank', key=rank, update_seq=True)
-            update_seq = result.get('update_seq')
-            ids = [row['id'] for row in result['rows']]
-            del result  # result might be quite large, free some memory
+    def iter_files_at_rank(self, rank):
+        if not isinstance(rank, int):
+            raise TypeError(TYPE_ERROR.format('rank', int, type(rank), rank))
+        if not (0 <= rank <= 5):
+            raise ValueError('Need 0 <= rank <= 5; got {}'.format(rank))
+        LIMIT = 50
+        kw = {
+            'limit': LIMIT,
+            'key': rank,
+        }
+        while True:
+            rows = self.db.view('file', 'rank', **kw)['rows']
+            if not rows:
+                break
+            ids = [r['id'] for r in rows]
+            if ids[0] == kw.get('startkey_docid'):
+                ids.pop(0)
+            if not ids:
+                break
+            log.info('Considering %d files at rank=%d starting at %s',
+                len(ids), rank, ids[0]
+            )
             random.shuffle(ids)
-            log.info('vigilance: %d files at rank=%d', len(ids), rank)
             for _id in ids:
-                yield self.db.get(_id)
-        if not monitor:
-            return
+                try:
+                    doc = self.db.get(_id)
+                    doc_rank = get_rank(doc)
+                    if doc_rank <= rank:
+                        yield doc
+                    else:
+                        log.info('Now at rank %d > %d, skipping %s',
+                            doc_rank, rank, doc.get('_id')
+                        )
+                except NotFound:
+                    log.warning('doc NotFound for %s at rank=%d', _id, rank)
+            if len(rows) < LIMIT:
+                break
+            kw['startkey_docid'] = rows[-1]['id']
 
-        # Now we enter an event-based loop using the _changes feed:
-        if update_seq is None:
-            update_seq = self.db.get()['update_seq']
+    def iter_fragile_files(self):
+        for rank in range(6):
+            for doc in self.iter_files_at_rank(rank):
+                yield doc
+
+    def wait_for_fragile_files(self, last_seq):
         kw = {
             'feed': 'longpoll',
             'include_docs': True,
             'filter': 'file/fragile',
-            'since': update_seq,
+            'since': last_seq,
         }
         while True:
             try:
-                result = self.db.get('_changes', **kw)
-                for row in result['results']:
-                    yield row['doc']
-                kw['since'] = result['last_seq']
+                return self.db.get('_changes', **kw)
             # FIXME: Sometimes we get a 400 Bad Request from CouchDB, perhaps
             # when `since` gets ahead of the `update_seq` as viewed by the
             # changes feed?  By excepting `BadRequest` here, we prevent the
@@ -900,21 +1058,29 @@ class MetaStore:
             except (ResponseNotReady, BadRequest):
                 pass
 
-    def iter_actionable_fragile(self, connected, monitor=False):
-        """
-        Yield doc for each fragile file that this node might be able to fix.
+    def iter_preempt_files(self):
+        kw = {
+            'limit': 100,
+            'descending': True,
+        }
+        rows = self.db.view('file', 'preempt', **kw)['rows']
+        if not rows:
+            return
+        ids = [r['id'] for r in rows]
+        log.info('Considering %d files for preemptive copy increasing', len(ids))
+        random.shuffle(ids)
+        for _id in ids:
+            try:
+                doc = self.db.get(_id)
+                copies = get_copies(doc)
+                if copies == 3:
+                    yield doc
+                else:
+                    log.info('Now at copies=%d, skipping %s', copies, _id)
+            except NotFound:
+                log.warning('preempt doc NotFound for %s', _id)
 
-        To be "actionable", this machine must have at least one currently
-        connected FileStore (drive) that does *not* already contain a copy of
-        the fragile file.       
-        """
-        assert isinstance(connected, frozenset)
-        for doc in self.iter_fragile(monitor):
-            stored = frozenset(get_dict(doc, 'stored'))
-            if (connected - stored):
-                yield (doc, stored)
-
-    def reclaim(self, fs, threshold=RECLAIM_BYTES):
+    def reclaim(self, fs, threshold=MAX_BYTES_FREE):
         count = 0
         size = 0
         t = TimeDelta()
@@ -936,7 +1102,7 @@ class MetaStore:
             t.log('reclaim %s in %r', count_and_size(count, size), fs)
         return (count, size)
 
-    def reclaim_all(self, threshold=RECLAIM_BYTES):
+    def reclaim_all(self, threshold=MAX_BYTES_FREE):
         try:
             count = 0
             size = 0

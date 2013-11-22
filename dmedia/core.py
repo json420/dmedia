@@ -53,7 +53,8 @@ from dmedia.server import run_server
 from dmedia import util, schema, views
 from dmedia.client import Downloader, get_client, build_ssl_context
 from dmedia.metastore import MetaStore, create_stored, get_dict
-from dmedia.local import LocalStores, FileNotLocal, MIN_FREE_SPACE
+from dmedia.metastore import MIN_BYTES_FREE, MAX_BYTES_FREE
+from dmedia.local import LocalStores, FileNotLocal
 
 
 log = logging.getLogger()
@@ -230,65 +231,221 @@ def update_project(db, project_id):
         log.exception('Error updating project stats for %r', project_id)
 
 
-def _vigilance_worker(env, ssl_config):
-    """
-    Run the event-based copy-increasing loop to maintain file durability.
-    """
-    db = util.get_db(env)
-    ms = MetaStore(db)
+def get_downgraded(doc):
+    downgraded = []
+    for (key, value) in doc['stored'].items():
+        copies = value['copies']
+        verified = value.get('verified')
+        if copies == 0 and not isinstance(verified, int):
+            downgraded.append(key)
+    return downgraded
 
-    local_stores = ms.get_local_stores()
-    if len(local_stores) == 0:
-        log.warning('No connected local stores, cannot increase copies')
-        return
-    connected = frozenset(local_stores.ids)
-    log.info('Connected %r', connected)
 
-    clients = []
-    peers = ms.get_local_peers()
-    if peers:
-        ssl_context = build_ssl_context(ssl_config)
-        for (peer_id, info) in peers.items():
-            url = info['url']
-            log.info('Peer %s at %s', peer_id, url)
-            clients.append(get_client(url, ssl_context))
-    else:
-        log.info('No known peers on local network')
+class Vigilance:
+    def __init__(self, ms, ssl_config):
+        self.ms = ms
+        self.stores = ms.get_local_stores()
+        for fs in self.stores:
+            log.info('Vigilance: local store: %r', fs)
+        self.local = frozenset(self.stores.ids)
+        self.clients = {}
+        self.store_to_peer = {}
+        remote = []
+        peers = ms.get_local_peers()
+        if peers:
+            ssl_context = build_ssl_context(ssl_config)
+            for (peer_id, info) in peers.items():
+                url = info['url']
+                log.info('Vigilance: peer %s at %s', peer_id, url)
+                self.clients[peer_id] = get_client(url, ssl_context)
+            for doc in ms.db.get_many(list(peers)):
+                if doc is not None:
+                    for store_id in get_dict(doc, 'stores'):
+                        if is_store_id(store_id):
+                            remote.append(store_id)
+                            self.store_to_peer[store_id] = doc['_id']
+                            assert doc['_id'] in peers
+        self.remote = frozenset(remote)
 
-    for (doc, stored) in ms.iter_actionable_fragile(connected, True):
-        _id = doc['_id']
-        copies = sum(v['copies'] for v in doc['stored'].values())
-        if copies >= 3:
-            log.warning('%s already has copies >= 3, skipping', _id)
-            continue
-        size = doc['bytes']
-        local = connected.intersection(stored)  # Any local copies?
+    def run(self):
+        last_seq = self.process_backlog()
+        log.info('Vigilance: processed backlog as of %r', last_seq)
+        self.process_preempt()
+        self.run_event_loop(last_seq)
+
+    def process_backlog(self):
+        for doc in self.ms.iter_fragile_files():
+            self.wrap_up_rank(doc)
+        return self.ms.db.get()['update_seq']
+
+    def process_preempt(self):
+        for doc in self.ms.iter_preempt_files():
+            self.wrap_up_rank(doc, threshold=MAX_BYTES_FREE)
+
+    def run_event_loop(self, last_seq):
+        log.info('Vigilance: starting event loop at %d', last_seq)
+        while True:
+            result = self.ms.wait_for_fragile_files(last_seq)
+            last_seq = result['last_seq']
+            for row in result['results']:
+                self.wrap_up_rank(row['doc'])
+
+    def wrap_up_rank(self, doc, threshold=MIN_BYTES_FREE):
+        try:
+            return self.up_rank(doc, threshold)
+        except Exception:
+            log.exception('Error calling Vigilance.up_rank() for %r', doc)   
+
+    def up_rank(self, doc, threshold):
+        """
+        Implements the rank-increasing decision tree.
+
+        There are 4 possible actions:
+
+            1) Verify a local copy currently in a downgraded state
+
+            2) Copy from a local FileStore to another local FileStore
+
+            3) Download from a remote peer to a local FileStore
+
+            4) Do nothing as no rank-increasing action is possible
+
+        This is a high-level tree based on set operations.  The action taken
+        here may not actually be possible because this method doesn't consider
+        whether there is a local FileStore with enough available space, which
+        when there isn't, actions (2) and (3) wont be possible.
+
+        We use a simple IO cost accounting model: reading a copy costs one unit,
+        and writing copy likewise costs one unit.  For example, consider these
+        three operations:
+
+            ====  ==============================================
+            Cost  Action
+            ====  ==============================================
+            1     Verify a copy (1 read unit)
+            2     Create a copy (1 read unit, 1 write unit)
+            3     Create two copies (1 read unit, 2 write units)
+            ====  ==============================================
+
+        This method will take the least expensive route (in IO cost units) that
+        will increase the file rank by at least 1.
+
+        It's tempting to look for actions with a lower cost to benefit ratio,
+        even when the cost is higher.  For example, consider these actions:
+
+            ====  =====  =====  ========================
+            Cost  +Rank  Ratio  Action
+            ====  =====  =====  ========================
+            1     1      1.00   Verify a downgraded copy
+            2     2      1.00   Create a copy
+            3     4      0.75   Create two copies
+            ====  =====  =====  ========================
+
+        In this sense, it's a better deal to create two new copies (which is the
+        action Dmedia formerly would take).  However, because greater IO
+        resources are consumed, this means it will necessarily delay acting on
+        other equally fragile files (other files at the current rank being
+        processed).
+
+        Dmedia will now take the cheapest route to getting all files at rank=1
+        up to at least rank=2, then getting all files at rank=2 up to at least
+        rank=3, and so on.
+
+        Another interesting "good deal" is creating new copies by reading from
+        a local downgraded copy (because the source file is always verified as
+        its read):
+
+            ====  =====  =====  ========================================
+            Cost  +Rank  Ratio  Action
+            ====  =====  =====  ========================================
+            1     1      1.00   Verify a downgraded copy
+            2     2      1.00   Create a copy
+            2     3      0.66   Create a copy from a downgraded copy
+            3     4      0.75   Create two copies
+            3     5      0.60   Create two copies from a downgraded copy
+            ====  =====  =====  ========================================
+
+        One place where this does make sense is when there is a locally
+        available file at rank=1 (a single physical copy in a downgraded state),
+        and a locally connected FileStore with enough free space to create a new
+        copy.  As a state of having only a single physical copy is so dangerous,
+        it makes sense to bend the rules here.
+
+        FIXME: Dmedia doesn't yet do this!  Probably the best way to implement
+        this is for the decision tree here to work as it does, but to add some
+        special case handling in Vigilance.up_rank_by_verifying().  Assuming the
+        needed space isn't available on another FileStore, we should still at
+        least verify the copy.
+
+        However, the same will not be done for a file at rank=3 (two physical
+        copies, one in a downgraded state).  In this case the downgraded copy
+        will simply be verified, using 1 IO unit and increasing the rank to 4.
+
+        Note that we use the same cost for a read whether reading from a local
+        drive or downloading from a peer.  Although downloading is cheaper when
+        looked at only from the perspective of the local node, it has the same
+        cost when considering the total Dmedia library.
+
+        The other peers will likewise be doing their best to address any fragile
+        files.  And furthermore, local network IO is generally a more scarce
+        resource (especially over WiFi), so we should only download when its
+        absolutely needed (ie, when no local copy is available).        
+        """
+        assert isinstance(threshold, int) and threshold > 0
+        stored = set(doc['stored'])
+        local = stored.intersection(self.local)
+        downgraded = local.intersection(get_downgraded(doc))
+        free = self.local - stored
+        remote = stored.intersection(self.remote)
         if local:
-            free = connected - stored
-            src = local_stores.choose_local_store(doc)
-            dst = local_stores.filter_by_avail(free, size, 3 - copies)
-            if dst:
-                ms.copy(src, doc, *dst)
-        elif clients:
-            fs = local_stores.find_dst_store(size)
-            if fs is None:
-                log.warning(
-                    'No FileStore with avail space to download %s', _id
-                )
+            if downgraded:
+                return self.up_rank_by_verifying(doc, downgraded)
+            elif free:
+                return self.up_rank_by_copying(doc, free, threshold)
+        elif remote:
+            return self.up_rank_by_downloading(doc, remote, threshold)
+
+    def up_rank_by_verifying(self, doc, downgraded):
+        assert isinstance(downgraded, set)
+        store_id = downgraded.pop()
+        fs = self.stores.by_id(store_id)
+        return self.ms.verify(fs, doc)
+
+    def up_rank_by_copying(self, doc, free, threshold):
+        dst = self.stores.filter_by_avail(free, doc['bytes'], 1, threshold)
+        if dst:
+            src = self.stores.choose_local_store(doc)
+            return self.ms.copy(src, doc, *dst)
+
+    def up_rank_by_downloading(self, doc, remote, threshold):
+        fs = self.stores.find_dst_store(doc['bytes'], threshold)
+        if fs is None:
+            return
+        peer_ids = frozenset(
+            self.store_to_peer[store_id] for store_id in remote
+        )
+        downloader = None
+        _id = doc['_id']
+        for peer_id in peer_ids:
+            client = self.clients[peer_id]
+            if not client.has_file(_id):
                 continue
-            for client in clients:
-                if not client.has_file(_id):
-                    continue
-                downloader = Downloader(doc, ms, fs)
-                try:
-                    downloader.download_from(client)
-                except Exception:
-                    log.exception('Error downloading %s from %s', _id, client)
+            if downloader is None:
+                downloader = Downloader(doc, self.ms, fs)
+            try:
+                downloader.download_from(client)
+            except Exception:
+                log.exception('Error downloading %s from %s', _id, client)
+            if downloader.download_is_complete():
+                return downloader.doc
 
 
 def vigilance_worker(env, ssl_config):
     try:
-        _vigilance_worker(env, ssl_config)
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        vigilance = Vigilance(ms, ssl_config)
+        vigilance.run()
     except Exception:
         log.exception('Error in vigilance_worker():')
 
@@ -328,7 +485,11 @@ def verify_worker(env, parentdir, store_id):
 
 
 def is_file_id(_id):
-    return isdb32(_id) and len(_id) == 48
+    return isinstance(_id, str) and len(_id) == 48 and isdb32(_id)
+
+
+def is_store_id(_id):
+    return isinstance(_id, str) and len(_id) == 24 and isdb32(_id)
 
 
 def clean_file_id(_id):
@@ -531,6 +692,10 @@ class Core:
         self.task_manager.requeue_filestore_tasks(tuple(self.stores))
 
     def restart_vigilance(self):
+        # FIXME: Core should also restart Vigilance whenever the FileStore
+        # connected to a peer change.  We should do this by monitoring the
+        # _changes feed for changes to any of the machine docs corresponding to
+        # the currently visible local peers.
         self.task_manager.restart_vigilance()
 
     def get_auto_format(self):

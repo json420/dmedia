@@ -181,6 +181,43 @@ class TestLocalStores(TestCase):
         self.assertEqual(inst.fast, set())
         self.assertEqual(inst.slow, set())
 
+    def test_filter_by_avail(self):
+        # FIXME: Improve this once we can mock FileStore.statvfs()
+        inst = local.LocalStores()
+
+        # Empty
+        self.assertEqual(inst.filter_by_avail({}, 1, 1, 1), [])
+        free = {random_id(), random_id()}
+        self.assertEqual(inst.filter_by_avail(free, 1, 1, 1), [])
+
+        # One FileStore
+        fs1 = TempFileStore()
+        inst.add(fs1)
+        self.assertEqual(inst.filter_by_avail({}, 1, 1, 1), [])
+        free = {random_id(), random_id()}
+        self.assertEqual(inst.filter_by_avail(free, 1, 1, 1), [])
+        free = {fs1.id, random_id(), random_id()}
+        self.assertEqual(inst.filter_by_avail(free, 1, 1, 1), [fs1])
+
+        # Two FileStore
+        fs2 = TempFileStore()
+        inst.add(fs2)
+        self.assertEqual(inst.filter_by_avail({}, 1, 1, 1), [])
+        free = {random_id(), random_id()}
+        self.assertEqual(inst.filter_by_avail(free, 1, 1, 1), [])
+        free = {fs1.id, random_id(), random_id()}
+        self.assertEqual(inst.filter_by_avail(free, 1, 1, 1), [fs1])
+        free = {fs2.id, random_id(), random_id()}
+        self.assertEqual(inst.filter_by_avail(free, 1, 1, 1), [fs2])
+
+    def test_find_dst_store(self):
+        # FIXME: Improve this once we can mock FileStore.statvfs()
+        inst = local.LocalStores()
+        self.assertIsNone(inst.find_dst_store(1, 1))
+        fs = TempFileStore()
+        inst.add(fs)
+        self.assertIs(inst.find_dst_store(1, 1), fs)
+
     def test_local_stores(self):
         fs1 = TempFileStore(copies=1)
         fs2 = TempFileStore(copies=0)

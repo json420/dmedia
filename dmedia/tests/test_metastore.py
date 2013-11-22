@@ -44,9 +44,89 @@ from dmedia.local import LocalStores
 from dmedia import util, schema, metastore
 from dmedia.metastore import create_stored, get_mtime
 from dmedia.constants import TYPE_ERROR
+from dmedia.units import bytes10
 
 
 random = SystemRandom()
+
+
+def doc_id(doc):
+    """
+    Used as key function for sorted by doc['_id'].
+    """
+    return doc['_id']
+
+
+def build_stored_at_rank(rank, store_ids):
+    """
+    Build doc['stored'] for a specific rank.
+
+    For example:
+
+    >>> store_ids = (
+    ...     '333333333333333333333333',
+    ...     'AAAAAAAAAAAAAAAAAAAAAAAA',
+    ...     'YYYYYYYYYYYYYYYYYYYYYYYY',
+    ... )
+    >>> build_stored_at_rank(0, store_ids)
+    {}
+    >>> build_stored_at_rank(1, store_ids)
+    {'333333333333333333333333': {'copies': 0}}
+    >>> build_stored_at_rank(2, store_ids)
+    {'333333333333333333333333': {'copies': 1}}
+
+    """
+    assert isinstance(rank, int)
+    assert 0 <= rank <= 6
+    assert isinstance(store_ids, tuple)
+    assert len(store_ids) == 3
+    for _id in store_ids:
+        assert isinstance(_id, str) and len(_id) == 24 and isdb32(_id)
+    if rank == 0:
+        return {}
+    if rank == 1:
+        return {
+            store_ids[0]: {'copies': 0},
+        }
+    if rank == 2:
+        return {
+            store_ids[0]: {'copies': 1},
+        }
+    if rank == 3:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 0},
+        }
+    if rank == 4:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 1},
+        }
+    if rank == 5:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 1},
+            store_ids[2]: {'copies': 0},
+        }
+    if rank == 6:
+        return {
+            store_ids[0]: {'copies': 1},
+            store_ids[1]: {'copies': 1},
+            store_ids[2]: {'copies': 1},
+        }
+    raise Exception('should not have reached this point')
+
+
+def build_file_at_rank(_id, rank, store_ids):
+    assert isinstance(_id, str) and len(_id) == 48 and isdb32(_id)
+    doc = {
+        '_id': _id,
+        'type': 'dmedia/file',
+        'origin': 'user',
+        'stored': build_stored_at_rank(rank, store_ids),
+    }
+    assert metastore.get_rank(doc) == rank
+    return doc
 
 
 def create_random_file(fs, db):
@@ -196,7 +276,28 @@ class TestConstants(TestCase):
         self.assertTrue(
             parent // 4 <= metastore.VERIFY_BY_VERIFIED <= parent // 2
         )
-        self.assertGreater(metastore.VERIFY_BY_VERIFIED, metastore.VERIFY_BY_MTIME) 
+        self.assertGreater(metastore.VERIFY_BY_VERIFIED, metastore.VERIFY_BY_MTIME)
+
+    def test_GB(self):
+        self.assertIsInstance(metastore.GB, int)
+        self.assertEqual(metastore.GB, 10 ** 9)
+        self.assertEqual(metastore.GB, 1000 ** 3)
+        self.assertEqual(bytes10(metastore.GB), '1 GB')
+
+    def test_MIN_BYTES_FREE(self):
+        self.assertIsInstance(metastore.MIN_BYTES_FREE, int)
+        self.assertGreaterEqual(metastore.MIN_BYTES_FREE, metastore.GB)
+        self.assertEqual(metastore.MIN_BYTES_FREE % metastore.GB, 0)
+        self.assertEqual(bytes10(metastore.MIN_BYTES_FREE), '16 GB')
+
+    def test_MAX_BYTES_FREE(self):
+        self.assertIsInstance(metastore.MAX_BYTES_FREE, int)
+        self.assertGreaterEqual(metastore.MAX_BYTES_FREE, metastore.GB)
+        self.assertEqual(metastore.MAX_BYTES_FREE % metastore.GB, 0)
+        self.assertGreaterEqual(metastore.MAX_BYTES_FREE,
+            2 * metastore.MIN_BYTES_FREE
+        )
+        self.assertEqual(bytes10(metastore.MAX_BYTES_FREE), '64 GB')
 
 
 class TestFunctions(TestCase):
@@ -242,6 +343,123 @@ class TestFunctions(TestCase):
         self.assertEqual(ret, {'bar': 0, 'baz': 1})
         self.assertEqual(doc, {'foo': {'bar': 0, 'baz': 1}})
         self.assertIs(doc['foo'], ret)
+
+    def test_get_int(self):
+        # Bad `d` type:
+        bad = [random_id(), random_id()]
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_int(bad, random_id())
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('d', dict, list, bad)
+        )
+
+        # Bad `key` type:
+        bad = random.randint(0, 1000)
+        with self.assertRaises(TypeError) as cm:
+            metastore.get_int({}, bad)
+        self.assertEqual(
+            str(cm.exception),
+            TYPE_ERROR.format('key', str, int, bad)
+        )
+
+        # Empty:
+        doc = {}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Wrong type:
+        doc = {'foo': '17'}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Trickier wrong type:
+        doc = {'foo': 17.0}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Bad Value:
+        doc = {'foo': -17}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # Another bad Value:
+        doc = {'foo': -1}
+        ret = metastore.get_int(doc, 'foo')
+        self.assertIsInstance(ret, int)
+        self.assertEqual(ret, 0)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], ret)
+
+        # All good:
+        value = 17
+        doc = {'foo': value}
+        self.assertIs(metastore.get_int(doc, 'foo'), value)
+        self.assertEqual(doc, {'foo': 17})
+        self.assertIs(doc['foo'], value)
+
+        # Also all good:
+        value = 0
+        doc = {'foo': value}
+        self.assertIs(metastore.get_int(doc, 'foo'), value)
+        self.assertEqual(doc, {'foo': 0})
+        self.assertIs(doc['foo'], value)
+
+    def test_get_rank(self):
+        file_id = random_file_id()
+        store_ids = tuple(random_id() for i in range(3))
+        for rank in range(7):
+            doc = build_file_at_rank(file_id, rank, store_ids)
+            self.assertEqual(metastore.get_rank(doc), rank)
+
+        # Empty doc
+        doc = {}
+        self.assertEqual(metastore.get_rank(doc), 0)
+        self.assertEqual(doc, {'stored': {}})
+
+        # Empty doc['stored']
+        doc = {'stored': {}}
+        self.assertEqual(metastore.get_rank(doc), 0)
+        self.assertEqual(doc, {'stored': {}})
+
+        # All kinds of broken:
+        store_ids = tuple(random_id() for i in range(6))
+        doc = {
+            'stored': {
+                store_ids[0]: {'copies': 1},
+                store_ids[1]: {'copies': '17'},
+                store_ids[2]: {'copies': -18},
+                store_ids[3]: {},
+                store_ids[4]: 'hello',
+                store_ids[5]: 3,
+                random_id(10): {'copies': 1},
+                ('a' * 24): {'copies': 1},
+                42: {'copies': 1},
+            },
+        }
+        self.assertEqual(metastore.get_rank(doc), 4)
+        self.assertEqual(doc, {
+            'stored': {
+                store_ids[0]: {'copies': 1},
+                store_ids[1]: {'copies': 0},
+                store_ids[2]: {'copies': 0},
+                store_ids[3]: {'copies': 0},
+                store_ids[4]: {'copies': 0},
+                store_ids[5]: {'copies': 0},
+            },
+        })
 
     def test_get_mtime(self):
         fs = TempFileStore()
@@ -2791,6 +3009,7 @@ class TestMetaStore(CouchCase):
 
         doc = db.get(fs.id)
         self.assertTrue(doc['_rev'].startswith('2-'))
+        self.assertIn('bytes_avail', doc)
         atime = doc.get('atime')
         self.assertIsInstance(atime, int)
         self.assertLessEqual(atime, int(time.time()))
@@ -3643,59 +3862,93 @@ class TestMetaStore(CouchCase):
             },
         })
 
-    def test_iter_fragile(self):
+    def test_iter_files_at_rank(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
-        # Test when no files are in the library:
-        self.assertEqual(list(ms.iter_fragile()), [])
+        # Bad rank type:
+        with self.assertRaises(TypeError) as cm:
+            list(ms.iter_files_at_rank(1.0))
+        self.assertEqual(str(cm.exception),
+            TYPE_ERROR.format('rank', int, float, 1.0)
+        )
 
-        # Create rank=(0 through 6) test data:
-        ids = tuple(random_file_id() for i in range(7))
+        # Bad rank value:
+        with self.assertRaises(ValueError) as cm:
+            list(ms.iter_files_at_rank(-1))
+        self.assertEqual(str(cm.exception), 'Need 0 <= rank <= 5; got -1')
+        with self.assertRaises(ValueError) as cm:
+            list(ms.iter_files_at_rank(6))
+        self.assertEqual(str(cm.exception), 'Need 0 <= rank <= 5; got 6')
+
+        # Test when no files are in the library:
+        self.assertEqual(list(ms.iter_files_at_rank(0)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(1)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(2)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(3)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(4)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(5)), [])
+
+        # Create rank=(0 through 5) test data:
         stores = tuple(random_id() for i in range(3))
-        docs = [
+        docs_0 = [
             {
-                '_id': ids[0],
+                '_id': random_file_id(),
                 'type': 'dmedia/file',
                 'origin': 'user',
                 'stored': {},
-            },
+            }
+            for i in range(100)
+        ]
+        docs_1 = [
             {
-                '_id': ids[1],
+                '_id': random_file_id(),
                 'type': 'dmedia/file',
                 'origin': 'user',
                 'stored': {
                     stores[0]: {'copies': 0},
                 },
-            },
+            }
+            for i in range(101)
+        ]
+        docs_2 = [
             {
-                '_id': ids[2],
+                '_id': random_file_id(),
                 'type': 'dmedia/file',
                 'origin': 'user',
                 'stored': {
                     stores[0]: {'copies': 1},
                 },
-            },
+            }
+            for i in range(102)
+        ]
+        docs_3 = [
             {
-                '_id': ids[3],
+                '_id': random_file_id(),
                 'type': 'dmedia/file',
                 'origin': 'user',
                 'stored': {
                     stores[0]: {'copies': 1},
                     stores[1]: {'copies': 0},
                 },
-            },
+            }
+            for i in range(103)
+        ]
+        docs_4 = [
             {
-                '_id': ids[4],
+                '_id': random_file_id(),
                 'type': 'dmedia/file',
                 'origin': 'user',
                 'stored': {
                     stores[0]: {'copies': 1},
                     stores[1]: {'copies': 1},
                 },
-            },
+            }
+            for i in range(104)
+        ]
+        docs_5 = [
             {
-                '_id': ids[5],
+                '_id': random_file_id(),
                 'type': 'dmedia/file',
                 'origin': 'user',
                 'stored': {
@@ -3703,9 +3956,181 @@ class TestMetaStore(CouchCase):
                     stores[1]: {'copies': 1},
                     stores[2]: {'copies': 0},
                 },
-            },
+            }
+            for i in range(105)
+        ]
+        docs = []
+        doc_groups = (docs_0, docs_1, docs_2, docs_3, docs_4, docs_5)
+        for docs_n in doc_groups:
+            docs.extend(docs_n)
+            docs_n.sort(key=doc_id)
+        self.assertEqual(len(docs), 615)
+        db.save_many(docs)
+
+        # Test that for each rank, we get the expected docs and no duplicates:
+        for (n, docs_n) in enumerate(doc_groups):
+            result = list(ms.iter_files_at_rank(n))
+            self.assertEqual(len(result), 100 + n)
+            self.assertNotEqual(result, docs_n)  # Due to random.shuffle()
+            self.assertEqual(sorted(result, key=doc_id), docs_n)
+
+        # Similar to above, except this time we're modifying the docs as they're
+        # yielded so they're bumped up to rank=6 in the file/rank view:
+        self.assertEqual(len(doc_groups), 6)
+        self.assertEqual(db.view('file', 'rank', key=6)['rows'], [])
+        for (n, docs_n) in enumerate(doc_groups):
+            result = []
+            for doc in ms.iter_files_at_rank(n):
+                result.append(doc)
+                new = deepcopy(doc)
+                new['stored'] = {
+                    stores[0]: {'copies': 1},
+                    stores[1]: {'copies': 1},
+                    stores[2]: {'copies': 1},
+                }
+                db.save(new)
+            self.assertEqual(len(result), 100 + n)
+            self.assertNotEqual(result, docs_n)  # Due to random.shuffle()
+            self.assertEqual(sorted(result, key=doc_id), docs_n)
+            self.assertEqual(list(ms.iter_files_at_rank(n)), [])
+
+        # Double check that rank 0 through 5 are still returning no docs:
+        self.assertEqual(list(ms.iter_files_at_rank(0)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(1)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(2)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(3)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(4)), [])
+        self.assertEqual(list(ms.iter_files_at_rank(5)), [])
+
+        # And check that all the docs are still at rank=6 and _rev=2:
+        ids = sorted(d['_id'] for d in docs)
+        rows = db.view('file', 'rank', key=6)['rows']
+        self.assertEqual(len(rows), 615)
+        self.assertEqual([r['id'] for r in rows], ids)
+        for doc in db.get_many(ids):
+            self.assertEqual(doc['_rev'][:2], '2-')
+
+    def test_iter_files_at_rank_2(self):
+        """
+        Ensure that get_rank() is used to filter out greater than current rank.
+        """
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+        for rank in range(6):
+            ids = tuple(random_file_id() for i in range(50))
+            store_ids = tuple(random_id() for i in range(3))
+            docs = [build_file_at_rank(_id, rank, store_ids) for _id in ids]
+            db.save_many(docs)
+            dmap = dict((d['_id'], d) for d in docs)
+            docs.sort(key=doc_id)
+
+            # Test with no modification:
+            result = list(ms.iter_files_at_rank(rank))
+            self.assertEqual(len(result), 50)
+            self.assertNotEqual(result, docs)  # Due to random.shuffle()
+            self.assertEqual(sorted(result, key=doc_id), docs)
+
+            # Adjust 17 files to rank+1 after the first doc is yielded:
+            include = None
+            result = []
+            for doc in ms.iter_files_at_rank(rank):
+                result.append(doc)
+                if include is None:
+                    include = {doc['_id']}
+                    remaining = set(ids) - include
+                    remove = random.sample(remaining, 17)
+                    include.update(remaining - set(remove))
+                    rdocs = [dmap[_id] for _id in remove]
+                    for rdoc in rdocs:
+                        rdoc['stored'] = build_stored_at_rank(rank + 1, store_ids)
+                        self.assertEqual(metastore.get_rank(rdoc), rank + 1)
+                    db.save_many(rdocs)
+            expected = [dmap[_id] for _id in include]
+            expected.sort(key=doc_id)
+            self.assertEqual(len(expected), 33)
+            self.assertEqual(len(result), 33)
+            self.assertNotEqual(result, expected)  # Due to random.shuffle()
+            self.assertEqual(sorted(result, key=doc_id), expected)
+
+            # Now check rank+1, unless we're at rank=5:
+            if rank < 5:
+                rdocs.sort(key=doc_id)
+                result = list(ms.iter_files_at_rank(rank + 1))
+                self.assertEqual(len(result), 17)
+                self.assertNotEqual(result, rdocs)  # Due to random.shuffle()
+                self.assertEqual(sorted(result, key=doc_id), rdocs)
+                # Clean up for rank+1:
+                for rdoc in rdocs:
+                    rdoc['_deleted'] = True
+                db.save_many(rdocs)
+                self.assertEqual(list(ms.iter_files_at_rank(rank + 1)), [])
+
+    def test_iter_fragile_files(self):
+        db = util.get_db(self.env, True)
+
+        # Test with a mocked MetaStore.iter_files_at_rank():
+        class Mocked(metastore.MetaStore):
+            def __init__(self, db, log_db=None):
+                super().__init__(db, log_db)
+                self._calls = []
+                self._ranks = tuple(
+                    tuple(random_id() for i in range(25))
+                    for rank in range(6)
+                )
+
+            def iter_files_at_rank(self, rank):
+                assert isinstance(rank, int)
+                assert 0 <= rank <= 5
+                self._calls.append(rank)
+                for _id in self._ranks[rank]:
+                    yield _id
+
+        mocked = Mocked(db)
+        expected = []
+        for ids in mocked._ranks:
+            expected.extend(ids)
+        self.assertEqual(list(mocked.iter_fragile_files()), expected)
+        self.assertEqual(mocked._calls, [0, 1, 2, 3, 4, 5])
+
+        # Now do a live test:
+        ms = metastore.MetaStore(db)
+        self.assertEqual(list(ms.iter_fragile_files()), [])
+        store_ids = tuple(random_id() for i in range(3))
+        docs = [
+            build_file_at_rank(random_file_id(), rank, store_ids)
+            for rank in range(7)
+        ]
+        db.save_many(docs)
+        self.assertEqual(list(ms.iter_fragile_files()), docs[:-1])
+        for doc in docs:
+            doc['_deleted'] = True
+        db.save_many(docs)
+        self.assertEqual(list(ms.iter_fragile_files()), [])
+
+        # Test pushing up through ranks:
+        docs = [
+            build_file_at_rank(random_file_id(), 0, store_ids)
+            for i in range(100)
+        ]
+        db.save_many(docs)
+        docs.sort(key=doc_id)
+        for rank in range(6):
+            result = list(ms.iter_fragile_files())
+            self.assertEqual(len(result), 100)
+            self.assertNotEqual(result, docs)  # Due to random.shuffle()
+            self.assertEqual(sorted(result, key=doc_id), docs)
+            for doc in docs:
+                doc['stored'] = build_stored_at_rank(rank + 1, store_ids)
+            db.save_many(docs)
+
+    def test_wait_for_fragile_files(self):
+        db = util.get_db(self.env, True)
+        ms = metastore.MetaStore(db)
+
+        stores = tuple(random_id() for i in range(3))
+        docs = [
             {
-                '_id': ids[6],
+                '_id': random_file_id(),
                 'type': 'dmedia/file',
                 'origin': 'user',
                 'stored': {
@@ -3713,104 +4138,57 @@ class TestMetaStore(CouchCase):
                     stores[1]: {'copies': 1},
                     stores[2]: {'copies': 1},
                 },
-            },
+            }
+            for i in range(4)
         ]
         db.save_many(docs)
+        last_seq = db.get()['update_seq']
+        for doc in docs:
+            del doc['stored'][stores[0]]
+            db.save(doc)
+            result = ms.wait_for_fragile_files(last_seq)
+            self.assertEqual(result, {
+                'last_seq': last_seq + 1,
+                'results': [
+                    {
+                        'changes': [{'rev': doc['_rev']}],
+                        'doc': doc,
+                        'id': doc['_id'],
+                        'seq': last_seq + 1,
+                    }
+                ],
+            })
+            last_seq = result['last_seq']
 
-        # We should get docs[0:6]:
-        self.assertEqual(list(ms.iter_fragile()), docs[0:-1])
-
-        # Docs should not be changed:
-        self.assertEqual(db.get_many(ids), docs)
-
-    def test_iter_actionable_fragile(self):
+    def test_iter_preempt_files(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
-        store_id1 = random_id()
-        store_id2 = random_id()
-        store_id3 = random_id()
-        store_id4 = random_id()
-        empty = frozenset()
-        one = frozenset([store_id1])
-        two = frozenset([store_id1, store_id2])
-        three = frozenset([store_id1, store_id2, store_id3])
+        # When empty
+        self.assertEqual(list(ms.iter_preempt_files()), [])
 
-        id1 = random_file_id()
-        id2 = random_file_id()
-        id3 = random_file_id()
-        doc1 = {
-            '_id': id1,
-            'type': 'dmedia/file',
-            'origin': 'user',
-            'stored': {
-                store_id1: {'copies': 0},
-            },
-        }
-        doc2 = {
-            '_id': id2,
-            'type': 'dmedia/file',
-            'origin': 'user',
-            'stored': {
-                store_id1: {'copies': 0},
-                store_id4: {'copies': 1},
-            },
-        }
-        doc3 = {
-            '_id': id3,
-            'type': 'dmedia/file',
-            'origin': 'user',
-            'stored': {
-                store_id1: {'copies': 1},
-                store_id2: {'copies': 1},
-            },
-        }
+        # With live data:
+        store_ids = tuple(random_id() for i in range(3))
+        docs = [
+            build_file_at_rank(random_file_id(), 6, store_ids)
+            for i in range(107)
+        ]
+        base = int(time.time())
+        for (i, doc) in enumerate(docs):
+            doc['atime'] = base - i
+        db.save_many(docs)
+        expected = docs[0:100]
+        result = list(ms.iter_preempt_files())
+        self.assertEqual(len(result), 100)
+        self.assertNotEqual(result, expected)  # Due to random.shuffle()
+        result.sort(key=lambda d: d['atime'], reverse=True)
+        self.assertEqual(result, expected)
 
-        # Test when no files are in the library:
-        self.assertEqual(list(ms.iter_actionable_fragile(empty)), [])
-        self.assertEqual(list(ms.iter_actionable_fragile(one)), [])
-        self.assertEqual(list(ms.iter_actionable_fragile(two)), [])
-        self.assertEqual(list(ms.iter_actionable_fragile(three)), [])
-
-        # All 3 docs should be included:
-        db.save_many([doc1, doc2, doc3])
-        self.assertEqual(list(ms.iter_actionable_fragile(three)), [
-            (doc1, set([store_id1])),
-            (doc2, set([store_id1, store_id4])),
-            (doc3, set([store_id1, store_id2])),
-        ])
-
-        # If only store_id1, store_id2 are connected, doc3 shouldn't be
-        # actionable:
-        self.assertEqual(list(ms.iter_actionable_fragile(two)), [
-            (doc1, set([store_id1])),
-            (doc2, set([store_id1, store_id4])),
-        ])
-
-        # All files have a copy in store_id1, so nothing should be returned:
-        self.assertEqual(list(ms.iter_actionable_fragile(one)), [])
-
-        # If doc2 was only stored on a non-connected store:
-        doc1['stored'] = {
-            store_id4: {'copies': 1},
-        }
-        db.save(doc1)
-        self.assertEqual(list(ms.iter_actionable_fragile(one)), [
-            (doc1, set([store_id4]))
-        ])
-
-        # If doc2 has sufficent durablity, it shouldn't be included, even though
-        # there is a free drive where a copy could be created:
-        doc2['stored'] = {
-            store_id1: {'copies': 1},
-            store_id2: {'copies': 1},
-            store_id4: {'copies': 1},
-        }
-        db.save(doc2)
-        self.assertEqual(list(ms.iter_actionable_fragile(three)), [
-            (doc1, set([store_id4])),
-            (doc3, set([store_id1, store_id2])),
-        ])
+        # Make sure files are excluded when durability isn't 3:
+        for doc in docs:
+            doc['stored'] = build_stored_at_rank(5, store_ids)
+        db.save_many(docs)
+        self.assertEqual(list(ms.iter_preempt_files()), [])
 
     def test_reclaim(self):
         # FIXME: Till we have a nice way of mocking FileStore.statvfs(), this is

@@ -33,7 +33,6 @@ from dmedia.util import get_db
 
 
 log = logging.getLogger()
-MIN_FREE_SPACE = 16 * 1024**3  # 8 GiB min free space
 
 
 class NoSuchFile(Exception):
@@ -170,24 +169,25 @@ class LocalStores:
             reverse=reverse,
         )
 
-    def filter_by_avail(self, free_set, size, copies_needed):
-        assert isinstance(size, int) and size >= 1
-        assert isinstance(copies_needed, int) and 1 <= copies_needed <= 3
+    def filter_by_avail(self, free, size, copies, threshold):
+        assert isinstance(size, int) and size > 0
+        assert isinstance(copies, int) and 1 <= copies <= 3
+        assert isinstance(threshold, int) and threshold > 0
         stores = []
-        required_avail = size + MIN_FREE_SPACE
+        required_avail = size + threshold
         for fs in self.sort_by_avail():
-            if fs.id in free_set and fs.statvfs().avail >= required_avail:
+            if fs.id in free and fs.statvfs().avail >= required_avail:
                 stores.append(fs)
-                if len(stores) >= copies_needed:
+                if len(stores) >= copies:
                     break
         return stores
 
-    def find_dst_store(self, size):
+    def find_dst_store(self, size, threshold):
         stores = self.sort_by_avail()
         if not stores:
             return
         fs = stores[0]
-        if fs.statvfs().avail >= size + MIN_FREE_SPACE:
+        if fs.statvfs().avail >= size + threshold:
             return fs
 
     def local_stores(self):

@@ -110,6 +110,10 @@ function(doc) {
 file_copies = """
 function(doc) {
     if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (typeof doc.stored != 'object' || isArray(doc.stored)) {
+            emit(0, null);
+            return;
+        }
         var total = 0;
         var key, copies;
         for (key in doc.stored) {
@@ -142,6 +146,27 @@ function(doc) {
         }
         var rank = Math.min(3, locations) + Math.min(3, durability);
         emit(rank, null);
+    }
+}
+"""
+
+file_preempt = """
+function(doc) {
+    if (doc.type == 'dmedia/file' && doc.origin == 'user') {
+        if (typeof doc.stored != 'object' || isArray(doc.stored)) {
+            return;
+        }
+        var total = 0;
+        var key, copies;
+        for (key in doc.stored) {
+            copies = doc.stored[key].copies;
+            if (typeof copies == 'number' && copies > 0) {
+                total += copies;
+            }
+        }
+        if (total == 3) {
+            emit(doc.atime, null);
+        }
     }
 }
 """
@@ -302,7 +327,8 @@ file_design = {
         'stored': {'map': file_stored, 'reduce': _stats},
         'nonzero': {'map': file_nonzero},
         'copies': {'map': file_copies},
-        'rank': {'map': file_rank},
+        'rank': {'map': file_rank, 'reduce': _count},
+        'preempt': {'map': file_preempt},
         'fragile': {'map': file_fragile},
         'downgrade-by-mtime': {'map': file_downgrade_by_mtime},
         'downgrade-by-verified': {'map': file_downgrade_by_verified},
@@ -332,6 +358,16 @@ function(doc) {
 }
 """
 
+store_bytes_avail = """
+function(doc) {
+    if (doc.type == 'dmedia/store') {
+        if (typeof doc.bytes_avail == 'number') {
+            emit(doc.bytes_avail, null);
+        }
+    }
+}
+"""
+
 store_drive_serial = """
 function(doc) {
     if (doc.type == 'dmedia/store') {
@@ -344,6 +380,7 @@ store_design = {
     '_id': '_design/store',
     'views': {
         'atime': {'map': store_atime},
+        'bytes_avail': {'map': store_bytes_avail},
         'drive_serial': {'map': store_drive_serial},
     },
 }
