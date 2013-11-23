@@ -369,6 +369,14 @@ def mark_mismatched(doc, fs_id, mtime):
     value.pop('verified', None)
 
 
+def update_store(doc, timestamp, bytes_avail):
+    """
+    Used by `MetaStore.scan()` to update the dmedia/store doc.
+    """
+    doc['atime'] = int(timestamp)
+    doc['bytes_avail'] = bytes_avail
+
+
 def relink_iter(fs, count=25):
     buf = []
     for st in fs:
@@ -816,9 +824,7 @@ class MetaStore:
             doc = self.db.get(fs.id)
         except NotFound:
             doc = deepcopy(fs.doc)
-        doc['atime'] = int(time.time())
-        doc['bytes_avail'] = fs.statvfs().avail
-        self.db.save(doc)
+        self.db.update(update_store, doc, time.time(), fs.statvfs().avail)
         t.log('scan %r files in %r', count, fs)
         return count
 

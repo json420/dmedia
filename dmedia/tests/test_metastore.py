@@ -1418,6 +1418,27 @@ class TestFunctions(TestCase):
             }
         )
 
+    def test_update_store(self):
+        timestamp = time.time()
+        bytes_avail = random.randint(0, 1024**3)
+        doc = {}
+        self.assertIsNone(metastore.update_store(doc, timestamp, bytes_avail))
+        self.assertEqual(doc,
+            {
+                'atime': int(timestamp),
+                'bytes_avail': bytes_avail,
+            }
+        )
+        doc = {'atime': 'foo', 'bytes_avail': 'bar', 'hello': 'world'}
+        self.assertIsNone(metastore.update_store(doc, timestamp, bytes_avail))
+        self.assertEqual(doc,
+            {
+                'atime': int(timestamp),
+                'bytes_avail': bytes_avail,
+                'hello': 'world'
+            }
+        )
+
     def test_relink_iter(self):
         fs = TempFileStore()
 
