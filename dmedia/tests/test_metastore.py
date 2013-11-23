@@ -332,7 +332,7 @@ class TestFunctions(TestCase):
         self.assertEqual(doc, {'foo': {}})
         self.assertIs(doc['foo'], ret)
 
-        doc = {'foo': ['hello', 'naughty', 'nurse']}	
+        doc = {'foo': ['hello', 'naughty', 'nurse']}
         ret = metastore.get_dict(doc, 'foo')
         self.assertEqual(ret, {})
         self.assertEqual(doc, {'foo': {}})
@@ -2744,6 +2744,7 @@ class TestMetaStore(CouchCase):
                 store_ids[2]: {'copies': 0},
             })
             self.assertEqual(doc['_rev'][:2], '2-')
+        self.assertEqual(log_db.get('_all_docs')['rows'], [])
 
     def test_purge_store(self):    
         db = util.get_db(self.env, True)
@@ -2911,7 +2912,7 @@ class TestMetaStore(CouchCase):
         )
         self.assertEqual(len(log_db.get('_all_docs')['rows']), 3)
 
-    def test_purge_all(self):    
+    def test_purge_all(self):
         db = util.get_db(self.env, True)
         log_db = db.database('log-1')
         self.assertTrue(log_db.ensure())
@@ -2920,62 +2921,29 @@ class TestMetaStore(CouchCase):
         # Test when empty:
         self.assertEqual(ms.purge_all(), 0)
 
-        store_id1 = random_id()
-        store_id2 = random_id()
-        store_id3 = random_id()
-        stores = [
-            {'_id': _id, 'type': 'dmedia/store'}
-            for _id in (store_id1, store_id2, store_id3)
+        # Test when there is data:
+        store_ids = tuple(random_id() for i in range(3))
+        docs_2 = [
+            build_file_at_rank(random_file_id(), 2, store_ids)
+            for i in range(41)
         ]
-        db.save_many(stores)
-        docs = []
-
-        # In 3 stores:
-        for i in range(20):
-            doc = {
-                '_id': random_file_id(),
-                'type': 'dmedia/file',
-                'stored': {
-                    store_id1: {'copies': 1, 'mtime': 1234567890},
-                    store_id2: {'copies': 1, 'mtime': 1234567890},
-                    store_id3: {'copies': 1, 'mtime': 1234567890},
-                },
-            }
-            docs.append(doc)
-
-        # In 2 stores:
-        for i in range(20):
-            doc = {
-                '_id': random_file_id(),
-                'type': 'dmedia/file',
-                'stored': {
-                    store_id1: {'copies': 1, 'mtime': 1234567890},
-                    store_id2: {'copies': 1, 'mtime': 1234567890},
-                },
-            }
-            docs.append(doc)
-
-        # In 1 store:
-        for i in range(20):
-            doc = {
-                '_id': random_file_id(),
-                'type': 'dmedia/file',
-                'stored': {
-                    store_id1: {'copies': 1, 'mtime': 1234567890},
-                },
-            }
-            docs.append(doc)
-
-        ids = [d['_id'] for d in docs]
+        docs_4 = [
+            build_file_at_rank(random_file_id(), 4, store_ids)
+            for i in range(53)
+        ]
+        docs_6 = [
+            build_file_at_rank(random_file_id(), 6, store_ids)
+            for i in range(71)
+        ]
+        docs = docs_2 + docs_4 + docs_6
+        for doc in docs:
+            doc['stored'][store_ids[0]]['verified'] = 1234567890
         db.save_many(docs)
-        self.assertEqual(ms.purge_all(), 120)
-        self.assertEqual(db.get_many([store_id1, store_id2, store_id3]),
-            [None, None, None]
-        )
-        for doc in db.get_many(ids):
-            self.assertIn(doc['_rev'][:2], ['2-', '3-', '4-'])
+        self.assertEqual(ms.purge_all(), 165)
+        for doc in db.get_many([d['_id'] for d in docs]):
             self.assertEqual(doc['stored'], {})
-        self.assertEqual(len(log_db.get('_all_docs')['rows']), 3)
+            self.assertEqual(doc['_rev'][:2], '2-')
+        self.assertEqual(log_db.get('_all_docs')['rows'], [])
 
     def test_scan(self):
         db = util.get_db(self.env, True)

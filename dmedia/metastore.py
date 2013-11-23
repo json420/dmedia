@@ -691,7 +691,7 @@ class MetaStore:
             buf.save(doc)
             file_count += 1
             copy_count += len(stored)
-        t.log('downgrade %d files (%d total copies)', file_count, copy_count)
+        t.log('downgrade all %d files (%d total copies)', file_count, copy_count)
         return (file_count, copy_count)
 
     def purge_store(self, store_id):
@@ -729,15 +729,20 @@ class MetaStore:
         """
         Purge every file in every store.
 
-        Note: this is only really useful for testing.
+        Note: this is only really useful for testing.  It can be triggered from
+        the command line like this::
+
+            dmedia-cli PurgeAll
         """
         t = TimeDelta()
-        count = 0
-        stores = tuple(self.iter_stores())
-        for store_id in stores:
-            count += self.purge_store(store_id)
-        t.log('purge %d total copies in %d stores', count, len(stores))
-        return count
+        file_count = 0
+        buf = BufferedSave(self.db, 50)
+        for doc in self.db.iter_view('doc', 'type', 'dmedia/file'):
+            doc['stored'] = {}
+            buf.save(doc)
+            file_count += 1
+        t.log('purge all %d files', file_count)
+        return file_count
 
     def scan(self, fs):
         """
