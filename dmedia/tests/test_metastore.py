@@ -2698,6 +2698,53 @@ class TestMetaStore(CouchCase):
             self.assertEqual(old, new)
         self.assertEqual(len(log_db.get('_all_docs')['rows']), 4)
 
+    def test_downgrade_all(self):    
+        db = util.get_db(self.env, True)
+        log_db = db.database('log-1')
+        self.assertTrue(log_db.ensure())
+        ms = metastore.MetaStore(db, log_db)
+
+        # Test when empty:
+        self.assertEqual(ms.downgrade_all(), (0, 0))
+
+        # Test when there is data:
+        store_ids = tuple(random_id() for i in range(3))
+        docs_2 = [
+            build_file_at_rank(random_file_id(), 2, store_ids)
+            for i in range(41)
+        ]
+        docs_4 = [
+            build_file_at_rank(random_file_id(), 4, store_ids)
+            for i in range(53)
+        ]
+        docs_6 = [
+            build_file_at_rank(random_file_id(), 6, store_ids)
+            for i in range(71)
+        ]
+        docs = docs_2 + docs_4 + docs_6
+        for doc in docs:
+            doc['stored'][store_ids[0]]['verified'] = 1234567890
+        db.save_many(docs)
+        self.assertEqual(ms.downgrade_all(), (165, 360))
+        for doc in db.get_many([d['_id'] for d in docs_2]):
+            self.assertEqual(doc['stored'], {
+                store_ids[0]: {'copies': 0},
+            })
+            self.assertEqual(doc['_rev'][:2], '2-')
+        for doc in db.get_many([d['_id'] for d in docs_4]):
+            self.assertEqual(doc['stored'], {
+                store_ids[0]: {'copies': 0},
+                store_ids[1]: {'copies': 0},
+            })
+            self.assertEqual(doc['_rev'][:2], '2-')
+        for doc in db.get_many([d['_id'] for d in docs_6]):
+            self.assertEqual(doc['stored'], {
+                store_ids[0]: {'copies': 0},
+                store_ids[1]: {'copies': 0},
+                store_ids[2]: {'copies': 0},
+            })
+            self.assertEqual(doc['_rev'][:2], '2-')
+
     def test_purge_store(self):    
         db = util.get_db(self.env, True)
         log_db = db.database('log-1')

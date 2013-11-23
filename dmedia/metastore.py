@@ -670,15 +670,29 @@ class MetaStore:
         """
         Downgrade every file in every store.
 
-        Note: this is only really useful for testing.
+        Note: this is only really useful for testing.  It can be triggered from
+        the command line like this::
+
+            dmedia-cli DowngradeAll
         """
         t = TimeDelta()
-        count = 0
-        stores = tuple(self.iter_stores())
-        for store_id in stores:
-            count += self.downgrade_store(store_id)
-        t.log('downgrade %d total copies in %d stores', count, len(stores))
-        return count
+        file_count = 0
+        copy_count = 0
+        buf = BufferedSave(self.db, 50)
+        for doc in self.db.iter_view('doc', 'type', 'dmedia/file'):
+            stored = get_dict(doc, 'stored')
+            for key in tuple(stored):
+                if isinstance(key, str) and len(key) == 24 and isdb32(key):
+                    value = get_dict(stored, key)
+                    value['copies'] = 0
+                    value.pop('verified', None)
+                else:
+                    del stored[key]
+            buf.save(doc)
+            file_count += 1
+            copy_count += len(stored)
+        t.log('downgrade %d files (%d total copies)', file_count, copy_count)
+        return (file_count, copy_count)
 
     def purge_store(self, store_id):
         t = TimeDelta()
