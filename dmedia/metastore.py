@@ -788,42 +788,29 @@ class MetaStore:
         :param fs: a `FileStore` instance
         """
         t = TimeDelta()
+        # Do the scan for all files in fs.id:        
         count = 0
-        kw = {
-            'key': fs.id,
-            'include_docs': True,
-            'limit': 50,
-            'skip': 0,
-        }
-        while True:
-            rows = self.db.view('file', 'stored', **kw)['rows']
-            if not rows:
-                break
-            kw['skip'] += len(rows)
-            count += len(rows)
-            for row in rows:
-                doc = row['doc']
-                _id = doc['_id']
-                try:
-                    st = fs.stat(_id)
-                    stored = get_dict(doc, 'stored')
-                    value = get_dict(stored, fs.id)
-                    if doc.get('bytes') != st.size:
-                        log.error('%s has wrong size in %r', _id, fs)
-                        src_fp = open(st.name, 'rb')
-                        fs.move_to_corrupt(src_fp, _id,
-                            file_size=doc['bytes'],
-                            bad_file_size=st.size,
-                        )
-                        kw['skip'] -= 1
-                        self.db.update(mark_corrupt, doc, time.time(), fs.id)
-                    elif value.get('mtime') != int(st.mtime):
-                        log.warning('%s has wrong mtime %r', _id, fs)
-                        self.db.update(mark_mismatched, doc, fs.id, int(st.mtime))
-                except FileNotFound:
-                    log.warning('%s is not in %r', _id, fs)
-                    kw['skip'] -= 1
-                    self.db.update(mark_removed, doc, fs.id)
+        for doc in self.db.iter_view('file', 'stored', fs.id):
+            _id = doc['_id']
+            count += 1
+            try:
+                st = fs.stat(_id)
+                stored = get_dict(doc, 'stored')
+                value = get_dict(stored, fs.id)
+                if doc.get('bytes') != st.size:
+                    log.error('%s has wrong size in %r', _id, fs)
+                    src_fp = open(st.name, 'rb')
+                    fs.move_to_corrupt(src_fp, _id,
+                        file_size=doc['bytes'],
+                        bad_file_size=st.size,
+                    )
+                    self.db.update(mark_corrupt, doc, time.time(), fs.id)
+                elif value.get('mtime') != int(st.mtime):
+                    log.warning('%s has wrong mtime %r', _id, fs)
+                    self.db.update(mark_mismatched, doc, fs.id, int(st.mtime))
+            except FileNotFound:
+                log.warning('%s is not in %r', _id, fs)
+                self.db.update(mark_removed, doc, fs.id)
         # Update the atime for the dmedia/store doc
         try:
             doc = self.db.get(fs.id)
