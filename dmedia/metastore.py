@@ -880,11 +880,13 @@ class MetaStore:
             self.log_file_corrupt(timestamp, fs, _id)
             return self.db.update(mark_corrupt, doc, timestamp, fs.id)
 
-    def verify(self, fs, doc_or_id):
+    def verify(self, fs, doc):
         """
         Verify a file in `FileStore` *fs*.
         """
-        (doc, _id) = self.doc_and_id(doc_or_id)
+        if not isinstance(doc, dict):
+            raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))
+        _id = doc['_id']
         try:
             fs.verify(_id)
             log.info('Verified %s in %r', _id, fs)

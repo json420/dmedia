@@ -3280,23 +3280,59 @@ class TestMetaStore(CouchCase):
         tmp = TempDir()
         fs = TempFileStore()
         (file, ch) = tmp.random_file()
-
-        # Test when doc is missing:
-        with self.assertRaises(microfiber.NotFound) as cm:
-            ms.verify(fs, ch.id)
-
-        # Test when file and doc are present
         self.assertEqual(fs.import_file(open(file.name, 'rb')), ch)
         stored = create_stored(ch.id, fs)
         doc = schema.create_file(time.time(), ch, stored)
-        db.save(doc)
-        doc = ms.verify(fs, ch.id)
-        self.assertEqual(doc, db.get(ch.id))
-        self.assertEqual(doc['_rev'][:2], '2-')
+
+        # Ensure that MetaStore.verify() doesn't except *doc_or_id*:
+        with self.assertRaises(TypeError) as cm:
+            ms.verify(fs, ch.id)
+        self.assertEqual(str(cm.exception),
+            TYPE_ERROR.format('doc', dict, str, ch.id)
+        )
+
+        # Test when file is present, but doc isn't in DB:
+        start = int(time.time())
+        doc = ms.verify(fs, doc)
+        end = int(time.time())
+        doc_in_db = db.get(ch.id)
+        doc_in_db['_attachments'] = doc['_attachments']
+        self.assertEqual(doc, doc_in_db)
+        self.assertEqual(db.get_att(ch.id, 'leaf_hashes').data, ch.leaf_hashes)
+        self.assertEqual(doc['_rev'][:2], '1-')
         schema.check_file(doc)
         verified = doc['stored'][fs.id]['verified']
         self.assertIsInstance(verified, int)
-        self.assertLessEqual(verified, int(time.time()))
+        self.assertTrue(
+            (start - 1) <= verified <= (end + 1)
+        )
+        self.assertEqual(doc['stored'],
+            {
+                fs.id: {
+                    'copies': 1,
+                    'mtime': get_mtime(fs, ch.id),
+                    'verified': verified,
+                },
+            }
+        )
+
+        # Test when file and doc are present, file is downgraded:
+        doc = db.get(ch.id)
+        del doc['stored'][fs.id]['verified']
+        doc['stored'][fs.id]['copies'] = 0
+        db.save(doc)
+        start = int(time.time())
+        doc = ms.verify(fs, doc)
+        end = int(time.time())
+        self.assertEqual(doc, db.get(ch.id))
+        self.assertEqual(db.get_att(ch.id, 'leaf_hashes').data, ch.leaf_hashes)
+        self.assertEqual(doc['_rev'][:2], '3-')
+        schema.check_file(doc)
+        verified = doc['stored'][fs.id]['verified']
+        self.assertIsInstance(verified, int)
+        self.assertTrue(
+            (start - 1) <= verified <= (end + 1)
+        )
         self.assertEqual(doc['stored'],
             {
                 fs.id: {
@@ -3310,21 +3346,25 @@ class TestMetaStore(CouchCase):
         # Test when file is missing:
         canonical = fs.path(ch.id)
         os.remove(canonical)
-        doc = ms.verify(fs, ch.id)
+        doc = ms.verify(fs, doc)
         self.assertEqual(doc, db.get(ch.id))
-        self.assertEqual(doc['_rev'][:2], '3-')
+        self.assertEqual(doc['_rev'][:2], '4-')
         schema.check_file(doc)
         self.assertEqual(doc['stored'], {})
 
         # Test when file is in FileStore, but not in doc['stored']:
         shutil.copyfile(file.name, canonical)
-        doc = ms.verify(fs, ch.id)
+        start = int(time.time())
+        doc = ms.verify(fs, doc)
+        end = int(time.time())
         self.assertEqual(doc, db.get(ch.id))
-        self.assertEqual(doc['_rev'][:2], '4-')
+        self.assertEqual(doc['_rev'][:2], '5-')
         schema.check_file(doc)
         verified = doc['stored'][fs.id]['verified']
         self.assertIsInstance(verified, int)
-        self.assertLessEqual(verified, int(time.time()))
+        self.assertTrue(
+            (start - 1) <= verified <= (end + 1)
+        )
         self.assertEqual(doc['stored'],
             {
                 fs.id: {
@@ -3341,17 +3381,19 @@ class TestMetaStore(CouchCase):
         fp.write(os.urandom(16))
         fp.close()
         start = time.time()
-        doc = ms.verify(fs, ch.id)
+        doc = ms.verify(fs, doc)
         end = time.time()
         self.assertEqual(doc, db.get(ch.id))
-        self.assertEqual(doc['_rev'][:2], '5-')
+        self.assertEqual(doc['_rev'][:2], '6-')
         schema.check_file(doc)
         self.assertEqual(doc['stored'], {})
         self.assertEqual(set(doc['corrupt']), set([fs.id]))
         self.assertEqual(set(doc['corrupt'][fs.id]), set(['time']))
         timestamp = doc['corrupt'][fs.id]['time']
         self.assertIsInstance(timestamp, float)
-        self.assertTrue(start <= timestamp <= end)
+        self.assertTrue(
+            (start - 1) <= verified <= (end + 1)
+        )
         self.assertFalse(path.exists(canonical))
         self.assertTrue(path.isfile(fs.corrupt_path(ch.id)))
 
