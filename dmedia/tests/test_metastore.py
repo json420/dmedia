@@ -3090,51 +3090,48 @@ class TestMetaStore(CouchCase):
         tmp = TempDir()
         fs1 = TempFileStore()
         fs2 = TempFileStore()
-
         (file, ch) = tmp.random_file()
         self.assertEqual(fs1.import_file(open(file.name, 'rb')), ch)
         self.assertEqual(fs2.import_file(open(file.name, 'rb')), ch)
-
-        # Test when file doc isn't in dmedia-1
-        with self.assertRaises(microfiber.NotFound) as cm:
-            ms.remove(fs1, ch.id)
-        with self.assertRaises(microfiber.NotFound) as cm:
-            ms.remove(fs2, ch.id)
-        fs1.verify(ch.id)
-        fs2.verify(ch.id)
-
-        # Test when doc and file are present
         stored = create_stored(ch.id, fs1, fs2)
-        doc = schema.create_file(time.time(), ch, stored)
-        db.save(doc)
-        doc = ms.remove(fs1, ch.id)
-        self.assertTrue(doc['_rev'].startswith('2-'))
-        self.assertEqual(doc, db.get(ch.id))
-        self.assertEqual(doc['stored'],
-            {
-                fs2.id: {
-                    'mtime': get_mtime(fs2, ch.id),
-                    'copies': 1,
-                },   
-            }
+        doc = schema.create_file(time.time(), ch, deepcopy(stored))
+
+        # Ensure that MetaStore.remove() doesn't except *doc_or_id*:
+        with self.assertRaises(TypeError) as cm:
+            ms.remove(fs1, ch.id)
+        self.assertEqual(str(cm.exception),
+            TYPE_ERROR.format('doc', dict, str, ch.id)
         )
+        self.assertEqual(fs1.verify(ch.id), ch)
+        self.assertEqual(fs2.verify(ch.id), ch)
+        with self.assertRaises(microfiber.NotFound) as cm:
+            db.get(ch.id)
+
+        # Test when doc isn't in DB:
+        doc = ms.remove(fs1, doc)
+        doc_in_db = db.get(ch.id)
+        doc_in_db['_attachments'] = doc['_attachments']
+        self.assertEqual(doc, doc_in_db)
+        self.assertEqual(db.get_att(ch.id, 'leaf_hashes').data, ch.leaf_hashes)
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertEqual(doc['stored'], create_stored(ch.id, fs2))
 
         # Test when file isn't present
+        doc = db.get(ch.id)
         doc['stored'] = stored
         db.save(doc)
-        with self.assertRaises(OSError) as cm:
-            ms.remove(fs1, ch.id)
-        doc = db.get(ch.id)
-        self.assertTrue(doc['_rev'].startswith('4-'))
-        self.assertEqual(doc['stored'],
-            {
-                fs2.id: {
-                    'mtime': get_mtime(fs2, ch.id),
-                    'copies': 1,
-                },   
-            }
-        )
- 
+        with self.assertRaises(FileNotFoundError) as cm:
+            ms.remove(fs1, doc)
+        self.assertEqual(doc, db.get(ch.id))
+        self.assertEqual(doc['_rev'][:2], '3-')
+        self.assertEqual(doc['stored'], create_stored(ch.id, fs2))
+
+        # Test when doc and file are present
+        doc = ms.remove(fs2, doc)
+        self.assertEqual(doc, db.get(ch.id))
+        self.assertEqual(doc['_rev'][:2], '4-')
+        self.assertEqual(doc['stored'], {})
+
     def test_copy(self):
         db = util.get_db(self.env, True)
         log_db = db.database('log-1')
