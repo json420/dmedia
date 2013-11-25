@@ -3379,7 +3379,7 @@ class TestMetaStore(CouchCase):
         timestamp = doc['corrupt'][fs.id]['time']
         self.assertIsInstance(timestamp, float)
         self.assertTrue(
-            (start - 1) <= verified <= (end + 1)
+            (start - 1) <= timestamp <= (end + 1)
         )
         self.assertFalse(path.exists(canonical))
         self.assertTrue(path.isfile(fs.corrupt_path(ch.id)))
