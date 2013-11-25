@@ -460,13 +460,6 @@ class MetaStore:
             count=count,
         )
 
-    def doc_and_id(self, obj):
-        if isinstance(obj, dict):
-            return (obj, obj['_id'])
-        if isinstance(obj, str):
-            return (self.db.get(obj), obj)
-        raise TypeError('obj must be a doc or _id (a dict or str)')
-
     def content_hash(self, doc, unpack=True):
         if not isinstance(doc, dict):
             raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))

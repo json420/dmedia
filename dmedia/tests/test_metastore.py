@@ -1743,32 +1743,6 @@ class TestMetaStore(CouchCase):
             }
         )
 
-    def test_doc_and_id(self):
-        db = util.get_db(self.env, True)
-        ms = metastore.MetaStore(db)
-        _id = random_id()
-        doc = {'_id': _id}
-
-        # Doc doesn't exist:
-        self.assertEqual(ms.doc_and_id(doc), (doc, _id))
-        with self.assertRaises(microfiber.NotFound) as cm:
-            ms.doc_and_id(_id)
-        with self.assertRaises(TypeError) as cm:
-            ms.doc_and_id([_id])
-        self.assertEqual(str(cm.exception),
-            'obj must be a doc or _id (a dict or str)'
-        )
-
-        # Doc does exist:
-        db.save(doc)
-        self.assertEqual(ms.doc_and_id(doc), (doc, _id))
-        self.assertEqual(ms.doc_and_id(_id), (doc, _id))
-        with self.assertRaises(TypeError) as cm:
-            ms.doc_and_id([_id])
-        self.assertEqual(str(cm.exception),
-            'obj must be a doc or _id (a dict or str)'
-        )
-
     def test_content_hash(self):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
