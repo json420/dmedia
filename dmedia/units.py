@@ -85,6 +85,14 @@ def minsec(seconds):
     return '{:d}:{:02d}'.format(seconds // 60, seconds % 60)
 
 
+def file_count(count):
+    return ngettext(
+        '{count:,d} file',
+        '{count:,d} files',
+        count
+    ).format(count=count)
+
+
 def count_and_size(count, size):
     return ngettext(
         '{count} file, {size}',

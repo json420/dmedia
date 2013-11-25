@@ -55,6 +55,7 @@ from dmedia.client import Downloader, get_client, build_ssl_context
 from dmedia.metastore import MetaStore, create_stored, get_dict
 from dmedia.metastore import MIN_BYTES_FREE, MAX_BYTES_FREE
 from dmedia.local import LocalStores, FileNotLocal
+from dmedia.units import file_count
 
 
 log = logging.getLogger()
@@ -268,10 +269,23 @@ class Vigilance:
         self.remote = frozenset(remote)
 
     def run(self):
+        self.log_stats()
         last_seq = self.process_backlog()
         log.info('Vigilance: processed backlog as of %r', last_seq)
+        self.log_stats()
         self.process_preempt()
+        self.log_stats()
         self.run_event_loop(last_seq)
+
+    def log_stats(self):
+        result = self.ms.db.view('file', 'rank',
+            reduce=True,
+            group=True,
+            update_seq=True
+        )
+        log.info('## File ranks as of update_seq=%d:', result['update_seq'])
+        for row in result['rows']:
+            log.info('## rank=%d: %s', row['key'], file_count(row['value']))
 
     def process_backlog(self):
         for doc in self.ms.iter_fragile_files():
