@@ -460,15 +460,10 @@ class MetaStore:
             count=count,
         )
 
-    def doc_and_id(self, obj):
-        if isinstance(obj, dict):
-            return (obj, obj['_id'])
-        if isinstance(obj, str):
-            return (self.db.get(obj), obj)
-        raise TypeError('obj must be a doc or _id (a dict or str)')
-
-    def content_hash(self, doc_or_id, unpack=True):
-        (doc, _id) = self.doc_and_id(doc_or_id)
+    def content_hash(self, doc, unpack=True):
+        if not isinstance(doc, dict):
+            raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))
+        _id = doc['_id']
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
@@ -852,20 +847,24 @@ class MetaStore:
         t.log('relink %d files in %r', count, fs)
         return count
 
-    def remove(self, fs, doc_or_id):
+    def remove(self, fs, doc):
         """
         Remove a file from `FileStore` *fs*.
         """
-        (doc, _id) = self.doc_and_id(doc_or_id)
+        if not isinstance(doc, dict):
+            raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))
+        _id = doc['_id']
         doc = self.db.update(mark_removed, doc, fs.id)
         fs.remove(_id)
         return doc
 
-    def copy(self, fs, doc_or_id, *dst_fs):
+    def copy(self, fs, doc, *dst_fs):
         """
         Copy a file from `FileStore` *fs* to one or more *dst_fs*.
         """
-        (doc, _id) = self.doc_and_id(doc_or_id)
+        if not isinstance(doc, dict):
+            raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))
+        _id = doc['_id']
         try:
             fs.copy(_id, *dst_fs)
             log.info('Copied %s from %r to %r', _id, fs, list(dst_fs))
@@ -880,11 +879,13 @@ class MetaStore:
             self.log_file_corrupt(timestamp, fs, _id)
             return self.db.update(mark_corrupt, doc, timestamp, fs.id)
 
-    def verify(self, fs, doc_or_id):
+    def verify(self, fs, doc):
         """
         Verify a file in `FileStore` *fs*.
         """
-        (doc, _id) = self.doc_and_id(doc_or_id)
+        if not isinstance(doc, dict):
+            raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))
+        _id = doc['_id']
         try:
             fs.verify(_id)
             log.info('Verified %s in %r', _id, fs)
@@ -1101,11 +1102,13 @@ class MetaStore:
                 'startkey': [fs.id, None],
                 'endkey': [fs.id, int(time.time())],
                 'limit': 1,
+                'include_docs': True,
             }
             rows = self.db.view('file', 'store-reclaimable', **kw)['rows']
             if not rows:
                 break
-            doc = self.remove(fs, rows[0]['id'])
+            doc = rows[0]['doc']
+            doc = self.remove(fs, doc)
             count += 1
             size += doc['bytes']
             if fs.statvfs().avail > threshold:
