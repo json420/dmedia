@@ -863,11 +863,13 @@ class MetaStore:
         fs.remove(_id)
         return doc
 
-    def copy(self, fs, doc_or_id, *dst_fs):
+    def copy(self, fs, doc, *dst_fs):
         """
         Copy a file from `FileStore` *fs* to one or more *dst_fs*.
         """
-        (doc, _id) = self.doc_and_id(doc_or_id)
+        if not isinstance(doc, dict):
+            raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))
+        _id = doc['_id']
         try:
             fs.copy(_id, *dst_fs)
             log.info('Copied %s from %r to %r', _id, fs, list(dst_fs))
