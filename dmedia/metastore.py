@@ -1102,11 +1102,13 @@ class MetaStore:
                 'startkey': [fs.id, None],
                 'endkey': [fs.id, int(time.time())],
                 'limit': 1,
+                'include_docs': True,
             }
             rows = self.db.view('file', 'store-reclaimable', **kw)['rows']
             if not rows:
                 break
-            doc = self.remove(fs, rows[0]['id'])
+            doc = rows[0]['doc']
+            doc = self.remove(fs, doc)
             count += 1
             size += doc['bytes']
             if fs.statvfs().avail > threshold:
