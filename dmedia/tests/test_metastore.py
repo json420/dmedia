@@ -1773,35 +1773,23 @@ class TestMetaStore(CouchCase):
         db = util.get_db(self.env, True)
         ms = metastore.MetaStore(db)
 
-        # doc doesn't exist
-        _id = random_file_id()
-        doc = {'_id': _id}
+        # doc doesn't exist:
+        doc = {'_id': random_file_id(), 'bytes': random.randint(1, 100000)}
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.content_hash(doc)
-        with self.assertRaises(microfiber.NotFound) as cm:
-            ms.content_hash(_id)
         with self.assertRaises(TypeError) as cm:
-            ms.content_hash([_id])
+            ms.content_hash(doc['_id'])
         self.assertEqual(str(cm.exception),
-            'obj must be a doc or _id (a dict or str)'
+            TYPE_ERROR.format('doc', dict, str, doc['_id'])
         )
 
-        #############
         # doc exists:
         fs = TempFileStore()
         doc = create_random_file(fs, db)
         _id = doc['_id']
-        att = db.get_att(_id, 'leaf_hashes')
-        leaf_hashes = att.data
+        leaf_hashes = db.get_att(_id, 'leaf_hashes').data
         leaf_hashes_unpacked = tuple(filestore.iter_leaf_hashes(leaf_hashes))
-
-        # By doc:
         ch = ms.content_hash(doc)
-        self.assertIsInstance(ch, filestore.ContentHash)
-        self.assertEqual(ch,
-            filestore.ContentHash(_id, doc['bytes'], leaf_hashes_unpacked)
-        )
-        ch = ms.content_hash(doc, unpack=True)
         self.assertIsInstance(ch, filestore.ContentHash)
         self.assertEqual(ch,
             filestore.ContentHash(_id, doc['bytes'], leaf_hashes_unpacked)
@@ -1811,63 +1799,52 @@ class TestMetaStore(CouchCase):
         self.assertEqual(ch,
             filestore.ContentHash(_id, doc['bytes'], leaf_hashes)
         )
-
-        # By _id:
-        ch = ms.content_hash(_id)
+        ch = ms.content_hash(doc, unpack=True)
         self.assertIsInstance(ch, filestore.ContentHash)
         self.assertEqual(ch,
             filestore.ContentHash(_id, doc['bytes'], leaf_hashes_unpacked)
-        )
-        ch = ms.content_hash(_id, unpack=True)
-        self.assertIsInstance(ch, filestore.ContentHash)
-        self.assertEqual(ch,
-            filestore.ContentHash(_id, doc['bytes'], leaf_hashes_unpacked)
-        )
-        ch = ms.content_hash(_id, unpack=False)
-        self.assertIsInstance(ch, filestore.ContentHash)
-        self.assertEqual(ch,
-            filestore.ContentHash(_id, doc['bytes'], leaf_hashes)
         )
 
         # Wrong type:
         with self.assertRaises(TypeError) as cm:
-            ms.content_hash([_id])
+            ms.content_hash(doc['_id'])
         self.assertEqual(str(cm.exception),
-            'obj must be a doc or _id (a dict or str)'
+            TYPE_ERROR.format('doc', dict, str, doc['_id'])
         )
 
-        # Integrity issue:
+        # Wrong doc['bytes']:
         doc['bytes'] += 1
+        with self.assertRaises(filestore.RootHashError):
+            ms.content_hash(doc)
         db.save(doc)
         with self.assertRaises(filestore.RootHashError):
             ms.content_hash(doc)
-        with self.assertRaises(filestore.RootHashError):
-            ms.content_hash(_id)
+        # Should use doc['bytes'] as passed in arg, not check DB:
+        doc['bytes'] -= 1
+        self.assertEqual(ms.content_hash(doc), ch)
+        db.save(doc)
+        self.assertEqual(ms.content_hash(doc), ch)
 
         # leaf_hashes attachement is missing:
-        doc['bytes'] -= 1
-        db.save(doc)
-        ms.content_hash(doc)
-        ms.content_hash(_id)
         _rev = db.delete(_id, 'leaf_hashes', rev=doc['_rev'])['rev']
         with self.assertRaises(microfiber.NotFound) as cm:
             ms.content_hash(doc)
-        with self.assertRaises(microfiber.NotFound) as cm:
-            ms.content_hash(_id)
 
         # Badly-formed leaf_hashes:
         bad = os.urandom(75)
-        db.put_att('application/octet-stream', bad, _id, 'leaf_hashes', rev=_rev)
+        _rev = db.put_att('application/octet-stream', bad, _id, 'leaf_hashes', rev=_rev)['rev']
         with self.assertRaises(ValueError) as cm:
             ms.content_hash(doc)
         self.assertEqual(str(cm.exception),
             'len(leaf_hashes) is 75, not multiple of 30'
         )
-        with self.assertRaises(ValueError) as cm:
-            ms.content_hash(_id)
-        self.assertEqual(str(cm.exception),
-            'len(leaf_hashes) is 75, not multiple of 30'
-        )
+
+        # Wrong leaf_hashes:
+        bad = os.urandom(len(leaf_hashes))
+        _rev = db.put_att('application/octet-stream', bad, _id, 'leaf_hashes', rev=_rev)['rev']
+        self.assertEqual(db.get_att(_id, 'leaf_hashes').data, bad)
+        with self.assertRaises(filestore.RootHashError):
+            ms.content_hash(doc)
 
     def test_get_machine(self):
         db = util.get_db(self.env, True)

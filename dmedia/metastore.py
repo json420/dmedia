@@ -467,8 +467,10 @@ class MetaStore:
             return (self.db.get(obj), obj)
         raise TypeError('obj must be a doc or _id (a dict or str)')
 
-    def content_hash(self, doc_or_id, unpack=True):
-        (doc, _id) = self.doc_and_id(doc_or_id)
+    def content_hash(self, doc, unpack=True):
+        if not isinstance(doc, dict):
+            raise TypeError(TYPE_ERROR.format('doc', dict, type(doc), doc))
+        _id = doc['_id']
         leaf_hashes = self.db.get_att(_id, 'leaf_hashes').data
         return check_root_hash(_id, doc['bytes'], leaf_hashes, unpack)
 
