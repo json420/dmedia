@@ -179,9 +179,10 @@ def missing_leaves(ch, tmp_fp):
 
 
 class Downloader:
-    def __init__(self, doc_or_id, ms, fs):
+    def __init__(self, doc, ms, fs):
         self.finished = False
-        (self.doc, self.id) = ms.doc_and_id(doc_or_id)
+        self.doc = doc
+        self.id = doc['_id']
         self.ch = ms.content_hash(self.doc)
         self.tmp_fp = fs.allocate_partial(self.ch.file_size, self.id)
         self.ms = ms
