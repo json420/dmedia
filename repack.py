@@ -23,15 +23,15 @@ while True:
     skip += len(rows)
     for row in rows:
         _id = row['id']
-        #print(_id)
+        if _id.startswith('_'):
+            print('junk:', _id)
+            continue
         doc = src.get(_id, attachments=True)
-        if doc.get('type') == 'dmedia/file':
-            del doc['_rev']
-            buf.save(doc)
-        else:
-            print(_id, doc.get('type'))
-            nope += 1
+        del doc['_rev']
+        buf.save(doc)
 buf.flush()
 
 print('{} total, {} conflicts'.format(buf.count, buf.conflicts))
 print('nope', nope)
+
+dst.post(None, '_compact')
