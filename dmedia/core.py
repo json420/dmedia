@@ -625,44 +625,10 @@ class TaskManager:
             self.start_vigilance()
 
 
-def mark_machine_start(doc, atime):
-    doc['atime'] = atime
-    doc['stores'] = {}
-    doc['peers'] = {}
-
-
-def mark_add_filestore(doc, atime, fs_id, info):
-    assert isinstance(info, dict)
-    doc['atime'] = atime
-    stores = get_dict(doc, 'stores')
-    stores[fs_id] = info
-
-
-def mark_remove_filestore(doc, atime, fs_id):
-    doc['atime'] = atime
-    stores = get_dict(doc, 'stores')
-    stores.pop(fs_id, None)
-
-
-def mark_connected_stores(doc, atime, stores):
-    assert isinstance(stores, dict)
-    doc['atime'] = atime
-    doc['stores'] = stores
-
-def mark_add_peer(doc, atime, peer_id, info):
-    assert isinstance(info, dict)
-    doc['atime'] = atime
-    peers = get_dict(doc, 'peers')
-    peers[peer_id] = info
-
-
-def mark_remove_peer(doc, atime, peer_id):
-    doc['atime'] = atime
-    peers = get_dict(doc, 'peers')
-    peers.pop(peer_id, None)
-
-
 def update_machine(doc, timestamp, stores, peers):
+    """
+    Update func passed to `Database.update()` by `Core.update_machine()`.
+    """
     assert isinstance(timestamp, float)
     assert isinstance(stores, dict)
     assert isinstance(peers, dict)
