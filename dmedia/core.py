@@ -764,9 +764,8 @@ class Core:
         assert isdb32(peer_id) and len(peer_id) == 48
         assert isinstance(info, dict)
         assert isinstance(info['url'], str)
-        self.machine = self.db.update(
-            mark_add_peer, self.machine, int(time.time()), peer_id, info
-        )
+        self.peers[peer_id] = info
+        self.update_machine()
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
