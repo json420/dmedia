@@ -662,6 +662,15 @@ def mark_remove_peer(doc, atime, peer_id):
     peers.pop(peer_id, None)
 
 
+def update_machine(doc, timestamp, stores, peers):
+    assert isinstance(timestamp, float)
+    assert isinstance(stores, dict)
+    assert isinstance(peers, dict)
+    doc['mtime'] = int(timestamp)
+    doc['stores'] = stores
+    doc['peers'] = peers
+
+
 class Core:
     def __init__(self, env, machine, user, ssl_config=None):
         env.update({

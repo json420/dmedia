@@ -229,6 +229,81 @@ class TestCouchFunctions(CouchCase):
             'peers': {},
         })
 
+    def test_update_machine(self):
+        # Empty stores and peers:
+        doc = {}
+        timestamp = time.time()
+        stores = {}
+        peers = {}
+        self.assertIsNone(core.update_machine(doc, timestamp, stores, peers))
+        self.assertEqual(doc, {
+            'mtime': int(timestamp),
+            'stores': {},
+            'peers': {},
+        })
+        self.assertIs(doc['stores'], stores)
+        self.assertIs(doc['peers'], peers)
+
+        # Populated stores and peers:
+        timestamp = time.time()
+
+        store_id1 = random_id()
+        parentdir1 = random_id()
+        store_id2 = random_id()
+        parentdir2 = random_id()
+        stores = {
+            store_id1: {
+                'copies': 1,
+                'parentdir': parentdir1,
+            },
+            store_id2: {
+                'copies': 2,
+                'parentdir': parentdir2,
+            },
+        }
+
+        peer_id1 = random_id(30)
+        url1 = random_id()
+        peer_id2 = random_id(30)
+        url2 = random_id()
+        peers = {
+            peer_id1: {
+                'host': 'foo',
+                'url': url1,
+            },
+            peer_id2: {
+                'host': 'foo',
+                'url': url1,
+            },
+        }
+
+        self.assertIsNone(core.update_machine(doc, timestamp, stores, peers))
+        self.assertEqual(doc, {
+            'mtime': int(timestamp),
+            'stores': {
+                store_id1: {
+                    'copies': 1,
+                    'parentdir': parentdir1,
+                },
+                store_id2: {
+                    'copies': 2,
+                    'parentdir': parentdir2,
+                },
+            },
+            'peers': {
+                peer_id1: {
+                    'host': 'foo',
+                    'url': url1,
+                },
+                peer_id2: {
+                    'host': 'foo',
+                    'url': url1,
+                },
+            },
+        })
+        self.assertIs(doc['stores'], stores)
+        self.assertIs(doc['peers'], peers)
+
 
 class TestVigilanceMocked(TestCase):
     def test_up_rank(self):
