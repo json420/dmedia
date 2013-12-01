@@ -676,6 +676,7 @@ class TestCore(CouchTestCase):
             }
         })
         self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
         # id2 is not yet a peer:
         start = time.time()
@@ -699,6 +700,7 @@ class TestCore(CouchTestCase):
             }
         })
         self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
         # id1 is already a peer, make sure info is replaced
         new1 = {'url': random_id()}
@@ -723,6 +725,7 @@ class TestCore(CouchTestCase):
             }
         })
         self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
     def test_remove_peer(self):
         inst = self.create()
