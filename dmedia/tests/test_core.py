@@ -95,140 +95,6 @@ class TestCouchFunctions(CouchCase):
             [(project_db_name(_id), _id) for _id in sorted(ids)]
         )
 
-    def test_mark_machine_start(self):
-        doc = {}
-        atime = int(time.time())
-        self.assertIsNone(core.mark_machine_start(doc, atime))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'stores': {},
-            'peers': {},
-        })
-
-    def test_mark_add_filestore(self):
-        doc = {}
-        atime = int(time.time())
-        fs = TempFileStore()
-        info = {'parentdir': fs.parentdir}
-        self.assertIsNone(core.mark_add_filestore(doc, atime, fs.id, info))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'stores': {
-                fs.id: {'parentdir': fs.parentdir},
-            }
-        })
-
-    def test_mark_remove_filestore(self):
-        doc = {}
-        atime = int(time.time())
-        fs1 = TempFileStore()
-        fs2 = TempFileStore()
-        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs1.id))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'stores': {},
-        })
-
-        doc = {
-            'atime': atime - 123456,
-            'stores': {
-                fs1.id: {'parentdir': fs1.parentdir},
-                fs2.id: {'parentdir': fs2.parentdir},
-            },
-        }
-        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs1.id))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'stores': {
-                fs2.id: {'parentdir': fs2.parentdir},
-            },
-        })
-        self.assertIsNone(core.mark_remove_filestore(doc, atime, fs2.id))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'stores': {},
-        })
-
-    def test_mark_connected_stores(self):
-        atime = int(time.time())
-        fs1 = TempFileStore()
-        fs2 = TempFileStore()
-
-        doc = {}
-        stores = {
-            fs1.id: {'parentdir': fs1.parentdir}
-        }
-        self.assertIsNone(core.mark_connected_stores(doc, atime, stores))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'stores': {
-                fs1.id: {'parentdir': fs1.parentdir}
-            },
-        })
-        self.assertIs(doc['stores'], stores)
-
-        doc = {
-            'atime': atime - 123456,
-            'stores': {
-                fs1.id: {'parentdir': fs1.parentdir},
-                fs2.id: {'parentdir': fs2.parentdir},
-            },
-        }
-        stores = {}
-        self.assertIsNone(core.mark_connected_stores(doc, atime, stores))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'stores': {},
-        })
-        self.assertIs(doc['stores'], stores)
-
-    def test_mark_add_peer(self):
-        doc = {}
-        atime = int(time.time())
-        peer_id = random_id(30)
-        url = random_id()
-        info = {'url': url}
-        self.assertIsNone(core.mark_add_peer(doc, atime, peer_id, info))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'peers': {
-                peer_id: {'url': url},
-            },
-        })
-
-    def test_mark_remove_peer(self):
-        doc = {}
-        atime = int(time.time())
-        peer_id1 = random_id(30)
-        url1 = random_id()
-        peer_id2 = random_id(30)
-        url2 = random_id()
-        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id1))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'peers': {},
-        })
-
-        doc = {
-            'atime': atime - 23456,
-            'peers': {
-                peer_id1: {'url': url1},
-                peer_id2: {'url': url2},
-            },
-        }
-        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id1))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'peers': {
-                peer_id2: {'url': url2},
-            },
-        })
-        self.assertIsNone(core.mark_remove_peer(doc, atime, peer_id2))
-        self.assertEqual(doc, {
-            'atime': atime,
-            'peers': {},
-        })
-
     def test_update_machine(self):
         # Empty stores and peers:
         doc = {}
@@ -544,6 +410,7 @@ class TestCore(CouchTestCase):
         self.assertIsInstance(inst.ms, MetaStore)
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
+        self.assertEqual(inst.peers, {})
         self.assertIsInstance(inst.task_manager, core.TaskManager)
         self.assertIsNone(inst.ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
@@ -574,6 +441,7 @@ class TestCore(CouchTestCase):
         self.assertIsInstance(inst.ms, MetaStore)
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
+        self.assertEqual(inst.peers, {})
         self.assertIsInstance(inst.task_manager, core.TaskManager)
         self.assertIs(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
@@ -591,6 +459,56 @@ class TestCore(CouchTestCase):
         self.assertEqual(inst.db.get(user_id), inst.user)
         self.assertEqual(inst.user['_rev'][:2], '2-')
 
+    def test_update_machine(self):
+        inst = self.create()
+        start = time.time()
+        inst.update_machine()
+        end = time.time()
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '2-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, {
+            '_id': self.machine_id,
+            '_rev': doc['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {},
+        })
+        self.assertEqual(doc, inst.machine)
+
+        # Now test when there has been a conflicting change to the machine doc,
+        # to make sure Database.update() is used, not Database.save():
+        del doc['mtime']
+        doc['stores'] = {
+            random_id(): {'parentdir': '/media/foo', 'copies': 1},
+        }
+        doc['peers'] = {
+            random_id(30): {'url': 'https://192.168.17.18'},
+        }
+        inst.db.save(doc)
+        start = time.time()
+        inst.update_machine()
+        end = time.time()
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '4-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, {
+            '_id': self.machine_id,
+            '_rev': doc['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {},
+        })
+        self.assertEqual(doc, inst.machine)
+
     def test_add_peer(self):
         inst = self.create()
         id1 = random_id(30)
@@ -604,20 +522,76 @@ class TestCore(CouchTestCase):
         info2 = {'url': 'https://192.168.1.77:9872/'}
 
         # id1 is not yet a peer:
+        start = time.time()
         self.assertIsNone(inst.add_peer(id1, info1))
-        self.assertEqual(inst.machine['peers'], {id1: info1})
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        end = time.time()
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '2-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, {
+            '_id': self.machine_id,
+            '_rev': doc['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {
+                id1: info1,
+            }
+        })
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
         # id2 is not yet a peer:
+        start = time.time()
         self.assertIsNone(inst.add_peer(id2, info2))
-        self.assertEqual(inst.machine['peers'], {id1: info1, id2: info2})
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        end = time.time()
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '3-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, {
+            '_id': self.machine_id,
+            '_rev': doc['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {
+                id1: info1,
+                id2: info2,
+            }
+        })
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
         # id1 is already a peer, make sure info is replaced
         new1 = {'url': random_id()}
+        start = time.time()
         self.assertIsNone(inst.add_peer(id1, new1))
-        self.assertEqual(inst.machine['peers'], {id1: new1, id2: info2})
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
+        end = time.time()
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '4-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, {
+            '_id': self.machine_id,
+            '_rev': doc['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {
+                id1: new1,
+                id2: info2,
+            }
+        })
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
     def test_remove_peer(self):
         inst = self.create()
@@ -625,40 +599,62 @@ class TestCore(CouchTestCase):
         id2 = random_id(30)
         info1 = {'url': random_id()}
         info2 = {'url': random_id()}
-        inst.machine['peers'] = {id1: info1, id2: info2}
-        inst.db.save(inst.machine)
-        self.assertEqual(inst.machine['_rev'][:2], '2-')
+        inst.peers = {id1: info1, id2: info2}
 
         # Test with a peer_id that doesn't exist:
         nope = random_id(30)
         self.assertIs(inst.remove_peer(nope), False)
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
-        self.assertEqual(inst.machine['peers'], {id1: info1, id2: info2})
-        self.assertEqual(inst.machine['_rev'][:2], '2-')
+        self.assertEqual(inst.peers, {id1: info1, id2: info2})
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '1-')
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], {})
 
         # id1 is present
+        start = time.time()
         self.assertIs(inst.remove_peer(id1), True)
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
-        self.assertEqual(inst.machine['peers'], {id2: info2})
-        self.assertEqual(inst.machine['_rev'][:2], '3-')
+        end = time.time()
+        self.assertEqual(inst.peers, {id2: info2})
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '2-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
         # id1 is missing
         self.assertIs(inst.remove_peer(id1), False)
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
-        self.assertEqual(inst.machine['peers'], {id2: info2})
-        self.assertEqual(inst.machine['_rev'][:2], '3-')
+        self.assertEqual(inst.peers, {id2: info2})
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '2-')
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
         # id2 is present
+        start = time.time()
         self.assertIs(inst.remove_peer(id2), True)
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
-        self.assertEqual(inst.machine['peers'], {})
-        self.assertEqual(inst.machine['_rev'][:2], '4-')
+        end = time.time()
+        self.assertEqual(inst.peers, {})
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '3-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
         # id2 is missing
         self.assertIs(inst.remove_peer(id2), False)
-        self.assertEqual(inst.db.get(self.machine_id), inst.machine)
-        self.assertEqual(inst.machine['peers'], {})
-        self.assertEqual(inst.machine['_rev'][:2], '4-')
+        self.assertEqual(inst.peers, {})
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '3-')
+        self.assertEqual(doc, inst.machine)
+        self.assertEqual(doc['peers'], inst.peers)
 
     def test_create_filestore(self):
         inst = self.create()

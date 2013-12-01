@@ -625,44 +625,10 @@ class TaskManager:
             self.start_vigilance()
 
 
-def mark_machine_start(doc, atime):
-    doc['atime'] = atime
-    doc['stores'] = {}
-    doc['peers'] = {}
-
-
-def mark_add_filestore(doc, atime, fs_id, info):
-    assert isinstance(info, dict)
-    doc['atime'] = atime
-    stores = get_dict(doc, 'stores')
-    stores[fs_id] = info
-
-
-def mark_remove_filestore(doc, atime, fs_id):
-    doc['atime'] = atime
-    stores = get_dict(doc, 'stores')
-    stores.pop(fs_id, None)
-
-
-def mark_connected_stores(doc, atime, stores):
-    assert isinstance(stores, dict)
-    doc['atime'] = atime
-    doc['stores'] = stores
-
-def mark_add_peer(doc, atime, peer_id, info):
-    assert isinstance(info, dict)
-    doc['atime'] = atime
-    peers = get_dict(doc, 'peers')
-    peers[peer_id] = info
-
-
-def mark_remove_peer(doc, atime, peer_id):
-    doc['atime'] = atime
-    peers = get_dict(doc, 'peers')
-    peers.pop(peer_id, None)
-
-
 def update_machine(doc, timestamp, stores, peers):
+    """
+    Update func passed to `Database.update()` by `Core.update_machine()`.
+    """
     assert isinstance(timestamp, float)
     assert isinstance(stores, dict)
     assert isinstance(peers, dict)
@@ -684,6 +650,7 @@ class Core:
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
+        self.peers = {}
         self.task_manager = TaskManager(env, ssl_config)
         self.ssl_config = ssl_config
         try:
@@ -707,6 +674,28 @@ class Core:
 
     def save_local(self):
         self.db.save(self.local)
+
+    def update_machine(self):
+        """
+        Synchronize the machine state to CouchDB.
+
+        Each Dmedia machine (aka peer, node) is represented by a doc in CouchDB
+        (with a type of "dmedia/machine").  This doc stores info about the
+        currently connected stores, the currently visible peers, and a timestamp
+        of when the machine state last changed.
+
+        The currently connect stores are very important because this information
+        is used to decide which peer to attempt to download a file from.
+
+        The currently connected peers aren't directly used, but are handy for
+        out-of-band test harnesses.  For example, by monitoring changes in all
+        the "dmedia/machine" docs, a test harness can determine whether the
+        Avahi peer broadcast and discovery is working correctly.
+        """
+        stores = self.stores.local_stores()
+        self.machine = self.db.update(
+            update_machine, self.machine, time.time(), stores, self.peers
+        )
 
     def start_background_tasks(self):
         self.task_manager.start_tasks()
@@ -741,26 +730,17 @@ class Core:
         assert isdb32(peer_id) and len(peer_id) == 48
         assert isinstance(info, dict)
         assert isinstance(info['url'], str)
-        self.machine = self.db.update(
-            mark_add_peer, self.machine, int(time.time()), peer_id, info
-        )
+        self.peers[peer_id] = info
+        self.update_machine()
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
-        if peer_id not in self.machine['peers']:
+        if peer_id not in self.peers:
             return False
-        self.machine = self.db.update(
-            mark_remove_peer, self.machine, int(time.time()), peer_id
-        )
+        self.peers.pop(peer_id)
+        self.update_machine()
         self.restart_vigilance()
         return True
-
-    def _sync_stores(self):
-        stores = self.stores.local_stores()
-        self.machine = self.db.update(
-            mark_connected_stores, self.machine, int(time.time()), stores
-        )
-        self.restart_vigilance()
 
     def _add_filestore(self, fs):
         log.info('Adding %r', fs)
@@ -775,14 +755,16 @@ class Core:
             self.db.post(fs.doc)
         except Conflict:
             pass
+        self.update_machine()
         self.task_manager.queue_filestore_tasks(fs)
-        self._sync_stores()
+        self.restart_vigilance()
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
-        self.stores.remove(fs)
         self.task_manager.stop_filestore_tasks(fs)
-        self._sync_stores()
+        self.stores.remove(fs)
+        self.update_machine()
+        self.restart_vigilance()
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
