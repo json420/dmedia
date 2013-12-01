@@ -684,6 +684,7 @@ class Core:
         self.server = self.db.server()
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
+        self.peers = {}
         self.task_manager = TaskManager(env, ssl_config)
         self.ssl_config = ssl_config
         try:
@@ -707,6 +708,23 @@ class Core:
 
     def save_local(self):
         self.db.save(self.local)
+
+    def update_machine(self):
+        """
+        Synchronize the machine state to CouchDB.
+
+        Each Dmedia machine (aka peer, node) is represented by a doc in CouchDB
+        (with a type of "dmedia/machine").  This doc stores info about the
+        currently connected stores, the currently visible peers, and a timestamp
+        of when the machine state last changed.
+
+        The currently connect stores are very important because this information
+        is used to decide which peer to attempt to download a file from.
+        """
+        stores = self.stores.local_stores()
+        self.machine = self.db.update(
+            update_machine, self.machine, time.time(), stores, self.peers
+        )
 
     def start_background_tasks(self):
         self.task_manager.start_tasks()

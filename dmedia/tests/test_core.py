@@ -544,6 +544,7 @@ class TestCore(CouchTestCase):
         self.assertIsInstance(inst.ms, MetaStore)
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
+        self.assertEqual(inst.peers, {})
         self.assertIsInstance(inst.task_manager, core.TaskManager)
         self.assertIsNone(inst.ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
@@ -574,6 +575,7 @@ class TestCore(CouchTestCase):
         self.assertIsInstance(inst.ms, MetaStore)
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
+        self.assertEqual(inst.peers, {})
         self.assertIsInstance(inst.task_manager, core.TaskManager)
         self.assertIs(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
@@ -590,6 +592,56 @@ class TestCore(CouchTestCase):
         self.assertIsNot(inst.user, user)
         self.assertEqual(inst.db.get(user_id), inst.user)
         self.assertEqual(inst.user['_rev'][:2], '2-')
+
+    def test_update_machine(self):
+        inst = self.create()
+        start = time.time()
+        inst.update_machine()
+        end = time.time()
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '2-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, {
+            '_id': self.machine_id,
+            '_rev': doc['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {},
+        })
+        self.assertEqual(doc, inst.machine)
+
+        # Now test when there has been a conflicting change to the machine doc,
+        # to make sure Database.update() is used, not Database.save():
+        del doc['mtime']
+        doc['stores'] = {
+            random_id(): {'parentdir': '/media/foo', 'copies': 1},
+        }
+        doc['peers'] = {
+            random_id(30): {'url': 'https://192.168.17.18'},
+        }
+        inst.db.save(doc)
+        start = time.time()
+        inst.update_machine()
+        end = time.time()
+        doc = inst.db.get(self.machine_id)
+        self.assertEqual(doc['_rev'][:2], '4-')
+        mtime = doc['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(doc, {
+            '_id': self.machine_id,
+            '_rev': doc['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {},
+        })
+        self.assertEqual(doc, inst.machine)
 
     def test_add_peer(self):
         inst = self.create()
