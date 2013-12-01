@@ -720,6 +720,11 @@ class Core:
 
         The currently connect stores are very important because this information
         is used to decide which peer to attempt to download a file from.
+
+        The currently connected peers aren't directly used, but are handy for
+        out-of-band test harnesses.  For example, by monitoring changes in all
+        the "dmedia/machine" docs, a test harness can determine whether the
+        Avahi peer broadcast and discovery is working correctly.
         """
         stores = self.stores.local_stores()
         self.machine = self.db.update(
@@ -773,13 +778,6 @@ class Core:
         self.restart_vigilance()
         return True
 
-    def _sync_stores(self):
-        stores = self.stores.local_stores()
-        self.machine = self.db.update(
-            mark_connected_stores, self.machine, int(time.time()), stores
-        )
-        self.restart_vigilance()
-
     def _add_filestore(self, fs):
         log.info('Adding %r', fs)
         fs.check_layout()
@@ -793,14 +791,16 @@ class Core:
             self.db.post(fs.doc)
         except Conflict:
             pass
+        self.update_machine()
         self.task_manager.queue_filestore_tasks(fs)
-        self._sync_stores()
+        self.restart_vigilance()
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
-        self.stores.remove(fs)
         self.task_manager.stop_filestore_tasks(fs)
-        self._sync_stores()
+        self.stores.remove(fs)
+        self.update_machine()
+        self.restart_vigilance()
 
     def _iter_project_dbs(self):
         for (name, _id) in projects_iter(self.server):
