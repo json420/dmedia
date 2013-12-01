@@ -769,11 +769,10 @@ class Core:
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
-        if peer_id not in self.machine['peers']:
+        if peer_id not in self.peers:
             return False
-        self.machine = self.db.update(
-            mark_remove_peer, self.machine, int(time.time()), peer_id
-        )
+        self.peers.pop(peer_id)
+        self.update_machine()
         self.restart_vigilance()
         return True
 
