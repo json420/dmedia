@@ -638,7 +638,7 @@ def update_machine(doc, timestamp, stores, peers):
 
 
 class Core:
-    def __init__(self, env, machine, user, ssl_config=None):
+    def __init__(self, env, machine, user, ssl_config):
         env.update({
             'machine_id': machine['_id'],
             'user_id': user['_id'],
@@ -665,6 +665,7 @@ class Core:
         self.local.pop('peers', None)
         (self.machine, self.user) = self.db.get_defaults([machine, user])
         self.machine.update({
+            'mtime': int(time.time()),
             'stores': {},
             'peers': {},
         })

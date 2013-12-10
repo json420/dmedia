@@ -390,15 +390,20 @@ class TestCore(CouchTestCase):
         self.user_id = random_id(30)
         self.machine = {'_id': self.machine_id}
         self.user = {'_id': self.user_id}
-        return core.Core(self.env, self.machine, self.user)
+        self.ssl_config = random_id()
+        return core.Core(self.env, self.machine, self.user, self.ssl_config)
 
     def test_init(self):
         machine_id = random_id(30)
         user_id = random_id(30)
         machine = {'_id': machine_id}
         user = {'_id': user_id}
+        ssl_config = random_id()
 
-        inst = core.Core(self.env, machine, user)
+        # None of _local/dmedia, user, nor machine exist:
+        start = time.time()
+        inst = core.Core(self.env, machine, user, ssl_config)
+        end = time.time()
         self.assertIs(inst.env, self.env)
         self.assertEqual(inst.env['machine_id'], machine_id)
         self.assertEqual(inst.env['user_id'], user_id)
@@ -412,7 +417,7 @@ class TestCore(CouchTestCase):
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.peers, {})
         self.assertIsInstance(inst.task_manager, core.TaskManager)
-        self.assertIsNone(inst.ssl_config)
+        self.assertEqual(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',
             '_rev': '0-1',
@@ -422,14 +427,26 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.machine, machine)
         self.assertEqual(inst.db.get(machine_id), machine)
         self.assertEqual(inst.machine['_rev'][:2], '1-')
-        self.assertEqual(inst.machine['stores'], {})
-        self.assertEqual(inst.machine['peers'], {})
+        mtime = inst.machine['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(inst.machine, {
+            '_id': machine_id,
+            '_rev': inst.machine['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {},
+        })
         self.assertIs(inst.user, user)
         self.assertEqual(inst.db.get(user_id), user)
         self.assertEqual(inst.user['_rev'][:2], '1-')
 
-        ssl_config = random_id()
+        # All of _local/dmedia, user, and machine exist:
+        start = time.time()
         inst = core.Core(self.env, machine, user, ssl_config)
+        end = time.time()
         self.assertIs(inst.env, self.env)
         self.assertEqual(inst.env['machine_id'], machine_id)
         self.assertEqual(inst.env['user_id'], user_id)
@@ -453,8 +470,18 @@ class TestCore(CouchTestCase):
         self.assertIsNot(inst.machine, machine)
         self.assertEqual(inst.db.get(machine_id), inst.machine)
         self.assertEqual(inst.machine['_rev'][:2], '2-')
-        self.assertEqual(inst.machine['stores'], {})
-        self.assertEqual(inst.machine['peers'], {})
+        mtime = inst.machine['mtime']
+        self.assertIsInstance(mtime, int)
+        self.assertTrue(
+            (start - 1) <= mtime <= (end + 1)
+        )
+        self.assertEqual(inst.machine, {
+            '_id': machine_id,
+            '_rev': inst.machine['_rev'],
+            'mtime': mtime,
+            'stores': {},
+            'peers': {},
+        })
         self.assertIsNot(inst.user, user)
         self.assertEqual(inst.db.get(user_id), inst.user)
         self.assertEqual(inst.user['_rev'][:2], '2-')
