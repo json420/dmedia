@@ -24,4 +24,4 @@ override_dh_auto_install:
 				--install-layout=deb \
 				--root=$(CURDIR)/debian/dmedia; \
 	done
-
+	install -m 644 -D debian/dmedia.user-session.upstart debian/dmedia/usr/share/upstart/sessions/dmedia.conf
