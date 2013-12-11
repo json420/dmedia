@@ -102,6 +102,13 @@ class Version(_Method):
     'Show version of running `dmedia-service`'
 
 
+class Kill(_Method):
+    'Shutdown `dmedia-service`'
+    
+    def format_output(self, seconds):
+        return '{} was running for {}'.format(self.bus, minsec(seconds))
+
+
 class GetEnv(_Method):
     'Get the CouchDB and Dmedia environment info'
 
