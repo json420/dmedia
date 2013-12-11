@@ -75,6 +75,35 @@ def configure_logging():
     return log
 
 
+def configure_logging2():
+    import sys
+    import os
+    from os import path
+    import logging
+    import platform
+
+    format = [
+        '%(levelname)s',
+        '%(processName)s',
+        '%(threadName)s',
+        '%(message)s',
+    ]
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='\t'.join(format),
+    )
+    log = logging.getLogger()
+    log.info('======== Dmedia Process Start ========')
+    log.info('script: %r', path.abspath(sys.argv[0]))
+    log.info('__file__: %r', __file__)
+    log.info('__version__: %r', __version__)
+    log.info('Python: %s, %s, %s',
+        platform.python_version(), platform.machine(), platform.system()
+    )
+    log.info('======================================')
+    return log
+
+
 def get_dmedia_dir():
     import os
     from os import path

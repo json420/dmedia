@@ -56,7 +56,7 @@ from dmedia.drives import Devices
 
 BUS = dmedia.BUS
 IFACE = BUS
-log = logging.getLogger()
+log = dmedia.configure_logging2()
 session = dbus.SessionBus()
 mainloop = GLib.MainLoop()
 VolumeMonitor = Gio.VolumeMonitor.get()
@@ -87,7 +87,6 @@ class Service(dbus.service.Object):
         self.couch = DmediaCouch(dmedia.get_dmedia_dir())
 
         # Now go for it:
-        dmedia.configure_logging()
         log.info('Started at monotonic clock time: %s', minsec(int(start_time)))
         self.first_snapshot = True
         self.update_thread = None
