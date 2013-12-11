@@ -27,14 +27,7 @@ Dmedia DBus service on org.freedesktop.Dmedia.
 
 import time
 start_time = time.monotonic()
-
-def start_delta():
-    return time.monotonic() - start_time
-
-
 import optparse
-import logging
-import signal
 
 import dbus
 import dbus.service
@@ -54,6 +47,9 @@ from dmedia.service.peers import Browser, Publisher
 from dmedia.drives import Devices
 
 
+def start_delta():
+    return time.monotonic() - start_time
+
 BUS = dmedia.BUS
 IFACE = BUS
 log = dmedia.configure_logging2()
@@ -61,13 +57,6 @@ session = dbus.SessionBus()
 mainloop = GLib.MainLoop()
 VolumeMonitor = Gio.VolumeMonitor.get()
 devices = Devices()
-
-
-def on_sighup(signum, frame):
-    log.info('<SIGHUP>')
-    mainloop.quit()
-
-signal.signal(signal.SIGHUP, on_sighup)
 
 
 class Service(dbus.service.Object):
