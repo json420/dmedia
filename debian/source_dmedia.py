@@ -10,9 +10,8 @@ from os import path
 
 from apport.hookutils import attach_file_if_exists
 
+# Note that Apport will automatically attach ~/.cache/upstart/dmedia.log
 LOGS = (
-    'dmedia-service.log',
-    'dmedia-service.log.previous',
     'dmedia-gtk.log',
     'dmedia-peer-gtk.log',
 )
