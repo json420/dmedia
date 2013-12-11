@@ -93,49 +93,6 @@ class Service(dbus.service.Object):
         self.update_thread = None
         self.pending_update = None
 
-        try:
-            self.manager = session.get_object(
-                'org.gnome.SessionManager', '/org/gnome/SessionManager'
-            )
-            self.client_obj = self.manager.RegisterClient('dmedia-service', '',
-                dbus_interface='org.gnome.SessionManager'
-            )
-            self.client = session.get_object(
-                'org.gnome.SessionManager', self.client_obj
-            )
-            self.client.connect_to_signal(
-                'QueryEndSession', self.on_QueryEndSession,
-                dbus_interface='org.gnome.SessionManager.ClientPrivate'
-            )
-            self.client.connect_to_signal('EndSession', self.on_EndSession,
-                dbus_interface='org.gnome.SessionManager.ClientPrivate'
-            )
-            self.client.connect_to_signal('Stop', self.on_Stop,
-                dbus_interface='org.gnome.SessionManager.ClientPrivate'
-            )
-        except dbus.DBusException:
-            log.warning('org.gnome.SessionManager not available')
-
-    def on_QueryEndSession(self, flags):
-        log.info('<QueryEndSession>')
-        self.client.EndSessionResponse(True, '',
-            dbus_interface='org.gnome.SessionManager.ClientPrivate'
-        )
-
-    def on_EndSession(self, flags):
-        log.info('<EndSession>')
-        self.shutdown()
-        self.client.EndSessionResponse(True, '',
-            dbus_interface='org.gnome.SessionManager.ClientPrivate'
-        )
-
-    def on_Stop(self):
-        log.info('<Stop>')
-        self.manager.UnregisterClient(self.client_obj,
-            dbus_interface='org.gnome.SessionManager'
-        )
-        mainloop.quit()
-
     @dbus.service.signal(IFACE, signature='sb')
     def SnapshotComplete(self, name, success):
         log.info('@Dmedia.SnapshotComplete(%r, %r)', name, success)
