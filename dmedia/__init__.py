@@ -100,6 +100,7 @@ def configure_logging2():
     log.info('Python: %s, %s, %s',
         platform.python_version(), platform.machine(), platform.system()
     )
+    log.info('Distribution: %r', platform.dist())
     log.info('======================================')
     return log
 
