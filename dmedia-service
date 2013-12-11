@@ -384,15 +384,6 @@ class Service(dbus.service.Object):
         self.start_core()
         GLib.idle_add(self.on_init_done)
 
-    @dbus.service.method(IFACE, in_signature='', out_signature='i')
-    def Kill(self):
-        """
-        Kill the `dmedia-service` process.
-        """
-        log.info('Service.Kill()')
-        mainloop.quit()
-        return int(time.monotonic() - start_time)
-
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
         """
