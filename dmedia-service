@@ -243,7 +243,6 @@ class Service(dbus.service.Object):
             log.warning('%r is not a connected filestore', parentdir)
 
     def shutdown(self):
-        log.info('shutdown...')
         if self.peer is not None:
             log.info('* freeing peer')
             self.peer.free()
