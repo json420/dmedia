@@ -114,6 +114,13 @@ class Kill(_Method):
         return KILL_MSG.format(self.bus, minsec(seconds))
 
 
+class Shutdown(_Method):
+    'Terminate child processes for service pre-stop'
+
+    def format_output(self, seconds):
+        return '{} was running for {}'.format(self.bus, minsec(seconds))
+
+
 class GetEnv(_Method):
     'Get the CouchDB and Dmedia environment info'
 

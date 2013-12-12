@@ -8,3 +8,4 @@ stop on desktop-end
 respawn
 
 exec /usr/lib/dmedia/dmedia-service
+pre-stop exec dmedia-cli Shutdown

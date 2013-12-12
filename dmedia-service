@@ -243,7 +243,7 @@ class Service(dbus.service.Object):
             log.warning('%r is not a connected filestore', parentdir)
 
     def shutdown(self):
-        log.info('Service.shutdown()')
+        log.info('shutdown...')
         if self.peer is not None:
             log.info('* freeing peer')
             self.peer.free()
@@ -259,10 +259,11 @@ class Service(dbus.service.Object):
             self.httpd = None
         if self.couch is not None:
             log.info('* killing usercouch')
-            if hasattr(self, 'lazy_access'):
-                self.lazy_access.flush()
             self.couch.kill()
             self.couch = None
+        runtime = int(start_delta())
+        log.info('dmedia-service was running for %s', minsec(runtime))
+        return runtime
 
     ###########################################
     # Signals and Methods for Peering Protocol:
@@ -391,7 +392,31 @@ class Service(dbus.service.Object):
         """
         log.info('Service.Kill()')
         mainloop.quit()
-        return int(time.monotonic() - start_time)
+        return int(start_delta())
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='i')
+    def Shutdown(self):
+        """
+        Gracefully shutdown all the Dmedia subprocesses.
+
+        This is intended to be called in the ``"pre-stop"`` stanza of an Upstart
+        job or similar.  It will cleanly un-publish the service from Avahi,
+        terminate the HTTPD process, and terminate CouchDB.  However, it will
+        not terminate the dmedia-service process (the ``GLib.MainLoop`` will
+        still be running).
+
+        In terms of data-safety, neither the Dmedia `FileStore` nor CouchDB need
+        a "clean" shutdown.  Both are guaranteed to be in a consistent and
+        otherwise recoverable state even after "pulling the plug".
+
+        However, in order for other peers to be notified through Avahi that this
+        node has gone offline, it is necessary to cleanly un-publish the service
+        from Avahi. That wont happen automatically when the dmedia-service
+        process terminates (although it will happen when the user logs out from
+        their desktop session).
+        """
+        log.info('Service.Shutdown()')
+        return self.shutdown()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
@@ -535,14 +560,9 @@ parser.add_option('--bus',
 (options, args) = parser.parse_args()
 
 
+busname = dbus.service.BusName(options.bus, session)
+service = Service(busname)
 try:
-    busname = dbus.service.BusName(options.bus, session)
-    service = Service(busname)
-    try:
-        service.run()
-    finally:
-        service.shutdown()
-except Exception as e:
-    log.exception('Could not start dmedia-service!')
-    raise e
-log.info('Clean shutdown!')
+    service.run()
+finally:
+    service.shutdown()
