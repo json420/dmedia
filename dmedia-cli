@@ -114,8 +114,8 @@ class Kill(_Method):
         return KILL_MSG.format(self.bus, minsec(seconds))
 
 
-class Shutdown(_Method):
-    'Terminate child processes for service pre-stop'
+class PreStop(_Method):
+    'Do a clean internal shutdown in prep for service stop'
 
     def format_output(self, seconds):
         return '{} was running for {}'.format(self.bus, minsec(seconds))

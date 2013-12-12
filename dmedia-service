@@ -395,9 +395,9 @@ class Service(dbus.service.Object):
         return int(start_delta())
 
     @dbus.service.method(IFACE, in_signature='', out_signature='i')
-    def Shutdown(self):
+    def PreStop(self):
         """
-        Gracefully shutdown all the Dmedia subprocesses.
+        Do a clean internal shutdown in prep for service stop.
 
         This is intended to be called in the ``"pre-stop"`` stanza of an Upstart
         job or similar.  It will cleanly un-publish the service from Avahi,
@@ -407,15 +407,16 @@ class Service(dbus.service.Object):
 
         In terms of data-safety, neither the Dmedia `FileStore` nor CouchDB need
         a "clean" shutdown.  Both are guaranteed to be in a consistent and
-        otherwise recoverable state even after "pulling the plug".
+        otherwise recoverable state even after "pulling the plug" with no
+        warning.
 
         However, in order for other peers to be notified through Avahi that this
         node has gone offline, it is necessary to cleanly un-publish the service
         from Avahi. That wont happen automatically when the dmedia-service
         process terminates (although it will happen when the user logs out from
-        their desktop session).
+        their desktop session, or does a system reboot or shutdown).
         """
-        log.info('Service.Shutdown()')
+        log.info('Service.PreStop()')
         return self.shutdown()
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
