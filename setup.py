@@ -172,14 +172,12 @@ setup(
         ),
         ('lib/dmedia', [
                 'dmedia-service',
+                'dbus-activation-hack.sh',
                 'dmedia-transcoder',
             ]
         ),
         ('share/dbus-1/services/',
             ['share/org.freedesktop.Dmedia.service']
-        ),
-        ('/etc/xdg/autostart/',
-            ['share/dmedia-autostart.desktop']
         ),
     ],
 )

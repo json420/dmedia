@@ -75,6 +75,52 @@ def configure_logging():
     return log
 
 
+def configure_logging2():
+    import sys
+    import os
+    from os import path
+    import logging
+    import platform
+
+    # To make the transition easier on developers and users, symlink
+    # ~/.cache/dmedia/dmedia-service.log => ~/.cache/upstart/dmedia.log   
+    home = path.abspath(os.environ['HOME'])
+    if not path.isdir(home):
+        raise Exception('$HOME is not a directory: {!r}'.format(home))
+    cache = path.join(home, '.cache', 'dmedia')
+    if not path.exists(cache):
+        os.makedirs(cache)
+    link = path.join(cache, 'dmedia-service.log')
+    target = path.join(home, '.cache', 'upstart', 'dmedia.log')
+    if not path.islink(link) and path.isfile(link):
+        os.rename(link, link + '.previous')
+    if not path.exists(link):
+        print('symlinking {!r} => {!r}'.format(link, target), file=sys.stderr)
+        os.symlink(target, link)
+
+    # Now configure logging to STDERR:
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='\t'.join([
+            '%(levelname)s',
+            '%(processName)s',
+            '%(threadName)s',
+            '%(message)s',
+        ]),
+    )
+    log = logging.getLogger()
+    log.info('======== Dmedia Process Start ========')
+    log.info('script: %r', path.abspath(sys.argv[0]))
+    log.info('__file__: %r', __file__)
+    log.info('__version__: %r', __version__)
+    log.info('Python: %s, %s, %s',
+        platform.python_version(), platform.machine(), platform.system()
+    )
+    log.info('Distribution: %r', platform.dist())
+    log.info('======================================')
+    return log
+
+
 def get_dmedia_dir():
     import os
     from os import path

@@ -27,14 +27,7 @@ Dmedia DBus service on org.freedesktop.Dmedia.
 
 import time
 start_time = time.monotonic()
-
-def start_delta():
-    return time.monotonic() - start_time
-
-
 import optparse
-import logging
-import signal
 
 import dbus
 import dbus.service
@@ -54,20 +47,16 @@ from dmedia.service.peers import Browser, Publisher
 from dmedia.drives import Devices
 
 
+def start_delta():
+    return time.monotonic() - start_time
+
 BUS = dmedia.BUS
 IFACE = BUS
-log = logging.getLogger()
+log = dmedia.configure_logging2()
 session = dbus.SessionBus()
 mainloop = GLib.MainLoop()
 VolumeMonitor = Gio.VolumeMonitor.get()
 devices = Devices()
-
-
-def on_sighup(signum, frame):
-    log.info('<SIGHUP>')
-    mainloop.quit()
-
-signal.signal(signal.SIGHUP, on_sighup)
 
 
 class Service(dbus.service.Object):
@@ -87,54 +76,10 @@ class Service(dbus.service.Object):
         self.couch = DmediaCouch(dmedia.get_dmedia_dir())
 
         # Now go for it:
-        dmedia.configure_logging()
         log.info('Started at monotonic clock time: %s', minsec(int(start_time)))
         self.first_snapshot = True
         self.update_thread = None
         self.pending_update = None
-
-        try:
-            self.manager = session.get_object(
-                'org.gnome.SessionManager', '/org/gnome/SessionManager'
-            )
-            self.client_obj = self.manager.RegisterClient('dmedia-service', '',
-                dbus_interface='org.gnome.SessionManager'
-            )
-            self.client = session.get_object(
-                'org.gnome.SessionManager', self.client_obj
-            )
-            self.client.connect_to_signal(
-                'QueryEndSession', self.on_QueryEndSession,
-                dbus_interface='org.gnome.SessionManager.ClientPrivate'
-            )
-            self.client.connect_to_signal('EndSession', self.on_EndSession,
-                dbus_interface='org.gnome.SessionManager.ClientPrivate'
-            )
-            self.client.connect_to_signal('Stop', self.on_Stop,
-                dbus_interface='org.gnome.SessionManager.ClientPrivate'
-            )
-        except dbus.DBusException:
-            log.warning('org.gnome.SessionManager not available')
-
-    def on_QueryEndSession(self, flags):
-        log.info('<QueryEndSession>')
-        self.client.EndSessionResponse(True, '',
-            dbus_interface='org.gnome.SessionManager.ClientPrivate'
-        )
-
-    def on_EndSession(self, flags):
-        log.info('<EndSession>')
-        self.shutdown()
-        self.client.EndSessionResponse(True, '',
-            dbus_interface='org.gnome.SessionManager.ClientPrivate'
-        )
-
-    def on_Stop(self):
-        log.info('<Stop>')
-        self.manager.UnregisterClient(self.client_obj,
-            dbus_interface='org.gnome.SessionManager'
-        )
-        mainloop.quit()
 
     @dbus.service.signal(IFACE, signature='sb')
     def SnapshotComplete(self, name, success):
@@ -298,7 +243,6 @@ class Service(dbus.service.Object):
             log.warning('%r is not a connected filestore', parentdir)
 
     def shutdown(self):
-        log.info('Service.shutdown()')
         if self.peer is not None:
             log.info('* freeing peer')
             self.peer.free()
@@ -314,10 +258,11 @@ class Service(dbus.service.Object):
             self.httpd = None
         if self.couch is not None:
             log.info('* killing usercouch')
-            if hasattr(self, 'lazy_access'):
-                self.lazy_access.flush()
             self.couch.kill()
             self.couch = None
+        runtime = int(start_delta())
+        log.info('dmedia-service was running for %s', minsec(runtime))
+        return runtime
 
     ###########################################
     # Signals and Methods for Peering Protocol:
@@ -446,7 +391,41 @@ class Service(dbus.service.Object):
         """
         log.info('Service.Kill()')
         mainloop.quit()
-        return int(time.monotonic() - start_time)
+        return int(start_delta())
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='i')
+    def PreStop(self):
+        """
+        Do a clean internal shutdown in prep for service stop.
+
+        This is intended to be called in the "pre-stop" stanza of an Upstart
+        job or similar.  Currently this method just un-publishes the service
+        from Avahi.
+
+        In order for other peers to be notified through Avahi that this node has
+        gone offline, it is necessary to cleanly un-publish the service from
+        Avahi. That wont happen automatically when the dmedia-service process
+        terminates (although it will happen when the user logs out from their
+        desktop session, or does a system reboot or shutdown).
+
+        In terms of data-safety, neither the Dmedia `FileStore` nor CouchDB need
+        a "clean" shutdown.  Both are guaranteed to be in a consistent and
+        otherwise recoverable state even after "pulling the plug" with no
+        warning.  So aside from this bit of Avahi babysitting, we let Upstart
+        kill everything else with fire.
+        """
+        log.info('Dmedia.PreStop()')
+        if self.peer is not None:
+            log.info('* freeing peer')
+            self.peer.free()
+            self.peer = None
+        if self.avahi is not None:
+            log.info('* freeing avahi')
+            self.avahi.free()
+            self.avahi = None
+        runtime = int(start_delta())
+        log.info('dmedia-service was running for %s', minsec(runtime))
+        return runtime
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
@@ -590,14 +569,9 @@ parser.add_option('--bus',
 (options, args) = parser.parse_args()
 
 
+busname = dbus.service.BusName(options.bus, session)
+service = Service(busname)
 try:
-    busname = dbus.service.BusName(options.bus, session)
-    service = Service(busname)
-    try:
-        service.run()
-    finally:
-        service.shutdown()
-except Exception as e:
-    log.exception('Could not start dmedia-service!')
-    raise e
-log.info('Clean shutdown!')
+    service.run()
+finally:
+    service.shutdown()

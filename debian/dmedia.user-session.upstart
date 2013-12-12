@@ -1,0 +1,11 @@
+# Dmedia - a distributed object store aimed at professional content creation
+
+description "Start the per user Dmedia instance"
+author "Jason Gerard DeRose <jderose@novacut.com>"
+
+start on desktop-start
+stop on desktop-end
+respawn
+
+exec /usr/lib/dmedia/dmedia-service
+pre-stop exec dmedia-cli PreStop

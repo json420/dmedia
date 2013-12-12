@@ -42,6 +42,11 @@ from dmedia.units import minsec
 methods = OrderedDict()
 session = dbus.SessionBus()
 
+KILL_MSG = """{} was running for {}
+
+WARNING: `dmedia-cli Kill` is deprecated!  Run `stop dmedia` instead.
+(Upstart has probably respawned dmedia-service already!)"""
+
 
 def error(msg, code=1):
     print('ERROR:', msg)
@@ -99,12 +104,19 @@ class _Method(metaclass=MethodMeta):
 
 
 class Version(_Method):
-    'Show version of running `dmedia-service`'
+    'Show version of running dmedia-service'
 
 
 class Kill(_Method):
-    'Shutdown `dmedia-service`'
-    
+    'Deprecated, run `stop dmedia` instead'
+
+    def format_output(self, seconds):
+        return KILL_MSG.format(self.bus, minsec(seconds))
+
+
+class PreStop(_Method):
+    'Do a clean internal shutdown in prep for service stop'
+
     def format_output(self, seconds):
         return '{} was running for {}'.format(self.bus, minsec(seconds))
 
