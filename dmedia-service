@@ -399,7 +399,7 @@ class Service(dbus.service.Object):
         """
         Do a clean internal shutdown in prep for service stop.
 
-        This is intended to be called in the ``"pre-stop"`` stanza of an Upstart
+        This is intended to be called in the "pre-stop" stanza of an Upstart
         job or similar.  It will cleanly un-publish the service from Avahi,
         terminate the HTTPD process, and terminate CouchDB.  However, it will
         not terminate the dmedia-service process (the ``GLib.MainLoop`` will
