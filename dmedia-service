@@ -399,24 +399,33 @@ class Service(dbus.service.Object):
         Do a clean internal shutdown in prep for service stop.
 
         This is intended to be called in the "pre-stop" stanza of an Upstart
-        job or similar.  It will cleanly un-publish the service from Avahi,
-        terminate the HTTPD process, and terminate CouchDB.  However, it will
-        not terminate the dmedia-service process (the ``GLib.MainLoop`` will
-        still be running).
+        job or similar.  Currently this method just un-publishes the service
+        from Avahi.
+
+        In order for other peers to be notified through Avahi that this node has
+        gone offline, it is necessary to cleanly un-publish the service from
+        Avahi. That wont happen automatically when the dmedia-service process
+        terminates (although it will happen when the user logs out from their
+        desktop session, or does a system reboot or shutdown).
 
         In terms of data-safety, neither the Dmedia `FileStore` nor CouchDB need
         a "clean" shutdown.  Both are guaranteed to be in a consistent and
         otherwise recoverable state even after "pulling the plug" with no
-        warning.
-
-        However, in order for other peers to be notified through Avahi that this
-        node has gone offline, it is necessary to cleanly un-publish the service
-        from Avahi. That wont happen automatically when the dmedia-service
-        process terminates (although it will happen when the user logs out from
-        their desktop session, or does a system reboot or shutdown).
+        warning.  So aside from this bit of Avahi babysitting, we let Upstart
+        kill everything else with fire.
         """
-        log.info('Service.PreStop()')
-        return self.shutdown()
+        log.info('Dmedia.PreStop()')
+        if self.peer is not None:
+            log.info('* freeing peer')
+            self.peer.free()
+            self.peer = None
+        if self.avahi is not None:
+            log.info('* freeing avahi')
+            self.avahi.free()
+            self.avahi = None
+        runtime = int(start_delta())
+        log.info('dmedia-service was running for %s', minsec(runtime))
+        return runtime
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
