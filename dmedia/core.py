@@ -653,13 +653,13 @@ class TaskPool:
         self.thread = None
         return True
 
-    def reaper(self, timeout=1):
+    def reaper(self, timeout=2):
         """
         Collect finished tasks and forward them to the main thread.
 
-        As Dmedia will have a relatively small number of relative long-running
-        background tasks, the reaper doesn't need to be especially responsive,
-        so we use a relatively long timeout in order to minimize CPU wakeups.
+        As Dmedia will have a small number of relatively long-running background
+        tasks, the reaper doesn't need to be especially responsive, so we use a
+        relatively long timeout in order to minimize CPU wakeups.
         """
         running = True
         task_map = {}

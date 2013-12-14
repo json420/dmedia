@@ -425,7 +425,7 @@ class TestTaskPool(TestCase):
         # one item in queue: [None]
         pool = MockedTaskPool()
         pool.queue.put(None)
-        self.assertIsNone(pool.reaper())
+        self.assertIsNone(pool.reaper(timeout=1))
         self.assertTrue(pool.queue.empty())
         self.assertEqual(pool._forwards, [])
 
@@ -435,7 +435,7 @@ class TestTaskPool(TestCase):
         for task in (task1, task2):
             pool.queue.put(task)
         with self.assertRaises(ValueError) as cm:
-            pool.reaper()
+            pool.reaper(timeout=1)
         self.assertEqual(str(cm.exception), "key 'foo' is already in task_map")
         for task in (task1, task2):
             task.process.terminate()
@@ -448,7 +448,7 @@ class TestTaskPool(TestCase):
         task2 = core.Task('bar', start_process(dummy_worker, 3), None)
         for task in (task1, task2, None):
             pool.queue.put(task)
-        self.assertIsNone(pool.reaper())
+        self.assertIsNone(pool.reaper(timeout=1))
         self.assertTrue(pool.queue.empty())
         self.assertEqual(pool._forwards, [task2, task1])
         for task in (task1, task2):
