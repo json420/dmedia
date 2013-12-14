@@ -23,6 +23,21 @@
 
 """
 Dmedia DBus service on org.freedesktop.Dmedia.
+
+A quick note about why we don't need (and don't want) a "graceful" shutdown
+procedure:
+
+In terms of data-safety, neither the Dmedia `FileStore` nor CouchDB need a
+"clean" shutdown.  Both are guaranteed to be in a consistent and otherwise
+recoverable state even after "pulling the plug" with no warning.
+
+We've sometimes have had problems with the service not being un-published from
+Avahi when we yank the plug like this, but that's an Avahi bug.
+
+Dmedia *must* be able to survive an ungraceful shutdown because in the real
+world that will sometimes happen (power failure, catastrophic hardware failure,
+etc).  So we *always* shutdown Dmedia this way, as a way to force us to ensure
+that Dmedia can survive such a scenario.
 """
 
 import time
@@ -60,9 +75,6 @@ devices = Devices()
 
 
 class Service(dbus.service.Object):
-    couch = None
-    httpd = None
-    avahi = None
     peer = None
     ui = None
     thread = None
@@ -242,28 +254,6 @@ class Service(dbus.service.Object):
         except KeyError:
             log.warning('%r is not a connected filestore', parentdir)
 
-    def shutdown(self):
-        if self.peer is not None:
-            log.info('* freeing peer')
-            self.peer.free()
-            self.peer = None
-        if self.avahi is not None:
-            log.info('* freeing avahi')
-            self.avahi.free()
-            self.avahi = None
-        if self.httpd is not None:
-            log.info('* killing httpd')
-            self.httpd.terminate()
-            self.httpd.join()
-            self.httpd = None
-        if self.couch is not None:
-            log.info('* killing usercouch')
-            self.couch.kill()
-            self.couch = None
-        runtime = int(start_delta())
-        log.info('dmedia-service was running for %s', minsec(runtime))
-        return runtime
-
     ###########################################
     # Signals and Methods for Peering Protocol:
 
@@ -392,40 +382,6 @@ class Service(dbus.service.Object):
         log.info('Service.Kill()')
         mainloop.quit()
         return int(start_delta())
-
-    @dbus.service.method(IFACE, in_signature='', out_signature='i')
-    def PreStop(self):
-        """
-        Do a clean internal shutdown in prep for service stop.
-
-        This is intended to be called in the "pre-stop" stanza of an Upstart
-        job or similar.  Currently this method just un-publishes the service
-        from Avahi.
-
-        In order for other peers to be notified through Avahi that this node has
-        gone offline, it is necessary to cleanly un-publish the service from
-        Avahi. That wont happen automatically when the dmedia-service process
-        terminates (although it will happen when the user logs out from their
-        desktop session, or does a system reboot or shutdown).
-
-        In terms of data-safety, neither the Dmedia `FileStore` nor CouchDB need
-        a "clean" shutdown.  Both are guaranteed to be in a consistent and
-        otherwise recoverable state even after "pulling the plug" with no
-        warning.  So aside from this bit of Avahi babysitting, we let Upstart
-        kill everything else with fire.
-        """
-        log.info('Dmedia.PreStop()')
-        if self.peer is not None:
-            log.info('* freeing peer')
-            self.peer.free()
-            self.peer = None
-        if self.avahi is not None:
-            log.info('* freeing avahi')
-            self.avahi.free()
-            self.avahi = None
-        runtime = int(start_delta())
-        log.info('dmedia-service was running for %s', minsec(runtime))
-        return runtime
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def GetEnv(self):
@@ -571,7 +527,4 @@ parser.add_option('--bus',
 
 busname = dbus.service.BusName(options.bus, session)
 service = Service(busname)
-try:
-    service.run()
-finally:
-    service.shutdown()
+service.run()
