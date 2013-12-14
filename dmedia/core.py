@@ -34,9 +34,9 @@ from os import path
 import json
 import time
 import stat
+import queue
 import multiprocessing
 from urllib.parse import urlparse
-from queue import Queue
 from subprocess import check_call, CalledProcessError
 from copy import deepcopy
 from base64 import b64encode
@@ -63,9 +63,9 @@ LOCAL_ID = '_local/dmedia'
 
 
 def start_httpd(couch_env, ssl_config):
-    queue = multiprocessing.Queue()
-    process = start_process(run_server, queue, couch_env, '0.0.0.0', ssl_config)
-    env = queue.get()
+    q = multiprocessing.Queue()
+    process = start_process(run_server, q, couch_env, '0.0.0.0', ssl_config)
+    env = q.get()
     if isinstance(env, Exception):
         raise env
     log.info('Dmedia HTTPD: %s', env['url'])
@@ -121,7 +121,7 @@ def dump_one(server, dumpdir, name):
     log.info('Committed snapshot of %r', name)
 
 
-def snapshot_worker(env, dumpdir, queue_in, queue_out):
+def snapshot_worker(env, dumpdir, q_in, q_out):
     server = Server(env)
     try:
         check_call(['bzr', 'init', dumpdir])
@@ -131,19 +131,19 @@ def snapshot_worker(env, dumpdir, queue_in, queue_out):
     except CalledProcessError:
         pass
     while True:
-        name = queue_in.get()
+        name = q_in.get()
         if name is None:
-            queue_out.put(None)
+            q_out.put(None)
             break
         try:
             if name == '__all__':
                 dump_all(server, dumpdir)
             else:
                 dump_one(server, dumpdir, name)
-            queue_out.put((name, True))
+            q_out.put((name, True))
         except Exception:
             log.exception('Error snapshotting %r', name)
-            queue_out.put((name, False))
+            q_out.put((name, False))
 
 
 def projects_iter(server):
@@ -623,6 +623,85 @@ class TaskManager:
     def restart_vigilance(self):
         if self.stop_vigilance():
             self.start_vigilance()
+
+
+class TaskPool:
+    """
+    A pool of background tasks executing in a ``multiprocessing.Process`` each.
+
+    Vaguely similar to ``multiprocessing.Pool``, but with some special logic
+    we can't easily layer on top.
+    """
+
+    def __init__(self):
+        self.waiting = OrderedDict()
+        self.running = {}
+        self.thread = None
+        self.queue = queue.Queue()
+
+    def start_reaper(self):
+        if self.thread is not None:
+            return False
+        self.thread = start_thread(self.reaper)
+        return True
+
+    def shutdown_reaper(self):
+        if self.thread is None:
+            return False
+        self.queue.put(None)
+        self.thread.join()
+        self.thread = None
+        return True
+
+    def reaper(self, timeout=1):
+        """
+        Collect finished tasks and forward them to the main thread.
+
+        As Dmedia will have a relatively small number of relative long-running
+        background tasks, the reaper doesn't need to be especially responsive,
+        so we use a relatively long timeout in order to minimize CPU wakeups.
+        """
+        running = True
+        task_map = {}
+        while running or task_map:  # Shutdown feature mostly for unit testing
+            try:
+                task = self.queue.get(timeout=timeout)
+                if task is None:
+                    log.info('reaper thread received shutdown request')
+                    running = False
+                else:
+                    if task.key in task_map:
+                        raise ValueError(
+                            'key {!r} is already in task_map'.format(task.key)
+                        )
+                    task_map[task.key] = task
+            except queue.Empty:
+                pass
+            for key in sorted(task_map):  # Sorted to make unit testing easier
+                task = task_map[key]
+                task.process.join(timeout)
+                if not task.process.is_alive():
+                    del task_map[key]
+                    self.forward_completed_task(task)
+
+    def forward_completed_task(self, task):
+        """
+        Forward a completed task to the main thread using ``GLib.idle_add()``.
+
+        This is in its own method so it can be mocked for unit tests.
+        """
+        GLib.idle_add(self.on_task_completed, task)
+
+    def on_task_completed(self, task):
+        pass
+
+    def start_task(self, key):
+        (target, *args) = self.waiting.pop(key)
+        process = start_process(target, *args)
+        task = Task(key, process)
+        assert key not in self.running
+        self.running[key] = task
+        self.queue.put(task)
 
 
 def update_machine(doc, timestamp, stores, peers):

@@ -31,7 +31,9 @@ from os import path
 import time
 from copy import deepcopy
 from base64 import b64encode
+import queue
 import multiprocessing
+import threading
 from collections import OrderedDict
 
 import microfiber
@@ -45,6 +47,7 @@ from usercouch.misc import CouchTestCase
 from dmedia.local import LocalStores
 from dmedia.metastore import MetaStore, get_mtime
 from dmedia.schema import DB_NAME, create_filestore, project_db_name
+from dmedia.parallel import start_process
 from dmedia import util, core
 
 from .couch import CouchCase
@@ -382,6 +385,75 @@ class TestTaskQueue(TestCase):
         ]))
         self.assertEqual(list(tq.pending), ['a', 'b', 'c', 'd'])
         self.assertEqual(tq.popitem(), ('a', ('aye', 2)))
+
+
+class TestTaskPool(TestCase):
+    def test_init(self):
+        pool = core.TaskPool()
+        self.assertIsInstance(pool.waiting, OrderedDict)
+        self.assertEqual(pool.waiting, {})
+        self.assertEqual(pool.running, {})
+        self.assertIsNone(pool.thread)
+        self.assertIsInstance(pool.queue, queue.Queue)
+
+    def test_start_shutdown_reaper(self):
+        pool = core.TaskPool()
+
+        self.assertIs(pool.start_reaper(), True)
+        self.assertIsInstance(pool.thread, threading.Thread)
+        self.assertIs(pool.start_reaper(), False)
+        self.assertIsInstance(pool.thread, threading.Thread)
+
+        self.assertIs(pool.shutdown_reaper(), True)
+        self.assertIsNone(pool.thread)
+        self.assertIs(pool.shutdown_reaper(), False)
+        self.assertIsNone(pool.thread)
+
+    def test_reaper(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self):
+                self._forwards = []
+                super().__init__()
+
+            def forward_completed_task(self, task):
+                assert task.process.exitcode == 0
+                self._forwards.append(task)
+  
+        def dummy_worker(timeout):
+            time.sleep(timeout)
+
+        # one item in queue: [None]
+        pool = MockedTaskPool()
+        pool.queue.put(None)
+        self.assertIsNone(pool.reaper())
+        self.assertTrue(pool.queue.empty())
+        self.assertEqual(pool._forwards, [])
+
+        # Duplicate task.key:
+        task1 = core.Task('foo', start_process(dummy_worker, 15), None)
+        task2 = core.Task('foo', start_process(dummy_worker, 15), None)
+        for task in (task1, task2):
+            pool.queue.put(task)
+        with self.assertRaises(ValueError) as cm:
+            pool.reaper()
+        self.assertEqual(str(cm.exception), "key 'foo' is already in task_map")
+        for task in (task1, task2):
+            task.process.terminate()
+            task.process.join()
+        self.assertTrue(pool.queue.empty())
+        self.assertEqual(pool._forwards, [])
+
+        # three items in queue: [task1, task2, None]
+        task1 = core.Task('foo', start_process(dummy_worker, 5), None)
+        task2 = core.Task('bar', start_process(dummy_worker, 3), None)
+        for task in (task1, task2, None):
+            pool.queue.put(task)
+        self.assertIsNone(pool.reaper())
+        self.assertTrue(pool.queue.empty())
+        self.assertEqual(pool._forwards, [task2, task1])
+        for task in (task1, task2):
+            self.assertEqual(task.process.exitcode, 0)
+            self.assertFalse(task.process.is_alive())
 
 
 class TestCore(CouchTestCase):
