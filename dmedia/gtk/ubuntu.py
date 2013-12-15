@@ -24,6 +24,7 @@ Some Ubuntu-specific UI bits.
 """
 
 from gettext import gettext as _
+from gettext import ngettext
 
 from gi.repository import Gtk, Notify, AppIndicator3, Unity
 

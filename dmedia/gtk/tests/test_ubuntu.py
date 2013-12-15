@@ -66,6 +66,24 @@ assert inst._calls == [
 assert isinstance(inst.update, Generic)
 
 
+class TestFunctions(TestCase):
+    def test_notify_started(self):
+        basedirs = ['/media/EOS_DIGITAL']
+        (summary, body) = ubuntu.notify_started(basedirs)
+        self.assertEqual(summary, 'Importing files from 1 card:')
+        self.assertEqual(body, '/media/EOS_DIGITAL')
+
+        basedirs = ['/media/EOS_DIGITAL', '/media/H4n']
+        (summary, body) = ubuntu.notify_started(basedirs)
+        self.assertEqual(summary, 'Importing files from 2 cards:')
+        self.assertEqual(body, '\n'.join(basedirs))
+
+        basedirs = ['/media/EOS_DIGITAL', '/media/H4n', '/media/stuff']
+        (summary, body) = ubuntu.notify_started(basedirs)
+        self.assertEqual(summary, 'Importing files from 3 cards:')
+        self.assertEqual(body, '\n'.join(basedirs))
+
+
 class test_NotifyManger(TestCase):
     klass = ubuntu.NotifyManager
 
