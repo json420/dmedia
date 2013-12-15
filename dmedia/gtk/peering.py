@@ -2,6 +2,8 @@ from os import path
 import json
 import logging
 
+import gi
+gi.require_version('WebKit', '3.0')
 from gi.repository import GLib, GObject, Gtk, WebKit
 
 

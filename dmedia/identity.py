@@ -26,8 +26,6 @@ Secure peering protocol, SSL-based machine and user identity.
 import os
 from os import path
 import stat
-import tempfile
-import shutil
 from collections import namedtuple
 from subprocess import check_call, check_output
 import logging
@@ -656,8 +654,11 @@ class PKI:
         self.user = (None if user_id is None else self.load_user(user_id))  
 
 
+# FIXME: This is only for unit testing, but requires `tempfile` and `shutil`,
+# modules we don't want to needlessly import when running the service.
 class TempPKI(PKI):
     def __init__(self, client_pki=False):
+        import tempfile
         ssldir = tempfile.mkdtemp(prefix='TempPKI.')
         super().__init__(ssldir)
         assert self.ssldir is ssldir
@@ -670,6 +671,7 @@ class TempPKI(PKI):
 
     def __del__(self):
         if path.isdir(self.ssldir):
+            import shutil
             shutil.rmtree(self.ssldir)
 
     def create_pki(self):

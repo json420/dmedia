@@ -24,9 +24,6 @@
 Various constants conveniently located in one place.
 """
 
-import mimetypes
-mimetypes.init()
-
 # Standard read/write buffer size:
 CHUNK_SIZE = 2**20  # 1 MiB
 
@@ -56,27 +53,3 @@ TYPE_ERROR = '{}: need a {!r}; got a {!r}: {!r}'
 
 # Stardard format for TypeError message when a callable is expected:
 CALLABLE_ERROR = '{}: need a callable; got a {!r}: {!r}'
-
-def get_extensions_for_type(general_type):
-    """
-    An iterator that yields the file extensions for files of a general type.
-    eg. 'image'
-    """
-    for ext in mimetypes.types_map:
-        if mimetypes.types_map[ext].split('/')[0] == general_type:
-            yield ext.strip('.')
-
-VIDEO = tuple(get_extensions_for_type('video'))
-
-AUDIO = tuple(get_extensions_for_type('audio'))
-
-IMAGE = tuple(get_extensions_for_type('image'))
-
-EXTENSIONS = VIDEO + AUDIO + IMAGE
-
-EXT_MAP = {
-    'video': VIDEO,
-    'audio': AUDIO,
-    'image': IMAGE,
-    'all': EXTENSIONS,
-}
