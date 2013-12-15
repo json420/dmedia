@@ -27,7 +27,6 @@ from gettext import gettext as _
 
 from gi.repository import Gtk, Notify, AppIndicator3, Unity
 
-from dmedia.importer import notify_started, notify_stats
 from dmedia.units import bytes10
 from dmedia.misc import WeakMethod
 
@@ -94,6 +93,18 @@ def card_label(basedir, info):
         p = info['partition']
         return '{}, {}'.format(bytes10(p['bytes']), p['label'])
     return basedir
+
+
+# FIXME: We need to consolidate all this UI string logic in a single module
+def notify_started(basedirs):
+    assert len(basedirs) >= 1
+    summary = ngettext(
+        'Importing files from {count} card:',
+        'Importing files from {count} cards:',
+        len(basedirs)
+    ).format(count=len(basedirs))
+    body = '\n'.join(basedirs)
+    return (summary, body)
 
 
 def notify_stats(lines):
