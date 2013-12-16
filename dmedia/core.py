@@ -498,6 +498,15 @@ def verify_worker(env, parentdir, store_id):
         log.exception('Error in verify_worker():')
 
 
+def filestore_worker(env, parentdir, store_id):
+    db = util.get_db(env)
+    ms = MetaStore(db)
+    fs = FileStore(parentdir, store_id)
+    ms.scan(fs)
+    ms.relink(fs)
+    ms.verify_all(fs)
+
+
 def is_file_id(_id):
     return isinstance(_id, str) and len(_id) == 48 and isdb32(_id)
 
@@ -779,6 +788,40 @@ class TaskPool:
         return True 
 
 
+def build_fs_key(fs):
+    return ('filestore', fs.parentdir)
+
+
+class TaskManager2:
+    def __init__(self, env, ssl_config):
+        self.env = env
+        self.ssl_config = ssl_config
+        self.pool = TaskPool('vigilance')  # vigilance is auto-restarted 
+
+    def queue_filestore_tasks(self, fs):
+        key = build_fs_key(fs)
+        self.pool.add_task(key, filestore_worker, self.env, fs.parentdir, fs.id)
+
+    def stop_filestore_tasks(self, fs):
+        self.pool.remove_task(build_fs_key(fs))
+
+    def requeue_filestore_tasks(self, filestores):
+        for fs in filestores:
+            self.pool.restart_task(build_fs_key(fs))
+
+    def start_tasks(self):
+        self.pool.start()
+
+    def start_vigilance(self):
+        pass
+
+    def stop_vigilance(self):
+        pass
+
+    def restart_vigilance(self):
+        pass
+
+
 def update_machine(doc, timestamp, stores, peers):
     """
     Update func passed to `Database.update()` by `Core.update_machine()`.
@@ -805,7 +848,7 @@ class Core:
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.peers = {}
-        self.task_manager = TaskManager(env, ssl_config)
+        self.task_manager = TaskManager2(env, ssl_config)
         self.ssl_config = ssl_config
         try:
             self.local = self.db.get(LOCAL_ID)
