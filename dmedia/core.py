@@ -709,6 +709,8 @@ class TaskPool:
             self.start_task(task.key)
 
     def should_restart(self, key):
+        if key not in self.tasks:
+            return False
         if key in self.restart_always:
             return True
         try:

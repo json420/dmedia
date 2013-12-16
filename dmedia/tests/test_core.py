@@ -545,6 +545,13 @@ class TestTaskPool(TestCase):
         key2 = random_id()
         key3 = random_id()
         pool = core.TaskPool(key1)
+
+        # Test when all keys are in tasks:
+        pool.tasks.update({
+            key1: 'foo',
+            key2: 'bar',
+            key3: 'baz',
+        })
         self.assertIs(pool.should_restart(key1), True)
         self.assertIs(pool.should_restart(key2), False)
         pool.restart_once.add(key3)
@@ -558,6 +565,14 @@ class TestTaskPool(TestCase):
         self.assertIs(pool.should_restart(key3), False)
         self.assertEqual(pool.restart_once, set())
         self.assertIs(pool.should_restart(key1), True)
+
+        # Test when tasks is empty:
+        pool.tasks.clear()
+        pool.restart_once.update([key2, key3])
+        self.assertIs(pool.should_restart(key1), False)
+        self.assertIs(pool.should_restart(key2), False)
+        self.assertIs(pool.should_restart(key3), False)
+        self.assertEqual(pool.restart_once, {key2, key3})
 
     def test_add_task(self):
         class MockedTaskPool(core.TaskPool):
