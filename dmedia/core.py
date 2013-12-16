@@ -644,6 +644,7 @@ class TaskPool:
         self.queue = queue.Queue()
         self.restart_always = frozenset(restart_always)
         self.restart_once = set()
+        self.running = False
 
     def start_reaper(self):
         if self.thread is not None:
@@ -756,6 +757,14 @@ class TaskPool:
                 self.restart_once.add(key)
             return True
         return False
+
+    def start(self):
+        if self.running:
+            return False
+        self.running = True
+        for key in sorted(self.tasks):  # Sorted to make unit testing easier
+            self.start_task(key)
+        return True
 
 
 def update_machine(doc, timestamp, stores, peers):

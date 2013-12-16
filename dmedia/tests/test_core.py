@@ -409,6 +409,7 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.restart_always, frozenset())
         self.assertIsInstance(pool.restart_once, set)
         self.assertEqual(pool.restart_always, set())
+        self.assertIs(pool.running, False)
 
         key1 = random_id()
         pool = core.TaskPool(key1)
@@ -644,6 +645,39 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.active_tasks, {key: task})
         self.assertIs(pool.active_tasks[key], task)
         self.assertEqual(process._calls, ['terminate'])
+
+    def test_start(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self):
+                super().__init__()
+                self._calls = []
+
+            def start_task(self, key):
+                self._calls.append(key)
+
+        pool = MockedTaskPool()
+        key1 = random_id()
+        key2 = random_id()
+        key3 = random_id()
+        pool.tasks.update({
+            key1: 'foo',
+            key2: 'bar',
+            key3: 'baz',
+        })
+
+        # Make sure no action is taken when running is True:
+        pool.running = True
+        self.assertIs(pool.start(), False)
+        self.assertEqual(pool._calls, [])
+        self.assertEqual(pool.tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
+        self.assertIs(pool.running, True)
+
+        # Now test when running is False:
+        pool.running = False
+        self.assertIs(pool.start(), True)
+        self.assertEqual(pool._calls, sorted([key1, key2, key3]))
+        self.assertEqual(pool.tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
+        self.assertIs(pool.running, True)
 
 
 class TestCore(CouchTestCase):
