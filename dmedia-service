@@ -190,6 +190,7 @@ class Service(dbus.service.Object):
         log.info('---- idle3 at time %.3f ----', start_delta())
         (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
         port = env['port']
+        time.sleep(0.25)
         self.avahi = Avahi(self.core, port)
         self.avahi.run()
         GLib.timeout_add(60 * 1000, self.on_idle4)
