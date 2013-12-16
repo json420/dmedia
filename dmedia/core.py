@@ -625,6 +625,10 @@ class TaskManager:
             self.start_vigilance()
 
 
+TaskInfo = namedtuple('TaskInfo', 'target args')
+ActiveTask = namedtuple('ActiveTask', 'key process')
+
+
 class TaskPool:
     """
     A pool of background tasks executing in a ``multiprocessing.Process`` each.
@@ -634,8 +638,8 @@ class TaskPool:
     """
 
     def __init__(self):
-        self.waiting = OrderedDict()
-        self.running = {}
+        self.tasks = OrderedDict()
+        self.active_tasks = {}
         self.thread = None
         self.queue = queue.Queue()
 
@@ -663,13 +667,14 @@ class TaskPool:
         """
         running = True
         task_map = {}
-        while running or task_map:  # Shutdown feature mostly for unit testing
+        while running or task_map:  # Shutdown feature is for unit testing
             try:
                 task = self.queue.get(timeout=timeout)
                 if task is None:
                     log.info('reaper thread received shutdown request')
                     running = False
                 else:
+                    assert isinstance(task, ActiveTask)
                     if task.key in task_map:
                         raise ValueError(
                             'key {!r} is already in task_map'.format(task.key)
@@ -690,18 +695,48 @@ class TaskPool:
 
         This is in its own method so it can be mocked for unit tests.
         """
-        GLib.idle_add(self.on_task_completed, task)
+        GLib.idle_add(self.on_task_completed, task)\
 
-    def on_task_completed(self, task):
+    def should_restart(self, key):
         pass
 
+    def on_task_completed(self, task):
+        expected = self.active_tasks.pop(task.key)
+        assert task is expected
+        task.process.join()  # Make sure process actually terminated
+        if task.key in self.tasks and self.should_restart(key):
+            self.start_task(task.key)
+
+    def add_task(self, key, target, *args):
+        if key in self.tasks:
+            return False
+        self.tasks[key] = TaskInfo(target, args)
+        return True
+
+    def remove_task(self, key):
+        try:
+            info = self.tasks.pop(key)
+            self.shutdown_task(key)
+            return True
+        except KeyError:
+            return False
+
     def start_task(self, key):
-        (target, *args) = self.waiting.pop(key)
-        process = start_process(target, *args)
+        if key in self.active_tasks:
+            return False
+        info = self.tasks[key]
+        process = start_process(info.target, info.args)
         task = Task(key, process)
-        assert key not in self.running
-        self.running[key] = task
+        assert key not in self.active_tasks
+        self.active_tasks[key] = task
         self.queue.put(task)
+
+    def shutdown_task(self, key):
+        try:
+            self.active_tasks[key].process.terminate()
+            return True
+        except KeyError:
+            return False
 
 
 def update_machine(doc, timestamp, stores, peers):

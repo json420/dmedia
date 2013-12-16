@@ -390,9 +390,9 @@ class TestTaskQueue(TestCase):
 class TestTaskPool(TestCase):
     def test_init(self):
         pool = core.TaskPool()
-        self.assertIsInstance(pool.waiting, OrderedDict)
-        self.assertEqual(pool.waiting, {})
-        self.assertEqual(pool.running, {})
+        self.assertIsInstance(pool.tasks, OrderedDict)
+        self.assertEqual(pool.tasks, {})
+        self.assertEqual(pool.active_tasks, {})
         self.assertIsNone(pool.thread)
         self.assertIsInstance(pool.queue, queue.Queue)
 
@@ -430,8 +430,8 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool._forwards, [])
 
         # Duplicate task.key:
-        task1 = core.Task('foo', start_process(dummy_worker, 15), None)
-        task2 = core.Task('foo', start_process(dummy_worker, 15), None)
+        task1 = core.ActiveTask('foo', start_process(dummy_worker, 15))
+        task2 = core.ActiveTask('foo', start_process(dummy_worker, 15))
         for task in (task1, task2):
             pool.queue.put(task)
         with self.assertRaises(ValueError) as cm:
@@ -444,8 +444,8 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool._forwards, [])
 
         # three items in queue: [task1, task2, None]
-        task1 = core.Task('foo', start_process(dummy_worker, 5), None)
-        task2 = core.Task('bar', start_process(dummy_worker, 3), None)
+        task1 = core.ActiveTask('foo', start_process(dummy_worker, 5))
+        task2 = core.ActiveTask('bar', start_process(dummy_worker, 3))
         for task in (task1, task2, None):
             pool.queue.put(task)
         self.assertIsNone(pool.reaper(timeout=1))
