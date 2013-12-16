@@ -802,7 +802,7 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.peers, {})
-        self.assertIsInstance(inst.task_manager, core.TaskManager2)
+        self.assertIsInstance(inst.task_manager, core.TaskManager)
         self.assertEqual(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',
@@ -845,7 +845,7 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.peers, {})
-        self.assertIsInstance(inst.task_manager, core.TaskManager2)
+        self.assertIsInstance(inst.task_manager, core.TaskManager)
         self.assertIs(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',

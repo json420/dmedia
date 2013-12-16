@@ -685,7 +685,7 @@ def build_fs_key(fs):
     return ('filestore', fs.parentdir)
 
 
-class TaskManager2:
+class TaskManager:
     def __init__(self, env, ssl_config):
         self.env = env
         self.ssl_config = ssl_config
@@ -741,7 +741,7 @@ class Core:
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.peers = {}
-        self.task_manager = TaskManager2(env, ssl_config)
+        self.task_manager = TaskManager(env, ssl_config)
         self.ssl_config = ssl_config
         try:
             self.local = self.db.get(LOCAL_ID)
