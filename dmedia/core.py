@@ -722,6 +722,8 @@ class TaskPool:
         if key in self.tasks:
             return False
         self.tasks[key] = TaskInfo(target, args)
+        if self.running is True:
+            self.start_task(key)
         return True
 
     def remove_task(self, key):

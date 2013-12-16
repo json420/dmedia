@@ -560,20 +560,46 @@ class TestTaskPool(TestCase):
         self.assertIs(pool.should_restart(key1), True)
 
     def test_add_task(self):
-        pool = core.TaskPool()
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self):
+                super().__init__()
+                self._calls = []
 
-        def worker(arg1, arg2):
+            def start_task(self, key):
+                self._calls.append(key)
+
+        pool = MockedTaskPool()
+
+        def worker1(arg1, arg2):
             pass
 
-        key = random_id()
-        self.assertIs(pool.add_task(key, worker, 'foo', 'bar'), True)
-        self.assertEqual(set(pool.tasks), {key})
-        info = pool.tasks[key]
-        self.assertIsInstance(info, core.TaskInfo)
-        self.assertIs(info.target, worker)
-        self.assertEqual(info.args, ('foo', 'bar'))
-        self.assertIs(pool.add_task(key, worker, 'bar', 'baz'), False)
-        self.assertEqual(pool.tasks, {key: info})
+        def worker2(arg1):
+            pass
+
+        # Test when running is False:
+        key1 = random_id()
+        self.assertIs(pool.add_task(key1, worker1, 'foo', 'bar'), True)
+        self.assertEqual(set(pool.tasks), {key1})
+        info1 = pool.tasks[key1]
+        self.assertIsInstance(info1, core.TaskInfo)
+        self.assertIs(info1.target, worker1)
+        self.assertEqual(info1.args, ('foo', 'bar'))
+        self.assertIs(pool.add_task(key1, worker1, 'foo', 'bar'), False)
+        self.assertEqual(pool.tasks, {key1: info1})
+        self.assertEqual(pool._calls, [])
+
+        # Test when running is True:
+        pool.running = True
+        key2 = random_id()
+        self.assertIs(pool.add_task(key2, worker2, 'baz'), True)
+        self.assertEqual(set(pool.tasks), {key1, key2})
+        info2 = pool.tasks[key2]
+        self.assertIsInstance(info2, core.TaskInfo)
+        self.assertIs(info2.target, worker2)
+        self.assertEqual(info2.args, ('baz',))
+        self.assertIs(pool.add_task(key2, worker2, 'baz'), False)
+        self.assertEqual(pool.tasks, {key1: info1, key2: info2})
+        self.assertEqual(pool._calls, [key2])
 
     def test_remove_task(self):
         class MockedTaskPool(core.TaskPool):
