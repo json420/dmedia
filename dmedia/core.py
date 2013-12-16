@@ -730,8 +730,10 @@ class TaskPool:
             return False
 
     def add_task(self, key, target, *args):
+        log.info('TaskPool.add_task: %r', key)
         assert callable(target)
         if key in self.tasks:
+            log.warning('TaskPool.add_task: %r already in active_tasks', key)
             return False
         self.tasks[key] = TaskInfo(target, args)
         if self.running is True:
@@ -747,9 +749,10 @@ class TaskPool:
             return False
 
     def start_task(self, key):
+        log.info('TaskPool.start_task: %r', key)
         if key in self.active_tasks:
+            log.warning('TaskPool.start_task: %r already in active_tasks', key)
             return False
-        log.info('TaskQueue.start_task(%r)', key)
         info = self.tasks[key]
         assert isinstance(info, TaskInfo)
         process = start_process(info.target, *info.args)
