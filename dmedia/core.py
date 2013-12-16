@@ -714,6 +714,7 @@ class TaskPool:
         expected = self.active_tasks.pop(task.key)
         assert task is expected
         task.process.join()  # Make sure process actually terminated
+        log.info('task completed: %r', task.key)
         if self.running and self.should_restart(task.key):
             self.start_task(task.key)
 
@@ -748,6 +749,7 @@ class TaskPool:
     def start_task(self, key):
         if key in self.active_tasks:
             return False
+        log.info('TaskQueue.start_task(%r)', key)
         info = self.tasks[key]
         assert isinstance(info, TaskInfo)
         process = start_process(info.target, *info.args)
@@ -775,6 +777,7 @@ class TaskPool:
         if self.running is True:
             return False
         self.running = True
+        self.start_reaper()
         for key in sorted(self.tasks):  # Sorted to make unit testing easier
             self.start_task(key)
         return True

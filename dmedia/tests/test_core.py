@@ -773,6 +773,9 @@ class TestTaskPool(TestCase):
             def __init__(self):
                 super().__init__()
                 self._calls = []
+                
+            def start_reaper(self):
+                self._calls.append('start_reaper')
 
             def start_task(self, key):
                 self._calls.append(key)
@@ -797,7 +800,9 @@ class TestTaskPool(TestCase):
         # Now test when running is False:
         pool.running = False
         self.assertIs(pool.start(), True)
-        self.assertEqual(pool._calls, sorted([key1, key2, key3]))
+        self.assertEqual(pool._calls,
+            ['start_reaper'] + sorted([key1, key2, key3])
+        )
         self.assertEqual(pool.tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
         self.assertIs(pool.running, True)
 
@@ -866,7 +871,7 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.peers, {})
-        self.assertIsInstance(inst.task_manager, core.TaskManager)
+        self.assertIsInstance(inst.task_manager, core.TaskManager2)
         self.assertEqual(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',
@@ -909,7 +914,7 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.peers, {})
-        self.assertIsInstance(inst.task_manager, core.TaskManager)
+        self.assertIsInstance(inst.task_manager, core.TaskManager2)
         self.assertIs(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',
