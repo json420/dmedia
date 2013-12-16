@@ -759,12 +759,20 @@ class TaskPool:
         return False
 
     def start(self):
-        if self.running:
+        if self.running is True:
             return False
         self.running = True
         for key in sorted(self.tasks):  # Sorted to make unit testing easier
             self.start_task(key)
         return True
+
+    def stop(self):
+        if self.running is False:
+            return False
+        self.running = False
+        for key in sorted(self.active_tasks):  # Sorted to make unit testing easier
+            self.stop_task(key)
+        return True 
 
 
 def update_machine(doc, timestamp, stores, peers):
