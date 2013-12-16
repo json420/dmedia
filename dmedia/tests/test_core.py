@@ -405,6 +405,17 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.active_tasks, {})
         self.assertIsNone(pool.thread)
         self.assertIsInstance(pool.queue, queue.Queue)
+        self.assertIsInstance(pool.restart_always, frozenset)
+        self.assertEqual(pool.restart_always, frozenset())
+        self.assertIsInstance(pool.restart_once, set)
+        self.assertEqual(pool.restart_always, set())
+
+        key1 = random_id()
+        pool = core.TaskPool(key1)
+        self.assertEqual(pool.restart_always, {key1})
+        key2 = random_id()
+        pool = core.TaskPool(key1, key2)
+        self.assertEqual(pool.restart_always, {key1, key2})
 
     def test_start_stop_reaper(self):
         pool = core.TaskPool()
@@ -529,14 +540,23 @@ class TestTaskPool(TestCase):
         ])
 
     def test_should_restart(self):
-        pool = core.TaskPool()
-        self.assertIs(pool.should_restart('foo'), False)
-        self.assertIs(pool.should_restart('bar'), False)
-        self.assertIs(pool.should_restart(
-            ('filestore', '/media/username/Stuff')),
-            False
-        )
-        self.assertIs(pool.should_restart('vigilance'), True)
+        key1 = random_id()
+        key2 = random_id()
+        key3 = random_id()
+        pool = core.TaskPool(key1)
+        self.assertIs(pool.should_restart(key1), True)
+        self.assertIs(pool.should_restart(key2), False)
+        pool.restart_once.add(key3)
+        self.assertIs(pool.should_restart(key2), False)
+        self.assertEqual(pool.restart_once, {key3})
+        pool.restart_once.add(key2)
+        self.assertIs(pool.should_restart(key2), True)
+        self.assertEqual(pool.restart_once, {key3})
+        self.assertIs(pool.should_restart(key3), True)
+        self.assertEqual(pool.restart_once, set())
+        self.assertIs(pool.should_restart(key3), False)
+        self.assertEqual(pool.restart_once, set())
+        self.assertIs(pool.should_restart(key1), True)
 
     def test_add_task(self):
         pool = core.TaskPool()

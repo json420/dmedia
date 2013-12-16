@@ -637,11 +637,13 @@ class TaskPool:
     we can't easily layer on top.
     """
 
-    def __init__(self):
+    def __init__(self, *restart_always):
         self.tasks = {}
         self.active_tasks = {}
         self.thread = None
         self.queue = queue.Queue()
+        self.restart_always = frozenset(restart_always)
+        self.restart_once = set()
 
     def start_reaper(self):
         if self.thread is not None:
@@ -706,9 +708,13 @@ class TaskPool:
             self.start_task(task.key)
 
     def should_restart(self, key):
-        if key == 'vigilance':
+        if key in self.restart_always:
             return True
-        return False
+        try:
+            self.restart_once.remove(key)
+            return True
+        except KeyError:
+            return False
 
     def add_task(self, key, target, *args):
         assert callable(target)
@@ -730,7 +736,7 @@ class TaskPool:
             return False
         info = self.tasks[key]
         assert isinstance(info, TaskInfo)
-        process = start_process(info.target, info.args)
+        process = start_process(info.target, *info.args)
         task = ActiveTask(key, process)
         assert key not in self.active_tasks
         self.active_tasks[key] = task
@@ -743,6 +749,13 @@ class TaskPool:
             return True
         except KeyError:
             return False
+
+    def restart_task(self, key):
+        if self.stop_task(key):
+            if key not in self.restart_always:
+                self.restart_once.add(key)
+            return True
+        return False
 
 
 def update_machine(doc, timestamp, stores, peers):
