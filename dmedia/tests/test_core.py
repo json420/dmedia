@@ -479,14 +479,13 @@ class TestTaskPool(TestCase):
 
     def test_on_task_completed(self):
         class MockedTaskPool(core.TaskPool):
-            def __init__(self, restart_key):
-                super().__init__()
-                self._restart_key = restart_key
+            def __init__(self, *restart_always):
+                super().__init__(*restart_always)
                 self._calls = []
 
             def should_restart(self, key):
                 self._calls.append(('should_restart', key))
-                return (key == self._restart_key)
+                return super().should_restart(key)
 
             def start_task(self, key):
                 self._calls.append(('start_task', key))
@@ -500,44 +499,126 @@ class TestTaskPool(TestCase):
         task1 = core.ActiveTask(key1, process1)
         task2 = core.ActiveTask(key2, process2)
         task3 = core.ActiveTask(key3, process3)
-        pool = MockedTaskPool(key3)
+        pool = MockedTaskPool(key1)
+        self.assertEqual(pool.restart_always, {key1})
         pool.active_tasks[key1] = task1
         pool.active_tasks[key2] = task2
         pool.active_tasks[key3] = task3
-        pool.tasks[key2] = 'foo'
-        pool.tasks[key3] = 'bar'
+        pool.tasks[key1] = 'foo'
+        pool.tasks[key2] = 'bar'
+        pool.tasks[key3] = 'baz'
+        pool.restart_once.update([key2, key3])
 
-        # Key *not* in tasks:
+        # When TaskPool.running is False, should_restart() will not be called:
         self.assertIsNone(pool.on_task_completed(task1))
         self.assertEqual(pool.active_tasks, {key2: task2, key3: task3})
-        self.assertEqual(pool.tasks, {key2: 'foo', key3: 'bar'})
         self.assertEqual(process1._calls, ['join'])
         self.assertEqual(process2._calls, [])
         self.assertEqual(process3._calls, [])
-        self.assertEqual(pool._calls, [])
 
-        # Key in tasks, but TaskPool.should_restart() returns False:
         self.assertIsNone(pool.on_task_completed(task2))
         self.assertEqual(pool.active_tasks, {key3: task3})
-        self.assertEqual(pool.tasks, {key2: 'foo', key3: 'bar'})
         self.assertEqual(process1._calls, ['join'])
         self.assertEqual(process2._calls, ['join'])
         self.assertEqual(process3._calls, [])
+
+        self.assertIsNone(pool.on_task_completed(task3))
+        self.assertEqual(pool.active_tasks, {})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, ['join'])
+
+        self.assertEqual(pool.restart_once, {key2, key3})
+        self.assertEqual(pool._calls, [])
+
+        # Now test when TaskPool.running is True:
+        for process in [process1, process2, process3]:
+            process._calls.clear()
+        pool.active_tasks[key1] = task1
+        pool.active_tasks[key2] = task2
+        pool.active_tasks[key3] = task3
+        pool.running = True
+
+        self.assertIsNone(pool.on_task_completed(task1))
+        self.assertEqual(pool.active_tasks, {key2: task2, key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, [])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key2, key3})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key1),
+            ('start_task', key1),
+        ])
+
+        pool._calls.clear()
+        self.assertIsNone(pool.on_task_completed(task2))
+        self.assertEqual(pool.active_tasks, {key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key3})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key2),
+            ('start_task', key2),
+        ])
+
+        pool._calls.clear()
+        self.assertIsNone(pool.on_task_completed(task3))
+        self.assertEqual(pool.active_tasks, {})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, ['join'])
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('should_restart', key3),
+            ('start_task', key3),
+        ])
+
+        # Finally, test when TaskPool.should_restart() returns False:
+        for process in [process1, process2, process3]:
+            process._calls.clear()
+        pool.active_tasks[key1] = task1
+        pool.active_tasks[key2] = task2
+        pool.active_tasks[key3] = task3
+        pool._calls.clear()
+        # key1: in restart_always, but not in tasks
+        # key2: in restart_once, but not in tasks
+        # key3: in tasks, but not in restart_always nor restart_once
+        del pool.tasks[key1]
+        del pool.tasks[key2]
+        pool.restart_once.add(key2)
+        self.assertEqual(pool.tasks, {key3: 'baz'})
+
+        self.assertIsNone(pool.on_task_completed(task1))
+        self.assertEqual(pool.active_tasks, {key2: task2, key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, [])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key2})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key1),
+        ])
+
+        pool._calls.clear()
+        self.assertIsNone(pool.on_task_completed(task2))
+        self.assertEqual(pool.active_tasks, {key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key2})
         self.assertEqual(pool._calls, [
             ('should_restart', key2),
         ])
 
-        # Key in tasks and TaskPool.should_restart() returns True:
+        pool._calls.clear()
         self.assertIsNone(pool.on_task_completed(task3))
         self.assertEqual(pool.active_tasks, {})
-        self.assertEqual(pool.tasks, {key2: 'foo', key3: 'bar'})
         self.assertEqual(process1._calls, ['join'])
         self.assertEqual(process2._calls, ['join'])
         self.assertEqual(process3._calls, ['join'])
+        self.assertEqual(pool.restart_once, {key2})
         self.assertEqual(pool._calls, [
-            ('should_restart', key2),
             ('should_restart', key3),
-            ('start_task', key3),
         ])
 
     def test_should_restart(self):

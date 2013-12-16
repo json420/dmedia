@@ -705,7 +705,7 @@ class TaskPool:
         expected = self.active_tasks.pop(task.key)
         assert task is expected
         task.process.join()  # Make sure process actually terminated
-        if task.key in self.tasks and self.should_restart(task.key):
+        if self.running and self.should_restart(task.key):
             self.start_task(task.key)
 
     def should_restart(self, key):
