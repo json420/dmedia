@@ -638,7 +638,7 @@ class TaskPool:
     """
 
     def __init__(self):
-        self.tasks = OrderedDict()
+        self.tasks = {}
         self.active_tasks = {}
         self.thread = None
         self.queue = queue.Queue()
@@ -697,17 +697,21 @@ class TaskPool:
         """
         GLib.idle_add(self.on_task_completed, task)\
 
-    def should_restart(self, key):
-        pass
-
     def on_task_completed(self, task):
+        assert isinstance(task, ActiveTask)
         expected = self.active_tasks.pop(task.key)
         assert task is expected
         task.process.join()  # Make sure process actually terminated
-        if task.key in self.tasks and self.should_restart(key):
+        if task.key in self.tasks and self.should_restart(task.key):
             self.start_task(task.key)
 
+    def should_restart(self, key):
+        if key == 'vigilance':
+            return True
+        return False
+
     def add_task(self, key, target, *args):
+        assert callable(target)
         if key in self.tasks:
             return False
         self.tasks[key] = TaskInfo(target, args)
