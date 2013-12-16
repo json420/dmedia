@@ -406,7 +406,7 @@ class TestTaskPool(TestCase):
         self.assertIsNone(pool.thread)
         self.assertIsInstance(pool.queue, queue.Queue)
 
-    def test_start_shutdown_reaper(self):
+    def test_start_stop_reaper(self):
         pool = core.TaskPool()
 
         self.assertIs(pool.start_reaper(), True)
@@ -414,9 +414,9 @@ class TestTaskPool(TestCase):
         self.assertIs(pool.start_reaper(), False)
         self.assertIsInstance(pool.thread, threading.Thread)
 
-        self.assertIs(pool.shutdown_reaper(), True)
+        self.assertIs(pool.stop_reaper(), True)
         self.assertIsNone(pool.thread)
-        self.assertIs(pool.shutdown_reaper(), False)
+        self.assertIs(pool.stop_reaper(), False)
         self.assertIsNone(pool.thread)
 
     def test_reaper(self):
@@ -560,19 +560,19 @@ class TestTaskPool(TestCase):
                 super().__init__()
                 self._calls = []
 
-            def shutdown_task(self, key):
+            def stop_task(self, key):
                 self._calls.append(key)
 
         pool = MockedTaskPool()
         key = random_id()
 
-        # Key missing in tasks, should *not* call TaskPool.shutdown_task():
+        # Key missing in tasks, should *not* call TaskPool.stop_task():
         self.assertIs(pool.remove_task(key), False)
         self.assertEqual(pool.tasks, {})
         self.assertEqual(pool.active_tasks, {})
         self.assertEqual(pool._calls, [])
 
-        # Key in tasks, should call TaskPool.shutdown_task():
+        # Key in tasks, should call TaskPool.stop_task():
         pool.tasks[key] = 'foo'
         self.assertIs(pool.remove_task(key), True)
         self.assertEqual(pool.tasks, {})
@@ -608,19 +608,19 @@ class TestTaskPool(TestCase):
         self.assertIs(in_q, result)
         self.assertTrue(pool.queue.empty())
 
-    def test_shutdown_task(self):
+    def test_stop_task(self):
         pool = core.TaskPool()
         key = random_id()
 
         # Key *not* in active_tasks:
-        self.assertIs(pool.shutdown_task(key), False)
+        self.assertIs(pool.stop_task(key), False)
         self.assertEqual(pool.active_tasks, {})
 
         # Key in active_tasks:
         process = DummyProcess()
         task = core.ActiveTask(key, process)
         pool.active_tasks[key] = task
-        self.assertIs(pool.shutdown_task(key), True)
+        self.assertIs(pool.stop_task(key), True)
         self.assertEqual(pool.active_tasks, {key: task})
         self.assertIs(pool.active_tasks[key], task)
         self.assertEqual(process._calls, ['terminate'])

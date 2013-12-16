@@ -649,7 +649,7 @@ class TaskPool:
         self.thread = start_thread(self.reaper)
         return True
 
-    def shutdown_reaper(self):
+    def stop_reaper(self):
         if self.thread is None:
             return False
         self.queue.put(None)
@@ -720,7 +720,7 @@ class TaskPool:
     def remove_task(self, key):
         try:
             info = self.tasks.pop(key)
-            self.shutdown_task(key)
+            self.stop_task(key)
             return True
         except KeyError:
             return False
@@ -737,7 +737,7 @@ class TaskPool:
         self.queue.put(task)
         return True
 
-    def shutdown_task(self, key):
+    def stop_task(self, key):
         try:
             self.active_tasks[key].process.terminate()
             return True
