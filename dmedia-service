@@ -174,24 +174,22 @@ class Service(dbus.service.Object):
 
     def on_idle2(self):
         """
-        Init project DB views, start peering browser, SnapshotAll().
+        Init project DB views, start peering browser, start HTTPD.
         """
         log.info('---- idle2 at time %.3f ----', start_delta())
         start_thread(self.core.init_project_views)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
+        (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
+        self.httpd_port = env['port']
         GLib.timeout_add(750, self.on_idle3)
-        #self.SnapshotAll()  # Calls on_idle3() below when finished
 
     def on_idle3(self):
         """
-        Start HTTPD, Avahi, replication.
+        Publish "_dmedia._tcp" over Avahi, start replication.
         """
         log.info('---- idle3 at time %.3f ----', start_delta())
-        (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
-        port = env['port']
-        time.sleep(0.25)
-        self.avahi = Avahi(self.core, port)
+        self.avahi = Avahi(self.core, self.httpd_port)
         self.avahi.run()
         GLib.timeout_add(60 * 1000, self.on_idle4)
         GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
