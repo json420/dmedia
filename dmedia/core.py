@@ -729,11 +729,13 @@ class TaskPool:
         if key in self.active_tasks:
             return False
         info = self.tasks[key]
+        assert isinstance(info, TaskInfo)
         process = start_process(info.target, info.args)
-        task = Task(key, process)
+        task = ActiveTask(key, process)
         assert key not in self.active_tasks
         self.active_tasks[key] = task
         self.queue.put(task)
+        return True
 
     def shutdown_task(self, key):
         try:

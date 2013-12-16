@@ -579,6 +579,35 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.active_tasks, {})
         self.assertEqual(pool._calls, [key])
 
+    def test_start_task(self):
+        pool = core.TaskPool()
+
+        def worker(arg1, arg2):
+            pass
+
+        key = random_id()
+        info = core.TaskInfo(worker, ('foo', 'bar'))
+        pool.tasks[key] = info
+
+        # Key in active_tasks:
+        pool.active_tasks[key] = 'whatever'
+        self.assertIs(pool.start_task(key), False)
+        self.assertEqual(pool.tasks, {key: info})
+        self.assertEqual(pool.active_tasks, {key: 'whatever'})
+
+        # Key *not* in active_tasks:
+        pool.active_tasks.clear()
+        self.assertIs(pool.start_task(key), True)
+        self.assertEqual(pool.tasks, {key: info})
+        self.assertEqual(set(pool.active_tasks), {key})
+        result = pool.active_tasks[key]
+        self.assertIsInstance(result, core.ActiveTask)
+        self.assertEqual(result.key, key)
+        self.assertIsInstance(result.process, multiprocessing.Process)
+        in_q = pool.queue.get(timeout=1)
+        self.assertIs(in_q, result)
+        self.assertTrue(pool.queue.empty())
+
     def test_shutdown_task(self):
         pool = core.TaskPool()
         key = random_id()
