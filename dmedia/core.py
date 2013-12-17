@@ -465,6 +465,7 @@ def vigilance_worker(env, ssl_config):
 
 
 def downgrade_worker(env):
+    # First downgrade:
     try:
         db = util.get_db(env)
         ms = MetaStore(db)
@@ -475,27 +476,29 @@ def downgrade_worker(env):
         ms.downgrade_by_verified(curtime)
     except Exception:
         log.exception('Error in downgrade_worker():')
+    # Then do a scan/relink:
+    try:
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        stores = ms.get_local_stores()
+        for fs in stores:
+            ms.scan(fs)
+        for fs in stores:
+            ms.relink(fs)
+    except Exception:
+        log.exception('Error in downgrade_worker() scan/relink')
 
 
-def scan_relink_worker(env, parentdir, store_id):
+def filestore_worker(env, parentdir, store_id):
     try:
         db = util.get_db(env)
         ms = MetaStore(db)
         fs = FileStore(parentdir, store_id)
         ms.scan(fs)
         ms.relink(fs)
-    except Exception:
-        log.exception('Error in scan_relink_worker():')
-
-
-def verify_worker(env, parentdir, store_id):
-    try:
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        fs = FileStore(parentdir, store_id)
         ms.verify_all(fs)
     except Exception:
-        log.exception('Error in verify_worker():')
+        log.exception('Error in filestore_worker():')
 
 
 def is_file_id(_id):
@@ -512,117 +515,8 @@ def clean_file_id(_id):
     return None
 
 
-Task = namedtuple('Task', 'key process thread')
-
-
-class TaskQueue:
-    __slots__ = ('running', 'task', 'pending')
-
-    def __init__(self):
-        self.running = False
-        self.task = None
-        self.pending = OrderedDict()
-
-    def joiner(self):
-        task = self.task
-        task.process.join()
-        GLib.idle_add(self.on_join, task)
-
-    def on_join(self, task):
-        assert task is self.task
-        assert not task.process.is_alive()
-        task.thread.join()
-        self.task = None
-        log.info('Finished: %r', task.key)
-        self.start_next()
-
-    def start_next(self):
-        if not self.running:
-            return False
-        if self.task is not None:
-            return False
-        if not self.pending:
-            return False
-        (key, value) = self.popitem()
-        log.info('Starting: %r', key)
-        (target, *args) = value
-        process = start_process(target, *args)
-        thread = create_thread(self.joiner)
-        self.task = Task(key, process, thread)
-        self.task.thread.start()
-        return True
-
-    def start(self):
-        assert self.running is False
-        self.running = True
-        self.start_next()
-
-    def append(self, key, target, *args):
-        value = (target,) + args
-        self.pending[key] = value
-        return self.start_next()
-
-    def popitem(self):
-        key = list(self.pending)[0]
-        return (key, self.pending.pop(key))
-
-    def pop(self, key):
-        if self.task is not None and self.task.key == key:
-            log.info('Terminating %r', key)
-            self.task.process.terminate()
-        else:
-            self.pending.pop(key, None)
-
-
-class TaskManager:
-    def __init__(self, env, ssl_config):
-        self.env = env
-        self.ssl_config = ssl_config
-        self.queue1 = TaskQueue()
-        self.queue2 = TaskQueue()
-        self.vigilance = None
-
-    def queue_filestore_tasks(self, fs):
-        args = (self.env, fs.parentdir, fs.id)
-        key = ('scan_relink', fs.parentdir)
-        self.queue1.append(key, scan_relink_worker, *args)
-        key = ('verify', fs.parentdir)
-        self.queue2.append(key, verify_worker, *args)
-
-    def stop_filestore_tasks(self, fs): 
-        self.queue1.pop(('scan_relink', fs.parentdir))
-        self.queue2.pop(('verify', fs.parentdir))
-
-    def requeue_filestore_tasks(self, filestores):
-        for fs in filestores:
-            self.queue_filestore_tasks(fs)
-        self.queue1.append('downgrade', downgrade_worker, self.env)
-
-    def start_tasks(self):
-        self.queue1.append('downgrade', downgrade_worker, self.env)
-        self.queue1.start()
-        self.queue2.start()
-        self.start_vigilance()
-
-    def start_vigilance(self):
-        if self.vigilance is not None:
-            return False
-        log.info('Starting vigilance_worker()...')
-        self.vigilance = start_process(vigilance_worker, self.env, self.ssl_config)
-        return True
-
-    def stop_vigilance(self):
-        if self.vigilance is None:
-            return False
-        log.info('Terminating vigilance_worker()...')
-        self.vigilance.terminate()
-        self.vigilance.join()
-        self.vigilance = None
-        return True
-
-    def restart_vigilance(self):
-        if self.stop_vigilance():
-            self.start_vigilance()
+TaskInfo = namedtuple('TaskInfo', 'target args')
+ActiveTask = namedtuple('ActiveTask', 'key process start_time')
 
 
 class TaskPool:
@@ -633,11 +527,14 @@ class TaskPool:
     we can't easily layer on top.
     """
 
-    def __init__(self):
-        self.waiting = OrderedDict()
-        self.running = {}
+    def __init__(self, *restart_always):
+        self.tasks = {}
+        self.active_tasks = {}
         self.thread = None
         self.queue = queue.Queue()
+        self.restart_always = frozenset(restart_always)
+        self.restart_once = set()
+        self.running = False
 
     def start_reaper(self):
         if self.thread is not None:
@@ -645,7 +542,7 @@ class TaskPool:
         self.thread = start_thread(self.reaper)
         return True
 
-    def shutdown_reaper(self):
+    def stop_reaper(self):
         if self.thread is None:
             return False
         self.queue.put(None)
@@ -663,13 +560,14 @@ class TaskPool:
         """
         running = True
         task_map = {}
-        while running or task_map:  # Shutdown feature mostly for unit testing
+        while running or task_map:  # Shutdown feature is for unit testing
             try:
                 task = self.queue.get(timeout=timeout)
                 if task is None:
                     log.info('reaper thread received shutdown request')
                     running = False
                 else:
+                    assert isinstance(task, ActiveTask)
                     if task.key in task_map:
                         raise ValueError(
                             'key {!r} is already in task_map'.format(task.key)
@@ -693,15 +591,143 @@ class TaskPool:
         GLib.idle_add(self.on_task_completed, task)
 
     def on_task_completed(self, task):
-        pass
+        assert isinstance(task, ActiveTask)
+        expected = self.active_tasks.pop(task.key)
+        assert task is expected
+        task.process.join()  # Make sure process actually terminated
+        log.info('on_task_completed: %r', task.key)
+        if self.running and self.should_restart(task.key):
+            self.queue_task_for_restart(task.key)
+
+    def should_restart(self, key):
+        if key not in self.tasks:
+            return False
+        if key in self.restart_always:
+            return True
+        try:
+            self.restart_once.remove(key)
+            return True
+        except KeyError:
+            return False
+
+    def queue_task_for_restart(self, key):
+        log.info('queue_task_for_restart: %r', key)
+        GLib.timeout_add(5000, self.on_task_restart, key)
+
+    def on_task_restart(self, key):
+        self.start_task(key)
+
+    def add_task(self, key, target, *args):
+        assert callable(target)
+        if key in self.tasks:
+            log.warning('add_task: %r already in tasks', key)
+            return False
+        log.info('add_task: adding %r', key)
+        self.tasks[key] = TaskInfo(target, args)
+        if self.running is True:
+            self.start_task(key)
+        return True
+
+    def remove_task(self, key):
+        try:
+            info = self.tasks.pop(key)
+            log.info('remove_task: removed %r', key)
+            self.stop_task(key)
+            return True
+        except KeyError:
+            return False
 
     def start_task(self, key):
-        (target, *args) = self.waiting.pop(key)
-        process = start_process(target, *args)
-        task = Task(key, process)
-        assert key not in self.running
-        self.running[key] = task
+        if self.running is False:
+            return
+        if key in self.active_tasks:
+            log.warning('start_task: %r already in active_tasks', key)
+            return False
+        info = self.tasks[key]
+        assert isinstance(info, TaskInfo)
+        log.info('start_task: starting %r', key)
+        ts = time.time()
+        process = start_process(info.target, *info.args)
+        task = ActiveTask(key, process, ts)
+        assert key not in self.active_tasks
+        self.active_tasks[key] = task
         self.queue.put(task)
+        return True
+
+    def stop_task(self, key):
+        try:
+            self.active_tasks[key].process.terminate()
+            log.info('stop_task: stopping %r', key)
+            return True
+        except KeyError:
+            log.warning('stop_task: %r not in active_tasks', key)
+            return False
+
+    def restart_task(self, key):
+        if self.running is False:
+            return
+        log.info('restart_task: %r', key)
+        if self.stop_task(key):
+            if key not in self.restart_always:
+                self.restart_once.add(key)
+            return True
+        self.start_task(key)
+        return False
+
+    def start(self):
+        if self.running is True:
+            return False
+        self.running = True
+        self.start_reaper()
+        for key in sorted(self.tasks):  # Sorted to make unit testing easier
+            self.start_task(key)
+        return True
+
+    def stop(self):
+        if self.running is False:
+            return False
+        self.running = False
+        for key in sorted(self.active_tasks):  # Sorted to make unit testing easier
+            self.stop_task(key)
+        return True 
+
+
+def build_fs_key(fs):
+    return ('filestore', fs.parentdir)
+
+
+VIGILANCE = ('vigilance',)
+DOWNGRADE = ('downgrade',)
+
+
+class TaskMaster:
+    def __init__(self, env, ssl_config):
+        self.env = env
+        self.ssl_config = ssl_config
+        self.pool = TaskPool(VIGILANCE)  # vigilance is auto-restarted
+        self.pool.add_task(VIGILANCE, vigilance_worker, env, ssl_config)
+
+    def add_filestore_task(self, fs):
+        key = build_fs_key(fs)
+        self.pool.add_task(key, filestore_worker, self.env, fs.parentdir, fs.id)
+
+    def remove_filestore_task(self, fs):
+        self.pool.remove_task(build_fs_key(fs))
+
+    def restart_filestore_task(self, fs):
+        self.pool.restart_task(build_fs_key(fs))
+
+    def restart_vigilance_task(self):
+        self.pool.restart_task(VIGILANCE)
+
+    def add_downgrade_task(self):
+        self.pool.add_task(DOWNGRADE, downgrade_worker, self.env)
+
+    def restart_downgrade_task(self):
+        self.pool.restart_task(DOWNGRADE)
+
+    def start_tasks(self):
+        self.pool.start()
 
 
 def update_machine(doc, timestamp, stores, peers):
@@ -730,7 +756,7 @@ class Core:
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.peers = {}
-        self.task_manager = TaskManager(env, ssl_config)
+        self.task_master = TaskMaster(env, ssl_config)
         self.ssl_config = ssl_config
         try:
             self.local = self.db.get(LOCAL_ID)
@@ -778,17 +804,27 @@ class Core:
         )
 
     def start_background_tasks(self):
-        self.task_manager.start_tasks()
+        self.task_master.start_tasks()
 
-    def requeue_filestore_tasks(self):
-        self.task_manager.requeue_filestore_tasks(tuple(self.stores))
+    def restart_filestore_tasks(self):
+        log.info('**** restart_filestore_tasks')
+        for fs in self.stores:
+            self.task_master.restart_filestore_task(fs)
+        return True  # So GLib timeout call repeats
+
+    def restart_downgrade_task(self):
+        log.info('**** restart_downgrade_task')
+        self.task_master.restart_downgrade_task()
+        return True  # So GLib timeout call repeats
 
     def restart_vigilance(self):
+        log.info('**** restart_vigilance')
         # FIXME: Core should also restart Vigilance whenever the FileStore
         # connected to a peer change.  We should do this by monitoring the
         # _changes feed for changes to any of the machine docs corresponding to
         # the currently visible local peers.
-        self.task_manager.restart_vigilance()
+        self.task_master.restart_vigilance_task()
+        return True  # So GLib timeout call repeats
 
     def get_auto_format(self):
         return self.local.get('auto_format')
@@ -836,12 +872,12 @@ class Core:
         except Conflict:
             pass
         self.update_machine()
-        self.task_manager.queue_filestore_tasks(fs)
+        self.task_master.add_filestore_task(fs)
         self.restart_vigilance()
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
-        self.task_manager.stop_filestore_tasks(fs)
+        self.task_master.remove_filestore_task(fs)
         self.stores.remove(fs)
         self.update_machine()
         self.restart_vigilance()

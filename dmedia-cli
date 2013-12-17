@@ -118,6 +118,10 @@ class GetEnv(_Method):
     'Get the CouchDB and Dmedia environment info'
 
 
+class Tasks(_Method):
+    'Info about currently running background tasks'
+
+
 class Stores(_Method):
     'Show the currently connected file-stores'
 

@@ -318,85 +318,38 @@ class TestVigilance(CouchCase):
         self.assertEqual(inst.store_to_peer, {})
 
 
-class TestTaskQueue(TestCase):
-    def test_init(self):
-        tq = core.TaskQueue()
-        self.assertIs(tq.running, False)
-        self.assertIsNone(tq.task)
-        self.assertIsInstance(tq.pending, OrderedDict)
-        self.assertEqual(tq.pending, OrderedDict())
+class DummyProcess:
+    def __init__(self):
+        self._calls = []
 
-    def test_append(self):
-        tq = core.TaskQueue()
+    def terminate(self):
+        self._calls.append('terminate')
 
-        tq.append('a', 'aye', 0)
-        self.assertEqual(tq.pending, OrderedDict([
-            ('a', ('aye', 0)),
-        ]))
-        self.assertEqual(list(tq.pending), ['a'])
-
-        tq.append('b', 'bee', 0)
-        self.assertEqual(tq.pending, OrderedDict([
-            ('a', ('aye', 0)),
-            ('b', ('bee', 0)),
-        ]))
-        self.assertEqual(list(tq.pending), ['a', 'b'])
-
-        tq.append('c', 'see', 0)
-        self.assertEqual(tq.pending, OrderedDict([
-            ('a', ('aye', 0)),
-            ('b', ('bee', 0)),
-            ('c', ('see', 0)),
-        ]))
-        self.assertEqual(list(tq.pending), ['a', 'b', 'c'])
-
-        tq.append('a', 'aye', 1)
-        self.assertEqual(tq.pending, OrderedDict([
-            ('a', ('aye', 1)),
-            ('b', ('bee', 0)),
-            ('c', ('see', 0)),
-        ]))
-        self.assertEqual(list(tq.pending), ['a', 'b', 'c'])
-
-        tq.append('d', 'dee', 0)
-        self.assertEqual(tq.pending, OrderedDict([
-            ('a', ('aye', 1)),
-            ('b', ('bee', 0)),
-            ('c', ('see', 0)),
-            ('d', ('dee', 0)),
-        ]))
-        self.assertEqual(list(tq.pending), ['a', 'b', 'c', 'd'])
-
-        tq.append('c', 'see', 1)
-        self.assertEqual(tq.pending, OrderedDict([
-            ('a', ('aye', 1)),
-            ('b', ('bee', 0)),
-            ('c', ('see', 1)),
-            ('d', ('dee', 0)),
-        ]))
-        self.assertEqual(list(tq.pending), ['a', 'b', 'c', 'd'])
-
-        tq.append('a', 'aye', 2)
-        self.assertEqual(tq.pending, OrderedDict([
-            ('a', ('aye', 2)),
-            ('b', ('bee', 0)),
-            ('c', ('see', 1)),
-            ('d', ('dee', 0)),
-        ]))
-        self.assertEqual(list(tq.pending), ['a', 'b', 'c', 'd'])
-        self.assertEqual(tq.popitem(), ('a', ('aye', 2)))
+    def join(self):
+        self._calls.append('join')
 
 
 class TestTaskPool(TestCase):
     def test_init(self):
         pool = core.TaskPool()
-        self.assertIsInstance(pool.waiting, OrderedDict)
-        self.assertEqual(pool.waiting, {})
-        self.assertEqual(pool.running, {})
+        self.assertEqual(pool.tasks, {})
+        self.assertEqual(pool.active_tasks, {})
         self.assertIsNone(pool.thread)
         self.assertIsInstance(pool.queue, queue.Queue)
+        self.assertIsInstance(pool.restart_always, frozenset)
+        self.assertEqual(pool.restart_always, frozenset())
+        self.assertIsInstance(pool.restart_once, set)
+        self.assertEqual(pool.restart_always, set())
+        self.assertIs(pool.running, False)
 
-    def test_start_shutdown_reaper(self):
+        key1 = random_id()
+        pool = core.TaskPool(key1)
+        self.assertEqual(pool.restart_always, {key1})
+        key2 = random_id()
+        pool = core.TaskPool(key1, key2)
+        self.assertEqual(pool.restart_always, {key1, key2})
+
+    def test_start_stop_reaper(self):
         pool = core.TaskPool()
 
         self.assertIs(pool.start_reaper(), True)
@@ -404,9 +357,9 @@ class TestTaskPool(TestCase):
         self.assertIs(pool.start_reaper(), False)
         self.assertIsInstance(pool.thread, threading.Thread)
 
-        self.assertIs(pool.shutdown_reaper(), True)
+        self.assertIs(pool.stop_reaper(), True)
         self.assertIsNone(pool.thread)
-        self.assertIs(pool.shutdown_reaper(), False)
+        self.assertIs(pool.stop_reaper(), False)
         self.assertIsNone(pool.thread)
 
     def test_reaper(self):
@@ -430,8 +383,8 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool._forwards, [])
 
         # Duplicate task.key:
-        task1 = core.Task('foo', start_process(dummy_worker, 15), None)
-        task2 = core.Task('foo', start_process(dummy_worker, 15), None)
+        task1 = core.ActiveTask('foo', start_process(dummy_worker, 15), None)
+        task2 = core.ActiveTask('foo', start_process(dummy_worker, 15), None)
         for task in (task1, task2):
             pool.queue.put(task)
         with self.assertRaises(ValueError) as cm:
@@ -444,8 +397,8 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool._forwards, [])
 
         # three items in queue: [task1, task2, None]
-        task1 = core.Task('foo', start_process(dummy_worker, 5), None)
-        task2 = core.Task('bar', start_process(dummy_worker, 3), None)
+        task1 = core.ActiveTask('foo', start_process(dummy_worker, 5), None)
+        task2 = core.ActiveTask('bar', start_process(dummy_worker, 3), None)
         for task in (task1, task2, None):
             pool.queue.put(task)
         self.assertIsNone(pool.reaper(timeout=1))
@@ -454,6 +407,440 @@ class TestTaskPool(TestCase):
         for task in (task1, task2):
             self.assertEqual(task.process.exitcode, 0)
             self.assertFalse(task.process.is_alive())
+
+    def test_on_task_completed(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self, *restart_always):
+                super().__init__(*restart_always)
+                self._calls = []
+
+            def should_restart(self, key):
+                self._calls.append(('should_restart', key))
+                return super().should_restart(key)
+
+            def queue_task_for_restart(self, key):
+                self._calls.append(('queue_task_for_restart', key))
+
+        key1 = random_id()
+        key2 = random_id()
+        key3 = random_id()
+        process1 = DummyProcess()
+        process2 = DummyProcess()
+        process3 = DummyProcess()
+        task1 = core.ActiveTask(key1, process1, None)
+        task2 = core.ActiveTask(key2, process2, None)
+        task3 = core.ActiveTask(key3, process3, None)
+        pool = MockedTaskPool(key1)
+        self.assertEqual(pool.restart_always, {key1})
+        pool.active_tasks[key1] = task1
+        pool.active_tasks[key2] = task2
+        pool.active_tasks[key3] = task3
+        pool.tasks[key1] = 'foo'
+        pool.tasks[key2] = 'bar'
+        pool.tasks[key3] = 'baz'
+        pool.restart_once.update([key2, key3])
+
+        # When TaskPool.running is False, should_restart() will not be called:
+        self.assertIsNone(pool.on_task_completed(task1))
+        self.assertEqual(pool.active_tasks, {key2: task2, key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, [])
+        self.assertEqual(process3._calls, [])
+
+        self.assertIsNone(pool.on_task_completed(task2))
+        self.assertEqual(pool.active_tasks, {key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, [])
+
+        self.assertIsNone(pool.on_task_completed(task3))
+        self.assertEqual(pool.active_tasks, {})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, ['join'])
+
+        self.assertEqual(pool.restart_once, {key2, key3})
+        self.assertEqual(pool._calls, [])
+
+        # Now test when TaskPool.running is True:
+        for process in [process1, process2, process3]:
+            process._calls.clear()
+        pool.active_tasks[key1] = task1
+        pool.active_tasks[key2] = task2
+        pool.active_tasks[key3] = task3
+        pool.running = True
+
+        self.assertIsNone(pool.on_task_completed(task1))
+        self.assertEqual(pool.active_tasks, {key2: task2, key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, [])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key2, key3})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key1),
+            ('queue_task_for_restart', key1),
+        ])
+
+        pool._calls.clear()
+        self.assertIsNone(pool.on_task_completed(task2))
+        self.assertEqual(pool.active_tasks, {key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key3})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key2),
+            ('queue_task_for_restart', key2),
+        ])
+
+        pool._calls.clear()
+        self.assertIsNone(pool.on_task_completed(task3))
+        self.assertEqual(pool.active_tasks, {})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, ['join'])
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('should_restart', key3),
+            ('queue_task_for_restart', key3),
+        ])
+
+        # Finally, test when TaskPool.should_restart() returns False:
+        for process in [process1, process2, process3]:
+            process._calls.clear()
+        pool.active_tasks[key1] = task1
+        pool.active_tasks[key2] = task2
+        pool.active_tasks[key3] = task3
+        pool._calls.clear()
+        # key1: in restart_always, but not in tasks
+        # key2: in restart_once, but not in tasks
+        # key3: in tasks, but not in restart_always nor restart_once
+        del pool.tasks[key1]
+        del pool.tasks[key2]
+        pool.restart_once.add(key2)
+        self.assertEqual(pool.tasks, {key3: 'baz'})
+
+        self.assertIsNone(pool.on_task_completed(task1))
+        self.assertEqual(pool.active_tasks, {key2: task2, key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, [])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key2})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key1),
+        ])
+
+        pool._calls.clear()
+        self.assertIsNone(pool.on_task_completed(task2))
+        self.assertEqual(pool.active_tasks, {key3: task3})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, [])
+        self.assertEqual(pool.restart_once, {key2})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key2),
+        ])
+
+        pool._calls.clear()
+        self.assertIsNone(pool.on_task_completed(task3))
+        self.assertEqual(pool.active_tasks, {})
+        self.assertEqual(process1._calls, ['join'])
+        self.assertEqual(process2._calls, ['join'])
+        self.assertEqual(process3._calls, ['join'])
+        self.assertEqual(pool.restart_once, {key2})
+        self.assertEqual(pool._calls, [
+            ('should_restart', key3),
+        ])
+
+    def test_should_restart(self):
+        key1 = random_id()
+        key2 = random_id()
+        key3 = random_id()
+        pool = core.TaskPool(key1)
+
+        # Test when all keys are in tasks:
+        pool.tasks.update({
+            key1: 'foo',
+            key2: 'bar',
+            key3: 'baz',
+        })
+        self.assertIs(pool.should_restart(key1), True)
+        self.assertIs(pool.should_restart(key2), False)
+        pool.restart_once.add(key3)
+        self.assertIs(pool.should_restart(key2), False)
+        self.assertEqual(pool.restart_once, {key3})
+        pool.restart_once.add(key2)
+        self.assertIs(pool.should_restart(key2), True)
+        self.assertEqual(pool.restart_once, {key3})
+        self.assertIs(pool.should_restart(key3), True)
+        self.assertEqual(pool.restart_once, set())
+        self.assertIs(pool.should_restart(key3), False)
+        self.assertEqual(pool.restart_once, set())
+        self.assertIs(pool.should_restart(key1), True)
+
+        # Test when tasks is empty:
+        pool.tasks.clear()
+        pool.restart_once.update([key2, key3])
+        self.assertIs(pool.should_restart(key1), False)
+        self.assertIs(pool.should_restart(key2), False)
+        self.assertIs(pool.should_restart(key3), False)
+        self.assertEqual(pool.restart_once, {key2, key3})
+
+    def test_add_task(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self):
+                super().__init__()
+                self._calls = []
+
+            def start_task(self, key):
+                self._calls.append(key)
+
+        pool = MockedTaskPool()
+
+        def worker1(arg1, arg2):
+            pass
+
+        def worker2(arg1):
+            pass
+
+        # Test when running is False:
+        key1 = random_id()
+        self.assertIs(pool.add_task(key1, worker1, 'foo', 'bar'), True)
+        self.assertEqual(set(pool.tasks), {key1})
+        info1 = pool.tasks[key1]
+        self.assertIsInstance(info1, core.TaskInfo)
+        self.assertIs(info1.target, worker1)
+        self.assertEqual(info1.args, ('foo', 'bar'))
+        self.assertIs(pool.add_task(key1, worker1, 'foo', 'bar'), False)
+        self.assertEqual(pool.tasks, {key1: info1})
+        self.assertEqual(pool._calls, [])
+
+        # Test when running is True:
+        pool.running = True
+        key2 = random_id()
+        self.assertIs(pool.add_task(key2, worker2, 'baz'), True)
+        self.assertEqual(set(pool.tasks), {key1, key2})
+        info2 = pool.tasks[key2]
+        self.assertIsInstance(info2, core.TaskInfo)
+        self.assertIs(info2.target, worker2)
+        self.assertEqual(info2.args, ('baz',))
+        self.assertIs(pool.add_task(key2, worker2, 'baz'), False)
+        self.assertEqual(pool.tasks, {key1: info1, key2: info2})
+        self.assertEqual(pool._calls, [key2])
+
+    def test_remove_task(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self):
+                super().__init__()
+                self._calls = []
+
+            def stop_task(self, key):
+                self._calls.append(key)
+
+        pool = MockedTaskPool()
+        key = random_id()
+
+        # Key missing in tasks, should *not* call TaskPool.stop_task():
+        self.assertIs(pool.remove_task(key), False)
+        self.assertEqual(pool.tasks, {})
+        self.assertEqual(pool.active_tasks, {})
+        self.assertEqual(pool._calls, [])
+
+        # Key in tasks, should call TaskPool.stop_task():
+        pool.tasks[key] = 'foo'
+        self.assertIs(pool.remove_task(key), True)
+        self.assertEqual(pool.tasks, {})
+        self.assertEqual(pool.active_tasks, {})
+        self.assertEqual(pool._calls, [key])
+
+    def test_start_task(self):
+        pool = core.TaskPool()
+
+        def worker(arg1, arg2):
+            pass
+
+        key = random_id()
+        info = core.TaskInfo(worker, ('foo', 'bar'))
+        pool.tasks[key] = info
+        pool.running = True
+
+        # Key in active_tasks:
+        pool.active_tasks[key] = 'whatever'
+        self.assertIs(pool.start_task(key), False)
+        self.assertEqual(pool.tasks, {key: info})
+        self.assertEqual(pool.active_tasks, {key: 'whatever'})
+        self.assertTrue(pool.queue.empty())
+
+        # Key *not* in active_tasks:
+        pool.active_tasks.clear()
+        self.assertIs(pool.start_task(key), True)
+        self.assertEqual(pool.tasks, {key: info})
+        self.assertEqual(set(pool.active_tasks), {key})
+        result = pool.active_tasks[key]
+        self.assertIsInstance(result, core.ActiveTask)
+        self.assertEqual(result.key, key)
+        self.assertIsInstance(result.process, multiprocessing.Process)
+        in_q = pool.queue.get(timeout=1)
+        self.assertIs(in_q, result)
+        self.assertTrue(pool.queue.empty())
+
+        # But should not start when TaskPool.running is False:
+        pool.active_tasks.clear()
+        pool.running = False
+        self.assertIsNone(pool.start_task(key))
+        self.assertEqual(pool.tasks, {key: info})
+        self.assertEqual(pool.active_tasks, {})
+        self.assertTrue(pool.queue.empty())
+
+    def test_stop_task(self):
+        pool = core.TaskPool()
+        key = random_id()
+
+        # Key *not* in active_tasks:
+        self.assertIs(pool.stop_task(key), False)
+        self.assertEqual(pool.active_tasks, {})
+
+        # Key in active_tasks:
+        process = DummyProcess()
+        task = core.ActiveTask(key, process, None)
+        pool.active_tasks[key] = task
+        self.assertIs(pool.stop_task(key), True)
+        self.assertEqual(pool.active_tasks, {key: task})
+        self.assertIs(pool.active_tasks[key], task)
+        self.assertEqual(process._calls, ['terminate'])
+
+    def test_restart_task(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self, stop_result, *restart_always):
+                super().__init__(*restart_always)
+                self._calls = []
+                self._stop_result = stop_result
+
+            def stop_task(self, key):
+                self._calls.append(('stop_task', key))
+                return self._stop_result
+
+            def start_task(self, key):
+                self._calls.append(('start_task', key))
+
+        key1 = random_id()
+        key2 = random_id()
+
+        # Should return None when running is False:
+        pool = MockedTaskPool(True, key1)
+        self.assertIs(pool._stop_result, True)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIsNone(pool.restart_task(key1))
+        self.assertIsNone(pool.restart_task(key2))
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [])
+
+        # First test when stop_task() returns True:
+        pool = MockedTaskPool(True, key1)
+        pool.running = True
+        self.assertIs(pool._stop_result, True)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIs(pool.restart_task(key1), True)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+        ])
+        self.assertIs(pool.restart_task(key2), True)
+        self.assertEqual(pool.restart_once, {key2})
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+            ('stop_task', key2),
+        ])
+
+        # Now test when stop_task() returns False:
+        pool = MockedTaskPool(False, key1)
+        pool.running = True
+        self.assertIs(pool._stop_result, False)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIs(pool.restart_task(key1), False)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+            ('start_task', key1),
+        ])
+        self.assertIs(pool.restart_task(key2), False)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+            ('start_task', key1),
+            ('stop_task', key2),
+            ('start_task', key2),
+        ])
+
+    def test_start(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self):
+                super().__init__()
+                self._calls = []
+                
+            def start_reaper(self):
+                self._calls.append('start_reaper')
+
+            def start_task(self, key):
+                self._calls.append(key)
+
+        pool = MockedTaskPool()
+        key1 = random_id()
+        key2 = random_id()
+        key3 = random_id()
+        pool.tasks.update({
+            key1: 'foo',
+            key2: 'bar',
+            key3: 'baz',
+        })
+
+        # Make sure no action is taken when running is True:
+        pool.running = True
+        self.assertIs(pool.start(), False)
+        self.assertEqual(pool._calls, [])
+        self.assertEqual(pool.tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
+        self.assertIs(pool.running, True)
+
+        # Now test when running is False:
+        pool.running = False
+        self.assertIs(pool.start(), True)
+        self.assertEqual(pool._calls,
+            ['start_reaper'] + sorted([key1, key2, key3])
+        )
+        self.assertEqual(pool.tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
+        self.assertIs(pool.running, True)
+
+    def test_stop(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self):
+                super().__init__()
+                self._calls = []
+
+            def stop_task(self, key):
+                self._calls.append(key)
+
+        pool = MockedTaskPool()
+        key1 = random_id()
+        key2 = random_id()
+        key3 = random_id()
+        pool.active_tasks.update({
+            key1: 'foo',
+            key2: 'bar',
+            key3: 'baz',
+        })
+
+        # Make sure no action is taken when running is False:
+        self.assertIs(pool.stop(), False)
+        self.assertEqual(pool._calls, [])
+        self.assertEqual(pool.active_tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
+        self.assertIs(pool.running, False)
+
+        # Now test when running is True:
+        pool.running = True
+        self.assertIs(pool.stop(), True)
+        self.assertEqual(pool._calls, sorted([key1, key2, key3]))
+        self.assertEqual(pool.active_tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
+        self.assertIs(pool.running, False)
 
 
 class TestCore(CouchTestCase):
@@ -488,7 +875,7 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.peers, {})
-        self.assertIsInstance(inst.task_manager, core.TaskManager)
+        self.assertIsInstance(inst.task_master, core.TaskMaster)
         self.assertEqual(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',
@@ -531,7 +918,7 @@ class TestCore(CouchTestCase):
         self.assertIs(inst.ms.db, inst.db)
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertEqual(inst.peers, {})
-        self.assertIsInstance(inst.task_manager, core.TaskManager)
+        self.assertIsInstance(inst.task_master, core.TaskMaster)
         self.assertIs(inst.ssl_config, ssl_config)
         self.assertEqual(inst.db.get('_local/dmedia'), {
             '_id': '_local/dmedia',

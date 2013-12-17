@@ -74,6 +74,9 @@ Needed Features
     is using a removable drive between two computers, one running an OS that
     can't read ext4, which then prompts the user to format it
 
+  * Note to self: `dmedia.httpd` seems to have a memory leak, possibly due to a
+    leak in `ssl` module or `socket.socket` instances not being freed
+
 
 Integration Test Harness
 ------------------------

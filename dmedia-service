@@ -74,6 +74,7 @@ devices = Devices()
 
 
 class Service(dbus.service.Object):
+    core = None
     peer = None
     ui = None
     thread = None
@@ -170,49 +171,49 @@ class Service(dbus.service.Object):
         VolumeMonitor.connect('mount-removed', self.on_mount_removed)
         for mount in VolumeMonitor.get_mounts():
             self.on_mount_added(VolumeMonitor, mount)
-        GLib.timeout_add(500, self.on_idle2)
+        GLib.timeout_add(750, self.on_idle2)
 
     def on_idle2(self):
         """
-        Init project DB views, start peering browser, SnapshotAll().
+        Init project DB views, start peering browser, start HTTPD.
         """
         log.info('---- idle2 at time %.3f ----', start_delta())
         start_thread(self.core.init_project_views)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
-        GLib.timeout_add(750, self.on_idle3)
-        #self.SnapshotAll()  # Calls on_idle3() below when finished
+        (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
+        self.httpd_port = env['port']
+        GLib.timeout_add(1000, self.on_idle3)
 
     def on_idle3(self):
         """
-        Start HTTPD, Avahi, replication.
+        Publish "_dmedia._tcp" over Avahi, start replication.
         """
         log.info('---- idle3 at time %.3f ----', start_delta())
-        (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
-        port = env['port']
-        self.avahi = Avahi(self.core, port)
+        self.avahi = Avahi(self.core, self.httpd_port)
         self.avahi.run()
-        GLib.timeout_add(60 * 1000, self.on_idle4)
-        GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(30 * 1000, self.on_idle4)
 
     def on_idle4(self):
         """
-        Start the background filestore checking tasks.
+        Start filestore checking tasks and the vigilance task.
         """
         log.info('---- idle4 at time %.3f ----', start_delta())
         self.core.start_background_tasks()
-        GLib.timeout_add(17 * 60 * 1000, self.on_requeue_filestore_tasks)
-        GLib.timeout_add(29 * 60 * 1000, self.on_restart_vigilance)
+        GLib.timeout_add(45 * 1000, self.on_idle5)
 
-    def on_requeue_filestore_tasks(self):
-        log.info('** on_requeue_filestore_tasks()')
-        self.core.requeue_filestore_tasks()
-        return True
+    def on_idle5(self):
+        """
+        Start downgrade and reclaim tasks.
 
-    def on_restart_vigilance(self):
-        log.info('** on_restart_vigilance()')
-        self.core.restart_vigilance()
-        return True
+        3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67
+        """
+        log.info('---- idle5 at time %.3f ----', start_delta())
+        self.core.task_master.add_downgrade_task()
+        GLib.timeout_add(60 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(11 * 60 * 1000, self.core.restart_downgrade_task)
+        GLib.timeout_add(29 * 60 * 1000, self.core.restart_filestore_tasks)
+        GLib.timeout_add(37 * 60 * 1000, self.core.restart_vigilance)
 
     def on_mount_added(self, vm, mount):
         parentdir = mount.get_root().get_path()
@@ -389,6 +390,37 @@ class Service(dbus.service.Object):
         """
         log.info('Service.GetEnv()')
         return self.env_s
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def Tasks(self):
+        """
+        Info about currently running background tasks.
+        """
+        if self.core is None:
+            return ''
+        lines = [
+            ('PID', 'AGE', 'TASK')
+        ]
+        curtime = time.time()
+        for key in sorted(self.core.task_master.pool.active_tasks):
+            task = self.core.task_master.pool.active_tasks[key]
+            pid = str(task.process.pid)
+            delta = max(0, curtime - task.start_time)
+            uptime = minsec(int(delta))
+            desc = str(key)
+            cols = [pid, uptime, desc]
+            lines.append(cols)
+        widths = tuple(
+            max(len(line[i]) for line in lines)
+            for i in range(3)
+        )
+        lines.insert(1, tuple(
+            ('=') * w for w in widths
+        ))
+        return '\n'.join(
+            '  '.join(col.ljust(widths[i]) for (i, col) in enumerate(line))
+            for line in lines
+        )
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Stores(self):
