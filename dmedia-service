@@ -191,7 +191,7 @@ class Service(dbus.service.Object):
         log.info('---- idle3 at time %.3f ----', start_delta())
         self.avahi = Avahi(self.core, self.httpd_port)
         self.avahi.run()
-        GLib.timeout_add(60 * 1000, self.on_idle4)
+        GLib.timeout_add(30 * 1000, self.on_idle4)
         GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
 
     def on_idle4(self):

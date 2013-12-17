@@ -677,13 +677,15 @@ class TaskPool:
 def build_fs_key(fs):
     return ('filestore', fs.parentdir)
 
+VIGILANCE = ('vigilance',)
+
 
 class TaskManager:
     def __init__(self, env, ssl_config):
         self.env = env
         self.ssl_config = ssl_config
         self.pool = TaskPool('vigilance')  # vigilance is auto-restarted
-        self.pool.add_task('vigilance', vigilance_worker, env, ssl_config)
+        self.pool.add_task(VIGILANCE, vigilance_worker, env, ssl_config)
 
     def add_filestore_task(self, fs):
         key = build_fs_key(fs)
@@ -696,8 +698,7 @@ class TaskManager:
         self.pool.restart_task(build_fs_key(fs))
 
     def restart_vigilance(self):
-        
-        self.pool.restart_task('vigilance')
+        self.pool.restart_task(VIGILANCE)
 
     def start_tasks(self):
         self.pool.start()
