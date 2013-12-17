@@ -791,7 +791,7 @@ class Core:
     def start_background_tasks(self):
         self.task_master.start_tasks()
 
-    def requeue_filestore_tasks(self):
+    def restart_filestore_tasks(self):
         for fs in self.stores:
             self.task_master.restart_filestore_task(fs)
         self.task_master.restart_downgrade_task()

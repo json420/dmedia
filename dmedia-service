@@ -200,12 +200,12 @@ class Service(dbus.service.Object):
         """
         log.info('---- idle4 at time %.3f ----', start_delta())
         self.core.start_background_tasks()
-        GLib.timeout_add(2 * 60 * 1000, self.on_requeue_filestore_tasks)
+        GLib.timeout_add(2 * 60 * 1000, self.on_restart_filestore_tasks)
         GLib.timeout_add(3 * 60 * 1000, self.on_restart_vigilance)
 
-    def on_requeue_filestore_tasks(self):
-        log.info('** on_requeue_filestore_tasks()')
-        self.core.requeue_filestore_tasks()
+    def on_restart_filestore_tasks(self):
+        log.info('** on_restart_filestore_tasks()')
+        self.core.restart_filestore_tasks()
         return True
 
     def on_restart_vigilance(self):
