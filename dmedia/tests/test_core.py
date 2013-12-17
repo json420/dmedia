@@ -716,8 +716,18 @@ class TestTaskPool(TestCase):
         key1 = random_id()
         key2 = random_id()
 
+        # Should return None when running is False:
+        pool = MockedTaskPool(True, key1)
+        self.assertIs(pool._stop_result, True)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIsNone(pool.restart_task(key1))
+        self.assertIsNone(pool.restart_task(key2))
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [])
+
         # First test when stop_task() returns True:
         pool = MockedTaskPool(True, key1)
+        pool.running = True
         self.assertIs(pool._stop_result, True)
         self.assertEqual(pool.restart_always, {key1})
         self.assertIs(pool.restart_task(key1), True)
@@ -734,6 +744,7 @@ class TestTaskPool(TestCase):
 
         # Now test when stop_task() returns False:
         pool = MockedTaskPool(False, key1)
+        pool.running = True
         self.assertIs(pool._stop_result, False)
         self.assertEqual(pool.restart_always, {key1})
         self.assertIs(pool.restart_task(key1), False)

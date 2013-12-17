@@ -641,6 +641,8 @@ class TaskPool:
             return False
 
     def restart_task(self, key):
+        if not self.running:
+            return
         if self.stop_task(key):
             if key not in self.restart_always:
                 self.restart_once.add(key)
@@ -674,7 +676,8 @@ class TaskManager:
     def __init__(self, env, ssl_config):
         self.env = env
         self.ssl_config = ssl_config
-        self.pool = TaskPool('vigilance')  # vigilance is auto-restarted 
+        self.pool = TaskPool('vigilance')  # vigilance is auto-restarted
+        self.pool.add_task('vigilance', vigilance_worker, env, ssl_config)
 
     def add_filestore_task(self, fs):
         key = build_fs_key(fs)
@@ -684,19 +687,14 @@ class TaskManager:
         self.pool.remove_task(build_fs_key(fs))
 
     def restart_filestore_task(self, filestores):
-        self.pool.remove_task(build_fs_key(fs))
+        self.pool.restart_task(build_fs_key(fs))
+
+    def restart_vigilance(self):
+        
+        self.pool.restart_task('vigilance')
 
     def start_tasks(self):
         self.pool.start()
-
-    def start_vigilance(self):
-        pass
-
-    def stop_vigilance(self):
-        pass
-
-    def restart_vigilance(self):
-        pass
 
 
 def update_machine(doc, timestamp, stores, peers):
