@@ -585,8 +585,7 @@ class TaskPool:
         task.process.join()  # Make sure process actually terminated
         log.info('task completed: %r', task.key)
         if self.running and self.should_restart(task.key):
-            log.info('TaskPool.on_task_complete: restarting %r', task.key)
-            self.start_task(task.key)
+            self.queue_task_for_restart(task.key)
 
     def should_restart(self, key):
         if key not in self.tasks:
@@ -598,6 +597,13 @@ class TaskPool:
             return True
         except KeyError:
             return False
+
+    def queue_task_for_restart(self, key):
+        log.info('TaskPool: queuing for restart: %r', task.key)
+        GLib.timeout_add(5000, self.on_task_restart, key)
+
+    def on_task_restart(self, key):
+        self.start_task(key)
 
     def add_task(self, key, target, *args):
         log.info('TaskPool.add_task: %r', key)

@@ -418,8 +418,8 @@ class TestTaskPool(TestCase):
                 self._calls.append(('should_restart', key))
                 return super().should_restart(key)
 
-            def start_task(self, key):
-                self._calls.append(('start_task', key))
+            def queue_task_for_restart(self, key):
+                self._calls.append(('queue_task_for_restart', key))
 
         key1 = random_id()
         key2 = random_id()
@@ -478,7 +478,7 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.restart_once, {key2, key3})
         self.assertEqual(pool._calls, [
             ('should_restart', key1),
-            ('start_task', key1),
+            ('queue_task_for_restart', key1),
         ])
 
         pool._calls.clear()
@@ -490,7 +490,7 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.restart_once, {key3})
         self.assertEqual(pool._calls, [
             ('should_restart', key2),
-            ('start_task', key2),
+            ('queue_task_for_restart', key2),
         ])
 
         pool._calls.clear()
@@ -502,7 +502,7 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.restart_once, set())
         self.assertEqual(pool._calls, [
             ('should_restart', key3),
-            ('start_task', key3),
+            ('queue_task_for_restart', key3),
         ])
 
         # Finally, test when TaskPool.should_restart() returns False:
