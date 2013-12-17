@@ -398,11 +398,29 @@ class Service(dbus.service.Object):
         """
         if self.core is None:
             return ''
-        lines = []
+        lines = [
+            ('PID', 'AGE', 'TASK')
+        ]
+        curtime = time.time()
         for key in sorted(self.core.task_master.pool.active_tasks):
             task = self.core.task_master.pool.active_tasks[key]
-            lines.append('{}: {}'.format(task.process.pid, key))
-        return '\n'.join(lines)
+            pid = str(task.process.pid)
+            delta = max(0, curtime - task.start_time)
+            uptime = minsec(int(delta))
+            desc = str(key)
+            cols = [pid, uptime, desc]
+            lines.append(cols)
+        widths = tuple(
+            max(len(line[i]) for line in lines)
+            for i in range(3)
+        )
+        lines.insert(1, tuple(
+            ('=') * w for w in widths
+        ))
+        return '\n'.join(
+            '  '.join(col.ljust(widths[i]) for (i, col) in enumerate(line))
+            for line in lines
+        )
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Stores(self):

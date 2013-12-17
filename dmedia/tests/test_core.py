@@ -383,8 +383,8 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool._forwards, [])
 
         # Duplicate task.key:
-        task1 = core.ActiveTask('foo', start_process(dummy_worker, 15))
-        task2 = core.ActiveTask('foo', start_process(dummy_worker, 15))
+        task1 = core.ActiveTask('foo', start_process(dummy_worker, 15), None)
+        task2 = core.ActiveTask('foo', start_process(dummy_worker, 15), None)
         for task in (task1, task2):
             pool.queue.put(task)
         with self.assertRaises(ValueError) as cm:
@@ -397,8 +397,8 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool._forwards, [])
 
         # three items in queue: [task1, task2, None]
-        task1 = core.ActiveTask('foo', start_process(dummy_worker, 5))
-        task2 = core.ActiveTask('bar', start_process(dummy_worker, 3))
+        task1 = core.ActiveTask('foo', start_process(dummy_worker, 5), None)
+        task2 = core.ActiveTask('bar', start_process(dummy_worker, 3), None)
         for task in (task1, task2, None):
             pool.queue.put(task)
         self.assertIsNone(pool.reaper(timeout=1))
@@ -427,9 +427,9 @@ class TestTaskPool(TestCase):
         process1 = DummyProcess()
         process2 = DummyProcess()
         process3 = DummyProcess()
-        task1 = core.ActiveTask(key1, process1)
-        task2 = core.ActiveTask(key2, process2)
-        task3 = core.ActiveTask(key3, process3)
+        task1 = core.ActiveTask(key1, process1, None)
+        task2 = core.ActiveTask(key2, process2, None)
+        task3 = core.ActiveTask(key3, process3, None)
         pool = MockedTaskPool(key1)
         self.assertEqual(pool.restart_always, {key1})
         pool.active_tasks[key1] = task1
@@ -702,7 +702,7 @@ class TestTaskPool(TestCase):
 
         # Key in active_tasks:
         process = DummyProcess()
-        task = core.ActiveTask(key, process)
+        task = core.ActiveTask(key, process, None)
         pool.active_tasks[key] = task
         self.assertIs(pool.stop_task(key), True)
         self.assertEqual(pool.active_tasks, {key: task})

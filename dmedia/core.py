@@ -516,7 +516,7 @@ def clean_file_id(_id):
 
 
 TaskInfo = namedtuple('TaskInfo', 'target args')
-ActiveTask = namedtuple('ActiveTask', 'key process')
+ActiveTask = namedtuple('ActiveTask', 'key process start_time')
 
 
 class TaskPool:
@@ -646,8 +646,9 @@ class TaskPool:
         info = self.tasks[key]
         assert isinstance(info, TaskInfo)
         log.info('start_task: starting %r', key)
+        ts = time.time()
         process = start_process(info.target, *info.args)
-        task = ActiveTask(key, process)
+        task = ActiveTask(key, process, ts)
         assert key not in self.active_tasks
         self.active_tasks[key] = task
         self.queue.put(task)
