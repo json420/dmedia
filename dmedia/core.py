@@ -599,7 +599,7 @@ class TaskPool:
             return False
 
     def queue_task_for_restart(self, key):
-        log.info('TaskPool: queuing for restart: %r', task.key)
+        log.info('TaskPool: queuing for restart: %r', key)
         GLib.timeout_add(5000, self.on_task_restart, key)
 
     def on_task_restart(self, key):
@@ -679,6 +679,7 @@ class TaskPool:
 def build_fs_key(fs):
     return ('filestore', fs.parentdir)
 
+
 VIGILANCE = ('vigilance',)
 
 
@@ -686,7 +687,7 @@ class TaskManager:
     def __init__(self, env, ssl_config):
         self.env = env
         self.ssl_config = ssl_config
-        self.pool = TaskPool('vigilance')  # vigilance is auto-restarted
+        self.pool = TaskPool(VIGILANCE)  # vigilance is auto-restarted
         self.pool.add_task(VIGILANCE, vigilance_worker, env, ssl_config)
 
     def add_filestore_task(self, fs):
