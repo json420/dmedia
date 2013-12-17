@@ -699,6 +699,58 @@ class TestTaskPool(TestCase):
         self.assertIs(pool.active_tasks[key], task)
         self.assertEqual(process._calls, ['terminate'])
 
+    def test_restart_task(self):
+        class MockedTaskPool(core.TaskPool):
+            def __init__(self, stop_result, *restart_always):
+                super().__init__(*restart_always)
+                self._calls = []
+                self._stop_result = stop_result
+
+            def stop_task(self, key):
+                self._calls.append(('stop_task', key))
+                return self._stop_result
+
+            def start_task(self, key):
+                self._calls.append(('start_task', key))
+
+        key1 = random_id()
+        key2 = random_id()
+
+        # First test when stop_task() returns True:
+        pool = MockedTaskPool(True, key1)
+        self.assertIs(pool._stop_result, True)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIs(pool.restart_task(key1), True)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+        ])
+        self.assertIs(pool.restart_task(key2), True)
+        self.assertEqual(pool.restart_once, {key2})
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+            ('stop_task', key2),
+        ])
+
+        # Now test when stop_task() returns False:
+        pool = MockedTaskPool(False, key1)
+        self.assertIs(pool._stop_result, False)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIs(pool.restart_task(key1), False)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+            ('start_task', key1),
+        ])
+        self.assertIs(pool.restart_task(key2), False)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [
+            ('stop_task', key1),
+            ('start_task', key1),
+            ('stop_task', key2),
+            ('start_task', key2),
+        ])
+
     def test_start(self):
         class MockedTaskPool(core.TaskPool):
             def __init__(self):

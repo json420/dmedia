@@ -603,6 +603,7 @@ class TaskPool:
         task.process.join()  # Make sure process actually terminated
         log.info('task completed: %r', task.key)
         if self.running and self.should_restart(task.key):
+            log.info('TaskPool.on_task_complete: restarting %r', task.key)
             self.start_task(task.key)
 
     def should_restart(self, key):
@@ -652,6 +653,7 @@ class TaskPool:
     def stop_task(self, key):
         try:
             self.active_tasks[key].process.terminate()
+            log.info('TaskPool.stop_task: called terminate on %r', key)
             return True
         except KeyError:
             return False
@@ -661,6 +663,7 @@ class TaskPool:
             if key not in self.restart_always:
                 self.restart_once.add(key)
             return True
+        self.start_task(key)
         return False
 
     def start(self):
