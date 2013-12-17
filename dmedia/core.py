@@ -627,12 +627,12 @@ class TaskPool:
     def start_task(self, key):
         if not self.running:
             return
-        log.info('TaskPool.start_task: %r', key)
         if key in self.active_tasks:
-            log.warning('TaskPool.start_task: %r already in active_tasks', key)
+            log.warning('start_task: %r already in active_tasks', key)
             return False
         info = self.tasks[key]
         assert isinstance(info, TaskInfo)
+        log.info('start_task: starting %r', key)
         process = start_process(info.target, *info.args)
         task = ActiveTask(key, process)
         assert key not in self.active_tasks
@@ -697,7 +697,7 @@ class TaskManager:
     def remove_filestore_task(self, fs):
         self.pool.remove_task(build_fs_key(fs))
 
-    def restart_filestore_task(self, filestores):
+    def restart_filestore_task(self, fs):
         self.pool.restart_task(build_fs_key(fs))
 
     def restart_vigilance(self):
