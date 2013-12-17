@@ -594,7 +594,7 @@ class TaskPool:
 
         This is in its own method so it can be mocked for unit tests.
         """
-        GLib.idle_add(self.on_task_completed, task)\
+        GLib.idle_add(self.on_task_completed, task)
 
     def on_task_completed(self, task):
         assert isinstance(task, ActiveTask)
@@ -691,16 +691,15 @@ class TaskManager:
         self.ssl_config = ssl_config
         self.pool = TaskPool('vigilance')  # vigilance is auto-restarted 
 
-    def queue_filestore_tasks(self, fs):
+    def add_filestore_task(self, fs):
         key = build_fs_key(fs)
         self.pool.add_task(key, filestore_worker, self.env, fs.parentdir, fs.id)
 
-    def stop_filestore_tasks(self, fs):
+    def remove_filestore_task(self, fs):
         self.pool.remove_task(build_fs_key(fs))
 
-    def requeue_filestore_tasks(self, filestores):
-        for fs in filestores:
-            self.pool.restart_task(build_fs_key(fs))
+    def restart_filestore_task(self, filestores):
+        self.pool.remove_task(build_fs_key(fs))
 
     def start_tasks(self):
         self.pool.start()
@@ -792,7 +791,8 @@ class Core:
         self.task_manager.start_tasks()
 
     def requeue_filestore_tasks(self):
-        self.task_manager.requeue_filestore_tasks(tuple(self.stores))
+        for fs in self.stores:
+            self.task_manager.restart_filestore_task(fs)
 
     def restart_vigilance(self):
         # FIXME: Core should also restart Vigilance whenever the FileStore
@@ -847,12 +847,12 @@ class Core:
         except Conflict:
             pass
         self.update_machine()
-        self.task_manager.queue_filestore_tasks(fs)
+        self.task_manager.add_filestore_task(fs)
         self.restart_vigilance()
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
-        self.task_manager.stop_filestore_tasks(fs)
+        self.task_manager.remove_filestore_task(fs)
         self.stores.remove(fs)
         self.update_machine()
         self.restart_vigilance()
