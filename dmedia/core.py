@@ -465,18 +465,7 @@ def vigilance_worker(env, ssl_config):
 
 
 def downgrade_worker(env):
-    # First do a scan relink:
-    try:
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        stores = ms.get_local_stores()
-        for fs in stores:
-            ms.scan(fs)
-        for fs in stores:
-            ms.relink(fs)
-    except Exception:
-        log.exception('Error in downgrade_worker() scan/relink')
-    # Then do the downgrade:
+    # First downgrade:
     try:
         db = util.get_db(env)
         ms = MetaStore(db)
@@ -487,6 +476,17 @@ def downgrade_worker(env):
         ms.downgrade_by_verified(curtime)
     except Exception:
         log.exception('Error in downgrade_worker():')
+    # Then do a scan/relink:
+    try:
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        stores = ms.get_local_stores()
+        for fs in stores:
+            ms.scan(fs)
+        for fs in stores:
+            ms.relink(fs)
+    except Exception:
+        log.exception('Error in downgrade_worker() scan/relink')
 
 
 def filestore_worker(env, parentdir, store_id):
