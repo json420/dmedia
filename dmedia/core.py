@@ -583,7 +583,7 @@ class TaskPool:
         expected = self.active_tasks.pop(task.key)
         assert task is expected
         task.process.join()  # Make sure process actually terminated
-        log.info('task completed: %r', task.key)
+        log.info('on_task_completed: %r', task.key)
         if self.running and self.should_restart(task.key):
             self.queue_task_for_restart(task.key)
 
@@ -599,18 +599,18 @@ class TaskPool:
             return False
 
     def queue_task_for_restart(self, key):
-        log.info('TaskPool: queuing for restart: %r', key)
+        log.info('queue_task_for_restart: %r', key)
         GLib.timeout_add(5000, self.on_task_restart, key)
 
     def on_task_restart(self, key):
         self.start_task(key)
 
     def add_task(self, key, target, *args):
-        log.info('TaskPool.add_task: %r', key)
         assert callable(target)
         if key in self.tasks:
-            log.warning('TaskPool.add_task: %r already in active_tasks', key)
+            log.warning('add_task: %r already in tasks', key)
             return False
+        log.info('add_task: adding %r', key)
         self.tasks[key] = TaskInfo(target, args)
         if self.running is True:
             self.start_task(key)
@@ -619,6 +619,7 @@ class TaskPool:
     def remove_task(self, key):
         try:
             info = self.tasks.pop(key)
+            log.info('remove_task: removed %r', key)
             self.stop_task(key)
             return True
         except KeyError:
@@ -643,14 +644,16 @@ class TaskPool:
     def stop_task(self, key):
         try:
             self.active_tasks[key].process.terminate()
-            log.info('TaskPool.stop_task: called terminate on %r', key)
+            log.info('stop_task: stopping %r', key)
             return True
         except KeyError:
+            log.warning('stop_task: %r not in active_tasks', key)
             return False
 
     def restart_task(self, key):
         if not self.running:
             return
+        log.info('restart_task: %r', key)
         if self.stop_task(key):
             if key not in self.restart_always:
                 self.restart_once.add(key)
