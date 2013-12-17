@@ -465,6 +465,18 @@ def vigilance_worker(env, ssl_config):
 
 
 def downgrade_worker(env):
+    # First do a scan relink:
+    try:
+        db = util.get_db(env)
+        ms = MetaStore(db)
+        stores = ms.get_local_stores()
+        for fs in stores:
+            ms.scan(fs)
+        for fs in stores:
+            ms.relink(fs)
+    except Exception:
+        log.exception('Error in downgrade_worker() scan/relink')
+    # Then do the downgrade:
     try:
         db = util.get_db(env)
         ms = MetaStore(db)
@@ -693,7 +705,6 @@ class TaskMaster:
         self.ssl_config = ssl_config
         self.pool = TaskPool(VIGILANCE)  # vigilance is auto-restarted
         self.pool.add_task(VIGILANCE, vigilance_worker, env, ssl_config)
-        self.pool.add_task(DOWNGRADE, downgrade_worker, env)
 
     def add_filestore_task(self, fs):
         key = build_fs_key(fs)
@@ -707,6 +718,9 @@ class TaskMaster:
 
     def restart_vigilance_task(self):
         self.pool.restart_task(VIGILANCE)
+
+    def add_downgrade_task(self):
+        self.pool.add_task(DOWNGRADE, downgrade_worker, self.env)
 
     def restart_downgrade_task(self):
         self.pool.restart_task(DOWNGRADE)
@@ -792,16 +806,24 @@ class Core:
         self.task_master.start_tasks()
 
     def restart_filestore_tasks(self):
+        log.info('**** restart_filestore_tasks')
         for fs in self.stores:
             self.task_master.restart_filestore_task(fs)
+        return True  # So GLib timeout call repeats
+
+    def restart_downgrade_task(self):
+        log.info('**** restart_downgrade_task')
         self.task_master.restart_downgrade_task()
+        return True  # So GLib timeout call repeats
 
     def restart_vigilance(self):
+        log.info('**** restart_vigilance')
         # FIXME: Core should also restart Vigilance whenever the FileStore
         # connected to a peer change.  We should do this by monitoring the
         # _changes feed for changes to any of the machine docs corresponding to
         # the currently visible local peers.
         self.task_master.restart_vigilance_task()
+        return True  # So GLib timeout call repeats
 
     def get_auto_format(self):
         return self.local.get('auto_format')

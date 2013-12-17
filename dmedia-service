@@ -74,6 +74,7 @@ devices = Devices()
 
 
 class Service(dbus.service.Object):
+    core = None
     peer = None
     ui = None
     thread = None
@@ -170,7 +171,7 @@ class Service(dbus.service.Object):
         VolumeMonitor.connect('mount-removed', self.on_mount_removed)
         for mount in VolumeMonitor.get_mounts():
             self.on_mount_added(VolumeMonitor, mount)
-        GLib.timeout_add(500, self.on_idle2)
+        GLib.timeout_add(750, self.on_idle2)
 
     def on_idle2(self):
         """
@@ -191,27 +192,28 @@ class Service(dbus.service.Object):
         log.info('---- idle3 at time %.3f ----', start_delta())
         self.avahi = Avahi(self.core, self.httpd_port)
         self.avahi.run()
-        GLib.timeout_add(60 * 1000, self.on_idle4)
-        GLib.timeout_add(90 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(30 * 1000, self.on_idle4)
 
     def on_idle4(self):
         """
-        Start the background filestore checking tasks.
+        Start filestore checking tasks and the vigilance task.
         """
         log.info('---- idle4 at time %.3f ----', start_delta())
         self.core.start_background_tasks()
-        GLib.timeout_add(17 * 60 * 1000, self.on_restart_filestore_tasks)
-        GLib.timeout_add(29 * 60 * 1000, self.on_restart_vigilance)
+        GLib.timeout_add(45 * 1000, self.on_idle5)
 
-    def on_restart_filestore_tasks(self):
-        log.info('** on_restart_filestore_tasks()')
-        self.core.restart_filestore_tasks()
-        return True
+    def on_idle5(self):
+        """
+        Start downgrade and reclaim tasks.
 
-    def on_restart_vigilance(self):
-        log.info('** on_restart_vigilance()')
-        self.core.restart_vigilance()
-        return True
+        3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67
+        """
+        log.info('---- idle5 at time %.3f ----', start_delta())
+        self.core.task_master.add_downgrade_task()
+        GLib.timeout_add(60 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(11 * 60 * 1000, self.core.restart_downgrade_task)
+        GLib.timeout_add(29 * 60 * 1000, self.core.restart_filestore_tasks)
+        GLib.timeout_add(37 * 60 * 1000, self.core.restart_vigilance)
 
     def on_mount_added(self, vm, mount):
         parentdir = mount.get_root().get_path()
@@ -388,6 +390,19 @@ class Service(dbus.service.Object):
         """
         log.info('Service.GetEnv()')
         return self.env_s
+
+    @dbus.service.method(IFACE, in_signature='', out_signature='s')
+    def Tasks(self):
+        """
+        Info about currently running background tasks.
+        """
+        if self.core is None:
+            return ''
+        lines = []
+        for key in sorted(self.core.task_master.pool.active_tasks):
+            task = self.core.task_master.pool.active_tasks[key]
+            lines.append('{}: {}'.format(task.process.pid, key))
+        return '\n'.join(lines)
 
     @dbus.service.method(IFACE, in_signature='', out_signature='s')
     def Stores(self):
