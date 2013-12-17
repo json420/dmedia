@@ -3482,13 +3482,14 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
 
+        curtime = int(time.time())
         # Test when empty:
-        self.assertEqual(ms.verify_by_mtime(fs), (0, 0))
+        self.assertEqual(ms.verify_by_mtime(fs, curtime), (0, 0))
 
         # Test when no files need to be verified:
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
-        self.assertEqual(ms.verify_by_mtime(fs), (0, 0))
+        self.assertEqual(ms.verify_by_mtime(fs, curtime), (0, 0))
         self.assertEqual(db.get_many(ids), docs)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('1-'))
@@ -3500,7 +3501,6 @@ class TestMetaStore(CouchCase):
             self.assertEqual(doc['stored'][fs.id]['copies'], 1)
 
         # Again test when no files need to be verified, but to the second: 
-        curtime = int(time.time())
         base = curtime - metastore.VERIFY_BY_MTIME + 1
         for (i, doc) in enumerate(docs):
             doc['stored'][fs.id]['mtime'] = base + i

@@ -925,12 +925,10 @@ class MetaStore:
                     count_and_size(count, size), fs, t.rate(size))
         return (count, size)
 
-    def verify_by_mtime(self, fs, curtime=None):
+    def verify_by_mtime(self, fs, curtime):
         """
         Verify files never verified whose "mtime" is older than 6 hours.
         """
-        if curtime is None:
-            curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
         count = 0
         size = 0
