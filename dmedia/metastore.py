@@ -952,12 +952,10 @@ class MetaStore:
                     count_and_size(count, size), fs, t.rate(size))
         return (count, size)
 
-    def verify_by_verified(self, fs, curtime=None):
+    def verify_by_verified(self, fs, curtime):
         """
         Verify files whose "verified" timestamp is older than 2 weeks.
         """
-        if curtime is None:
-            curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
         count = 0
         size = 0

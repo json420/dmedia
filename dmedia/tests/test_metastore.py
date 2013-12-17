@@ -3560,12 +3560,12 @@ class TestMetaStore(CouchCase):
         fs = TempFileStore()
 
         # Test when empty:
-        self.assertEqual(ms.verify_by_verified(fs), (0, 0))
+        self.assertEqual(ms.verify_by_verified(fs, 0), (0, 0))
 
         # Test when no files need to be verified:
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
-        self.assertEqual(ms.verify_by_verified(fs), (0, 0))
+        self.assertEqual(ms.verify_by_verified(fs, 0), (0, 0))
         self.assertEqual(db.get_many(ids), docs)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('1-'))
