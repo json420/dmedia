@@ -626,7 +626,7 @@ class TaskPool:
             return False
 
     def start_task(self, key):
-        if not self.running:
+        if self.running is False:
             return
         if key in self.active_tasks:
             log.warning('start_task: %r already in active_tasks', key)
@@ -651,7 +651,7 @@ class TaskPool:
             return False
 
     def restart_task(self, key):
-        if not self.running:
+        if self.running is False:
             return
         log.info('restart_task: %r', key)
         if self.stop_task(key):
@@ -684,14 +684,16 @@ def build_fs_key(fs):
 
 
 VIGILANCE = ('vigilance',)
+DOWNGRADE = ('downgrade',)
 
 
-class TaskManager:
+class TaskMaster:
     def __init__(self, env, ssl_config):
         self.env = env
         self.ssl_config = ssl_config
         self.pool = TaskPool(VIGILANCE)  # vigilance is auto-restarted
         self.pool.add_task(VIGILANCE, vigilance_worker, env, ssl_config)
+        self.pool.add_task(DOWNGRADE, downgrade_worker, env)
 
     def add_filestore_task(self, fs):
         key = build_fs_key(fs)
@@ -703,8 +705,11 @@ class TaskManager:
     def restart_filestore_task(self, fs):
         self.pool.restart_task(build_fs_key(fs))
 
-    def restart_vigilance(self):
+    def restart_vigilance_task(self):
         self.pool.restart_task(VIGILANCE)
+
+    def restart_downgrade_task(self):
+        self.pool.restart_task(DOWNGRADE)
 
     def start_tasks(self):
         self.pool.start()
@@ -736,7 +741,7 @@ class Core:
         self.ms = MetaStore(self.db)
         self.stores = LocalStores()
         self.peers = {}
-        self.task_manager = TaskManager(env, ssl_config)
+        self.task_master = TaskMaster(env, ssl_config)
         self.ssl_config = ssl_config
         try:
             self.local = self.db.get(LOCAL_ID)
@@ -784,18 +789,19 @@ class Core:
         )
 
     def start_background_tasks(self):
-        self.task_manager.start_tasks()
+        self.task_master.start_tasks()
 
     def requeue_filestore_tasks(self):
         for fs in self.stores:
-            self.task_manager.restart_filestore_task(fs)
+            self.task_master.restart_filestore_task(fs)
+        self.task_master.restart_downgrade_task()
 
     def restart_vigilance(self):
         # FIXME: Core should also restart Vigilance whenever the FileStore
         # connected to a peer change.  We should do this by monitoring the
         # _changes feed for changes to any of the machine docs corresponding to
         # the currently visible local peers.
-        self.task_manager.restart_vigilance()
+        self.task_master.restart_vigilance_task()
 
     def get_auto_format(self):
         return self.local.get('auto_format')
@@ -843,12 +849,12 @@ class Core:
         except Conflict:
             pass
         self.update_machine()
-        self.task_manager.add_filestore_task(fs)
+        self.task_master.add_filestore_task(fs)
         self.restart_vigilance()
 
     def _remove_filestore(self, fs):
         log.info('Removing %r', fs)
-        self.task_manager.remove_filestore_task(fs)
+        self.task_master.remove_filestore_task(fs)
         self.stores.remove(fs)
         self.update_machine()
         self.restart_vigilance()
