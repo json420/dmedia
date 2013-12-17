@@ -625,6 +625,8 @@ class TaskPool:
             return False
 
     def start_task(self, key):
+        if not self.running:
+            return
         log.info('TaskPool.start_task: %r', key)
         if key in self.active_tasks:
             log.warning('TaskPool.start_task: %r already in active_tasks', key)

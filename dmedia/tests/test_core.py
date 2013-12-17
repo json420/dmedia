@@ -662,12 +662,14 @@ class TestTaskPool(TestCase):
         key = random_id()
         info = core.TaskInfo(worker, ('foo', 'bar'))
         pool.tasks[key] = info
+        pool.running = True
 
         # Key in active_tasks:
         pool.active_tasks[key] = 'whatever'
         self.assertIs(pool.start_task(key), False)
         self.assertEqual(pool.tasks, {key: info})
         self.assertEqual(pool.active_tasks, {key: 'whatever'})
+        self.assertTrue(pool.queue.empty())
 
         # Key *not* in active_tasks:
         pool.active_tasks.clear()
@@ -680,6 +682,14 @@ class TestTaskPool(TestCase):
         self.assertIsInstance(result.process, multiprocessing.Process)
         in_q = pool.queue.get(timeout=1)
         self.assertIs(in_q, result)
+        self.assertTrue(pool.queue.empty())
+
+        # But should not start when TaskPool.running is False:
+        pool.active_tasks.clear()
+        pool.running = False
+        self.assertIsNone(pool.start_task(key))
+        self.assertEqual(pool.tasks, {key: info})
+        self.assertEqual(pool.active_tasks, {})
         self.assertTrue(pool.queue.empty())
 
     def test_stop_task(self):
