@@ -477,34 +477,16 @@ def downgrade_worker(env):
         log.exception('Error in downgrade_worker():')
 
 
-def scan_relink_worker(env, parentdir, store_id):
+def filestore_worker(env, parentdir, store_id):
     try:
         db = util.get_db(env)
         ms = MetaStore(db)
         fs = FileStore(parentdir, store_id)
         ms.scan(fs)
         ms.relink(fs)
-    except Exception:
-        log.exception('Error in scan_relink_worker():')
-
-
-def verify_worker(env, parentdir, store_id):
-    try:
-        db = util.get_db(env)
-        ms = MetaStore(db)
-        fs = FileStore(parentdir, store_id)
         ms.verify_all(fs)
     except Exception:
-        log.exception('Error in verify_worker():')
-
-
-def filestore_worker(env, parentdir, store_id):
-    db = util.get_db(env)
-    ms = MetaStore(db)
-    fs = FileStore(parentdir, store_id)
-    ms.scan(fs)
-    ms.relink(fs)
-    ms.verify_all(fs)
+        log.exception('Error in filestore_worker():')
 
 
 def is_file_id(_id):
