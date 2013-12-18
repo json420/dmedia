@@ -967,7 +967,7 @@ class MetaStore:
             fs, curtime, VERIFY_BY_VERIFIED, 'store-verified'
         )
 
-    def verify_all(self, fs, curtime=None):
+    def verify_all(self, fs, curtime):
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0

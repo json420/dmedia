@@ -3637,7 +3637,7 @@ class TestMetaStore(CouchCase):
         fs = TempFileStore()
 
         # Test when empty:
-        self.assertEqual(ms.verify_all(fs), (0, 0))
+        self.assertEqual(ms.verify_all(fs, 0), (0, 0))
 
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
@@ -3746,7 +3746,7 @@ class TestMetaStore(CouchCase):
             del doc['stored'][fs.id]['verified']
         db.save_many(docs)
         start_time = int(time.time())
-        self.assertEqual(ms.verify_all(fs),
+        self.assertEqual(ms.verify_all(fs, 0),
             (6, sum(d['bytes'] for d in docs))
         )
         end_time = int(time.time())
@@ -3759,7 +3759,7 @@ class TestMetaStore(CouchCase):
             verified = doc['stored'][fs.id]['verified']
             self.assertIsInstance(verified, int)
             self.assertTrue(start_time <= verified <= end_time)
-        self.assertEqual(ms.verify_all(fs), (0, 0))
+        self.assertEqual(ms.verify_all(fs, 0), (0, 0))
         self.assertEqual(db.get_many(ids), docs)
 
     def test_finish_download(self):
