@@ -260,6 +260,24 @@ class Vigilance:
         self.update_remote()
 
     def update_remote(self):
+        """
+        Update information about what FileStore are connected to peers.
+
+        A still to be added feature in Core is for it to restart Vigilance when
+        any FileStore are added or removed to a peer visible on the local
+        network (by monitoring the _changes feed for changes in their machine
+        docs).
+
+        Hovever, as a failsafe, we want Vigilance to take responsibility for
+        this itself also, but using a different mechanism (in particular,
+        somethnig other than the _changes feed).
+
+        So this method is called first thing in each of these methods:
+
+            * `Vigilance.process_backlog()`
+            * `Vigilance.process_preempt()`
+            * `Vigilance.run_event_loop()`
+        """
         self.store_to_peer = {}
         remote = []
         for doc in self.ms.db.get_many(list(self.peers)):
