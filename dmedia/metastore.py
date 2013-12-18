@@ -909,17 +909,18 @@ class MetaStore:
         t = TimeDelta()
         kw = {
             'key': fs.id,
-            'limit': 1,
+            'limit': 25,
             'include_docs': True,
         }
         while True:
             rows = self.db.view('file', 'store-downgraded', **kw)['rows']
             if not rows:
                 break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
+            for row in rows:
+                doc = row['doc']
+                self.verify(fs, doc)
+                count += 1
+                size += doc['bytes']
         if count:
             t.log('verify (by downgraded) %s in %r [%s]',
                     count_and_size(count, size), fs, t.rate(size))
