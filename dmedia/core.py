@@ -250,23 +250,27 @@ class Vigilance:
             log.info('Vigilance: local store: %r', fs)
         self.local = frozenset(self.stores.ids)
         self.clients = {}
-        self.store_to_peer = {}
-        remote = []
-        peers = ms.get_local_peers()
-        if peers:
+        self.peers = ms.get_local_peers()
+        if self.peers:
             ssl_context = build_ssl_context(ssl_config)
-            for (peer_id, info) in peers.items():
+            for (peer_id, info) in self.peers.items():
                 url = info['url']
                 log.info('Vigilance: peer %s at %s', peer_id, url)
                 self.clients[peer_id] = get_client(url, ssl_context)
-            for doc in ms.db.get_many(list(peers)):
-                if doc is not None:
-                    for store_id in get_dict(doc, 'stores'):
-                        if is_store_id(store_id):
-                            remote.append(store_id)
-                            self.store_to_peer[store_id] = doc['_id']
-                            assert doc['_id'] in peers
+        self.update_remote()
+
+    def update_remote(self):
+        self.store_to_peer = {}
+        remote = []
+        for doc in self.ms.db.get_many(list(self.peers)):
+            if doc is not None:
+                for store_id in get_dict(doc, 'stores'):
+                    if is_store_id(store_id):
+                        remote.append(store_id)
+                        self.store_to_peer[store_id] = doc['_id']
+                        assert doc['_id'] in self.peers
         self.remote = frozenset(remote)
+        log.info('Visible remote stores: %r', sorted(self.remote))
 
     def run(self):
         self.log_stats()
@@ -288,6 +292,7 @@ class Vigilance:
             log.info('## rank=%d: %s', row['key'], file_count(row['value']))
 
     def process_backlog(self, stop):
+        self.update_remote()
         for doc in self.ms.iter_fragile_files(stop):
             self.wrap_up_rank(doc)
         last_seq = self.ms.db.get()['update_seq']
@@ -296,10 +301,12 @@ class Vigilance:
         return last_seq
 
     def process_preempt(self):
+        self.update_remote()
         for doc in self.ms.iter_preempt_files():
             self.wrap_up_rank(doc, threshold=MAX_BYTES_FREE)
 
     def run_event_loop(self, last_seq):
+        self.update_remote()
         log.info('Vigilance: starting event loop at %d', last_seq)
         while True:
             result = self.ms.wait_for_fragile_files(last_seq)
