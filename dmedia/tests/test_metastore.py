@@ -4150,6 +4150,32 @@ class TestMetaStore(CouchCase):
                 for _id in self._ranks[rank]:
                     yield _id
 
+        # Bad stop type/value:
+        mocked = Mocked(db)
+        with self.assertRaises(TypeError) as cm:
+            list(mocked.iter_fragile_files(stop=5.0))
+        self.assertEqual(str(cm.exception),
+            TYPE_ERROR.format('stop', int, float, 5.0)
+        )
+        self.assertEqual(mocked._calls, [])
+        with self.assertRaises(ValueError) as cm:
+            list(mocked.iter_fragile_files(stop=1))
+        self.assertEqual(str(cm.exception), 'Need 2 <= stop <= 6; got 1')
+        self.assertEqual(mocked._calls, [])
+        with self.assertRaises(ValueError) as cm:
+            list(mocked.iter_fragile_files(stop=7))
+        self.assertEqual(str(cm.exception), 'Need 2 <= stop <= 6; got 7')
+        self.assertEqual(mocked._calls, [])
+
+        # Test min allowed stop value:
+        mocked = Mocked(db)
+        expected = []
+        expected.extend(mocked._ranks[0])
+        expected.extend(mocked._ranks[1])
+        self.assertEqual(list(mocked.iter_fragile_files(stop=2)), expected)
+        self.assertEqual(mocked._calls, [0, 1])
+
+        # Default stop=6:
         mocked = Mocked(db)
         expected = []
         for ids in mocked._ranks:

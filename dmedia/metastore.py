@@ -1027,8 +1027,12 @@ class MetaStore:
                 break
             kw['startkey_docid'] = rows[-1]['id']
 
-    def iter_fragile_files(self):
-        for rank in range(6):
+    def iter_fragile_files(self, stop=6):
+        if not isinstance(stop, int):
+            raise TypeError(TYPE_ERROR.format('stop', int, type(stop), stop))
+        if not (2 <= stop <= 6):
+            raise ValueError('Need 2 <= stop <= 6; got {}'.format(stop))
+        for rank in range(stop):
             for doc in self.iter_files_at_rank(rank):
                 yield doc
 
