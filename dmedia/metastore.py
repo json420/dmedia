@@ -909,81 +909,65 @@ class MetaStore:
         t = TimeDelta()
         kw = {
             'key': fs.id,
-            'limit': 1,
+            'limit': 50,
             'include_docs': True,
         }
         while True:
             rows = self.db.view('file', 'store-downgraded', **kw)['rows']
             if not rows:
                 break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
+            for row in rows:
+                doc = row['doc']
+                self.verify(fs, doc)
+                count += 1
+                size += doc['bytes']
         if count:
             t.log('verify (by downgraded) %s in %r [%s]',
                     count_and_size(count, size), fs, t.rate(size))
         return (count, size)
 
-    def verify_by_mtime(self, fs, curtime=None):
+    def _verify_by_view(self, fs, curtime, threshold, view):
+        assert isinstance(curtime, int) and curtime >= 0
+        count = 0
+        size = 0
+        t = TimeDelta()
+        kw = {
+            'startkey': [fs.id, None],
+            'endkey': [fs.id, curtime - threshold],
+            'limit': 50,
+            'include_docs': True,
+        }
+        while True:
+            rows = self.db.view('file', view, **kw)['rows']
+            if not rows:
+                break
+            for row in rows:
+                doc = row['doc']
+                self.verify(fs, doc)
+                count += 1
+                size += doc['bytes']
+        if count:
+            t.log('verify (by %s) %s in %r [%s]', view,
+                    count_and_size(count, size), fs, t.rate(size))
+        return (count, size)
+
+    def verify_by_mtime(self, fs, curtime):
         """
         Verify files never verified whose "mtime" is older than 6 hours.
         """
-        if curtime is None:
-            curtime = int(time.time())
-        assert isinstance(curtime, int) and curtime >= 0
-        count = 0
-        size = 0
-        t = TimeDelta()
-        kw = {
-            'startkey': [fs.id, None],
-            'endkey': [fs.id, curtime - VERIFY_BY_MTIME],
-            'limit': 1,
-            'include_docs': True,
-        }
-        while True:
-            rows = self.db.view('file', 'store-mtime', **kw)['rows']
-            if not rows:
-                break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
-        if count:
-            t.log('verify (by mtime) %s in %r [%s]',
-                    count_and_size(count, size), fs, t.rate(size))
-        return (count, size)
+        return self._verify_by_view(
+            fs, curtime, VERIFY_BY_MTIME, 'store-mtime'
+        ) 
 
-    def verify_by_verified(self, fs, curtime=None):
+    def verify_by_verified(self, fs, curtime):
         """
         Verify files whose "verified" timestamp is older than 2 weeks.
         """
-        if curtime is None:
-            curtime = int(time.time())
-        assert isinstance(curtime, int) and curtime >= 0
-        count = 0
-        size = 0
-        t = TimeDelta()
-        kw = {
-            'startkey': [fs.id, None],
-            'endkey': [fs.id, curtime - VERIFY_BY_VERIFIED],
-            'limit': 1,
-            'include_docs': True,
-        }
-        while True:
-            rows = self.db.view('file', 'store-verified', **kw)['rows']
-            if not rows:
-                break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
-        if count:
-            t.log('verify (by verified) %s in %r [%s]',
-                    count_and_size(count, size), fs, t.rate(size))
-        return (count, size)
+        return self._verify_by_view(
+            fs, curtime, VERIFY_BY_VERIFIED, 'store-verified'
+        )
 
-    def verify_all(self, fs, curtime=None):
+    def verify_all(self, fs, curtime):
         if curtime is None:
             curtime = int(time.time())
         assert isinstance(curtime, int) and curtime >= 0
@@ -1043,8 +1027,12 @@ class MetaStore:
                 break
             kw['startkey_docid'] = rows[-1]['id']
 
-    def iter_fragile_files(self):
-        for rank in range(6):
+    def iter_fragile_files(self, stop=6):
+        if not isinstance(stop, int):
+            raise TypeError(TYPE_ERROR.format('stop', int, type(stop), stop))
+        if not (2 <= stop <= 6):
+            raise ValueError('Need 2 <= stop <= 6; got {}'.format(stop))
+        for rank in range(stop):
             for doc in self.iter_files_at_rank(rank):
                 yield doc
 

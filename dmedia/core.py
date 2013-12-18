@@ -250,28 +250,50 @@ class Vigilance:
             log.info('Vigilance: local store: %r', fs)
         self.local = frozenset(self.stores.ids)
         self.clients = {}
-        self.store_to_peer = {}
-        remote = []
-        peers = ms.get_local_peers()
-        if peers:
+        self.peers = ms.get_local_peers()
+        if self.peers:
             ssl_context = build_ssl_context(ssl_config)
-            for (peer_id, info) in peers.items():
+            for (peer_id, info) in self.peers.items():
                 url = info['url']
                 log.info('Vigilance: peer %s at %s', peer_id, url)
                 self.clients[peer_id] = get_client(url, ssl_context)
-            for doc in ms.db.get_many(list(peers)):
-                if doc is not None:
-                    for store_id in get_dict(doc, 'stores'):
-                        if is_store_id(store_id):
-                            remote.append(store_id)
-                            self.store_to_peer[store_id] = doc['_id']
-                            assert doc['_id'] in peers
+        self.update_remote()
+
+    def update_remote(self):
+        """
+        Update information about what FileStore are connected to peers.
+
+        A still to be added feature in Core is for it to restart Vigilance when
+        any FileStore are added or removed to a peer visible on the local
+        network (by monitoring the _changes feed for changes in their machine
+        docs).
+
+        Hovever, as a failsafe, we want Vigilance to take responsibility for
+        this itself also, but using a different mechanism (in particular,
+        somethnig other than the _changes feed).
+
+        So this method is called first thing in each of these methods:
+
+            * `Vigilance.process_backlog()`
+            * `Vigilance.process_preempt()`
+            * `Vigilance.run_event_loop()`
+        """
+        self.store_to_peer = {}
+        remote = []
+        for doc in self.ms.db.get_many(list(self.peers)):
+            if doc is not None:
+                for store_id in get_dict(doc, 'stores'):
+                    if is_store_id(store_id):
+                        remote.append(store_id)
+                        self.store_to_peer[store_id] = doc['_id']
+                        assert doc['_id'] in self.peers
         self.remote = frozenset(remote)
+        log.info('Visible remote stores: %r', sorted(self.remote))
 
     def run(self):
         self.log_stats()
-        last_seq = self.process_backlog()
-        log.info('Vigilance: processed backlog as of %r', last_seq)
+        self.process_backlog(4)
+        last_seq = self.process_backlog(6)
         self.log_stats()
         self.process_preempt()
         self.log_stats()
@@ -287,16 +309,22 @@ class Vigilance:
         for row in result['rows']:
             log.info('## rank=%d: %s', row['key'], file_count(row['value']))
 
-    def process_backlog(self):
-        for doc in self.ms.iter_fragile_files():
+    def process_backlog(self, stop):
+        self.update_remote()
+        for doc in self.ms.iter_fragile_files(stop):
             self.wrap_up_rank(doc)
-        return self.ms.db.get()['update_seq']
+        last_seq = self.ms.db.get()['update_seq']
+        log.info('Vigilance: processed backlog: stop=%d, update_seq=%r',
+                stop, last_seq)
+        return last_seq
 
     def process_preempt(self):
+        self.update_remote()
         for doc in self.ms.iter_preempt_files():
             self.wrap_up_rank(doc, threshold=MAX_BYTES_FREE)
 
     def run_event_loop(self, last_seq):
+        self.update_remote()
         log.info('Vigilance: starting event loop at %d', last_seq)
         while True:
             result = self.ms.wait_for_fragile_files(last_seq)

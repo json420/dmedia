@@ -3482,13 +3482,14 @@ class TestMetaStore(CouchCase):
         ms = metastore.MetaStore(db)
         fs = TempFileStore()
 
+        curtime = int(time.time())
         # Test when empty:
-        self.assertEqual(ms.verify_by_mtime(fs), (0, 0))
+        self.assertEqual(ms.verify_by_mtime(fs, curtime), (0, 0))
 
         # Test when no files need to be verified:
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
-        self.assertEqual(ms.verify_by_mtime(fs), (0, 0))
+        self.assertEqual(ms.verify_by_mtime(fs, curtime), (0, 0))
         self.assertEqual(db.get_many(ids), docs)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('1-'))
@@ -3500,7 +3501,6 @@ class TestMetaStore(CouchCase):
             self.assertEqual(doc['stored'][fs.id]['copies'], 1)
 
         # Again test when no files need to be verified, but to the second: 
-        curtime = int(time.time())
         base = curtime - metastore.VERIFY_BY_MTIME + 1
         for (i, doc) in enumerate(docs):
             doc['stored'][fs.id]['mtime'] = base + i
@@ -3560,12 +3560,12 @@ class TestMetaStore(CouchCase):
         fs = TempFileStore()
 
         # Test when empty:
-        self.assertEqual(ms.verify_by_verified(fs), (0, 0))
+        self.assertEqual(ms.verify_by_verified(fs, 0), (0, 0))
 
         # Test when no files need to be verified:
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
-        self.assertEqual(ms.verify_by_verified(fs), (0, 0))
+        self.assertEqual(ms.verify_by_verified(fs, 0), (0, 0))
         self.assertEqual(db.get_many(ids), docs)
         for doc in docs:
             self.assertTrue(doc['_rev'].startswith('1-'))
@@ -3637,7 +3637,7 @@ class TestMetaStore(CouchCase):
         fs = TempFileStore()
 
         # Test when empty:
-        self.assertEqual(ms.verify_all(fs), (0, 0))
+        self.assertEqual(ms.verify_all(fs, 0), (0, 0))
 
         docs = [create_random_file(fs, db) for i in range(6)]
         ids = [d['_id'] for d in docs]
@@ -3746,7 +3746,7 @@ class TestMetaStore(CouchCase):
             del doc['stored'][fs.id]['verified']
         db.save_many(docs)
         start_time = int(time.time())
-        self.assertEqual(ms.verify_all(fs),
+        self.assertEqual(ms.verify_all(fs, 0),
             (6, sum(d['bytes'] for d in docs))
         )
         end_time = int(time.time())
@@ -3759,7 +3759,7 @@ class TestMetaStore(CouchCase):
             verified = doc['stored'][fs.id]['verified']
             self.assertIsInstance(verified, int)
             self.assertTrue(start_time <= verified <= end_time)
-        self.assertEqual(ms.verify_all(fs), (0, 0))
+        self.assertEqual(ms.verify_all(fs, 0), (0, 0))
         self.assertEqual(db.get_many(ids), docs)
 
     def test_finish_download(self):
@@ -4150,6 +4150,32 @@ class TestMetaStore(CouchCase):
                 for _id in self._ranks[rank]:
                     yield _id
 
+        # Bad stop type/value:
+        mocked = Mocked(db)
+        with self.assertRaises(TypeError) as cm:
+            list(mocked.iter_fragile_files(stop=5.0))
+        self.assertEqual(str(cm.exception),
+            TYPE_ERROR.format('stop', int, float, 5.0)
+        )
+        self.assertEqual(mocked._calls, [])
+        with self.assertRaises(ValueError) as cm:
+            list(mocked.iter_fragile_files(stop=1))
+        self.assertEqual(str(cm.exception), 'Need 2 <= stop <= 6; got 1')
+        self.assertEqual(mocked._calls, [])
+        with self.assertRaises(ValueError) as cm:
+            list(mocked.iter_fragile_files(stop=7))
+        self.assertEqual(str(cm.exception), 'Need 2 <= stop <= 6; got 7')
+        self.assertEqual(mocked._calls, [])
+
+        # Test min allowed stop value:
+        mocked = Mocked(db)
+        expected = []
+        expected.extend(mocked._ranks[0])
+        expected.extend(mocked._ranks[1])
+        self.assertEqual(list(mocked.iter_fragile_files(stop=2)), expected)
+        self.assertEqual(mocked._calls, [0, 1])
+
+        # Default stop=6:
         mocked = Mocked(db)
         expected = []
         for ids in mocked._ranks:
