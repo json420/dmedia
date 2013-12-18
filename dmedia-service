@@ -171,7 +171,7 @@ class Service(dbus.service.Object):
         VolumeMonitor.connect('mount-removed', self.on_mount_removed)
         for mount in VolumeMonitor.get_mounts():
             self.on_mount_added(VolumeMonitor, mount)
-        GLib.timeout_add(750, self.on_idle2)
+        GLib.timeout_add(1500, self.on_idle2)
 
     def on_idle2(self):
         """
@@ -183,7 +183,7 @@ class Service(dbus.service.Object):
             self.peer = Browser(self, self.couch)
         (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
         self.httpd_port = env['port']
-        GLib.timeout_add(1000, self.on_idle3)
+        GLib.timeout_add(1500, self.on_idle3)
 
     def on_idle3(self):
         """
@@ -192,7 +192,7 @@ class Service(dbus.service.Object):
         log.info('---- idle3 at time %.3f ----', start_delta())
         self.avahi = Avahi(self.core, self.httpd_port)
         self.avahi.run()
-        GLib.timeout_add(30 * 1000, self.on_idle4)
+        GLib.timeout_add(45 * 1000, self.on_idle4)
 
     def on_idle4(self):
         """
@@ -212,8 +212,8 @@ class Service(dbus.service.Object):
         self.core.task_master.add_downgrade_task()
         GLib.timeout_add(60 * 1000, self.core.reclaim_if_possible)
         GLib.timeout_add(11 * 60 * 1000, self.core.restart_downgrade_task)
-        GLib.timeout_add(29 * 60 * 1000, self.core.restart_filestore_tasks)
-        GLib.timeout_add(37 * 60 * 1000, self.core.restart_vigilance)
+        GLib.timeout_add(23 * 60 * 1000, self.core.restart_vigilance)
+        GLib.timeout_add(37 * 60 * 1000, self.core.restart_filestore_tasks)
 
     def on_mount_added(self, vm, mount):
         parentdir = mount.get_root().get_path()
