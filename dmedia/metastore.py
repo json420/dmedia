@@ -934,17 +934,18 @@ class MetaStore:
         kw = {
             'startkey': [fs.id, None],
             'endkey': [fs.id, curtime - threshold],
-            'limit': 1,
+            'limit': 25,
             'include_docs': True,
         }
         while True:
             rows = self.db.view('file', view, **kw)['rows']
             if not rows:
                 break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
+            for row in rows:
+                doc = row['doc']
+                self.verify(fs, doc)
+                count += 1
+                size += doc['bytes']
         if count:
             t.log('verify (by %s) %s in %r [%s]', view,
                     count_and_size(count, size), fs, t.rate(size))
