@@ -270,8 +270,8 @@ class Vigilance:
 
     def run(self):
         self.log_stats()
-        last_seq = self.process_backlog()
-        log.info('Vigilance: processed backlog as of %r', last_seq)
+        self.process_backlog(4)
+        last_seq = self.process_backlog(6)
         self.log_stats()
         self.process_preempt()
         self.log_stats()
@@ -287,10 +287,13 @@ class Vigilance:
         for row in result['rows']:
             log.info('## rank=%d: %s', row['key'], file_count(row['value']))
 
-    def process_backlog(self):
-        for doc in self.ms.iter_fragile_files():
+    def process_backlog(self, stop):
+        for doc in self.ms.iter_fragile_files(stop):
             self.wrap_up_rank(doc)
-        return self.ms.db.get()['update_seq']
+        last_seq = self.ms.db.get()['update_seq']
+        log.info('Vigilance: processed backlog: stop=%d, update_seq=%r',
+                stop, last_seq)
+        return last_seq
 
     def process_preempt(self):
         for doc in self.ms.iter_preempt_files():
