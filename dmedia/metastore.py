@@ -926,22 +926,19 @@ class MetaStore:
                     count_and_size(count, size), fs, t.rate(size))
         return (count, size)
 
-    def verify_by_mtime(self, fs, curtime):
-        """
-        Verify files never verified whose "mtime" is older than 6 hours.
-        """
+    def _verify_by_view(self, fs, curtime, threshold, view):
         assert isinstance(curtime, int) and curtime >= 0
         count = 0
         size = 0
         t = TimeDelta()
         kw = {
             'startkey': [fs.id, None],
-            'endkey': [fs.id, curtime - VERIFY_BY_MTIME],
+            'endkey': [fs.id, curtime - threshold],
             'limit': 1,
             'include_docs': True,
         }
         while True:
-            rows = self.db.view('file', 'store-mtime', **kw)['rows']
+            rows = self.db.view('file', view, **kw)['rows']
             if not rows:
                 break
             doc = rows[0]['doc']
@@ -949,36 +946,25 @@ class MetaStore:
             count += 1
             size += doc['bytes']
         if count:
-            t.log('verify (by mtime) %s in %r [%s]',
+            t.log('verify (by %s) %s in %r [%s]', view,
                     count_and_size(count, size), fs, t.rate(size))
         return (count, size)
+
+    def verify_by_mtime(self, fs, curtime):
+        """
+        Verify files never verified whose "mtime" is older than 6 hours.
+        """
+        return self._verify_by_view(
+            fs, curtime, VERIFY_BY_MTIME, 'store-mtime'
+        ) 
 
     def verify_by_verified(self, fs, curtime):
         """
         Verify files whose "verified" timestamp is older than 2 weeks.
         """
-        assert isinstance(curtime, int) and curtime >= 0
-        count = 0
-        size = 0
-        t = TimeDelta()
-        kw = {
-            'startkey': [fs.id, None],
-            'endkey': [fs.id, curtime - VERIFY_BY_VERIFIED],
-            'limit': 1,
-            'include_docs': True,
-        }
-        while True:
-            rows = self.db.view('file', 'store-verified', **kw)['rows']
-            if not rows:
-                break
-            doc = rows[0]['doc']
-            self.verify(fs, doc)
-            count += 1
-            size += doc['bytes']
-        if count:
-            t.log('verify (by verified) %s in %r [%s]',
-                    count_and_size(count, size), fs, t.rate(size))
-        return (count, size)
+        return self._verify_by_view(
+            fs, curtime, VERIFY_BY_VERIFIED, 'store-verified'
+        )
 
     def verify_all(self, fs, curtime=None):
         if curtime is None:
