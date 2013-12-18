@@ -524,7 +524,7 @@ def filestore_worker(env, parentdir, store_id):
         fs = FileStore(parentdir, store_id)
         ms.scan(fs)
         ms.relink(fs)
-        ms.verify_all(fs)
+        ms.verify_all(fs, int(time.time()))
     except Exception:
         log.exception('Error in filestore_worker():')
 
