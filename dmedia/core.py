@@ -311,7 +311,7 @@ class Vigilance:
     def process_backlog(self, stop):
         self.update_remote()
         for doc in self.ms.iter_fragile_files(stop):
-            self.wrap_up_rank(doc)
+            self.wrap_up_rank(doc, MIN_BYTES_FREE)
         last_seq = self.ms.db.get()['update_seq']
         log.info('Vigilance: processed backlog: stop=%d, update_seq=%r',
                 stop, last_seq)
@@ -320,7 +320,7 @@ class Vigilance:
     def process_preempt(self):
         self.update_remote()
         for doc in self.ms.iter_preempt_files():
-            self.wrap_up_rank(doc, threshold=MAX_BYTES_FREE)
+            self.wrap_up_rank(doc, MAX_BYTES_FREE)
 
     def run_event_loop(self, last_seq):
         self.update_remote()
@@ -329,9 +329,9 @@ class Vigilance:
             result = self.ms.wait_for_fragile_files(last_seq)
             last_seq = result['last_seq']
             for row in result['results']:
-                self.wrap_up_rank(row['doc'])
+                self.wrap_up_rank(row['doc'], MIN_BYTES_FREE)
 
-    def wrap_up_rank(self, doc, threshold=MIN_BYTES_FREE):
+    def wrap_up_rank(self, doc, threshold):
         try:
             return self.up_rank(doc, threshold)
         except Exception:

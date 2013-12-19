@@ -45,6 +45,7 @@ from filestore.migration import Migration, b32_to_db32
 from usercouch.misc import CouchTestCase
 
 from dmedia.local import LocalStores
+from dmedia import metastore
 from dmedia.metastore import MetaStore, get_mtime
 from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia.parallel import start_process
@@ -174,7 +175,65 @@ class TestCouchFunctions(CouchCase):
         self.assertIs(doc['peers'], peers)
 
 
+class MockDB:
+    def __init__(self, update_seq):
+        self._update_seq = update_seq
+        self._calls = 0
+
+    def get(self):
+        self._calls += 1
+        return {'update_seq': self._update_seq}
+
+
+class MockMetaStore:
+    def __init__(self, db, docs):
+        self.db = db
+        self._docs = docs
+        self._calls = []
+
+    def iter_fragile_files(self, stop):
+        self._calls.append(stop)
+        for doc in self._docs:
+            yield doc
+
+
 class TestVigilanceMocked(TestCase):
+    def test_process_backlog(self):
+        class Mocked(core.Vigilance):
+            def __init__(self, ms):
+                self.ms = ms
+                self._calls = []
+
+            def update_remote(self):
+                self._calls.append('update_remote')
+
+            def wrap_up_rank(self, doc, threshold):
+                self._calls.append((doc, threshold))
+
+        docs = tuple(random_id() for i in range(10))
+        ms = MockMetaStore(MockDB(17), docs)
+        mocked = Mocked(ms)
+        self.assertEqual(mocked.process_backlog(4), 17)
+        self.assertEqual(ms.db._calls, 1)
+        self.assertEqual(ms._calls, [4])
+        self.assertEqual(mocked._calls,
+            ['update_remote'] + [
+                (doc, metastore.MIN_BYTES_FREE) for doc in docs
+            ]
+        )
+
+        docs = tuple(random_id() for i in range(36))
+        ms = MockMetaStore(MockDB(18), docs)
+        mocked = Mocked(ms)
+        self.assertEqual(mocked.process_backlog(6), 18)
+        self.assertEqual(ms.db._calls, 1)
+        self.assertEqual(ms._calls, [6])
+        self.assertEqual(mocked._calls,
+            ['update_remote'] + [
+                (doc, metastore.MIN_BYTES_FREE) for doc in docs
+            ]
+        )
+
     def test_up_rank(self):
         class Mocked(core.Vigilance):
             def __init__(self, local, remote):
