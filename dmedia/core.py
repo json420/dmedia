@@ -269,7 +269,7 @@ class Vigilance:
 
         Hovever, as a failsafe, we want Vigilance to take responsibility for
         this itself also, but using a different mechanism (in particular,
-        somethnig other than the _changes feed).
+        something other than the _changes feed).
 
         So this method is called first thing in each of these methods:
 
