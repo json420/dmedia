@@ -867,9 +867,20 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.restart_once, set())
         self.assertEqual(pool._calls, [])
 
+        # Should return 0 when key not in tasks:
+        pool = MockedTaskPool(True, key1)
+        pool.running = True
+        self.assertIs(pool._stop_result, True)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIs(pool.restart_task(key1), 0)
+        self.assertIs(pool.restart_task(key2), 0)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [])
+
         # First test when stop_task() returns True:
         pool = MockedTaskPool(True, key1)
         pool.running = True
+        pool.tasks = {key1: 'stuff', key2: 'junk'}
         self.assertIs(pool._stop_result, True)
         self.assertEqual(pool.restart_always, {key1})
         self.assertIs(pool.restart_task(key1), True)
@@ -887,6 +898,7 @@ class TestTaskPool(TestCase):
         # Now test when stop_task() returns False:
         pool = MockedTaskPool(False, key1)
         pool.running = True
+        pool.tasks = {key1: 'stuff', key2: 'junk'}
         self.assertIs(pool._stop_result, False)
         self.assertEqual(pool.restart_always, {key1})
         self.assertIs(pool.restart_task(key1), False)

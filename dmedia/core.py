@@ -692,7 +692,11 @@ class TaskPool:
 
     def restart_task(self, key):
         if self.running is False:
+            log.warning('restart_task: TaskPool is not running: %r', key)
             return
+        if key not in self.tasks:
+            log.warning('restart_task: %r not in tasks', key)
+            return 0
         log.info('restart_task: %r', key)
         if self.stop_task(key):
             if key not in self.restart_always:
