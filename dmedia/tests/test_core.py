@@ -975,6 +975,39 @@ class TestTaskPool(TestCase):
         self.assertIs(pool.running, False)
 
 
+class TestTaskMaster(TestCase):
+    def test_init(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIs(master.env, env)
+        self.assertIs(master.ssl_config, ssl_config)
+        self.assertIsInstance(master.pool, core.TaskPool)
+        self.assertEqual(master.pool.tasks, {
+            ('vigilance',): core.TaskInfo(
+                core.vigilance_worker,
+                (env, ssl_config),
+            ),
+        })
+
+    def test_add_filestore_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        fs = TempFileStore()
+        self.assertIsNone(master.add_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {
+            ('vigilance',): core.TaskInfo(
+                core.vigilance_worker,
+                (env, ssl_config),
+            ),
+            ('filestore', fs.parentdir): core.TaskInfo(
+                core.filestore_worker,
+                (env, fs.parentdir, fs.id),
+            ),
+        })
+
+
 class TestCore(CouchTestCase):
     def create(self):
         self.machine_id = random_id(30)
