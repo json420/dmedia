@@ -43,7 +43,7 @@ from base64 import b64encode
 from collections import namedtuple, OrderedDict
 
 from dbase32 import isdb32
-from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
+from microfiber import Server, Database, NotFound, Conflict, BulkConflict, dumps
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
 from gi.repository import GLib
 
@@ -257,7 +257,6 @@ class Vigilance:
                 url = info['url']
                 log.info('Vigilance: peer %s at %s', peer_id, url)
                 self.clients[peer_id] = get_client(url, ssl_context)
-        self.update_remote()
 
     def update_remote(self):
         """
@@ -288,7 +287,7 @@ class Vigilance:
                         self.store_to_peer[store_id] = doc['_id']
                         assert doc['_id'] in self.peers
         self.remote = frozenset(remote)
-        log.info('Visible remote stores: %r', sorted(self.remote))
+        log.info('Visible remote stores: %s', dumps(self.store_to_peer, pretty=True))
 
     def run(self):
         self.log_stats()

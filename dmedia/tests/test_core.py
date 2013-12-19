@@ -312,10 +312,83 @@ class TestVigilance(CouchCase):
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertIsInstance(inst.local, frozenset)
         self.assertEqual(inst.local, frozenset())
+        self.assertEqual(inst.clients, {})
+        self.assertEqual(inst.peers, {})
+
+    def test_update_remote(self):
+        db = util.get_db(self.env, True)
+        ms = MetaStore(db)
+        inst = core.Vigilance(ms, None)
+        self.assertFalse(hasattr(inst, 'remote'))
+        self.assertFalse(hasattr(inst, 'store_to_peer'))
+
+        # Test when peers is empty:
+        self.assertIsNone(inst.update_remote())
         self.assertIsInstance(inst.remote, frozenset)
         self.assertEqual(inst.remote, frozenset())
-        self.assertEqual(inst.clients, {})
         self.assertEqual(inst.store_to_peer, {})
+
+        peer_id1 = random_id(30)
+        peer_id2 = random_id(30)
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+        store_id4 = random_id()
+
+        # Test when there are peers, but their machine docs don't exist:
+        inst.peers = {peer_id1: 'foo', peer_id2: 'bar'}
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, frozenset())
+        self.assertEqual(inst.store_to_peer, {})
+
+        # Test when just one doc exists:
+        doc1 = {
+            '_id': peer_id1,
+            'stores': {
+                store_id1: 'one',
+                store_id2: 'two',
+            }
+        }
+        db.save(doc1)
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, {store_id1, store_id2})
+        self.assertEqual(inst.store_to_peer, {
+            store_id1: peer_id1,
+            store_id2: peer_id1,
+        })
+
+        # Test when both docs exist:
+        doc2 = {
+            '_id': peer_id2,
+            'stores': {
+                store_id3: 'one',
+                store_id4: 'two',
+            }
+        }
+        db.save(doc2)
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote,
+            {store_id1, store_id2, store_id3, store_id4}
+        )
+        self.assertEqual(inst.store_to_peer, {
+            store_id1: peer_id1,
+            store_id2: peer_id1,
+            store_id3: peer_id2,
+            store_id4: peer_id2,
+        })
+
+        # Finally, test when peers is empty but docs exist:
+        inst.peers = {}
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, frozenset())
+        self.assertEqual(inst.store_to_peer, {})
+
+        # Docs should not have been modified:
+        self.assertEqual(db.get_many([peer_id1, peer_id2]), [doc1, doc2])
 
 
 class DummyProcess:
