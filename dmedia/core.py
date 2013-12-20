@@ -736,7 +736,6 @@ class TaskMaster:
         self.env = env
         self.ssl_config = ssl_config
         self.pool = TaskPool(VIGILANCE)  # vigilance is auto-restarted
-        self.pool.add_task(VIGILANCE, vigilance_worker, env, ssl_config)
 
     def add_filestore_task(self, fs):
         key = build_fs_key(fs)
@@ -747,6 +746,9 @@ class TaskMaster:
 
     def restart_filestore_task(self, fs):
         self.pool.restart_task(build_fs_key(fs))
+
+    def add_vigilance_task(self):
+        self.pool.add_task(VIGILANCE, vigilance_worker, self.env, self.ssl_config)
 
     def restart_vigilance_task(self):
         self.pool.restart_task(VIGILANCE)

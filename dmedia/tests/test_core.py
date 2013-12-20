@@ -995,12 +995,9 @@ class TestTaskMaster(TestCase):
         self.assertIs(master.env, env)
         self.assertIs(master.ssl_config, ssl_config)
         self.assertIsInstance(master.pool, core.TaskPool)
-        self.assertEqual(master.pool.tasks, {
-            ('vigilance',): core.TaskInfo(
-                core.vigilance_worker,
-                (env, ssl_config),
-            ),
-        })
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
 
     def test_add_filestore_task(self):
         env = random_id()
@@ -1009,15 +1006,107 @@ class TestTaskMaster(TestCase):
         fs = TempFileStore()
         self.assertIsNone(master.add_filestore_task(fs))
         self.assertEqual(master.pool.tasks, {
-            ('vigilance',): core.TaskInfo(
-                core.vigilance_worker,
-                (env, ssl_config),
-            ),
             ('filestore', fs.parentdir): core.TaskInfo(
                 core.filestore_worker,
                 (env, fs.parentdir, fs.id),
             ),
         })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_remove_filestore_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        fs = TempFileStore()
+        key = ('filestore', fs.parentdir)
+        self.assertIsNone(master.remove_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {})
+        master.pool.tasks[key] = core.TaskInfo(
+            core.filestore_worker,
+            (env, fs.parentdir, fs.id),
+        )
+        self.assertIsNone(master.remove_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_restart_filestore_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        fs = TempFileStore()
+        self.assertIsNone(master.restart_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIsNone(master.add_filestore_task(fs))
+        self.assertIsNone(master.restart_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {
+            ('filestore', fs.parentdir): core.TaskInfo(
+                core.filestore_worker,
+                (env, fs.parentdir, fs.id),
+            ),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_add_vigilance_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.add_vigilance_task())
+        self.assertEqual(master.pool.tasks, {
+            ('vigilance',): core.TaskInfo(
+                core.vigilance_worker,
+                (env, ssl_config),
+            ),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_restart_vigilance_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.restart_vigilance_task())
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIsNone(master.add_vigilance_task())
+        self.assertIsNone(master.restart_vigilance_task())
+        self.assertEqual(master.pool.tasks, {
+            ('vigilance',): core.TaskInfo(
+                core.vigilance_worker,
+                (env, ssl_config),
+            ),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_add_downgrade_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.add_downgrade_task())
+        self.assertEqual(master.pool.tasks, {
+            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env,)),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_restart_downgrade_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.restart_downgrade_task())
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIsNone(master.add_downgrade_task())
+        self.assertIsNone(master.restart_downgrade_task())
+        self.assertEqual(master.pool.tasks, {
+            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env,)),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
 
 
 class TestCore(CouchTestCase):
