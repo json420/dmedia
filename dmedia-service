@@ -187,33 +187,41 @@ class Service(dbus.service.Object):
 
     def on_idle3(self):
         """
-        Publish "_dmedia._tcp" over Avahi, start replication.
+        Publish "_dmedia._tcp" over Avahi, start replication, add timers.
+
+        3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67
         """
         log.info('---- idle3 at time %.3f ----', start_delta())
         self.avahi = Avahi(self.core, self.httpd_port)
         self.avahi.run()
-        GLib.timeout_add(45 * 1000, self.on_idle4)
-
-    def on_idle4(self):
-        """
-        Start filestore checking tasks and the vigilance task.
-        """
-        log.info('---- idle4 at time %.3f ----', start_delta())
-        self.core.start_background_tasks()
-        GLib.timeout_add(45 * 1000, self.on_idle5)
-
-    def on_idle5(self):
-        """
-        Start downgrade and reclaim tasks.
-
-        3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67
-        """
-        log.info('---- idle5 at time %.3f ----', start_delta())
-        self.core.task_master.add_downgrade_task()
-        GLib.timeout_add(60 * 1000, self.core.reclaim_if_possible)
+        GLib.timeout_add(30 * 1000, self.on_idle4)
+        GLib.timeout_add(60 * 1000, self.on_idle5)
+        GLib.timeout_add(90 * 1000, self.on_idle6)
         GLib.timeout_add(11 * 60 * 1000, self.core.restart_downgrade_task)
         GLib.timeout_add(23 * 60 * 1000, self.core.restart_vigilance)
         GLib.timeout_add(37 * 60 * 1000, self.core.restart_filestore_tasks)
+
+    def on_idle4(self):
+        """
+        Start background tasks.
+        """
+        log.info('---- idle4 at time %.3f ----', start_delta())
+        self.core.start_background_tasks()
+
+    def on_idle5(self):
+        """
+        Start vigilance task.
+        """
+        log.info('---- idle5 at time %.3f ----', start_delta())
+        self.core.task_master.add_vigilance_task()
+ 
+    def on_idle6(self):
+        """
+        Start downgrade and reclaim tasks.
+        """
+        log.info('---- idle6 at time %.3f ----', start_delta())
+        self.core.task_master.add_downgrade_task()
+        GLib.timeout_add(60 * 1000, self.core.reclaim_if_possible)
 
     def on_mount_added(self, vm, mount):
         parentdir = mount.get_root().get_path()
