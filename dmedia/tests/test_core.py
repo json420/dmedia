@@ -45,6 +45,7 @@ from filestore.migration import Migration, b32_to_db32
 from usercouch.misc import CouchTestCase
 
 from dmedia.local import LocalStores
+from dmedia import metastore
 from dmedia.metastore import MetaStore, get_mtime
 from dmedia.schema import DB_NAME, create_filestore, project_db_name
 from dmedia.parallel import start_process
@@ -174,7 +175,65 @@ class TestCouchFunctions(CouchCase):
         self.assertIs(doc['peers'], peers)
 
 
+class MockDB:
+    def __init__(self, update_seq):
+        self._update_seq = update_seq
+        self._calls = 0
+
+    def get(self):
+        self._calls += 1
+        return {'update_seq': self._update_seq}
+
+
+class MockMetaStore:
+    def __init__(self, db, docs):
+        self.db = db
+        self._docs = docs
+        self._calls = []
+
+    def iter_fragile_files(self, stop):
+        self._calls.append(stop)
+        for doc in self._docs:
+            yield doc
+
+
 class TestVigilanceMocked(TestCase):
+    def test_process_backlog(self):
+        class Mocked(core.Vigilance):
+            def __init__(self, ms):
+                self.ms = ms
+                self._calls = []
+
+            def update_remote(self):
+                self._calls.append('update_remote')
+
+            def wrap_up_rank(self, doc, threshold):
+                self._calls.append((doc, threshold))
+
+        docs = tuple(random_id() for i in range(10))
+        ms = MockMetaStore(MockDB(17), docs)
+        mocked = Mocked(ms)
+        self.assertEqual(mocked.process_backlog(4), 17)
+        self.assertEqual(ms.db._calls, 1)
+        self.assertEqual(ms._calls, [4])
+        self.assertEqual(mocked._calls,
+            ['update_remote'] + [
+                (doc, metastore.MIN_BYTES_FREE) for doc in docs
+            ]
+        )
+
+        docs = tuple(random_id() for i in range(36))
+        ms = MockMetaStore(MockDB(18), docs)
+        mocked = Mocked(ms)
+        self.assertEqual(mocked.process_backlog(6), 18)
+        self.assertEqual(ms.db._calls, 1)
+        self.assertEqual(ms._calls, [6])
+        self.assertEqual(mocked._calls,
+            ['update_remote'] + [
+                (doc, metastore.MIN_BYTES_FREE) for doc in docs
+            ]
+        )
+
     def test_up_rank(self):
         class Mocked(core.Vigilance):
             def __init__(self, local, remote):
@@ -312,10 +371,83 @@ class TestVigilance(CouchCase):
         self.assertIsInstance(inst.stores, LocalStores)
         self.assertIsInstance(inst.local, frozenset)
         self.assertEqual(inst.local, frozenset())
+        self.assertEqual(inst.clients, {})
+        self.assertEqual(inst.peers, {})
+
+    def test_update_remote(self):
+        db = util.get_db(self.env, True)
+        ms = MetaStore(db)
+        inst = core.Vigilance(ms, None)
+        self.assertFalse(hasattr(inst, 'remote'))
+        self.assertFalse(hasattr(inst, 'store_to_peer'))
+
+        # Test when peers is empty:
+        self.assertIsNone(inst.update_remote())
         self.assertIsInstance(inst.remote, frozenset)
         self.assertEqual(inst.remote, frozenset())
-        self.assertEqual(inst.clients, {})
         self.assertEqual(inst.store_to_peer, {})
+
+        peer_id1 = random_id(30)
+        peer_id2 = random_id(30)
+        store_id1 = random_id()
+        store_id2 = random_id()
+        store_id3 = random_id()
+        store_id4 = random_id()
+
+        # Test when there are peers, but their machine docs don't exist:
+        inst.peers = {peer_id1: 'foo', peer_id2: 'bar'}
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, frozenset())
+        self.assertEqual(inst.store_to_peer, {})
+
+        # Test when just one doc exists:
+        doc1 = {
+            '_id': peer_id1,
+            'stores': {
+                store_id1: 'one',
+                store_id2: 'two',
+            }
+        }
+        db.save(doc1)
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, {store_id1, store_id2})
+        self.assertEqual(inst.store_to_peer, {
+            store_id1: peer_id1,
+            store_id2: peer_id1,
+        })
+
+        # Test when both docs exist:
+        doc2 = {
+            '_id': peer_id2,
+            'stores': {
+                store_id3: 'one',
+                store_id4: 'two',
+            }
+        }
+        db.save(doc2)
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote,
+            {store_id1, store_id2, store_id3, store_id4}
+        )
+        self.assertEqual(inst.store_to_peer, {
+            store_id1: peer_id1,
+            store_id2: peer_id1,
+            store_id3: peer_id2,
+            store_id4: peer_id2,
+        })
+
+        # Finally, test when peers is empty but docs exist:
+        inst.peers = {}
+        self.assertIsNone(inst.update_remote())
+        self.assertIsInstance(inst.remote, frozenset)
+        self.assertEqual(inst.remote, frozenset())
+        self.assertEqual(inst.store_to_peer, {})
+
+        # Docs should not have been modified:
+        self.assertEqual(db.get_many([peer_id1, peer_id2]), [doc1, doc2])
 
 
 class DummyProcess:
@@ -735,9 +867,20 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool.restart_once, set())
         self.assertEqual(pool._calls, [])
 
+        # Should return 0 when key not in tasks:
+        pool = MockedTaskPool(True, key1)
+        pool.running = True
+        self.assertIs(pool._stop_result, True)
+        self.assertEqual(pool.restart_always, {key1})
+        self.assertIs(pool.restart_task(key1), 0)
+        self.assertIs(pool.restart_task(key2), 0)
+        self.assertEqual(pool.restart_once, set())
+        self.assertEqual(pool._calls, [])
+
         # First test when stop_task() returns True:
         pool = MockedTaskPool(True, key1)
         pool.running = True
+        pool.tasks = {key1: 'stuff', key2: 'junk'}
         self.assertIs(pool._stop_result, True)
         self.assertEqual(pool.restart_always, {key1})
         self.assertIs(pool.restart_task(key1), True)
@@ -755,6 +898,7 @@ class TestTaskPool(TestCase):
         # Now test when stop_task() returns False:
         pool = MockedTaskPool(False, key1)
         pool.running = True
+        pool.tasks = {key1: 'stuff', key2: 'junk'}
         self.assertIs(pool._stop_result, False)
         self.assertEqual(pool.restart_always, {key1})
         self.assertIs(pool.restart_task(key1), False)
@@ -841,6 +985,128 @@ class TestTaskPool(TestCase):
         self.assertEqual(pool._calls, sorted([key1, key2, key3]))
         self.assertEqual(pool.active_tasks, {key1: 'foo', key2: 'bar', key3: 'baz'})
         self.assertIs(pool.running, False)
+
+
+class TestTaskMaster(TestCase):
+    def test_init(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIs(master.env, env)
+        self.assertIs(master.ssl_config, ssl_config)
+        self.assertIsInstance(master.pool, core.TaskPool)
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_add_filestore_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        fs = TempFileStore()
+        self.assertIsNone(master.add_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {
+            ('filestore', fs.parentdir): core.TaskInfo(
+                core.filestore_worker,
+                (env, fs.parentdir, fs.id),
+            ),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_remove_filestore_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        fs = TempFileStore()
+        key = ('filestore', fs.parentdir)
+        self.assertIsNone(master.remove_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {})
+        master.pool.tasks[key] = core.TaskInfo(
+            core.filestore_worker,
+            (env, fs.parentdir, fs.id),
+        )
+        self.assertIsNone(master.remove_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_restart_filestore_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        fs = TempFileStore()
+        self.assertIsNone(master.restart_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIsNone(master.add_filestore_task(fs))
+        self.assertIsNone(master.restart_filestore_task(fs))
+        self.assertEqual(master.pool.tasks, {
+            ('filestore', fs.parentdir): core.TaskInfo(
+                core.filestore_worker,
+                (env, fs.parentdir, fs.id),
+            ),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_add_vigilance_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.add_vigilance_task())
+        self.assertEqual(master.pool.tasks, {
+            ('vigilance',): core.TaskInfo(
+                core.vigilance_worker,
+                (env, ssl_config),
+            ),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_restart_vigilance_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.restart_vigilance_task())
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIsNone(master.add_vigilance_task())
+        self.assertIsNone(master.restart_vigilance_task())
+        self.assertEqual(master.pool.tasks, {
+            ('vigilance',): core.TaskInfo(
+                core.vigilance_worker,
+                (env, ssl_config),
+            ),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_add_downgrade_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.add_downgrade_task())
+        self.assertEqual(master.pool.tasks, {
+            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env,)),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
+
+    def test_restart_downgrade_task(self):
+        env = random_id()
+        ssl_config = random_id()
+        master = core.TaskMaster(env, ssl_config)
+        self.assertIsNone(master.restart_downgrade_task())
+        self.assertEqual(master.pool.tasks, {})
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIsNone(master.add_downgrade_task())
+        self.assertIsNone(master.restart_downgrade_task())
+        self.assertEqual(master.pool.tasks, {
+            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env,)),
+        })
+        self.assertEqual(master.pool.active_tasks, {})
+        self.assertIs(master.pool.running, False)
 
 
 class TestCore(CouchTestCase):

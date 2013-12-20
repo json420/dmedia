@@ -43,7 +43,7 @@ from base64 import b64encode
 from collections import namedtuple, OrderedDict
 
 from dbase32 import isdb32
-from microfiber import Server, Database, NotFound, Conflict, BulkConflict, id_slice_iter
+from microfiber import Server, Database, NotFound, Conflict, BulkConflict, dumps
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
 from gi.repository import GLib
 
@@ -257,7 +257,6 @@ class Vigilance:
                 url = info['url']
                 log.info('Vigilance: peer %s at %s', peer_id, url)
                 self.clients[peer_id] = get_client(url, ssl_context)
-        self.update_remote()
 
     def update_remote(self):
         """
@@ -270,7 +269,7 @@ class Vigilance:
 
         Hovever, as a failsafe, we want Vigilance to take responsibility for
         this itself also, but using a different mechanism (in particular,
-        somethnig other than the _changes feed).
+        something other than the _changes feed).
 
         So this method is called first thing in each of these methods:
 
@@ -288,7 +287,7 @@ class Vigilance:
                         self.store_to_peer[store_id] = doc['_id']
                         assert doc['_id'] in self.peers
         self.remote = frozenset(remote)
-        log.info('Visible remote stores: %r', sorted(self.remote))
+        log.info('Visible remote stores: %s', dumps(self.store_to_peer, pretty=True))
 
     def run(self):
         self.log_stats()
@@ -312,7 +311,7 @@ class Vigilance:
     def process_backlog(self, stop):
         self.update_remote()
         for doc in self.ms.iter_fragile_files(stop):
-            self.wrap_up_rank(doc)
+            self.wrap_up_rank(doc, MIN_BYTES_FREE)
         last_seq = self.ms.db.get()['update_seq']
         log.info('Vigilance: processed backlog: stop=%d, update_seq=%r',
                 stop, last_seq)
@@ -321,7 +320,7 @@ class Vigilance:
     def process_preempt(self):
         self.update_remote()
         for doc in self.ms.iter_preempt_files():
-            self.wrap_up_rank(doc, threshold=MAX_BYTES_FREE)
+            self.wrap_up_rank(doc, MAX_BYTES_FREE)
 
     def run_event_loop(self, last_seq):
         self.update_remote()
@@ -330,9 +329,9 @@ class Vigilance:
             result = self.ms.wait_for_fragile_files(last_seq)
             last_seq = result['last_seq']
             for row in result['results']:
-                self.wrap_up_rank(row['doc'])
+                self.wrap_up_rank(row['doc'], MIN_BYTES_FREE)
 
-    def wrap_up_rank(self, doc, threshold=MIN_BYTES_FREE):
+    def wrap_up_rank(self, doc, threshold):
         try:
             return self.up_rank(doc, threshold)
         except Exception:
@@ -693,7 +692,11 @@ class TaskPool:
 
     def restart_task(self, key):
         if self.running is False:
+            log.warning('restart_task: TaskPool is not running: %r', key)
             return
+        if key not in self.tasks:
+            log.warning('restart_task: %r not in tasks', key)
+            return 0
         log.info('restart_task: %r', key)
         if self.stop_task(key):
             if key not in self.restart_always:
@@ -733,7 +736,6 @@ class TaskMaster:
         self.env = env
         self.ssl_config = ssl_config
         self.pool = TaskPool(VIGILANCE)  # vigilance is auto-restarted
-        self.pool.add_task(VIGILANCE, vigilance_worker, env, ssl_config)
 
     def add_filestore_task(self, fs):
         key = build_fs_key(fs)
@@ -744,6 +746,9 @@ class TaskMaster:
 
     def restart_filestore_task(self, fs):
         self.pool.restart_task(build_fs_key(fs))
+
+    def add_vigilance_task(self):
+        self.pool.add_task(VIGILANCE, vigilance_worker, self.env, self.ssl_config)
 
     def restart_vigilance_task(self):
         self.pool.restart_task(VIGILANCE)
