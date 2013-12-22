@@ -694,6 +694,7 @@ class MetaStore:
             buf.save(doc)
             file_count += 1
             copy_count += len(stored)
+        buf.flush()
         t.log('downgrade all %d files (%d total copies)', file_count, copy_count)
         return (file_count, copy_count)
 
@@ -739,11 +740,13 @@ class MetaStore:
         """
         t = TimeDelta()
         file_count = 0
-        buf = BufferedSave(self.db, 50)
-        for doc in self.db.iter_view('doc', 'type', 'dmedia/file'):
-            doc['stored'] = {}
-            buf.save(doc)
-            file_count += 1
+        buf = BufferedSave(self.db, 200)
+        for doc in self.db.iter_view('doc', 'type', 'dmedia/file', 200):
+            if doc.get('stored') != {}:
+                doc['stored'] = {}
+                buf.save(doc)
+                file_count += 1
+        buf.flush()
         t.log('purge all %d files', file_count)
         return file_count
 

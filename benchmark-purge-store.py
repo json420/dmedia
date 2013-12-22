@@ -22,7 +22,7 @@ store_id1 = random_id()
 store_id2 = random_id()
 store_id3 = random_id()
 
-count = 5000
+count = 15 * 1000
 buf = BufferedSave(db, 100)
 print('Saving {} docs...'.format(count))
 for i in range(count):
@@ -49,20 +49,10 @@ for i in range(count):
         },
     }
     buf.save(doc)
-
-# Prep the view
-db.view('file', 'stored', limit=1)
+buf.flush()
 
 t = TimeDelta()
-
-#ms.downgrade_store(store_id1)
-#ms.downgrade_store(store_id2)
-#ms.downgrade_store(store_id3)
-
-ms.purge_store(store_id1)
-ms.purge_store(store_id2)
-ms.purge_store(store_id3)
-
+ms.purge_all()
 print('Rate: {} per second'.format(count * 3 // t.delta))
 print('')
 
