@@ -291,6 +291,8 @@ class Vigilance:
 
     def run(self):
         self.log_stats()
+        self.process_backlog(2)
+        time.sleep(11)  # Bit of time for replication/compaction to catch up
         self.process_backlog(4)
         time.sleep(29)  # Bit of time for replication/compaction to catch up
         last_seq = self.process_backlog(6)
