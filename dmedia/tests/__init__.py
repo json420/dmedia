@@ -57,29 +57,20 @@ class TestScripts(TestCase):
         return script
 
     def test_dmedia_service(self):
-        """
-        Test the `dmedia-service` script.
-        """
         script = self.check_script('dmedia-service', '/usr/lib/dmedia')
 
     def test_dmedia_cli(self):
-        """
-        Test the `dmedia-cli` script.
-        """
         script = self.check_script('dmedia-cli', '/usr/bin')
 
     def test_dmedia_gtk(self):
-        """
-        Test the `dmedia-gtk` script.
-        """
         self.skipTest('FIXME: switch UserWebKit to argparse')
         script = self.check_script('dmedia-gtk', '/usr/bin')
 
     def test_dmedia_peer_gtk(self):
-        """
-        Test the `dmedia-peer-gtk` script.
-        """
         script = self.check_script('dmedia-peer-gtk', '/usr/bin')
+
+    def test_dmedia_provision_drive(self):
+        script = self.check_script('dmedia-provision-drive', '/usr/bin')
 
 
 class TestConstants(TestCase):
