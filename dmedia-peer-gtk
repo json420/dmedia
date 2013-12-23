@@ -10,7 +10,7 @@ from dmedia.service import get_proxy
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--version', action='version', version=dmedia.__version__)
-parser.add_argument('--peer', help='peer ID')
+parser.add_argument('peer', help='peer ID')
 args = parser.parse_args()
 
 
