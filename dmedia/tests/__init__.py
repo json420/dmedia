@@ -62,6 +62,12 @@ class TestScripts(TestCase):
         """
         script = self.check_script('dmedia-service', '/usr/lib/dmedia')
 
+    def test_dmedia_cli(self):
+        """
+        Test the `dmedia-cli` script.
+        """
+        script = self.check_script('dmedia-cli', '/usr/bin')
+
 
 class TestConstants(TestCase):
     def test_version(self):
