@@ -67,9 +67,6 @@ def start_delta():
 
 BUS = dmedia.BUS
 IFACE = BUS
-mainloop = GLib.MainLoop()
-VolumeMonitor = Gio.VolumeMonitor.get()
-devices = Devices()
 
 
 class Service(dbus.service.Object):
@@ -571,6 +568,9 @@ if args.modules:
     sys.exit()
 
 
+mainloop = GLib.MainLoop()
+VolumeMonitor = Gio.VolumeMonitor.get()
+devices = Devices()
 log = dmedia.configure_logging2()
 busname = dbus.service.BusName(args.bus, dbus.SessionBus())
 service = Service(busname)
