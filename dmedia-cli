@@ -40,7 +40,6 @@ from dmedia.units import minsec
 
 
 methods = OrderedDict()
-session = dbus.SessionBus()
 
 KILL_MSG = """{} was running for {}
 
@@ -82,7 +81,7 @@ class _Method(metaclass=MethodMeta):
 
     def __init__(self, bus):
         self.bus = bus
-        self.proxy = session.get_object(bus, '/')
+        self.proxy = dbus.SessionBus().get_object(bus, '/')
 
     @classmethod
     def usage(cls):
