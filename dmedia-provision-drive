@@ -49,18 +49,20 @@ import tempfile
 from filestore import _dumps
 from dbase32 import random_id, isdb32
 
+import dmedia
 from dmedia.drives import Drive, Devices, VALID_DRIVE
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('dev',
-    help='Drive device file, eg. "/dev/sdb"'
-)
+parser.add_argument('--version', action='version', version=dmedia.__version__)
 parser.add_argument('--id',
     help='Use provided ID instead of generating a new random ID'
 )
 parser.add_argument('--label',
     help='File system label, eg. "My Drive"',
+)
+parser.add_argument('dev',
+    help='Drive device file, eg. "/dev/sdb"'
 )
 args = parser.parse_args()
 

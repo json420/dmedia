@@ -27,7 +27,7 @@
 Command line tool for talking to dmedia DBus services.
 """
 
-import optparse
+import argparse
 from collections import OrderedDict
 import sys
 from gettext import ngettext
@@ -219,32 +219,30 @@ class futon(_Method):
         return url
 
 
-parser = optparse.OptionParser(
-    usage='%prog METHOD [ARGS...]',
-    version=dmedia.__version__,
-)
-parser.add_option('--bus',
+parser = argparse.ArgumentParser()
+parser.add_argument('--version', action='version', version=dmedia.__version__)
+parser.add_argument('--bus',
     help='DBus bus name; default is {!r}'.format(dmedia.BUS),
     default=dmedia.BUS
 )
-(options, args) = parser.parse_args()
+parser.add_argument('method', nargs='?')
+parser.add_argument('args', nargs='*')
+args = parser.parse_args()
 
 
-if len(args) == 0:
+if not args.method:
     parser.print_help()
     print('')
     print_methods()
     sys.exit(0)
 
-name = args[0]
-args = args[1:]
-if name not in methods:
+if args.method not in methods:
     print_methods()
     print('')
-    error('Unknown method {!r}'.format(name))
+    error('Unknown method {!r}'.format(args.method))
 
-cls = methods[name]
-if len(args) != len(cls.args):
+cls = methods[args.method]
+if len(args.args) != len(cls.args):
     print_usage(cls)
     print('')
     msg = ngettext(
@@ -252,7 +250,7 @@ if len(args) != len(cls.args):
         '{!r} takes exactly {} arguments',
         len(cls.args)
     )
-    error(msg.format(name, len(cls.args)))
+    error(msg.format(args.method, len(cls.args)))
 
-method = cls(options.bus)
-print(method.run(args))
+method = cls(args.bus)
+print(method.run(args.args))

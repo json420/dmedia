@@ -23,7 +23,7 @@
 
 
 import sys
-import optparse
+import argparse
 from os import path
 from datetime import date
 from gettext import gettext as _
@@ -36,57 +36,50 @@ import dmedia
 from dmedia import schema
 from dmedia.util import get_db, get_project_db
 from dmedia.units import bytes10
-from dmedia.service import get_proxy
+from dmedia.service import get_env
 from dmedia.importer import ImportManager, notify_stats
 
 
 # Default project name if project_id isn't supplied
 name = _('Migrated {date}').format(date=date.today().strftime('%a, %d %b %Y'))
 
-parser = optparse.OptionParser(
-    usage='%prog DIRECTORY',
-)
-parser.add_option('--project',
-    metavar='ID',
+parser = argparse.ArgumentParser()
+parser.add_argument('--version', action='version', version=dmedia.__version__)
+parser.add_argument('--project', metavar='ID',
     help='ID of existing project (otherwise creates new one)',
-    default=None,
 )
-parser.add_option('--name',
+parser.add_argument('--name',
     help='name of new project; default is {!r}'.format(name),
     default=name,
 )
-parser.add_option('--list',
+parser.add_argument('--list', action='store_true', default=False,
     help='list existing projects and exit',
-    action='store_true',
-    default=False,
 )
-(options, args) = parser.parse_args()
+parser.add_argument('directory', nargs='?',
+    help='Directory from which to recursively import files',
+)
+args = parser.parse_args()
 
 
-def get_env():
-    Dmedia = get_proxy()
-    return json.loads(Dmedia.GetEnv())
-
-
-if options.list:
+if args.list:
     db = get_db(get_env())
     for row in db.view('project', 'title')['rows']:
         print('  {}  {}'.format(row['id'], row['key']))
     sys.exit(0)
-if len(args) != 1:
-    print('takes exactly one argument DIRECTORY')
+if not args.directory:
+    print('ERROR: takes exactly one argument DIRECTORY')
     sys.exit(1)
-basedir = path.abspath(args[0])
+basedir = path.abspath(args.directory)
 if not path.isdir(basedir):
     print('not a directory: {!r}'.format(basedir))
     sys.exit(1)
 
 
 env = get_env()
-if options.project:
-    project_id = options.project
+if args.project:
+    project_id = args.project
 else:
-    doc = schema.create_project(options.name)
+    doc = schema.create_project(args.name)
     project_id = doc['_id']
     db = get_db(env)
     db.post(doc)

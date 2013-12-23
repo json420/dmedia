@@ -453,7 +453,7 @@ class Session:
         env = {'url': peer.url, 'ssl': client_config}
         self.client = CouchBase(env)
         self.httpd.start()
-        self.ui = Popen([dmedia_peer_gtk, '--peer', peer.id])
+        self.ui = Popen([dmedia_peer_gtk, peer.id])
 
     def free(self):
         self.httpd.shutdown()

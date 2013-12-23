@@ -292,9 +292,9 @@ class Vigilance:
     def run(self):
         self.log_stats()
         self.process_backlog(2)
-        time.sleep(11)  # Bit of time for replication/compaction to catch up
+        time.sleep(17)  # Bit of time for replication/compaction to catch up
         self.process_backlog(4)
-        time.sleep(29)  # Bit of time for replication/compaction to catch up
+        time.sleep(19)  # Bit of time for replication/compaction to catch up
         last_seq = self.process_backlog(6)
         self.log_stats()
         self.process_preempt()
@@ -507,7 +507,7 @@ def downgrade_worker(env):
     except Exception:
         log.exception('Error in downgrade_worker():')
     # Then do a scan/relink:
-    time.sleep(23)  # Bit of time for replication/compaction to catch up
+    time.sleep(29)  # Bit of time for replication/compaction to catch up
     try:
         db = util.get_db(env)
         ms = MetaStore(db)
@@ -517,7 +517,7 @@ def downgrade_worker(env):
         for fs in stores:
             ms.relink(fs)
     except Exception:
-        log.exception('Error in downgrade_worker() scan/relink')
+        log.exception('Error in downgrade_worker(): scan/relink')
 
 
 def filestore_worker(env, parentdir, store_id):
@@ -526,9 +526,9 @@ def filestore_worker(env, parentdir, store_id):
         ms = MetaStore(db)
         fs = FileStore(parentdir, store_id)
         ms.scan(fs)
-        time.sleep(17)  # Bit of time for replication/compaction to catch up
+        time.sleep(5)  # Bit of time for replication/compaction to catch up
         ms.relink(fs)
-        time.sleep(19)  # Bit of time for replication/compaction to catch up
+        time.sleep(7)  # Bit of time for replication/compaction to catch up
         ms.verify_all(fs, int(time.time()))
     except Exception:
         log.exception('Error in filestore_worker():')

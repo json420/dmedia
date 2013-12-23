@@ -21,6 +21,8 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 
+import argparse
+
 from filestore.migration import Migration
 from microfiber import Server, encode_attachment, Attachment, NotFound, dumps
 
@@ -30,6 +32,10 @@ from dmedia.metastore import MetaStore, BufferedSave
 from dmedia import migration, schema, views
 from dmedia.service import init_if_needed, get_env
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--version', action='version', version=dmedia.__version__)
+args = parser.parse_args()
 
 log = dmedia.configure_logging()
 init_if_needed()
