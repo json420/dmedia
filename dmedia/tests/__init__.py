@@ -75,6 +75,9 @@ class TestScripts(TestCase):
     def test_dmedia_migrate(self):
         script = self.check_script('dmedia-migrate', '/usr/bin')
 
+    def test_dmedia_v0_v1_upgrade(self):
+        script = self.check_script('dmedia-v0-v1-upgrade', '/usr/bin')
+
 
 class TestConstants(TestCase):
     def test_version(self):
