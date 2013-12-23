@@ -75,6 +75,12 @@ class TestScripts(TestCase):
         self.skipTest('FIXME: switch UserWebKit to argparse')
         script = self.check_script('dmedia-gtk', '/usr/bin')
 
+    def test_dmedia_peer_gtk(self):
+        """
+        Test the `dmedia-peer-gtk` script.
+        """
+        script = self.check_script('dmedia-peer-gtk', '/usr/bin')
+
 
 class TestConstants(TestCase):
     def test_version(self):
