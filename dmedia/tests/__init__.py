@@ -27,10 +27,40 @@ from unittest import TestCase
 import os
 from os import path
 import logging
+from subprocess import check_call, Popen, PIPE
 
 from .base import TempHome
 
 import dmedia
+
+
+TREE = path.dirname(path.dirname(path.dirname(path.abspath(__file__))))
+IN_TREE = path.isfile(path.join(TREE, 'setup.py'))
+
+
+class TestScripts(TestCase):
+    def check_script(self, name, install_base):
+        """
+        Do a basic sanity check on a script.
+
+        Currently verifies that -h and --version both work.
+        """
+        base = (TREE if IN_TREE else install_base)
+        script = path.join(base, name)
+        self.assertTrue(path.isfile(script))
+        check_call([script, '-h'])
+        p = Popen([script, '--version'], stdout=PIPE, stderr=PIPE)
+        (stdout, stderr) = p.communicate()
+        self.assertEqual(p.returncode, 0)
+        self.assertEqual(stdout.decode('utf-8'), '')
+        self.assertEqual(stderr.decode('utf-8'), dmedia.__version__ + '\n')
+        return script
+
+    def test_dmedia_service(self):
+        """
+        Test the `dmedia-service` script.
+        """
+        script = self.check_script('dmedia-service', '/usr/lib/dmedia')
 
 
 class TestConstants(TestCase):
