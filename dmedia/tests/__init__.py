@@ -39,6 +39,10 @@ IN_TREE = path.isfile(path.join(TREE, 'setup.py'))
 
 
 class TestScripts(TestCase):
+    def setUp(self):
+        if os.environ.get('DMEDIA_TEST_CORE_ONLY') == 'true':
+            self.skipTest('not running script unit tests during build')
+
     def check_script(self, name, install_base):
         """
         Do a basic sanity check on a script.
@@ -67,7 +71,6 @@ class TestScripts(TestCase):
         script = self.check_script('dmedia-gtk', '/usr/bin')
 
     def test_dmedia_peer_gtk(self):
-        self.skipTest('FIXME: need to launch this with xvfb-run also')
         script = self.check_script('dmedia-peer-gtk', '/usr/bin')
 
     def test_dmedia_provision_drive(self):
