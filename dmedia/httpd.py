@@ -82,6 +82,8 @@ import logging
 
 from dmedia import __version__
 
+from degu.server import build_server_sslctx
+
 
 SERVER_SOFTWARE = 'Dmedia/{} ({} {}; {})'.format(__version__, 
     platform.dist()[0], platform.dist()[1], platform.machine()
@@ -119,6 +121,7 @@ class WSGIError(Exception):
 
 
 def build_server_ssl_context(config):
+    return build_server_sslctx(config)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
     ctx.set_ecdh_curve('prime256v1')  # Enable perfect forward secrecy
     ctx.set_ciphers('HIGH:!aNULL:!RC4:!DSS')

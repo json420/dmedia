@@ -59,7 +59,7 @@ def request_args(environ):
     if environ['wsgi.input']._avail:
         body = environ['wsgi.input'].read()
     else:
-        body = None
+        body = b''
     path = environ['PATH_INFO']
     query = environ['QUERY_STRING']
     if query:
@@ -260,14 +260,30 @@ class ProxyApp:
         headers['host'] = self.target_host
         headers['authorization'] = self.basic_auth
 
+        lines = [('>' * 80), '{} {}'.format(method, path)]
+        for key in sorted(headers):
+            lines.append('{}: {}'.format(key, headers[key]))
+        lines.append('')
+
+        if method in {'PUT', 'POST'}:
+            if 'content-length' in headers:
+                headers['content-length'] = len(body)
+        else:
+            headers.pop('content-length')
+            body = None
+
         response = self.client.raw_request(method, path, body, headers)
         status = '{} {}'.format(response.status, response.reason)
-        headers = response.getheaders()
-        start_response(status, headers)
-        body = response.read()
-        if body:
-            return [body]
-        return []
+        lines.append(status)
+        for key in sorted(response.headers):
+            lines.append('{}: {}'.format(key, response.headers[key]))
+        lines.append('<' * 80)
+        print('\n'.join(lines))
+        
+        start_response(status, list(response.headers.items()))
+        if response.body is None:
+            return []
+        return [response.body.read()]
 
 
 class FilesApp:
