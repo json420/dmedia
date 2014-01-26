@@ -61,6 +61,8 @@ def request_args(environ):
     else:
         body = b''
     path = environ['PATH_INFO']
+    if path == '':
+        path = '/'
     query = environ['QUERY_STRING']
     if query:
         path = '?'.join([path, query])
@@ -269,7 +271,7 @@ class ProxyApp:
             if 'content-length' in headers:
                 headers['content-length'] = len(body)
         else:
-            headers.pop('content-length')
+            headers.pop('content-length', None)
             body = None
 
         response = self.client.raw_request(method, path, body, headers)
