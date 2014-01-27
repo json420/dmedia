@@ -102,18 +102,20 @@ class ProxyApp:
 
     def __call__(self, request):
         client = self.get_client()
-
-        method = request['method']
-        uri = build_uri(request['path'], request['query'])
-        headers = request['headers'].copy()
-        headers['authorization'] = self.basic_auth
-        headers['host'] = self.target_host
-        body = make_output_from_input(request['body'])
-
-        proxy_response = client.request(method, uri, headers, body)
-        return (
-            proxy_response.status,
-            proxy_response.reason,
-            proxy_response.headers,
-            make_output_from_input(proxy_response.body)
-        )
+        try:
+            method = request['method']
+            uri = build_uri(request['path'], request['query'])
+            headers = request['headers'].copy()
+            headers['authorization'] = self.basic_auth
+            headers['host'] = self.target_host
+            body = make_output_from_input(request['body'])
+            response = client.request(method, uri, headers, body)
+            return (
+                response.status,
+                response.reason,
+                response.headers,
+                make_output_from_input(response.body)
+            )
+        except Exception:
+            client.close()
+            raise
