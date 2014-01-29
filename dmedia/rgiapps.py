@@ -32,9 +32,15 @@ import os
 import socket
 import logging
 
+from dbase32 import isdb32
 from degu.base import build_uri, make_output_from_input
+from degu.server import shift_path
 from degu.client import Client
-from microfiber import basic_auth_header
+from microfiber import basic_auth_header, dumps
+from filestore import DIGEST_B32LEN
+
+from .local import LocalSlave
+from . import __version__
 
 
 USER = os.environ.get('USER')
@@ -52,12 +58,12 @@ class RootApp:
         obj = {
             'user_id': env['user_id'],
             'machine_id': env['machine_id'],
-            'version': dmedia.__version__,
+            'version': __version__,
             'user': USER,
             'host': HOST,
         }
         self.info = dumps(obj).encode('utf-8')
-        self.info_length = str(len(self.info))
+        self.info_length = len(self.info)
         self.proxy = ProxyApp(env)
         self.files = FilesApp(env)
         self.map = {
@@ -66,22 +72,20 @@ class RootApp:
             'files': self.files,
         }
 
-    def __call__(self, environ, start_response):
-        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
-            raise WSGIError('403 Forbidden SSL')
-        if environ.get('SSL_CLIENT_I_DN_CN') != self.user_id:
-            raise WSGIError('403 Forbidden Issuer')
-        key = shift_path_info(environ)
+    def __call__(self, request):
+        if request['path'] == [] or request['path'] == ['']:
+            return self.get_info(request)
+        key = shift_path(request)
         if key in self.map:
-            return self.map[key](environ, start_response)
-        raise WSGIError('410 Gone')
+            return self.map[key](request)
+        return (410, 'Gone', {}, None)
 
     def get_info(self, request):
         if request['method'] != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         headers = {
-            {'content-length': self.info_length},
-            {'content-type': 'application/json'},
+            'content-length': self.info_length,
+            'content-type': 'application/json',
         }
         return (200, 'OK', headers, self.info)
 
@@ -92,7 +96,7 @@ class ProxyApp:
         t = urlparse(env['url'])
         self.hostname = t.hostname
         self.port = t.port
-        self.target_host = t.netloc
+        self.netloc = t.netloc
         self.basic_auth = basic_auth_header(env['basic'])
 
     def get_client(self):
@@ -107,7 +111,7 @@ class ProxyApp:
             uri = build_uri(request['path'], request['query'])
             headers = request['headers'].copy()
             headers['authorization'] = self.basic_auth
-            headers['host'] = self.target_host
+            headers['host'] = self.netloc
             body = make_output_from_input(request['body'])
             response = client.request(method, uri, headers, body)
             return (
@@ -119,3 +123,61 @@ class ProxyApp:
         except Exception:
             client.close()
             raise
+
+
+class FilesApp:
+    def __init__(self, env):
+        self.local = LocalSlave(env)
+
+    def __call__(self, request):
+        if request['method'] not in {'GET', 'HEAD'}:
+            return (405, 'Method Not Allowed', {}, None)
+        _id = shift_path(request)
+        if not isdb32(_id):
+            return (400, 'Bad File ID', {}, None)
+        if len(_id) != DIGEST_B32LEN:
+            return (400, 'Bad File ID Length', {}, None)
+        if request['path'] != []:
+            return (410, 'Gone', {}, None)
+        if request['query']:
+            return (400, 'No Query For You', {}, None)
+        if request['method'] == 'HEAD' and 'range' in request['headers']:
+            return (400, 'Cannot Range with HEAD', {}, None)
+        try:
+            doc = self.local.get_doc(_id)
+            st = self.local.stat2(doc)
+            fp = open(st.name, 'rb')
+        except local.FileNotLocal:
+            log.info('Not Found: %s', _id)
+            raise WSGIError('404 Not Found')
+        except Exception:
+            log.exception('%r', environ)
+            raise WSGIError('404 Not Found')
+
+        if method == 'HEAD':
+            start_response('200 OK', [('Content-Length', st.size)])
+            return []
+
+        if 'HTTP_RANGE' in environ:
+            (start, stop) = range_to_slice(environ['HTTP_RANGE'], st.size)
+            status = '206 Partial Content'
+        else:
+            start = 0
+            stop = st.size
+            status = '200 OK'
+
+        log.info('Sending bytes %s[%d:%d] to %s:%s from %r', _id, start, stop,
+            environ['REMOTE_ADDR'], environ['REMOTE_PORT'], st.name
+        )
+        file_slice = FileSlice(fp, start, stop)
+        headers = [('Content-Length', file_slice.content_length)]
+        if status == '206 Partial Content':
+            headers.append(
+                slice_to_content_range(start, stop, st.size)
+            )
+        start_response(status, headers)
+        return file_slice
+
+
+def build_root_app(couch_env):
+    return RootApp(couch_env)

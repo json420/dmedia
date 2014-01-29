@@ -29,6 +29,7 @@ import time
 import os
 from random import SystemRandom
 from base64 import b64decode
+import socket
 
 from degu.misc import TempSSLServer
 from dbase32 import random_id
@@ -36,6 +37,8 @@ from degu.client import Client
 from usercouch.misc import TempCouch
 import microfiber
 
+import dmedia
+from dmedia.local import LocalSlave
 from dmedia import identity, rgiapps
 
 
@@ -71,6 +74,124 @@ def random_doc(i):
     }
 
 
+class TestRootApp(TestCase):
+    def test_init(self):
+        user_id = random_id(30)
+        machine_id = random_id(30)
+        password = random_id()
+        env = {
+            'user_id': user_id,
+            'machine_id': machine_id,
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = rgiapps.RootApp(env)
+        self.assertIs(app.user_id, user_id)
+        self.assertEqual(
+            app.info,
+            microfiber.dumps(
+                {
+                    'user_id': user_id,
+                    'machine_id': machine_id,
+                    'version': dmedia.__version__,
+                    'user': os.environ.get('USER'),
+                    'host': socket.gethostname(),
+                }   
+            ).encode('utf-8')
+        )
+        self.assertEqual(app.info_length, int(len(app.info)))
+        self.assertIsInstance(app.proxy, rgiapps.ProxyApp)
+        self.assertIsInstance(app.files, rgiapps.FilesApp)
+        self.assertEqual(app.map,
+            {
+                '': app.get_info,
+                'couch': app.proxy,
+                'files': app.files,
+            }
+        )
+
+    def test_call(self):
+        user_id = random_id(30)
+        machine_id = random_id(30)
+        password = random_id()
+        env = {
+            'user_id': user_id,
+            'machine_id': machine_id,
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = rgiapps.RootApp(env)
+        self.assertEqual(
+            app({'path': [], 'method': 'GET'}),
+            (
+                200,
+                'OK',
+                {
+                    'content-length': len(app.info),
+                    'content-type': 'application/json',
+                },
+                app.info
+            )
+        )
+        self.assertEqual(
+            app({'path': [''], 'method': 'GET'}),
+            (
+                200,
+                'OK',
+                {
+                    'content-length': len(app.info),
+                    'content-type': 'application/json',
+                },
+                app.info
+            )
+        )
+        self.assertEqual(
+            app({'path': [], 'method': 'POST'}),
+            (405, 'Method Not Allowed', {}, None)
+        )
+        self.assertEqual(
+            app({'path': [''], 'method': 'POST'}),
+            (405, 'Method Not Allowed', {}, None)
+        )
+        request = {'script': [], 'path': ['foo'], 'method': 'POST'}
+        self.assertEqual(app(request), (410, 'Gone', {}, None))
+        self.assertEqual(request,
+            {'script': ['foo'], 'path': [], 'method': 'POST'}
+        )
+        request = {'script': [], 'path': ['foo', 'bar'], 'method': 'GET'}
+        self.assertEqual(app(request), (410, 'Gone', {}, None))
+        self.assertEqual(request,
+            {'script': ['foo'], 'path': ['bar'], 'method': 'GET'}
+        )
+
+    def test_get_info(self):
+        user_id = random_id(30)
+        machine_id = random_id(30)
+        password = random_id()
+        env = {
+            'user_id': user_id,
+            'machine_id': machine_id,
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = rgiapps.RootApp(env)
+        self.assertEqual(
+            app.get_info({'method': 'GET'}),
+            (
+                200,
+                'OK',
+                {
+                    'content-length': len(app.info),
+                    'content-type': 'application/json',
+                },
+                app.info
+            )
+        )
+        self.assertEqual(
+            app.get_info({'method': 'POST'}),
+            (405, 'Method Not Allowed', {}, None)
+        )
+
 
 class TestProxyApp(TestCase):
     def test_init(self):
@@ -83,7 +204,7 @@ class TestProxyApp(TestCase):
         self.assertIsInstance(app.threadlocal, threading.local)
         self.assertEqual(app.hostname, '127.0.0.1')
         self.assertEqual(app.port, 5984)
-        self.assertEqual(app.target_host, '127.0.0.1:5984')
+        self.assertEqual(app.netloc, '127.0.0.1:5984')
         self.assertEqual(app.basic_auth,
             microfiber.basic_auth_header(env['basic'])
         )
@@ -106,6 +227,7 @@ class TestProxyApp(TestCase):
         """
         Test pull replication Couch1 <= SSLServer <= Couch2.
         """
+        self.skipTest('fixme')
         pki = identity.TempPKI(True)
         config = {'replicator': pki.get_client_config()}
         couch1 = TempCouch()
@@ -336,3 +458,86 @@ class TestProxyApp(TestCase):
                         db2.get_att(_id, key).data,
                         b64decode(item['data'].encode())
                     )
+
+
+class TestFilesApp(TestCase):
+    def test_init(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+            'machine_id': random_id(30),
+        }
+        app = rgiapps.FilesApp(env)
+        self.assertIsInstance(app.local, LocalSlave)
+        self.assertIs(app.local.db.env, env)
+
+    def test_call(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+            'machine_id': random_id(30),
+        }
+        app = rgiapps.FilesApp(env)
+
+        # method:
+        for method in ('PUT', 'POST', 'DELETE'):
+            self.assertEqual(app({'method': method}),
+                (405, 'Method Not Allowed', {}, None)
+            )
+
+        # path:
+        bad_id1 = random_id(30)[:-1] + '0'  # Invalid letter
+        request = {'method': 'GET', 'script': [], 'path': [bad_id1]}
+        self.assertEqual(app(request), (400, 'Bad File ID', {}, None))
+        self.assertEqual(request,
+            {'method': 'GET', 'script': [bad_id1], 'path': []}
+        )
+
+        bad_id2 = random_id(25)  # Wrong length
+        request = {'method': 'GET', 'script': [], 'path': [bad_id2]}
+        self.assertEqual(app(request), (400, 'Bad File ID Length', {}, None))
+        self.assertEqual(request,
+            {'method': 'GET', 'script': [bad_id2], 'path': []}
+        )
+
+        good_id = random_id(30)
+        request = {'method': 'GET', 'script': [], 'path': [good_id, 'more']}
+        self.assertEqual(app(request), (410, 'Gone', {}, None))
+        self.assertEqual(request,
+            {'method': 'GET', 'script': [good_id], 'path': ['more']}
+        )
+
+        # query:
+        request = {
+            'method': 'GET',
+            'script': [],
+            'path': [good_id],
+            'query': 'stuff=junk',
+        }
+        self.assertEqual(app(request), (400, 'No Query For You', {}, None))
+        self.assertEqual(request, {
+            'method': 'GET',
+            'script': [good_id],
+            'path': [],
+            'query': 'stuff=junk',
+        })
+
+        # HEAD + range == bad:
+        request = {
+            'method': 'HEAD',
+            'script': [],
+            'path': [good_id],
+            'query': '',
+            'headers': {'range': 'bytes=500-1000'},
+        }
+        self.assertEqual(app(request), (400, 'Cannot Range with HEAD', {}, None))
+        self.assertEqual(request, {
+            'method': 'HEAD',
+            'script': [good_id],
+            'path': [],
+            'query': '',
+            'headers': {'range': 'bytes=500-1000'},
+        })
+
