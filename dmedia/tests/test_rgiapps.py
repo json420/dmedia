@@ -30,9 +30,11 @@ import os
 from random import SystemRandom
 from base64 import b64decode
 import socket
+import json
 
-from degu.misc import TempSSLServer
 from dbase32 import random_id
+from degu.misc import TempSSLServer
+from degu.base import EmptyLineError
 from degu.client import Client
 from usercouch.misc import TempCouch
 import microfiber
@@ -191,6 +193,61 @@ class TestRootApp(TestCase):
             app.get_info({'method': 'POST'}),
             (405, 'Method Not Allowed', {}, None)
         )
+
+
+class TestRootAppLive(TestCase):
+    def test_call(self):
+        couch = TempCouch()
+        env = couch.bootstrap()
+        env['user_id'] = random_id(30)
+        env['machine_id'] = random_id(30)
+        db = microfiber.Database('dmedia-1', env)
+
+        pki = identity.TempPKI(True)
+        httpd = TempSSLServer(pki, rgiapps.build_root_app, env)
+        client = httpd.get_client()
+
+        # Info app
+        response = client.request('GET', '/')
+        data = response.body.read()
+        self.assertEqual(json.loads(data.decode()), {
+            'user_id': env['user_id'],
+            'machine_id': env['machine_id'],
+            'version': dmedia.__version__,
+            'user': os.environ.get('USER'),
+            'host': socket.gethostname(),
+        })
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.reason, 'OK')
+        self.assertEqual(response.headers, {
+            'content-length': len(data),
+            'content-type': 'application/json',
+        })
+
+        # Naughty path in ProxyAPP
+        self.assertEqual(client.request('GET', '/couch/_config'),
+            (403, 'Forbidden', {}, None)
+        )
+
+        # Ensure that server closed the connection:
+        with self.assertRaises(EmptyLineError) as cm:
+            client.request('GET', '/couch/')
+        self.assertIsNone(client.conn)
+        self.assertIsNone(client.response_body)
+
+        # A 404 should not close the connection:
+        response = client.request('GET', '/couch/dmedia-1')
+        data = response.body.read()
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Object Not Found')
+        self.assertEqual(response.headers['content-length'], len(data))
+        db.put(None)
+        response = client.request('GET', '/couch/dmedia-1')
+        data = response.body.read()
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.reason, 'OK')
+        self.assertEqual(response.headers['content-length'], len(data))
+        self.assertEqual(db.get(), json.loads(data.decode()))
 
 
 class TestProxyApp(TestCase):

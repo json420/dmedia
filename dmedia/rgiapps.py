@@ -109,6 +109,8 @@ class ProxyApp:
         try:
             method = request['method']
             uri = build_uri(request['path'], request['query'])
+            if uri.startswith('/_'):
+                return (403, 'Forbidden', {}, None)
             headers = request['headers'].copy()
             headers['authorization'] = self.basic_auth
             headers['host'] = self.netloc

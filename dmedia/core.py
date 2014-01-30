@@ -45,11 +45,12 @@ from collections import namedtuple, OrderedDict
 from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, BulkConflict, dumps
 from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
+from degu.server import start_sslserver
 from gi.repository import GLib
 
 import dmedia
 from dmedia.parallel import create_thread, start_thread, start_process
-from dmedia.server import run_server
+from dmedia.rgiapps import build_root_app
 from dmedia import util, schema, views
 from dmedia.client import Downloader, get_client, build_ssl_context
 from dmedia.metastore import MetaStore, create_stored, get_dict
@@ -63,13 +64,7 @@ LOCAL_ID = '_local/dmedia'
 
 
 def start_httpd(couch_env, ssl_config):
-    q = multiprocessing.Queue()
-    process = start_process(run_server, q, couch_env, '0.0.0.0', ssl_config)
-    env = q.get()
-    if isinstance(env, Exception):
-        raise env
-    log.info('Dmedia HTTPD: %s', env['url'])
-    return (process, env)
+    return start_sslserver(ssl_config, build_root_app, couch_env)
 
 
 NO_DUMP = (
