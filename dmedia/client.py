@@ -138,7 +138,7 @@ def range_header(ch, start, stop):
     stop_bytes = min(ch.file_size, stop * LEAF_SIZE)
     assert 0 <= start_bytes < stop_bytes <= ch.file_size
     end_bytes = stop_bytes - 1
-    return {'Range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
+    return {'range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
 
 
 def response_reader(response, queue, start=0):
