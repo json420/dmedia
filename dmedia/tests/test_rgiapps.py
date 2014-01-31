@@ -41,7 +41,7 @@ import microfiber
 
 import dmedia
 from dmedia.local import LocalSlave
-from dmedia import identity, rgiapps
+from dmedia import client, identity, rgiapps
 
 
 random = SystemRandom()
@@ -74,6 +74,76 @@ def random_doc(i):
             random_id(): microfiber.encode_attachment(att),
         },
     }
+
+
+class TestFunctions(TestCase):
+    def test_range_to_slice(self):
+        # First byte:
+        self.assertEqual(
+            rgiapps.range_to_slice('bytes=0-0', 1000), (0, 1)
+        )
+
+        # Final byte:
+        self.assertEqual(
+            rgiapps.range_to_slice('bytes=999-999', 1000), (999, 1000)
+        )
+
+        # stop > file_size
+        with self.assertRaises(rgiapps.RGIError) as cm:
+            rgiapps.range_to_slice('bytes=999-1000', 1000)
+        self.assertEqual(
+            str(cm.exception),
+            '416 Requested Range Not Satisfiable'
+        )
+
+        # start >= stop
+        with self.assertRaises(rgiapps.RGIError) as cm:
+            rgiapps.range_to_slice('bytes=200-199', 1000)
+        self.assertEqual(
+            str(cm.exception),
+            '416 Requested Range Not Satisfiable'
+        )
+
+        # But confirm this works:
+        self.assertEqual(
+            rgiapps.range_to_slice('bytes=200-200', 1000), (200, 201)
+        )
+
+        # And this too:
+        self.assertEqual(
+            rgiapps.range_to_slice('bytes=100-199', 1000), (100, 200)
+        )
+
+        # Use above as basis for a bunch of malformed values:
+        bad_eggs = [
+            ' bytes=100-199',
+            'bytes=100-199 ',
+            'bytes= 100-199',
+            'bytes=-100',
+            'bytes=100-',
+            'bytes=-100-199',
+            'bits=100-199',
+            'cows=100-199',
+            'bytes=10.0-20.0',
+            'bytes=100:199'
+        ]
+        for value in bad_eggs:
+            with self.assertRaises(rgiapps.RGIError) as cm:
+                rgiapps.range_to_slice(value, 1000)
+            self.assertEqual(str(cm.exception), '400 Bad Range Request')
+
+       # Test the round-trip with client.bytes_range
+        slices = [
+            (0, 1),
+            (0, 500),
+            (500, 1000),
+            (9500, 10000),
+        ]
+        for (start, stop) in slices:
+            self.assertEqual(
+                rgiapps.range_to_slice(client.bytes_range(start, stop), 10000),
+                (start, stop)
+            )
 
 
 class TestRootApp(TestCase):
