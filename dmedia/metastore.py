@@ -63,7 +63,6 @@ Types of background tasks:
 import time
 import os
 import logging
-from http.client import ResponseNotReady
 from random import SystemRandom
 from copy import deepcopy
 
@@ -1059,7 +1058,7 @@ class MetaStore:
             # Note that even without this we're generally still pretty safe as
             # the vigilence process gets restarted every 29 minutes anyway, in
             # order to minimize the impact of unexpected crashes or hangs. 
-            except (ResponseNotReady, BadRequest):
+            except (OSError, BadRequest):
                 pass
 
     def iter_preempt_files(self):

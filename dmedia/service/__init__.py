@@ -34,7 +34,6 @@ from gi.repository import GLib
 
 
 DBusGMainLoop(set_as_default=True)
-GLib.threads_init()
 BUS = 'org.freedesktop.Dmedia'
 
 

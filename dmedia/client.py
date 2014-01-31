@@ -138,14 +138,14 @@ def range_header(ch, start, stop):
     stop_bytes = min(ch.file_size, stop * LEAF_SIZE)
     assert 0 <= start_bytes < stop_bytes <= ch.file_size
     end_bytes = stop_bytes - 1
-    return {'Range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
+    return {'range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
 
 
 def response_reader(response, queue, start=0):
     try:
         index = start
         while True:
-            data = response.read(LEAF_SIZE)
+            data = response.body.read(LEAF_SIZE)
             if not data:
                 queue.put(None)
                 break
@@ -267,7 +267,10 @@ class HTTPClient(CouchBase):
 
     def has_file(self, _id):
         try:
-            self.request('HEAD', ('files', _id), None).read()
+            response = self.request('HEAD', ('files', _id), None)
+            assert response.status == 200
+            assert response.reason == 'OK'
+            assert response.body is None
             return True
         except NotFound:
             return False

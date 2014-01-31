@@ -182,6 +182,7 @@ class Service(dbus.service.Object):
             self.peer = Browser(self, self.couch)
         (self.httpd, env) = start_httpd(self.core.env, self.core.ssl_config)
         self.httpd_port = env['port']
+        log.info('started Degu SSLServer at %r', env['url'])
         GLib.timeout_add(1500, self.on_idle3)
 
     def on_idle3(self):

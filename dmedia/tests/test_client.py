@@ -129,19 +129,19 @@ class TestFunctions(TestCase):
         ch = ContentHash(None, size, leaf_hashes)
         self.assertIsNone(client.range_header(ch, 0, 3))
         self.assertEqual(client.range_header(ch, 1, 3),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
         )
         self.assertEqual(client.range_header(ch, 2, 3),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
         )
         self.assertEqual(client.range_header(ch, 0, 2),
-            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
+            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
         )
         self.assertEqual(client.range_header(ch, 1, 2),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
         )
         self.assertEqual(client.range_header(ch, 0, 1),
-            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
+            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
         )
 
         # Largest 3 leaf file:
@@ -149,19 +149,19 @@ class TestFunctions(TestCase):
         ch = ContentHash(None, size, leaf_hashes)
         self.assertIsNone(client.range_header(ch, 0, 3))
         self.assertEqual(client.range_header(ch, 1, 3),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
         )
         self.assertEqual(client.range_header(ch, 2, 3),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
         )
         self.assertEqual(client.range_header(ch, 0, 2),
-            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
+            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
         )
         self.assertEqual(client.range_header(ch, 1, 2),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
         )
         self.assertEqual(client.range_header(ch, 0, 1),
-            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
+            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
         )
 
         # One byte smaller than largest 3 leaf file:
@@ -169,19 +169,19 @@ class TestFunctions(TestCase):
         ch = ContentHash(None, size, leaf_hashes)
         self.assertIsNone(client.range_header(ch, 0, 3))
         self.assertEqual(client.range_header(ch, 1, 3),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
         )
         self.assertEqual(client.range_header(ch, 2, 3),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
         )
         self.assertEqual(client.range_header(ch, 0, 2),
-            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
+            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
         )
         self.assertEqual(client.range_header(ch, 1, 2),
-            {'Range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
+            {'range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
         )
         self.assertEqual(client.range_header(ch, 0, 1),
-            {'Range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
+            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
         )
 
 
