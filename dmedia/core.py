@@ -64,7 +64,9 @@ LOCAL_ID = '_local/dmedia'
 
 
 def start_httpd(couch_env, ssl_config):
-    return start_sslserver(ssl_config, build_root_app, couch_env)
+    return start_sslserver(ssl_config, build_root_app, couch_env,
+        bind_address='0.0.0.0'
+    )
 
 
 NO_DUMP = (
