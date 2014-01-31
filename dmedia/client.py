@@ -145,7 +145,7 @@ def response_reader(response, queue, start=0):
     try:
         index = start
         while True:
-            data = response.read(LEAF_SIZE)
+            data = response.body.read(LEAF_SIZE)
             if not data:
                 queue.put(None)
                 break
@@ -267,7 +267,10 @@ class HTTPClient(CouchBase):
 
     def has_file(self, _id):
         try:
-            self.request('HEAD', ('files', _id), None).read()
+            response = self.request('HEAD', ('files', _id), None)
+            assert response.status == 200
+            assert response.reason == 'OK'
+            assert response.body is None
             return True
         except NotFound:
             return False
