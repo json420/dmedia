@@ -87,7 +87,7 @@ else:
     project.save(doc)
 env['project_id'] = project_id
 
-GLib.threads_init()
+
 mainloop = GLib.MainLoop()
 
 
