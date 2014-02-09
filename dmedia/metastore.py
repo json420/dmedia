@@ -1063,7 +1063,7 @@ class MetaStore:
 
     def iter_preempt_files(self):
         kw = {
-            'limit': 100,
+            'limit': 300,
             'descending': True,
         }
         rows = self.db.view('file', 'preempt', **kw)['rows']
