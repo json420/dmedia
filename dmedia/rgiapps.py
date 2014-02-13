@@ -183,14 +183,17 @@ class ProxyApp:
     def __init__(self, env):
         self.threadlocal = threading.local()
         t = urlparse(env['url'])
-        self.hostname = t.hostname
-        self.port = t.port
         self.netloc = t.netloc
+        self.address = (t.hostname, t.port)
         self.basic_auth = basic_auth_header(env['basic'])
 
     def get_client(self):
         if not hasattr(self.threadlocal, 'client'):
-            self.threadlocal.client = Client(self.hostname, self.port)
+            default_headers = {
+                'authorization': self.basic_auth,
+                'host': self.netloc,
+            }
+            self.threadlocal.client = Client(self.address, default_headers)
         return self.threadlocal.client
 
     def __call__(self, request):
@@ -201,8 +204,6 @@ class ProxyApp:
             if uri.startswith('/_'):
                 return (403, 'Forbidden', {}, None)
             headers = request['headers'].copy()
-            headers['authorization'] = self.basic_auth
-            headers['host'] = self.netloc
             body = make_output_from_input(request['body'])
             response = client.request(method, uri, headers, body)
             return (

@@ -33,6 +33,7 @@ import socket
 import json
 
 from dbase32 import random_id
+from degu import IPv4_LOOPBACK
 from degu.misc import TempSSLServer
 from degu.base import EmptyLineError
 from degu.client import Client
@@ -274,7 +275,7 @@ class TestRootAppLive(TestCase):
         db = microfiber.Database('dmedia-1', env)
 
         pki = identity.TempPKI(True)
-        httpd = TempSSLServer(pki, rgiapps.build_root_app, env)
+        httpd = TempSSLServer(pki, IPv4_LOOPBACK, rgiapps.build_root_app, env)
         client = httpd.get_client()
 
         # Info app
@@ -329,8 +330,7 @@ class TestProxyApp(TestCase):
         }
         app = rgiapps.ProxyApp(env)
         self.assertIsInstance(app.threadlocal, threading.local)
-        self.assertEqual(app.hostname, '127.0.0.1')
-        self.assertEqual(app.port, 5984)
+        self.assertEqual(app.address, ('127.0.0.1', 5984))
         self.assertEqual(app.netloc, '127.0.0.1:5984')
         self.assertEqual(app.basic_auth,
             microfiber.basic_auth_header(env['basic'])
@@ -345,8 +345,8 @@ class TestProxyApp(TestCase):
         app = rgiapps.ProxyApp(env)
         client = app.get_client()
         self.assertIsInstance(client, Client)
-        self.assertEqual(client.hostname, '127.0.0.1')
-        self.assertEqual(client.port, 5984)
+        self.assertEqual(client.address, ('127.0.0.1', 5984))
+        # FIXME: Test client.default_headers
         self.assertIs(client, app.threadlocal.client)
         self.assertIs(app.get_client(), client)
 
@@ -371,7 +371,7 @@ class TestProxyApp(TestCase):
         s2 = microfiber.Server(env2)
 
         # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, build_proxy_app, env2)
+        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
 
         # Create just the source DB, rely on create_target=True for remote
         name1 = random_dbname()
@@ -445,7 +445,7 @@ class TestProxyApp(TestCase):
         s2 = microfiber.Server(env2)
 
         # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, build_proxy_app, env2)
+        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
 
         # Create just the source DB, rely on create_target=True for remote
         name1 = random_dbname()
@@ -519,7 +519,7 @@ class TestProxyApp(TestCase):
         s2 = microfiber.Server(env2)
 
         # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, build_proxy_app, env2)
+        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
 
         # Create just the source DB, rely on create_target=True for remote
         name1 = random_dbname()
