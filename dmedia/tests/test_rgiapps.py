@@ -346,7 +346,10 @@ class TestProxyApp(TestCase):
         client = app.get_client()
         self.assertIsInstance(client, Client)
         self.assertEqual(client.address, ('127.0.0.1', 5984))
-        # FIXME: Test client.default_headers
+        self.assertEqual(client.base_headers, {
+            'host': '127.0.0.1:5984',
+            'authorization': microfiber.basic_auth_header(env['basic']),
+        })
         self.assertIs(client, app.threadlocal.client)
         self.assertIs(app.get_client(), client)
 

@@ -189,11 +189,11 @@ class ProxyApp:
 
     def get_client(self):
         if not hasattr(self.threadlocal, 'client'):
-            default_headers = {
+            base_headers = {
                 'authorization': self.basic_auth,
                 'host': self.netloc,
             }
-            self.threadlocal.client = Client(self.address, default_headers)
+            self.threadlocal.client = Client(self.address, base_headers)
         return self.threadlocal.client
 
     def __call__(self, request):
