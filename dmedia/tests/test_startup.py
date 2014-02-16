@@ -232,7 +232,7 @@ class TestDmediaCouch(TestCase):
             inst.get_bootstrap_config(),
             {
                 'username': 'admin',
-                'uuid': startup.machine_to_uuid(machine_id),
+                'uuid': machine_id,
                 'replicator': {
                     'check_hostname': False,
                     'max_depth': 1,

@@ -86,8 +86,8 @@ def create_doc(_id, doc_type):
         'type': doc_type,
         'time': time.time(),
     }
-    
-    
+
+
 def machine_to_uuid(machine_id):
     """
     Stable transformation of Dmedia machine ID into a CouchDB replication UUID.
@@ -189,8 +189,16 @@ class DmediaCouch(UserCouch):
         }
 
     def get_bootstrap_config(self):
+        """
+        Get CouchDB config passed to `UserCouch.bootstrap()`.
+
+        Security note: even though we're now using the Microfiber replicator, we
+        should still configure the CouchDB replicator to only connect to CouchDB
+        with a machine cert signed by the user CA, just in case we make a goof,
+        and so we can still experiment with the CouchDB replicator when needed.
+        """
         return {
-            'uuid': machine_to_uuid(self.machine['_id']),
+            'uuid': self.machine['_id'],
             'username': 'admin',
             'replicator': self.get_ssl_config(),
         }
