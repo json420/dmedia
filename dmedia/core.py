@@ -734,6 +734,27 @@ def build_fs_key(fs):
     return ('filestore', fs.parentdir)
 
 
+def build_replication_key(peer_id):
+    """
+    For example:
+
+    >>> build_replication_key('mypeer')
+    ('replication', 'mypeer')
+
+    """
+    return ('replication', peer_id)
+
+
+def replication_worker(src_env, dst_env):
+    try:
+        from microfiber.replicator import Replicator
+        replicator = Replicator(src_env, dst_env)
+        replicator.run()
+    except Exception:
+        log.exception('Error in replication_worker():')
+        raise
+
+
 VIGILANCE = ('vigilance',)
 DOWNGRADE = ('downgrade',)
 
@@ -753,6 +774,23 @@ class TaskMaster:
 
     def restart_filestore_task(self, fs):
         self.pool.restart_task(build_fs_key(fs))
+
+    def add_replication_task(self, peer_id, url):
+        key = build_replication_key(peer_id)
+        src_env = self.env
+        dst_env = {
+            'url': url + 'couch/',
+            'ssl': self.ssl_config,
+        }
+        self.pool.add_task(key, replication_worker, src_env, dst_env)
+
+    def remove_replication_task(self, peer_id):
+        key = build_replication_key(peer_id)
+        self.pool.remove_task(key)
+
+    def restart_replication_task(self, peer_id):
+        key = build_replication_key(peer_id)
+        self.pool.restart_task(key)
 
     def add_vigilance_task(self):
         self.pool.add_task(VIGILANCE, vigilance_worker, self.env, self.ssl_config)
@@ -830,8 +868,8 @@ class Core:
         currently connected stores, the currently visible peers, and a timestamp
         of when the machine state last changed.
 
-        The currently connect stores are very important because this information
-        is used to decide which peer to attempt to download a file from.
+        The currently connected stores are very important because this is used
+        to decide which peer to attempt to download a file from.
 
         The currently connected peers aren't directly used, but are handy for
         out-of-band test harnesses.  For example, by monitoring changes in all
@@ -888,6 +926,7 @@ class Core:
         assert isinstance(info['url'], str)
         self.peers[peer_id] = info
         self.update_machine()
+        self.task_master.add_replication_task(peer_id, info['url'])
         self.restart_vigilance()
 
     def remove_peer(self, peer_id):
@@ -895,6 +934,7 @@ class Core:
             return False
         self.peers.pop(peer_id)
         self.update_machine()
+        self.task_master.remove_replication_task(peer_id)
         self.restart_vigilance()
         return True
 
