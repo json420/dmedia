@@ -425,7 +425,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_A, db_proxy_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
         self.assertEqual(session['doc_count'], 225)
 
@@ -449,7 +449,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_A, db_proxy_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -464,7 +464,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
         self.assertEqual(session['update_seq'], 294)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_A, db_proxy_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)  # 225 + 69 + 18
         self.assertEqual(session['doc_count'], 18)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -474,7 +474,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
         self.assertEqual(session['update_seq'], 312)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_A, db_proxy_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -484,7 +484,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(random_id(), db_A, uuid_B, db_proxy_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_A, db_proxy_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -499,7 +499,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_A, random_id(), db_proxy_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_A, db_proxy_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)  # 225 + 69 + 18 + 21
         self.assertEqual(session['doc_count'], 21)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -509,7 +509,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session('foo', db_A, 'bar', db_proxy_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_A, db_proxy_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -585,7 +585,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_proxy_A, db_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
         self.assertEqual(session['doc_count'], 225)
 
@@ -609,7 +609,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_proxy_A, db_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -624,7 +624,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
         self.assertEqual(session['update_seq'], 294)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_proxy_A, db_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)  # 225 + 69 + 18
         self.assertEqual(session['doc_count'], 18)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -634,7 +634,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
         self.assertEqual(session['update_seq'], 312)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_proxy_A, db_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -644,7 +644,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(random_id(), db_proxy_A, uuid_B, db_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_proxy_A, db_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -659,7 +659,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session(uuid_A, db_proxy_A, random_id(), db_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_proxy_A, db_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)  # 225 + 69 + 18 + 21
         self.assertEqual(session['doc_count'], 21)
         self.assertEqual(db_B.get_many(ids), docs)
@@ -669,7 +669,7 @@ class TestProxyApp(TestCase):
         session = replicator.load_session('foo', db_proxy_A, 'bar', db_B)
         self.assertNotIn('update_seq', session)
         self.assertEqual(session['doc_count'], 0)
-        replicator.replicate(db_proxy_A, db_B, session)
+        replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)
         self.assertEqual(session['doc_count'], 0)
         self.assertEqual(db_B.get_many(ids), docs)
