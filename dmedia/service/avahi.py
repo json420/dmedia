@@ -133,7 +133,7 @@ class Avahi:
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Avahi: peer removed: %s', key)
-        GLib.idle_add(self.remove_peer, key)
+        GLib.idle_add(self.remove_peer, str(key))
 
     def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
         # Ignore what we publish ourselves:
@@ -148,7 +148,7 @@ class Avahi:
         )
 
     def on_reply(self, *args):
-        key = args[2]
+        key = str(args[2])
         (ip, port) = args[7:9]
         url = make_url(ip, port)
         log.info('Avahi: new peer %s at %s', key, url)

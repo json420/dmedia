@@ -782,6 +782,8 @@ class TaskMaster:
             'url': url + 'couch/',
             'ssl': self.ssl_config,
         }
+        # In case a previous replication with same peer_id but different url:
+        self.pool.remove_task(key)
         self.pool.add_task(key, replication_worker, src_env, dst_env)
 
     def remove_replication_task(self, peer_id):
