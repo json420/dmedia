@@ -121,7 +121,7 @@ class Avahi:
         self.browser = system.get_object('org.freedesktop.Avahi', browser_path)
         self.browser.connect_to_signal('ItemRemove', self.on_ItemRemove)
         self.browser.connect_to_signal('ItemNew', self.on_ItemNew)
-        self.timeout_id = GLib.timeout_add(15000, self.on_timeout)
+        #self.timeout_id = GLib.timeout_add(15000, self.on_timeout)
 
     def free(self):
         if self.group is not None:
@@ -133,7 +133,7 @@ class Avahi:
 
     def on_ItemRemove(self, interface, protocol, key, _type, domain, flags):
         log.info('Avahi: peer removed: %s', key)
-        GLib.idle_add(self.remove_peer, key)
+        GLib.idle_add(self.remove_peer, str(key))
 
     def on_ItemNew(self, interface, protocol, key, _type, domain, flags):
         # Ignore what we publish ourselves:
@@ -148,7 +148,7 @@ class Avahi:
         )
 
     def on_reply(self, *args):
-        key = args[2]
+        key = str(args[2])
         (ip, port) = args[7:9]
         url = make_url(ip, port)
         log.info('Avahi: new peer %s at %s', key, url)
@@ -171,11 +171,12 @@ class Avahi:
 
     def add_peer(self, key, info):
         self.core.add_peer(key, info)
-        self.add_replication_peer(key, info['url'])
+        #self.add_replication_peer(key, info['url'])
 
     def remove_peer(self, key):
-        if self.core.remove_peer(key):
-            self.remove_replication_peer(key)
+        self.core.remove_peer(key)
+        #if self.core.remove_peer(key):
+        #    self.remove_replication_peer(key)
 
     def add_replication_peer(self, key, url):
         env = {'url': url + 'couch/'}

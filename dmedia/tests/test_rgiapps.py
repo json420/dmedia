@@ -33,12 +33,14 @@ import socket
 import json
 
 from dbase32 import random_id
-from degu import IPv4_LOOPBACK
+from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
 from degu.misc import TempSSLServer
 from degu.base import EmptyLineError
 from degu.client import Client
 from usercouch.misc import TempCouch
 import microfiber
+from microfiber import Attachment, encode_attachment
+from microfiber import replicator
 
 import dmedia
 from dmedia.local import LocalSlave
@@ -59,22 +61,22 @@ def build_proxy_app(couch_env):
 def random_attachment():
     size = random.randint(1, 34969)
     data = os.urandom(size)
-    return microfiber.Attachment('application/octet-stream', data)
+    return Attachment('application/octet-stream', data)
 
 
 def random_doc(i):
     """
-    2/3rds of docs wont have an attachment
+    1/3rd of docs will have an attachment.
     """
-    if i % 3 != 0:
-        return {'_id': random_id()}
-    att = random_attachment()
-    return {
+    doc = {
         '_id': random_id(30),
-        '_attachments': {
-            random_id(): microfiber.encode_attachment(att),
-        },
+        '_attachments': {},
+        'i': i,
     }
+    if i % 3 == 0:
+        att = random_attachment()
+        doc['_attachments'][random_id()] = encode_attachment(att)
+    return doc
 
 
 class TestFunctions(TestCase):
@@ -353,80 +355,326 @@ class TestProxyApp(TestCase):
         self.assertIs(client, app.threadlocal.client)
         self.assertIs(app.get_client(), client)
 
-    def test_pull_replication(self):
+    def test_push_proxy_dst(self):
         """
-        Test pull replication Couch1 <= SSLServer <= Couch2.
+        Test couch_A => (SSLServer => couch_B).
+
+        In a nutshell, this makes sure the Microfiber replicator works when the
+        *source* is a normal CouchDB instance and the *destination* is a Degu
+        SSLServer reverse proxy running the Dmedia ProxyApp.
+
+        The assumption here is that the replicator is running on the source
+        node, which in the case of Dmedia it must be as we don't allow CouchDB
+        to directly accept connections from the outside world.  So in terms of
+        the CouchDB replicator nomenclature, this would be "push" replication.
+
+        The subtle difference is that the actual CouchDB replicator will always
+        be running as part of the CouchDB process at one of the endpoints,
+        whereas the Microfiber replicator is a completely independent process
+        that could be running anywhere, even on a 3rd machine.
         """
-        self.skipTest('fixme')
         pki = identity.TempPKI(True)
-        config = {'replicator': pki.get_client_config()}
-        couch1 = TempCouch()
-        couch2 = TempCouch()
+        couch_A = TempCouch()
+        couch_B = TempCouch()
+        env_A = couch_A.bootstrap()
+        env_B = couch_B.bootstrap()
+        uuid_A = random_id()
+        uuid_B = random_id()
 
-        # couch1 needs the replication SSL config
-        env1 = couch1.bootstrap('basic', config)
-        s1 = microfiber.Server(env1)
+        # httpd is the SSL frontend for couch_B:
+        # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
+        httpd = TempSSLServer(pki, IPv6_LOOPBACK, build_proxy_app, env_B)
+        env_proxy_B = {
+            'url': httpd.url,
+            'ssl': pki.get_client_config(),
+        }
 
-        # couch2 needs env['user_id']
-        env2 = couch2.bootstrap('basic', None)
-        env2['user_id'] = pki.client_ca.id
-        env2['machine_id'] = pki.server.id
-        s2 = microfiber.Server(env2)
+        # Create just the source DB, microfiber.replicator should create the dst
+        # (even through the proxy):
+        name_A = random_dbname()
+        name_B = random_dbname()
+        db_A = microfiber.Database(name_A, env_A)
+        self.assertTrue(db_A.ensure())
+        db_B = microfiber.Database(name_B, env_B)
+        db_proxy_B = microfiber.Database(name_B, env_proxy_B)
 
-        # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
-
-        # Create just the source DB, rely on create_target=True for remote
-        name1 = random_dbname()
-        name2 = random_dbname()
-        db1 = s1.database(name1)
-        db2 = s2.database(name2)
-        self.assertTrue(db2.ensure())
-
-        # Save 100 docs in bulk in couch2.db2:
+        # Save 100 docs in bulk in db_A (the source):
         docs = [random_doc(i) for i in range(100)]
-        db2.save_many(docs)
+        db_A.save_many(docs)
 
-        # Now save another 50 docs couch2.db2 sequentially:
+        # Now save another 50 docs db_A sequentially:
         for i in range(50):
             doc = random_doc(i)
-            db2.save(doc)
+            db_A.save(doc)
             docs.append(doc)
 
         # Add an attachment on 69 random docs:
         self.assertEqual(len(docs), 150)
         changed = random.sample(docs, 69)
         for doc in changed:
-            _id = doc['_id']
-            _rev = doc['_rev']
             att = random_attachment()
-            doc['_rev'] = db2.put_att2(att, _id, random_id(), rev=_rev)['rev']
+            doc['_attachments'][random_id()] = encode_attachment(att)
+            db_A.save(doc)
 
-        # Save another 75 docs in bulk in couch2.db2:
+        # Save another 75 docs in bulk in db_A:
         more_docs = [random_doc(i) for i in range(75)]
-        db2.save_many(more_docs)
+        db_A.save_many(more_docs)
         docs.extend(more_docs)
 
-        # Do sequential couch1.db1 <= SSLServer <= couch2.db2 pull replication:
-        env = {'url': httpd.url}
-        result = s1.pull(name1, name2, env, create_target=True)
-        self.assertEqual(set(result),
-            {'ok', 'history', 'session_id', 'source_last_seq', 'replication_id_version'}
-        )
-        self.assertIs(result['ok'], True)
+        # Replicate db_A => db_proxy_B:
+        session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
+        self.assertEqual(session['doc_count'], 225)
 
+        # Verify results in db_B:
         for doc in docs:
             _id = doc['_id']
             attachments = doc.pop('_attachments', None)
-            saved = db1.get(_id)
+            saved = db_B.get(_id)
             saved.pop('_attachments', None)
             self.assertEqual(doc, saved)
             if attachments:
                 for (key, item) in attachments.items():
                     self.assertEqual(
-                        db1.get_att(_id, key).data,
+                        db_B.get_att(_id, key).data,
                         b64decode(item['data'].encode())
                     )
+
+        # Make sure replication session can be resumed, checkpoint was done:
+        ids = [d['_id'] for d in docs]
+        docs = db_A.get_many(ids)
+        session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
+        self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Make a change to the first 18 docs:
+        for doc in docs[:18]:
+            doc['changed'] = True
+            db_A.save(doc)
+
+        # Test replication resume when there are at least some changes:
+        session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
+        self.assertEqual(session['update_seq'], 294)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 312)  # 225 + 69 + 18
+        self.assertEqual(session['doc_count'], 18)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Once more with feeling:
+        session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
+        self.assertEqual(session['update_seq'], 312)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 312)
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Oh, now screw up the session:
+        session = replicator.load_session(random_id(), db_A, uuid_B, db_proxy_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 312)
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Make a change to the first 21 docs:
+        for doc in docs[:21]:
+            doc['changed'] = True
+            db_A.save(doc)
+
+        # Screw up the session again, but this time when there are changes:
+        session = replicator.load_session(uuid_A, db_A, random_id(), db_proxy_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 333)  # 225 + 69 + 18 + 21
+        self.assertEqual(session['doc_count'], 21)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Yet once more with yet more feeling (and a screwed up session):
+        session = replicator.load_session('foo', db_A, 'bar', db_proxy_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 333)
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_proxy_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+    def test_pull_proxy_src(self):
+        """
+        Test (couch_A => SSLServer) => couch_B.
+
+        In a nutshell, this makes sure the Microfiber replicator works when the
+        *source* is a Degu SSLServer reverse proxy running the Dmedia ProxyApp,
+        and the *destination* is a normal CouchDB instance.
+
+        The assumption here is that the replicator is running on the destination
+        node, which in the case of Dmedia it must be as we don't allow CouchDB
+        to directly accept connections from the outside world.  So in terms of
+        the CouchDB replicator nomenclature, this would be "pull" replication.
+
+        The subtle difference is that the actual CouchDB replicator will always
+        be running as part of the CouchDB process at one of the endpoints,
+        whereas the Microfiber replicator is a completely independent process
+        that could be running anywhere, even on a 3rd machine.
+        """
+        pki = identity.TempPKI(True)
+        couch_A = TempCouch()
+        couch_B = TempCouch()
+        env_A = couch_A.bootstrap()
+        env_B = couch_B.bootstrap()
+        uuid_A = random_id()
+        uuid_B = random_id()
+
+        # httpd is the SSL frontend for couch_A:
+        # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
+        httpd = TempSSLServer(pki, IPv6_LOOPBACK, build_proxy_app, env_A)
+        env_proxy_A = {
+            'url': httpd.url,
+            'ssl': pki.get_client_config(),
+        }
+
+        # Create just the source DB, microfiber.replicator should create the dst:
+        name_A = random_dbname()
+        name_B = random_dbname()
+        db_A = microfiber.Database(name_A, env_A)
+        self.assertTrue(db_A.ensure())
+        db_proxy_A = microfiber.Database(name_A, env_proxy_A)
+        db_B = microfiber.Database(name_B, env_B)
+
+        # Save 100 docs in bulk in db_A (the source):
+        docs = [random_doc(i) for i in range(100)]
+        db_A.save_many(docs)
+
+        # Now save another 50 docs db_A sequentially:
+        for i in range(50):
+            doc = random_doc(i)
+            db_A.save(doc)
+            docs.append(doc)
+
+        # Add an attachment on 69 random docs:
+        self.assertEqual(len(docs), 150)
+        changed = random.sample(docs, 69)
+        for doc in changed:
+            att = random_attachment()
+            doc['_attachments'][random_id()] = encode_attachment(att)
+            db_A.save(doc)
+
+        # Save another 75 docs in bulk in db_A:
+        more_docs = [random_doc(i) for i in range(75)]
+        db_A.save_many(more_docs)
+        docs.extend(more_docs)
+
+        # Replicate db_proxy_A => db_B:
+        session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
+        self.assertEqual(session['doc_count'], 225)
+
+        # Verify results in db_B:
+        for doc in docs:
+            _id = doc['_id']
+            attachments = doc.pop('_attachments', None)
+            saved = db_B.get(_id)
+            saved.pop('_attachments', None)
+            self.assertEqual(doc, saved)
+            if attachments:
+                for (key, item) in attachments.items():
+                    self.assertEqual(
+                        db_B.get_att(_id, key).data,
+                        b64decode(item['data'].encode())
+                    )
+
+        # Make sure replication session can be resumed, checkpoint was done:
+        ids = [d['_id'] for d in docs]
+        docs = db_A.get_many(ids)
+        session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
+        self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Make a change to the first 18 docs:
+        for doc in docs[:18]:
+            doc['changed'] = True
+            db_A.save(doc)
+
+        # Test replication resume when there are at least some changes:
+        session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
+        self.assertEqual(session['update_seq'], 294)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 312)  # 225 + 69 + 18
+        self.assertEqual(session['doc_count'], 18)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Once more with feeling:
+        session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
+        self.assertEqual(session['update_seq'], 312)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 312)
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Oh, now screw up the session:
+        session = replicator.load_session(random_id(), db_proxy_A, uuid_B, db_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 312)
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Make a change to the first 21 docs:
+        for doc in docs[:21]:
+            doc['changed'] = True
+            db_A.save(doc)
+
+        # Screw up the session again, but this time when there are changes:
+        session = replicator.load_session(uuid_A, db_proxy_A, random_id(), db_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 333)  # 225 + 69 + 18 + 21
+        self.assertEqual(session['doc_count'], 21)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+
+        # Yet once more with yet more feeling (and a screwed up session):
+        session = replicator.load_session('foo', db_proxy_A, 'bar', db_B)
+        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['doc_count'], 0)
+        replicator.replicate(session)
+        self.assertEqual(session['update_seq'], 333)
+        self.assertEqual(session['doc_count'], 0)
+        self.assertEqual(db_B.get_many(ids), docs)
+        self.assertEqual(db_A.get_many(ids), docs)
+        self.assertEqual(db_proxy_A.get_many(ids), docs)
 
     def test_push_replication(self):
         """
