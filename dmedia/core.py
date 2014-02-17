@@ -745,10 +745,16 @@ def build_replication_key(peer_id):
     return ('replication', peer_id)
 
 
+def names_filter_func(name):
+    if name.startswith('dmedia-0') or name.startswith('novacut-0'):
+        return False
+    return name not in {'thumbnails-1', 'rpk-dmedia-1'}
+
+
 def replication_worker(src_env, dst_env):
     try:
         from microfiber.replicator import Replicator
-        replicator = Replicator(src_env, dst_env)
+        replicator = Replicator(src_env, dst_env, names_filter_func)
         replicator.run()
     except Exception:
         log.exception('Error in replication_worker():')
