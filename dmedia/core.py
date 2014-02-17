@@ -752,13 +752,9 @@ def names_filter_func(name):
 
 
 def replication_worker(src_env, dst_env):
-    try:
-        from microfiber.replicator import Replicator
-        replicator = Replicator(src_env, dst_env, names_filter_func)
-        replicator.run()
-    except Exception:
-        log.exception('Error in replication_worker():')
-        raise
+    from microfiber.replicator import Replicator
+    replicator = Replicator(src_env, dst_env, names_filter_func)
+    replicator.run()
 
 
 VIGILANCE = ('vigilance',)
@@ -891,6 +887,12 @@ class Core:
 
     def start_background_tasks(self):
         self.task_master.start_tasks()
+
+    def restart_replication_tasks(self):
+        log.info('**** restart_replication_tasks')
+        for peer_id in sorted(self.peers):
+            self.task_master.restart_replication_task(peer_id)
+        return True  # So GLib timeout call repeats
 
     def restart_filestore_tasks(self):
         log.info('**** restart_filestore_tasks')
