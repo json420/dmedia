@@ -511,6 +511,8 @@ def _pull_replication(peers, sslconfig, dst_id, dst):
         src = Database('dmedia-1', src_env)
         stop_at_seq = src.get()['update_seq']
         session = load_session(src_id, src, dst_id, dst, mode='pull')
+        if time.monotonic() - start > 180:
+            raise Exception('more than 180 seconds elapsed for pull-replication')
         while replicate_one_batch(session):
             if time.monotonic() - start > 180:
                 raise Exception('more than 180 seconds elapsed for pull-replication')
