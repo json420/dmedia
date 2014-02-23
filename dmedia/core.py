@@ -500,8 +500,7 @@ def _pull_replication(peers, sslconfig, dst_id, dst):
         load_session,
         replicate_one_batch,
         save_session,
-    ) 
-    from microfiber import Database
+    )
     sslctx = build_ssl_context(sslconfig)
     start = time.monotonic()
     for (src_id, info) in peers.items():
