@@ -495,55 +495,54 @@ def vigilance_worker(env, ssl_config):
         log.exception('Error in vigilance_worker():')
 
 
-def downgrade_worker(env, ssl_config):
+def _pull_replication(peers, sslconfig, dst_id, dst):
+    from microfiber.replicator import (
+        load_session,
+        replicate_one_batch,
+        save_session,
+    ) 
+    from microfiber import Database
+    sslctx = build_ssl_context(sslconfig)
+    start = time.monotonic()
+    for (src_id, info) in peers.items():
+        src_env = {
+            'url': info['url'] + 'couch/',
+            'ssl': {'context': sslctx},
+        }
+        src = Database('dmedia-1', src_env)
+        stop_at_seq = src.get()['update_seq']
+        session = load_session(src_id, src, dst_id, dst, mode='pull')
+        while replicate_one_batch(session):
+            if time.monotonic() - start > 180:
+                raise Exception('more than 180 seconds elapsed for pull-replication')
+            save_session(session)
+            if session['update_seq'] >= stop_at_seq:
+                log.info('current update_seq %d >= stop_at_seq %d', 
+                    session['update_seq'], stop_at_seq 
+                )
+                break
+            log.info('dmedia-1 pull update-seq: %d', session['update_seq'])
+        log.info('pulled %d docs from %r', session['doc_count'], src)
+
+
+def downgrade_worker(env, sslconfig):
     db = util.get_db(env)
     ms = MetaStore(db)
     peers = ms.get_local_peers()
-
     # Optionally do pull replication to make sure peer changes have been synced
     # to this node before doing downgrade, as the downgrade can cause a lot of
     # needless noise especially when you add a new peer to a large library:
     if peers:
         try:
-            from microfiber.replicator import (
-                load_session,
-                replicate_one_batch,
-                save_session,
-            ) 
-            from microfiber import Database
-            dst_id = env['machine_id']
-            dst = db
-            sslctx = build_ssl_context(ssl_config)
-            start = time.monotonic()
-            for (src_id, info) in peers.items():
-                src_env = {
-                    'url': info['url'] + 'couch/',
-                    'ssl': {'context': sslctx},
-                }
-                src = Database('dmedia-1', src_env)
-                stop_at_seq = src.get()['update_seq']
-                session = load_session(src_id, src, dst_id, dst, mode='pull')
-                while replicate_one_batch(session):
-                    if time.monotonic() - start > 180:
-                        raise Exception('more than 180 seconds elapsed for pull-replication')
-                    save_session(session)
-                    if session['update_seq'] >= stop_at_seq:
-                        log.info('current update_seq %d >= stop_at_seq %d', 
-                            session['update_seq'], stop_at_seq 
-                        )
-                        break
-                    log.info('dmedia-1 pull update-seq: %d', session['update_seq'])
-                log.info('pulled %d docs from %r', session['doc_count'], src)
+            _pull_replication(peers, sslconfig, env['machine_id'], db)
         except Exception:
             log.exception('error doing pull-replication in downgrade_worker():')
-
     # Now run downgrade:
     curtime = int(time.time())
     log.info('downgrading/purging as of timestamp %d', curtime)
     ms.purge_or_downgrade_by_store_atime(curtime)
     ms.downgrade_by_mtime(curtime)
     ms.downgrade_by_verified(curtime)
-
     # Finally, do a 2nd mechanism scan/relink:
     time.sleep(17)  # Bit of time for replication/compaction to catch up
     stores = ms.get_local_stores()
@@ -771,10 +770,10 @@ def build_replication_key(peer_id):
     For example:
 
     >>> build_replication_key('mypeer')
-    ('replication', 'mypeer')
+    ('sync', 'mypeer')
 
     """
-    return ('replication', peer_id)
+    return ('sync', peer_id)
 
 
 def names_filter_func(name):
