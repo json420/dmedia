@@ -528,27 +528,42 @@ def downgrade_worker(env, sslconfig):
     db = util.get_db(env)
     ms = MetaStore(db)
     peers = ms.get_local_peers()
+
     # Optionally do pull replication to make sure peer changes have been synced
     # to this node before doing downgrade, as the downgrade can cause a lot of
-    # needless noise especially when you add a new peer to a large library:
+    # needless noise especially when you add a new peer to a large library; note
+    # that we never want a failure here to prevent the downgrade from happening,
+    # so we just catch and log any unhandled exception here; the pull
+    # replication is really a user experience courtesy, not a data safety
+    # feature:
     if peers:
         try:
             _pull_replication(peers, sslconfig, env['machine_id'], db)
         except Exception:
             log.exception('error doing pull-replication in downgrade_worker():')
-    # Now run downgrade:
+
+    # Now do the downgrade; note there is no reason for this to ever fail, so if
+    # it does, we specifically want an unhandled exception to terminate the
+    # worker process so we get an Apport crash report:
     curtime = int(time.time())
     log.info('downgrading/purging as of timestamp %d', curtime)
     ms.purge_or_downgrade_by_store_atime(curtime)
     ms.downgrade_by_mtime(curtime)
     ms.downgrade_by_verified(curtime)
-    # Finally, do a 2nd mechanism scan/relink:
+
+    # Finally, do a scan/relink here as a backup mechanism for what the
+    # filestore_worker() does; note there are common, innocent scenarios under
+    # which this will fail (namely, a user unplugs a drive as the scan/relink is
+    # happening), so we just catch and log unhandled exceptions here:
     time.sleep(17)  # Bit of time for replication/compaction to catch up
-    stores = ms.get_local_stores()
-    for fs in stores:
-        ms.scan(fs)
-    for fs in stores:
-        ms.relink(fs)
+    try:
+        stores = ms.get_local_stores()
+        for fs in stores:
+            ms.scan(fs)
+        for fs in stores:
+            ms.relink(fs)
+    except Exception:
+        log.exception('error doing scan/relink in downgrade_worker():')
 
 
 def filestore_worker(env, parentdir, store_id):
