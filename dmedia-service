@@ -196,10 +196,10 @@ class Service(dbus.service.Object):
         GLib.timeout_add(10 * 1000, self.on_idle4)
         GLib.timeout_add(45 * 1000, self.on_idle5)
         GLib.timeout_add(90 * 1000, self.on_idle6)
-        GLib.timeout_add(11 * 60 * 1000, self.core.restart_replication_tasks)
-        GLib.timeout_add(13 * 60 * 1000, self.core.restart_downgrade_task)
-        GLib.timeout_add(23 * 60 * 1000, self.core.restart_vigilance)
-        GLib.timeout_add(29 * 60 * 1000, self.core.restart_filestore_tasks)
+        GLib.timeout_add(7 * 60 * 1000, self.core.restart_replication_tasks)
+        GLib.timeout_add(11 * 60 * 1000, self.core.restart_downgrade_task)
+        GLib.timeout_add(13 * 60 * 1000, self.core.restart_vigilance)
+        GLib.timeout_add(17 * 60 * 1000, self.core.restart_filestore_tasks)
 
     def on_idle4(self):
         """
