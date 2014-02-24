@@ -495,35 +495,24 @@ def vigilance_worker(env, ssl_config):
         log.exception('Error in vigilance_worker():')
 
 
+TIMEOUT = 180
+
 def _pull_replication(peers, sslconfig, dst_id, dst):
-    from microfiber.replicator import (
-        load_session,
-        replicate_one_batch,
-        save_session,
-    )
+    from microfiber.replicator import load_session, replicate
     sslctx = build_ssl_context(sslconfig)
-    start = time.monotonic()
+    start_time = time.monotonic()
     for (src_id, info) in peers.items():
+        remaining = int(TIMEOUT + start_time - time.monotonic())
+        if remaining < 2:
+            log.warning('Reached %d second TIMEOUT', TIMEOUT)
+            break
         src_env = {
             'url': info['url'] + 'couch/',
             'ssl': {'context': sslctx},
         }
         src = Database('dmedia-1', src_env)
-        stop_at_seq = src.get()['update_seq']
         session = load_session(src_id, src, dst_id, dst, mode='pull')
-        if time.monotonic() - start > 180:
-            raise Exception('more than 180 seconds elapsed for pull-replication')
-        while replicate_one_batch(session):
-            if time.monotonic() - start > 180:
-                raise Exception('more than 180 seconds elapsed for pull-replication')
-            save_session(session)
-            if session['update_seq'] >= stop_at_seq:
-                log.info('current update_seq %d >= stop_at_seq %d', 
-                    session['update_seq'], stop_at_seq 
-                )
-                break
-            log.info('dmedia-1 pull update-seq: %d', session['update_seq'])
-        log.info('pulled %d docs from %r', session['doc_count'], src)
+        replicate(session, timeout=remaining)
 
 
 def downgrade_worker(env, sslconfig):
