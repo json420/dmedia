@@ -1088,7 +1088,7 @@ class TestTaskMaster(TestCase):
         master = core.TaskMaster(env, ssl_config)
         self.assertIsNone(master.add_downgrade_task())
         self.assertEqual(master.pool.tasks, {
-            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env,)),
+            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env, ssl_config)),
         })
         self.assertEqual(master.pool.active_tasks, {})
         self.assertIs(master.pool.running, False)
@@ -1103,7 +1103,7 @@ class TestTaskMaster(TestCase):
         self.assertIsNone(master.add_downgrade_task())
         self.assertIsNone(master.restart_downgrade_task())
         self.assertEqual(master.pool.tasks, {
-            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env,)),
+            ('downgrade',): core.TaskInfo(core.downgrade_worker, (env, ssl_config)),
         })
         self.assertEqual(master.pool.active_tasks, {})
         self.assertIs(master.pool.running, False)

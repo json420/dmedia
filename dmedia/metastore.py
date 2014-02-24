@@ -1000,6 +1000,7 @@ class MetaStore:
             'limit': LIMIT,
             'key': rank,
         }
+        log.info('Considering files at rank=%d', rank)
         while True:
             rows = self.db.view('file', 'rank', **kw)['rows']
             if not rows:
@@ -1009,9 +1010,6 @@ class MetaStore:
                 ids.pop(0)
             if not ids:
                 break
-            log.info('Considering %d files at rank=%d starting at %s',
-                len(ids), rank, ids[0]
-            )
             random.shuffle(ids)
             for _id in ids:
                 try:
