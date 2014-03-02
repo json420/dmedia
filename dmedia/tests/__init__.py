@@ -24,6 +24,7 @@ Unit tests for `dmedia` package.
 """
 
 from unittest import TestCase
+import sys
 import os
 from os import path
 import logging
@@ -56,8 +57,10 @@ class TestScripts(TestCase):
         p = Popen([script, '--version'], stdout=PIPE, stderr=PIPE)
         (stdout, stderr) = p.communicate()
         self.assertEqual(p.returncode, 0)
-        self.assertEqual(stdout.decode('utf-8'), '')
-        self.assertEqual(stderr.decode('utf-8'), dmedia.__version__ + '\n')
+        # FIXME: Unconditionally run these once we drop Python 3.3 compatability:
+        if sys.version_info >= (3, 4):
+            self.assertEqual(stdout.decode('utf-8'), filestore.__version__ + '\n')
+            self.assertEqual(stderr.decode('utf-8'), '')
         return script
 
     def test_dmedia_service(self):
