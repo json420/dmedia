@@ -286,7 +286,7 @@ class TestFunctions(SampleFilesTestCase):
         exif = extractor.raw_exiftool_extract(jpg)
         for key in EXIFTOOL_IGNORE:
             exif.pop(key, None)
-        self.assertEqual(exif, {'Error': 'File format error'})
+        self.assertEqual(exif, {})
 
         # Test with non-existent file:
         nope = tmp.join('nope.jpg')

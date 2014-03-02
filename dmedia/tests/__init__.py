@@ -59,7 +59,7 @@ class TestScripts(TestCase):
         self.assertEqual(p.returncode, 0)
         # FIXME: Unconditionally run these once we drop Python 3.3 compatability:
         if sys.version_info >= (3, 4):
-            self.assertEqual(stdout.decode('utf-8'), filestore.__version__ + '\n')
+            self.assertEqual(stdout.decode('utf-8'), dmedia.__version__ + '\n')
             self.assertEqual(stderr.decode('utf-8'), '')
         return script
 
