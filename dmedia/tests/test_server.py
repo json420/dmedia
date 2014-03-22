@@ -591,6 +591,7 @@ class TempHTTPD:
 
 class TestRootAppLive(TestCase):
     def test_call(self):
+        self.skipTest('FIXME: This has been replaced by dmedia.rgi')
         couch = TempCouch()
         couch_env = couch.bootstrap()
         couch_env['user_id'] = random_id(30)
@@ -648,6 +649,7 @@ class TestRootAppLive(TestCase):
         """
         Test push replication Couch1 => HTTPD => Couch2.
         """
+        self.skipTest('CouchDB no support TLS 1.2')
         pki = identity.TempPKI(True)
         config = {'replicator': pki.get_client_config()}
         couch1 = TempCouch()

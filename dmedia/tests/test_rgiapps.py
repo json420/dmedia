@@ -680,6 +680,7 @@ class TestProxyApp(TestCase):
         """
         Test push replication Couch1 => SSLServer => Couch2.
         """
+        self.skipTest('CouchDB no support TLS 1.2')
         pki = identity.TempPKI(True)
         config = {'replicator': pki.get_client_config()}
         couch1 = TempCouch()
@@ -754,6 +755,7 @@ class TestProxyApp(TestCase):
         """
         Test *continuous* push replication Couch1 => SSLServer => Couch2.
         """
+        self.skipTest('CouchDB no support TLS 1.2')
         pki = identity.TempPKI(True)
         config = {'replicator': pki.get_client_config()}
         couch1 = TempCouch()

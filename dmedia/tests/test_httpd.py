@@ -68,10 +68,11 @@ class TestFunctions(TestCase):
         config = {
             'cert_file': pki.server.cert_file,
             'key_file': pki.server.key_file,
+            'allow_unauthenticated_clients': True,
         }
         ctx = httpd.build_server_ssl_context(config)
         self.assertIsInstance(ctx, ssl.SSLContext)
-        self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
+        self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1_2)
         self.assertTrue(ctx.options & ssl.OP_NO_COMPRESSION)
         self.assertEqual(ctx.verify_mode, ssl.CERT_NONE)
 
@@ -82,13 +83,14 @@ class TestFunctions(TestCase):
         }
         ctx = httpd.build_server_ssl_context(config)
         self.assertIsInstance(ctx, ssl.SSLContext)
-        self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1)
+        self.assertEqual(ctx.protocol, ssl.PROTOCOL_TLSv1_2)
         self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
 
         # Provide wrong key_file, make sure cert_file, key_file actually used
         config = {
             'cert_file': pki.server.cert_file,
             'key_file': pki.client.key_file,
+            'allow_unauthenticated_clients': True,
         }
         with self.assertRaises(ssl.SSLError) as cm:
             httpd.build_server_ssl_context(config)
@@ -885,17 +887,17 @@ class TestHTTPD(TestCase):
             'context must be a ssl.SSLContext; got 17'
         )
 
-        # protocol != ssl.PROTOCOL_TLSv1
-        ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
+        # protocol != ssl.PROTOCOL_TLSv1_2
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
         with self.assertRaises(Exception) as cm:
             httpd.HTTPD(demo_app, '::1', ctx)
         self.assertEqual(
             str(cm.exception),
-            'context.protocol must be ssl.PROTOCOL_TLSv1'
+            'context.protocol must be ssl.PROTOCOL_TLSv1_2'
         )
 
         # not (options & ssl.OP_NO_COMPRESSION)
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         with self.assertRaises(Exception) as cm:
             httpd.HTTPD(demo_app, '::1', ctx)
         self.assertEqual(
@@ -916,7 +918,7 @@ class TestHTTPD(TestCase):
         self.assertEqual(server.url, 'http://[::1]:{}/'.format(server.port))
         self.assertEqual(server.environ, server.build_base_environ())
 
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         ctx.options |= ssl.OP_NO_COMPRESSION
         server = httpd.HTTPD(demo_app, '::', ctx)
         self.assertIs(server.app, demo_app)
@@ -1079,6 +1081,8 @@ class TestHTTPD(TestCase):
 class TempHTTPD:
     def __init__(self, pki=None):
         ssl_config = (None if pki is None else pki.get_server_config())
+        if ssl_config and 'ca_file' not in ssl_config:
+            ssl_config['allow_unauthenticated_clients'] = True
         queue = multiprocessing.Queue()
         self.process = multiprocessing.Process(
             target=httpd.run_server,
@@ -1086,7 +1090,10 @@ class TempHTTPD:
         )
         self.process.daemon = True
         self.process.start()
-        self.env = queue.get()
+        env = queue.get()
+        if isinstance(env, Exception):
+            raise env
+        self.env = env
         self.port = self.env['port']
         if pki is not None:
             self.env['ssl'] = pki.get_client_config()
@@ -1109,11 +1116,12 @@ class TestLive(TestCase):
         result = client.get()
         conn = client.ctx.get_threadlocal_connection()
         port = conn.conn.sock.getsockname()[1]
+        self.maxDiff = None
         self.assertEqual(result,
             {
                 'HTTP_ACCEPT': 'application/json',
                 #'HTTP_ACCEPT_ENCODING': 'identity',
-                #'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_HOST': '::1:{}'.format(server.port),
                 'HTTP_USER_AGENT': microfiber.USER_AGENT,
                 'PATH_INFO': '/',
                 'QUERY_STRING': '',
@@ -1148,7 +1156,7 @@ class TestLive(TestCase):
                 'CONTENT_TYPE': 'application/json',
                 'HTTP_ACCEPT': 'application/json',
                 #'HTTP_ACCEPT_ENCODING': 'identity',
-                #'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_HOST': '::1:{}'.format(server.port),
                 'HTTP_USER_AGENT': microfiber.USER_AGENT,
                 'PATH_INFO': '/',
                 'QUERY_STRING': '',
@@ -1187,7 +1195,7 @@ class TestLive(TestCase):
             {
                 'HTTP_ACCEPT': 'application/json',
                 #'HTTP_ACCEPT_ENCODING': 'identity',
-                #'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_HOST': '::1:{}'.format(server.port),
                 'HTTP_USER_AGENT': microfiber.USER_AGENT,
                 'PATH_INFO': '/',
                 'QUERY_STRING': '',
@@ -1224,7 +1232,7 @@ class TestLive(TestCase):
                 'CONTENT_TYPE': 'application/json',
                 'HTTP_ACCEPT': 'application/json',
                 #'HTTP_ACCEPT_ENCODING': 'identity',
-                #'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_HOST': '::1:{}'.format(server.port),
                 'HTTP_USER_AGENT': microfiber.USER_AGENT,
                 'PATH_INFO': '/',
                 'QUERY_STRING': '',
@@ -1277,7 +1285,7 @@ class TestLive(TestCase):
             {
                 'HTTP_ACCEPT': 'application/json',
                 #'HTTP_ACCEPT_ENCODING': 'identity',
-                #'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_HOST': '::1:{}'.format(server.port),
                 'HTTP_USER_AGENT': microfiber.USER_AGENT,
                 'PATH_INFO': '/',
                 'QUERY_STRING': '',
@@ -1317,7 +1325,7 @@ class TestLive(TestCase):
                 'CONTENT_TYPE': 'application/json',
                 'HTTP_ACCEPT': 'application/json',
                 #'HTTP_ACCEPT_ENCODING': 'identity',
-                #'HTTP_HOST': '[::1]:{}'.format(server.port),
+                'HTTP_HOST': '::1:{}'.format(server.port),
                 'HTTP_USER_AGENT': microfiber.USER_AGENT,
                 'PATH_INFO': '/',
                 'QUERY_STRING': '',

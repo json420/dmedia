@@ -122,7 +122,7 @@ class WSGIError(Exception):
 
 def build_server_ssl_context(config):
     return build_server_sslctx(config)
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     ctx.set_ecdh_curve('prime256v1')  # Enable perfect forward secrecy
     ctx.set_ciphers('HIGH:!aNULL:!RC4:!DSS')
     ctx.options |= ssl.OP_NO_COMPRESSION  # Protect against CRIME-like attacks
@@ -394,8 +394,8 @@ class HTTPD:
                 raise TypeError(
                     'context must be a ssl.SSLContext; got {!r}'.format(context)
                 )
-            if context.protocol != ssl.PROTOCOL_TLSv1:
-                raise Exception('context.protocol must be ssl.PROTOCOL_TLSv1')
+            if context.protocol != ssl.PROTOCOL_TLSv1_2:
+                raise Exception('context.protocol must be ssl.PROTOCOL_TLSv1_2')
             if not (context.options & ssl.OP_NO_COMPRESSION):
                 raise Exception(
                     'context.options must have ssl.OP_NO_COMPRESSION'

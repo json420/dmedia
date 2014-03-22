@@ -3,7 +3,7 @@ Section: python
 Priority: optional
 Maintainer: Jason Gerard DeRose <jderose@novacut.com>
 Build-Depends: debhelper (>= 9),
-    python3-all (>= 3.3),
+    python3-all (>= 3.4~rc1),
     xvfb,
     python3-dbase32 (>= 0.10),
     python3-filestore (>= 14.02),
@@ -19,7 +19,7 @@ Build-Depends: debhelper (>= 9),
     gir1.2-notify-0.7,
     gir1.2-appindicator3-0.1,
 Standards-Version: 3.9.3
-X-Python3-Version: >= 3.3
+X-Python3-Version: >= 3.4
 Homepage: https://launchpad.net/dmedia
 
 Package: dmedia
