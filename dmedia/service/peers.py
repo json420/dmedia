@@ -47,6 +47,7 @@ import dbus
 from gi.repository import GLib, GObject, Gtk, AppIndicator3
 from microfiber import Unauthorized, CouchBase
 from microfiber import random_id, dumps, build_ssl_context
+from degu.client import build_client_sslctx
 
 import dmedia
 from dmedia.parallel import start_thread
@@ -271,6 +272,7 @@ class AvahiPeer(GObject.GObject):
         config = {
             'key_file': self.key_file,
             'cert_file': self.cert_file,
+            'allow_unauthenticated_clients': True,
         }
         if self.client_mode is False or self.state.state == 'activated':
             config['ca_file'] = self.pki.verify_ca(self.state.peer_id)
@@ -378,8 +380,9 @@ class AvahiPeer(GObject.GObject):
     def cert_thread(self, peer):
         # 1 Retrieve the peer certificate:
         try:
-            ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
             ctx.options |= ssl.OP_NO_COMPRESSION
+            sslctx.set_ciphers('ECDHE-RSA-AES256-GCM-SHA384')
             if self.client_mode:
                 # The server will only let its cert be retrieved by the client
                 # bound to the peering session
