@@ -382,7 +382,7 @@ class AvahiPeer(GObject.GObject):
         try:
             ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
             ctx.options |= ssl.OP_NO_COMPRESSION
-            sslctx.set_ciphers('ECDHE-RSA-AES256-GCM-SHA384')
+            ctx.set_ciphers('ECDHE-RSA-AES256-GCM-SHA384')
             if self.client_mode:
                 # The server will only let its cert be retrieved by the client
                 # bound to the peering session
