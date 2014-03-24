@@ -272,10 +272,11 @@ class AvahiPeer(GObject.GObject):
         config = {
             'key_file': self.key_file,
             'cert_file': self.cert_file,
-            'allow_unauthenticated_clients': True,
         }
         if self.client_mode is False or self.state.state == 'activated':
             config['ca_file'] = self.pki.verify_ca(self.state.peer_id)
+        else:
+            config['allow_unauthenticated_clients'] = True,
         return config
 
     def get_client_config(self):
