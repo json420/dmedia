@@ -114,4 +114,5 @@ def get_dmedia_dir():
     share = path.join(home, '.local', 'share', 'dmedia')
     if not path.exists(share):
         os.makedirs(share)
+    os.chmod(share, 0o700)
     return share

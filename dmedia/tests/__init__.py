@@ -27,6 +27,7 @@ from unittest import TestCase
 import sys
 import os
 from os import path
+import stat
 import logging
 from subprocess import check_call, Popen, PIPE
 
@@ -111,10 +112,12 @@ class TestFunctions(TestCase):
         self.assertTrue(path.isdir(cache))
         self.assertEqual(os.listdir(cache), ['setup.py.log'])
         self.assertTrue(path.isfile(path.join(cache, 'setup.py.log')))
- 
+
     def test_get_dmedia_dir(self):
         tmp = TempHome()
         d = dmedia.get_dmedia_dir()
         self.assertEqual(d, tmp.join('.local', 'share', 'dmedia'))
         self.assertTrue(path.isdir(d))
         self.assertEqual(os.listdir(d), [])
+        self.assertEqual(stat.S_IMODE(os.stat(d).st_mode), 0o700)
+
