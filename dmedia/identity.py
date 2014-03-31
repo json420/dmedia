@@ -21,6 +21,64 @@
 
 """
 Secure peering protocol, SSL-based machine and user identity.
+
+For some more background and original context, see:
+
+    https://bugs.launchpad.net/dmedia/+bug/1064674
+
+In a nutshell, this is the protocol:
+
+1) The device to be added (which I'll call the "client") advertises
+_dmedia-offer._tcp over Avahi using the hash of the machine cert public key as
+an ID.  It spins up an HTTPD instance using its cert_file, key_file, and running
+only the InfoApp.
+
+2) The existing device (which I'll call the "server") always listens for
+_dmedia_offer._tcp, and when one is found, it downloads the cert from client and
+verifies that it has the correct public key hash, and then the server does a
+test request to make sure the client has the corresponding private key.  If this
+step doesn't check out, the user never even sees the peering offer.  It is
+silently ignored.
+
+3) If the user on the server side accepts the offer, the server spins up an
+HTTPD instance using its cert_file and key_file, and the client's ca_file, and
+will only allow connections from that specific client already bound to the
+peering session. The server advertising _dmedia-accept._tcp over Avahi, using
+the hash of the user CA cert public key as an ID.
+
+4) When the client sees _dmedia-accept._tcp, it likewise downloads the server's
+cert and checks that it matches the public key hash advertised on Avahi. If this
+checks out, the client then reconfigures its HTTPD instance with a new
+SSLContext that only allows incoming connections from certs signed by the user
+CA. It also replaces the InfoApp with the ClientApp.
+
+5) At this point in the protocol, secure communication has been established
+between exactly two machines, but we don't yet know if they are the intended
+machines. That's where the challenge-response steps in. The server generates and
+displays a 40-bit secret code (base32 encoded, quite easy to read and type).
+
+6) The user reads the secret from the server, types it on the client. The client
+then does a GET /challenge, followed by POST /response. If the secret was wrong
+(say a typo), the server creates a new secret and the user tries again. The
+reason we can get away with a fairly low-entropy secret is we allow exactly one
+attempt, after which things are reset with a new secret. After the user has
+successfully entered the secret, the user's job is done, but the software has
+more work to do.
+
+7) At this point, the client has verified itself with the server, but the server
+must now pass a counter-challenge. The server does a GET /challenge, then
+POST /response. The only reason this would fail is if the user is under attack,
+if someone else is trying to man-in-the middle the peering. If this fails, we
+abort the peering, and give the user a helpful (but appropriately scary
+sounding) error message.
+
+8) The client then generates a certificate signing requests and does a
+POST /csr. The server checks the CSR, makes sure it's for the expected client
+pubic key, and then isuses a cert, returning in in the HTTP response.
+
+9) The client then rigorously checks the cert, makes sure all the public keys,
+issuer, subject, etc are correct. After this verification, the peering is
+complete.
 """
 
 import os
