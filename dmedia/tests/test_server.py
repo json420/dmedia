@@ -34,7 +34,6 @@ from queue import Queue
 
 from dbase32 import db32enc, db32dec, random_id
 from usercouch.misc import TempCouch
-from filestore import DIGEST_B32LEN, DIGEST_BYTES
 import microfiber
 from microfiber import dumps
 

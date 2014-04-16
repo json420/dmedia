@@ -27,7 +27,6 @@ from unittest import TestCase
 import time
 import os
 from os import path
-import io
 from random import SystemRandom
 from copy import deepcopy
 import shutil
@@ -36,7 +35,7 @@ import filestore
 from filestore.misc import TempFileStore
 from dbase32 import random_id, isdb32
 import microfiber
-from microfiber import dumps, Conflict
+from microfiber import Conflict
 
 from dmedia.tests.base import TempDir, write_random, random_file_id
 from dmedia.tests.couch import CouchCase
@@ -1553,8 +1552,8 @@ class TestBufferedSave(CouchCase):
             self.assertEqual(buf.count, 0)
             self.assertEqual(buf.conflicts, 0)
         self.assertEqual(
-            db.get_many([doc['_id'] for doc in docs]),
-            [None for doc in docs]
+            db.get_many([D['_id'] for D in docs]),
+            [None for D in docs]
         )
         for doc in docs:
             self.assertNotIn('_rev', doc)
@@ -1568,7 +1567,7 @@ class TestBufferedSave(CouchCase):
         self.assertEqual(buf.conflicts, 0)
         self.assertEqual(len(docs), 25)
         self.assertEqual(
-            db.get_many([doc['_id'] for doc in docs]),
+            db.get_many([D['_id'] for D in docs]),
             docs
         )
         for doc in docs:
@@ -2098,7 +2097,7 @@ class TestMetaStore(CouchCase):
             }
             docs.append(doc)
         db.save_many(docs)
-        ids = [doc['_id'] for doc in docs]
+        ids = [D['_id'] for D in docs]
 
         # Test when none should be downgraded
         self.assertEqual(ms.downgrade_by_mtime(curtime - 1), 0)
@@ -2198,7 +2197,7 @@ class TestMetaStore(CouchCase):
             }
             docs.append(doc)
         db.save_many(docs)
-        ids = [doc['_id'] for doc in docs]
+        ids = [D['_id'] for D in docs]
 
         # Test when none should be downgraded
         self.assertEqual(ms.downgrade_by_verified(curtime - 1), 0)

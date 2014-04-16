@@ -27,7 +27,6 @@ from unittest import TestCase
 from os import path
 from base64 import b64decode
 import os
-from os import path
 import tempfile
 import shutil
 from random import SystemRandom

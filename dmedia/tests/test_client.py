@@ -27,7 +27,6 @@ from unittest import TestCase
 import os
 from collections import OrderedDict
 
-from microfiber import random_id
 from filestore import ContentHash, TYPE_ERROR, DIGEST_BYTES, LEAF_SIZE
 
 from dmedia import client
@@ -222,5 +221,5 @@ class TestDownloader(TestCase):
 
 class TestHTTPClient(TestCase):        
     def test_get_leaves(self):
-        inst = client.HTTPClient()
+        client.HTTPClient()
 

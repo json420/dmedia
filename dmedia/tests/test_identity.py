@@ -27,9 +27,8 @@ from unittest import TestCase
 import os
 from os import path, urandom
 import subprocess
-import socket
 
-from dbase32 import db32enc, db32dec, random_id
+from dbase32 import db32dec, random_id
 from skein import skein512
 
 from .base import TempDir
@@ -623,7 +622,7 @@ class TestSSLFunctions(TestCase):
         cert1_file = pki.path(cert1, 'cert')
         self.assertEqual(identity.ssl_verify(ca1_file, ca1_file), ca1_file)
         self.assertEqual(identity.ssl_verify(cert1_file, ca1_file), cert1_file)
-        with self.assertRaises(identity.VerificationError) as cm:
+        with self.assertRaises(identity.VerificationError):
             identity.ssl_verify(ca1_file, cert1_file)
 
         ca2 = pki.create_key()
@@ -635,10 +634,10 @@ class TestSSLFunctions(TestCase):
         cert2_file = pki.path(cert2, 'cert')
         self.assertEqual(identity.ssl_verify(ca2_file, ca2_file), ca2_file)
         self.assertEqual(identity.ssl_verify(cert2_file, ca2_file), cert2_file)
-        with self.assertRaises(identity.VerificationError) as cm:
+        with self.assertRaises(identity.VerificationError):
             identity.ssl_verify(ca2_file, cert2_file)
 
-        with self.assertRaises(identity.VerificationError) as cm:
+        with self.assertRaises(identity.VerificationError):
             identity.ssl_verify(ca2_file, ca1_file)
 
 

@@ -27,7 +27,6 @@ from unittest import TestCase
 import os
 from os import path
 import json
-from copy import deepcopy
 import time
 from hashlib import md5
 
@@ -52,7 +51,7 @@ class TestFunctions(TestCase):
         self.assertEqual(startup.load_config(filename), config)
 
         open(filename, 'w').write('bad json, not treat for you')
-        with self.assertRaises(ValueError) as cm:
+        with self.assertRaises(ValueError):
             startup.load_config(filename)
 
     def test_save_config(self):
@@ -60,7 +59,7 @@ class TestFunctions(TestCase):
         config = {'stuff': random_id()}
         filename = tmp.join('foo.json')
 
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises(TypeError):
             startup.save_config(filename, object)
         self.assertFalse(path.exists(filename))
         self.assertTrue(path.isfile(filename + '.tmp'))
@@ -104,7 +103,7 @@ class TestDmediaCouch(TestCase):
 
         # Test lockfile
         with self.assertRaises(usercouch.LockError) as cm:
-            inst2 = startup.DmediaCouch(tmp.dir)
+            startup.DmediaCouch(tmp.dir)
         self.assertEqual(cm.exception.lockfile, tmp.join('lockfile'))
         del inst
 
