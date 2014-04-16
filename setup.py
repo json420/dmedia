@@ -33,13 +33,16 @@ if sys.version_info < (3, 4):
 import os
 from os import path
 import stat
+import subprocess
 from distutils.core import setup
 from distutils.cmd import Command
 from unittest import TestLoader, TextTestRunner, TestSuite
 from doctest import DocTestSuite
+
 import dmedia
 
 
+TREE = path.dirname(__file__)
 packagedir = path.dirname(path.abspath(dmedia.__file__))
 
 
@@ -72,6 +75,15 @@ def pynames_iter(pkdir, pkname=None, core_only=False):
             continue
         for n in pynames_iter(fullname, subpkg, core_only):
             yield n
+
+
+def run_pyflakes3():
+    pyflakes3 = '/usr/bin/pyflakes3'
+    if not os.access(pyflakes3, os.R_OK | os.X_OK):
+        print('WARNING: cannot read and execute: {!r}'.format(pyflakes3))
+        return
+    cmd = [pyflakes3, path.join(TREE, 'dmedia')]
+    subprocess.check_call(cmd)
 
 
 class Test(Command):
@@ -119,6 +131,9 @@ class Test(Command):
         result = runner.run(suite)
         if not result.wasSuccessful():
             raise SystemExit(1)
+
+        # Run pyflakes3 against dmedia/:
+        run_pyflakes3()
 
     def initialize_options(self):
         self.no_doctest = 0
