@@ -25,4 +25,3 @@ GTK3 UI components for dmedia and apps built atop dmedia.
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
