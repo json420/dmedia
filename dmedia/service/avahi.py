@@ -24,7 +24,6 @@ Advertise Dmedia HTTP services over Avahi, discover other peers.
 """
 
 import logging
-import json
 import time
 from collections import namedtuple
 
@@ -257,7 +256,7 @@ class Avahi:
                 util.update_design_doc(db, views.doc_design)
         try:
             self.server.push(name, name, env, **kw)
-        except Exception as e:
+        except Exception:
             if cancel:
                 log.exception('Canceling push of %s to %s with %r', name, url, kw)
             else:

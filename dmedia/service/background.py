@@ -146,7 +146,7 @@ class LazyAccess:
                 doc['atime'] = self.buf[doc['_id']]
             try:
                 self.db.save_many(docs)
-            except BulkConflict as e:
+            except BulkConflict:
                 log.exception('Conflicts in LazyAccess.flush()')
             self.buf.clear()
             return len(docs)

@@ -46,15 +46,13 @@ import time
 import dbus
 from gi.repository import GLib, GObject, Gtk, AppIndicator3
 from microfiber import Unauthorized, CouchBase
-from microfiber import random_id, dumps, build_ssl_context
-from degu.client import build_client_sslctx
 
 import dmedia
 from dmedia.parallel import start_thread
 from dmedia.gtk.ubuntu import NotifyManager
 from dmedia.identity import ChallengeResponse
 from dmedia.server import ServerApp, InfoApp, ClientApp
-from dmedia.httpd import WSGIError, make_server
+from dmedia.httpd import make_server
 
 
 PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
@@ -393,7 +391,7 @@ class AvahiPeer(GObject.GObject):
             )
             sock.connect((peer.ip, peer.port))
             pem = ssl.DER_cert_to_PEM_cert(sock.getpeercert(True))
-        except Exception as e:
+        except Exception:
             log.exception('Could not retrieve cert for %r', peer)
             return self.abort(peer.id)
         log.info('Retrieved cert for %r', peer)
@@ -401,7 +399,7 @@ class AvahiPeer(GObject.GObject):
         # 2 Make sure peer cert has correct intrinsic CN, etc:
         try:
             ca_file = self.pki.write_ca(peer.id, pem.encode('ascii'))
-        except Exception as e:
+        except Exception:
             log.exception('Could not verify cert for %r', peer)
             return self.abort(peer.id)
         log.info('Verified cert for %r', peer)
@@ -421,7 +419,7 @@ class AvahiPeer(GObject.GObject):
             client = CouchBase({'url': url, 'ssl': ssl_config})
             d = client.get()
             info = Info(d['user'], d['host'], url, peer.id)
-        except Exception as e:
+        except Exception:
             log.exception('GET / failed for %r', peer)
             return self.abort(peer.id)
         log.info('GET / succeeded with %r', info)
@@ -509,7 +507,7 @@ class Session:
         obj = {'nonce': nonce, 'response': response}
         log.info('Posting counter-response to %r', self.peer)
         try:
-            r = self.client.post(obj, 'response')
+            self.client.post(obj, 'response')
             log.info('Counter-response accepted')
             GLib.idle_add(self.on_counter_response_ok)
         except Unauthorized:
@@ -670,7 +668,7 @@ class Publisher:
         obj = {'nonce': nonce, 'response': response}
         log.info('Posting response to %r', self.peer)
         try:
-            r = self.client.post(obj, 'response')
+            self.client.post(obj, 'response')
             log.info('Response accepted')
             success = True
         except Unauthorized:
@@ -729,7 +727,7 @@ class Publisher:
             self.couch.pki.write_key(self.cr.peer_id, key_data)
             self.couch.pki.verify_key(self.cr.peer_id)
             success = True
-        except Exception as e:
+        except Exception:
             log.exception('Could not request cert')
         GLib.idle_add(self.on_csr_response, success)
 
