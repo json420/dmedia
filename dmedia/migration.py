@@ -28,7 +28,6 @@ from dbase32.rfc3548 import b32dec, isb32
 from copy import deepcopy
 import re
 
-from .metastore import get_dict, BufferedSave
 from . import schema
 
 

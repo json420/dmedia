@@ -61,15 +61,13 @@ Types of background tasks:
 """
 
 import time
-import os
 import logging
 from random import SystemRandom
 from copy import deepcopy
 
 from dbase32 import log_id, isdb32
 from filestore import FileStore, CorruptFile, FileNotFound, check_root_hash
-from microfiber import NotFound, Conflict, BadRequest, BulkConflict
-from microfiber import id_slice_iter, dumps
+from microfiber import NotFound, BadRequest, BulkConflict, id_slice_iter, dumps
 
 from .units import count_and_size, bytes10
 from .constants import TYPE_ERROR

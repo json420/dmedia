@@ -62,7 +62,6 @@ from queue import Empty
 import logging
 
 from .util import get_db
-from .constants import TYPE_ERROR
 
 
 log = logging.getLogger()

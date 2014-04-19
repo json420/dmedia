@@ -31,12 +31,11 @@ import re
 from wsgiref.util import shift_path_info
 import logging
 
-from filestore import DIGEST_B32LEN, LEAF_SIZE
-from microfiber import dumps, basic_auth_header, CouchBase, dumps
+from filestore import DIGEST_B32LEN
+from microfiber import dumps, basic_auth_header, CouchBase
 from dbase32 import isdb32
 
 import dmedia
-from dmedia import __version__
 from dmedia.httpd import WSGIError, make_server 
 from dmedia import local, identity
 
@@ -529,7 +528,7 @@ class ServerApp(ClientApp):
             self.pki.issue_cert(self.cr.peer_id, self.cr.id)
             cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
             key_data = self.pki.read_key(self.cr.id)
-        except Exception as e:
+        except Exception:
             log.exception('could not issue cert')
             self.state = 'bad_csr'
             raise WSGIError('401 Unauthorized')       

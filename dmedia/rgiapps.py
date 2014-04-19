@@ -40,7 +40,7 @@ from degu.client import Client
 from microfiber import basic_auth_header, dumps
 from filestore import DIGEST_B32LEN
 
-from .local import LocalSlave
+from .local import LocalSlave, FileNotLocal
 from . import __version__
 
 
@@ -239,7 +239,7 @@ class FilesApp:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
-        except local.FileNotLocal:
+        except FileNotLocal:
             return (404, 'Not Found', {}, None)
 
         if request['method'] == 'HEAD':

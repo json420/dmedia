@@ -24,7 +24,6 @@ Display file sizes according to Ubuntu Units Policy.
 """
 
 import math
-from gettext import gettext as _
 from gettext import ngettext
 
 
