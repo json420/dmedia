@@ -105,6 +105,8 @@ def run_pyflakes3():
         'dmedia-migrate',
         'dmedia-extract',
         'dmedia-gtk',
+        'dmedia-service',
+        'dmedia-transcoder',
     ]
     args = [path.join(TREE, name) for name in names]
     run_under_same_interpreter('flakes', script, args)

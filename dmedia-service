@@ -47,7 +47,7 @@ import argparse
 import dbus
 import dbus.service
 from gi.repository import GLib, Gio
-from microfiber import NotFound, dumps
+from microfiber import dumps
 
 import dmedia
 from dmedia import schema
