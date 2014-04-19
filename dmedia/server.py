@@ -68,28 +68,6 @@ def request_args(environ):
     return (environ['REQUEST_METHOD'], path, body, headers)
 
 
-def get_slice(environ):
-    parts = environ['PATH_INFO'].lstrip('/').split('/')
-    if len(parts) > 3:
-        raise BadRequest('too many slashes in request path')
-    _id = parts[0]
-    if not (len(_id) == DIGEST_B32LEN and isdb32(_id)):
-        raise BadRequest('badly formed dmedia ID')
-    try:
-        start = (int(parts[1]) if len(parts) > 1 else 0)
-    except ValueError:
-        raise BadRequest('start is not a valid integer')
-    try:
-        stop = (int(parts[2]) if len(parts) > 2 else None)
-    except ValueError:
-        raise BadRequest('stop is not a valid integer')
-    if start < 0:
-        raise BadRequest('start cannot be less than zero')
-    if not (stop is None or start < stop):
-        raise BadRequest('start must be less than stop')
-    return (_id, start, stop)
-
-
 RE_RANGE = re.compile('^bytes=(\d+)-(\d+)$')
 
 def range_to_slice(value, file_size):
