@@ -21,8 +21,6 @@
 # Authors:
 #   Jason Gerard DeRose <jderose@novacut.com>
 
-import json
-import logging
 import sys
 import time
 from copy import deepcopy
@@ -35,11 +33,9 @@ from gi.repository import GLib, Gtk, Gio
 import dmedia
 from dmedia.util import get_project_db, isfilestore
 from dmedia.misc import WeakMethod
-from dmedia import views
 from dmedia import schema
-from dmedia.gtk.util import Timer
 from dmedia.service import init_if_needed
-from dmedia.importer import ImportManager, has_magic_lantern
+from dmedia.importer import ImportManager
 
 try:
     from dmedia.gtk.ubuntu import UnityImportUX

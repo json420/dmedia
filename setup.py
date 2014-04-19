@@ -98,6 +98,13 @@ def run_pyflakes3():
     names = [
         'dmedia',
         'setup.py',
+        'dmedia-peer-gtk',
+        'dmedia-v0-v1-upgrade',
+        'dmedia-cli',
+        'dmedia-provision-drive',
+        'dmedia-migrate',
+        'dmedia-extract',
+        'dmedia-gtk',
     ]
     args = [path.join(TREE, name) for name in names]
     run_under_same_interpreter('flakes', script, args)

@@ -259,7 +259,7 @@ class Extractor(object):
         self.kill()
 
     def on_error(self, bus, msg):
-        error = msg.parse_error()[1]
+        #error = msg.parse_error()[1]
         self.kill()
         sys.exit(2)
 

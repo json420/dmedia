@@ -27,7 +27,6 @@ import argparse
 from os import path
 from datetime import date
 from gettext import gettext as _
-import json
 
 from gi.repository import GLib
 from filestore import DOTNAME
