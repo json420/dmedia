@@ -27,7 +27,7 @@ from filestore.migration import Migration
 from microfiber import Server, encode_attachment, Attachment, NotFound, dumps
 
 import dmedia
-from dmedia.util import get_db, init_views
+from dmedia.util import init_views
 from dmedia.metastore import MetaStore, BufferedSave
 from dmedia import migration, schema, views
 from dmedia.service import init_if_needed, get_env

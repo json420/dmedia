@@ -30,7 +30,6 @@ import json
 
 import dbus
 from dbus.mainloop.glib import DBusGMainLoop
-from gi.repository import GLib
 
 
 DBusGMainLoop(set_as_default=True)

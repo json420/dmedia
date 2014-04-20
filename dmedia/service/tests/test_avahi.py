@@ -24,10 +24,8 @@ Unit tests for `dmedia.service.avahi`.
 """
 
 from random import SystemRandom
-from copy import deepcopy
 import ssl
 
-import microfiber
 from dbase32 import random_id
 
 from dmedia.tests.couch import CouchCase

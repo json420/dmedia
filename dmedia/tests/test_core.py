@@ -25,16 +25,13 @@ Unit tests for `dmedia.core` module.
 """
 
 from unittest import TestCase
-import json
 import os
 from os import path
 import time
-from copy import deepcopy
 from base64 import b64encode
 import queue
 import multiprocessing
 import threading
-from collections import OrderedDict
 
 import microfiber
 from dbase32 import random_id
@@ -47,12 +44,12 @@ from usercouch.misc import CouchTestCase
 from dmedia.local import LocalStores
 from dmedia import metastore
 from dmedia.metastore import MetaStore, get_mtime
-from dmedia.schema import DB_NAME, create_filestore, project_db_name
+from dmedia.schema import project_db_name
 from dmedia.parallel import start_process
 from dmedia import util, core
 
 from .couch import CouchCase
-from .base import TempDir, random_file_id, write_random
+from .base import TempDir, write_random
 
 
 class TestFunctions(TestCase):
@@ -135,7 +132,6 @@ class TestCouchFunctions(CouchCase):
         peer_id1 = random_id(30)
         url1 = random_id()
         peer_id2 = random_id(30)
-        url2 = random_id()
         peers = {
             peer_id1: {
                 'host': 'foo',

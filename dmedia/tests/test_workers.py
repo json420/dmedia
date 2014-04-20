@@ -24,7 +24,6 @@ Unit tests for `dmedia.workers` module.
 """
 
 from unittest import TestCase
-from os import path
 import time
 import multiprocessing
 import multiprocessing.queues
@@ -360,7 +359,6 @@ class test_Manager(TestCase):
                 self._call = arg1 + arg2
 
         callback = DummyCallback()
-        env = {'foo': 'bar'}
         inst = Example({'foo': 'bar'}, callback)
 
         # Test when there is a signal handler
@@ -425,7 +423,7 @@ class test_Manager(TestCase):
         env = {'foo': 'bar'}
         inst = self.klass(env)
 
-        with self.assertRaises(KeyError) as cm:
+        with self.assertRaises(KeyError):
             inst.on_terminate('foo')
 
         p = multiprocessing.Process(target=time.sleep, args=(1,))

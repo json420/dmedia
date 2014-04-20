@@ -303,7 +303,7 @@ class TestRootAppLive(TestCase):
         )
 
         # Ensure that server closed the connection:
-        with self.assertRaises(EmptyLineError) as cm:
+        with self.assertRaises(EmptyLineError):
             client.request('GET', '/couch/')
         self.assertIsNone(client.conn)
         self.assertIsNone(client.response_body)

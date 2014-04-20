@@ -33,14 +33,17 @@ if sys.version_info < (3, 4):
 import os
 from os import path
 import stat
+import subprocess
 from distutils.core import setup
 from distutils.cmd import Command
 from unittest import TestLoader, TextTestRunner, TestSuite
 from doctest import DocTestSuite
+
 import dmedia
 
 
-packagedir = path.dirname(path.abspath(dmedia.__file__))
+TREE = path.dirname(path.abspath(__file__))
+packagedir = path.join(TREE, 'dmedia')
 
 
 def pynames_iter(pkdir, pkname=None, core_only=False):
@@ -74,6 +77,41 @@ def pynames_iter(pkdir, pkname=None, core_only=False):
             yield n
 
 
+def run_under_same_interpreter(opname, script, args):
+    print('\n** running: {}...'.format(script), file=sys.stderr)
+    if not os.access(script, os.R_OK | os.X_OK):
+        print('ERROR: cannot read and execute: {!r}'.format(script),
+            file=sys.stderr
+        )
+        print('Consider running `setup.py test --skip-{}`'.format(opname),
+            file=sys.stderr
+        )
+        sys.exit(3)
+    cmd = [sys.executable, script] + args
+    print('check_call:', cmd, file=sys.stderr)
+    subprocess.check_call(cmd)
+    print('** PASSED: {}\n'.format(script), file=sys.stderr)
+
+
+def run_pyflakes3():
+    script = '/usr/bin/pyflakes3'
+    names = [
+        'dmedia',
+        'setup.py',
+        'dmedia-peer-gtk',
+        'dmedia-v0-v1-upgrade',
+        'dmedia-cli',
+        'dmedia-provision-drive',
+        'dmedia-migrate',
+        'dmedia-extract',
+        'dmedia-gtk',
+        'dmedia-service',
+        'dmedia-transcoder',
+    ]
+    args = [path.join(TREE, name) for name in names]
+    run_under_same_interpreter('flakes', script, args)
+
+
 class Test(Command):
     description = 'run unit tests and doc tests'
 
@@ -82,7 +120,18 @@ class Test(Command):
         ('no-unittest', None, 'do not run unit-tests'),
         ('names=', None, 'comma-sperated list of modules to test'),
         ('core-only', None, 'only run core tests (no Gtk, no DBus)'),
+        ('skip-flakes', None, 'do not run pyflakes static checks'),
     ]
+
+    def initialize_options(self):
+        self.no_doctest = 0
+        self.no_unittest = 0
+        self.core_only = 0
+        self.names = ''
+        self.skip_flakes = 0
+
+    def finalize_options(self):
+        self.names = self.names.split(',')
 
     def _pynames_iter(self):
         for pyname in pynames_iter(packagedir, core_only=self.core_only):
@@ -95,6 +144,10 @@ class Test(Command):
                         break
 
     def run(self):
+        # Run pyflakes3 first because it's fast:
+        if not self.skip_flakes:
+            run_pyflakes3()
+
         pynames = list(self._pynames_iter())
         if self.core_only:
             os.environ['DMEDIA_TEST_CORE_ONLY'] = 'true'
@@ -119,15 +172,6 @@ class Test(Command):
         result = runner.run(suite)
         if not result.wasSuccessful():
             raise SystemExit(1)
-
-    def initialize_options(self):
-        self.no_doctest = 0
-        self.no_unittest = 0
-        self.core_only = 0
-        self.names = ''
-
-    def finalize_options(self):
-        self.names = self.names.split(',')
 
 
 setup(

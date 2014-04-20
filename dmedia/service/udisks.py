@@ -23,7 +23,6 @@
 Attempts to tame the UDisks beast.
 """
 
-import sys
 import json
 import os
 from os import path
@@ -271,7 +270,7 @@ class Formatter(DeviceWorker):
         self.next = self.eject
         try:
             self.partition.FilesystemCreate()
-        except Exception as e:
+        except Exception:
             log.exception('Error formatting %r', self)
             self.finish()
 

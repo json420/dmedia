@@ -115,12 +115,13 @@ class VideoBin(FakeBin):
         self._doc['height'] = d.get_int('height')[1]
         if ns:
             self._doc['video_ns'] = ns
-            # FIXME: Quick work-around for us not being able to thumbnail or
-            # playthrough the last few frames on GStreamer 1.0 on Ubuntu Trusty:
             frames = int(
                 round(ns * num / denom / float(Gst.SECOND))
             )
-            self._doc['duration']['frames'] = max(1, frames - 15)
+            self._doc['duration']['frames'] = frames
+            # FIXME: Quick work-around for us not being able to thumbnail or
+            # playthrough the last few frames on GStreamer 1.0 on Ubuntu Trusty:
+            #self._doc['duration']['frames'] = max(1, frames - 15)
 
     def _finalize(self):
         d = dict(
@@ -258,7 +259,7 @@ class Extractor(object):
         self.kill()
 
     def on_error(self, bus, msg):
-        error = msg.parse_error()[1]
+        #error = msg.parse_error()[1]
         self.kill()
         sys.exit(2)
 

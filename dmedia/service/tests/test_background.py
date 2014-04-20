@@ -150,9 +150,9 @@ class TestLazyAccess(TestCase):
         for doc in docs:
             rev = doc.pop('_rev')
             self.assertTrue(rev.startswith('2-'))
-            _id = doc.pop('_id')
+            doc_id = doc.pop('_id')
             self.assertEqual(doc,
-                {'atime': atimes[_id]}
+                {'atime': atimes[doc_id]}
             )
 
         # Try flushing 45 atimes, 25 for docs that don't exist
@@ -165,9 +165,9 @@ class TestLazyAccess(TestCase):
         db.save_many(docs)
         exists = set(atimes)
         for i in range(25):  # No docs for these:
-            _id = random_file_id()
-            assert _id not in atimes
-            atimes[_id] = base - i
+            nope_id = random_file_id()
+            assert nope_id not in atimes
+            atimes[nope_id] = base - i
         assert len(atimes) == 45
         inst.buf.update(atimes)
         assert len(inst.buf) == 45

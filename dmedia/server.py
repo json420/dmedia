@@ -31,12 +31,11 @@ import re
 from wsgiref.util import shift_path_info
 import logging
 
-from filestore import DIGEST_B32LEN, LEAF_SIZE
-from microfiber import dumps, basic_auth_header, CouchBase, dumps
+from filestore import DIGEST_B32LEN
+from microfiber import dumps, basic_auth_header, CouchBase
 from dbase32 import isdb32
 
 import dmedia
-from dmedia import __version__
 from dmedia.httpd import WSGIError, make_server 
 from dmedia import local, identity
 
@@ -67,28 +66,6 @@ def request_args(environ):
     if query:
         path = '?'.join([path, query])
     return (environ['REQUEST_METHOD'], path, body, headers)
-
-
-def get_slice(environ):
-    parts = environ['PATH_INFO'].lstrip('/').split('/')
-    if len(parts) > 3:
-        raise BadRequest('too many slashes in request path')
-    _id = parts[0]
-    if not (len(_id) == DIGEST_B32LEN and isdb32(_id)):
-        raise BadRequest('badly formed dmedia ID')
-    try:
-        start = (int(parts[1]) if len(parts) > 1 else 0)
-    except ValueError:
-        raise BadRequest('start is not a valid integer')
-    try:
-        stop = (int(parts[2]) if len(parts) > 2 else None)
-    except ValueError:
-        raise BadRequest('stop is not a valid integer')
-    if start < 0:
-        raise BadRequest('start cannot be less than zero')
-    if not (stop is None or start < stop):
-        raise BadRequest('start must be less than stop')
-    return (_id, start, stop)
 
 
 RE_RANGE = re.compile('^bytes=(\d+)-(\d+)$')
@@ -529,7 +506,7 @@ class ServerApp(ClientApp):
             self.pki.issue_cert(self.cr.peer_id, self.cr.id)
             cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
             key_data = self.pki.read_key(self.cr.id)
-        except Exception as e:
+        except Exception:
             log.exception('could not issue cert')
             self.state = 'bad_csr'
             raise WSGIError('401 Unauthorized')       

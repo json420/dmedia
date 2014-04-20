@@ -26,14 +26,12 @@ Unit tests for `dmedia.schema` module.
 
 from unittest import TestCase
 import os
-from base64 import b32encode, b32decode, b64encode
+from base64 import b64encode
 from copy import deepcopy
 import time
 
 from filestore import TYPE_ERROR, DIGEST_BYTES, ContentHash
 from dbase32 import random_id
-
-from .base import TempDir
 
 from dmedia import schema
 
@@ -255,7 +253,7 @@ class TestFunctions(TestCase):
         except:
             self.assertEqual(
                 str(cm.exception),
-                TYPE_ERROR.formtat("doc['bytes']", long, float, bad['bytes'])
+                TYPE_ERROR.formtat("doc['bytes']", int, float, bad['bytes'])
             )
 
         # Bad "bytes" value == 0:

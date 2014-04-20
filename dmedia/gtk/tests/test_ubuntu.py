@@ -132,13 +132,13 @@ class test_NotifyManger(TestCase):
                 ('show', tuple(), {}),
             ]
         )
-        with self.assertRaises(AssertionError) as cm:
+        with self.assertRaises(AssertionError):
             inst.notify('foo', 'bar', 'baz')
 
     def test_update(self):
         inst = self.klass()
 
-        with self.assertRaises(AssertionError) as cm:
+        with self.assertRaises(AssertionError):
             inst.update('foo', 'bar', 'baz')
 
         current = Adapter()

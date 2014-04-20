@@ -30,7 +30,6 @@ from subprocess import CalledProcessError, TimeoutExpired
 import json
 import tempfile
 import shutil
-from base64 import b64encode
 import time
 import calendar
 import logging

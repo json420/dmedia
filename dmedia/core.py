@@ -29,27 +29,20 @@ For background, please see:
 """
 
 import logging
-import os
 from os import path
-import json
 import time
-import stat
 import queue
-import multiprocessing
-from urllib.parse import urlparse
 from subprocess import check_call, CalledProcessError
-from copy import deepcopy
 from base64 import b64encode
-from collections import namedtuple, OrderedDict
+from collections import namedtuple
 
 from dbase32 import isdb32
-from microfiber import Server, Database, NotFound, Conflict, BulkConflict, dumps
-from filestore import FileStore, check_root_hash, check_id, DOTNAME, FileNotFound
+from microfiber import Server, Database, NotFound, Conflict, dumps
+from filestore import FileStore, FileNotFound
 from degu import start_sslserver
 from gi.repository import GLib
 
-import dmedia
-from dmedia.parallel import create_thread, start_thread, start_process
+from dmedia.parallel import start_thread, start_process
 from dmedia import util, schema, views
 from dmedia.client import Downloader, get_client, build_ssl_context
 from dmedia.metastore import MetaStore, create_stored, get_dict
@@ -700,7 +693,7 @@ class TaskPool:
 
     def remove_task(self, key):
         try:
-            info = self.tasks.pop(key)
+            self.tasks.pop(key)
             log.info('remove_task: removed %r', key)
             self.stop_task(key)
             return True

@@ -25,7 +25,6 @@ Unit tests for `dmedia.views` module.
 
 from unittest import TestCase
 import time
-from copy import deepcopy
 
 from microfiber import Database, random_id
 from filestore import DIGEST_BYTES
@@ -1014,7 +1013,6 @@ class TestFileDesign(DesignTestCase):
 
         # rank should be 0 when doc['stored'] is missing, empty, or wrong type:
         _id = random_file_id()
-        store_id = random_id()
         doc = {
             '_id': _id,
             'type': 'dmedia/file',
@@ -1367,8 +1365,8 @@ class TestFileDesign(DesignTestCase):
                 'offset': 0, 
                 'total_rows': 140,
                 'rows': [
-                    {'key': n, 'id': _id, 'value': None}
-                    for (n, _id) in flattened
+                    {'key': n, 'id': ID, 'value': None}
+                    for (n, ID) in flattened
                 ],
             },
         )
@@ -1383,8 +1381,8 @@ class TestFileDesign(DesignTestCase):
                     'offset': offset, 
                     'total_rows': 140,
                     'rows': [
-                        {'key': n, 'id': _id, 'value': None}
-                        for _id in rank_n
+                        {'key': n, 'id': ID, 'value': None}
+                        for ID in rank_n
                     ],
                 },
             )
@@ -1395,8 +1393,8 @@ class TestFileDesign(DesignTestCase):
                         'offset': offset + i, 
                         'total_rows': 140,
                         'rows': [
-                            {'key': n, 'id': _id, 'value': None}
-                            for _id in rank_n[i:]
+                            {'key': n, 'id': ID, 'value': None}
+                            for ID in rank_n[i:]
                         ],
                     },
                 )
@@ -2764,8 +2762,8 @@ class TestStoreDesign(DesignTestCase):
                 'offset': 0,
                 'total_rows': 9,
                 'rows': [
-                    {'key': doc['atime'], 'id': doc['_id'], 'value': None}
-                    for doc in docs
+                    {'key': D['atime'], 'id': D['_id'], 'value': None}
+                    for D in docs
                 ],
             },
         )

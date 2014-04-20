@@ -23,10 +23,7 @@
 Unit tests for `dmedia.util`.
 """
 
-from os import path
-from subprocess import check_call, CalledProcessError
 from unittest import TestCase
-import json
 
 import filestore
 from filestore.misc import TempFileStore
@@ -37,7 +34,6 @@ from microfiber import random_id, Database, NotFound
 from .base import TempDir
 from .couch import CouchCase
 
-import dmedia
 from dmedia import schema
 from dmedia import util
 
@@ -223,7 +219,7 @@ class TestCouchFunctions(CouchCase):
             db.get('_design/stuff')['_rev'],
             '1-f2fc40529084795118edaa583a0cc89b'
         )
-        with self.assertRaises(NotFound) as cm:
+        with self.assertRaises(NotFound):
             db.get('_design/doc')
 
         # Test restoring a deleted design:            

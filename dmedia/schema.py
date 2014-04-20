@@ -241,7 +241,6 @@ When the job is completed, the document is updated like this:
 
 """
 
-from base64 import b32encode, b64encode
 import re
 import time
 import socket
@@ -371,7 +370,7 @@ def _exists(doc, path):
     base = _value(doc, path[:-1])
     key = path[-1]
     try:
-        value = base[key]
+        base[key]
         return True
     except (KeyError, IndexError):
         return False

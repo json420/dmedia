@@ -77,7 +77,6 @@ def configure_logging():
 
 def configure_logging2():
     import sys
-    import os
     from os import path
     import logging
     import platform

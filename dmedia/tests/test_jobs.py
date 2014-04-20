@@ -75,7 +75,7 @@ class TestTaskMaster(CouchCase):
             'workersdir not a directory: {!r}'.format(nope)
         )
 
-        afile = tmp.touch('afile')
+        tmp.touch('afile')
         with self.assertRaises(ValueError) as cm:
             inst = jobs.TaskMaster(nope, self.env)
         self.assertEqual(

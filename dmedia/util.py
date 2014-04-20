@@ -23,9 +23,6 @@
 A few handy utility functions.
 """
 
-import stat
-import json
-import os
 from os import path
 from copy import deepcopy
 import logging

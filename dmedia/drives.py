@@ -27,7 +27,6 @@ from uuid import UUID
 import subprocess
 import re
 import time
-import os
 from os import path
 
 from gi.repository import GUdev
