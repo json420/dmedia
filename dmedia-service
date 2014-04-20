@@ -194,7 +194,7 @@ class Service(dbus.service.Object):
         self.avahi = Avahi(self.core, self.httpd_port)
         self.avahi.run()
         GLib.timeout_add(10 * 1000, self.on_idle4)
-        GLib.timeout_add(45 * 1000, self.on_idle5)
+        GLib.timeout_add(30 * 1000, self.on_idle5)
         GLib.timeout_add(90 * 1000, self.on_idle6)
         GLib.timeout_add(7 * 60 * 1000, self.core.restart_replication_tasks)
         GLib.timeout_add(11 * 60 * 1000, self.core.restart_downgrade_task)

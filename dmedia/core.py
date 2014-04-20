@@ -286,9 +286,9 @@ class Vigilance:
     def run(self):
         self.log_stats()
         self.process_backlog(2)
-        time.sleep(17)  # Bit of time for replication/compaction to catch up
+        time.sleep(2)  # Bit of time for replication/compaction to catch up
         self.process_backlog(4)
-        time.sleep(19)  # Bit of time for replication/compaction to catch up
+        time.sleep(2)  # Bit of time for replication/compaction to catch up
         last_seq = self.process_backlog(6)
         self.log_stats()
         self.process_preempt()
@@ -325,6 +325,7 @@ class Vigilance:
         while True:
             result = self.ms.wait_for_fragile_files(last_seq)
             last_seq = result['last_seq']
+            log.info('vigilance event loop at update_seq %s', last_seq)
             for row in result['results']:
                 self.wrap_up_rank(row['doc'], MIN_BYTES_FREE)
 
