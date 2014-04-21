@@ -1024,6 +1024,7 @@ class MetaStore:
             if len(rows) < LIMIT:
                 break
             kw['startkey_docid'] = rows[-1]['id']
+        self.db.wait_for_compact()
 
     def iter_fragile_files(self, stop=6):
         if not isinstance(stop, int):

@@ -325,7 +325,7 @@ class Vigilance:
         while True:
             result = self.ms.wait_for_fragile_files(last_seq)
             last_seq = result['last_seq']
-            log.info('vigilance event loop at update_seq %s', last_seq)
+            #log.info('vigilance event loop at update_seq %s', last_seq)
             for row in result['results']:
                 self.wrap_up_rank(row['doc'], MIN_BYTES_FREE)
 
