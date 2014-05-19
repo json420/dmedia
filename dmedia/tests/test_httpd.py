@@ -1114,7 +1114,7 @@ class TestLive(TestCase):
         # Make a simple GET request
         result = client.get()
         conn = client.ctx.get_threadlocal_connection()
-        port = conn.conn.sock.getsockname()[1]
+        port = conn.sock.getsockname()[1]
         self.maxDiff = None
         self.assertEqual(result,
             {
@@ -1189,7 +1189,7 @@ class TestLive(TestCase):
         # Make a simple GET request
         result = client.get()
         conn = client.ctx.get_threadlocal_connection()
-        port = conn.conn.sock.getsockname()[1]
+        port = conn.sock.getsockname()[1]
         self.assertEqual(result,
             {
                 'HTTP_ACCEPT': 'application/json',
@@ -1278,7 +1278,7 @@ class TestLive(TestCase):
         # Make a simple GET request
         result = client.get()
         conn = client.ctx.get_threadlocal_connection()
-        port = conn.conn.sock.getsockname()[1]
+        port = conn.sock.getsockname()[1]
         self.maxDiff = None
         self.assertEqual(result,
             {
