@@ -180,41 +180,40 @@ class RootApp:
 
 
 class ProxyApp:
+    __slots__ = ('threadlocal', 'client')
+
     def __init__(self, env):
         self.threadlocal = threading.local()
         t = urlparse(env['url'])
-        self.netloc = t.netloc
-        self.address = (t.hostname, t.port)
-        self.basic_auth = basic_auth_header(env['basic'])
+        address = (t.hostname, t.port)
+        base_headers = {
+            'authorization': basic_auth_header(env['basic']),
+            'host': t.netloc,
+        }
+        self.client = Client(address, base_headers)
 
-    def get_client(self):
-        if not hasattr(self.threadlocal, 'client'):
-            base_headers = {
-                'authorization': self.basic_auth,
-                'host': self.netloc,
-            }
-            self.threadlocal.client = Client(self.address, base_headers)
-        return self.threadlocal.client
+    def get_connection(self):
+        conn = getattr(self.threadlocal, 'conn', None)
+        if conn is None or conn.closed:
+            conn = self.client.connect()
+            self.threadlocal.conn = conn
+        return conn
 
     def __call__(self, request):
-        client = self.get_client()
-        try:
-            method = request['method']
-            uri = build_uri(request['path'], request['query'])
-            if uri.startswith('/_'):
-                return (403, 'Forbidden', {}, None)
-            headers = request['headers'].copy()
-            body = make_output_from_input(request['body'])
-            response = client.request(method, uri, headers, body)
-            return (
-                response.status,
-                response.reason,
-                response.headers,
-                make_output_from_input(response.body)
-            )
-        except Exception:
-            client.close()
-            raise
+        conn = self.get_connection()
+        method = request['method']
+        uri = build_uri(request['path'], request['query'])
+        if uri.startswith('/_'):
+            return (403, 'Forbidden', {}, None)
+        headers = request['headers'].copy()
+        body = make_output_from_input(request['body'])
+        response = conn.request(method, uri, headers, body)
+        return (
+            response.status,
+            response.reason,
+            response.headers,
+            make_output_from_input(response.body)
+        )
 
 
 class FilesApp:

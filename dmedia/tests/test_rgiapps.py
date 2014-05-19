@@ -281,7 +281,8 @@ class TestRootAppLive(TestCase):
         client = httpd.get_client()
 
         # Info app
-        response = client.request('GET', '/')
+        conn = client.connect()
+        response = conn.request('GET', '/')
         data = response.body.read()
         self.assertEqual(json.loads(data.decode()), {
             'user_id': env['user_id'],
@@ -298,24 +299,26 @@ class TestRootAppLive(TestCase):
         })
 
         # Naughty path in ProxyAPP
-        self.assertEqual(client.request('GET', '/couch/_config'),
+        self.assertEqual(conn.request('GET', '/couch/_config'),
             (403, 'Forbidden', {}, None)
         )
 
         # Ensure that server closed the connection:
         with self.assertRaises(EmptyLineError):
-            client.request('GET', '/couch/')
-        self.assertIsNone(client.conn)
-        self.assertIsNone(client.response_body)
+            conn.request('GET', '/couch/')
+        self.assertIs(conn.closed, True)
+        self.assertIsNone(conn.response_body)
+        self.assertIsNone(conn.sock)
 
         # A 404 should not close the connection:
-        response = client.request('GET', '/couch/dmedia-1')
+        conn = client.connect()
+        response = conn.request('GET', '/couch/dmedia-1')
         data = response.body.read()
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Object Not Found')
         self.assertEqual(response.headers['content-length'], len(data))
         db.put(None)
-        response = client.request('GET', '/couch/dmedia-1')
+        response = conn.request('GET', '/couch/dmedia-1')
         data = response.body.read()
         self.assertEqual(response.status, 200)
         self.assertEqual(response.reason, 'OK')
@@ -332,28 +335,50 @@ class TestProxyApp(TestCase):
         }
         app = rgiapps.ProxyApp(env)
         self.assertIsInstance(app.threadlocal, threading.local)
-        self.assertEqual(app.address, ('127.0.0.1', 5984))
-        self.assertEqual(app.netloc, '127.0.0.1:5984')
-        self.assertEqual(app.basic_auth,
-            microfiber.basic_auth_header(env['basic'])
-        )
-
-    def test_get_client(self):
-        password = random_id()
-        env = {
-            'basic': {'username': 'admin', 'password': password},
-            'url': microfiber.HTTP_IPv4_URL,
-        }
-        app = rgiapps.ProxyApp(env)
-        client = app.get_client()
-        self.assertIsInstance(client, Client)
-        self.assertEqual(client.address, ('127.0.0.1', 5984))
-        self.assertEqual(client.base_headers, {
-            'host': '127.0.0.1:5984',
+        self.assertIsInstance(app.client, Client)
+        self.assertEqual(app.client.address, ('127.0.0.1', 5984))
+        self.assertEqual(app.client.base_headers, {
             'authorization': microfiber.basic_auth_header(env['basic']),
+            'host': '127.0.0.1:5984',
         })
-        self.assertIs(client, app.threadlocal.client)
-        self.assertIs(app.get_client(), client)
+
+    def test_get_connection(self):
+        class DummyConnection:
+            def __init__(self, closed=False):
+                self.closed = closed
+
+        class DummyClient:
+            def __init__(self):
+                self._calls = 0
+
+            def connect(self):
+                self._calls += 1
+                return DummyConnection()
+
+        class Subclass(rgiapps.ProxyApp):
+            def __init__(self): 
+                self.threadlocal = threading.local()
+                self.client = DummyClient()
+
+        app = Subclass()
+
+        # No connection exists in this thread:
+        conn1 = app.get_connection()
+        self.assertIsInstance(conn1, DummyConnection)
+        self.assertEqual(app.client._calls, 1)
+        self.assertIs(app.threadlocal.conn, conn1)
+        self.assertIs(app.get_connection(), conn1)
+        self.assertEqual(app.client._calls, 1)
+
+        # Connection exists but is closed:
+        conn1.closed = True
+        conn2 = app.get_connection()
+        self.assertIsNot(conn2, conn1)
+        self.assertIsInstance(conn2, DummyConnection)
+        self.assertEqual(app.client._calls, 2)
+        self.assertIs(app.threadlocal.conn, conn2)
+        self.assertIs(app.get_connection(), conn2)
+        self.assertEqual(app.client._calls, 2)
 
     def test_push_proxy_dst(self):
         """
