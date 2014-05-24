@@ -13,7 +13,7 @@
 
 if [ "x$UPSTART_SESSION" != "x" ]; then
 	start dmedia
-	sleep 10
+	sleep 5
 else
 	/usr/lib/dmedia/dmedia-service
 fi
