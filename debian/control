@@ -19,7 +19,7 @@ Build-Depends: debhelper (>= 9),
     gir1.2-unity-5.0,
     gir1.2-notify-0.7,
     gir1.2-appindicator3-0.1,
-Standards-Version: 3.9.3
+Standards-Version: 3.9.5
 X-Python3-Version: >= 3.4
 Homepage: https://launchpad.net/dmedia
 
