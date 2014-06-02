@@ -35,7 +35,7 @@ import json
 from dbase32 import random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
 from degu.misc import TempSSLServer
-from degu.base import EmptyLineError
+from degu.base import EmptyPreambleError
 from degu.client import Client
 from usercouch.misc import TempCouch
 import microfiber
@@ -304,7 +304,7 @@ class TestRootAppLive(TestCase):
         )
 
         # Ensure that server closed the connection:
-        with self.assertRaises(EmptyLineError):
+        with self.assertRaises(EmptyPreambleError):
             conn.request('GET', '/couch/')
         self.assertIs(conn.closed, True)
         self.assertIsNone(conn.response_body)
