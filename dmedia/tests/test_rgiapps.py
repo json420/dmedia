@@ -24,7 +24,6 @@ Unit tests for `dmedia.rgiapps`.
 """
 
 from unittest import TestCase
-import threading
 import time
 import os
 from random import SystemRandom
@@ -197,7 +196,7 @@ class TestRootApp(TestCase):
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
-            app({'path': [], 'method': 'GET'}),
+            app({}, {'path': [], 'method': 'GET'}),
             (
                 200,
                 'OK',
@@ -209,7 +208,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app({'path': [''], 'method': 'GET'}),
+            app({}, {'path': [''], 'method': 'GET'}),
             (
                 200,
                 'OK',
@@ -221,20 +220,20 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app({'path': [], 'method': 'POST'}),
+            app({}, {'path': [], 'method': 'POST'}),
             (405, 'Method Not Allowed', {}, None)
         )
         self.assertEqual(
-            app({'path': [''], 'method': 'POST'}),
+            app({}, {'path': [''], 'method': 'POST'}),
             (405, 'Method Not Allowed', {}, None)
         )
         request = {'script': [], 'path': ['foo'], 'method': 'POST'}
-        self.assertEqual(app(request), (410, 'Gone', {}, None))
+        self.assertEqual(app({}, request), (410, 'Gone', {}, None))
         self.assertEqual(request,
             {'script': ['foo'], 'path': [], 'method': 'POST'}
         )
         request = {'script': [], 'path': ['foo', 'bar'], 'method': 'GET'}
-        self.assertEqual(app(request), (410, 'Gone', {}, None))
+        self.assertEqual(app({}, request), (410, 'Gone', {}, None))
         self.assertEqual(request,
             {'script': ['foo'], 'path': ['bar'], 'method': 'GET'}
         )
@@ -251,7 +250,7 @@ class TestRootApp(TestCase):
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
-            app.get_info({'method': 'GET'}),
+            app.get_info({}, {'method': 'GET'}),
             (
                 200,
                 'OK',
@@ -263,7 +262,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app.get_info({'method': 'POST'}),
+            app.get_info({}, {'method': 'POST'}),
             (405, 'Method Not Allowed', {}, None)
         )
 
@@ -334,51 +333,12 @@ class TestProxyApp(TestCase):
             'url': microfiber.HTTP_IPv4_URL,
         }
         app = rgiapps.ProxyApp(env)
-        self.assertIsInstance(app.threadlocal, threading.local)
         self.assertIsInstance(app.client, Client)
         self.assertEqual(app.client.address, ('127.0.0.1', 5984))
         self.assertEqual(app.client.base_headers, {
             'authorization': microfiber.basic_auth_header(env['basic']),
             'host': '127.0.0.1:5984',
         })
-
-    def test_get_connection(self):
-        class DummyConnection:
-            def __init__(self, closed=False):
-                self.closed = closed
-
-        class DummyClient:
-            def __init__(self):
-                self._calls = 0
-
-            def connect(self):
-                self._calls += 1
-                return DummyConnection()
-
-        class Subclass(rgiapps.ProxyApp):
-            def __init__(self): 
-                self.threadlocal = threading.local()
-                self.client = DummyClient()
-
-        app = Subclass()
-
-        # No connection exists in this thread:
-        conn1 = app.get_connection()
-        self.assertIsInstance(conn1, DummyConnection)
-        self.assertEqual(app.client._calls, 1)
-        self.assertIs(app.threadlocal.conn, conn1)
-        self.assertIs(app.get_connection(), conn1)
-        self.assertEqual(app.client._calls, 1)
-
-        # Connection exists but is closed:
-        conn1.closed = True
-        conn2 = app.get_connection()
-        self.assertIsNot(conn2, conn1)
-        self.assertIsInstance(conn2, DummyConnection)
-        self.assertEqual(app.client._calls, 2)
-        self.assertIs(app.threadlocal.conn, conn2)
-        self.assertIs(app.get_connection(), conn2)
-        self.assertEqual(app.client._calls, 2)
 
     def test_push_proxy_dst(self):
         """
@@ -888,28 +848,28 @@ class TestFilesApp(TestCase):
 
         # method:
         for method in ('PUT', 'POST', 'DELETE'):
-            self.assertEqual(app({'method': method}),
+            self.assertEqual(app({}, {'method': method}),
                 (405, 'Method Not Allowed', {}, None)
             )
 
         # path:
         bad_id1 = random_id(30)[:-1] + '0'  # Invalid letter
         request = {'method': 'GET', 'script': [], 'path': [bad_id1]}
-        self.assertEqual(app(request), (400, 'Bad File ID', {}, None))
+        self.assertEqual(app({}, request), (400, 'Bad File ID', {}, None))
         self.assertEqual(request,
             {'method': 'GET', 'script': [bad_id1], 'path': []}
         )
 
         bad_id2 = random_id(25)  # Wrong length
         request = {'method': 'GET', 'script': [], 'path': [bad_id2]}
-        self.assertEqual(app(request), (400, 'Bad File ID Length', {}, None))
+        self.assertEqual(app({}, request), (400, 'Bad File ID Length', {}, None))
         self.assertEqual(request,
             {'method': 'GET', 'script': [bad_id2], 'path': []}
         )
 
         good_id = random_id(30)
         request = {'method': 'GET', 'script': [], 'path': [good_id, 'more']}
-        self.assertEqual(app(request), (410, 'Gone', {}, None))
+        self.assertEqual(app({}, request), (410, 'Gone', {}, None))
         self.assertEqual(request,
             {'method': 'GET', 'script': [good_id], 'path': ['more']}
         )
@@ -921,7 +881,7 @@ class TestFilesApp(TestCase):
             'path': [good_id],
             'query': 'stuff=junk',
         }
-        self.assertEqual(app(request), (400, 'No Query For You', {}, None))
+        self.assertEqual(app({}, request), (400, 'No Query For You', {}, None))
         self.assertEqual(request, {
             'method': 'GET',
             'script': [good_id],
@@ -937,7 +897,7 @@ class TestFilesApp(TestCase):
             'query': '',
             'headers': {'range': 'bytes=500-1000'},
         }
-        self.assertEqual(app(request), (400, 'Cannot Range with HEAD', {}, None))
+        self.assertEqual(app({}, request), (400, 'Cannot Range with HEAD', {}, None))
         self.assertEqual(request, {
             'method': 'HEAD',
             'script': [good_id],

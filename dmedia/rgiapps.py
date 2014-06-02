@@ -26,7 +26,6 @@ Experimental port of the old `dmedia.server` WSGI application to our new RGI
 specification (REST Gateway Interface).
 """
 
-import threading
 from urllib.parse import urlparse
 import os
 import socket
@@ -158,18 +157,18 @@ class RootApp:
             'files': self.files,
         }
 
-    def __call__(self, request):
+    def __call__(self, connection, request):
         if request['path'] == [] or request['path'] == ['']:
-            return self.get_info(request)
+            return self.get_info(connection, request)
         key = shift_path(request)
         if key in self.map:
             try:
-                return self.map[key](request)
+                return self.map[key](connection, request)
             except RGIError as e:
                 return (e.status, e.reason, {}, None)
         return (410, 'Gone', {}, None)
 
-    def get_info(self, request):
+    def get_info(self, connection, request):
         if request['method'] != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         headers = {
@@ -180,10 +179,11 @@ class RootApp:
 
 
 class ProxyApp:
-    __slots__ = ('threadlocal', 'client')
+    """
+    Reverse proxy app so Degu can be used as an SSL frontend for CouchDB.
+    """
 
     def __init__(self, env):
-        self.threadlocal = threading.local()
         t = urlparse(env['url'])
         address = (t.hostname, t.port)
         base_headers = {
@@ -192,15 +192,10 @@ class ProxyApp:
         }
         self.client = Client(address, base_headers)
 
-    def get_connection(self):
-        conn = getattr(self.threadlocal, 'conn', None)
-        if conn is None or conn.closed:
-            conn = self.client.connect()
-            self.threadlocal.conn = conn
-        return conn
-
-    def __call__(self, request):
-        conn = self.get_connection()
+    def __call__(self, connection, request):
+        if '__conn' not in connection:
+            connection['__conn'] = self.client.connect()
+        conn = connection['__conn']
         method = request['method']
         uri = build_uri(request['path'], request['query'])
         if uri.startswith('/_'):
@@ -220,7 +215,7 @@ class FilesApp:
     def __init__(self, env):
         self.local = LocalSlave(env)
 
-    def __call__(self, request):
+    def __call__(self, connection, request):
         if request['method'] not in {'GET', 'HEAD'}:
             return (405, 'Method Not Allowed', {}, None)
         _id = shift_path(request)
