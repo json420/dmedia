@@ -251,7 +251,7 @@ class FilesApp:
             (status, reason) = (200, 'OK')
             headers = {'content-length': st.size}
         fp.seek(start)
-        body = request['rgi.FileResponseBody'](fp, headers['content-length'])
+        body = connection['rgi.FileResponseBody'](fp, headers['content-length'])
         log.info(
             'Sending bytes %s[%d:%d] to %r', _id, start, stop, request['client']
         )
