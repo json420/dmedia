@@ -253,7 +253,7 @@ class FilesApp:
         fp.seek(start)
         body = connection['rgi.FileResponseBody'](fp, headers['content-length'])
         log.info(
-            'Sending bytes %s[%d:%d] to %r', _id, start, stop, request['client']
+            'Sending bytes %s[%d:%d] to %r', _id, start, stop, connection['client']
         )
         return (status, reason, headers, body)
 
