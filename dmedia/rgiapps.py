@@ -33,8 +33,7 @@ import logging
 import re
 
 from dbase32 import isdb32
-from degu.base import build_uri, make_output_from_input
-from degu.server import shift_path
+from degu.util import shift_path, relative_uri, output_from_input
 from degu.client import Client
 from microfiber import basic_auth_header, dumps
 from filestore import DIGEST_B32LEN
@@ -196,18 +195,20 @@ class ProxyApp:
         if '__conn' not in connection:
             connection['__conn'] = self.client.connect()
         conn = connection['__conn']
-        method = request['method']
-        uri = build_uri(request['path'], request['query'])
+        uri = relative_uri(request)
         if uri.startswith('/_'):
             return (403, 'Forbidden', {}, None)
-        headers = request['headers'].copy()
-        body = make_output_from_input(request['body'])
-        response = conn.request(method, uri, headers, body)
+        response = conn.request(
+            request['method'],
+            uri,
+            request['headers'],
+            output_from_input(connection, request['body']) 
+        )
         return (
             response.status,
             response.reason,
             response.headers,
-            make_output_from_input(response.body)
+            output_from_input(connection, response.body)
         )
 
 
@@ -251,7 +252,7 @@ class FilesApp:
             (status, reason) = (200, 'OK')
             headers = {'content-length': st.size}
         fp.seek(start)
-        body = connection['rgi.FileResponseBody'](fp, headers['content-length'])
+        body = connection['rgi.FileOutput'](fp, headers['content-length'])
         log.info(
             'Sending bytes %s[%d:%d] to %r', _id, start, stop, connection['client']
         )
