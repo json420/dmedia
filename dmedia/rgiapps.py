@@ -196,7 +196,7 @@ class ProxyApp:
             connection['__conn'] = self.client.connect()
         conn = connection['__conn']
         uri = relative_uri(request)
-        if uri.startswith('/_'):
+        if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
         response = conn.request(
             request['method'],
