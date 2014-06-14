@@ -33,7 +33,7 @@ import json
 
 from dbase32 import random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
-from degu.misc import TempSSLServer
+from degu.misc import TempServer, TempSSLServer
 from degu.base import EmptyPreambleError
 from degu.client import Client
 from usercouch.misc import TempCouch
@@ -238,6 +238,23 @@ class TestRootApp(TestCase):
             {'script': ['foo'], 'path': ['bar'], 'method': 'GET'}
         )
 
+    def test_on_connect(self):
+        user_id = random_id(30)
+        machine_id = random_id(30)
+        password = random_id()
+        env = {
+            'user_id': user_id,
+            'machine_id': machine_id,
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = rgiapps.RootApp(env)
+        # Test with non ssl.SSLSocket:
+        for family in (socket.AF_INET6, socket.AF_INET, socket.AF_UNIX):
+            sock = socket.socket(family, socket.SOCK_STREAM)
+            environ = {'client': random_id()}
+            self.assertIs(app.on_connect(sock, environ), False)
+
     def test_get_info(self):
         user_id = random_id(30)
         machine_id = random_id(30)
@@ -275,6 +292,15 @@ class TestRootAppLive(TestCase):
         env['machine_id'] = random_id(30)
         db = microfiber.Database('dmedia-1', env)
 
+        # Security critical: ensure that RootApp.on_connect() prevents
+        # misconfiguration, wont accept connections without SSL:
+        httpd = TempServer(IPv4_LOOPBACK, rgiapps.build_root_app, env)
+        client = httpd.get_client()
+        conn = client.connect()
+        with self.assertRaises(EmptyPreambleError):
+            conn.request('GET', '/')
+
+        # Now setup a proper SSLServer:
         pki = identity.TempPKI(True)
         httpd = TempSSLServer(pki, IPv4_LOOPBACK, rgiapps.build_root_app, env)
         client = httpd.get_client()

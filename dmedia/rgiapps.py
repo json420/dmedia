@@ -31,6 +31,7 @@ import os
 import socket
 import logging
 import re
+import ssl
 
 from dbase32 import isdb32
 from degu.util import shift_path, relative_uri, output_from_input
@@ -166,6 +167,12 @@ class RootApp:
             except RGIError as e:
                 return (e.status, e.reason, {}, None)
         return (410, 'Gone', {}, None)
+
+    def on_connect(self, sock, connection):
+        if not isinstance(sock, ssl.SSLSocket):
+            log.warning('Non SSL connection from %r', connection['client'])
+            return False
+        return True
 
     def get_info(self, connection, request):
         if request['method'] != 'GET':
