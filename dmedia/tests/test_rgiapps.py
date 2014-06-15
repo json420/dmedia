@@ -39,10 +39,11 @@ from usercouch.misc import TempCouch
 import microfiber
 from microfiber import Attachment, encode_attachment
 from microfiber import replicator
+from filestore.misc import TempFileStore
 
 import dmedia
 from dmedia.local import LocalSlave
-from dmedia import client, rgiapps
+from dmedia import client, util, rgiapps
 
 
 random = SystemRandom()
@@ -364,6 +365,47 @@ class TestRootAppLive(TestCase):
         self.assertEqual(response.reason, 'OK')
         self.assertEqual(response.headers['content-length'], len(data))
         self.assertEqual(db.get(), json.loads(data.decode()))
+
+    def test_files(self):
+        """
+        Full-stack live test of FilesApp, through RootApp.
+        """
+        couch = TempCouch()
+        env = couch.bootstrap()
+        env['user_id'] = random_id(30)
+        env['machine_id'] = random_id(30)
+        db = util.get_db(env, True)
+        machine = {'_id': env['machine_id'], 'stores': {}}
+        db.save(machine)
+
+        pki = TempPKI()
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv4_LOOPBACK, rgiapps.build_root_app, env
+        )
+        sslctx = build_client_sslctx(pki.get_client_config())
+        client = SSLClient(sslctx, httpd.address)
+
+        # Non-existent file:
+        file_id = random_id(30)
+        uri = '/files/{}'.format(file_id)
+        conn = client.connect()
+        response = conn.request('GET', uri)
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+
+        # Same, but when there is at least a FileStore:
+        fs = TempFileStore()
+        machine['stores'][fs.id] = {'parentdir': fs.parentdir}
+        db.save(machine)
+        response = conn.request('GET', uri)
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
 
 
 class TestProxyApp(TestCase):

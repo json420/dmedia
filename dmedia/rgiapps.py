@@ -39,7 +39,7 @@ from degu.client import Client
 from microfiber import basic_auth_header, dumps
 from filestore import DIGEST_B32LEN
 
-from .local import LocalSlave, FileNotLocal
+from .local import LocalSlave, FileNotLocal, NoSuchFile
 from . import __version__
 
 
@@ -244,7 +244,8 @@ class FilesApp:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
-        except FileNotLocal:
+        except (NoSuchFile, FileNotLocal):
+            log.exception('Error requesting %s', _id)
             return (404, 'Not Found', {}, None)
 
         if request['method'] == 'HEAD':
