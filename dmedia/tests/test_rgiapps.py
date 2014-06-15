@@ -24,7 +24,6 @@ Unit tests for `dmedia.rgiapps`.
 """
 
 from unittest import TestCase
-import time
 import os
 from random import SystemRandom
 from base64 import b64decode
@@ -33,9 +32,9 @@ import json
 
 from dbase32 import random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
-from degu.misc import TempServer, TempSSLServer
+from degu.misc import TempServer, TempSSLServer, TempPKI
 from degu.base import EmptyPreambleError
-from degu.client import Client
+from degu.client import Client, SSLClient, build_client_sslctx
 from usercouch.misc import TempCouch
 import microfiber
 from microfiber import Attachment, encode_attachment
@@ -43,7 +42,7 @@ from microfiber import replicator
 
 import dmedia
 from dmedia.local import LocalSlave
-from dmedia import client, identity, rgiapps
+from dmedia import client, rgiapps
 
 
 random = SystemRandom()
@@ -295,15 +294,18 @@ class TestRootAppLive(TestCase):
         # Security critical: ensure that RootApp.on_connect() prevents
         # misconfiguration, wont accept connections without SSL:
         httpd = TempServer(IPv4_LOOPBACK, rgiapps.build_root_app, env)
-        client = httpd.get_client()
+        client = Client(httpd.address)
         conn = client.connect()
         with self.assertRaises(EmptyPreambleError):
             conn.request('GET', '/')
 
         # Now setup a proper SSLServer:
-        pki = identity.TempPKI(True)
-        httpd = TempSSLServer(pki, IPv4_LOOPBACK, rgiapps.build_root_app, env)
-        client = httpd.get_client()
+        pki = TempPKI()
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv4_LOOPBACK, rgiapps.build_root_app, env
+        )
+        sslctx = build_client_sslctx(pki.get_client_config())
+        client = SSLClient(sslctx, httpd.address)
 
         # Info app
         conn = client.connect()
@@ -384,7 +386,7 @@ class TestProxyApp(TestCase):
         whereas the Microfiber replicator is a completely independent process
         that could be running anywhere, even on a 3rd machine.
         """
-        pki = identity.TempPKI(True)
+        pki = TempPKI()
         couch_A = TempCouch()
         couch_B = TempCouch()
         env_A = couch_A.bootstrap()
@@ -394,7 +396,9 @@ class TestProxyApp(TestCase):
 
         # httpd is the SSL frontend for couch_B:
         # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
-        httpd = TempSSLServer(pki, IPv6_LOOPBACK, build_proxy_app, env_B)
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv6_LOOPBACK, build_proxy_app, env_B
+        )
         env_proxy_B = {
             'url': httpd.url,
             'ssl': pki.get_client_config(),
@@ -545,7 +549,7 @@ class TestProxyApp(TestCase):
         whereas the Microfiber replicator is a completely independent process
         that could be running anywhere, even on a 3rd machine.
         """
-        pki = identity.TempPKI(True)
+        pki = TempPKI()
         couch_A = TempCouch()
         couch_B = TempCouch()
         env_A = couch_A.bootstrap()
@@ -555,7 +559,9 @@ class TestProxyApp(TestCase):
 
         # httpd is the SSL frontend for couch_A:
         # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
-        httpd = TempSSLServer(pki, IPv6_LOOPBACK, build_proxy_app, env_A)
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv6_LOOPBACK, build_proxy_app, env_A
+        )
         env_proxy_A = {
             'url': httpd.url,
             'ssl': pki.get_client_config(),
@@ -686,169 +692,6 @@ class TestProxyApp(TestCase):
         self.assertEqual(db_B.get_many(ids), docs)
         self.assertEqual(db_A.get_many(ids), docs)
         self.assertEqual(db_proxy_A.get_many(ids), docs)
-
-    def test_push_replication(self):
-        """
-        Test push replication Couch1 => SSLServer => Couch2.
-        """
-        self.skipTest('CouchDB no support TLS 1.2')
-        pki = identity.TempPKI(True)
-        config = {'replicator': pki.get_client_config()}
-        couch1 = TempCouch()
-        couch2 = TempCouch()
-
-        # couch1 needs the replication SSL config
-        env1 = couch1.bootstrap('basic', config)
-        s1 = microfiber.Server(env1)
-
-        # couch2 needs env['user_id']
-        env2 = couch2.bootstrap('basic', None)
-        env2['user_id'] = pki.client_ca.id
-        env2['machine_id'] = pki.server.id
-        s2 = microfiber.Server(env2)
-
-        # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
-
-        # Create just the source DB, rely on create_target=True for remote
-        name1 = random_dbname()
-        name2 = random_dbname()
-        db1 = s1.database(name1)
-        db2 = s2.database(name2)
-        self.assertTrue(db1.ensure())
-
-        # Save 100 docs in bulk in couch1.db1:
-        docs = [random_doc(i) for i in range(100)]
-        db1.save_many(docs)
-
-        # Now save another 50 docs couch1.db1 sequentially:
-        for i in range(50):
-            doc = random_doc(i)
-            db1.save(doc)
-            docs.append(doc)
-
-        # Add an attachment on 69 random docs:
-        self.assertEqual(len(docs), 150)
-        changed = random.sample(docs, 69)
-        for doc in changed:
-            _id = doc['_id']
-            _rev = doc['_rev']
-            att = random_attachment()
-            doc['_rev'] = db1.put_att2(att, _id, random_id(), rev=_rev)['rev']
-
-        # Save another 75 docs in bulk in couch1.db1:
-        more_docs = [random_doc(i) for i in range(75)]
-        db1.save_many(more_docs)
-        docs.extend(more_docs)
-
-        # Do sequential couch1.db1 => SSLServer => couch2.db2 replication:
-        env = {'url': httpd.url}
-        result = s1.push(name1, name2, env, create_target=True)
-        self.assertEqual(set(result),
-            {'ok', 'history', 'session_id', 'source_last_seq', 'replication_id_version'}
-        )
-        self.assertIs(result['ok'], True)
-
-        for doc in docs:
-            _id = doc['_id']
-            attachments = doc.pop('_attachments', None)
-            saved = db2.get(_id)
-            saved.pop('_attachments', None)
-            self.assertEqual(doc, saved)
-            if attachments:
-                for (key, item) in attachments.items():
-                    self.assertEqual(
-                        db2.get_att(_id, key).data,
-                        b64decode(item['data'].encode())
-                    )
-
-    def test_continuous_push_replication(self):
-        """
-        Test *continuous* push replication Couch1 => SSLServer => Couch2.
-        """
-        self.skipTest('CouchDB no support TLS 1.2')
-        pki = identity.TempPKI(True)
-        config = {'replicator': pki.get_client_config()}
-        couch1 = TempCouch()
-        couch2 = TempCouch()
-
-        # couch1 needs the replication SSL config
-        env1 = couch1.bootstrap('basic', config)
-        s1 = microfiber.Server(env1)
-
-        # couch2 needs env['user_id']
-        env2 = couch2.bootstrap('basic', None)
-        env2['user_id'] = pki.client_ca.id
-        env2['machine_id'] = pki.server.id
-        s2 = microfiber.Server(env2)
-
-        # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
-
-        # Create just the source DB, rely on create_target=True for remote
-        name1 = random_dbname()
-        name2 = random_dbname()
-        db1 = s1.database(name1)
-        db2 = s2.database(name2)
-        self.assertTrue(db1.ensure())
-
-        # Save 100 docs in couch1.db1 *before* we start the replication:
-        docs = [random_doc(i) for i in range(100)]
-        db1.save_many(docs)
-
-        # Start couch1.db1 => SSLServer => couch2.db2 replication:
-        env = {'url': httpd.url}
-        result = s1.push(name1, name2, env, continuous=True, create_target=True)
-        self.assertEqual(set(result), set(['_local_id', 'ok']))
-        self.assertIs(result['ok'], True)
-
-        # Now save another 50 docs couch1.db1 sequentially:
-        for i in range(50):
-            doc = random_doc(i)
-            db1.save(doc)
-            docs.append(doc)
-
-        # Last, save another 75 docs in bulk in couch1.db1, just to be mean:
-        more_docs = [random_doc(i) for i in range(75)]
-        db1.save_many(more_docs)
-        docs.extend(more_docs)
-
-        time.sleep(3)
-        for doc in docs:
-            _id = doc['_id']
-            attachments = doc.pop('_attachments', None)
-            saved = db2.get(_id)
-            saved.pop('_attachments', None)
-            self.assertEqual(doc, saved)
-            if attachments:
-                for (key, item) in attachments.items():
-                    self.assertEqual(
-                        db2.get_att(_id, key).data,
-                        b64decode(item['data'].encode())
-                    )
-
-        # Test with attachment to make sure LP:1080339 doesn't come back:
-        #     https://bugs.launchpad.net/dmedia/+bug/1080339
-        self.assertEqual(len(docs), 225)
-        changed = random.sample(docs, 69)
-        for doc in changed:
-            _id = doc['_id']
-            _rev = doc['_rev']
-            att = random_attachment()
-            doc['_rev'] = db1.put_att2(att, _id, random_id(), rev=_rev)['rev']
-        time.sleep(3)
-        for doc in docs:
-            _id = doc['_id']
-            attachments = doc.pop('_attachments', None)
-            saved = db2.get(_id)
-            saved.pop('_attachments', None)
-            self.assertEqual(doc, saved)
-            if attachments:
-                for (key, item) in attachments.items():
-                    self.assertEqual(
-                        db2.get_att(_id, key).data,
-                        b64decode(item['data'].encode())
-                    )
 
 
 class TestFilesApp(TestCase):

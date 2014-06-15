@@ -170,7 +170,10 @@ class RootApp:
 
     def on_connect(self, sock, connection):
         if not isinstance(sock, ssl.SSLSocket):
-            log.warning('Non SSL connection from %r', connection['client'])
+            log.error('Non SSL connection from %r', connection['client'])
+            return False
+        if sock.context.verify_mode != ssl.CERT_REQUIRED:
+            log.error('sock.context.verify_mode != ssl.CERT_REQUIRED')
             return False
         return True
 
