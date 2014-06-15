@@ -31,14 +31,15 @@ import os
 import socket
 import logging
 import re
+import ssl
 
 from dbase32 import isdb32
 from degu.util import shift_path, relative_uri, output_from_input
 from degu.client import Client
 from microfiber import basic_auth_header, dumps
-from filestore import DIGEST_B32LEN
+from filestore import DIGEST_B32LEN, FileNotFound
 
-from .local import LocalSlave, FileNotLocal
+from .local import LocalSlave, FileNotLocal, NoSuchFile
 from . import __version__
 
 
@@ -156,18 +157,27 @@ class RootApp:
             'files': self.files,
         }
 
-    def __call__(self, connection, request):
+    def __call__(self, session, request):
         if request['path'] == [] or request['path'] == ['']:
-            return self.get_info(connection, request)
+            return self.get_info(session, request)
         key = shift_path(request)
         if key in self.map:
             try:
-                return self.map[key](connection, request)
+                return self.map[key](session, request)
             except RGIError as e:
                 return (e.status, e.reason, {}, None)
         return (410, 'Gone', {}, None)
 
-    def get_info(self, connection, request):
+    def on_connect(self, sock, session):
+        if not isinstance(sock, ssl.SSLSocket):
+            log.error('Non SSL connection from %r', session['client'])
+            return False
+        if sock.context.verify_mode != ssl.CERT_REQUIRED:
+            log.error('sock.context.verify_mode != ssl.CERT_REQUIRED')
+            return False
+        return True
+
+    def get_info(self, session, request):
         if request['method'] != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         headers = {
@@ -191,24 +201,24 @@ class ProxyApp:
         }
         self.client = Client(address, base_headers)
 
-    def __call__(self, connection, request):
-        if '__conn' not in connection:
-            connection['__conn'] = self.client.connect()
-        conn = connection['__conn']
+    def __call__(self, session, request):
+        if '__conn' not in session:
+            session['__conn'] = self.client.connect()
+        conn = session['__conn']
         uri = relative_uri(request)
-        if uri.startswith('/_'):
+        if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
         response = conn.request(
             request['method'],
             uri,
             request['headers'],
-            output_from_input(connection, request['body']) 
+            output_from_input(session, request['body']) 
         )
         return (
             response.status,
             response.reason,
             response.headers,
-            output_from_input(connection, response.body)
+            output_from_input(session, response.body)
         )
 
 
@@ -216,7 +226,7 @@ class FilesApp:
     def __init__(self, env):
         self.local = LocalSlave(env)
 
-    def __call__(self, connection, request):
+    def __call__(self, session, request):
         if request['method'] not in {'GET', 'HEAD'}:
             return (405, 'Method Not Allowed', {}, None)
         _id = shift_path(request)
@@ -234,7 +244,8 @@ class FilesApp:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
-        except FileNotLocal:
+        except (NoSuchFile, FileNotLocal, FileNotFound):
+            log.exception('Error requesting %s', _id)
             return (404, 'Not Found', {}, None)
 
         if request['method'] == 'HEAD':
@@ -252,9 +263,9 @@ class FilesApp:
             (status, reason) = (200, 'OK')
             headers = {'content-length': st.size}
         fp.seek(start)
-        body = connection['rgi.FileOutput'](fp, headers['content-length'])
+        body = session['rgi.FileOutput'](fp, headers['content-length'])
         log.info(
-            'Sending bytes %s[%d:%d] to %r', _id, start, stop, connection['client']
+            'Sending bytes %s[%d:%d] to %r', _id, start, stop, session['client']
         )
         return (status, reason, headers, body)
 

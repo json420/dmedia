@@ -24,7 +24,6 @@ Unit tests for `dmedia.rgiapps`.
 """
 
 from unittest import TestCase
-import time
 import os
 from random import SystemRandom
 from base64 import b64decode
@@ -33,17 +32,19 @@ import json
 
 from dbase32 import random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
-from degu.misc import TempSSLServer
-from degu.base import EmptyPreambleError
-from degu.client import Client
+from degu.misc import TempServer, TempSSLServer, TempPKI
+from degu.client import Client, SSLClient, build_client_sslctx
 from usercouch.misc import TempCouch
 import microfiber
 from microfiber import Attachment, encode_attachment
 from microfiber import replicator
+from filestore import Leaf, Hasher
+from filestore.misc import TempFileStore
 
+from .test_metastore import create_random_file
 import dmedia
 from dmedia.local import LocalSlave
-from dmedia import client, identity, rgiapps
+from dmedia import client, util, rgiapps
 
 
 random = SystemRandom()
@@ -238,6 +239,23 @@ class TestRootApp(TestCase):
             {'script': ['foo'], 'path': ['bar'], 'method': 'GET'}
         )
 
+    def test_on_connect(self):
+        user_id = random_id(30)
+        machine_id = random_id(30)
+        password = random_id()
+        env = {
+            'user_id': user_id,
+            'machine_id': machine_id,
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = rgiapps.RootApp(env)
+        # Test with non ssl.SSLSocket:
+        for family in (socket.AF_INET6, socket.AF_INET, socket.AF_UNIX):
+            sock = socket.socket(family, socket.SOCK_STREAM)
+            environ = {'client': random_id()}
+            self.assertIs(app.on_connect(sock, environ), False)
+
     def test_get_info(self):
         user_id = random_id(30)
         machine_id = random_id(30)
@@ -275,9 +293,34 @@ class TestRootAppLive(TestCase):
         env['machine_id'] = random_id(30)
         db = microfiber.Database('dmedia-1', env)
 
-        pki = identity.TempPKI(True)
-        httpd = TempSSLServer(pki, IPv4_LOOPBACK, rgiapps.build_root_app, env)
-        client = httpd.get_client()
+        # Security critical: ensure that RootApp.on_connect() prevents
+        # misconfiguration, wont accept connections without SSL:
+        httpd = TempServer(IPv4_LOOPBACK, rgiapps.build_root_app, env)
+        client = Client(httpd.address)
+        conn = client.connect()
+        with self.assertRaises(ConnectionError):
+            conn.request('GET', '/')
+ 
+        # Security critical: ensure that RootApp.on_connect() prevents
+        # misconfiguration, wont accept connections when anonymous client access
+        # is allowed:
+        pki = TempPKI()
+        server_config = pki.get_anonymous_server_config()
+        client_config = pki.get_anonymous_client_config()
+        httpd = TempSSLServer(
+            server_config, IPv4_LOOPBACK, rgiapps.build_root_app, env
+        )
+        client = SSLClient(build_client_sslctx(client_config), httpd.address)
+        conn = client.connect()
+        with self.assertRaises(ConnectionError):
+            conn.request('GET', '/')
+
+        # Now setup a proper SSLServer:
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv4_LOOPBACK, rgiapps.build_root_app, env
+        )
+        sslctx = build_client_sslctx(pki.get_client_config())
+        client = SSLClient(sslctx, httpd.address)
 
         # Info app
         conn = client.connect()
@@ -303,7 +346,7 @@ class TestRootAppLive(TestCase):
         )
 
         # Ensure that server closed the connection:
-        with self.assertRaises(EmptyPreambleError):
+        with self.assertRaises(ConnectionError):
             conn.request('GET', '/couch/')
         self.assertIs(conn.closed, True)
         self.assertIsNone(conn.response_body)
@@ -323,6 +366,127 @@ class TestRootAppLive(TestCase):
         self.assertEqual(response.reason, 'OK')
         self.assertEqual(response.headers['content-length'], len(data))
         self.assertEqual(db.get(), json.loads(data.decode()))
+
+    def test_files(self):
+        """
+        Full-stack live test of FilesApp, through RootApp.
+        """
+        couch = TempCouch()
+        env = couch.bootstrap()
+        env['user_id'] = random_id(30)
+        env['machine_id'] = random_id(30)
+        db = util.get_db(env, True)
+        machine = {'_id': env['machine_id'], 'stores': {}}
+        db.save(machine)
+
+        pki = TempPKI()
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv4_LOOPBACK, rgiapps.build_root_app, env
+        )
+        sslctx = build_client_sslctx(pki.get_client_config())
+        client = SSLClient(sslctx, httpd.address)
+
+        # Non-existent file:
+        file_id = random_id(30)
+        uri = '/files/{}'.format(file_id)
+        conn = client.connect()
+        response = conn.request('GET', uri)
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+
+        # Same, but when there is at least a FileStore:
+        fs1 = TempFileStore()
+        machine['stores'][fs1.id] = {'parentdir': fs1.parentdir}
+        db.save(machine)
+        response = conn.request('GET', uri)
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+        del conn
+
+        # Add a file to fs1:
+        doc1 = create_random_file(fs1, db)
+        conn = client.connect()
+        response = conn.request('GET', '/files/{}'.format(doc1['_id']))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.reason, 'OK')
+        self.assertEqual(response.headers, {'content-length': doc1['bytes']})
+        self.assertIs(response.body.chunked, False)
+        h = Hasher()
+        index = 0
+        while True:
+            data = response.body.read(h.protocol.leaf_size)
+            if not data:
+                break
+            leaf = Leaf(index, data)
+            h.hash_leaf(leaf)
+            index += 1
+        ch1 = h.content_hash()
+        self.assertEqual(ch1.id, doc1['_id'])
+        self.assertEqual(ch1.file_size, doc1['bytes'])
+        del conn
+
+        # Add a 2nd FileStore, again request non-existent file:
+        fs2 = TempFileStore()
+        machine['stores'][fs2.id] = {'parentdir': fs2.parentdir}
+        db.save(machine)
+        conn = client.connect()
+        response = conn.request('GET', uri)
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+        del conn
+
+        # Add random file to fs2, make sure FilesApp correctly select between
+        # the two:
+        doc2 = create_random_file(fs2, db)
+        conn = client.connect()
+        response = conn.request('GET', '/files/{}'.format(doc2['_id']))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.reason, 'OK')
+        self.assertEqual(response.headers, {'content-length': doc2['bytes']})
+        self.assertIs(response.body.chunked, False)
+        h = Hasher()
+        index = 0
+        while True:
+            data = response.body.read(h.protocol.leaf_size)
+            if not data:
+                break
+            leaf = Leaf(index, data)
+            h.hash_leaf(leaf)
+            index += 1
+        ch2 = h.content_hash()
+        self.assertEqual(ch2.id, doc2['_id'])
+        self.assertEqual(ch2.file_size, doc2['bytes'])
+
+        # Delete file in fs1, make sure FileApps returns 404 when database says
+        # file should be in a FileStore but it isn't:
+        fs1.remove(ch1.id)
+        response = conn.request('GET', '/files/{}'.format(doc1['_id']))
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+
+        # "disconnect" fs2, try requesting file2 when no local store has the
+        # file, even though the file doc is in the database:
+        del machine['stores'][fs2.id]
+        db.save(machine)
+        response = conn.request('GET', '/files/{}'.format(doc2['_id']))
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+        del conn
 
 
 class TestProxyApp(TestCase):
@@ -358,7 +522,7 @@ class TestProxyApp(TestCase):
         whereas the Microfiber replicator is a completely independent process
         that could be running anywhere, even on a 3rd machine.
         """
-        pki = identity.TempPKI(True)
+        pki = TempPKI()
         couch_A = TempCouch()
         couch_B = TempCouch()
         env_A = couch_A.bootstrap()
@@ -368,7 +532,9 @@ class TestProxyApp(TestCase):
 
         # httpd is the SSL frontend for couch_B:
         # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
-        httpd = TempSSLServer(pki, IPv6_LOOPBACK, build_proxy_app, env_B)
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv6_LOOPBACK, build_proxy_app, env_B
+        )
         env_proxy_B = {
             'url': httpd.url,
             'ssl': pki.get_client_config(),
@@ -519,7 +685,7 @@ class TestProxyApp(TestCase):
         whereas the Microfiber replicator is a completely independent process
         that could be running anywhere, even on a 3rd machine.
         """
-        pki = identity.TempPKI(True)
+        pki = TempPKI()
         couch_A = TempCouch()
         couch_B = TempCouch()
         env_A = couch_A.bootstrap()
@@ -529,7 +695,9 @@ class TestProxyApp(TestCase):
 
         # httpd is the SSL frontend for couch_A:
         # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
-        httpd = TempSSLServer(pki, IPv6_LOOPBACK, build_proxy_app, env_A)
+        httpd = TempSSLServer(
+            pki.get_server_config(), IPv6_LOOPBACK, build_proxy_app, env_A
+        )
         env_proxy_A = {
             'url': httpd.url,
             'ssl': pki.get_client_config(),
@@ -660,169 +828,6 @@ class TestProxyApp(TestCase):
         self.assertEqual(db_B.get_many(ids), docs)
         self.assertEqual(db_A.get_many(ids), docs)
         self.assertEqual(db_proxy_A.get_many(ids), docs)
-
-    def test_push_replication(self):
-        """
-        Test push replication Couch1 => SSLServer => Couch2.
-        """
-        self.skipTest('CouchDB no support TLS 1.2')
-        pki = identity.TempPKI(True)
-        config = {'replicator': pki.get_client_config()}
-        couch1 = TempCouch()
-        couch2 = TempCouch()
-
-        # couch1 needs the replication SSL config
-        env1 = couch1.bootstrap('basic', config)
-        s1 = microfiber.Server(env1)
-
-        # couch2 needs env['user_id']
-        env2 = couch2.bootstrap('basic', None)
-        env2['user_id'] = pki.client_ca.id
-        env2['machine_id'] = pki.server.id
-        s2 = microfiber.Server(env2)
-
-        # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
-
-        # Create just the source DB, rely on create_target=True for remote
-        name1 = random_dbname()
-        name2 = random_dbname()
-        db1 = s1.database(name1)
-        db2 = s2.database(name2)
-        self.assertTrue(db1.ensure())
-
-        # Save 100 docs in bulk in couch1.db1:
-        docs = [random_doc(i) for i in range(100)]
-        db1.save_many(docs)
-
-        # Now save another 50 docs couch1.db1 sequentially:
-        for i in range(50):
-            doc = random_doc(i)
-            db1.save(doc)
-            docs.append(doc)
-
-        # Add an attachment on 69 random docs:
-        self.assertEqual(len(docs), 150)
-        changed = random.sample(docs, 69)
-        for doc in changed:
-            _id = doc['_id']
-            _rev = doc['_rev']
-            att = random_attachment()
-            doc['_rev'] = db1.put_att2(att, _id, random_id(), rev=_rev)['rev']
-
-        # Save another 75 docs in bulk in couch1.db1:
-        more_docs = [random_doc(i) for i in range(75)]
-        db1.save_many(more_docs)
-        docs.extend(more_docs)
-
-        # Do sequential couch1.db1 => SSLServer => couch2.db2 replication:
-        env = {'url': httpd.url}
-        result = s1.push(name1, name2, env, create_target=True)
-        self.assertEqual(set(result),
-            {'ok', 'history', 'session_id', 'source_last_seq', 'replication_id_version'}
-        )
-        self.assertIs(result['ok'], True)
-
-        for doc in docs:
-            _id = doc['_id']
-            attachments = doc.pop('_attachments', None)
-            saved = db2.get(_id)
-            saved.pop('_attachments', None)
-            self.assertEqual(doc, saved)
-            if attachments:
-                for (key, item) in attachments.items():
-                    self.assertEqual(
-                        db2.get_att(_id, key).data,
-                        b64decode(item['data'].encode())
-                    )
-
-    def test_continuous_push_replication(self):
-        """
-        Test *continuous* push replication Couch1 => SSLServer => Couch2.
-        """
-        self.skipTest('CouchDB no support TLS 1.2')
-        pki = identity.TempPKI(True)
-        config = {'replicator': pki.get_client_config()}
-        couch1 = TempCouch()
-        couch2 = TempCouch()
-
-        # couch1 needs the replication SSL config
-        env1 = couch1.bootstrap('basic', config)
-        s1 = microfiber.Server(env1)
-
-        # couch2 needs env['user_id']
-        env2 = couch2.bootstrap('basic', None)
-        env2['user_id'] = pki.client_ca.id
-        env2['machine_id'] = pki.server.id
-        s2 = microfiber.Server(env2)
-
-        # httpd is the SSL frontend for couch2
-        httpd = TempSSLServer(pki, IPv4_LOOPBACK, build_proxy_app, env2)
-
-        # Create just the source DB, rely on create_target=True for remote
-        name1 = random_dbname()
-        name2 = random_dbname()
-        db1 = s1.database(name1)
-        db2 = s2.database(name2)
-        self.assertTrue(db1.ensure())
-
-        # Save 100 docs in couch1.db1 *before* we start the replication:
-        docs = [random_doc(i) for i in range(100)]
-        db1.save_many(docs)
-
-        # Start couch1.db1 => SSLServer => couch2.db2 replication:
-        env = {'url': httpd.url}
-        result = s1.push(name1, name2, env, continuous=True, create_target=True)
-        self.assertEqual(set(result), set(['_local_id', 'ok']))
-        self.assertIs(result['ok'], True)
-
-        # Now save another 50 docs couch1.db1 sequentially:
-        for i in range(50):
-            doc = random_doc(i)
-            db1.save(doc)
-            docs.append(doc)
-
-        # Last, save another 75 docs in bulk in couch1.db1, just to be mean:
-        more_docs = [random_doc(i) for i in range(75)]
-        db1.save_many(more_docs)
-        docs.extend(more_docs)
-
-        time.sleep(3)
-        for doc in docs:
-            _id = doc['_id']
-            attachments = doc.pop('_attachments', None)
-            saved = db2.get(_id)
-            saved.pop('_attachments', None)
-            self.assertEqual(doc, saved)
-            if attachments:
-                for (key, item) in attachments.items():
-                    self.assertEqual(
-                        db2.get_att(_id, key).data,
-                        b64decode(item['data'].encode())
-                    )
-
-        # Test with attachment to make sure LP:1080339 doesn't come back:
-        #     https://bugs.launchpad.net/dmedia/+bug/1080339
-        self.assertEqual(len(docs), 225)
-        changed = random.sample(docs, 69)
-        for doc in changed:
-            _id = doc['_id']
-            _rev = doc['_rev']
-            att = random_attachment()
-            doc['_rev'] = db1.put_att2(att, _id, random_id(), rev=_rev)['rev']
-        time.sleep(3)
-        for doc in docs:
-            _id = doc['_id']
-            attachments = doc.pop('_attachments', None)
-            saved = db2.get(_id)
-            saved.pop('_attachments', None)
-            self.assertEqual(doc, saved)
-            if attachments:
-                for (key, item) in attachments.items():
-                    self.assertEqual(
-                        db2.get_att(_id, key).data,
-                        b64decode(item['data'].encode())
-                    )
 
 
 class TestFilesApp(TestCase):
