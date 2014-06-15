@@ -298,9 +298,22 @@ class TestRootAppLive(TestCase):
         conn = client.connect()
         with self.assertRaises(EmptyPreambleError):
             conn.request('GET', '/')
+ 
+        # Security critical: ensure that RootApp.on_connect() prevents
+        # misconfiguration, wont accept connections when anonymous client access
+        # is allowed:
+        pki = TempPKI()
+        server_config = pki.get_anonymous_server_config()
+        client_config = pki.get_anonymous_client_config()
+        httpd = TempSSLServer(
+            server_config, IPv4_LOOPBACK, rgiapps.build_root_app, env
+        )
+        client = SSLClient(build_client_sslctx(client_config), httpd.address)
+        conn = client.connect()
+        with self.assertRaises(EmptyPreambleError):
+            conn.request('GET', '/')
 
         # Now setup a proper SSLServer:
-        pki = TempPKI()
         httpd = TempSSLServer(
             pki.get_server_config(), IPv4_LOOPBACK, rgiapps.build_root_app, env
         )
