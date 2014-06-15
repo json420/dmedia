@@ -37,7 +37,7 @@ from dbase32 import isdb32
 from degu.util import shift_path, relative_uri, output_from_input
 from degu.client import Client
 from microfiber import basic_auth_header, dumps
-from filestore import DIGEST_B32LEN
+from filestore import DIGEST_B32LEN, FileNotFound
 
 from .local import LocalSlave, FileNotLocal, NoSuchFile
 from . import __version__
@@ -244,7 +244,7 @@ class FilesApp:
             doc = self.local.get_doc(_id)
             st = self.local.stat2(doc)
             fp = open(st.name, 'rb')
-        except (NoSuchFile, FileNotLocal):
+        except (NoSuchFile, FileNotLocal, FileNotFound):
             log.exception('Error requesting %s', _id)
             return (404, 'Not Found', {}, None)
 

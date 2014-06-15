@@ -33,14 +33,15 @@ import json
 from dbase32 import random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
 from degu.misc import TempServer, TempSSLServer, TempPKI
-from degu.base import EmptyPreambleError
 from degu.client import Client, SSLClient, build_client_sslctx
 from usercouch.misc import TempCouch
 import microfiber
 from microfiber import Attachment, encode_attachment
 from microfiber import replicator
+from filestore import Leaf, Hasher
 from filestore.misc import TempFileStore
 
+from .test_metastore import create_random_file
 import dmedia
 from dmedia.local import LocalSlave
 from dmedia import client, util, rgiapps
@@ -297,7 +298,7 @@ class TestRootAppLive(TestCase):
         httpd = TempServer(IPv4_LOOPBACK, rgiapps.build_root_app, env)
         client = Client(httpd.address)
         conn = client.connect()
-        with self.assertRaises(EmptyPreambleError):
+        with self.assertRaises(ConnectionError):
             conn.request('GET', '/')
  
         # Security critical: ensure that RootApp.on_connect() prevents
@@ -311,7 +312,7 @@ class TestRootAppLive(TestCase):
         )
         client = SSLClient(build_client_sslctx(client_config), httpd.address)
         conn = client.connect()
-        with self.assertRaises(EmptyPreambleError):
+        with self.assertRaises(ConnectionError):
             conn.request('GET', '/')
 
         # Now setup a proper SSLServer:
@@ -345,7 +346,7 @@ class TestRootAppLive(TestCase):
         )
 
         # Ensure that server closed the connection:
-        with self.assertRaises(EmptyPreambleError):
+        with self.assertRaises(ConnectionError):
             conn.request('GET', '/couch/')
         self.assertIs(conn.closed, True)
         self.assertIsNone(conn.response_body)
@@ -397,8 +398,8 @@ class TestRootAppLive(TestCase):
         self.assertIs(conn.closed, False)
 
         # Same, but when there is at least a FileStore:
-        fs = TempFileStore()
-        machine['stores'][fs.id] = {'parentdir': fs.parentdir}
+        fs1 = TempFileStore()
+        machine['stores'][fs1.id] = {'parentdir': fs1.parentdir}
         db.save(machine)
         response = conn.request('GET', uri)
         self.assertEqual(response.status, 404)
@@ -406,6 +407,86 @@ class TestRootAppLive(TestCase):
         self.assertEqual(response.headers, {})
         self.assertIsNone(response.body)
         self.assertIs(conn.closed, False)
+        del conn
+
+        # Add a file to fs1:
+        doc1 = create_random_file(fs1, db)
+        conn = client.connect()
+        response = conn.request('GET', '/files/{}'.format(doc1['_id']))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.reason, 'OK')
+        self.assertEqual(response.headers, {'content-length': doc1['bytes']})
+        self.assertIs(response.body.chunked, False)
+        h = Hasher()
+        index = 0
+        while True:
+            data = response.body.read(h.protocol.leaf_size)
+            if not data:
+                break
+            leaf = Leaf(index, data)
+            h.hash_leaf(leaf)
+            index += 1
+        ch1 = h.content_hash()
+        self.assertEqual(ch1.id, doc1['_id'])
+        self.assertEqual(ch1.file_size, doc1['bytes'])
+        del conn
+
+        # Add a 2nd FileStore, again request non-existent file:
+        fs2 = TempFileStore()
+        machine['stores'][fs2.id] = {'parentdir': fs2.parentdir}
+        db.save(machine)
+        conn = client.connect()
+        response = conn.request('GET', uri)
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+        del conn
+
+        # Add random file to fs2, make sure FilesApp correctly select between
+        # the two:
+        doc2 = create_random_file(fs2, db)
+        conn = client.connect()
+        response = conn.request('GET', '/files/{}'.format(doc2['_id']))
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.reason, 'OK')
+        self.assertEqual(response.headers, {'content-length': doc2['bytes']})
+        self.assertIs(response.body.chunked, False)
+        h = Hasher()
+        index = 0
+        while True:
+            data = response.body.read(h.protocol.leaf_size)
+            if not data:
+                break
+            leaf = Leaf(index, data)
+            h.hash_leaf(leaf)
+            index += 1
+        ch2 = h.content_hash()
+        self.assertEqual(ch2.id, doc2['_id'])
+        self.assertEqual(ch2.file_size, doc2['bytes'])
+
+        # Delete file in fs1, make sure FileApps returns 404 when database says
+        # file should be in a FileStore but it isn't:
+        fs1.remove(ch1.id)
+        response = conn.request('GET', '/files/{}'.format(doc1['_id']))
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+
+        # "disconnect" fs2, try requesting file2 when no local store has the
+        # file, even though the file doc is in the database:
+        del machine['stores'][fs2.id]
+        db.save(machine)
+        response = conn.request('GET', '/files/{}'.format(doc2['_id']))
+        self.assertEqual(response.status, 404)
+        self.assertEqual(response.reason, 'Not Found')
+        self.assertEqual(response.headers, {})
+        self.assertIsNone(response.body)
+        self.assertIs(conn.closed, False)
+        del conn
 
 
 class TestProxyApp(TestCase):
