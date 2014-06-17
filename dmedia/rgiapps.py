@@ -34,7 +34,7 @@ import re
 import ssl
 
 from dbase32 import isdb32
-from degu.util import shift_path, relative_uri, output_from_input
+from degu.util import shift_path, relative_uri
 from degu.client import Client
 from microfiber import basic_auth_header, dumps
 from filestore import DIGEST_B32LEN, FileNotFound
@@ -208,17 +208,11 @@ class ProxyApp:
         uri = relative_uri(request)
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
-        response = conn.request(
+        return conn.request(
             request['method'],
             uri,
             request['headers'],
-            output_from_input(session, request['body']) 
-        )
-        return (
-            response.status,
-            response.reason,
-            response.headers,
-            output_from_input(session, response.body)
+            request['body']
         )
 
 
@@ -263,7 +257,7 @@ class FilesApp:
             (status, reason) = (200, 'OK')
             headers = {'content-length': st.size}
         fp.seek(start)
-        body = session['rgi.FileOutput'](fp, headers['content-length'])
+        body = session['rgi.Body'](fp, headers['content-length'])
         log.info(
             'Sending bytes %s[%d:%d] to %r', _id, start, stop, session['client']
         )
