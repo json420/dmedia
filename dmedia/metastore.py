@@ -909,7 +909,7 @@ class MetaStore:
         t = TimeDelta()
         kw = {
             'key': fs.id,
-            'limit': 30,
+            'limit': 17,
             'include_docs': True,
         }
         while True:
@@ -934,7 +934,7 @@ class MetaStore:
         kw = {
             'startkey': [fs.id, None],
             'endkey': [fs.id, curtime - threshold],
-            'limit': 30,
+            'limit': 17,
             'include_docs': True,
         }
         while True:
