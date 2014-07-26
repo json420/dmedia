@@ -51,6 +51,15 @@ function(doc) {
 }
 """
 
+# For cleaning out conflicting docs:
+doc_conflicts = """
+function(doc) {
+    if (doc._conflicts) {
+        emit(doc._conflicts.length, doc._conflicts);
+    }
+}
+"""
+
 filter_doc_normal = """
 function(doc, req) {
     return doc._id[0] != '_';
@@ -72,6 +81,7 @@ doc_design = {
         'type': {'map': doc_type, 'reduce': _count},
         'time': {'map': doc_time},
         'key': {'map': doc_key},
+        'conflicts': {'map': doc_conflicts},
     },
     'filters': {
         'normal': filter_doc_normal,
