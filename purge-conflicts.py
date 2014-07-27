@@ -1,15 +1,18 @@
 #!/usr/bin/python3
 
-from microfiber import Database, dmedia_env, dumps
+from microfiber import Database, dmedia_env
 
 
 def build_docs(rows):
     docs = []
     for row in rows:
+        print(row['id'], len(row['value']))
         docs.extend(
             {'_id': row['id'], '_rev': rev, '_deleted': True}
             for rev in row['value']
         )
+    print(len(docs))
+    print('')
     return docs
 
 
@@ -29,7 +32,6 @@ def get_conflicts(db):
 def purge_conflicts(db):
     while True:
         docs = get_conflicts(db)
-        print(dumps(docs, True))
         if not docs:
             break
         db.post({'docs': docs, 'all_or_nothing': True}, '_bulk_docs')
@@ -37,4 +39,6 @@ def purge_conflicts(db):
 
 db = Database('dmedia-1', dmedia_env())
 purge_conflicts(db)
+print('compacting...')
+db.compact(True)
 
