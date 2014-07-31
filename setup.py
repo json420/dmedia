@@ -151,6 +151,9 @@ class Test(Command):
         pynames = list(self._pynames_iter())
         if self.core_only:
             os.environ['DMEDIA_TEST_CORE_ONLY'] = 'true'
+            # FIXME: udev related tests aren't well behaved on build servers:
+            pynames.remove('dmedia.drives')
+            pynames.remove('dmedia.tests.test_drives')
             # FIXME: This is just till we drop totem-video-thumbnailer
             pynames.remove('dmedia.extractor')
             pynames.remove('dmedia.tests.test_extractor')
