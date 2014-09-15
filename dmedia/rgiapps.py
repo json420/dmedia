@@ -157,13 +157,13 @@ class RootApp:
             'files': self.files,
         }
 
-    def __call__(self, session, request):
+    def __call__(self, bodies, session, request):
         if request['path'] == [] or request['path'] == ['']:
-            return self.get_info(session, request)
+            return self.get_info(bodies, session, request)
         key = shift_path(request)
         if key in self.map:
             try:
-                return self.map[key](session, request)
+                return self.map[key](bodies, session, request)
             except RGIError as e:
                 return (e.status, e.reason, {}, None)
         return (410, 'Gone', {}, None)
@@ -177,7 +177,7 @@ class RootApp:
             return False
         return True
 
-    def get_info(self, session, request):
+    def get_info(self, bodies, session, request):
         if request['method'] != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         headers = {
@@ -201,7 +201,7 @@ class ProxyApp:
         }
         self.client = Client(address, base_headers)
 
-    def __call__(self, session, request):
+    def __call__(self, bodies, session, request):
         if '__conn' not in session:
             session['__conn'] = self.client.connect()
         conn = session['__conn']
@@ -220,7 +220,7 @@ class FilesApp:
     def __init__(self, env):
         self.local = LocalSlave(env)
 
-    def __call__(self, session, request):
+    def __call__(self, bodies, session, request):
         if request['method'] not in {'GET', 'HEAD'}:
             return (405, 'Method Not Allowed', {}, None)
         _id = shift_path(request)
@@ -257,7 +257,7 @@ class FilesApp:
             (status, reason) = (200, 'OK')
             headers = {'content-length': st.size}
         fp.seek(start)
-        body = session['rgi.Body'](fp, headers['content-length'])
+        body = bodies.Body(fp, headers['content-length'])
         log.info(
             'Sending bytes %s[%d:%d] to %r', _id, start, stop, session['client']
         )

@@ -32,6 +32,7 @@ import json
 
 from dbase32 import random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
+from degu.base import default_bodies
 from degu.misc import TempServer, TempSSLServer, TempPKI
 from degu.client import Client, SSLClient, build_client_sslctx
 from usercouch.misc import TempCouch
@@ -197,7 +198,7 @@ class TestRootApp(TestCase):
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
-            app({}, {'path': [], 'method': 'GET'}),
+            app(None, {}, {'path': [], 'method': 'GET'}),
             (
                 200,
                 'OK',
@@ -209,7 +210,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app({}, {'path': [''], 'method': 'GET'}),
+            app(None, {}, {'path': [''], 'method': 'GET'}),
             (
                 200,
                 'OK',
@@ -221,20 +222,20 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app({}, {'path': [], 'method': 'POST'}),
+            app(None, {}, {'path': [], 'method': 'POST'}),
             (405, 'Method Not Allowed', {}, None)
         )
         self.assertEqual(
-            app({}, {'path': [''], 'method': 'POST'}),
+            app(None, {}, {'path': [''], 'method': 'POST'}),
             (405, 'Method Not Allowed', {}, None)
         )
         request = {'script': [], 'path': ['foo'], 'method': 'POST'}
-        self.assertEqual(app({}, request), (410, 'Gone', {}, None))
+        self.assertEqual(app(None, {}, request), (410, 'Gone', {}, None))
         self.assertEqual(request,
             {'script': ['foo'], 'path': [], 'method': 'POST'}
         )
         request = {'script': [], 'path': ['foo', 'bar'], 'method': 'GET'}
-        self.assertEqual(app({}, request), (410, 'Gone', {}, None))
+        self.assertEqual(app(None, {}, request), (410, 'Gone', {}, None))
         self.assertEqual(request,
             {'script': ['foo'], 'path': ['bar'], 'method': 'GET'}
         )
@@ -268,7 +269,7 @@ class TestRootApp(TestCase):
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
-            app.get_info({}, {'method': 'GET'}),
+            app.get_info(None, {}, {'method': 'GET'}),
             (
                 200,
                 'OK',
@@ -280,7 +281,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app.get_info({}, {'method': 'POST'}),
+            app.get_info(None, {}, {'method': 'POST'}),
             (405, 'Method Not Allowed', {}, None)
         )
 
@@ -853,28 +854,34 @@ class TestFilesApp(TestCase):
 
         # method:
         for method in ('PUT', 'POST', 'DELETE'):
-            self.assertEqual(app({}, {'method': method}),
+            self.assertEqual(app(default_bodies, {}, {'method': method}),
                 (405, 'Method Not Allowed', {}, None)
             )
 
         # path:
         bad_id1 = random_id(30)[:-1] + '0'  # Invalid letter
         request = {'method': 'GET', 'script': [], 'path': [bad_id1]}
-        self.assertEqual(app({}, request), (400, 'Bad File ID', {}, None))
+        self.assertEqual(app(default_bodies, {}, request),
+            (400, 'Bad File ID', {}, None)
+        )
         self.assertEqual(request,
             {'method': 'GET', 'script': [bad_id1], 'path': []}
         )
 
         bad_id2 = random_id(25)  # Wrong length
         request = {'method': 'GET', 'script': [], 'path': [bad_id2]}
-        self.assertEqual(app({}, request), (400, 'Bad File ID Length', {}, None))
+        self.assertEqual(app(default_bodies, {}, request),
+            (400, 'Bad File ID Length', {}, None)
+        )
         self.assertEqual(request,
             {'method': 'GET', 'script': [bad_id2], 'path': []}
         )
 
         good_id = random_id(30)
         request = {'method': 'GET', 'script': [], 'path': [good_id, 'more']}
-        self.assertEqual(app({}, request), (410, 'Gone', {}, None))
+        self.assertEqual(app(default_bodies, {}, request),
+            (410, 'Gone', {}, None)
+        )
         self.assertEqual(request,
             {'method': 'GET', 'script': [good_id], 'path': ['more']}
         )
@@ -886,7 +893,9 @@ class TestFilesApp(TestCase):
             'path': [good_id],
             'query': 'stuff=junk',
         }
-        self.assertEqual(app({}, request), (400, 'No Query For You', {}, None))
+        self.assertEqual(app(default_bodies, {}, request),
+            (400, 'No Query For You', {}, None)
+        )
         self.assertEqual(request, {
             'method': 'GET',
             'script': [good_id],
@@ -902,7 +911,9 @@ class TestFilesApp(TestCase):
             'query': '',
             'headers': {'range': 'bytes=500-1000'},
         }
-        self.assertEqual(app({}, request), (400, 'Cannot Range with HEAD', {}, None))
+        self.assertEqual(app(default_bodies, {}, request),
+            (400, 'Cannot Range with HEAD', {}, None)
+        )
         self.assertEqual(request, {
             'method': 'HEAD',
             'script': [good_id],
