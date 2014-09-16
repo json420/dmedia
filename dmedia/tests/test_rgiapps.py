@@ -198,7 +198,7 @@ class TestRootApp(TestCase):
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
-            app(None, {}, {'path': [], 'method': 'GET'}),
+            app({}, {'path': [], 'method': 'GET'}, default_bodies),
             (
                 200,
                 'OK',
@@ -210,7 +210,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app(None, {}, {'path': [''], 'method': 'GET'}),
+            app({}, {'path': [''], 'method': 'GET'}, default_bodies),
             (
                 200,
                 'OK',
@@ -222,20 +222,24 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app(None, {}, {'path': [], 'method': 'POST'}),
+            app({}, {'path': [], 'method': 'POST'}, default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
         self.assertEqual(
-            app(None, {}, {'path': [''], 'method': 'POST'}),
+            app({}, {'path': [''], 'method': 'POST'}, default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
         request = {'script': [], 'path': ['foo'], 'method': 'POST'}
-        self.assertEqual(app(None, {}, request), (410, 'Gone', {}, None))
+        self.assertEqual(app({}, request, default_bodies),
+            (410, 'Gone', {}, None)
+        )
         self.assertEqual(request,
             {'script': ['foo'], 'path': [], 'method': 'POST'}
         )
         request = {'script': [], 'path': ['foo', 'bar'], 'method': 'GET'}
-        self.assertEqual(app(None, {}, request), (410, 'Gone', {}, None))
+        self.assertEqual(app({}, request, default_bodies),
+            (410, 'Gone', {}, None)
+        )
         self.assertEqual(request,
             {'script': ['foo'], 'path': ['bar'], 'method': 'GET'}
         )
@@ -269,7 +273,7 @@ class TestRootApp(TestCase):
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
-            app.get_info(None, {}, {'method': 'GET'}),
+            app.get_info({}, {'method': 'GET'}, default_bodies),
             (
                 200,
                 'OK',
@@ -281,7 +285,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app.get_info(None, {}, {'method': 'POST'}),
+            app.get_info({}, {'method': 'POST'}, default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
 
@@ -854,14 +858,14 @@ class TestFilesApp(TestCase):
 
         # method:
         for method in ('PUT', 'POST', 'DELETE'):
-            self.assertEqual(app(default_bodies, {}, {'method': method}),
+            self.assertEqual(app({}, {'method': method}, default_bodies),
                 (405, 'Method Not Allowed', {}, None)
             )
 
         # path:
         bad_id1 = random_id(30)[:-1] + '0'  # Invalid letter
         request = {'method': 'GET', 'script': [], 'path': [bad_id1]}
-        self.assertEqual(app(default_bodies, {}, request),
+        self.assertEqual(app({}, request, default_bodies),
             (400, 'Bad File ID', {}, None)
         )
         self.assertEqual(request,
@@ -870,7 +874,7 @@ class TestFilesApp(TestCase):
 
         bad_id2 = random_id(25)  # Wrong length
         request = {'method': 'GET', 'script': [], 'path': [bad_id2]}
-        self.assertEqual(app(default_bodies, {}, request),
+        self.assertEqual(app({}, request, default_bodies),
             (400, 'Bad File ID Length', {}, None)
         )
         self.assertEqual(request,
@@ -879,7 +883,7 @@ class TestFilesApp(TestCase):
 
         good_id = random_id(30)
         request = {'method': 'GET', 'script': [], 'path': [good_id, 'more']}
-        self.assertEqual(app(default_bodies, {}, request),
+        self.assertEqual(app({}, request, default_bodies),
             (410, 'Gone', {}, None)
         )
         self.assertEqual(request,
@@ -893,7 +897,7 @@ class TestFilesApp(TestCase):
             'path': [good_id],
             'query': 'stuff=junk',
         }
-        self.assertEqual(app(default_bodies, {}, request),
+        self.assertEqual(app({}, request, default_bodies),
             (400, 'No Query For You', {}, None)
         )
         self.assertEqual(request, {
@@ -911,7 +915,7 @@ class TestFilesApp(TestCase):
             'query': '',
             'headers': {'range': 'bytes=500-1000'},
         }
-        self.assertEqual(app(default_bodies, {}, request),
+        self.assertEqual(app({}, request, default_bodies),
             (400, 'Cannot Range with HEAD', {}, None)
         )
         self.assertEqual(request, {
