@@ -28,7 +28,7 @@ WILL BREAK YOUR DMEDIA DATABASE AND COULD CAUSE DATA LOSS!
 
 from os import path
 
-__version__ = '14.09.0'
+__version__ = '14.10.0'
 BUS = 'org.freedesktop.Dmedia'
 TREE = path.dirname(path.dirname(path.abspath(__file__)))
 
