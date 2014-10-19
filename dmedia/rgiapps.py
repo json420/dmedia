@@ -202,9 +202,10 @@ class ProxyApp:
         self.client = Client(address, base_headers=base_headers)
 
     def __call__(self, session, request, bodies):
-        if '__conn' not in session:
-            session['__conn'] = self.client.connect()
-        conn = session['__conn']
+        conn = session.get('__conn')
+        if conn is None:
+            conn = self.client.connect()
+            session['__conn'] = conn
         uri = relative_uri(request)
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
