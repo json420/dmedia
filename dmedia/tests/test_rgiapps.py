@@ -304,7 +304,7 @@ class TestRootAppLive(TestCase):
         client = Client(httpd.address)
         conn = client.connect()
         with self.assertRaises(ConnectionError):
-            conn.request('GET', '/')
+            conn.request('GET', '/', {}, None)
  
         # Security critical: ensure that RootApp.on_connect() prevents
         # misconfiguration, wont accept connections when anonymous client access
@@ -318,7 +318,7 @@ class TestRootAppLive(TestCase):
         client = SSLClient(build_client_sslctx(client_config), httpd.address)
         conn = client.connect()
         with self.assertRaises(ConnectionError):
-            conn.request('GET', '/')
+            conn.request('GET', '/', {}, None)
 
         # Now setup a proper SSLServer:
         httpd = TempSSLServer(
@@ -329,7 +329,7 @@ class TestRootAppLive(TestCase):
 
         # Info app
         conn = client.connect()
-        response = conn.request('GET', '/')
+        response = conn.request('GET', '/', {}, None)
         data = response.body.read()
         self.assertEqual(json.loads(data.decode()), {
             'user_id': env['user_id'],
@@ -346,26 +346,26 @@ class TestRootAppLive(TestCase):
         })
 
         # Naughty path in ProxyAPP
-        self.assertEqual(conn.request('GET', '/couch/_config'),
+        self.assertEqual(conn.request('GET', '/couch/_config', {}, None),
             (403, 'Forbidden', {}, None)
         )
 
         # Ensure that server closed the connection:
         with self.assertRaises(ConnectionError):
-            conn.request('GET', '/couch/')
+            conn.request('GET', '/couch/', {}, None)
         self.assertIs(conn.closed, True)
         self.assertIsNone(conn.response_body)
         self.assertIsNone(conn.sock)
 
         # A 404 should not close the connection:
         conn = client.connect()
-        response = conn.request('GET', '/couch/dmedia-1')
+        response = conn.request('GET', '/couch/dmedia-1', {}, None)
         data = response.body.read()
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Object Not Found')
         self.assertEqual(response.headers['content-length'], len(data))
         db.put(None)
-        response = conn.request('GET', '/couch/dmedia-1')
+        response = conn.request('GET', '/couch/dmedia-1', {}, None)
         data = response.body.read()
         self.assertEqual(response.status, 200)
         self.assertEqual(response.reason, 'OK')
@@ -395,7 +395,7 @@ class TestRootAppLive(TestCase):
         file_id = random_id(30)
         uri = '/files/{}'.format(file_id)
         conn = client.connect()
-        response = conn.request('GET', uri)
+        response = conn.request('GET', uri, {}, None)
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Not Found')
         self.assertEqual(response.headers, {})
@@ -406,7 +406,7 @@ class TestRootAppLive(TestCase):
         fs1 = TempFileStore()
         machine['stores'][fs1.id] = {'parentdir': fs1.parentdir}
         db.save(machine)
-        response = conn.request('GET', uri)
+        response = conn.request('GET', uri, {}, None)
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Not Found')
         self.assertEqual(response.headers, {})
@@ -417,7 +417,7 @@ class TestRootAppLive(TestCase):
         # Add a file to fs1:
         doc1 = create_random_file(fs1, db)
         conn = client.connect()
-        response = conn.request('GET', '/files/{}'.format(doc1['_id']))
+        response = conn.request('GET', '/files/{}'.format(doc1['_id']), {}, None)
         self.assertEqual(response.status, 200)
         self.assertEqual(response.reason, 'OK')
         self.assertEqual(response.headers, {'content-length': doc1['bytes']})
@@ -441,7 +441,7 @@ class TestRootAppLive(TestCase):
         machine['stores'][fs2.id] = {'parentdir': fs2.parentdir}
         db.save(machine)
         conn = client.connect()
-        response = conn.request('GET', uri)
+        response = conn.request('GET', uri, {}, None)
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Not Found')
         self.assertEqual(response.headers, {})
@@ -453,7 +453,7 @@ class TestRootAppLive(TestCase):
         # the two:
         doc2 = create_random_file(fs2, db)
         conn = client.connect()
-        response = conn.request('GET', '/files/{}'.format(doc2['_id']))
+        response = conn.request('GET', '/files/{}'.format(doc2['_id']), {}, None)
         self.assertEqual(response.status, 200)
         self.assertEqual(response.reason, 'OK')
         self.assertEqual(response.headers, {'content-length': doc2['bytes']})
@@ -474,7 +474,7 @@ class TestRootAppLive(TestCase):
         # Delete file in fs1, make sure FileApps returns 404 when database says
         # file should be in a FileStore but it isn't:
         fs1.remove(ch1.id)
-        response = conn.request('GET', '/files/{}'.format(doc1['_id']))
+        response = conn.request('GET', '/files/{}'.format(doc1['_id']), {}, None)
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Not Found')
         self.assertEqual(response.headers, {})
@@ -485,7 +485,7 @@ class TestRootAppLive(TestCase):
         # file, even though the file doc is in the database:
         del machine['stores'][fs2.id]
         db.save(machine)
-        response = conn.request('GET', '/files/{}'.format(doc2['_id']))
+        response = conn.request('GET', '/files/{}'.format(doc2['_id']), {}, None)
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Not Found')
         self.assertEqual(response.headers, {})
