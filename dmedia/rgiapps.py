@@ -199,7 +199,7 @@ class ProxyApp:
             'authorization': basic_auth_header(env['basic']),
             'host': t.netloc,
         }
-        self.client = Client(address, base_headers)
+        self.client = Client(address, base_headers=base_headers)
 
     def __call__(self, session, request, bodies):
         if '__conn' not in session:
