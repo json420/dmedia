@@ -33,7 +33,7 @@ import logging
 import re
 import ssl
 
-from dbase32 import isdb32
+from dbase32 import isdb32, random_id
 from degu.util import shift_path, relative_uri
 from degu.client import Client
 from microfiber import basic_auth_header, dumps
@@ -156,8 +156,15 @@ class RootApp:
             'couch': self.proxy,
             'files': self.files,
         }
+        self._marker = random_id()
 
     def __call__(self, session, request, bodies):
+        if session.get('_marker') != self._marker:
+            raise Exception(
+                'session marker {!r} != {!r}, on_connect() was not called'.format(
+                    session.get('_marker'), self._marker
+                )
+            )
         if request['path'] == [] or request['path'] == ['']:
             return self.get_info(session, request, bodies)
         key = shift_path(request)
@@ -168,13 +175,14 @@ class RootApp:
                 return (e.status, e.reason, {}, None)
         return (410, 'Gone', {}, None)
 
-    def on_connect(self, sock, session):
+    def on_connect(self, session, sock):
         if not isinstance(sock, ssl.SSLSocket):
             log.error('Non SSL connection from %r', session['client'])
             return False
         if sock.context.verify_mode != ssl.CERT_REQUIRED:
             log.error('sock.context.verify_mode != ssl.CERT_REQUIRED')
             return False
+        session['_marker'] = self._marker
         return True
 
     def get_info(self, session, request, bodies):
@@ -199,12 +207,13 @@ class ProxyApp:
             'authorization': basic_auth_header(env['basic']),
             'host': t.netloc,
         }
-        self.client = Client(address, base_headers)
+        self.client = Client(address, base_headers=base_headers)
 
     def __call__(self, session, request, bodies):
-        if '__conn' not in session:
-            session['__conn'] = self.client.connect()
-        conn = session['__conn']
+        conn = session.get('__conn')
+        if conn is None:
+            conn = self.client.connect()
+            session['__conn'] = conn
         uri = relative_uri(request)
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
