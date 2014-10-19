@@ -257,9 +257,9 @@ class TestRootApp(TestCase):
         app = rgiapps.RootApp(env)
         # Test with non ssl.SSLSocket:
         for family in (socket.AF_INET6, socket.AF_INET, socket.AF_UNIX):
+            session = {'client': random_id()}
             sock = socket.socket(family, socket.SOCK_STREAM)
-            environ = {'client': random_id()}
-            self.assertIs(app.on_connect(sock, environ), False)
+            self.assertIs(app.on_connect(session, sock), False)
 
     def test_get_info(self):
         user_id = random_id(30)

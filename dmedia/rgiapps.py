@@ -168,7 +168,7 @@ class RootApp:
                 return (e.status, e.reason, {}, None)
         return (410, 'Gone', {}, None)
 
-    def on_connect(self, sock, session):
+    def on_connect(self, session, sock):
         if not isinstance(sock, ssl.SSLSocket):
             log.error('Non SSL connection from %r', session['client'])
             return False
