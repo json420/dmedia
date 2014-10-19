@@ -33,7 +33,7 @@ import logging
 import re
 import ssl
 
-from dbase32 import isdb32
+from dbase32 import isdb32, random_id
 from degu.util import shift_path, relative_uri
 from degu.client import Client
 from microfiber import basic_auth_header, dumps
@@ -156,8 +156,15 @@ class RootApp:
             'couch': self.proxy,
             'files': self.files,
         }
+        self._marker = random_id()
 
     def __call__(self, session, request, bodies):
+        if session.get('_marker') != self._marker:
+            raise Exception(
+                'session marker {!r} != {!r}, on_connect() was not called'.format(
+                    session.get('_marker'), self._marker
+                )
+            )
         if request['path'] == [] or request['path'] == ['']:
             return self.get_info(session, request, bodies)
         key = shift_path(request)
@@ -175,6 +182,7 @@ class RootApp:
         if sock.context.verify_mode != ssl.CERT_REQUIRED:
             log.error('sock.context.verify_mode != ssl.CERT_REQUIRED')
             return False
+        session['_marker'] = self._marker
         return True
 
     def get_info(self, session, request, bodies):

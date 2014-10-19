@@ -197,8 +197,20 @@ class TestRootApp(TestCase):
             'url': microfiber.HTTP_IPv4_URL,
         }
         app = rgiapps.RootApp(env)
+
+        # Test when random session marker is missing:
+        with self.assertRaises(Exception) as cm:
+            app({}, {'path': [], 'method': 'GET'}, default_bodies)
+        self.assertEqual(str(cm.exception),
+            'session marker None != {!r}, on_connect() was not called'.format(
+                app._marker
+            )
+        )
+
+        # Remaining test use a valid session marker:
+        session = {'_marker': app._marker}
         self.assertEqual(
-            app({}, {'path': [], 'method': 'GET'}, default_bodies),
+            app(session, {'path': [], 'method': 'GET'}, default_bodies),
             (
                 200,
                 'OK',
@@ -210,7 +222,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app({}, {'path': [''], 'method': 'GET'}, default_bodies),
+            app(session, {'path': [''], 'method': 'GET'}, default_bodies),
             (
                 200,
                 'OK',
@@ -222,22 +234,22 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app({}, {'path': [], 'method': 'POST'}, default_bodies),
+            app(session, {'path': [], 'method': 'POST'}, default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
         self.assertEqual(
-            app({}, {'path': [''], 'method': 'POST'}, default_bodies),
+            app(session, {'path': [''], 'method': 'POST'}, default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
         request = {'script': [], 'path': ['foo'], 'method': 'POST'}
-        self.assertEqual(app({}, request, default_bodies),
+        self.assertEqual(app(session, request, default_bodies),
             (410, 'Gone', {}, None)
         )
         self.assertEqual(request,
             {'script': ['foo'], 'path': [], 'method': 'POST'}
         )
         request = {'script': [], 'path': ['foo', 'bar'], 'method': 'GET'}
-        self.assertEqual(app({}, request, default_bodies),
+        self.assertEqual(app(session, request, default_bodies),
             (410, 'Gone', {}, None)
         )
         self.assertEqual(request,
@@ -260,6 +272,7 @@ class TestRootApp(TestCase):
             session = {'client': random_id()}
             sock = socket.socket(family, socket.SOCK_STREAM)
             self.assertIs(app.on_connect(session, sock), False)
+            self.assertNotIn('_marker', session)
 
     def test_get_info(self):
         user_id = random_id(30)
