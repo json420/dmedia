@@ -32,9 +32,9 @@ import json
 
 from dbase32 import random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
-from degu.base import default_bodies
+from degu.base import bodies as default_bodies
 from degu.misc import TempServer, TempSSLServer, TempPKI
-from degu.client import Client, SSLClient, build_client_sslctx
+from degu.client import Client, SSLClient
 from usercouch.misc import TempCouch
 import microfiber
 from microfiber import Attachment, encode_attachment
@@ -53,10 +53,6 @@ random = SystemRandom()
 
 def random_dbname():
     return 'db-' + random_id().lower()
-
-
-def build_proxy_app(couch_env):
-    return rgiapps.ProxyApp(couch_env)
 
 
 def random_attachment():
@@ -78,6 +74,30 @@ def random_doc(i):
         att = random_attachment()
         doc['_attachments'][random_id()] = encode_attachment(att)
     return doc
+
+
+def address_to_url(scheme, address):
+    """
+    Convert `Server.address` into a URL.
+
+    For example:
+
+    >>> address_to_url('https', ('::1', 54321, 0, 0))
+    'https://[::1]:54321/'
+
+    >>> address_to_url('http', ('127.0.0.1', 54321))
+    'http://127.0.0.1:54321/'
+
+    """
+    assert scheme in ('http', 'https')
+    if isinstance(address, (str, bytes)):
+        return None
+    assert isinstance(address, tuple)
+    assert len(address) in {4, 2}
+    if len(address) == 2:  # IPv4?
+        return '{}://{}:{:d}/'.format(scheme, address[0], address[1])
+    # More better, IPv6:
+    return '{}://[{}]:{}/'.format(scheme, address[0], address[1])
 
 
 class TestFunctions(TestCase):
@@ -313,7 +333,7 @@ class TestRootAppLive(TestCase):
 
         # Security critical: ensure that RootApp.on_connect() prevents
         # misconfiguration, wont accept connections without SSL:
-        httpd = TempServer(IPv4_LOOPBACK, rgiapps.build_root_app, env)
+        httpd = TempServer(IPv4_LOOPBACK, rgiapps.RootApp(env))
         client = Client(httpd.address)
         conn = client.connect()
         with self.assertRaises(ConnectionError):
@@ -323,22 +343,19 @@ class TestRootAppLive(TestCase):
         # misconfiguration, wont accept connections when anonymous client access
         # is allowed:
         pki = TempPKI()
-        server_config = pki.get_anonymous_server_config()
-        client_config = pki.get_anonymous_client_config()
         httpd = TempSSLServer(
-            server_config, IPv4_LOOPBACK, rgiapps.build_root_app, env
+            pki.anonymous_server_sslconfig, IPv4_LOOPBACK, rgiapps.RootApp(env)
         )
-        client = SSLClient(build_client_sslctx(client_config), httpd.address)
+        client = SSLClient(pki.anonymous_client_sslconfig, httpd.address)
         conn = client.connect()
         with self.assertRaises(ConnectionError):
             conn.request('GET', '/', {}, None)
 
         # Now setup a proper SSLServer:
         httpd = TempSSLServer(
-            pki.get_server_config(), IPv4_LOOPBACK, rgiapps.build_root_app, env
+            pki.server_sslconfig, IPv4_LOOPBACK, rgiapps.RootApp(env)
         )
-        sslctx = build_client_sslctx(pki.get_client_config())
-        client = SSLClient(sslctx, httpd.address)
+        client = SSLClient(pki.client_sslconfig, httpd.address)
 
         # Info app
         conn = client.connect()
@@ -399,10 +416,9 @@ class TestRootAppLive(TestCase):
 
         pki = TempPKI()
         httpd = TempSSLServer(
-            pki.get_server_config(), IPv4_LOOPBACK, rgiapps.build_root_app, env
+            pki.server_sslconfig, IPv4_LOOPBACK, rgiapps.RootApp(env)
         )
-        sslctx = build_client_sslctx(pki.get_client_config())
-        client = SSLClient(sslctx, httpd.address)
+        client = SSLClient(pki.client_sslconfig, httpd.address)
 
         # Non-existent file:
         file_id = random_id(30)
@@ -517,10 +533,9 @@ class TestProxyApp(TestCase):
         app = rgiapps.ProxyApp(env)
         self.assertIsInstance(app.client, Client)
         self.assertEqual(app.client.address, ('127.0.0.1', 5984))
-        self.assertEqual(app.client.options['base_headers'], {
-            'authorization': microfiber.basic_auth_header(env['basic']),
-            'host': '127.0.0.1:5984',
-        })
+        self.assertEqual(app._authorization, 
+            microfiber.basic_auth_header(env['basic'])
+        )
 
     def test_push_proxy_dst(self):
         """
@@ -551,11 +566,11 @@ class TestProxyApp(TestCase):
         # httpd is the SSL frontend for couch_B:
         # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
         httpd = TempSSLServer(
-            pki.get_server_config(), IPv6_LOOPBACK, build_proxy_app, env_B
+            pki.server_sslconfig, IPv6_LOOPBACK, rgiapps.ProxyApp(env_B)
         )
         env_proxy_B = {
-            'url': httpd.url,
-            'ssl': pki.get_client_config(),
+            'url': address_to_url('https', httpd.address),
+            'ssl': pki.client_sslconfig,
         }
 
         # Create just the source DB, microfiber.replicator should create the dst
@@ -714,11 +729,11 @@ class TestProxyApp(TestCase):
         # httpd is the SSL frontend for couch_A:
         # (for more fun, CouchDB instances are IPv4, SSLServer is IPv6)
         httpd = TempSSLServer(
-            pki.get_server_config(), IPv6_LOOPBACK, build_proxy_app, env_A
+            pki.server_sslconfig, IPv6_LOOPBACK, rgiapps.ProxyApp(env_A)
         )
         env_proxy_A = {
-            'url': httpd.url,
-            'ssl': pki.get_client_config(),
+            'url': address_to_url('https', httpd.address),
+            'ssl': pki.client_sslconfig,
         }
 
         # Create just the source DB, microfiber.replicator should create the dst:

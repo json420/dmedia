@@ -203,11 +203,8 @@ class ProxyApp:
     def __init__(self, env):
         t = urlparse(env['url'])
         address = (t.hostname, t.port)
-        base_headers = {
-            'authorization': basic_auth_header(env['basic']),
-            'host': t.netloc,
-        }
-        self.client = Client(address, base_headers=base_headers)
+        self.client = Client(address)
+        self._authorization = basic_auth_header(env['basic'])
 
     def __call__(self, session, request, bodies):
         conn = session.get('__conn')
@@ -217,6 +214,7 @@ class ProxyApp:
         uri = relative_uri(request)
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
+        request['headers']['authorization'] = self._authorization
         return conn.request(
             request['method'],
             uri,
