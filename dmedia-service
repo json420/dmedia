@@ -180,8 +180,8 @@ class Service(dbus.service.Object):
         start_thread(self.core.init_project_views)
         if self.couch.pki.user.key_file is not None:
             self.peer = Browser(self, self.couch)
-        (self.httpd, address) = start_httpd(self.core.env, self.core.ssl_config)
-        self.httpd_port = address[1]
+        self.httpd = start_httpd(self.core.env, self.core.ssl_config)
+        self.httpd_port = self.httpd.address[1]
         GLib.timeout_add(1500, self.on_idle3)
 
     def on_idle3(self):
