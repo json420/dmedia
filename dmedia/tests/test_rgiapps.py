@@ -533,10 +533,9 @@ class TestProxyApp(TestCase):
         app = rgiapps.ProxyApp(env)
         self.assertIsInstance(app.client, Client)
         self.assertEqual(app.client.address, ('127.0.0.1', 5984))
-        self.assertEqual(app.client.options['base_headers'], {
-            'authorization': microfiber.basic_auth_header(env['basic']),
-            'host': '127.0.0.1:5984',
-        })
+        self.assertEqual(app._authorization, 
+            microfiber.basic_auth_header(env['basic'])
+        )
 
     def test_push_proxy_dst(self):
         """
