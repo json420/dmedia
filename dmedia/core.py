@@ -39,7 +39,7 @@ from collections import namedtuple
 from dbase32 import isdb32
 from microfiber import Server, Database, NotFound, Conflict, dumps
 from filestore import FileStore, FileNotFound
-from degu import start_sslserver
+from degu import EmbeddedSSLServer
 from gi.repository import GLib
 
 from dmedia.parallel import start_thread, start_process
@@ -61,7 +61,7 @@ def build_root_app(couch_env):
 
 
 def start_httpd(couch_env, sslconfig):
-    return start_sslserver(
+    return EmbeddedSSLServer(
         sslconfig, ('0.0.0.0', 0), build_root_app, couch_env,
     )
 
