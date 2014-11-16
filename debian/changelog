@@ -1,5 +1,5 @@
-dmedia (14.10.0~pre0) utopic; urgency=low
+dmedia (14.11.0~alpha) utopic; urgency=low
 
   * Upstream pre-release
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Sun, 12 Oct 2014 09:20:53 -0600
+ -- Jason Gerard DeRose <jderose@novacut.com>  Sun, 16 Nov 2014 10:09:19 -0700
