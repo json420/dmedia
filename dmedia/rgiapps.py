@@ -271,5 +271,28 @@ class FilesApp:
         return (status, reason, headers, body)
 
 
+class InfoApp:
+    """
+    RGI app initially used by the client-end of the peering process.
+    """
+
+    def __init__(self, _id):
+        self.id = _id
+        obj = {
+            'id': _id,
+            'version': __version__,
+            'user': USER,
+            'host': HOST,
+        }
+        self.body = dumps(obj).encode()
+
+    def __call__(self, session, request, bodies):
+        if request['path'] != []:
+            return (410, 'Gone', {}, None)
+        if request['method'] != 'GET':
+            return (405, 'Method Not Allowed', {}, None)
+        return (200, 'OK', {'content-type': 'application/json'}, self.body)
+
+
 def build_root_app(couch_env):
     return RootApp(couch_env)

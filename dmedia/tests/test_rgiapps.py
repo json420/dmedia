@@ -954,3 +954,55 @@ class TestFilesApp(TestCase):
             'headers': {'range': 'bytes=500-1000'},
         })
 
+
+class TestInfoApp(TestCase):
+    def test_init(self):
+        _id = random_id(30)
+        app = rgiapps.InfoApp(_id)
+        self.assertIs(app.id, _id)
+        self.assertEqual(
+            app.body,
+            microfiber.dumps(
+                {
+                    'id': _id,
+                    'version': dmedia.__version__,
+                    'user': os.environ.get('USER'),
+                    'host': socket.gethostname(),
+                }
+            ).encode('utf-8')
+        )
+
+    def test_call(self):
+        app = rgiapps.InfoApp(random_id(30))
+
+        # request['path']
+        request = {
+            'path': ['foo'],
+        }
+        self.assertEqual(app({}, request, default_bodies),
+            (410, 'Gone', {}, None)
+        )
+
+        # request['method']
+        for method in ('PUT', 'POST', 'HEAD', 'DELETE'):
+            request = {
+                'method': method,
+                'path': [],
+            }
+            self.assertEqual(app({}, request, default_bodies),
+                (405, 'Method Not Allowed', {}, None)
+            )
+
+        # Test when it's all good
+        request = {
+            'method': 'GET',
+            'uri': '/',
+            'script': [],
+            'path': [],
+            'headers': {},
+            'body': None,
+        }
+        self.assertEqual(app({}, request, default_bodies),
+            (200, 'OK', {'content-type': 'application/json'}, app.body)
+        )
+
