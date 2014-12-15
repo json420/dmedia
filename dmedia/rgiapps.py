@@ -31,6 +31,7 @@ import os
 import socket
 import logging
 import re
+import json
 import ssl
 
 from dbase32 import isdb32, random_id
@@ -40,7 +41,7 @@ from microfiber import basic_auth_header, dumps
 from filestore import DIGEST_B32LEN, FileNotFound
 
 from .local import LocalSlave, FileNotLocal, NoSuchFile
-from . import __version__
+from . import __version__, identity
 
 
 USER = os.environ.get('USER')
@@ -271,5 +272,119 @@ class FilesApp:
         return (status, reason, headers, body)
 
 
+class InfoApp:
+    """
+    RGI app initially used by the client-end of the peering process.
+    """
+
+    def __init__(self, _id):
+        self.id = _id
+        obj = {
+            'id': _id,
+            'version': __version__,
+            'user': USER,
+            'host': HOST,
+        }
+        self.body = dumps(obj).encode()
+
+    def __call__(self, session, request, bodies):
+        if request['path'] != []:
+            return (410, 'Gone', {}, None)
+        if request['method'] != 'GET':
+            return (405, 'Method Not Allowed', {}, None)
+        return (200, 'OK', {'content-type': 'application/json'}, self.body)
+
+
+class ClientApp:
+    """
+    RGI app used by the client-end of the peering process.
+    """
+
+    allowed_states = (
+        'ready',
+        'gave_challenge',
+        'in_response',
+        'wrong_response',
+        'response_ok',
+    )
+
+    forwarded_states = (
+        'wrong_response',
+        'response_ok',
+    )
+
+    def __init__(self, cr, queue):
+        self.cr = cr
+        self.queue = queue
+        self.__state = None
+        self.map = {
+            ('challenge',): self.get_challenge,
+            ('response',): self.post_response,
+        }
+
+    def get_state(self):
+        return self.__state
+
+    def set_state(self, state):
+        if state not in self.__class__.allowed_states:
+            self.__state = None
+            log.error('invalid state: %r', state)
+            raise Exception('invalid state: {!r}'.format(state))
+        self.__state = state
+        if state in self.__class__.forwarded_states:
+            self.queue.put(state)
+
+    state = property(get_state, set_state)
+
+    def __call__(self, session, request, bodies):
+        # FIXME: We need to replace with a Degu style app.on_connect() handler
+#        if environ['wsgi.multithread'] is not False:
+#            raise WSGIError('500 Internal Server Error')
+#        if environ.get('SSL_CLIENT_VERIFY') != 'SUCCESS':
+#            raise WSGIError('403 Forbidden SSL')
+#        if environ.get('SSL_CLIENT_S_DN_CN') != self.cr.peer_id:
+#            raise WSGIError('403 Forbidden Subject')
+#        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
+#            raise WSGIError('403 Forbidden Issuer')
+
+        log.info('%r %s %s',
+            session['client'], request['method'], request['uri']
+        )
+        handler = self.map.get(tuple(request['path']))
+        if handler is None:
+            return (410, 'Gone', {}, None)
+        return handler(session, request, bodies)
+
+    def get_challenge(self, session, request, bodies):
+        if request['method'] != 'GET':
+            return (405, 'Method Not Allowed', {}, None)
+        if self.state != 'ready':
+            return (400, 'Bad Request Order', {}, None)
+        self.state = 'gave_challenge'
+        obj = {'challenge': self.cr.get_challenge()}
+        body = dumps(obj).encode()
+        return (200, 'OK', {'content-type': 'application/json'}, body)
+
+    def post_response(self, session, request, bodies):
+        if request['method'] != 'POST':
+            return (405, 'Method Not Allowed', {}, None)
+        if self.state != 'gave_challenge':
+            return (400, 'Bad Request Order', {}, None)
+        self.state = 'in_response'
+        obj = json.loads(request['body'].read().decode())
+        nonce = obj['nonce']
+        response = obj['response']
+        try:
+            self.cr.check_response(nonce, response)
+        except identity.WrongResponse:
+            self.state = 'wrong_response'
+            return (401, 'Unauthorized', {}, None)
+        self.state = 'response_ok'
+        obj = {'ok': True}
+        body = dumps(obj).encode()
+        return (200, 'OK', {'content-type': 'application/json'}, body)
+
+
 def build_root_app(couch_env):
     return RootApp(couch_env)
+

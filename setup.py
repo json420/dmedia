@@ -144,10 +144,6 @@ class Test(Command):
                         break
 
     def run(self):
-        # Run pyflakes3 first because it's fast:
-        if not self.skip_flakes:
-            run_pyflakes3()
-
         pynames = list(self._pynames_iter())
         if self.core_only:
             os.environ['DMEDIA_TEST_CORE_ONLY'] = 'true'
@@ -175,6 +171,10 @@ class Test(Command):
         result = runner.run(suite)
         if not result.wasSuccessful():
             raise SystemExit(1)
+
+        # Run pyflakes3:
+        if not self.skip_flakes:
+            run_pyflakes3()
 
 
 setup(
