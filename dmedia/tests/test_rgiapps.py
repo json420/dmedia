@@ -29,6 +29,7 @@ from random import SystemRandom
 from base64 import b64decode
 import socket
 import json
+import io
 from queue import Queue
 
 from dbase32 import db32enc, random_id
@@ -1028,6 +1029,7 @@ class TestClientApp(TestCase):
         _id = random_id(30)
         peer_id = random_id(30)
         cr = identity.ChallengeResponse(_id, peer_id)
+        cr_remote = identity.ChallengeResponse(peer_id, _id)
         app = rgiapps.ClientApp(cr, Queue())
         session = {'requests': 0, 'client': ('192.168.1.2', 12345)}
 
@@ -1082,4 +1084,76 @@ class TestClientApp(TestCase):
             (200, 'OK', {'content-type': 'application/json'}, body)
         )
         self.assertEqual(app.state, 'gave_challenge')
+
+        ###############################################
+        # Now test a good 2nd request to POST /response
+        cr_remote.set_secret(cr.get_secret())
+        (nonce, response) = cr_remote.create_response(db32enc(cr.challenge))
+        obj = {'nonce': nonce, 'response': response}
+        data = microfiber.dumps(obj).encode()
+
+        # Bad method:
+        for method in ('GET', 'PUT', 'HEAD', 'DELETE'):
+            body = io.BytesIO(data)
+            request = {
+                'method': method,
+                'uri': '/response',
+                'path': ['response'],
+                'body': body,
+            }
+            self.assertEqual(app(session, request, default_bodies),
+                (405, 'Method Not Allowed', {}, None)
+            )
+            self.assertEqual(body.tell(), 0)
+
+        # Bad state:
+        for state in ('ready', 'in_response', 'wrong_response', 'response_ok'):
+            app.state = state
+            body = io.BytesIO(data)
+            request = {
+                'method': 'POST',
+                'uri': '/response',
+                'path': ['response'],
+                'body': body,
+            }
+            self.assertEqual(app(session, request, default_bodies),
+                (400, 'Bad Request Order', {}, None)
+            )
+            self.assertEqual(body.tell(), 0)
+
+        # Good response:
+        app.state = 'gave_challenge'
+        request = {
+            'method': 'POST',
+            'uri': '/response',
+            'path': ['response'],
+            'body': body,
+        }
+        self.assertEqual(app(session, request, default_bodies),
+            (200, 'OK', {'content-type': 'application/json'}, b'{"ok":true}')
+        )
+        self.assertEqual(app.state, 'response_ok')
+
+        # Bad secret:
+        for i in range(100):
+            challenge = cr.get_challenge()
+            good = cr.get_secret()
+            bad = random_id(5)
+            self.assertNotEqual(good, bad)
+            app.state = 'gave_challenge'
+            cr_remote.set_secret(bad)
+            (nonce, response) = cr_remote.create_response(challenge)
+            obj = {'nonce': nonce, 'response': response}
+            data = microfiber.dumps(obj).encode()
+            body = io.BytesIO(data)
+            request = {
+                'method': 'POST',
+                'uri': '/response',
+                'path': ['response'],
+                'body': body,
+            }
+            self.assertEqual(app(session, request, default_bodies),
+                (401, 'Unauthorized', {}, None)
+            )
+            self.assertEqual(app.state, 'wrong_response')
 

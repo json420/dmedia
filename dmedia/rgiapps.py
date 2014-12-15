@@ -380,8 +380,11 @@ class ClientApp:
             self.state = 'wrong_response'
             return (401, 'Unauthorized', {}, None)
         self.state = 'response_ok'
-        return {'ok': True}
+        obj = {'ok': True}
+        body = dumps(obj).encode()
+        return (200, 'OK', {'content-type': 'application/json'}, body)
 
 
 def build_root_app(couch_env):
     return RootApp(couch_env)
+
