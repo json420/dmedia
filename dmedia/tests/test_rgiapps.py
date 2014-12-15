@@ -29,8 +29,9 @@ from random import SystemRandom
 from base64 import b64decode
 import socket
 import json
+from queue import Queue
 
-from dbase32 import random_id
+from dbase32 import db32enc, random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
 from degu.base import bodies as default_bodies
 from degu.misc import TempServer, TempSSLServer, TempPKI
@@ -45,7 +46,7 @@ from filestore.misc import TempFileStore
 from .test_metastore import create_random_file
 import dmedia
 from dmedia.local import LocalSlave
-from dmedia import client, util, rgiapps
+from dmedia import client, util, identity, rgiapps
 
 
 random = SystemRandom()
@@ -1005,4 +1006,80 @@ class TestInfoApp(TestCase):
         self.assertEqual(app({}, request, default_bodies),
             (200, 'OK', {'content-type': 'application/json'}, app.body)
         )
+
+
+class TestClientApp(TestCase):
+    def test_init(self):
+        id1 = random_id(30)
+        id2 = random_id(30)
+        cr = identity.ChallengeResponse(id1, id2)
+        q = Queue()
+        app = rgiapps.ClientApp(cr, q)
+        self.assertIs(app.cr, cr)
+        self.assertIs(app.queue, q)
+        self.assertEqual(app.map,
+            {
+                ('challenge',): app.get_challenge,
+                ('response',): app.post_response,
+            }
+        )
+
+    def test_call(self):
+        _id = random_id(30)
+        peer_id = random_id(30)
+        cr = identity.ChallengeResponse(_id, peer_id)
+        app = rgiapps.ClientApp(cr, Queue())
+        session = {'requests': 0, 'client': ('192.168.1.2', 12345)}
+
+        # request['path']
+        bad_paths = (
+            [],
+            ['foo'],
+            ['challenge', 'response'],
+            ['response', 'challenge'],
+        )
+        for bad in bad_paths:
+            request = {
+                'method': 'GET',
+                'uri': '/' + '/'.join(bad),
+                'path': bad,
+            }
+            self.assertEqual(app(session, request, default_bodies),
+                (410, 'Gone', {}, None)
+            )
+
+        # request['method'] for /challenge:
+        for method in ('PUT', 'POST', 'HEAD', 'DELETE'):
+            request = {
+                'method': method,
+                'uri': '/challenge',
+                'path': ['challenge'],
+            }
+            self.assertEqual(app(session, request, default_bodies),
+                (405, 'Method Not Allowed', {}, None)
+            )
+
+        # state
+        request = {
+            'method': 'GET',
+            'uri': '/challenge',
+            'path': ['challenge'],
+        }
+        self.assertEqual(app(session, request, default_bodies),
+            (400, 'Bad Request Order', {}, None)
+        )
+
+        # Test when it's all good
+        app.state = 'ready'
+        request = {
+            'method': 'GET',
+            'uri': '/challenge',
+            'path': ['challenge'],
+        }
+        response = app(session, request, default_bodies)
+        body = microfiber.dumps({'challenge': db32enc(cr.challenge)}).encode()
+        self.assertEqual(response,
+            (200, 'OK', {'content-type': 'application/json'}, body)
+        )
+        self.assertEqual(app.state, 'gave_challenge')
 
