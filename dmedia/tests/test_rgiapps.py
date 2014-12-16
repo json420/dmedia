@@ -1157,3 +1157,53 @@ class TestClientApp(TestCase):
             )
             self.assertEqual(app.state, 'wrong_response')
 
+
+class TestServerApp(TestCase):
+    def test_init(self):
+        id1 = random_id(30)
+        id2 = random_id(30)
+        cr = identity.ChallengeResponse(id1, id2)
+        q = Queue()
+        app = rgiapps.ServerApp(cr, q, 'pki')
+        self.assertIs(app.cr, cr)
+        self.assertIs(app.queue, q)
+        self.assertEqual(app.map,
+            {
+                ('challenge',): app.get_challenge,
+                ('response',): app.post_response,
+                tuple(): app.get_info,
+                ('csr',): app.post_csr,
+            }
+        )
+
+    def test_get_info(self):
+        id1 = random_id(30)
+        id2 = random_id(30)
+        cr = identity.ChallengeResponse(id1, id2)
+        q = Queue()
+        app = rgiapps.ServerApp(cr, q, 'pki')
+
+        # Bad method:
+        for method in ('PUT', 'POST', 'HEAD', 'DELETE'):
+            request = {'method': method}
+            self.assertEqual(app.get_info({}, request, default_bodies),
+                (405, 'Method Not Allowed', {}, None)
+            )
+
+        # Bad state:
+        for state in rgiapps.ServerApp.allowed_states:
+            if state == 'info':
+                continue
+            app.states = state
+            request = {'method': 'GET', 'path': []}
+            self.assertEqual(app.get_info({}, request, default_bodies),
+                (400, 'Bad Request State', {}, None) 
+            )
+
+        # Good state:
+        app.state = 'info'
+        request = {'method': 'GET', 'path': []}
+        self.assertEqual(app.get_info({}, request, default_bodies),
+            (200, 'OK', {'content-type': 'application/json'}, app.info_body)
+        )
+
