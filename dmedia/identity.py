@@ -764,3 +764,34 @@ class TempPKI(PKI):
                 'key_file': self.client.key_file,   
             })
         return config
+
+
+class IdenityClient:
+    def __init__(self, peer_id, address):
+        if not isinstance(address, tuple):
+            raise TypeError('address must be a tuple') 
+        if len(address) == 4:
+            self.family = socket.AF_INET6
+        elif len(address) == 2:
+            self.family = socket.AF_INET
+        else:
+            raise ValueError(
+                'address: must have 2 or 4 items; got {!r}'.format(address)
+            )
+        self.address = address
+
+    def getpeercert(self):
+        sslctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        sslctx.options |= ssl.OP_NO_COMPRESSION
+        sslctx.set_ciphers(
+            'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384'
+        )
+        sock = socket.socket(self.family, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        try:
+            sock.connect(self.address)
+            sock = sslctx.wrap_socket(sock)
+            return ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).encode()
+        finally:
+            sock.shutdown(socket.SHUT_RDWR)
+
