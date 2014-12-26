@@ -33,6 +33,7 @@ import logging
 import re
 import json
 import ssl
+from base64 import b64encode, b64decode
 
 from dbase32 import isdb32, random_id
 from degu.util import shift_path, relative_uri
@@ -383,6 +384,73 @@ class ClientApp:
         obj = {'ok': True}
         body = dumps(obj).encode()
         return (200, 'OK', {'content-type': 'application/json'}, body)
+
+
+class ServerApp(ClientApp):
+    """
+    WSGI app used by the server-end of the peering process.
+    """
+
+    allowed_states = (
+        'info',
+        'counter_response_ok',
+        'in_csr',
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.allowed_states
+
+    forwarded_states = (
+        'bad_csr',
+        'cert_issued',
+    ) + ClientApp.forwarded_states
+
+    def __init__(self, cr, queue, pki):
+        super().__init__(cr, queue)
+        self.pki = pki
+        self.map[tuple()] = self.get_info
+        self.map[('csr',)] = self.post_csr
+        info = {
+            'id': cr.id,
+            'user': USER,
+            'host': HOST,
+        }
+        self.info_body = dumps(info).encode()
+
+    def get_info(self, session, request, bodies):
+        if request['method'] != 'GET':
+            return (405, 'Method Not Allowed', {}, None)
+        if self.state != 'info':
+            return (400, 'Bad Request State', {}, None)
+        self.state = 'ready'
+        return (200, 'OK', {'content-type': 'application/json'}, self.info_body)
+
+    def post_csr(self, session, request, bodies):
+        if request['method'] != 'POST':
+            return (405, 'Method Not Allowed', {}, None)
+        if self.state != 'counter_response_ok':
+            return (400, 'Bad Request Order', {}, None)
+        self.state = 'in_csr'
+        d = json.loads(request['body'].read().decode())
+        csr_data = b64decode(d['csr'].encode('utf-8'))
+        try:
+            self.cr.check_csr_mac(csr_data, d['mac'])
+            self.pki.write_csr(self.cr.peer_id, csr_data)
+            self.pki.issue_cert(self.cr.peer_id, self.cr.id)
+            cert_data = self.pki.read_cert(self.cr.peer_id, self.cr.id)
+            key_data = self.pki.read_key(self.cr.id)
+        except Exception:
+            log.exception('could not issue cert')
+            self.state = 'bad_csr'
+            return (401, 'Unauthorized', {}, None)       
+        self.state = 'cert_issued'
+        obj = {
+            'cert': b64encode(cert_data).decode('utf-8'),
+            'mac': self.cr.cert_mac(cert_data),
+            'key': b64encode(key_data).decode('utf-8'),
+        }
+        body = dumps(obj).encode()
+        return (200, 'OK', {'content-type': 'application/json'}, body)
+
 
 
 def build_root_app(couch_env):

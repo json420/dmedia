@@ -87,6 +87,8 @@ import stat
 from collections import namedtuple
 from subprocess import check_call, check_output
 import logging
+import socket
+import ssl
 
 from _skein import skein512
 from dbase32 import db32enc, db32dec, random_id
@@ -427,6 +429,11 @@ def get_pubkey(cert_file):
     ])
 
 
+def get_cert_pubkey(cert_data):
+    cmd = ['openssl', 'x509', '-pubkey', '-noout']
+    return check_output(cmd, input=cert_data, timeout=1)
+
+
 def get_csr_subject(csr_file):
     """
     Get subject from certificate signing request in *csr_file*.
@@ -764,3 +771,55 @@ class TempPKI(PKI):
                 'key_file': self.client.key_file,   
             })
         return config
+
+
+
+class InfoClient:
+    def __init__(self, peer_id, address):
+        if not isinstance(address, tuple):
+            raise TypeError('address must be a tuple') 
+        if len(address) == 4:
+            self.family = socket.AF_INET6
+        elif len(address) == 2:
+            self.family = socket.AF_INET
+        else:
+            raise ValueError(
+                'address: must have 2 or 4 items; got {!r}'.format(address)
+            )
+        self.address = address
+
+    def getpeercert(self):
+        sslctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        sslctx.options |= ssl.OP_NO_COMPRESSION
+        sslctx.set_ciphers(
+            'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384'
+        )
+        sock = socket.socket(self.family, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        try:
+            sock.connect(self.address)
+            sock = sslctx.wrap_socket(sock)
+            return ssl.DER_cert_to_PEM_cert(sock.getpeercert(True)).encode()
+        finally:
+            sock.shutdown(socket.SHUT_RDWR)
+
+    def get_peer_info(self, cert):
+        sslctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        sslctx.verify_mode = ssl.CERT_REQUIRED
+        sslctx.options |= ssl.OP_NO_COMPRESSION
+        sslctx.set_ciphers(
+            'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384'
+        )
+        sslctx.load_verify_locations(cadata=cert.decode())
+        from degu.client import SSLClient
+        client = SSLClient(sslctx, self.address)
+        conn = client.connect()
+        print(conn.get('/', {}))
+
+    def run(self):
+        cert = self.getpeercert()
+        pubkey = get_cert_pubkey(cert)
+        computed_id = hash_pubkey(pubkey)
+        print(computed_id)
+        self.get_peer_info(cert)
+
