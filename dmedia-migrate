@@ -101,8 +101,11 @@ def callback(signal, args):
         db = get_db(env)
         doc = db.get(batch_id)
         print('\nFiles stored in:')
-        for parentdir in sorted(doc['stores']):
-            print('  {}'.format(path.join(parentdir, DOTNAME)))
+        parentdirs = sorted(
+            info['parentdir'] for info in doc['stores'].values()
+        )
+        for p in parentdirs:
+            print('  {}'.format(path.join(p, DOTNAME)))
         print('Total durability is copies={}'.format(doc['copies']))
         elapsed = doc['time_end'] - doc['time']
         rate = stats['total']['bytes'] / elapsed
