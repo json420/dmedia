@@ -803,8 +803,23 @@ class InfoClient:
         finally:
             sock.shutdown(socket.SHUT_RDWR)
 
+    def get_peer_info(self, cert):
+        sslctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+        sslctx.verify_mode = ssl.CERT_REQUIRED
+        sslctx.options |= ssl.OP_NO_COMPRESSION
+        sslctx.set_ciphers(
+            'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384'
+        )
+        sslctx.load_verify_locations(cadata=cert.decode())
+        from degu.client import SSLClient
+        client = SSLClient(sslctx, self.address)
+        conn = client.connect()
+        print(conn.get('/', {}))
+
     def run(self):
         cert = self.getpeercert()
         pubkey = get_cert_pubkey(cert)
         computed_id = hash_pubkey(pubkey)
         print(computed_id)
+        self.get_peer_info(cert)
+
