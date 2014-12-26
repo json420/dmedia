@@ -87,6 +87,8 @@ import stat
 from collections import namedtuple
 from subprocess import check_call, check_output
 import logging
+import socket
+import ssl
 
 from _skein import skein512
 from dbase32 import db32enc, db32dec, random_id
@@ -425,6 +427,11 @@ def get_pubkey(cert_file):
         '-noout',
         '-in', cert_file,
     ])
+
+
+def get_cert_pubkey(cert_data):
+    cmd = ['openssl', 'x509', '-pubkey', '-noout']
+    return check_output(cmd, input=cert_data, timeout=1)
 
 
 def get_csr_subject(csr_file):
@@ -766,7 +773,8 @@ class TempPKI(PKI):
         return config
 
 
-class IdenityClient:
+
+class InfoClient:
     def __init__(self, peer_id, address):
         if not isinstance(address, tuple):
             raise TypeError('address must be a tuple') 
@@ -795,3 +803,8 @@ class IdenityClient:
         finally:
             sock.shutdown(socket.SHUT_RDWR)
 
+    def run(self):
+        cert = self.getpeercert()
+        pubkey = get_cert_pubkey(cert)
+        computed_id = hash_pubkey(pubkey)
+        print(computed_id)
