@@ -777,6 +777,8 @@ class TestFunctions(SampleFilesTestCase):
         )        
 
 
+NO_EXTRACT = (None, 'bin', 'bmp', 'cfg', 'dat', 'fir', 'log', 'lut', 'thm')
+
 class TestMagicLantern(MagicLanternTestCase):
     """
     Test extractor with files from a typical Magic Lantern install.
@@ -792,6 +794,6 @@ class TestMagicLantern(MagicLanternTestCase):
             self.assertEqual(doc, {'ext': ext})
         self.assertEqual(
             extensions,
-            set(extractor.NO_EXTRACT)
+            set(NO_EXTRACT)
         )
   

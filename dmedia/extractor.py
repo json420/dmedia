@@ -230,27 +230,21 @@ media_image = {
 }
 
 
-NO_EXTRACT = (None, 'bin', 'bmp', 'cfg', 'dat', 'fir', 'log', 'lut', 'thm')
-
-
 def extract(src, doc):
     """
-    Extract 'physical' properties and metadata
+    Extract 'physical' properties and metadata.
     """
     ext = doc.get('ext')
     # For performance and sanity, we don't try to extract files with no
     # extension, THM files, or files from Magic Lantern: 
-    if ext in NO_EXTRACT:
-        return
     if ext in ('cr2', 'jpg'):
         merge_exif(src, doc)
         doc['media'] = 'image'
-    else:
+    elif ext in {'mov', 'qt', 'ogg', 'ogv', 'mpg', 'mpeg', 'mp4', 'mkv', 'avi', 'webm'}:
         info = raw_gst_extract(src)
         doc.update(info)
         if src.endswith('.MOV'):
             merge_mov_exif(src, doc)
-
 
 
 #### Thumbnailing functions
