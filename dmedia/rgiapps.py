@@ -167,7 +167,7 @@ class RootApp:
                     session.get('_marker'), self._marker
                 )
             )
-        if request['path'] == [] or request['path'] == ['']:
+        if request.path == [] or request.path == ['']:
             return self.get_info(session, request, bodies)
         key = shift_path(request)
         if key in self.map:
@@ -188,7 +188,7 @@ class RootApp:
         return True
 
     def get_info(self, session, request, bodies):
-        if request['method'] != 'GET':
+        if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         headers = {
             'content-length': self.info_length,
@@ -216,13 +216,8 @@ class ProxyApp:
         uri = relative_uri(request)
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
-        request['headers']['authorization'] = self._authorization
-        return conn.request(
-            request['method'],
-            uri,
-            request['headers'],
-            request['body']
-        )
+        request.headers['authorization'] = self._authorization
+        return conn.request(request.method, uri, request.headers, request.body)
 
 
 class FilesApp:
@@ -230,18 +225,18 @@ class FilesApp:
         self.local = LocalSlave(env)
 
     def __call__(self, session, request, bodies):
-        if request['method'] not in {'GET', 'HEAD'}:
+        if request.method not in {'GET', 'HEAD'}:
             return (405, 'Method Not Allowed', {}, None)
         _id = shift_path(request)
         if not isdb32(_id):
             return (400, 'Bad File ID', {}, None)
         if len(_id) != DIGEST_B32LEN:
             return (400, 'Bad File ID Length', {}, None)
-        if request['path'] != []:
+        if request.path != []:
             return (410, 'Gone', {}, None)
-        if request['query']:
+        if request.query:
             return (400, 'No Query For You', {}, None)
-        if request['method'] == 'HEAD' and 'range' in request['headers']:
+        if request.method == 'HEAD' and 'range' in request.headers:
             return (400, 'Cannot Range with HEAD', {}, None)
         try:
             doc = self.local.get_doc(_id)
@@ -251,10 +246,10 @@ class FilesApp:
             log.exception('Error requesting %s', _id)
             return (404, 'Not Found', {}, None)
 
-        if request['method'] == 'HEAD':
+        if request.method == 'HEAD':
             return (200, 'OK', {'content-length': st.size}, None)
-        if 'range' in request['headers']:
-            (start, stop) = range_to_slice(request['headers']['range'], st.size)
+        if 'range' in request.headers:
+            (start, stop) = range_to_slice(request.headers['range'], st.size)
             (status, reason) = (206, 'Partial Content')
             headers = {
                 'content-range': slice_to_content_range(start, stop, st.size),
@@ -289,9 +284,9 @@ class InfoApp:
         self.body = dumps(obj).encode()
 
     def __call__(self, session, request, bodies):
-        if request['path'] != []:
+        if request.path != []:
             return (410, 'Gone', {}, None)
-        if request['method'] != 'GET':
+        if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         return (200, 'OK', {'content-type': 'application/json'}, self.body)
 
@@ -348,16 +343,14 @@ class ClientApp:
 #        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
 #            raise WSGIError('403 Forbidden Issuer')
 
-        log.info('%r %s %s',
-            session['client'], request['method'], request['uri']
-        )
-        handler = self.map.get(tuple(request['path']))
+        log.info('%r %s %s', session['client'], request.method, request.uri)
+        handler = self.map.get(tuple(request.path))
         if handler is None:
             return (410, 'Gone', {}, None)
         return handler(session, request, bodies)
 
     def get_challenge(self, session, request, bodies):
-        if request['method'] != 'GET':
+        if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'ready':
             return (400, 'Bad Request Order', {}, None)
@@ -367,12 +360,12 @@ class ClientApp:
         return (200, 'OK', {'content-type': 'application/json'}, body)
 
     def post_response(self, session, request, bodies):
-        if request['method'] != 'POST':
+        if request.method != 'POST':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'gave_challenge':
             return (400, 'Bad Request Order', {}, None)
         self.state = 'in_response'
-        obj = json.loads(request['body'].read().decode())
+        obj = json.loads(request.body.read().decode())
         nonce = obj['nonce']
         response = obj['response']
         try:
@@ -417,7 +410,7 @@ class ServerApp(ClientApp):
         self.info_body = dumps(info).encode()
 
     def get_info(self, session, request, bodies):
-        if request['method'] != 'GET':
+        if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'info':
             return (400, 'Bad Request State', {}, None)
@@ -425,12 +418,12 @@ class ServerApp(ClientApp):
         return (200, 'OK', {'content-type': 'application/json'}, self.info_body)
 
     def post_csr(self, session, request, bodies):
-        if request['method'] != 'POST':
+        if request.method != 'POST':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'counter_response_ok':
             return (400, 'Bad Request Order', {}, None)
         self.state = 'in_csr'
-        d = json.loads(request['body'].read().decode())
+        d = json.loads(request.body.read().decode())
         csr_data = b64decode(d['csr'].encode('utf-8'))
         try:
             self.cr.check_csr_mac(csr_data, d['mac'])
