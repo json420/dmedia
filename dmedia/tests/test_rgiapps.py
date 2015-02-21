@@ -35,6 +35,7 @@ from queue import Queue
 from dbase32 import db32enc, random_id
 from degu import IPv6_LOOPBACK, IPv4_LOOPBACK
 from degu.base import bodies as default_bodies
+from degu.base import Request
 from degu.misc import TempServer, TempSSLServer, TempPKI
 from degu.client import Client, SSLClient
 from usercouch.misc import TempCouch
@@ -76,6 +77,18 @@ def random_doc(i):
         att = random_attachment()
         doc['_attachments'][random_id()] = encode_attachment(att)
     return doc
+
+
+def mkreq(**kw):
+    return Request(
+        kw.get('method', 'GET'),
+        kw.get('uri',     '/'),
+        kw.get('script',  []),
+        kw.get('path',    []),
+        kw.get('query',   None),
+        kw.get('headers', {}),
+        kw.get('body',    None),
+    )
 
 
 def address_to_url(scheme, address):
@@ -222,7 +235,7 @@ class TestRootApp(TestCase):
 
         # Test when random session marker is missing:
         with self.assertRaises(Exception) as cm:
-            app({}, {'path': [], 'method': 'GET'}, default_bodies)
+            app({}, mkreq(), default_bodies)
         self.assertEqual(str(cm.exception),
             'session marker None != {!r}, on_connect() was not called'.format(
                 app._marker
@@ -232,7 +245,7 @@ class TestRootApp(TestCase):
         # Remaining test use a valid session marker:
         session = {'_marker': app._marker}
         self.assertEqual(
-            app(session, {'path': [], 'method': 'GET'}, default_bodies),
+            app(session, mkreq(), default_bodies),
             (
                 200,
                 'OK',
@@ -244,7 +257,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app(session, {'path': [''], 'method': 'GET'}, default_bodies),
+            app(session, mkreq(path=['']), default_bodies),
             (
                 200,
                 'OK',
@@ -256,27 +269,25 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app(session, {'path': [], 'method': 'POST'}, default_bodies),
+            app(session, mkreq(method='POST'), default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
         self.assertEqual(
-            app(session, {'path': [''], 'method': 'POST'}, default_bodies),
+            app(session, mkreq(method='POST', path=['']), default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
-        request = {'script': [], 'path': ['foo'], 'method': 'POST'}
+        request = mkreq(method='POST', path=['foo'])
         self.assertEqual(app(session, request, default_bodies),
             (410, 'Gone', {}, None)
         )
-        self.assertEqual(request,
-            {'script': ['foo'], 'path': [], 'method': 'POST'}
-        )
-        request = {'script': [], 'path': ['foo', 'bar'], 'method': 'GET'}
+        self.assertEqual(request.script, ['foo'])
+        self.assertEqual(request.path, [])
+        request = mkreq(path=['foo', 'bar'])
         self.assertEqual(app(session, request, default_bodies),
             (410, 'Gone', {}, None)
         )
-        self.assertEqual(request,
-            {'script': ['foo'], 'path': ['bar'], 'method': 'GET'}
-        )
+        self.assertEqual(request.script, ['foo'])
+        self.assertEqual(request.path, ['bar'])
 
     def test_on_connect(self):
         user_id = random_id(30)
@@ -308,7 +319,7 @@ class TestRootApp(TestCase):
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
-            app.get_info({}, {'method': 'GET'}, default_bodies),
+            app.get_info({}, mkreq(), default_bodies),
             (
                 200,
                 'OK',
@@ -320,7 +331,7 @@ class TestRootApp(TestCase):
             )
         )
         self.assertEqual(
-            app.get_info({}, {'method': 'POST'}, default_bodies),
+            app.get_info({}, mkreq(method='POST'), default_bodies),
             (405, 'Method Not Allowed', {}, None)
         )
 
@@ -887,74 +898,53 @@ class TestFilesApp(TestCase):
         app = rgiapps.FilesApp(env)
 
         # method:
-        for method in ('PUT', 'POST', 'DELETE'):
-            self.assertEqual(app({}, {'method': method}, default_bodies),
+        for m in ('PUT', 'POST', 'DELETE'):
+            self.assertEqual(app({}, mkreq(method=m), default_bodies),
                 (405, 'Method Not Allowed', {}, None)
             )
 
         # path:
         bad_id1 = random_id(30)[:-1] + '0'  # Invalid letter
-        request = {'method': 'GET', 'script': [], 'path': [bad_id1]}
+        request = mkreq(path=[bad_id1])
         self.assertEqual(app({}, request, default_bodies),
             (400, 'Bad File ID', {}, None)
         )
-        self.assertEqual(request,
-            {'method': 'GET', 'script': [bad_id1], 'path': []}
-        )
+        self.assertEqual(request.script, [bad_id1])
+        self.assertEqual(request.path, [])
 
         bad_id2 = random_id(25)  # Wrong length
-        request = {'method': 'GET', 'script': [], 'path': [bad_id2]}
+        request = mkreq(path=[bad_id2])
         self.assertEqual(app({}, request, default_bodies),
             (400, 'Bad File ID Length', {}, None)
         )
-        self.assertEqual(request,
-            {'method': 'GET', 'script': [bad_id2], 'path': []}
-        )
+        self.assertEqual(request.script, [bad_id2])
+        self.assertEqual(request.path, [])
 
         good_id = random_id(30)
-        request = {'method': 'GET', 'script': [], 'path': [good_id, 'more']}
+        request = mkreq(path=[good_id, 'more'])
         self.assertEqual(app({}, request, default_bodies),
             (410, 'Gone', {}, None)
         )
-        self.assertEqual(request,
-            {'method': 'GET', 'script': [good_id], 'path': ['more']}
-        )
+        self.assertEqual(request.script, [good_id])
+        self.assertEqual(request.path, ['more'])
 
         # query:
-        request = {
-            'method': 'GET',
-            'script': [],
-            'path': [good_id],
-            'query': 'stuff=junk',
-        }
+        request = mkreq(path=[good_id], query='stuff=junk')
         self.assertEqual(app({}, request, default_bodies),
             (400, 'No Query For You', {}, None)
         )
-        self.assertEqual(request, {
-            'method': 'GET',
-            'script': [good_id],
-            'path': [],
-            'query': 'stuff=junk',
-        })
+        self.assertEqual(request.script, [good_id])
+        self.assertEqual(request.path, [])
 
         # HEAD + range == bad:
-        request = {
-            'method': 'HEAD',
-            'script': [],
-            'path': [good_id],
-            'query': '',
-            'headers': {'range': 'bytes=500-1000'},
-        }
+        request = mkreq(method='HEAD', path=[good_id],
+            headers={'range': 'bytes=500-1000'},
+        )
         self.assertEqual(app({}, request, default_bodies),
             (400, 'Cannot Range with HEAD', {}, None)
         )
-        self.assertEqual(request, {
-            'method': 'HEAD',
-            'script': [good_id],
-            'path': [],
-            'query': '',
-            'headers': {'range': 'bytes=500-1000'},
-        })
+        self.assertEqual(request.script, [good_id])
+        self.assertEqual(request.path, [])
 
 
 class TestInfoApp(TestCase):
@@ -977,34 +967,19 @@ class TestInfoApp(TestCase):
     def test_call(self):
         app = rgiapps.InfoApp(random_id(30))
 
-        # request['path']
-        request = {
-            'path': ['foo'],
-        }
-        self.assertEqual(app({}, request, default_bodies),
+        # request.path:
+        self.assertEqual(app({}, mkreq(path=['foo']), default_bodies),
             (410, 'Gone', {}, None)
         )
 
-        # request['method']
-        for method in ('PUT', 'POST', 'HEAD', 'DELETE'):
-            request = {
-                'method': method,
-                'path': [],
-            }
-            self.assertEqual(app({}, request, default_bodies),
+        # request.method:
+        for value in ('PUT', 'POST', 'HEAD', 'DELETE'):
+            self.assertEqual(app({}, mkreq(method=value), default_bodies),
                 (405, 'Method Not Allowed', {}, None)
             )
 
         # Test when it's all good
-        request = {
-            'method': 'GET',
-            'uri': '/',
-            'script': [],
-            'path': [],
-            'headers': {},
-            'body': None,
-        }
-        self.assertEqual(app({}, request, default_bodies),
+        self.assertEqual(app({}, mkreq(), default_bodies),
             (200, 'OK', {'content-type': 'application/json'}, app.body)
         )
 
@@ -1041,43 +1016,27 @@ class TestClientApp(TestCase):
             ['response', 'challenge'],
         )
         for bad in bad_paths:
-            request = {
-                'method': 'GET',
-                'uri': '/' + '/'.join(bad),
-                'path': bad,
-            }
+            request = mkreq(uri='/' + '/'.join(bad), path=bad)
             self.assertEqual(app(session, request, default_bodies),
                 (410, 'Gone', {}, None)
             )
 
         # request['method'] for /challenge:
-        for method in ('PUT', 'POST', 'HEAD', 'DELETE'):
-            request = {
-                'method': method,
-                'uri': '/challenge',
-                'path': ['challenge'],
-            }
+        for value in ('PUT', 'POST', 'HEAD', 'DELETE'):
+            request = mkreq(method=value, uri='/challenge', path=['challenge'])
             self.assertEqual(app(session, request, default_bodies),
                 (405, 'Method Not Allowed', {}, None)
             )
 
         # state
-        request = {
-            'method': 'GET',
-            'uri': '/challenge',
-            'path': ['challenge'],
-        }
+        request = mkreq(uri='/challenge', path=['challenge'])
         self.assertEqual(app(session, request, default_bodies),
             (400, 'Bad Request Order', {}, None)
         )
 
         # Test when it's all good
         app.state = 'ready'
-        request = {
-            'method': 'GET',
-            'uri': '/challenge',
-            'path': ['challenge'],
-        }
+        request = mkreq(uri='/challenge', path=['challenge'])
         response = app(session, request, default_bodies)
         body = microfiber.dumps({'challenge': db32enc(cr.challenge)}).encode()
         self.assertEqual(response,
@@ -1093,42 +1052,40 @@ class TestClientApp(TestCase):
         data = microfiber.dumps(obj).encode()
 
         # Bad method:
-        for method in ('GET', 'PUT', 'HEAD', 'DELETE'):
-            body = io.BytesIO(data)
-            request = {
-                'method': method,
-                'uri': '/response',
-                'path': ['response'],
-                'body': body,
-            }
+        for value in ('GET', 'PUT', 'HEAD', 'DELETE'):
+            request = mkreq(
+                method=value,
+                uri='/response',
+                path=['response'],
+                body=io.BytesIO(data),
+            )
             self.assertEqual(app(session, request, default_bodies),
                 (405, 'Method Not Allowed', {}, None)
             )
-            self.assertEqual(body.tell(), 0)
+            self.assertEqual(request.body.tell(), 0)
 
         # Bad state:
         for state in ('ready', 'in_response', 'wrong_response', 'response_ok'):
             app.state = state
-            body = io.BytesIO(data)
-            request = {
-                'method': 'POST',
-                'uri': '/response',
-                'path': ['response'],
-                'body': body,
-            }
+            request = mkreq(
+                method='POST',
+                uri='/response',
+                path=['response'],
+                body=io.BytesIO(data),
+            )
             self.assertEqual(app(session, request, default_bodies),
                 (400, 'Bad Request Order', {}, None)
             )
-            self.assertEqual(body.tell(), 0)
+            self.assertEqual(request.body.tell(), 0)
 
         # Good response:
         app.state = 'gave_challenge'
-        request = {
-            'method': 'POST',
-            'uri': '/response',
-            'path': ['response'],
-            'body': body,
-        }
+        request = mkreq(
+            method='POST',
+            uri='/response',
+            path=['response'],
+            body=io.BytesIO(data),
+        )
         self.assertEqual(app(session, request, default_bodies),
             (200, 'OK', {'content-type': 'application/json'}, b'{"ok":true}')
         )
@@ -1145,13 +1102,12 @@ class TestClientApp(TestCase):
             (nonce, response) = cr_remote.create_response(challenge)
             obj = {'nonce': nonce, 'response': response}
             data = microfiber.dumps(obj).encode()
-            body = io.BytesIO(data)
-            request = {
-                'method': 'POST',
-                'uri': '/response',
-                'path': ['response'],
-                'body': body,
-            }
+            request = mkreq(
+                method='POST',
+                uri='/response',
+                path=['response'],
+                body=io.BytesIO(data),
+            )
             self.assertEqual(app(session, request, default_bodies),
                 (401, 'Unauthorized', {}, None)
             )
@@ -1185,7 +1141,7 @@ class TestServerApp(TestCase):
 
         # Bad method:
         for method in ('PUT', 'POST', 'HEAD', 'DELETE'):
-            request = {'method': method}
+            request = mkreq(method=method)
             self.assertEqual(app.get_info({}, request, default_bodies),
                 (405, 'Method Not Allowed', {}, None)
             )
@@ -1195,15 +1151,13 @@ class TestServerApp(TestCase):
             if state == 'info':
                 continue
             app.states = state
-            request = {'method': 'GET', 'path': []}
-            self.assertEqual(app.get_info({}, request, default_bodies),
+            self.assertEqual(app.get_info({}, mkreq(), default_bodies),
                 (400, 'Bad Request State', {}, None) 
             )
 
         # Good state:
         app.state = 'info'
-        request = {'method': 'GET', 'path': []}
-        self.assertEqual(app.get_info({}, request, default_bodies),
+        self.assertEqual(app.get_info({}, mkreq(), default_bodies),
             (200, 'OK', {'content-type': 'application/json'}, app.info_body)
         )
 
