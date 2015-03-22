@@ -512,10 +512,47 @@ class TestRootAppLive(TestCase):
         ch2 = h.content_hash()
         self.assertEqual(ch2.id, doc2['_id'])
         self.assertEqual(ch2.file_size, doc2['bytes'])
+        conn.close()
+
+        # Now with range requests:
+        conn = client.connect()
+        for doc in (doc1, doc2):
+            uri = '/files/{}'.format(doc['_id'])
+            size = doc['bytes']
+            response = conn.request('GET', uri, {}, None)
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.reason, 'OK')
+            self.assertEqual(response.headers, {'content-length': size})
+            self.assertIs(response.body.chunked, False)
+            data = response.body.read()
+            self.assertIsInstance(data, bytes)
+            self.assertEqual(len(data), size)
+            for i in range(200):
+                start = random.randrange(0, size)
+                stop = random.randrange(start + 1, size + 1)
+                end = stop - 1
+                self.assertTrue(0 <= start < stop)
+                headers = {}
+                response = conn.get_range(uri, headers, start, stop)
+                self.assertEqual(headers['range'],
+                    'bytes={:d}-{:d}'.format(start, end)
+                )
+                self.assertEqual(response.status, 206)
+                self.assertEqual(response.reason, 'Partial Content')
+                self.assertEqual(response.headers, {
+                    'content-length': (stop - start),
+                    'content-range': 'bytes {}-{}/{}'.format(start, end, size)
+                })
+                self.assertIs(response.body.chunked, False)
+                data = response.body.read()
+                self.assertIsInstance(data, bytes)
+                self.assertEqual(len(data), stop - start)
+        conn.close()
 
         # Delete file in fs1, make sure FileApps returns 404 when database says
         # file should be in a FileStore but it isn't:
         fs1.remove(ch1.id)
+        conn = client.connect()
         response = conn.request('GET', '/files/{}'.format(doc1['_id']), {}, None)
         self.assertEqual(response.status, 404)
         self.assertEqual(response.reason, 'Not Found')

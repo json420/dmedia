@@ -248,9 +248,12 @@ class FilesApp:
 
         if request.method == 'HEAD':
             return (200, 'OK', {'content-length': st.size}, None)
-        if 'range' in request.headers:
-            (start, stop) = range_to_slice(request.headers['range'], st.size)
-            (status, reason) = (206, 'Partial Content')
+        _range = request.headers.get('range')
+        if _range is not None:
+            start = _range.start
+            stop = _range.stop
+            status = 206
+            reason = 'Partial Content'
             headers = {
                 'content-range': slice_to_content_range(start, stop, st.size),
                 'content-length': (stop - start),
@@ -258,8 +261,9 @@ class FilesApp:
         else:
             start = 0
             stop = st.size
-            (status, reason) = (200, 'OK')
-            headers = {'content-length': st.size}
+            status = 200
+            reason = 'OK'
+            headers = {'content-length': stop}
         fp.seek(start)
         body = bodies.Body(fp, headers['content-length'])
         log.info(
