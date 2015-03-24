@@ -83,11 +83,11 @@ def mkreq(**kw):
     return Request(
         kw.get('method', 'GET'),
         kw.get('uri',     '/'),
+        kw.get('headers', {}),
+        kw.get('body',    None),
         kw.get('script',  []),
         kw.get('path',    []),
         kw.get('query',   None),
-        kw.get('headers', {}),
-        kw.get('body',    None),
     )
 
 
