@@ -123,8 +123,8 @@ sample_thm_exif = {
     #'FileName': 'MVI_5751.THM',
     #'FilePermissions': 'rw-rw-r--',
     #'FileSize': '27 kB',
-    #'FileType': 'THM',  # Utopic+
-    'FileType': 'JPEG',  # Trusty
+    'FileType': 'THM',  # Utopic+
+    #'FileType': 'JPEG',  # Trusty
     'Flash': 'Off, Did not fire',
     'FlashActivity': 0,
     'FlashBits': '(none)',
@@ -139,8 +139,8 @@ sample_thm_exif = {
     'FocalPlaneXResolution': 109.6641535,
     'FocalPlaneYResolution': 125.2609603,
     'FocalUnits': '1/mm',
-    #'FocusDistanceLower': '1.57 m',  # Needed for Utopic+, not Trusty
-    #'FocusDistanceUpper': '1.64 m',  # Needed for Utopic+, not Trusty
+    'FocusDistanceLower': '1.57 m',  # Needed for Utopic+, not Trusty
+    'FocusDistanceUpper': '1.64 m',  # Needed for Utopic+, not Trusty
     'FocusMode': 'Manual Focus (3)',
     'FocusRange': 'Not Known',
     'FocusingScreen': 'Eg-D',
@@ -191,8 +191,8 @@ sample_thm_exif = {
     'PictureStyle': 'User Def. 1',
     'Quality': 'n/a',
     'RawJpgSize': 'Large',
-    #'RecordMode': 'MOV',  # Utopic+
-    'RecordMode': 'Video',  # Trusty
+    'RecordMode': 'MOV',  # Utopic+
+    #'RecordMode': 'Video',  # Trusty
     'RelatedImageHeight': 1080,
     'RelatedImageWidth': 1920,
     'ResolutionUnit': 'inches',
