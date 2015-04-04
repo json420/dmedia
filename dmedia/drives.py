@@ -291,6 +291,7 @@ class Drive(Mockable):
     def provision(self, label, store_id):
         self.init_partition_table()
         partition = self.add_partition(self.remaining)
+        self.rereadpt()
         partition.mkfs_ext4(label, store_id)
         time.sleep(1)
         return partition
