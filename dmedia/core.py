@@ -489,7 +489,7 @@ def vigilance_worker(env, ssl_config):
         log.exception('Error in vigilance_worker():')
 
 
-TIMEOUT = 180
+TIMEOUT = 240
 
 def _pull_replication(peers, sslconfig, dst_id, dst):
     from microfiber.replicator import load_session, replicate
