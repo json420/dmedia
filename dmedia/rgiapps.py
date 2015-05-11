@@ -52,13 +52,6 @@ RE_RANGE = re.compile('^bytes=(\d+)-(\d+)$')
 log = logging.getLogger()
 
 
-class RGIError(Exception):
-    def __init__(self, status, reason):
-        self.status = status
-        self.reason = reason
-        super().__init__('{} {}'.format(status, reason))
-
-
 class RootApp:
     """
     Main Dmedia RGI app.
@@ -95,10 +88,7 @@ class RootApp:
             return self.get_info(session, request, bodies)
         key = shift_path(request)
         if key in self.map:
-            try:
-                return self.map[key](session, request, bodies)
-            except RGIError as e:
-                return (e.status, e.reason, {}, None)
+            return self.map[key](session, request, bodies)
         return (410, 'Gone', {}, None)
 
     def on_connect(self, session, sock):
