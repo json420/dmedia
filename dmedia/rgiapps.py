@@ -38,6 +38,7 @@ from base64 import b64encode, b64decode
 from dbase32 import isdb32, random_id
 from degu.util import shift_path, relative_uri
 from degu.client import Client
+from degu.base import ContentRange
 from microfiber import basic_auth_header, dumps
 from filestore import DIGEST_B32LEN, FileNotFound
 
@@ -254,18 +255,15 @@ class FilesApp:
             stop = _range.stop
             status = 206
             reason = 'Partial Content'
-            headers = {
-                'content-range': slice_to_content_range(start, stop, st.size),
-                'content-length': (stop - start),
-            }
+            headers = {'content-range': ContentRange(start, stop, st.size)}
         else:
             start = 0
             stop = st.size
             status = 200
             reason = 'OK'
-            headers = {'content-length': stop}
+            headers = {}
         fp.seek(start)
-        body = bodies.Body(fp, headers['content-length'])
+        body = bodies.Body(fp, stop - start)
         log.info(
             'Sending bytes %s[%d:%d] to %r', _id, start, stop, session['client']
         )
