@@ -166,20 +166,23 @@ class FilesApp:
         if _range is not None:
             start = _range.start
             stop = _range.stop
+            content_length = stop - start
+            fp.seek(start)
             status = 206
             reason = 'Partial Content'
             headers = {'content-range': ContentRange(start, stop, st.size)}
+            log.info('Sending partial file %s[%d:%d] (%d bytes) to %r',
+                _id, start, stop, content_length, session['client']
+            )
         else:
-            start = 0
-            stop = st.size
+            content_length = st.size
             status = 200
             reason = 'OK'
             headers = {}
-        fp.seek(start)
-        body = bodies.Body(fp, stop - start)
-        log.info(
-            'Sending bytes %s[%d:%d] to %r', _id, start, stop, session['client']
-        )
+            log.info('Sending file %s (%d bytes) to %r',
+                _id, content_length, session['client']
+            )
+        body = bodies.Body(fp, content_length)
         return (status, reason, headers, body)
 
 
