@@ -327,8 +327,6 @@ class TestRootAppLive(TestCase):
         with self.assertRaises(ConnectionError):
             conn.request('GET', '/couch/', {}, None)
         self.assertIs(conn.closed, True)
-        self.assertIsNone(conn._response_body)
-        self.assertIsNone(conn.sock)
 
         # A 404 should not close the connection:
         conn = client.connect()
