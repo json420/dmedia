@@ -78,10 +78,10 @@ class RootApp:
         self._marker = random_id()
 
     def __call__(self, session, request, bodies):
-        if session.get('_marker') != self._marker:
+        if session.store.get('_marker') != self._marker:
             raise Exception(
                 'session marker {!r} != {!r}, on_connect() was not called'.format(
-                    session.get('_marker'), self._marker
+                    session.store.get('_marker'), self._marker
                 )
             )
         if request.path == [] or request.path == ['']:
@@ -93,12 +93,12 @@ class RootApp:
 
     def on_connect(self, session, sock):
         if not isinstance(sock, ssl.SSLSocket):
-            log.error('Non SSL connection from %r', session['client'])
+            log.error('Non SSL connection from %r', session.address)
             return False
         if sock.context.verify_mode != ssl.CERT_REQUIRED:
             log.error('sock.context.verify_mode != ssl.CERT_REQUIRED')
             return False
-        session['_marker'] = self._marker
+        session.store['_marker'] = self._marker
         return True
 
     def get_info(self, session, request, bodies):
@@ -123,10 +123,10 @@ class ProxyApp:
         self._authorization = basic_auth_header(env['basic'])
 
     def __call__(self, session, request, bodies):
-        conn = session.get('__conn')
+        conn = session.store.get('conn')
         if conn is None:
             conn = self.client.connect()
-            session['__conn'] = conn
+            session.store['conn'] = conn
         uri = relative_uri(request)
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
@@ -172,7 +172,7 @@ class FilesApp:
             reason = 'Partial Content'
             headers = {'content-range': ContentRange(start, stop, st.size)}
             log.info('Sending partial file %s[%d:%d] (%d bytes) to %r',
-                _id, start, stop, content_length, session['client']
+                _id, start, stop, content_length, session.address
             )
         else:
             content_length = st.size
@@ -180,7 +180,7 @@ class FilesApp:
             reason = 'OK'
             headers = {}
             log.info('Sending file %s (%d bytes) to %r',
-                _id, content_length, session['client']
+                _id, content_length, session.address
             )
         body = bodies.Body(fp, content_length)
         return (status, reason, headers, body)
@@ -261,7 +261,7 @@ class ClientApp:
 #        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
 #            raise WSGIError('403 Forbidden Issuer')
 
-        log.info('%r %s %s', session['client'], request.method, request.uri)
+        log.info('%r %s %s', session.address, request.method, request.uri)
         handler = self.map.get(tuple(request.path))
         if handler is None:
             return (410, 'Gone', {}, None)
