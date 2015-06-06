@@ -1,3 +1,9 @@
+dmedia (15.06.0~alpha) wily; urgency=low
+
+  * Daily WIP for 15.06.0
+
+ -- Jason Gerard DeRose <jderose@novacut.com>  Sat, 06 Jun 2015 11:07:03 -0600
+
 dmedia (15.05.0) trusty; urgency=low
 
   * Upstream 15.05.0 release
