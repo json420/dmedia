@@ -159,7 +159,7 @@ class Avahi:
     def info_thread(self, key, url):
         try:
             client = get_client(url, self.ssl_context)
-            info = client.get()
+            info = client.get_info()
             assert info.pop('user_id') == self.user_id
             assert info.pop('machine_id') == key
             info['url'] = url

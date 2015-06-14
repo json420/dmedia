@@ -28,8 +28,10 @@ import os
 from os import path
 import time
 import logging
+import json
 
-from microfiber import CouchBase, build_ssl_context, NotFound
+from degu.client import build_client_sslctx
+from microfiber import NotFound, create_sslclient
 from filestore import LEAF_SIZE, TYPE_ERROR, hash_leaf, reader_iter
 from filestore import Leaf, ContentHash, SmartQueue, _start_thread
 
@@ -40,45 +42,6 @@ from .metastore import MetaStore, get_dict
 
 log = logging.getLogger()
 Slice = namedtuple('Slice', 'start stop')
-
-
-def bytes_range(start, stop=None):
-    """
-    Convert from Python slice semantics to an HTTP Range request.
-
-    Python slice semantics are quite natural to deal with, whereas the HTTP
-    Range semantics are a touch wacky, so this function will help prevent silly
-    errors.
-
-    For example, say we're requesting parts of a 10,000 byte long file.  This
-    requests the first 500 bytes:
-
-    >>> bytes_range(0, 500)
-    'bytes=0-499'
-
-    This requests the second 500 bytes:
-
-    >>> bytes_range(500, 1000)
-    'bytes=500-999'
-
-    All three of these request the final 500 bytes:
-
-    >>> bytes_range(9500, 10000)
-    'bytes=9500-9999'
-    >>> bytes_range(-500)
-    'bytes=-500'
-    >>> bytes_range(9500)
-    'bytes=9500-'
-
-    For details on HTTP Range header, see:
-
-      http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
-    """
-    if start < 0:
-        assert stop is None
-        return 'bytes={}'.format(start)
-    end = ('' if stop is None else stop - 1)
-    return 'bytes={}-{}'.format(start, end)
 
 
 def check_slice(ch, start, stop):
@@ -119,26 +82,6 @@ def check_slice(ch, start, stop):
 
     # We at most change `stop`, but return them all for clarity:
     return (ch, start, stop)
-
-
-def range_header(ch, start, stop):
-    """
-    When needed, convert a leaf-wise slice into a byte-wise HTTP Range header.
-
-    If the slice represents the entire file, None is returned.
-
-    Note: we assume (ch, start, stop) were already validated with
-    `check_slice()`.  See `HTTPClient.get_leaves()`.
-    """
-    count = len(ch.leaf_hashes)
-    assert 0 <= start < stop <= count
-    if start == 0 and stop == count:
-        return None
-    start_bytes = start * LEAF_SIZE
-    stop_bytes = min(ch.file_size, stop * LEAF_SIZE)
-    assert 0 <= start_bytes < stop_bytes <= ch.file_size
-    end_bytes = stop_bytes - 1
-    return {'range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
 
 
 def response_reader(response, queue, start=0):
@@ -254,51 +197,67 @@ class Downloader:
         delta = time.monotonic() - start
         rate = int(total / delta)
         log.info('Downloaded %s from %s at %s/s',
-            bytes10(total), client.url, bytes10(rate)
+            bytes10(total), client.client.address, bytes10(rate)
         )
 
         self.finish_download()
 
 
-class HTTPClient(CouchBase):
-    """
-    Relax while Microfiber does the heavy lifting.
-    """
+class DeguClient:
+    def __init__(self, client):
+        self.client = client
+        self._conn = None
+
+    @property
+    def conn(self):
+        if self._conn is None or self._conn.closed:
+            self._conn = self.client.connect()
+        return self._conn
+
+    def close(self):
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+
+    def get_info(self):
+        data = self.conn.get('/', {}).body.read()
+        return json.loads(data.decode())
 
     def has_file(self, _id):
-        try:
-            response = self.request('HEAD', ('files', _id), None)
-            assert response.status == 200
-            assert response.reason == 'OK'
-            assert response.body is None
-            return True
-        except NotFound:
-            return False
+        response = self.conn.head('/files/' + _id, {})
+        return response.status == 200
 
     def get_leaves(self, ch, start=0, stop=None):
-        (ch, start, stop) = check_slice(ch, start, stop)
-        log.info('Requesting leaves %s[%d:%d] from %s', ch.id, start, stop, self.url)
-        return self.request('GET', ('files', ch.id), None,
-            headers=range_header(ch, start, stop),
+        (ch, start, stop) = check_slice(ch, start, stop)        
+        log.info('Requesting leaves %s[%d:%d] from %s',
+            ch.id, start, stop, self.client.address
         )
+        uri = '/files/' + ch.id
+        if start == 0 and stop == len(ch.leaf_hashes):
+            return self.conn.get(uri, {})
+        start_bytes = start * LEAF_SIZE
+        stop_bytes = min(ch.file_size, stop * LEAF_SIZE)
+        return self.conn.get_range(uri, {}, start_bytes, stop_bytes)
 
     def iter_leaves(self, ch, start=0, stop=None):
         response = self.get_leaves(ch, start, stop)
+        if response.status not in (200, 206):
+            raise ValueError(
+                'bad response status: {} {}'.format(response.status, response.reason)
+            )
+        if response.body is None or response.body.chunked is not False:
+            raise ValueError(
+                'bad response body: {!r}'.format(response.body)
+            )
         return response_iter(response, start)
 
 
-def get_client(url, ssl_context):
-    client_env = {
-            'url': url,
-            'ssl': {
-                'context': ssl_context,
-                'check_hostname': False,
-            },
-        }
-    return HTTPClient(client_env)
+def get_client(url, sslctx):
+    client = create_sslclient(sslctx, url, host=None, ssl_host=None)
+    return DeguClient(client)
 
 
-def download_one(ms, ssl_context, _id, tmpfs=None):
+def download_one(ms, sslctx, _id, tmpfs=None):
     try:
         doc = ms.db.get(_id)
     except NotFound:
@@ -344,14 +303,7 @@ def download_one(ms, ssl_context, _id, tmpfs=None):
     # Try downloading from each local peer till we succeed (or give up):
     for (machine_id, info) in peers.items():
         url = info['url']
-        client_env = {
-            'url': url,
-            'ssl': {
-                'context': ssl_context,
-                'check_hostname': False,
-            },
-        }
-        client = HTTPClient(client_env)
+        client = get_client(url, sslctx)
         try:
             downloader.download_from(client)
         except Exception:
@@ -360,15 +312,15 @@ def download_one(ms, ssl_context, _id, tmpfs=None):
             break
 
 
-def download_worker(queue, env, ssl_config, tmpfs=None):
+def download_worker(queue, env, sslconfig, tmpfs=None):
     ms = MetaStore(get_db(env))
-    ssl_context = build_ssl_context(ssl_config)
+    sslctx = build_client_sslctx(sslconfig)
     while True:
         _id = queue.get()
         if _id is None:
             break
         try:
-            download_one(ms, ssl_context, _id, tmpfs)
+            download_one(ms, sslctx, _id, tmpfs)
         except Exception:
             log.exception('An error occurred when downloading %s', _id)
         if tmpfs is not None:

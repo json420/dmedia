@@ -44,7 +44,7 @@ from gi.repository import GLib
 
 from dmedia.parallel import start_thread, start_process
 from dmedia import util, schema, views
-from dmedia.client import Downloader, get_client, build_ssl_context
+from dmedia.client import Downloader, get_client, build_client_sslctx
 from dmedia.metastore import MetaStore, create_stored, get_dict
 from dmedia.metastore import MIN_BYTES_FREE, MAX_BYTES_FREE
 from dmedia.local import LocalStores, FileNotLocal
@@ -246,7 +246,7 @@ class Vigilance:
         self.clients = {}
         self.peers = ms.get_local_peers()
         if self.peers:
-            ssl_context = build_ssl_context(ssl_config)
+            ssl_context = build_client_sslctx(ssl_config)
             for (peer_id, info) in self.peers.items():
                 url = info['url']
                 log.info('Vigilance: peer %s at %s', peer_id, url)
@@ -493,7 +493,7 @@ TIMEOUT = 240
 
 def _pull_replication(peers, sslconfig, dst_id, dst):
     from microfiber.replicator import load_session, replicate
-    sslctx = build_ssl_context(sslconfig)
+    sslctx = build_client_sslctx(sslconfig)
     start_time = time.monotonic()
     for (src_id, info) in peers.items():
         remaining = int(TIMEOUT + start_time - time.monotonic())
