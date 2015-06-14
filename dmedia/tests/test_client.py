@@ -27,7 +27,7 @@ from unittest import TestCase
 import os
 from collections import OrderedDict
 
-from filestore import ContentHash, TYPE_ERROR, DIGEST_BYTES, LEAF_SIZE
+from filestore import ContentHash, TYPE_ERROR, DIGEST_BYTES
 
 from dmedia import client
 
@@ -110,71 +110,6 @@ class TestFunctions(TestCase):
         with self.assertRaises(ValueError) as cm:
             client.check_slice(ch, 2, 1)
         self.assertEqual(str(cm.exception), '[2:1] invalid slice for 3 leaves')
-
-    def test_range_header(self):
-        leaf_hashes = (1, 2, 3)
-        ch = ContentHash(None, None, leaf_hashes)
-        self.assertIsNone(client.range_header(ch, 0, 3))
-
-        # Smallest 3 leaf file:
-        size = 2 * LEAF_SIZE + 1
-        ch = ContentHash(None, size, leaf_hashes)
-        self.assertIsNone(client.range_header(ch, 0, 3))
-        self.assertEqual(client.range_header(ch, 1, 3),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 2, 3),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 0, 2),
-            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 1, 2),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 0, 1),
-            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
-        )
-
-        # Largest 3 leaf file:
-        size = 3 * LEAF_SIZE
-        ch = ContentHash(None, size, leaf_hashes)
-        self.assertIsNone(client.range_header(ch, 0, 3))
-        self.assertEqual(client.range_header(ch, 1, 3),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 2, 3),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 0, 2),
-            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 1, 2),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 0, 1),
-            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
-        )
-
-        # One byte smaller than largest 3 leaf file:
-        size = 3 * LEAF_SIZE - 1
-        ch = ContentHash(None, size, leaf_hashes)
-        self.assertIsNone(client.range_header(ch, 0, 3))
-        self.assertEqual(client.range_header(ch, 1, 3),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE, size - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 2, 3),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE * 2, size - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 0, 2),
-            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE * 2 - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 1, 2),
-            {'range': 'bytes={}-{}'.format(LEAF_SIZE, LEAF_SIZE * 2 - 1)}
-        )
-        self.assertEqual(client.range_header(ch, 0, 1),
-            {'range': 'bytes={}-{}'.format(0, LEAF_SIZE - 1)}
-        )
 
 
 class TestDownloader(TestCase):

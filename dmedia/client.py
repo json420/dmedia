@@ -84,26 +84,6 @@ def check_slice(ch, start, stop):
     return (ch, start, stop)
 
 
-def range_header(ch, start, stop):
-    """
-    When needed, convert a leaf-wise slice into a byte-wise HTTP Range header.
-
-    If the slice represents the entire file, None is returned.
-
-    Note: we assume (ch, start, stop) were already validated with
-    `check_slice()`.  See `HTTPClient.get_leaves()`.
-    """
-    count = len(ch.leaf_hashes)
-    assert 0 <= start < stop <= count
-    if start == 0 and stop == count:
-        return None
-    start_bytes = start * LEAF_SIZE
-    stop_bytes = min(ch.file_size, stop * LEAF_SIZE)
-    assert 0 <= start_bytes < stop_bytes <= ch.file_size
-    end_bytes = stop_bytes - 1
-    return {'range': 'bytes={}-{}'.format(start_bytes, end_bytes)}
-
-
 def response_reader(response, queue, start=0):
     try:
         index = start

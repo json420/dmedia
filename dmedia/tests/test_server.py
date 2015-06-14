@@ -36,11 +36,12 @@ from dbase32 import db32enc, db32dec, random_id
 from usercouch.misc import TempCouch
 import microfiber
 from microfiber import dumps
+from degu.base import Range
 
 from .base import TempDir
 import dmedia
 from dmedia.httpd import make_server, WSGIError, Input
-from dmedia import server, client, identity, local
+from dmedia import server, identity, local
 
 
 def random_dbname():
@@ -114,7 +115,7 @@ class TestFunctions(TestCase):
                 server.range_to_slice(value, 1000)
             self.assertEqual(str(cm.exception), '400 Bad Range Request')
 
-       # Test the round-trip with client.bytes_range
+       # Test the round-trip with degu.base.Range:
         slices = [
             (0, 1),
             (0, 500),
@@ -123,7 +124,7 @@ class TestFunctions(TestCase):
         ]
         for (start, stop) in slices:
             self.assertEqual(
-                server.range_to_slice(client.bytes_range(start, stop), 10000),
+                server.range_to_slice(str(Range(start, stop)), 10000),
                 (start, stop)
             )
 
