@@ -33,13 +33,6 @@ from dmedia import client
 
 
 class TestFunctions(TestCase):
-    def test_bytes_range(self):
-        f = client.bytes_range
-        self.assertEqual(f(0, 500), 'bytes=0-499')
-        self.assertEqual(f(500, 1000), 'bytes=500-999')
-        self.assertEqual(f(-500), 'bytes=-500')
-        self.assertEqual(f(9500), 'bytes=9500-')
-
     def test_check_slice(self):
         ch = ContentHash('foo', None, (1, 2, 3))
 
@@ -221,5 +214,5 @@ class TestDownloader(TestCase):
 
 class TestHTTPClient(TestCase):        
     def test_get_leaves(self):
-        client.HTTPClient()
+        pass
 
