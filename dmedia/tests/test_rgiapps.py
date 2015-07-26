@@ -84,7 +84,7 @@ def mkreq(**kw):
         kw.get('uri',     '/'),
         kw.get('headers', {}),
         kw.get('body',    None),
-        kw.get('script',  []),
+        kw.get('mount',  []),
         kw.get('path',    []),
         kw.get('query',   None),
     )
@@ -210,13 +210,13 @@ class TestRootApp(TestCase):
         self.assertEqual(app(session, request, bodies),
             (410, 'Gone', {}, None)
         )
-        self.assertEqual(request.script, ['foo'])
+        self.assertEqual(request.mount, ['foo'])
         self.assertEqual(request.path, [])
         request = mkreq(path=['foo', 'bar'])
         self.assertEqual(app(session, request, bodies),
             (410, 'Gone', {}, None)
         )
-        self.assertEqual(request.script, ['foo'])
+        self.assertEqual(request.mount, ['foo'])
         self.assertEqual(request.path, ['bar'])
 
     def test_on_connect(self):
@@ -874,7 +874,7 @@ class TestFilesApp(TestCase):
         self.assertEqual(app({}, request, bodies),
             (400, 'Bad File ID', {}, None)
         )
-        self.assertEqual(request.script, [bad_id1])
+        self.assertEqual(request.mount, [bad_id1])
         self.assertEqual(request.path, [])
 
         bad_id2 = random_id(25)  # Wrong length
@@ -882,7 +882,7 @@ class TestFilesApp(TestCase):
         self.assertEqual(app({}, request, bodies),
             (400, 'Bad File ID Length', {}, None)
         )
-        self.assertEqual(request.script, [bad_id2])
+        self.assertEqual(request.mount, [bad_id2])
         self.assertEqual(request.path, [])
 
         good_id = random_id(30)
@@ -890,7 +890,7 @@ class TestFilesApp(TestCase):
         self.assertEqual(app({}, request, bodies),
             (410, 'Gone', {}, None)
         )
-        self.assertEqual(request.script, [good_id])
+        self.assertEqual(request.mount, [good_id])
         self.assertEqual(request.path, ['more'])
 
         # query:
@@ -898,7 +898,7 @@ class TestFilesApp(TestCase):
         self.assertEqual(app({}, request, bodies),
             (400, 'No Query For You', {}, None)
         )
-        self.assertEqual(request.script, [good_id])
+        self.assertEqual(request.mount, [good_id])
         self.assertEqual(request.path, [])
 
         # HEAD + range == bad:
@@ -908,7 +908,7 @@ class TestFilesApp(TestCase):
         self.assertEqual(app({}, request, bodies),
             (400, 'Cannot Range with HEAD', {}, None)
         )
-        self.assertEqual(request.script, [good_id])
+        self.assertEqual(request.mount, [good_id])
         self.assertEqual(request.path, [])
 
 
