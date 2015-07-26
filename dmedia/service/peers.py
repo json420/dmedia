@@ -46,6 +46,7 @@ import time
 import dbus
 from gi.repository import GLib, GObject, Gtk, AppIndicator3
 from microfiber import Unauthorized, CouchBase
+from degu.server import SSLServer, build_server_sslctx
 
 import dmedia
 from dmedia.parallel import start_thread
@@ -53,6 +54,7 @@ from dmedia.gtk.ubuntu import NotifyManager
 from dmedia.identity import ChallengeResponse
 from dmedia.server import ServerApp, InfoApp, ClientApp
 from dmedia.httpd import make_server
+from dmedia import rgiapps
 
 
 PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
@@ -610,6 +612,49 @@ class Browser:
         self.session = None
 
 
+class NewHTTPD(SSLServer):
+    def __init__(self, sslctx, address, app, **options):
+        super().__init__(sslctx, address, app, **options)
+        self.port = self.address[-1]
+        self.thread = None
+        self.running = False
+
+    def start(self):
+        assert self.thread is None
+        assert self.running is False
+        self.running = True
+        self.thread = threading.Thread(
+            target=self.serve_single_threaded,
+            daemon=True,
+        )
+        self.thread.start()
+
+    def shutdown(self):
+        assert self.running is True
+        self.running = False
+        self.thread.join()
+        self.thread = None
+
+    def reconfigure(self, sslconfig, app):
+        self.shutdown()
+        self.sslctx = build_server_sslctx(sslconfig)
+        self.app = app
+        self.start()
+
+    def serve_single_threaded(self):
+        self.sock.settimeout(0.1)
+        while self.running:
+            try:
+                self.serve_one()
+            except socket.timeout:
+                pass
+
+
+def make_new_server(sslconfig, app):
+    address = ('0.0.0.0', 0)
+    return NewHTTPD(sslconfig, address, app, timeout=0.25)
+
+
 class Publisher:
     def __init__(self, service, couch):
         self.service = service
@@ -631,10 +676,9 @@ class Publisher:
         self.couch.load_pki()
         self.avahi = AvahiPeer(self.couch.pki, client_mode=True)
         self.avahi.connect('accept', self.on_accept)
-        app = InfoApp(self.avahi.id)
-        self.httpd = make_server(app, '0.0.0.0',
-            self.avahi.get_server_config()
-        )
+        sslconfig = self.avahi.get_server_config()
+        app = rgiapps.InfoApp(self.avahi.id)
+        self.httpd = make_new_server(sslconfig, app)
         self.httpd.start()
         self.avahi.browse()
         self.avahi.publish(self.httpd.port)
@@ -646,9 +690,9 @@ class Publisher:
         self.peer = peer
         self.cr = ChallengeResponse(avahi.id, peer.id)
         self.q = Queue()
-        self.app = ClientApp(self.cr, self.q)
+        self.app = rgiapps.ClientApp(self.cr, self.q)
         # Reconfigure HTTPD to only accept connections from bound peer
-        self.httpd.reconfigure(self.app, avahi.get_server_config())
+        self.httpd.reconfigure(avahi.get_server_config(), self.app)
         env = {'url': peer.url, 'ssl': avahi.get_client_config()}
         self.client = CouchBase(env)
         avahi.unpublish()
