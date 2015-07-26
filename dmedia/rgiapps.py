@@ -202,6 +202,7 @@ class InfoApp:
         self.body = dumps(obj).encode()
 
     def __call__(self, session, request, bodies):
+        log.info('InfoApp: %s: %s %s', session, request.method, request.uri)
         if request.path != []:
             return (410, 'Gone', {}, None)
         if request.method != 'GET':
@@ -261,7 +262,7 @@ class ClientApp:
 #        if environ.get('SSL_CLIENT_I_DN_CN') != self.cr.peer_id:
 #            raise WSGIError('403 Forbidden Issuer')
 
-        log.info('%r %s %s', session.address, request.method, request.uri)
+        log.info('ClientApp: %s: %s %s', session, request.method, request.uri)
         handler = self.map.get(tuple(request.path))
         if handler is None:
             return (410, 'Gone', {}, None)
