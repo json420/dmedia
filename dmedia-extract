@@ -232,7 +232,7 @@ class Extractor(object):
         return fakebin
 
     def on_pad_added(self, element, pad):
-        string = pad.query_caps(None).to_string()
+        string = pad.get_current_caps().to_string()
         if string.startswith('audio/'):
             assert self.audio is None
             self.audio = self.link_pad(pad, 'audio')
