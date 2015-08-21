@@ -213,7 +213,7 @@ class NewHTTPD(SSLServer):
         self.sock.settimeout(0.1)
         while self.running:
             try:
-                self.serve_one()
+                self._serve_one()
             except socket.timeout:
                 pass
 
