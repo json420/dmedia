@@ -1,8 +1,8 @@
-dmedia (15.06.0~alpha) wily; urgency=low
+dmedia (15.08.0~alpha) trusty; urgency=low
 
-  * Daily WIP for 15.06.0
+  * Daily WIP for 15.08.0
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Sat, 06 Jun 2015 11:07:03 -0600
+ -- Jason Gerard DeRose <jderose@novacut.com>  Sun, 23 Aug 2015 17:49:26 -0600
 
 dmedia (15.05.0) trusty; urgency=low
 
