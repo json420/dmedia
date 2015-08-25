@@ -40,6 +40,8 @@ etc).  So we *always* shutdown Dmedia this way, as a way to force us to ensure
 that Dmedia can survive such a scenario.
 """
 
+import os
+os.nice(10)
 import time
 start_time = time.monotonic()
 import argparse
