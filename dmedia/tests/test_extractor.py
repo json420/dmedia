@@ -248,8 +248,13 @@ sample_thm_exif = {
     'YCbCrSubSampling': 'YCbCr4:2:2 (2 1)',
     'YResolution': 72,
     'ZoomSourceWidth': 0,
-    'ZoomTargetWidth': 0
+    'ZoomTargetWidth': 0,
+    # Added in Wily:
+    'Megapixels': 0.019,
+    'FileTypeExtension': 'thm',
+    'DOF': '0.08 m (1.56 - 1.65 m)',
 }
+
 
 
 # exiftool adds some metadata that doesn't make sense to test
