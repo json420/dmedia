@@ -287,7 +287,7 @@ class TestConstants(TestCase):
         self.assertIsInstance(metastore.MIN_BYTES_FREE, int)
         self.assertGreaterEqual(metastore.MIN_BYTES_FREE, metastore.GB)
         self.assertEqual(metastore.MIN_BYTES_FREE % metastore.GB, 0)
-        self.assertEqual(bytes10(metastore.MIN_BYTES_FREE), '8 GB')
+        self.assertEqual(bytes10(metastore.MIN_BYTES_FREE), '4 GB')
 
     def test_MAX_BYTES_FREE(self):
         self.assertIsInstance(metastore.MAX_BYTES_FREE, int)
@@ -296,7 +296,7 @@ class TestConstants(TestCase):
         self.assertGreaterEqual(metastore.MAX_BYTES_FREE,
             2 * metastore.MIN_BYTES_FREE
         )
-        self.assertEqual(bytes10(metastore.MAX_BYTES_FREE), '32 GB')
+        self.assertEqual(bytes10(metastore.MAX_BYTES_FREE), '64 GB')
 
 
 class TestFunctions(TestCase):
