@@ -48,36 +48,63 @@ class TestFunctions(TestCase):
         # Test with 1:
         self.assertEqual(units.bytes10(1), '1 byte')
 
+        # Sanity check for all powers in BYTES10:
+        for (p, u) in enumerate(units.BYTES10):
+            base = 1000 ** p
+            self.assertEqual(units.bytes10(3.14 * base), '3.14 ' + u)
+            self.assertEqual(units.bytes10(3.1444 * base), '3.14 ' + u)
+            self.assertEqual(units.bytes10(3.1455 * base), '3.15 ' + u)
+            self.assertEqual(units.bytes10(31.4 * base), '31.4 ' + u)
+            self.assertEqual(units.bytes10(31.444 * base), '31.4 ' + u)
+            self.assertEqual(units.bytes10(31.455 * base), '31.5 ' + u)
+            self.assertEqual(units.bytes10(314 * base), '314 ' + u)
+            self.assertEqual(units.bytes10(314.44 * base), '314 ' + u)
+            self.assertEqual(units.bytes10(314.55 * base), '315 ' + u)
+
         # Bunch of values
         self.assertEqual(units.bytes10(2), '2 bytes')
         self.assertEqual(units.bytes10(17), '17 bytes')
         self.assertEqual(units.bytes10(314), '314 bytes')
+        self.assertEqual(units.bytes10(999), '999 bytes')
+        self.assertEqual(units.bytes10(999.4), '999 bytes')
 
+        self.assertEqual(units.bytes10(999.5), '1 kB')
+        self.assertEqual(units.bytes10(999.9), '1 kB')
         self.assertEqual(units.bytes10(1000), '1 kB')
         self.assertEqual(units.bytes10(3140), '3.14 kB')
         self.assertEqual(units.bytes10(31400), '31.4 kB')
         self.assertEqual(units.bytes10(314000), '314 kB')
 
+        self.assertEqual(units.bytes10(10 ** 6 - 1), '1 MB')
         self.assertEqual(units.bytes10(10 ** 6), '1 MB')
         self.assertEqual(units.bytes10(3140000), '3.14 MB')
         self.assertEqual(units.bytes10(31400000), '31.4 MB')
         self.assertEqual(units.bytes10(314000000), '314 MB')
 
+        self.assertEqual(units.bytes10(10 ** 9 - 1), '1 GB')
         self.assertEqual(units.bytes10(10 ** 9), '1 GB')
         self.assertEqual(units.bytes10(3140000000), '3.14 GB')
         self.assertEqual(units.bytes10(31400000000), '31.4 GB')
         self.assertEqual(units.bytes10(314000000000), '314 GB')
 
+        self.assertEqual(units.bytes10(10 ** 12 - 1), '1 TB')
         self.assertEqual(units.bytes10(10 ** 12), '1 TB')
         self.assertEqual(units.bytes10(3140000000000), '3.14 TB')
         self.assertEqual(units.bytes10(31400000000000), '31.4 TB')
         self.assertEqual(units.bytes10(314000000000000), '314 TB')
 
+        self.assertEqual(units.bytes10(10 ** 15 - 1), '1 PB')
         self.assertEqual(units.bytes10(10 ** 15), '1 PB')
         self.assertEqual(units.bytes10(3140000000000000), '3.14 PB')
         self.assertEqual(units.bytes10(31400000000000000), '31.4 PB')
         self.assertEqual(units.bytes10(314000000000000000), '314 PB')
         self.assertEqual(units.bytes10(999 * 10 ** 15), '999 PB')
 
-        big = 1000 ** len(units.BYTES10)
-        self.assertEqual(units.bytes10(big), '1e+03 YB')
+        self.assertEqual(units.bytes10(999 * 10**24), '999 YB')
+        self.assertEqual(units.bytes10(999.4 * 10**24), '999 YB')
+        self.assertEqual(units.bytes10(999.5 * 10**24), '1e+03 YB')
+        self.assertEqual(units.bytes10(999.999 * 10**24), '1e+03 YB')
+
+        big = 314 * 1000**len(units.BYTES10)
+        self.assertEqual(units.bytes10(big), '3.14e+05 YB')
+

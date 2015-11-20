@@ -64,10 +64,13 @@ def bytes10(size):
         return '0 bytes'
     if size == 1:
         return '1 byte'
-    i = min(int(math.floor(math.log(size, 1000))), len(BYTES10) - 1)
-    s = (size / (1000 ** i) if i > 0 else size)
+    p = min(int(math.log(size, 1000)), len(BYTES10) - 1)
+    s = size / (1000 ** p)
+    if round(s) == 1000 and p + 1 < len(BYTES10):
+        p += 1
+        s = 1
     return (
-        '{:.3g} {}'.format(s, BYTES10[i])
+        '{:.3g} {}'.format(s, BYTES10[p])
     )
 
 
