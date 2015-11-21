@@ -28,7 +28,7 @@ from copy import deepcopy
 import logging
 
 import microfiber
-from filestore import FileStore, DOTNAME
+from filestore import DOTNAME
 
 from . import schema, views
 
@@ -37,22 +37,7 @@ log = logging.getLogger()
 
 
 def isfilestore(parentdir):
-    return path.isdir(path.join(parentdir, DOTNAME))
-
-
-def is_v1_filestore(parentdir):
     return path.isfile(path.join(parentdir, DOTNAME, 'filestore.json'))
-
-
-def migrate_if_needed(parentdir, expected_id=None):
-    if is_v1_filestore(parentdir):
-        return FileStore(parentdir, expected_id)
-    from filestore.migration import Migration
-    m = Migration(parentdir)
-    m.needs_migration()
-    fs = FileStore(parentdir, expected_id)
-    fs.fix_layout_permissions()
-    return fs
 
 
 def get_designs(db):

@@ -99,7 +99,6 @@ def run_pyflakes3():
         'dmedia',
         'setup.py',
         'dmedia-peer-gtk',
-        'dmedia-v0-v1-upgrade',
         'dmedia-cli',
         'dmedia-provision-drive',
         'dmedia-migrate',
@@ -194,7 +193,6 @@ setup(
         'dmedia-cli',
         'dmedia-migrate',
         'dmedia-extract',
-        'dmedia-v0-v1-upgrade',
         'dmedia-provision-drive',
     ],
     data_files=[
