@@ -47,17 +47,11 @@ class TestFunctions(TestCase):
         tmp = TempDir()
         self.assertFalse(util.isfilestore(tmp.dir))
         tmp.mkdir('.dmedia')
-        self.assertTrue(util.isfilestore(tmp.dir))
-
-    def test_is_v1_filestore(self):
-        tmp = TempDir()
-        self.assertFalse(util.is_v1_filestore(tmp.dir))
-        tmp.mkdir('.dmedia')
-        self.assertFalse(util.is_v1_filestore(tmp.dir))
+        self.assertFalse(util.isfilestore(tmp.dir))
         tmp.touch('.dmedia', 'store.json')
-        self.assertFalse(util.is_v1_filestore(tmp.dir))
+        self.assertFalse(util.isfilestore(tmp.dir))
         tmp.touch('.dmedia', 'filestore.json')
-        self.assertTrue(util.is_v1_filestore(tmp.dir))
+        self.assertTrue(util.isfilestore(tmp.dir))
 
 
 class TestCouchFunctions(CouchCase):

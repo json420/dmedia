@@ -37,10 +37,6 @@ log = logging.getLogger()
 
 
 def isfilestore(parentdir):
-    return path.isdir(path.join(parentdir, DOTNAME))
-
-
-def is_v1_filestore(parentdir):
     return path.isfile(path.join(parentdir, DOTNAME, 'filestore.json'))
 
 
