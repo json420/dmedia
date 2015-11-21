@@ -1063,7 +1063,7 @@ class Core:
         """
         Add an existing file-store into the local storage pool.
         """
-        fs = util.migrate_if_needed(parentdir, expected_id)
+        fs = FileStore(parentdir, expected_id)
         self._add_filestore(fs)
         return fs
 

@@ -38,7 +38,6 @@ from dbase32 import random_id
 import filestore
 from filestore import FileStore
 from filestore.misc import TempFileStore
-from filestore.migration import Migration, b32_to_db32
 from usercouch.misc import CouchTestCase
 
 from dmedia.local import LocalStores
@@ -1502,13 +1501,6 @@ class TestCore(CouchTestCase):
             },
         )
         self.assertEqual(inst.machine['_rev'][:2], '3-')
-
-        # Test when migration is needed
-        tmp = TempDir()
-        m = Migration(tmp.dir)
-        old = m.build_v0_simulation()
-        fs = inst.connect_filestore(tmp.dir)
-        self.assertEqual(b32_to_db32(old['_id']), fs.id)
 
     def test_disconnect_filestore(self):
         inst = self.create()
