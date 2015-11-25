@@ -133,6 +133,11 @@ def iter_drive_dev_name():
         yield 'mmcblk{:d}'.format(i)
 
 
+def iter_drive_dev():
+    for name in iter_drive_dev_name():
+        yield '/dev/' + name
+
+
 class TestFunctions(TestCase):
     def test_drive_dev(self):
         with self.assertRaises(ValueError) as cm:
@@ -493,86 +498,108 @@ class TestDrive(TestCase):
 
 class TestPartition(TestCase):
     def test_init(self):
-        for base in ('/dev/sd', '/dev/vd'):
-            for letter in string.ascii_lowercase:
-                for number in range(1, 10):
-                    dev = '{}{}{:d}'.format(base, letter, number)
-                    inst = drives.Partition(dev)
-                    self.assertIs(inst.dev, dev)
-                    self.assertIs(inst.mocking, False)
-                    inst = drives.Partition(dev, mocking=True)
-                    self.assertIs(inst.dev, dev)
-                    self.assertIs(inst.mocking, True)
+        for drive_dev in iter_drive_dev():
+            for index in range(1, 10):
+                dev = drives.get_partition_dev(drive_dev, index)
+                p = drives.Partition(drive_dev, index)
+                self.assertIs(p.mocking, False)
+                self.assertIs(p.drive_dev, drive_dev)
+                self.assertIs(p.index, index)
+                self.assertEqual(p.dev, dev)
+                p = drives.Partition(drive_dev, index, mocking=True)
+                self.assertIs(p.mocking, True)
+                self.assertIs(p.drive_dev, drive_dev)
+                self.assertIs(p.index, index)
+                self.assertEqual(p.dev, dev)
 
-        with self.assertRaises(ValueError) as cm:
-            drives.Partition('/dev/sda11')
-        self.assertEqual(str(cm.exception),
-            "Invalid partition device file: '/dev/sda11'"
-        )
+        p = drives.Partition('/dev/sdb', 1)
+        self.assertEqual(p.dev, '/dev/sdb1')
 
-        with self.assertRaises(ValueError) as cm:
-            drives.Partition('/dev/sda0')
-        self.assertEqual(str(cm.exception),
-            "Invalid partition device file: '/dev/sda0'"
-        )
+        p = drives.Partition('/dev/vda', 1)
+        self.assertEqual(p.dev, '/dev/vda1')
+
+        p = drives.Partition('/dev/nvme0n1', 1)
+        self.assertEqual(p.dev, '/dev/nvme0n1p1')
+
+        p = drives.Partition('/dev/mmcblk0', 1)
+        self.assertEqual(p.dev, '/dev/mmcblk0p1')
 
     def test_mkfs_ext4(self):
-        dev = random_partition_dev()
-        inst = drives.Partition(dev, mocking=True)
-        label = random_id(5)
-        store_id = random_id()
-        ext4_uuid = drives.db32_to_uuid(store_id)
-        self.assertIsNone(inst.mkfs_ext4(label, store_id))
-        self.assertEqual(inst.calls, [
-            ('check_call', ['mkfs.ext4', dev, '-L', label, '-U', ext4_uuid, '-m', '0']),
+        label = 'xvstyjkhbqxocf8g'
+        _id = 'ROKFRSNKQCEF6BFEWK3X5MRY'
+        uuid = 'c562cc66-91ba-56c1-a18b-ec41e14f1f44'
+        p = drives.Partition('/dev/sdb', 1, mocking=True)
+        self.assertIsNone(p.mkfs_ext4(label, _id))
+        self.assertEqual(p.calls, [
+            (
+                'check_call',
+                ['mkfs.ext4', '/dev/sdb1', '-L', label, '-U', uuid, '-m', '0']
+            ),
         ])
 
+        for drive_dev in iter_drive_dev():
+            for index in range(1, 10):
+                p = drives.Partition(drive_dev, index, mocking=True)
+                dev = drives.get_partition_dev(drive_dev, index)
+                label = random_id(5)
+                _id = random_id()
+                uuid = drives.db32_to_uuid(_id)
+                self.assertIsNone(p.mkfs_ext4(label, _id))
+                self.assertEqual(p.calls, [
+                    (
+                        'check_call',
+                        ['mkfs.ext4', dev, '-L', label, '-U', uuid, '-m', '0']
+                    ),
+                ])
+
     def test_create_filestore(self):
-        dev = random_partition_dev()
-        inst = drives.Partition(dev, mocking=True)
-        tmp = TempDir()
-        store_id = random_id()
-        ext4_uuid = drives.db32_to_uuid(store_id)
-        label = random_id(5)
-        serial = random_id(10)
-        kw = {
-            'drive_serial': serial,
-            'filesystem_type': 'ext4',
-            'filesystem_uuid': ext4_uuid,
-            'filesystem_label': label,
-        }
-        doc = inst.create_filestore(tmp.dir, store_id, 1, **kw)
-        self.assertIsInstance(doc, dict)
-        self.assertEqual(set(doc), set([
-            '_id',
-            'time',
-            'type',
-            'plugin',
-            'copies',
-            'drive_serial',
-            'filesystem_type',
-            'filesystem_uuid',
-            'filesystem_label',
-        ]))
-        self.assertEqual(doc, {
-            '_id': store_id,
-            'time': doc['time'],
-            'type': 'dmedia/store',
-            'plugin': 'filestore',
-            'copies': 1,
-            'drive_serial': serial,
-            'filesystem_type': 'ext4',
-            'filesystem_uuid': ext4_uuid,
-            'filesystem_label': label,
-        })
-        fs = FileStore(tmp.dir, store_id)
-        self.assertEqual(fs.doc, doc)
-        del fs
-        self.assertEqual(inst.calls, [
-            ('check_call', ['mount', dev, tmp.dir]),
-            ('check_call', ['chmod', '0777', tmp.dir]),
-            ('check_call', ['umount', dev]),
-        ])
+        for drive_dev in iter_drive_dev():
+            for index in range(1, 10):
+                p = drives.Partition(drive_dev, index, mocking=True)
+                dev = drives.get_partition_dev(drive_dev, index)
+                tmp = TempDir()
+                _id = random_id()
+                serial = random_id(10)
+                uuid = drives.db32_to_uuid(_id)
+                label = random_id(5)
+                kw = {
+                    'drive_serial': serial,
+                    'filesystem_type': 'ext4',
+                    'filesystem_uuid': uuid,
+                    'filesystem_label': label,
+                }
+                doc = p.create_filestore(tmp.dir, _id, 1, **kw)
+                self.assertIsInstance(doc, dict)
+                self.assertEqual(set(doc), set([
+                    '_id',
+                    'time',
+                    'type',
+                    'plugin',
+                    'copies',
+                    'drive_serial',
+                    'filesystem_type',
+                    'filesystem_uuid',
+                    'filesystem_label',
+                ]))
+                self.assertEqual(doc, {
+                    '_id': _id,
+                    'time': doc['time'],
+                    'type': 'dmedia/store',
+                    'plugin': 'filestore',
+                    'copies': 1,
+                    'drive_serial': serial,
+                    'filesystem_type': 'ext4',
+                    'filesystem_uuid': uuid,
+                    'filesystem_label': label,
+                })
+                fs = FileStore(tmp.dir, _id)
+                self.assertEqual(fs.doc, doc)
+                del fs
+                self.assertEqual(p.calls, [
+                    ('check_call', ['mount', dev, tmp.dir]),
+                    ('check_call', ['chmod', '0777', tmp.dir]),
+                    ('check_call', ['umount', dev]),
+                ])
 
 
 class TestDeviceNotFound(TestCase):
