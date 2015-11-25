@@ -36,7 +36,15 @@ from dbase32 import db32dec, db32enc
 from .units import bytes10
 
 
-VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
+VALID_DRIVE_PAT = '|'.join(
+    '^/dev/{}$'.format(pat) for pat in [
+        'sd[a-z]',
+        'vd[a-z]',
+        'nvme[0-9]n[1-9]',
+        'mmcblk[0-9]',
+    ]
+)
+VALID_DRIVE = re.compile(VALID_DRIVE_PAT)
 VALID_PARTITION = re.compile('^(/dev/[sv]d[a-z])([1-9])$')
 
 

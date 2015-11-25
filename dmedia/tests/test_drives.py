@@ -122,7 +122,56 @@ class TestConstants(TestCase):
                     self.assertEqual(m.group(2), str(number))
 
 
+def iter_drive_dev_name():
+    for start in ('s', 'v'):
+        for end in string.ascii_lowercase:
+            yield '{}d{}'.format(start, end)
+    for i in range(10):
+        for j in range(1, 10):
+            yield 'nvme{:d}n{:d}'.format(i, j)
+    for i in range(10):
+        yield 'mmcblk{:d}'.format(i)
+
+
 class TestFunctions(TestCase):
+    def test_drive_dev(self):
+        with self.assertRaises(ValueError) as cm:
+            drives.check_drive_dev('/dev/sd1')
+        self.assertEqual(str(cm.exception),
+            "Invalid drive device file: '/dev/sd1'"
+        )
+        self.assertEqual(drives.check_drive_dev('/dev/sda'), '/dev/sda')
+
+        with self.assertRaises(ValueError) as cm:
+            drives.check_drive_dev('/dev/vd1')
+        self.assertEqual(str(cm.exception),
+            "Invalid drive device file: '/dev/vd1'"
+        )
+        self.assertEqual(drives.check_drive_dev('/dev/vda'), '/dev/vda')
+
+        with self.assertRaises(ValueError) as cm:
+            drives.check_drive_dev('/dev/nvme0n0')
+        self.assertEqual(str(cm.exception),
+            "Invalid drive device file: '/dev/nvme0n0'"
+        )
+        self.assertEqual(drives.check_drive_dev('/dev/nvme0n1'), '/dev/nvme0n1')
+
+        with self.assertRaises(ValueError) as cm:
+            drives.check_drive_dev('/dev/mmcblka')
+        self.assertEqual(str(cm.exception),
+            "Invalid drive device file: '/dev/mmcblka'"
+        )
+        self.assertEqual(drives.check_drive_dev('/dev/mmcblk0'), '/dev/mmcblk0')
+
+        for name in iter_drive_dev_name():
+            with self.assertRaises(ValueError) as cm:
+                drives.check_drive_dev(name)
+            self.assertEqual(str(cm.exception),
+                'Invalid drive device file: {!r}'.format(name)
+            )
+            dev = '/dev/' + name
+            self.assertEqual(drives.check_drive_dev(dev), dev)
+
     def test_db32_to_uuid(self):
         for i in range(100):
             data = os.urandom(15)
