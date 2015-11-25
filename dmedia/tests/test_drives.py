@@ -110,8 +110,6 @@ class TestConstants(TestCase):
                     m = drives.VALID_PARTITION.match(dev)
                     self.assertIsNotNone(m)
                     self.assertEqual(m.group(0), dev)
-                    self.assertEqual(m.group(1), base + letter)
-                    self.assertEqual(m.group(2), str(number))
 
 
 def iter_drive_dev_name():
@@ -205,13 +203,6 @@ class TestFunctions(TestCase):
         for device in d.iter_partitions():
             info = drives.get_partition_info(device)
             self.assertEqual(set(info), set(EXPECTED_PARTITION_KEYS))
-            m = drives.VALID_PARTITION.match(device.get_device_file())
-            self.assertIsNotNone(m)
-            drive_device = d.get_device(m.group(1))
-            sub = dict(
-                (key, info[key]) for key in EXPECTED_DRIVE_KEYS
-            )
-            self.assertEqual(sub, drives.get_drive_info(drive_device))
 
     def test_parse_mounts(self):
         mounts = drives.parse_mounts()

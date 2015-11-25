@@ -45,7 +45,15 @@ VALID_DRIVE_PAT = '|'.join(
     ]
 )
 VALID_DRIVE = re.compile(VALID_DRIVE_PAT)
-VALID_PARTITION = re.compile('^(/dev/[sv]d[a-z])([1-9])$')
+VALID_PARTITION_PAT = '|'.join(
+    '^/dev/{}$'.format(pat) for pat in [
+        'sd[a-z][1-9]',
+        'vd[a-z][1-9]',
+        'nvme[0-9]n[1-9]p[1-9]',
+        'mmcblk[0-9]p[1-9]',
+    ]
+)
+VALID_PARTITION = re.compile(VALID_PARTITION_PAT)
 
 
 def check_drive_dev(dev):
