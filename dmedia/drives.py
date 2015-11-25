@@ -36,8 +36,24 @@ from dbase32 import db32dec, db32enc
 from .units import bytes10
 
 
-VALID_DRIVE = re.compile('^/dev/[sv]d[a-z]$')
-VALID_PARTITION = re.compile('^(/dev/[sv]d[a-z])([1-9])$')
+VALID_DRIVE_PAT = '|'.join(
+    '^/dev/{}$'.format(pat) for pat in [
+        'sd[a-z]',
+        'vd[a-z]',
+        'nvme[0-9]n[1-9]',
+        'mmcblk[0-9]',
+    ]
+)
+VALID_DRIVE = re.compile(VALID_DRIVE_PAT)
+VALID_PARTITION_PAT = '|'.join(
+    '^/dev/{}$'.format(pat) for pat in [
+        'sd[a-z][1-9]',
+        'vd[a-z][1-9]',
+        'nvme[0-9]n[1-9]p[1-9]',
+        'mmcblk[0-9]p[1-9]',
+    ]
+)
+VALID_PARTITION = re.compile(VALID_PARTITION_PAT)
 
 
 def check_drive_dev(dev):
@@ -225,9 +241,7 @@ class Drive(Mockable):
         self.dev = check_drive_dev(dev)
 
     def get_partition(self, index):
-        assert isinstance(index, int)
-        assert index >= 1
-        return Partition('{}{}'.format(self.dev, index), mocking=self.mocking)
+        return Partition(self.dev, index, mocking=self.mocking)
 
     def rereadpt(self):
         self.check_call(['blockdev', '--rereadpt', self.dev])
@@ -297,10 +311,20 @@ class Drive(Mockable):
         return partition
 
 
+def get_partition_dev(drive_dev, index):
+    assert isinstance(index, int) and 1 <= index <= 9
+    check_drive_dev(drive_dev)
+    if drive_dev.startswith('/dev/nvme') or drive_dev.startswith('/dev/mmcblk'):
+        return '{}p{:d}'.format(drive_dev, index)
+    return '{}{:d}'.format(drive_dev, index)
+
+
 class Partition(Mockable):
-    def __init__(self, dev, mocking=False):
+    def __init__(self, drive_dev, index, mocking=False):
         super().__init__(mocking)
-        self.dev = check_partition_dev(dev)
+        self.drive_dev = drive_dev
+        self.index = index
+        self.dev = get_partition_dev(drive_dev, index)
 
     def mkfs_ext4(self, label, store_id):
         cmd = ['mkfs.ext4', self.dev,
