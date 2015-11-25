@@ -91,14 +91,6 @@ def random_drive_dev():
     return dev
 
 
-def random_partition_dev():
-    drive_dev = random_drive_dev()
-    number = random.randint(1, 9)
-    dev = '{}{:d}'.format(drive_dev, number)
-    assert drives.VALID_PARTITION.match(dev)
-    return dev
-
-
 class TestConstants(TestCase):
     def test_VALID_DRIVE(self):
         self.assertIsInstance(drives.VALID_DRIVE, re._pattern_type)
