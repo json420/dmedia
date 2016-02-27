@@ -33,6 +33,9 @@ from random import SystemRandom
 
 from filestore import FileStore
 from dbase32 import db32enc, random_id
+
+import gi
+gi.require_version('GUdev', '1.0')
 from gi.repository import GUdev
 
 from .base import TempDir

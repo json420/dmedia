@@ -29,9 +29,12 @@ import re
 import time
 from os import path
 
-from gi.repository import GUdev
 from filestore import FileStore, _dumps
 from dbase32 import db32dec, db32enc
+
+import gi
+gi.require_version('GUdev', '1.0')
+from gi.repository import GUdev
 
 from .units import bytes10
 
