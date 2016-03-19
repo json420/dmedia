@@ -84,7 +84,7 @@ def mkreq(**kw):
         kw.get('uri',     '/'),
         kw.get('headers', {}),
         kw.get('body',    None),
-        kw.get('mount',  []),
+        kw.get('mount',   []),
         kw.get('path',    []),
         kw.get('query',   None),
     )

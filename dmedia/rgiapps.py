@@ -86,7 +86,7 @@ class RootApp:
             )
         if request.path == [] or request.path == ['']:
             return self.get_info(session, request, bodies)
-        key = shift_path(request)
+        key = request.shift_path()
         if key in self.map:
             return self.map[key](session, request, bodies)
         return (410, 'Gone', {}, None)
