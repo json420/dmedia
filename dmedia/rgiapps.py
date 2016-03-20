@@ -36,7 +36,6 @@ import ssl
 from base64 import b64encode, b64decode
 
 from dbase32 import isdb32, random_id
-from degu.util import shift_path, relative_uri
 from degu.client import Client
 from degu.base import ContentRange
 from microfiber import basic_auth_header, dumps
@@ -84,12 +83,12 @@ class RootApp:
                     session.store.get('_marker'), self._marker
                 )
             )
-        if request.path == [] or request.path == ['']:
+        if not request.path:
             return self.get_info(session, request, bodies)
-        key = request.shift_path()
-        if key in self.map:
-            return self.map[key](session, request, bodies)
-        return (410, 'Gone', {}, None)
+        handler = self.map.get(request.shift_path())
+        if handler is None:
+            return (410, 'Gone', {}, None)
+        return handler(session, request, bodies)
 
     def on_connect(self, session, sock):
         if not isinstance(sock, ssl.SSLSocket):
@@ -127,7 +126,7 @@ class ProxyApp:
         if conn is None:
             conn = self.client.connect()
             session.store['conn'] = conn
-        uri = relative_uri(request)
+        uri = request.build_proxy_uri()
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
         request.headers['authorization'] = self._authorization
@@ -141,12 +140,12 @@ class FilesApp:
     def __call__(self, session, request, bodies):
         if request.method not in {'GET', 'HEAD'}:
             return (405, 'Method Not Allowed', {}, None)
-        _id = shift_path(request)
+        _id = request.shift_path()
         if not isdb32(_id):
             return (400, 'Bad File ID', {}, None)
         if len(_id) != DIGEST_B32LEN:
             return (400, 'Bad File ID Length', {}, None)
-        if request.path != []:
+        if request.path:
             return (410, 'Gone', {}, None)
         if request.query:
             return (400, 'No Query For You', {}, None)
@@ -203,7 +202,7 @@ class InfoApp:
 
     def __call__(self, session, request, bodies):
         log.info('InfoApp: %s: %s %s', session, request.method, request.uri)
-        if request.path != []:
+        if request.path:
             return (410, 'Gone', {}, None)
         if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
