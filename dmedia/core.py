@@ -285,11 +285,8 @@ class Vigilance:
 
     def run(self):
         self.log_stats()
-        self.process_backlog(2)
-        time.sleep(2)  # Bit of time for replication/compaction to catch up
-        self.process_backlog(4)
-        time.sleep(2)  # Bit of time for replication/compaction to catch up
-        last_seq = self.process_backlog(6)
+        for stop_rank in (2, 4, 6):
+            last_seq = self.process_backlog(stop_rank)
         self.log_stats()
         self.process_preempt()
         self.log_stats()
@@ -540,7 +537,6 @@ def downgrade_worker(env, sslconfig):
     # filestore_worker() does; note there are common, innocent scenarios under
     # which this will fail (namely, a user unplugs a drive as the scan/relink is
     # happening), so we just catch and log unhandled exceptions here:
-    time.sleep(17)  # Bit of time for replication/compaction to catch up
     try:
         stores = ms.get_local_stores()
         for fs in stores:
@@ -557,9 +553,7 @@ def filestore_worker(env, parentdir, store_id):
         ms = MetaStore(db)
         fs = FileStore(parentdir, store_id)
         ms.scan(fs)
-        time.sleep(5)  # Bit of time for replication/compaction to catch up
         ms.relink(fs)
-        time.sleep(7)  # Bit of time for replication/compaction to catch up
         ms.verify_all(fs, int(time.time()))
     except Exception:
         log.exception('Error in filestore_worker():')

@@ -790,6 +790,7 @@ class MetaStore:
 
         :param fs: a `FileStore` instance
         """
+        self.db.wait_for_compact()
         t = TimeDelta()
         # Do the scan for all files in fs.id:        
         count = 0
@@ -932,6 +933,7 @@ class MetaStore:
                 rank-increasing updates... this approach is *never* okay for
                 methods that make rank-decreasing updates.
         """
+        self.db.wait_for_compact()
         t = TimeDelta()
         buf = BufferedSave(self.db)
         count = 0
@@ -1012,6 +1014,7 @@ class MetaStore:
         """
         Verify all downgraded files in FileStore *fs*.
         """
+        self.db.wait_for_compact()
         count = 0
         size = 0
         t = TimeDelta()
@@ -1036,6 +1039,7 @@ class MetaStore:
 
     def _verify_by_view(self, fs, curtime, threshold, view):
         assert isinstance(curtime, int) and curtime >= 0
+        self.db.wait_for_compact()
         count = 0
         size = 0
         t = TimeDelta()
