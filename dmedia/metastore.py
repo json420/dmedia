@@ -514,6 +514,7 @@ class MetaStore:
         assert threshold in (DOWNGRADE_BY_MTIME, DOWNGRADE_BY_VERIFIED)
         assert view in ('downgrade-by-mtime', 'downgrade-by-verified')
         endkey = curtime - threshold
+        self.db.wait_for_compact()
         t = TimeDelta()
         count = 0
         while True:
@@ -640,6 +641,7 @@ class MetaStore:
         return result
 
     def downgrade_store(self, store_id):
+        self.db.wait_for_compact()
         t = TimeDelta()
         count = 0
         while True:
@@ -696,6 +698,7 @@ class MetaStore:
         return (file_count, copy_count)
 
     def purge_store(self, store_id):
+        self.db.wait_for_compact()
         t = TimeDelta()
         count = 0
         while True:
