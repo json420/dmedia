@@ -828,10 +828,11 @@ class MetaStore:
         Find known files that we didn't expect in `FileStore` *fs*.
         """
         t = TimeDelta()
+        buf = BufferedSave(self.db)
         count = 0
-        for buf in relink_iter(fs):
-            docs = self.db.get_many([st.id for st in buf])
-            for (st, doc) in zip(buf, docs):
+        for group in relink_iter(fs):
+            docs = self.db.get_many([st.id for st in group])
+            for (st, doc) in zip(group, docs):
                 if doc is None:
                     log.warning('Orphan %r in %r', st.id, fs)
                     continue
@@ -842,8 +843,10 @@ class MetaStore:
                 new = {
                     fs.id: {'copies': 0, 'mtime': int(st.mtime)}
                 }
-                self.db.update(mark_added, doc, new)
+                mark_added(doc, new)
+                buf.save(doc)
                 count += 1
+        buf.flush()
         t.log('relink %d files in %r', count, fs)
         return count
 
