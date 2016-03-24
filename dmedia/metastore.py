@@ -508,6 +508,39 @@ class MetaStore:
         log.info('converted mtime from `float` to `int` for %d docs', buf.count)
         return buf.count
 
+    def _downgrade_by_view(self, curtime, threshold, view):
+        assert isinstance(curtime, int) and curtime >= 0
+        assert isinstance(threshold, int) and threshold >= 0
+        assert threshold in (DOWNGRADE_BY_MTIME, DOWNGRADE_BY_VERIFIED)
+        assert view in ('downgrade-by-mtime', 'downgrade-by-verified')
+        endkey = curtime - threshold
+        t = TimeDelta()
+        count = 0
+        while True:
+            rows = self.db.view('file', view,
+                endkey=endkey,
+                include_docs=True,
+                limit=100,
+            )['rows']
+            if not rows:
+                break
+            dmap = dict(
+                (row['id'], row['doc']) for row in rows
+            )
+            for row in rows:
+                doc = dmap[row['id']]
+                doc['stored'][row['value']]['copies'] = 0
+            docs = list(dmap.values())
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict as e:
+                log.exception('Conflict in %r', view)
+                count -= len(e.conflicts)
+        if count > 0:
+            t.log('%s %d files', view, count)
+        return count
+
     def downgrade_by_mtime(self, curtime):
         """
         Downgrade unverified copies with 'mtime' older than `DOWNGRADE_BY_MTIME`.
@@ -582,39 +615,6 @@ class MetaStore:
         return self._downgrade_by_view(
             curtime, DOWNGRADE_BY_VERIFIED, 'downgrade-by-verified'
         )
-
-    def _downgrade_by_view(self, curtime, threshold, view):
-        assert isinstance(curtime, int) and curtime >= 0
-        assert isinstance(threshold, int) and threshold >= 0
-        assert threshold in (DOWNGRADE_BY_MTIME, DOWNGRADE_BY_VERIFIED)
-        assert view in ('downgrade-by-mtime', 'downgrade-by-verified')
-        endkey = curtime - threshold
-        t = TimeDelta()
-        count = 0
-        while True:
-            rows = self.db.view('file', view,
-                endkey=endkey,
-                include_docs=True,
-                limit=100,
-            )['rows']
-            if not rows:
-                break
-            dmap = dict(
-                (row['id'], row['doc']) for row in rows
-            )
-            for row in rows:
-                doc = dmap[row['id']]
-                doc['stored'][row['value']]['copies'] = 0
-            docs = list(dmap.values())
-            count += len(docs)
-            try:
-                self.db.save_many(docs)
-            except BulkConflict as e:
-                log.exception('Conflict in %r', view)
-                count -= len(e.conflicts)
-        if count > 0:
-            t.log('%s %d files', view, count)
-        return count
 
     def purge_or_downgrade_by_store_atime(self, curtime):
         assert isinstance(curtime, int) and curtime >= 0
