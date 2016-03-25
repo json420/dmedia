@@ -1152,6 +1152,7 @@ class MetaStore:
 
     def wait_for_fragile_files(self, last_seq):
         kw = {
+            'limit': 5,
             'feed': 'longpoll',
             'include_docs': True,
             'filter': 'file/fragile',
