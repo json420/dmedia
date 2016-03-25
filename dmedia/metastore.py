@@ -508,6 +508,40 @@ class MetaStore:
         log.info('converted mtime from `float` to `int` for %d docs', buf.count)
         return buf.count
 
+    def _downgrade_by_view(self, curtime, threshold, view):
+        assert isinstance(curtime, int) and curtime >= 0
+        assert isinstance(threshold, int) and threshold >= 0
+        assert threshold in (DOWNGRADE_BY_MTIME, DOWNGRADE_BY_VERIFIED)
+        assert view in ('downgrade-by-mtime', 'downgrade-by-verified')
+        endkey = curtime - threshold
+        self.db.wait_for_compact()
+        t = TimeDelta()
+        count = 0
+        while True:
+            rows = self.db.view('file', view,
+                endkey=endkey,
+                include_docs=True,
+                limit=100,
+            )['rows']
+            if not rows:
+                break
+            dmap = dict(
+                (row['id'], row['doc']) for row in rows
+            )
+            for row in rows:
+                doc = dmap[row['id']]
+                doc['stored'][row['value']]['copies'] = 0
+            docs = list(dmap.values())
+            count += len(docs)
+            try:
+                self.db.save_many(docs)
+            except BulkConflict as e:
+                log.exception('Conflict in %r', view)
+                count -= len(e.conflicts)
+        if count > 0:
+            t.log('%s %d files', view, count)
+        return count
+
     def downgrade_by_mtime(self, curtime):
         """
         Downgrade unverified copies with 'mtime' older than `DOWNGRADE_BY_MTIME`.
@@ -583,39 +617,6 @@ class MetaStore:
             curtime, DOWNGRADE_BY_VERIFIED, 'downgrade-by-verified'
         )
 
-    def _downgrade_by_view(self, curtime, threshold, view):
-        assert isinstance(curtime, int) and curtime >= 0
-        assert isinstance(threshold, int) and threshold >= 0
-        assert threshold in (DOWNGRADE_BY_MTIME, DOWNGRADE_BY_VERIFIED)
-        assert view in ('downgrade-by-mtime', 'downgrade-by-verified')
-        endkey = curtime - threshold
-        t = TimeDelta()
-        count = 0
-        while True:
-            rows = self.db.view('file', view,
-                endkey=endkey,
-                include_docs=True,
-                limit=100,
-            )['rows']
-            if not rows:
-                break
-            dmap = dict(
-                (row['id'], row['doc']) for row in rows
-            )
-            for row in rows:
-                doc = dmap[row['id']]
-                doc['stored'][row['value']]['copies'] = 0
-            docs = list(dmap.values())
-            count += len(docs)
-            try:
-                self.db.save_many(docs)
-            except BulkConflict as e:
-                log.exception('Conflict in %r', view)
-                count -= len(e.conflicts)
-        if count > 0:
-            t.log('%s %d files', view, count)
-        return count
-
     def purge_or_downgrade_by_store_atime(self, curtime):
         assert isinstance(curtime, int) and curtime >= 0
         purge_threshold = curtime - PURGE_BY_STORE_ATIME
@@ -640,6 +641,7 @@ class MetaStore:
         return result
 
     def downgrade_store(self, store_id):
+        self.db.wait_for_compact()
         t = TimeDelta()
         count = 0
         while True:
@@ -696,6 +698,7 @@ class MetaStore:
         return (file_count, copy_count)
 
     def purge_store(self, store_id):
+        self.db.wait_for_compact()
         t = TimeDelta()
         count = 0
         while True:
@@ -790,6 +793,7 @@ class MetaStore:
 
         :param fs: a `FileStore` instance
         """
+        self.db.wait_for_compact()
         t = TimeDelta()
         # Do the scan for all files in fs.id:        
         count = 0
@@ -826,12 +830,119 @@ class MetaStore:
     def relink(self, fs):
         """
         Find known files that we didn't expect in `FileStore` *fs*.
+
+        Dmedia periodically iterates through all the files on each connected
+        drive looking for files that exist in the library, but whose current
+        metadata doc does not indicate that the file in question is stored on
+        the drive in question.
+
+        When Dmedia finds such a file, it "re-links" the file by updating its
+        doc to reflect that it exists on the drive in question.  However,
+        Dmedia is pessimistic about the integrity of the file, so it updates the
+        metadata with a confidence of {'copies': 0}.  This means that a newly
+        re-linked file can only contribute 1 to the rank of a file (whereas
+        were it in a verified state, it would contribute 2 to the rank).
+
+        As a newly re-linked file is unverified, it will be verified the next
+        time `MetaStore.verify_all()` is run on the `FileStore` in question.  If
+        the file turns out to be corrupt, it will be marked as such and be
+        removed from doc['stored'].  If the file integrity is good, the doc will
+        be updated with a confidence of {'copies': 1}.  Likewise,
+        `core.Vigilance` will do the same thing if it happens to process the
+        re-linked file first.
+
+        As this is a rank-increasing metadata update, we can play things a bit
+        fast and loose when saving the docs to CouchDB: we use a `BufferedSave`
+        instance to save the docs for 25 re-linked files at a time, and we
+        ignore any conflicts.  If a conflict prevents a file from being
+        re-linked, it will simply be re-linked the next time this method is run
+        for the `FileStore` in question.  This is acceptable because in the case
+        of a conflict, we're underestimating the rank of a file.
+
+        In contrast, `BufferedSave` should *never* be used for rank-decreasing
+        metadata updates.  Methods like `MetaStore.scan()` should always save
+        their rank-decreasing metadata updates to CouchDB one document at a
+        time, immediately after such a condition is found, and they should
+        always save the document using `microfiber.Database.update()`, which
+        will automatically re-try the update when there has been a conflicting
+        change in the time between when a doc was retrieved and when it was
+        saved.
+
+        Using `BufferedSave` instead of `microfiber.Database.update()` makes
+        this method is roughly 4x faster for real-world re-link scenarios (the
+        test was to re-link 42,703 files stored on a 2TB mechanical HDD).  In
+        the grand scheme of things, this helps Dmedia reach its equilibrium
+        state more quickly, especially considering the scenarios under which
+        files end up in an un-linked state.
+
+        In normal usage, you can end up with un-linked files when multiple
+        Dmedia peers in the same library are all making metadata updates for the
+        same files at roughly the same time, which can result in a lot of
+        conflicts by the time these changes are replicated to the other peers.
+
+        Although `core.Vigilance.process_backlog()` randomizes the order in
+        which fragile files are handled, which considerably reduces conflicts,
+        `core.Vigilance.run_event_loop()` has no such mechanism.  So after a
+        group a peers have all processed their backlog and are now running their
+        event loop, importing a file (rank=2) on one peer means the other peers
+        will all immediately try to download the new file from the first peer as
+        soon as they pick up its corresponding document from the changes feed.
+        If two peers download the same fragile file at the same time such a
+        conflict is created, the winning document revision will only reflect one
+        of these new file copies.  So one peer will have the file *physically*
+        stored with a confidence of {'copies': 1} without this actually being
+        reflected in the wining document revision.  The file is in an unlinked
+        state, which wont be detected till the next time this method is run for
+        the `FileStore` in question.
+
+        An extreme demonstration case can be setup like this:
+
+            1.  Setup Dmedia on four (or more) computers, all peered together,
+                all starting with an empty Dmedia library
+
+            2.  On one of the computers, import a large number of small files
+                using something like:
+
+                    dmedia-migrate /usr/share
+
+        Small files are best for this as they stress the metadata layer more
+        heavily (because the files themselves can be downloaded so quickly).
+        Likewise, running this experiment on four computers is better at
+        stressing the metadata layer because for every new file coming through
+        the changes feed, Dmedia in total will typically be downloading one (or
+        more) additional copies than needed to reach rank=6.
+
+        In such a setup, you'll see Dmedia spending a lot of time relinking
+        files it has already downloaded.  This creates a lot of needless load
+        and means Dmedia is much slower at reaching its equilibrium point than
+        it should be.
+
+        As relinking is one of the key parts of the problem, changing this
+        method to use `BufferedSave` should improve the situation.  The new
+        approach has a number of advantages:
+
+            1.  Relinking itself is faster, meaning the peers are updated more
+                quickly about the current state of the library.
+
+            2.  Batch saves reduce the load on CouchDB and also allow the
+                replicator to batch these changes more efficiently, resulting in
+                higher replication throughput.
+
+            3.  Ignoring conflicts when relinking provides a nice load-shedding
+                mechanism: when the rate of conflict is extremely high, its
+                probably best to just ignore them when relinking instead of
+                compounding the problem by injecting yet more changes; again
+                it's only okay to do this here because this method makes
+                rank-increasing updates... this approach is *never* okay for
+                methods that make rank-decreasing updates.
         """
+        self.db.wait_for_compact()
         t = TimeDelta()
+        buf = BufferedSave(self.db)
         count = 0
-        for buf in relink_iter(fs):
-            docs = self.db.get_many([st.id for st in buf])
-            for (st, doc) in zip(buf, docs):
+        for group in relink_iter(fs):
+            docs = self.db.get_many([st.id for st in group])
+            for (st, doc) in zip(group, docs):
                 if doc is None:
                     log.warning('Orphan %r in %r', st.id, fs)
                     continue
@@ -842,8 +953,10 @@ class MetaStore:
                 new = {
                     fs.id: {'copies': 0, 'mtime': int(st.mtime)}
                 }
-                self.db.update(mark_added, doc, new)
+                mark_added(doc, new)
+                buf.save(doc)
                 count += 1
+        buf.flush()
         t.log('relink %d files in %r', count, fs)
         return count
 
@@ -904,6 +1017,7 @@ class MetaStore:
         """
         Verify all downgraded files in FileStore *fs*.
         """
+        self.db.wait_for_compact()
         count = 0
         size = 0
         t = TimeDelta()
@@ -928,6 +1042,7 @@ class MetaStore:
 
     def _verify_by_view(self, fs, curtime, threshold, view):
         assert isinstance(curtime, int) and curtime >= 0
+        self.db.wait_for_compact()
         count = 0
         size = 0
         t = TimeDelta()
