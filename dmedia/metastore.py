@@ -1017,7 +1017,6 @@ class MetaStore:
         """
         Verify all downgraded files in FileStore *fs*.
         """
-        self.db.wait_for_compact()
         count = 0
         size = 0
         t = TimeDelta()
@@ -1027,9 +1026,11 @@ class MetaStore:
             'include_docs': True,
         }
         while True:
+            self.db.wait_for_compact()
             rows = self.db.view('file', 'store-downgraded', **kw)['rows']
             if not rows:
                 break
+            random.shuffle(rows)
             for row in rows:
                 doc = row['doc']
                 self.verify(fs, doc)
@@ -1042,7 +1043,6 @@ class MetaStore:
 
     def _verify_by_view(self, fs, curtime, threshold, view):
         assert isinstance(curtime, int) and curtime >= 0
-        self.db.wait_for_compact()
         count = 0
         size = 0
         t = TimeDelta()
@@ -1053,9 +1053,11 @@ class MetaStore:
             'include_docs': True,
         }
         while True:
+            self.db.wait_for_compact()
             rows = self.db.view('file', view, **kw)['rows']
             if not rows:
                 break
+            random.shuffle(rows)
             for row in rows:
                 doc = row['doc']
                 self.verify(fs, doc)
@@ -1152,7 +1154,7 @@ class MetaStore:
 
     def wait_for_fragile_files(self, last_seq):
         kw = {
-            'limit': 5,
+            'limit': 3,
             'feed': 'longpoll',
             'include_docs': True,
             'filter': 'file/fragile',
