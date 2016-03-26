@@ -50,21 +50,23 @@ def get_designs(db):
 def update_design_doc(db, doc):
     assert '_rev' not in doc
     doc = deepcopy(doc)
+    _id = doc['_id']
     try:
         old = db.get(doc['_id'])
         doc['_rev'] = old['_rev']
         if doc != old:
             db.save(doc)
+            log.info('Updated %r in %r', _id, db.name)
             return 'changed'
         else:
             return 'same'
     except microfiber.NotFound:
         db.save(doc)
+        log.info('Saved %r to %r', _id, db.name)
         return 'new'
 
 
 def init_views(db, designs):
-    log.info('Initializing views in %s', db.name)
     result = []
     current = set()
     for doc in designs:
@@ -74,10 +76,11 @@ def init_views(db, designs):
         current.add(_id)
     for (_id, rev) in get_designs(db).items():
         if _id not in current:
-            log.info('Deleting unused %r in %r', _id, db)
+            log.info('Deleting unused %r in %r', _id, db.name)
             db.delete(_id, rev=rev)
             result.append(('deleted', _id))
-    # Cleanup old view files:
+
+    # Cleanup stale view index files:
     db.post(None, '_view_cleanup')
     return result
 
@@ -90,6 +93,7 @@ def get_db(env, init=False):
     db = microfiber.Database(schema.DB_NAME, env)
     if init:
         db.ensure()
+        db.put(50, '_revs_limit')
         init_views(db, views.core)
     return db
 
@@ -100,6 +104,4 @@ def get_project_db(_id, env, init=False):
         db.ensure()
         init_project_views(db)
     return db
-    
-
 

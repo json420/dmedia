@@ -218,6 +218,9 @@ class TestCouchFunctions(CouchCase):
         self.assertTrue(db.ensure())
         self.assertEqual(db.get()['db_name'], schema.DB_NAME)
 
+        # Test our assumptions about default CouchDB _revs_limit:
+        self.assertEqual(db.get('_revs_limit'), 1000)
+
     def test_get_db2(self):
         # Test with init=True
         db = util.get_db(self.env, True)
@@ -225,6 +228,9 @@ class TestCouchFunctions(CouchCase):
         self.assertEqual(db.name, schema.DB_NAME)
         self.assertEqual(db.get()['db_name'], schema.DB_NAME)
         self.assertFalse(db.ensure())
+
+        # Make sure that with init=True _revs_limit is set:
+        self.assertEqual(db.get('_revs_limit'), 50)
 
     def test_get_project_db(self):
         _id = random_id()
