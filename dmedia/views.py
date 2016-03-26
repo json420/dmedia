@@ -44,13 +44,6 @@ function(doc) {
 }
 """
 
-# For confirming assumptions about CouchDB view sort order:
-doc_key = """
-function(doc) {
-    emit(doc.key, null);
-}
-"""
-
 # For cleaning out conflicting docs:
 doc_conflicts = """
 function(doc) {
@@ -80,7 +73,6 @@ doc_design = {
     'views': {
         'type': {'map': doc_type, 'reduce': _count},
         'time': {'map': doc_time},
-        'key': {'map': doc_key},
         'conflicts': {'map': doc_conflicts},
     },
     'filters': {
