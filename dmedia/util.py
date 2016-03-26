@@ -93,6 +93,7 @@ def get_db(env, init=False):
     db = microfiber.Database(schema.DB_NAME, env)
     if init:
         db.ensure()
+        db.put(50, '_revs_limit')
         init_views(db, views.core)
     return db
 
