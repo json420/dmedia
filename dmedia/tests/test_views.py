@@ -26,7 +26,8 @@ Unit tests for `dmedia.views` module.
 from unittest import TestCase
 import time
 
-from microfiber import Database, random_id
+from dbase32 import random_id
+import microfiber
 from filestore import DIGEST_BYTES
 
 from dmedia.tests.base import random_file_id
@@ -66,7 +67,7 @@ class TestSortOrder(CouchCase):
         <class 'str'>
 
         """
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
 
         doc_key = """
@@ -189,7 +190,7 @@ class TestDesignsLive(CouchCase):
                 db.view(design, view, reduce=True)
 
     def check_designs(self, designs):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         ids = [doc['_id'] for doc in designs]
         self.assertEqual(
@@ -236,7 +237,7 @@ class TestDocDesign(DesignTestCase):
     design = views.doc_design
 
     def test_type(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('type')
         db.save(design)
@@ -343,7 +344,7 @@ class TestDocDesign(DesignTestCase):
         )
 
     def test_time(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('time')
         db.save(design)
@@ -399,6 +400,129 @@ class TestDocDesign(DesignTestCase):
             }
         )
 
+    def test_conflicts(self):
+        server = microfiber.Server(self.env)
+        A = server.database('a', True)
+        B = server.database('b', True)
+
+        # Only save design in B:
+        design = self.build_view('conflicts')
+        B.save(design)
+
+        # B is empty:
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Build base revision in A:
+        _id = random_id()
+        doc_A = {'_id': _id}
+        rev1 = A.save(doc_A)['rev']
+
+        # Replicate from A to B:
+        self.assertEqual(
+            B.post({'docs': [doc_A], 'new_edits': False}, '_bulk_docs'),
+            []
+        )
+        self.assertEqual(B.get(_id), {'_id': _id, '_rev': rev1})
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Create 2nd and 3rd revision in B:
+        doc_B = doc_A.copy()
+        m_B2 = random_id()
+        doc_B['m'] = m_B2
+        rev2B = B.save(doc_B)['rev']
+        self.assertEqual(B.get(_id), {'_id': _id, '_rev': rev2B, 'm': m_B2})
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        m_B3 = random_id()
+        doc_B['m'] = m_B3
+        rev3B = B.save(doc_B)['rev']
+        self.assertEqual(B.get(_id), {'_id': _id, '_rev': rev3B, 'm': m_B3})
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
+        # Create a conflicting 2nd revision in A:
+        m_A2 = random_id()
+        doc_A['m'] = m_A2
+        rev2A = A.save(doc_A)['rev']
+
+        # Replicate from A to B:
+        self.assertEqual(
+            B.post({'docs': [doc_A], 'new_edits': False}, '_bulk_docs'),
+            []
+        )
+        self.assertEqual(B.get(_id), {'_id': _id, '_rev': rev3B, 'm': m_B3})
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'id': _id, 'key': 1, 'value': [rev2A]}
+                ]
+            }
+        )
+
+        # Create 4th revision in B:
+        m_B4 = random_id()
+        doc_B['m'] = m_B4
+        rev4B = B.save(doc_B)['rev']
+        self.assertEqual(B.get(_id), {'_id': _id, '_rev': rev4B, 'm': m_B4})
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'id': _id, 'key': 1, 'value': [rev2A]}
+                ]
+            }
+        )
+
+        # Create a conflicting 3rd revision in A:
+        m_A3 = random_id()
+        doc_A['m'] = m_A3
+        rev3A = A.save(doc_A)['rev']
+
+        # Replicate from A to B:
+        self.assertEqual(
+            B.post({'docs': [doc_A], 'new_edits': False}, '_bulk_docs'),
+            []
+        )
+        self.assertEqual(B.get(_id), {'_id': _id, '_rev': rev4B, 'm': m_B4})
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {
+                'offset': 0,
+                'total_rows': 1,
+                'rows': [
+                    {'id': _id, 'key': 2, 'value': [rev3A, rev2A]}
+                ]
+            }
+        )
+
+        # Delete conflicts in B:
+        docs = [
+            {'_id': _id, '_rev': rev3A, '_deleted': True},
+            {'_id': _id, '_rev': rev2A, '_deleted': True},
+        ]
+        B.post({'docs': docs, 'all_or_nothing': True}, '_bulk_docs')
+        self.assertEqual(B.get(_id), {'_id': _id, '_rev': rev4B, 'm': m_B4})
+        self.assertEqual(
+            B.view('doc', 'conflicts'),
+            {'rows': [], 'offset': 0, 'total_rows': 0},
+        )
+
 
 class TestFileDesign(DesignTestCase):
     """
@@ -407,7 +531,7 @@ class TestFileDesign(DesignTestCase):
     design = views.file_design
 
     def test_stored(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('stored')
         db.save(design)
@@ -622,7 +746,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_nonzero(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('nonzero')
         db.save(design)
@@ -727,7 +851,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_copies(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('copies')
         db.save(design)
@@ -899,7 +1023,7 @@ class TestFileDesign(DesignTestCase):
     def test_rank(self):
         ####################################################################
         # 1st, test sort order and other properties on a collection of docs:
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('rank')
         db.save(design)
@@ -1013,7 +1137,7 @@ class TestFileDesign(DesignTestCase):
 
         ###################################################
         # 2nd, drill down on the minutia with a single doc:
-        db = Database('bar', self.env)
+        db = microfiber.Database('bar', self.env)
         db.put(None)
         design = self.build_view('rank')
         db.save(design)
@@ -1266,7 +1390,7 @@ class TestFileDesign(DesignTestCase):
 
         ######################################################################
         # 3rd, test assumptions about how "startkey_docid" and "key" interact:
-        db = Database('baz', self.env)
+        db = microfiber.Database('baz', self.env)
         db.put(None)
         design = self.build_view('rank')
         db.save(design)
@@ -1414,7 +1538,7 @@ class TestFileDesign(DesignTestCase):
             offset += len(rank_n)
 
     def test_store_reclaimable(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('store-reclaimable')
         db.save(design)
@@ -1694,7 +1818,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_downgrade_by_mtime(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('downgrade-by-mtime')
         db.save(design)
@@ -1859,7 +1983,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_downgrade_by_verified(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('downgrade-by-verified')
         db.save(design)
@@ -1991,7 +2115,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_store_downgraded(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('store-downgraded')
         db.save(design)
@@ -2179,7 +2303,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_store_mtime(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('store-mtime')
         db.save(design)
@@ -2429,7 +2553,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_store_verified(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('store-verified')
         db.save(design)
@@ -2519,7 +2643,7 @@ class TestFileDesign(DesignTestCase):
         )
 
     def test_origin(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('origin')
         db.save(design)
@@ -2750,7 +2874,7 @@ class TestStoreDesign(DesignTestCase):
     design = views.store_design
 
     def test_atime(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('atime')
         db.save(design)
@@ -2862,7 +2986,7 @@ class TestJobDesign(DesignTestCase):
     design = views.job_design
 
     def test_waiting(self):
-        db = Database('foo', self.env)
+        db = microfiber.Database('foo', self.env)
         db.put(None)
         design = self.build_view('waiting')
         db.save(design)
