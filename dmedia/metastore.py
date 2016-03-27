@@ -949,7 +949,7 @@ class MetaStore:
                 stored = get_dict(doc, 'stored')
                 if fs.id in stored:
                     continue
-                #log.info('Relinking %s in %r', st.id, fs)
+                log.info('Relinking %s in %r', st.id, fs)
                 new = {
                     fs.id: {'copies': 0, 'mtime': int(st.mtime)}
                 }
