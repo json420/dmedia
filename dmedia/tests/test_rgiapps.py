@@ -585,7 +585,7 @@ class TestProxyApp(TestCase):
 
         # Replicate db_A => db_proxy_B:
         session = replicator.load_session(uuid_A, db_A, uuid_B, db_proxy_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
@@ -644,7 +644,7 @@ class TestProxyApp(TestCase):
 
         # Oh, now screw up the session:
         session = replicator.load_session(random_id(), db_A, uuid_B, db_proxy_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)
@@ -659,7 +659,7 @@ class TestProxyApp(TestCase):
 
         # Screw up the session again, but this time when there are changes:
         session = replicator.load_session(uuid_A, db_A, random_id(), db_proxy_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)  # 225 + 69 + 18 + 21
@@ -669,7 +669,7 @@ class TestProxyApp(TestCase):
 
         # Yet once more with yet more feeling (and a screwed up session):
         session = replicator.load_session('foo', db_A, 'bar', db_proxy_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)
@@ -747,7 +747,7 @@ class TestProxyApp(TestCase):
 
         # Replicate db_proxy_A => db_B:
         session = replicator.load_session(uuid_A, db_proxy_A, uuid_B, db_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 294)  # 69 docs at rev 2-*
@@ -806,7 +806,7 @@ class TestProxyApp(TestCase):
 
         # Oh, now screw up the session:
         session = replicator.load_session(random_id(), db_proxy_A, uuid_B, db_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 312)
@@ -821,7 +821,7 @@ class TestProxyApp(TestCase):
 
         # Screw up the session again, but this time when there are changes:
         session = replicator.load_session(uuid_A, db_proxy_A, random_id(), db_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)  # 225 + 69 + 18 + 21
@@ -831,7 +831,7 @@ class TestProxyApp(TestCase):
 
         # Yet once more with yet more feeling (and a screwed up session):
         session = replicator.load_session('foo', db_proxy_A, 'bar', db_B)
-        self.assertNotIn('update_seq', session)
+        self.assertEqual(session['update_seq'], 0)
         self.assertEqual(session['doc_count'], 0)
         replicator.replicate(session)
         self.assertEqual(session['update_seq'], 333)
