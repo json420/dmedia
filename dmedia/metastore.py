@@ -405,7 +405,6 @@ class BufferedSave:
 
     def flush(self):
         if self.docs:
-            self.db.wait_for_compact()
             self.count += len(self.docs)
             try:
                 self.db.save_many(self.docs)
@@ -938,7 +937,7 @@ class MetaStore:
                 methods that make rank-decreasing updates.
         """
         t = TimeDelta()
-        buf = BufferedSave(self.db)
+        buf = BufferedSave(self.db, 10)
         count = 0
         for group in relink_iter(fs):
             docs = self.db.get_many([st.id for st in group])
@@ -956,6 +955,7 @@ class MetaStore:
                 mark_added(doc, new)
                 buf.save(doc)
                 count += 1
+            self.db.wait_for_compact()
         buf.flush()
         t.log('relink %d files in %r', count, fs)
         return count
