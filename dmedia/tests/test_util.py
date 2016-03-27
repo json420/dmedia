@@ -230,7 +230,7 @@ class TestCouchFunctions(CouchCase):
         self.assertFalse(db.ensure())
 
         # Make sure that with init=True _revs_limit is set:
-        self.assertEqual(db.get('_revs_limit'), 10)
+        self.assertEqual(db.get('_revs_limit'), 25)
 
     def test_get_project_db(self):
         _id = random_id()
