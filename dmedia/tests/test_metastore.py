@@ -1462,9 +1462,9 @@ class TestFunctions(TestCase):
             [items]
         )
 
-        # Test with 25
-        items.extend(create() for i in range(24))
-        assert len(items) == 25
+        # Test with 50
+        items.extend(create() for i in range(49))
+        assert len(items) == 50
         items.sort(key=lambda st: st.id)
         self.assertEqual(
             list(metastore.relink_iter(fs)),
@@ -1473,54 +1473,54 @@ class TestFunctions(TestCase):
 
         # Test with 26
         items.append(create())
-        assert len(items) == 26
+        assert len(items) == 51
         items.sort(key=lambda st: st.id)
         self.assertEqual(
             list(metastore.relink_iter(fs)),
             [
-                items[:25],
-                items[25:],
+                items[:50],
+                items[50:],
             ]
         )
 
-        # Test with 49
-        items.extend(create() for i in range(23))
-        assert len(items) == 49
+        # Test with 99
+        items.extend(create() for i in range(48))
+        assert len(items) == 99
         items.sort(key=lambda st: st.id)
         self.assertEqual(
             list(metastore.relink_iter(fs)),
             [
-                items[:25],
-                items[25:],
+                items[:50],
+                items[50:],
             ]
         )
 
-        # Test with 100
-        items.extend(create() for i in range(51))
-        assert len(items) == 100
+        # Test with 200
+        items.extend(create() for i in range(101))
+        assert len(items) == 200
         items.sort(key=lambda st: st.id)
         self.assertEqual(
             list(metastore.relink_iter(fs)),
             [
-                items[0:25],
-                items[25:50],
-                items[50:75],
-                items[75:100],
+                items[0:50],
+                items[50:100],
+                items[100:150],
+                items[150:200],
             ]
         )
 
-        # Test with 118
+        # Test with 218
         items.extend(create() for i in range(18))
-        assert len(items) == 118
+        assert len(items) == 218
         items.sort(key=lambda st: st.id)
         self.assertEqual(
             list(metastore.relink_iter(fs)),
             [
-                items[0:25],
-                items[25:50],
-                items[50:75],
-                items[75:100],
-                items[100:118],
+                items[0:50],
+                items[50:100],
+                items[100:150],
+                items[150:200],
+                items[200:218],
             ]
         )
 
@@ -1540,11 +1540,11 @@ class TestBufferedSave(CouchCase):
         self.assertEqual(buf.conflicts, 0)
 
         buf = metastore.BufferedSave(db)
-        self.assertEqual(buf.size, 25)
+        self.assertEqual(buf.size, 50)
 
-        # Save the first 24, which should just be stored in the buffer:
+        # Save the first 49, which should just be stored in the buffer:
         docs = []
-        for i in range(24):
+        for i in range(49):
             doc = {'_id': random_id(), 'i': i}
             docs.append(doc)
             buf.save(doc)
@@ -1558,14 +1558,14 @@ class TestBufferedSave(CouchCase):
         for doc in docs:
             self.assertNotIn('_rev', doc)
 
-        # Now save the 25th, which should trigger a flush:
+        # Now save the 50th, which should trigger a flush:
         doc = {'_id': random_id()}
         docs.append(doc)
         buf.save(doc)
         self.assertEqual(buf.docs, [])
-        self.assertEqual(buf.count, 25)
+        self.assertEqual(buf.count, 50)
         self.assertEqual(buf.conflicts, 0)
-        self.assertEqual(len(docs), 25)
+        self.assertEqual(len(docs), 50)
         self.assertEqual(
             db.get_many([D['_id'] for D in docs]),
             docs
@@ -1577,16 +1577,16 @@ class TestBufferedSave(CouchCase):
         for i in range(19):
             db.post(docs[i])
         docs2 = []
-        for i in range(24):
+        for i in range(49):
             doc = docs[i]
             docs2.append(doc)
             buf.save(doc)
             self.assertEqual(buf.docs, docs2)
-            self.assertEqual(buf.count, 25)
+            self.assertEqual(buf.count, 50)
             self.assertEqual(buf.conflicts, 0)
         buf.save(docs[-1])
         self.assertEqual(buf.docs, [])
-        self.assertEqual(buf.count, 50)
+        self.assertEqual(buf.count, 100)
         self.assertEqual(buf.conflicts, 19)
         for (i, doc) in enumerate(docs):
             if i < 19:
@@ -1606,7 +1606,7 @@ class TestBufferedSave(CouchCase):
         buf.docs.extend(docs3)
         buf.flush()
         self.assertEqual(buf.docs, [])
-        self.assertEqual(buf.count, 100)
+        self.assertEqual(buf.count, 150)
         self.assertEqual(buf.conflicts, 51)
         for (i, doc) in enumerate(docs3):
             if i >= 18:

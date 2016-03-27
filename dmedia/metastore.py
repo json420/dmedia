@@ -374,7 +374,7 @@ def update_store(doc, timestamp, bytes_avail):
     doc['bytes_avail'] = bytes_avail
 
 
-def relink_iter(fs, count=25):
+def relink_iter(fs, count=50):
     buf = []
     for st in fs:
         buf.append(st)
@@ -388,7 +388,7 @@ def relink_iter(fs, count=25):
 class BufferedSave:
     __slots__ = ('db', 'size', 'docs', 'count', 'conflicts')
 
-    def __init__(self, db, size=25):
+    def __init__(self, db, size=50):
         self.db = db
         self.size = size
         self.docs = []
@@ -405,6 +405,7 @@ class BufferedSave:
 
     def flush(self):
         if self.docs:
+            self.db.wait_for_compact()
             self.count += len(self.docs)
             try:
                 self.db.save_many(self.docs)
@@ -936,7 +937,6 @@ class MetaStore:
                 rank-increasing updates... this approach is *never* okay for
                 methods that make rank-decreasing updates.
         """
-        self.db.wait_for_compact()
         t = TimeDelta()
         buf = BufferedSave(self.db)
         count = 0
@@ -949,7 +949,7 @@ class MetaStore:
                 stored = get_dict(doc, 'stored')
                 if fs.id in stored:
                     continue
-                log.info('Relinking %s in %r', st.id, fs)
+                #log.info('Relinking %s in %r', st.id, fs)
                 new = {
                     fs.id: {'copies': 0, 'mtime': int(st.mtime)}
                 }
