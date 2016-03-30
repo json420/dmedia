@@ -1,12 +1,12 @@
-dmedia (15.10.0~alpha) wily; urgency=low
+dmedia (16.03.0~alpha) xenial; urgency=low
 
-  * Daily WIP for 15.10.0
+  * Daily WIP for 16.03.0
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Sat, 10 Oct 2015 19:29:20 -0600
+ -- Jason Gerard DeRose <jderose@novacut.com>  Tue, 29 Mar 2016 20:19:23 -0600
 
-dmedia (15.08.0~alpha) trusty; urgency=low
+dmedia (15.08.0) trusty; urgency=low
 
-  * Daily WIP for 15.08.0
+  * Upstream 15.08.0 release
 
  -- Jason Gerard DeRose <jderose@novacut.com>  Sun, 23 Aug 2015 17:49:26 -0600
 
