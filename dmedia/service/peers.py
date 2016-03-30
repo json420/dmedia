@@ -43,10 +43,14 @@ from subprocess import Popen
 import weakref
 import time
 
-import dbus
-from gi.repository import GLib, GObject, Gtk, AppIndicator3
 from microfiber import Unauthorized, CouchBase
 from degu.server import SSLServer, build_server_sslctx
+import dbus
+
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('AppIndicator3', '0.1')
+from gi.repository import GLib, GObject, Gtk, AppIndicator3
 
 import dmedia
 from dmedia.parallel import start_thread
