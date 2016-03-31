@@ -1,8 +1,8 @@
-dmedia (16.03.0~alpha) xenial; urgency=low
+dmedia (16.03.0) xenial; urgency=low
 
-  * Daily WIP for 16.03.0
+  * Upstream 16.03.0 release
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Tue, 29 Mar 2016 20:19:23 -0600
+ -- Jason Gerard DeRose <jderose@novacut.com>  Wed, 30 Mar 2016 21:08:28 -0600
 
 dmedia (15.08.0) trusty; urgency=low
 
