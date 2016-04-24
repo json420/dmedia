@@ -37,7 +37,6 @@ from base64 import b64encode, b64decode
 
 from dbase32 import isdb32, random_id
 from degu.client import Client
-from degu.base import ContentRange
 from microfiber import basic_auth_header, dumps
 from filestore import DIGEST_B32LEN, FileNotFound
 
@@ -137,7 +136,7 @@ class FilesApp:
     def __init__(self, env):
         self.local = LocalSlave(env)
 
-    def __call__(self, session, request, bodies):
+    def __call__(self, session, request, api):
         if request.method not in {'GET', 'HEAD'}:
             return (405, 'Method Not Allowed', {}, None)
         _id = request.shift_path()
@@ -169,7 +168,7 @@ class FilesApp:
             fp.seek(start)
             status = 206
             reason = 'Partial Content'
-            headers = {'content-range': ContentRange(start, stop, st.size)}
+            headers = {'content-range': api.ContentRange(start, stop, st.size)}
             log.info('Sending partial file %s[%d:%d] (%d bytes) to %r',
                 _id, start, stop, content_length, session.address
             )
@@ -181,7 +180,7 @@ class FilesApp:
             log.info('Sending file %s (%d bytes) to %r',
                 _id, content_length, session.address
             )
-        body = bodies.Body(fp, content_length)
+        body = api.Body(fp, content_length)
         return (status, reason, headers, body)
 
 
