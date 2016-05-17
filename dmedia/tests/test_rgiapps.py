@@ -491,6 +491,34 @@ class TestProxyApp(TestCase):
             {'host': None, 'authorization': app.client.authorization}
         )
 
+    def test_call(self):
+        password = random_id()
+        env = {
+            'basic': {'username': 'admin', 'password': password},
+            'url': microfiber.HTTP_IPv4_URL,
+        }
+        app = rgiapps.ProxyApp(env)
+        for method in ('HEAD', 'DELETE'):
+            self.assertEqual(app(None, mkreq(method, '/'), None),
+                (405, 'Method Not Allowed', {}, None)
+            )
+            self.assertEqual(app(None, mkreq(method, '/_all_dbs'), None),
+                (405, 'Method Not Allowed', {}, None)
+            )
+        for method in ('GET', 'POST', 'PUT'):
+            self.assertEqual(app(None, mkreq(method, '/_'), None),
+                (403, 'Forbidden', {}, None)
+            )
+            self.assertEqual(app(None, mkreq(method, '/_config'), None),
+                (403, 'Forbidden', {}, None)
+            )
+            self.assertEqual(app(None, mkreq(method, '/_all_dbs/foo'), None),
+                (403, 'Forbidden', {}, None)
+            )
+            self.assertEqual(app(None, mkreq(method, '/_all_dbss'), None),
+                (403, 'Forbidden', {}, None)
+            )
+
     def test_push_proxy_dst(self):
         """
         Test couch_A => (SSLServer => couch_B).
