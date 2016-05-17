@@ -124,14 +124,16 @@ class ProxyApp:
             authorization=basic_auth_header(env['basic']),
         )
 
-    def __call__(self, session, request, bodies):
+    def __call__(self, session, request, api):
+        if request.method not in {'GET', 'POST', 'PUT'}:
+            return (405, 'Method Not Allowed', {}, None)
+        uri = request.build_proxy_uri()
+        if uri.startswith('/_') and uri != '/_all_dbs':
+            return (403, 'Forbidden', {}, None)
         conn = session.store.get('conn')
         if conn is None:
             conn = self.client.connect()
             session.store['conn'] = conn
-        uri = request.build_proxy_uri()
-        if uri.startswith('/_') and uri != '/_all_dbs':
-            return (403, 'Forbidden', {}, None)
         request.headers.pop('host', None)
         return conn.request(request.method, uri, request.headers, request.body)
 
