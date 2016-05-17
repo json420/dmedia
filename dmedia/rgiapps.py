@@ -69,25 +69,23 @@ class RootApp:
         self.proxy = ProxyApp(env)
         self.files = FilesApp(env)
         self.map = {
-            '': self.get_info,
+            None: self.get_info,
             'couch': self.proxy,
             'files': self.files,
         }
         self._marker = random_id()
 
-    def __call__(self, session, request, bodies):
+    def __call__(self, session, request, api):
         if session.store.get('_marker') != self._marker:
             raise Exception(
                 'session marker {!r} != {!r}, on_connect() was not called'.format(
                     session.store.get('_marker'), self._marker
                 )
             )
-        if not request.path:
-            return self.get_info(session, request, bodies)
         handler = self.map.get(request.shift_path())
         if handler is None:
             return (410, 'Gone', {}, None)
-        return handler(session, request, bodies)
+        return handler(session, request, api)
 
     def on_connect(self, session, sock):
         if not isinstance(sock, ssl.SSLSocket):
@@ -99,7 +97,7 @@ class RootApp:
         session.store['_marker'] = self._marker
         return True
 
-    def get_info(self, session, request, bodies):
+    def get_info(self, session, request, api):
         if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         headers = {

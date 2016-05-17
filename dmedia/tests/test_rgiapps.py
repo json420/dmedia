@@ -132,7 +132,7 @@ class TestRootApp(TestCase):
         self.assertIsInstance(app.files, rgiapps.FilesApp)
         self.assertEqual(app.map,
             {
-                '': app.get_info,
+                None: app.get_info,
                 'couch': app.proxy,
                 'files': app.files,
             }
