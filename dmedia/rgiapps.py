@@ -114,11 +114,15 @@ class ProxyApp:
     Reverse proxy app so Degu can be used as an SSL frontend for CouchDB.
     """
 
+    __slots__ = ('client',)
+
     def __init__(self, env):
         t = urlparse(env['url'])
         address = (t.hostname, t.port)
-        self.client = Client(address)
-        self._authorization = basic_auth_header(env['basic'])
+        self.client = Client(address,
+            host=None,
+            authorization=basic_auth_header(env['basic']),
+        )
 
     def __call__(self, session, request, bodies):
         conn = session.store.get('conn')
@@ -128,7 +132,7 @@ class ProxyApp:
         uri = request.build_proxy_uri()
         if uri.startswith('/_') and uri != '/_all_dbs':
             return (403, 'Forbidden', {}, None)
-        request.headers['authorization'] = self._authorization
+        request.headers.pop('host', None)
         return conn.request(request.method, uri, request.headers, request.body)
 
 
