@@ -208,5 +208,9 @@ class DmediaCouch(UserCouch):
         assert self.machine is not None
         self.load_pki()
         config = self.get_bootstrap_config()
-        return self.bootstrap('basic', config)
+        env = self.bootstrap('basic', config)
+        env['no_host'] = True
+        env['no_user_agent'] = True
+        return env
+
 

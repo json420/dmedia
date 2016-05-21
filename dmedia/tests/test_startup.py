@@ -248,6 +248,17 @@ class TestDmediaCouch(TestCase):
         inst.create_machine()
         inst.create_user()
         env = inst.auto_bootstrap()
+        self.assertEqual(set(env), {
+            'address',
+            'basic',
+            'basic_authorization',
+            'no_host',
+            'no_user_agent',
+            'port',
+            'url',
+        })
+        self.assertIs(env['no_host'], True)
+        self.assertIs(env['no_user_agent'], True)
         s = Server(env)
         self.assertEqual(s.get()['couchdb'], 'Welcome')
         self.assertEqual(

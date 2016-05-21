@@ -132,7 +132,6 @@ class ProxyApp:
         if conn is None:
             conn = self.client.connect()
             session.store['conn'] = conn
-        request.headers.pop('host', None)
         return conn.request(request.method, uri, request.headers, request.body)
 
 

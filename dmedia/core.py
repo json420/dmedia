@@ -807,6 +807,8 @@ class TaskMaster:
         dst_env = {
             'url': url + 'couch/',
             'ssl': self.ssl_config,
+            'no_host': True,
+            'no_user_agent': True,
         }
         # In case a previous replication with same peer_id but different url:
         self.pool.remove_task(key)
