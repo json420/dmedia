@@ -26,7 +26,6 @@ Experimental port of the old `dmedia.server` WSGI application to our new RGI
 specification (REST Gateway Interface).
 """
 
-from urllib.parse import urlparse
 import os
 import socket
 import logging
@@ -37,7 +36,7 @@ from base64 import b64encode, b64decode
 
 from dbase32 import isdb32, random_id
 from degu.client import Client
-from microfiber import basic_auth_header, dumps
+from microfiber import dumps
 from filestore import DIGEST_B32LEN, FileNotFound
 
 from .local import LocalSlave, FileNotLocal, NoSuchFile
@@ -115,11 +114,9 @@ class ProxyApp:
     __slots__ = ('client',)
 
     def __init__(self, env):
-        t = urlparse(env['url'])
-        address = (t.hostname, t.port)
-        self.client = Client(address,
+        self.client = Client(env['address'],
             host=None,
-            authorization=basic_auth_header(env['basic']),
+            authorization=env['basic_authorization'],
         )
 
     def __call__(self, session, request, api):

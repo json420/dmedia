@@ -78,6 +78,10 @@ def random_doc(i):
     return doc
 
 
+def random_port():
+    return random.randint(1000, 50000)
+
+
 def address_to_url(scheme, address):
     """
     Convert `Server.address` into a URL.
@@ -107,11 +111,14 @@ class TestRootApp(TestCase):
         user_id = random_id(30)
         machine_id = random_id(30)
         password = random_id()
+        basic = {'username': 'admin', 'password': password}
         env = {
             'user_id': user_id,
             'machine_id': machine_id,
-            'basic': {'username': 'admin', 'password': password},
+            'basic': basic,
+            'basic_authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
+            'address': ('127.0.0.1', 5984),
         }
         app = rgiapps.RootApp(env)
         self.assertIs(app.user_id, user_id)
@@ -142,11 +149,14 @@ class TestRootApp(TestCase):
         user_id = random_id(30)
         machine_id = random_id(30)
         password = random_id()
+        basic = {'username': 'admin', 'password': password}
         env = {
             'user_id': user_id,
             'machine_id': machine_id,
-            'basic': {'username': 'admin', 'password': password},
+            'basic': basic,
+            'basic_authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
+            'address': ('127.0.0.1', 5984),
         }
         app = rgiapps.RootApp(env)
 
@@ -195,11 +205,14 @@ class TestRootApp(TestCase):
         user_id = random_id(30)
         machine_id = random_id(30)
         password = random_id()
+        basic = {'username': 'admin', 'password': password}
         env = {
             'user_id': user_id,
             'machine_id': machine_id,
-            'basic': {'username': 'admin', 'password': password},
+            'basic': basic,
+            'basic_authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
+            'address': ('127.0.0.1', 5984),
         }
         app = rgiapps.RootApp(env)
         # Test with non ssl.SSLSocket:
@@ -213,11 +226,14 @@ class TestRootApp(TestCase):
         user_id = random_id(30)
         machine_id = random_id(30)
         password = random_id()
+        basic = {'username': 'admin', 'password': password}
         env = {
             'user_id': user_id,
             'machine_id': machine_id,
-            'basic': {'username': 'admin', 'password': password},
+            'basic': basic,
+            'basic_authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
+            'address': ('127.0.0.1', 5984),
         }
         app = rgiapps.RootApp(env)
         self.assertEqual(
@@ -475,27 +491,30 @@ class TestRootAppLive(TestCase):
 
 class TestProxyApp(TestCase):
     def test_init(self):
-        password = random_id()
+        address = ('127.0.0.1', random_port())
+        basic = random_id()
         env = {
-            'basic': {'username': 'admin', 'password': password},
-            'url': microfiber.HTTP_IPv4_URL,
+            'address': address,
+            'basic_authorization': basic,
         }
         app = rgiapps.ProxyApp(env)
         self.assertIsInstance(app.client, Client)
-        self.assertEqual(app.client.address, ('127.0.0.1', 5984))
+        self.assertIs(app.client.address, address)
         self.assertIsNone(app.client.host)
-        self.assertEqual(app.client.authorization, 
-            microfiber.basic_auth_header(env['basic'])
-        )
+        self.assertIs(app.client.authorization, basic)
         self.assertEqual(app.client.options,
-            {'host': None, 'authorization': app.client.authorization}
+            {'host': None, 'authorization': basic}
         )
+        self.assertEqual(app.client.base_headers, (
+            ('authorization', basic),
+        ))
 
     def test_call(self):
-        password = random_id()
+        address = ('127.0.0.1', random_port())
+        basic = random_id()
         env = {
-            'basic': {'username': 'admin', 'password': password},
-            'url': microfiber.HTTP_IPv4_URL,
+            'address': address,
+            'basic_authorization': basic,
         }
         app = rgiapps.ProxyApp(env)
         for method in ('HEAD', 'DELETE'):
