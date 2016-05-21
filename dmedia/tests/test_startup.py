@@ -250,8 +250,8 @@ class TestDmediaCouch(TestCase):
         env = inst.auto_bootstrap()
         self.assertEqual(set(env), {
             'address',
+            'authorization',
             'basic',
-            'basic_authorization',
             'no_host',
             'no_user_agent',
             'port',

@@ -116,7 +116,7 @@ class TestRootApp(TestCase):
             'user_id': user_id,
             'machine_id': machine_id,
             'basic': basic,
-            'basic_authorization': microfiber.basic_auth_header(basic),
+            'authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
             'address': ('127.0.0.1', 5984),
         }
@@ -154,7 +154,7 @@ class TestRootApp(TestCase):
             'user_id': user_id,
             'machine_id': machine_id,
             'basic': basic,
-            'basic_authorization': microfiber.basic_auth_header(basic),
+            'authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
             'address': ('127.0.0.1', 5984),
         }
@@ -210,7 +210,7 @@ class TestRootApp(TestCase):
             'user_id': user_id,
             'machine_id': machine_id,
             'basic': basic,
-            'basic_authorization': microfiber.basic_auth_header(basic),
+            'authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
             'address': ('127.0.0.1', 5984),
         }
@@ -231,7 +231,7 @@ class TestRootApp(TestCase):
             'user_id': user_id,
             'machine_id': machine_id,
             'basic': basic,
-            'basic_authorization': microfiber.basic_auth_header(basic),
+            'authorization': microfiber.basic_auth_header(basic),
             'url': microfiber.HTTP_IPv4_URL,
             'address': ('127.0.0.1', 5984),
         }
@@ -495,7 +495,7 @@ class TestProxyApp(TestCase):
         basic = random_id()
         env = {
             'address': address,
-            'basic_authorization': basic,
+            'authorization': basic,
         }
         app = rgiapps.ProxyApp(env)
         self.assertIsInstance(app.client, Client)
@@ -514,7 +514,7 @@ class TestProxyApp(TestCase):
         basic = random_id()
         env = {
             'address': address,
-            'basic_authorization': basic,
+            'authorization': basic,
         }
         app = rgiapps.ProxyApp(env)
         for method in ('HEAD', 'DELETE'):

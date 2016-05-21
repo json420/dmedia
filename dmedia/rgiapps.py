@@ -116,7 +116,7 @@ class ProxyApp:
     def __init__(self, env):
         self.client = Client(env['address'],
             host=None,
-            authorization=env['basic_authorization'],
+            authorization=env['authorization'],
         )
 
     def __call__(self, session, request, api):
