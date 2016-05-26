@@ -254,6 +254,7 @@ class DeguClient:
 
 def get_client(url, sslctx):
     client = create_sslclient(sslctx, url, host=None, ssl_host=None)
+    client.set_base_header('host', None)
     return DeguClient(client)
 
 
