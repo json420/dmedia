@@ -477,7 +477,7 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='s', out_signature='(sys)')
     def Resolve(self, file_id):
-        (file_id, status, filename) = self.core.resolve(file_id)
+        (file_id, status, filename) = self.core.resolve(str(file_id))
         if status in (0, 1):
             self.lazy_access.access(file_id)
             if status == 1:
@@ -486,7 +486,7 @@ class Service(dbus.service.Object):
 
     @dbus.service.method(IFACE, in_signature='as', out_signature='a(sys)')
     def ResolveMany(self, ids):
-        result = self.core.resolve_many(ids)
+        result = self.core.resolve_many([str(_id) for _id in ids])
         for (_id, status, filename) in result:
             if status in (0, 1):
                 self.lazy_access.access(_id)
