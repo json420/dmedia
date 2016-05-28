@@ -22,8 +22,11 @@
 """
 Dmedia RGI applications.
 
-Experimental port of the old `dmedia.server` WSGI application to our new RGI
-specification (REST Gateway Interface).
+Port of the old `dmedia.server` WSGI application to the RGI specification (REST
+Gateway Interface) as implemented by the Degu embedded HTTP server and client
+library:
+
+    https://launchpad.net/degu
 """
 
 import os
@@ -199,7 +202,7 @@ class InfoApp:
         }
         self.body = dumps(obj).encode()
 
-    def __call__(self, session, request, bodies):
+    def __call__(self, session, request, api):
         log.info('InfoApp: %s: %s %s', session, request.method, request.uri)
         if request.path:
             return (410, 'Gone', {}, None)
@@ -249,7 +252,7 @@ class ClientApp:
 
     state = property(get_state, set_state)
 
-    def __call__(self, session, request, bodies):
+    def __call__(self, session, request, api):
         # FIXME: We need to replace with a Degu style app.on_connect() handler
 #        if environ['wsgi.multithread'] is not False:
 #            raise WSGIError('500 Internal Server Error')
@@ -264,9 +267,9 @@ class ClientApp:
         handler = self.map.get(tuple(request.path))
         if handler is None:
             return (410, 'Gone', {}, None)
-        return handler(session, request, bodies)
+        return handler(session, request, api)
 
-    def get_challenge(self, session, request, bodies):
+    def get_challenge(self, session, request, api):
         if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'ready':
@@ -276,7 +279,7 @@ class ClientApp:
         body = dumps(obj).encode()
         return (200, 'OK', {'content-type': 'application/json'}, body)
 
-    def post_response(self, session, request, bodies):
+    def post_response(self, session, request, api):
         if request.method != 'POST':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'gave_challenge':
@@ -326,7 +329,7 @@ class ServerApp(ClientApp):
         }
         self.info_body = dumps(info).encode()
 
-    def get_info(self, session, request, bodies):
+    def get_info(self, session, request, api):
         if request.method != 'GET':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'info':
@@ -334,7 +337,7 @@ class ServerApp(ClientApp):
         self.state = 'ready'
         return (200, 'OK', {'content-type': 'application/json'}, self.info_body)
 
-    def post_csr(self, session, request, bodies):
+    def post_csr(self, session, request, api):
         if request.method != 'POST':
             return (405, 'Method Not Allowed', {}, None)
         if self.state != 'counter_response_ok':
