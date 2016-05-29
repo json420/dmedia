@@ -1,8 +1,8 @@
-dmedia (16.05.0~alpha) xenial; urgency=low
+dmedia (16.05.0) xenial; urgency=low
 
-  * Upstream 16.05.0 pre-release
+  * Upstream 16.05.0 release
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Sat, 23 Apr 2016 18:29:46 -0600
+ -- Jason Gerard DeRose <jderose@novacut.com>  Sun, 29 May 2016 09:18:03 -0600
 
 dmedia (16.03.0) xenial; urgency=low
 
