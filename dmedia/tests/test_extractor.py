@@ -579,7 +579,6 @@ class TestFunctions(SampleFilesTestCase):
             {
                 'ext': 'mov',
                 'foo': value1,
-                'meta': {},
                 'channels': 2, 
                 'content_type': 'video/quicktime', 
                 'duration': {
