@@ -441,13 +441,15 @@ def get_csr_subject(csr_file):
     line = check_output(['openssl', 'req',
         '-subject',
         '-noout',
-        '-in', csr_file,
+        '-nameopt',
+        'compat', 
+        '-in',csr_file,
     ]).decode('utf-8').rstrip('\n')
 
     prefix = 'subject='
     if not line.startswith(prefix):
         raise Exception(line)
-    return line[len(prefix):]
+    return '/' + line[len(prefix):]
 
 
 def get_subject(cert_file):
@@ -457,13 +459,15 @@ def get_subject(cert_file):
     line = check_output(['openssl', 'x509',
         '-subject',
         '-noout',
+        '-nameopt',
+        'compat', 
         '-in', cert_file,
     ]).decode('utf-8').rstrip('\n')
 
-    prefix = 'subject= '  # Different than get_csr_subject()
+    prefix = 'subject='  # Different than get_csr_subject()
     if not line.startswith(prefix):
         raise Exception(line)
-    return line[len(prefix):]
+    return '/' + line[len(prefix):]
 
 
 def get_issuer(cert_file):
@@ -473,13 +477,15 @@ def get_issuer(cert_file):
     line = check_output(['openssl', 'x509',
         '-issuer',
         '-noout',
+        '-nameopt',
+        'compat', 
         '-in', cert_file,
     ]).decode('utf-8').rstrip('\n')
 
-    prefix = 'issuer= '  # Different than get_csr_subject()
+    prefix = 'issuer='  # Different than get_csr_subject()
     if not line.startswith(prefix):
         raise Exception(line)
-    return line[len(prefix):]
+    return '/' + line[len(prefix):]
 
 
 def ssl_verify(cert_file, ca_file):
