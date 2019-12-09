@@ -169,8 +169,9 @@ class UnityImportUX:
         self.notify.replace(summary, body, icon)
 
     def on_batch_progress(self, gm, count, total_count, size, total_size):
+        pass
         #self.launcher.set_property('count', total_count)
-        progress = (0.0 if total_size == 0 else size / total_size)
+        #progress = (0.0 if total_size == 0 else size / total_size)
         #self.launcher.set_property('progress', progress)
 
     def on_batch_finalized(self, gm, batch_id, stats, copies, lines):

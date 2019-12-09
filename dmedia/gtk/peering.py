@@ -90,7 +90,7 @@ class BaseUI:
         self.window.add(self.vpaned)
         self.view = WebKit2.WebView()
         self.view.get_settings().set_property('enable-developer-extras', True)
-        inspector = self.view.get_inspector()
+        #inspector = self.view.get_inspector()
         #inspector.connect('inspect-web-view', self.on_inspect)
         self.view.load_uri('file://' + path.join(ui, self.page))
         scroll = wrap_in_scroll(self.view)
