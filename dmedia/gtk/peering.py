@@ -3,8 +3,8 @@ import json
 import logging
 
 import gi
-gi.require_version('WebKit2', '4.0')
-from gi.repository import GLib, GObject, Gtk, WebKit2
+gi.require_version('WebKit', '3.0')
+from gi.repository import GLib, GObject, Gtk, WebKit
 
 
 log = logging.getLogger()
@@ -88,17 +88,17 @@ class BaseUI:
         self.window.set_title(self.title)
         self.vpaned = Gtk.VPaned()
         self.window.add(self.vpaned)
-        self.view = WebKit2.WebView()
+        self.view = WebKit.WebView()
         self.view.get_settings().set_property('enable-developer-extras', True)
-        #inspector = self.view.get_inspector()
-        #inspector.connect('inspect-web-view', self.on_inspect)
+        inspector = self.view.get_inspector()
+        inspector.connect('inspect-web-view', self.on_inspect)
         self.view.load_uri('file://' + path.join(ui, self.page))
         scroll = wrap_in_scroll(self.view)
         self.vpaned.pack1(scroll, True, True)
 
     def on_inspect(self, *args):
         assert self.inspector is None
-        self.inspector = WebKit2.WebView()
+        self.inspector = WebKit.WebView()
         pos = self.window.get_allocated_height() * 2 // 3
         self.vpaned.set_position(pos)
         self.vpaned.pack2(self.inspector, True, True)
