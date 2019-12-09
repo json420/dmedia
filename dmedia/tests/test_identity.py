@@ -622,7 +622,7 @@ class TestSSLFunctions(TestCase):
         cert1_file = pki.path(cert1, 'cert')
         self.assertEqual(identity.ssl_verify(ca1_file, ca1_file), ca1_file)
         self.assertEqual(identity.ssl_verify(cert1_file, ca1_file), cert1_file)
-        with self.assertRaises(identity.VerificationError):
+        with self.assertRaises(subprocess.CalledProcessError):
             identity.ssl_verify(ca1_file, cert1_file)
 
         ca2 = pki.create_key()
@@ -634,10 +634,10 @@ class TestSSLFunctions(TestCase):
         cert2_file = pki.path(cert2, 'cert')
         self.assertEqual(identity.ssl_verify(ca2_file, ca2_file), ca2_file)
         self.assertEqual(identity.ssl_verify(cert2_file, ca2_file), cert2_file)
-        with self.assertRaises(identity.VerificationError):
+        with self.assertRaises(subprocess.CalledProcessError):
             identity.ssl_verify(ca2_file, cert2_file)
 
-        with self.assertRaises(identity.VerificationError):
+        with self.assertRaises(subprocess.CalledProcessError):
             identity.ssl_verify(ca2_file, ca1_file)
 
 
