@@ -449,7 +449,7 @@ def get_csr_subject(csr_file):
     prefix = 'subject='
     if not line.startswith(prefix):
         raise Exception(line)
-    return '/' + line[len(prefix):]
+    return line[len(prefix):]
 
 
 def get_subject(cert_file):
@@ -467,7 +467,7 @@ def get_subject(cert_file):
     prefix = 'subject='  # Different than get_csr_subject()
     if not line.startswith(prefix):
         raise Exception(line)
-    return '/' + line[len(prefix):]
+    return line[len(prefix):]
 
 
 def get_issuer(cert_file):
@@ -485,7 +485,7 @@ def get_issuer(cert_file):
     prefix = 'issuer='  # Different than get_csr_subject()
     if not line.startswith(prefix):
         raise Exception(line)
-    return '/' + line[len(prefix):]
+    return line[len(prefix):]
 
 
 def ssl_verify(cert_file, ca_file):
