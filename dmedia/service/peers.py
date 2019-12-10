@@ -49,14 +49,15 @@ import dbus
 
 import gi
 gi.require_version('Gtk', '3.0')
-gi.require_version('AppIndicator3', '0.1')
-from gi.repository import GLib, GObject, Gtk, AppIndicator3
+gi.require_version('Notify', '0.7')
+from gi.repository import GLib, GObject, Notify
 
 import dmedia
 from dmedia.parallel import start_thread
-from dmedia.gtk.ubuntu import NotifyManager
+#from dmedia.gtk.ubuntu import NotifyManager
 from dmedia.identity import ChallengeResponse
 from dmedia import rgiapps
+
 
 
 PROTO = 0  # Protocol -1 = both, 0 = IPv4, 1 = IPv6
@@ -585,8 +586,7 @@ class Browser:
         self.avahi.connect('offer', self.on_offer)
         self.avahi.connect('retract', self.on_retract)
         self.avahi.browse()
-        self.notifymanager = NotifyManager()
-        self.indicator = None
+        self.notification = None
         self.session = None
 
     def __del__(self):
@@ -608,34 +608,32 @@ class Browser:
         return self.session.get_secret(peer_id)
 
     def on_offer(self, avahi, info):
-        assert self.indicator is None
-        self.indicator = AppIndicator3.Indicator.new(
-            'dmedia-peer',
-            'indicator-dmedia-peer',
-            AppIndicator3.IndicatorCategory.APPLICATION_STATUS
+        assert self.notification is None
+        Notify.init("Dmedia")
+        
+        self.notification = Notify.Notification.new(
+            _("Dmedia Peering Offer"), 
+            _('Accept {}@{}').format(info.name, info.host), 
+            "indicator-dmedia-peer"
         )
-        menu = Gtk.Menu()
-        accept = Gtk.MenuItem()
-        accept.set_label(_('Accept {}@{}').format(info.name, info.host))
-        accept.connect('activate', self.on_accept, info)
-        menu.append(accept)
-        menu.show_all()
-        self.indicator.set_menu(menu)
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
-        self.notifymanager.replace(
-            _('Dmedia Peering Offer'),
-            '{}@{}'.format(info.name, info.host),
+        self.handler_id = self.notification.connect("closed", self.cancel)
+        self.notification.add_action(
+            "default", 
+            _('Accept {}@{}').format(info.name, info.host), 
+            self.on_accept, info
         )
+        self.notification.show()
 
     def on_retract(self, avahi):
-        if self.indicator is not None:
-            self.indicator = None
-            self.notifymanager.replace(_('Peering Offer Removed'))
+        if self.notification is not None:
+            self.notification.disconnect(self.handler_id)
+            self.notification.close()
 
-    def on_accept(self, menuitem, info):
+    def on_accept(self, notification, action=None, data=None):
+        info=data
         assert self.session is None
         self.avahi.activate(info.id)
-        self.indicator = None
+        self.notification = None
         self.session = Session(self, info,
             self.avahi.get_server_config(),
             self.avahi.get_client_config()
