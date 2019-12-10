@@ -1,0 +1,9 @@
+[Unit]
+Description=Dmedia Distributed Object Store
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.Dmedia
+ExecStart=/usr/lib/dmedia/dmedia-service
+Restart=on-failure
+

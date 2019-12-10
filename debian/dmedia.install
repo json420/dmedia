@@ -1,1 +1,2 @@
 debian/source_dmedia.py usr/share/apport/package-hooks/
+dmedia.service usr/lib/systemd/user/
