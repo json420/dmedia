@@ -217,7 +217,6 @@ setup(
         ),
         ('lib/dmedia', [
                 'dmedia-service',
-                'dbus-activation-hack.sh',
                 'dmedia-transcoder',
             ]
         ),
