@@ -1,8 +1,8 @@
-dmedia (16.11.0~alpha) xenial; urgency=low
+dmedia (19.12.0~alpha) focal; urgency=low
 
-  * Upstream 16.11 pre-release
+  * Upstream 19.12 pre-release
 
- -- Jason Gerard DeRose <jderose@novacut.com>  Sat, 22 Oct 2016 17:54:31 -0600
+ -- Jason Gerard DeRose <jasonderose@gmail.com>  Mon, 09 Dec 2019 19:37:52 -0700
 
 dmedia (16.05.0) xenial; urgency=low
 
