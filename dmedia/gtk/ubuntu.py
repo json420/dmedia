@@ -23,13 +23,11 @@
 Some Ubuntu-specific UI bits.
 """
 
-from gettext import gettext as _
 from gettext import ngettext
 
 import gi
-gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
-from gi.repository import Gtk, Notify
+from gi.repository import Notify
 
 from dmedia.units import bytes10
 from dmedia.misc import WeakMethod
@@ -120,18 +118,9 @@ class UnityImportUX:
     def __init__(self, hub):
         self.hub = hub
         self.notify = NotifyManager()
-        self.menu = Gtk.Menu()
-        self.stop = Gtk.MenuItem()
-        self.stop.set_label(_('Stop Importer'))
-        self.stop.connect('activate', WeakMethod(self, 'on_stop'))
-        self.menu.append(self.stop)
-        self.menu.show_all()
         hub.connect('batch_started', WeakMethod(self, 'on_batch_started'))
         hub.connect('import_started', WeakMethod(self, 'on_import_started'))
         hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
-
-    def on_stop(self, menuitem):
-        self.hub.send('stop_importer')
 
     def on_batch_started(self, gm, batch_id):
         self.basedirs = []
