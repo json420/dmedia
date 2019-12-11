@@ -36,8 +36,6 @@ from dmedia.misc import WeakMethod
 
 
 Notify.init('dmedia')
-ICON = 'indicator-dmedia'
-ICON_ATT = 'indicator-dmedia-att'
 
 
 class NotifyManager:
