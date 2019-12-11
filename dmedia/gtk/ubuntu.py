@@ -131,7 +131,6 @@ class UnityImportUX:
         hub.connect('batch_started', WeakMethod(self, 'on_batch_started'))
         hub.connect('import_started', WeakMethod(self, 'on_import_started'))
         hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
-        hub.connect('error', WeakMethod(self, 'on_error'))
 
     def on_stop(self, menuitem):
         self.hub.send('stop_importer')
@@ -151,7 +150,4 @@ class UnityImportUX:
     def on_batch_finalized(self, gm, batch_id, stats, copies, lines):
         (summary, body) = notify_stats(lines)
         self.notify.replace(summary, body, 'notification-device-eject')
-
-    def on_error(self, gm, error):
-        pass
 
