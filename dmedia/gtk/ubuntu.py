@@ -29,8 +29,7 @@ from gettext import ngettext
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
-gi.require_version('AppIndicator3', '0.1')
-from gi.repository import Gtk, Notify, AppIndicator3
+from gi.repository import Gtk, Notify
 
 from dmedia.units import bytes10
 from dmedia.misc import WeakMethod
@@ -123,18 +122,12 @@ class UnityImportUX:
     def __init__(self, hub):
         self.hub = hub
         self.notify = NotifyManager()
-        self.indicator = AppIndicator3.Indicator.new('dmedia', ICON,
-            AppIndicator3.IndicatorCategory.APPLICATION_STATUS
-        )
-        self.indicator.set_attention_icon(ICON_ATT)
         self.menu = Gtk.Menu()
         self.stop = Gtk.MenuItem()
         self.stop.set_label(_('Stop Importer'))
         self.stop.connect('activate', WeakMethod(self, 'on_stop'))
         self.menu.append(self.stop)
         self.menu.show_all()
-        self.indicator.set_menu(self.menu)
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         hub.connect('batch_started', WeakMethod(self, 'on_batch_started'))
         hub.connect('import_started', WeakMethod(self, 'on_import_started'))
         hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
@@ -144,7 +137,6 @@ class UnityImportUX:
         self.hub.send('stop_importer')
 
     def on_batch_started(self, gm, batch_id):
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
         self.basedirs = []
 
     def on_import_started(self, gm, basedir, import_id, info):
@@ -157,10 +149,9 @@ class UnityImportUX:
         self.notify.replace(summary, body, icon)
 
     def on_batch_finalized(self, gm, batch_id, stats, copies, lines):
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         (summary, body) = notify_stats(lines)
         self.notify.replace(summary, body, 'notification-device-eject')
 
     def on_error(self, gm, error):
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+        pass
 
