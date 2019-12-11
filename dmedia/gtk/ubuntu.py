@@ -23,23 +23,17 @@
 Some Ubuntu-specific UI bits.
 """
 
-from gettext import gettext as _
 from gettext import ngettext
 
 import gi
-gi.require_version('Gtk', '3.0')
 gi.require_version('Notify', '0.7')
-gi.require_version('AppIndicator3', '0.1')
-#gi.require_version('Unity', '7.0')
-from gi.repository import Gtk, Notify, AppIndicator3 #, Unity
+from gi.repository import Notify
 
 from dmedia.units import bytes10
 from dmedia.misc import WeakMethod
 
 
 Notify.init('dmedia')
-ICON = 'indicator-dmedia'
-ICON_ATT = 'indicator-dmedia-att'
 
 
 class NotifyManager:
@@ -123,40 +117,12 @@ def notify_stats(lines):
 class UnityImportUX:
     def __init__(self, hub):
         self.hub = hub
-        #self.launcher = Unity.LauncherEntry.get_for_desktop_id('dmedia.desktop')
         self.notify = NotifyManager()
-        self.indicator = AppIndicator3.Indicator.new('dmedia', ICON,
-            AppIndicator3.IndicatorCategory.APPLICATION_STATUS
-        )
-        self.indicator.set_attention_icon(ICON_ATT)
-        self.menu = Gtk.Menu()
-        self.stop = Gtk.MenuItem()
-        self.stop.set_label(_('Stop Importer'))
-        self.stop.connect('activate', WeakMethod(self, 'on_stop'))
-        self.menu.append(self.stop)
-        self.menu.show_all()
-        self.indicator.set_menu(self.menu)
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         hub.connect('batch_started', WeakMethod(self, 'on_batch_started'))
         hub.connect('import_started', WeakMethod(self, 'on_import_started'))
-        hub.connect('batch_progress', WeakMethod(self, 'on_batch_progress'))
         hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
-        hub.connect('error', WeakMethod(self, 'on_error'))
-
-    def __del__(self):
-        #self.launcher.set_property('count_visible', False)
-        #self.launcher.set_property('progress_visible', False)
-        pass
-
-    def on_stop(self, menuitem):
-        self.hub.send('stop_importer')
 
     def on_batch_started(self, gm, batch_id):
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ATTENTION)
-        #self.launcher.set_property('count', 0)
-        #self.launcher.set_property('count_visible', True)
-        #self.launcher.set_property('progress', 0.0)
-        #self.launcher.set_property('progress_visible', True)
         self.basedirs = []
 
     def on_import_started(self, gm, basedir, import_id, info):
@@ -168,22 +134,7 @@ class UnityImportUX:
         icon = icons['usb']  # FIXME: Need equivalent info from VolumeMonitor
         self.notify.replace(summary, body, icon)
 
-    def on_batch_progress(self, gm, count, total_count, size, total_size):
-        pass
-        #self.launcher.set_property('count', total_count)
-        #progress = (0.0 if total_size == 0 else size / total_size)
-        #self.launcher.set_property('progress', progress)
-
     def on_batch_finalized(self, gm, batch_id, stats, copies, lines):
-        #self.launcher.set_property('count_visible', False)
-        #self.launcher.set_property('progress_visible', False)
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         (summary, body) = notify_stats(lines)
         self.notify.replace(summary, body, 'notification-device-eject')
 
-    def on_error(self, gm, error):
-        self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
-        #self.launcher.set_property('count_visible', False)
-        #self.launcher.set_property('progress_visible', False)
-        #self.launcher.set_property('urgent', True)
-        
