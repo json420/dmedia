@@ -216,15 +216,30 @@ class TestConstants(TestCase):
         order = (
             metastore.VERIFY_BY_MTIME,
             metastore.DOWNGRADE_BY_MTIME,
+
             metastore.DOWNGRADE_BY_STORE_ATIME,
-            metastore.VERIFY_BY_VERIFIED,
             metastore.PURGE_BY_STORE_ATIME,
+
+            metastore.VERIFY_BY_VERIFIED,
             metastore.DOWNGRADE_BY_VERIFIED,
         )
         for value in order:
             self.assertIsInstance(value, int)
             self.assertGreater(value, 0)
         self.assertEqual(tuple(sorted(order)), order)
+
+        self.assertLess(
+            metastore.DOWNGRADE_BY_STORE_ATIME,
+            metastore.PURGE_BY_STORE_ATIME,
+        )
+        self.assertLess(
+            metastore.VERIFY_BY_MTIME,
+            metastore.DOWNGRADE_BY_MTIME,
+        )
+        self.assertLess(
+            metastore.VERIFY_BY_VERIFIED,
+            metastore.DOWNGRADE_BY_VERIFIED,
+        )
 
     def test_DAY(self):
         self.assertIsInstance(metastore.DAY, int)
