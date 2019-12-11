@@ -139,7 +139,6 @@ class UnityImportUX:
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         hub.connect('batch_started', WeakMethod(self, 'on_batch_started'))
         hub.connect('import_started', WeakMethod(self, 'on_import_started'))
-        hub.connect('batch_progress', WeakMethod(self, 'on_batch_progress'))
         hub.connect('batch_finalized', WeakMethod(self, 'on_batch_finalized'))
         hub.connect('error', WeakMethod(self, 'on_error'))
 
@@ -162,12 +161,6 @@ class UnityImportUX:
         }
         icon = icons['usb']  # FIXME: Need equivalent info from VolumeMonitor
         self.notify.replace(summary, body, icon)
-
-    def on_batch_progress(self, gm, count, total_count, size, total_size):
-        pass
-        #self.launcher.set_property('count', total_count)
-        #progress = (0.0 if total_size == 0 else size / total_size)
-        #self.launcher.set_property('progress', progress)
 
     def on_batch_finalized(self, gm, batch_id, stats, copies, lines):
         #self.launcher.set_property('count_visible', False)
