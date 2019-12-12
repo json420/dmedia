@@ -378,6 +378,16 @@ def update_store(doc, timestamp, bytes_avail):
     doc['bytes_avail'] = bytes_avail
 
 
+# See https://bugs.launchpad.net/dmedia/+bug/1856111
+def update_duplicate_file(doc, timestamp, stored):
+    """
+    Used by importer.ImportWorker.
+    """
+    doc['origin'] = 'user'
+    doc['atime'] = int(timestamp)
+    merge_stored(get_dict(doc, 'stored'), stored)
+
+
 def relink_iter(fs, count=50):
     buf = []
     for st in fs:
