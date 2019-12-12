@@ -43,7 +43,7 @@ from dmedia.parallel import start_thread
 from dmedia.util import get_project_db
 from dmedia.units import bytes10
 from dmedia import workers, schema
-from dmedia.metastore import MetaStore, create_stored, merge_stored
+from dmedia.metastore import MetaStore, create_stored, update_duplicate_file
 from dmedia.extractor import extract, merge_thumbnail
 
 
@@ -270,10 +270,7 @@ class ImportWorker(workers.CouchWorker):
             stored = create_stored(ch.id, *filestores)
             try:
                 doc = self.db.get(ch.id)
-                doc['origin'] = 'user'
-                doc['atime'] = int(timestamp)
-                merge_stored(doc['stored'], stored)
-                self.db.save(doc)
+                self.db.update(update_duplicate_file, doc, timestamp, stored)
                 yield ('duplicate', file, ch)
             except NotFound:
                 doc = schema.create_file(timestamp, ch, stored)
