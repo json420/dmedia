@@ -1453,6 +1453,75 @@ class TestFunctions(TestCase):
             }
         )
 
+    def test_update_duplicate_file(self):
+        doc = {}
+        stored = {}
+        self.assertIsNone(metastore.update_duplicate_file(doc, 12345.6, stored))
+        self.assertEqual(doc,
+            {
+                'origin': 'user',
+                'atime': 12345,
+                'stored': {},
+            }
+        )
+        self.assertIsNot(doc['stored'], stored)
+
+        id1 = random_id()
+        id2 = random_id()
+        id3 = random_id()
+        old = {
+            id1: {
+                'copies': 2,
+                'mtime': 1234,
+                'verified': 2345,
+            },
+            id2: {
+                'should_be': 'ignored',
+                'copies': 2,
+                'mtime': 3456,
+                'verified': 4567,
+            },
+        }
+        new = {
+            id2: {
+                'copies': 1,
+                'mtime': 5678,
+            },
+            id3: {
+                'copies': 1,
+                'mtime': 6789,
+            },
+        }
+        doc = {
+            'origin': 'strange',
+            'atime': 9876,
+            'stored': old,
+        }
+        self.assertIsNone(metastore.update_duplicate_file(doc, 12345.6, new))
+        self.assertEqual(doc,
+            {
+                'origin': 'user',
+                'atime': 12345,
+                'stored': {
+                    id1: {  # Should be unmodified old:
+                        'copies': 2,
+                        'mtime': 1234,
+                        'verified': 2345,
+                    },
+                    id2: {  # Should be updated with new, plus 'verified' poped:
+                        'should_be': 'ignored',
+                        'copies': 1,
+                        'mtime': 5678,
+                    },
+                    id3: {  # Should be from new:
+                        'copies': 1,
+                        'mtime': 6789,
+                    },  
+                }
+            }
+        )
+        self.assertIs(doc['stored'], old)
+
     def test_relink_iter(self):
         fs = TempFileStore()
 
