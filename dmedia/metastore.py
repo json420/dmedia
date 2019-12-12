@@ -137,8 +137,8 @@ def get_dict(d, key):
     value = d.get(key)
     if isinstance(value, dict):
         return value
-    d[key] = {}
-    return d[key]
+    d[key] = value = {}
+    return value
 
 
 def get_int(d, key):
@@ -161,8 +161,8 @@ def get_int(d, key):
     value = d.get(key)
     if isinstance(value, int) and value >= 0:
         return value
-    d[key] = 0
-    return d[key]
+    d[key] = value = 0
+    return value
 
 
 def get_rank(doc):
@@ -309,12 +309,9 @@ def merge_stored(old, new):
         assert isinstance(key, str)
         assert isinstance(value, dict)
         assert set(value) == set(['copies', 'mtime'])
-        if key in old:
-            old_value = get_dict(old, key)
-            old_value.update(value)
-            old_value.pop('verified', None)
-        else:
-            old[key] = value 
+        old_value = get_dict(old, key)
+        old_value.update(value)
+        old_value.pop('verified', None)
 
 
 def mark_added(doc, new):
